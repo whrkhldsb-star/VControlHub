@@ -1,0 +1,18 @@
+[Unit]
+Description=whrkhldsb SSH WebSocket proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/whrkhldsb
+EnvironmentFile=/opt/whrkhldsb/.env.local
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npx tsx src/ssh-ws-proxy.ts
+Restart=always
+RestartSec=5
+User=whrkhldsb
+Group=whrkhldsb
+
+[Install]
+WantedBy=multi-user.target

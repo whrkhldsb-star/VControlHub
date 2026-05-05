@@ -1,0 +1,161 @@
+# whrkhldsb 部署与迁移说明
+
+本目录提供把 VPS 统一管理 + 云盘系统部署到新机器的脚本和模板。目标是：在一台干净的 Debian/Ubuntu systemd 主机上，复制项目后可以通过一个脚本完成依赖安装、构建、数据库迁移、systemd 服务安装和 Caddy 反代配置。
+
+## 快速部署
+
+```bash
+cd /path/to/whrkhldsb
+sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
+# 首次运行会生成 /opt/whrkhldsb/.env.local 并停止；编辑后重新运行同一命令。
+sudoedit /opt/whrkhldsb/.env.local
+sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
+```
+
+常用变量：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `APP_DIR` | `/opt/whrkhldsb` | 应用安装目录 |
+| `APP_USER` | `whrkhldsb` | systemd 运行用户 |
+| `DOMAIN` | 空 | Caddy 绑定域名；为空时跳过 Caddy 配置 |
+| `ENV_FILE` | `$APP_DIR/.env.local` | 运行环境变量文件 |
+| `ENV_TEMPLATE` | `$APP_DIR/deploy/env.production.example` | 首次创建 `.env.local` 使用的模板 |
+| `SOURCE_DIR` | 当前仓库根目录 | 无 `REPO_URL` 时从该目录 rsync 到 `APP_DIR` |
+| `REPO_URL` | 空 | 指定后从 Git 仓库 clone/pull |
+| `SKIP_PACKAGES` | `0` | 设为 `1` 跳过 apt/Node/Caddy 安装 |
+| `SKIP_CADDY` | `0` | 设为 `1` 跳过 Caddy 配置 |
+| `SKIP_DB_SETUP` | `0` | 设为 `1` 跳过 `prisma migrate deploy` |
+| `SKIP_RESTART` | `0` | 设为 `1` 只安装/构建不重启服务 |
+
+首次部署时脚本会优先从 `deploy/env.production.example` 创建 `.env.local`，然后主动停止并提示你编辑配置；这样可以避免带着占位密码/占位密钥继续构建。生产使用前必须设置：
+
+- `DATABASE_URL`
+- `AUTH_SESSION_SECRET`
+- `ADMIN_INITIAL_PASSWORD`
+- `NEXT_PUBLIC_APP_PUBLIC_LABEL`
+- `HOSTNAME` / `DOMAIN` 相关地址
+- `STORAGE_ROOT`、`DOWNLOAD_ROOT`
+- 如启用内置 SSH WebSocket：`SSH_WS_HOST`、`SSH_WS_PORT`、`SSH_WS_ALLOWED_ORIGINS`
+
+> 不要把 `.env.local`、私钥、真实数据库连接串提交到仓库。
+
+
+## 运维脚本入口
+
+除 `deploy/install.sh` 外，仓库还提供以下可移植入口，便于在新机器或升级环境中复用：
+
+| 脚本 | 用途 | 示例 |
+| --- | --- | --- |
+| `deploy/upgrade.sh` | 升级部署；默认跳过 OS 包安装并复用 `install.sh` 的构建/迁移/重启流程 | `sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/upgrade.sh` |
+| `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/whrkhldsb CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
+| `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb deploy/backup.sh` |
+| `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/whrkhldsb scripts/restore-db.sh /var/backups/whrkhldsb/xxx.sql.gz` |
+
+`deploy/check.sh` 默认只做轻量运行检查；如需在目标机器上执行完整质量门禁，可加：
+
+```bash
+RUN_NPM_CHECKS=1 APP_DIR=/opt/whrkhldsb deploy/check.sh
+```
+
+## 升级部署
+
+```bash
+cd /path/to/whrkhldsb
+sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
+```
+
+脚本会重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 并重启服务。
+
+## 数据库初始化示例
+
+如果目标机器使用本机 PostgreSQL，可以先创建最小权限数据库用户；也可以跳过本节，直接在 `.env.local` 里填写外部 PostgreSQL 的 `DATABASE_URL`。
+
+```bash
+sudo -u postgres psql <<'SQL'
+CREATE USER whrkhldsb WITH PASSWORD 'REPLACE_WITH_DB_PASSWORD';
+CREATE DATABASE whrkhldsb OWNER whrkhldsb;
+SQL
+```
+
+随后把 `.env.local` 中的 `DATABASE_URL` 改成对应连接串。不要在聊天记录、README 或提交历史里写入真实密码。
+
+## 安全校验
+
+`deploy/install.sh` 会拒绝继续执行以下不安全配置：
+
+- `DATABASE_URL`、`AUTH_SESSION_SECRET`、`ADMIN_INITIAL_PASSWORD` 仍为空或仍是占位值；
+- `AUTH_SESSION_SECRET` 少于 32 个字符；
+- `SSH_WS_ALLOWED_ORIGINS` 或公开标签仍是示例域名；
+- 生产安装中启用了 `ENABLE_DEMO_FALLBACK=true`。
+
+如果只是本地演示，请不要使用生产安装脚本直接带 demo fallback 上线。
+
+## 验证命令
+
+```bash
+cd /opt/whrkhldsb
+set -a; source .env.local; set +a
+npm run prisma:generate
+npm run typecheck
+npm run lint
+npm test
+npm run build
+curl -fsS http://127.0.0.1:3000/login >/dev/null
+# /health 或 /api/health 在未登录时可能按当前认证策略重定向到 /login，这不代表服务失败。
+systemctl status whrkhldsb-next whrkhldsb-ssh-ws caddy --no-pager
+```
+
+
+## 运行时目录与可移植性规则
+
+这些目录属于每台机器本地运行数据，不应随源码提交或 rsync 覆盖：
+
+- `storage/`：本地云盘/文件管理数据
+- `tmp/`：临时检查、转码、中转下载或导入缓存
+- `uploads/`、`downloads/`：运行期上传/下载落地目录
+- `backups/`、`logs/`：备份和日志
+
+仓库只保留上述目录的 `.gitkeep` 占位文件；`.gitignore` 会忽略目录内真实文件。部署脚本同步源码时也会排除这些目录，避免把当前服务器的数据带到新服务器，或在升级时误删线上数据。新机器应通过 `.env.local` 中的 `STORAGE_ROOT`、`DOWNLOAD_ROOT`、`BACKUP_DIR` 配置自己的实际数据路径。
+
+## 数据库备份
+
+`scripts/backup-db.sh` 已支持可移植变量：
+
+```bash
+APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb /opt/whrkhldsb/scripts/backup-db.sh
+```
+
+Cron 示例：
+
+```cron
+0 3 * * * APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb /opt/whrkhldsb/scripts/backup-db.sh >> /var/log/whrkhldsb-backup.log 2>&1
+```
+
+## 服务结构
+
+- `whrkhldsb-next.service`：Next.js 应用，默认监听 `127.0.0.1:3000`
+- `whrkhldsb-ssh-ws.service`：SSH WebSocket 辅助服务，默认监听 `127.0.0.1:3001`
+- `caddy`：公网 HTTPS 反向代理
+- PostgreSQL：通过 `DATABASE_URL` 连接，可以是本机或外部数据库
+
+## 回滚建议
+
+1. 部署前保留数据库备份：`scripts/backup-db.sh`。
+2. 保留上一版源码目录或 Git tag。
+3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && systemctl restart whrkhldsb-next whrkhldsb-ssh-ws`。
+
+
+### Optional: AList WebDAV rclone mount
+
+If the target host also runs AList and needs the cloud-drive mount for Emby/media access, install the optional rclone unit after creating a valid `alist:` remote in rclone:
+
+```bash
+sudo install -m 0644 deploy/systemd/rclone-alist.service.example /etc/systemd/system/rclone-alist.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now rclone-alist.service
+systemctl is-active rclone-alist.service
+mount | grep ' /media/alist '
+```
+
+The unit intentionally runs `rclone mount` in the foreground (`Type=simple`, no `--daemon`) so systemd can track the real mount process. If migrating from an old daemonized unit, stop it first and clear any stale mount with `fusermount -uz /media/alist`.

@@ -1,0 +1,17 @@
+[Unit]
+Description=Whrkhldsb AList WebDAV rclone mount
+Wants=network-online.target
+After=network-online.target alist.service
+RequiresMountsFor=/media/alist
+
+[Service]
+Type=simple
+ExecStartPre=/bin/mkdir -p /media/alist
+ExecStart=/usr/bin/rclone mount alist: /media/alist --allow-other --vfs-cache-mode full
+ExecStop=/bin/fusermount -uz /media/alist
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
