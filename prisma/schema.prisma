@@ -1,0 +1,459 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+  PENDING_PASSWORD_RESET
+}
+
+enum ServerConnectionType {
+  SSH_KEY
+  PASSWORD
+}
+
+enum CommandRequestStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ActorType {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum StorageDriver {
+  LOCAL
+  SFTP
+}
+
+enum FileEntryType {
+  FILE
+  DIRECTORY
+}
+
+enum AuditSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model User {
+  id                 String            @id @default(cuid())
+  username           String            @unique
+  displayName        String?
+  passwordHash       String
+  status             UserStatus        @default(PENDING_PASSWORD_RESET)
+  mustChangePassword Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  roles              UserRole[]
+  storageAccess      UserStorageAccess[]
+  commandRequests    CommandRequest[]  @relation("requester")
+  approvals          CommandApproval[]
+  auditLogs          AuditLog[]
+	sshKeys SshKey[] @relation("SshKeyCreator")
+	notifications Notification[]
+	scheduledTasks ScheduledTask[]
+	commandTemplates CommandTemplate[]
+	downloadTasks DownloadTask[]
+	syncJobs SyncJob[]
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       UserRole[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String?
+  roles       RolePermission[]
+}
+
+model UserRole {
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model SshKey {
+  id          String    @id @default(cuid())
+  name        String
+  fingerprint String    @unique
+  publicKey   String
+  privateKey  String?
+  description String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   User?     @relation("SshKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  servers     Server[]
+}
+
+model Server {
+ id String @id @default(cuid())
+ name String
+ host String
+ port Int @default(22)
+ username String
+ sshKeyId String?
+ password String?
+ description String?
+ tags String[]
+ enabled Boolean @default(true)
+ connectionType ServerConnectionType @default(SSH_KEY)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ sshKey SshKey? @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
+	storageNode StorageNode?
+	commandTargets CommandTarget[]
+	metricSnapshots MetricSnapshot[]
+	downloadTasks DownloadTask[]
+	sourceSyncs SyncJob[] @relation("SourceSyncs")
+	targetSyncs SyncJob[] @relation("TargetSyncs")
+}
+
+model CommandRequest {
+  id              String               @id @default(cuid())
+  title           String
+  command         String
+  reason          String?
+  status          CommandRequestStatus @default(PENDING_APPROVAL)
+  initiatedByType ActorType
+  requesterId     String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  requester       User                 @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  approvals       CommandApproval[]
+  targets         CommandTarget[]
+  executionLogs   ExecutionLog[]
+}
+
+model CommandApproval {
+  id               String         @id @default(cuid())
+  commandRequestId String
+  approverId       String
+  approved         Boolean
+  comment          String?
+  createdAt        DateTime       @default(now())
+  commandRequest   CommandRequest @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
+  approver         User           @relation(fields: [approverId], references: [id], onDelete: Cascade)
+}
+
+model CommandTarget {
+  id               String               @id @default(cuid())
+  commandRequestId String
+  serverId         String
+  status           CommandRequestStatus @default(PENDING_APPROVAL)
+  stdout           String?
+  stderr           String?
+  exitCode         Int?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  commandRequest   CommandRequest       @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
+  server           Server               @relation(fields: [serverId], references: [id], onDelete: Cascade)
+}
+
+model ExecutionLog {
+  id               String         @id @default(cuid())
+  commandRequestId String
+  serverId         String?
+  summary          String
+  createdAt        DateTime       @default(now())
+  commandRequest   CommandRequest @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
+}
+
+model StorageNode {
+  id          String        @id @default(cuid())
+  name        String
+  driver      StorageDriver
+  isDefault   Boolean       @default(false)
+  basePath    String
+  host        String?
+  port        Int?
+  username    String?
+  serverId    String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  server      Server?       @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  fileEntries FileEntry[]
+  accessGrants UserStorageAccess[]
+}
+
+model UserStorageAccess {
+  id            String      @id @default(cuid())
+  userId        String
+  storageNodeId String
+  pathPrefix    String      @default("")
+  canRead       Boolean     @default(true)
+  canWrite      Boolean     @default(false)
+  canDelete     Boolean     @default(false)
+  quotaBytes    BigInt?
+  maxFileBytes  BigInt?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageNode   StorageNode @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storageNodeId, pathPrefix])
+  @@index([storageNodeId, pathPrefix])
+  @@map("user_storage_access")
+}
+
+model FileEntry {
+  id             String        @id @default(cuid())
+  name           String
+  entryType      FileEntryType
+  mimeType       String?
+  size           BigInt?
+  checksumSha256 String?
+  relativePath   String
+  storageNodeId  String
+  parentId       String?
+  isDeleted      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  storageNode    StorageNode   @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+  parent         FileEntry?    @relation("FileEntryChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children       FileEntry[]   @relation("FileEntryChildren")
+
+  @@unique([storageNodeId, relativePath])
+}
+
+model AuditLog {
+ id String @id @default(cuid())
+ actorType ActorType
+ actorId String?
+ action String
+ severity AuditSeverity @default(INFO)
+ detail Json
+ createdAt DateTime @default(now())
+ actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+}
+
+enum SyncJobStatus {
+	IDLE
+	RUNNING
+	PAUSED
+	ERROR
+}
+
+enum DownloadTaskStatus {
+ PENDING
+ RUNNING
+ COMPLETED
+ FAILED
+ CANCELLED
+}
+
+enum ScheduledTaskStatus {
+	ACTIVE
+	PAUSED
+	DISABLED
+}
+
+model ScheduledTask {
+	id String @id @default(cuid())
+	name String
+	cronExpression String
+	command String
+	reason String?
+	status ScheduledTaskStatus @default(ACTIVE)
+	serverIds String[]
+	createdById String?
+	lastRunAt DateTime?
+	nextRunAt DateTime?
+	lastResult String?
+	runCount Int @default(0)
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+	creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+	@@index([status, nextRunAt])
+	@@map("scheduled_tasks")
+}
+
+model MetricSnapshot {
+	id String @id @default(cuid())
+	serverId String
+	cpuUsage Float
+	memUsage Float
+	diskUsage Float // max disk usage percent across mounts
+	isOnline Boolean @default(true)
+	createdAt DateTime @default(now())
+
+	server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+	@@index([serverId, createdAt])
+	@@map("metric_snapshots")
+}
+
+model AlertRule {
+	id String @id @default(cuid())
+	name String
+	metric String // cpu_usage | mem_usage | disk_usage | server_offline
+	operator String // gt | gte | lt | lte | eq
+	threshold Float
+	durationSeconds Int @default(0) // 0 = instant alert
+	serverIds String[] // empty = all servers
+	notifyChannels String[] // ["in_app", "email", "webhook"]
+	webhookUrl String?
+	cooldownMinutes Int @default(30)
+	enabled Boolean @default(true)
+	lastTriggeredAt DateTime?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	@@map("alert_rules")
+}
+
+model CommandTemplate {
+	id String @id @default(cuid())
+	name String
+	description String?
+	command String
+	variables String[] // list of {{var}} placeholders
+	tags String[]
+	isBuiltin Boolean @default(false)
+	createdById String?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+	@@map("command_templates")
+}
+
+model Setting {
+	key String @id
+	value String
+	updatedAt DateTime @updatedAt
+
+	@@map("settings")
+}
+
+model Notification {
+	id String @id @default(cuid())
+	userId String
+	type String
+	title String
+	message String
+	isRead Boolean @default(false)
+	actionUrl String?
+	createdAt DateTime @default(now())
+	user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+	@@index([userId, isRead])
+	@@index([userId, createdAt])
+	@@map("notifications")
+}
+
+model SyncJob {
+	id String @id @default(cuid())
+	name String
+	sourceServerId String
+	sourcePath String
+	targetServerId String
+	targetPath String
+	syncType String @default("MIRROR")
+	status SyncJobStatus @default(IDLE)
+	schedule String?
+	lastSyncAt DateTime?
+	lastSyncResult String?
+	deleteOrphans Boolean @default(false)
+	compress Boolean @default(false)
+	createdBy String?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	sourceServer Server @relation("SourceSyncs", fields: [sourceServerId], references: [id], onDelete: Cascade)
+	targetServer Server @relation("TargetSyncs", fields: [targetServerId], references: [id], onDelete: Cascade)
+	creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+	syncLogs SyncLog[]
+
+	@@map("sync_jobs")
+}
+
+model SyncLog {
+	id String @id @default(cuid())
+	syncJobId String
+	status String
+	filesScanned Int @default(0)
+	filesTransferred Int @default(0)
+	filesDeleted Int @default(0)
+	bytesTransferred String @default("0")
+	durationMs Int @default(0)
+	errorMessage String?
+	startedAt DateTime @default(now())
+	completedAt DateTime?
+
+	syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+	@@map("sync_logs")
+}
+
+model DownloadTask {
+	id String @id @default(cuid())
+	url String
+	serverId String
+	targetPath String
+	fileName String?
+	status DownloadTaskStatus @default(PENDING)
+	progress String?
+	pid Int?
+	errorMessage String?
+	relayMode Boolean @default(false)
+	createdBy String?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
+
+	/* ── Aria2 RPC integration ────────────────────── */
+	aria2Gid String?
+
+	/* ── Enhanced metadata ───────────────────────── */
+	category String?
+	maxSpeedKb Int?
+	totalBytes String?
+	completedBytes String?
+	downloadSpeed String?
+	fileSize String?
+	isBatch Boolean @default(false)
+	batchUrls String?
+
+	server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+	creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+}
