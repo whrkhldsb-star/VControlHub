@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { execRemoteCommand, buildSshParamsFromServer, type SshConnectionParams } from "@/lib/ssh/client";
+import { execRemoteCommand, buildSshParamsFromServer, writeRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
 import { logError } from "@/lib/logging";
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -16,6 +16,142 @@ export type SyncJobInput = {
 	compress?: boolean;
 	createdBy?: string;
 };
+
+type SyncTargetCommandInput = {
+	sourcePath: string;
+	targetPath: string;
+	targetUser: string;
+	targetHost: string;
+	targetPort: number;
+	keyPath?: string;
+	password?: string;
+};
+
+const SSH_USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+const HOSTNAME_PATTERN = /^[A-Za-z0-9._:-]+$/;
+const RSYNC_HOST_PATTERN = /^[A-Za-z0-9.:[\]@_-]+$/;
+
+type RsyncCommandInput = SyncTargetCommandInput & {
+	flags: string[];
+};
+
+type TarSyncCommandInput = SyncTargetCommandInput & {
+	deleteOrphans: boolean;
+};
+
+export function shellQuote(value: string): string {
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function shellDoubleQuote(value: string): string {
+	return `"${value.replace(/(["\\$`])/g, "\\$1")}"`;
+}
+
+function safeFileStem(value: string): string {
+	return value.replace(/[^A-Za-z0-9_-]/g, "_");
+}
+
+export function getSyncTempKeyPath(jobId: string, purpose: "rsync" | "tar"): string {
+	return `/tmp/whrkhldsb-sync-${purpose}-${safeFileStem(jobId)}`;
+}
+
+function assertSafeSshUsername(username: string): void {
+	if (!SSH_USERNAME_PATTERN.test(username) || username.startsWith("-")) {
+		throw new Error("Unsafe SSH username");
+	}
+}
+
+function assertSafeHost(host: string): void {
+	if (!HOSTNAME_PATTERN.test(host) || host.startsWith("-")) {
+		throw new Error("Unsafe SSH host");
+	}
+}
+
+function formatRsyncHost(host: string): string {
+	assertSafeHost(host);
+	return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+}
+
+function formatSshHost(host: string): string {
+	assertSafeHost(host);
+	return host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+}
+
+function buildRsyncTargetAddress(targetUser: string, targetHost: string): string {
+	assertSafeSshUsername(targetUser);
+	const address = `${targetUser}@${formatRsyncHost(targetHost)}`;
+	if (!RSYNC_HOST_PATTERN.test(address)) {
+		throw new Error("Unsafe rsync target address");
+	}
+	return address;
+}
+
+function buildSshTargetAddress(targetUser: string, targetHost: string): string {
+	assertSafeSshUsername(targetUser);
+	return `${targetUser}@${formatSshHost(targetHost)}`;
+}
+
+function assertSafeSshPort(targetPort: number): void {
+	if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
+		throw new Error("Unsafe SSH port");
+	}
+}
+
+function buildSshOptions(targetPort: number): string {
+	assertSafeSshPort(targetPort);
+	return [
+		"-o StrictHostKeyChecking=no",
+		"-o UserKnownHostsFile=/dev/null",
+		`-p ${targetPort}`,
+	].join(" ");
+}
+
+function buildSshTransport(input: SyncTargetCommandInput): string {
+	const sshCommand = ["ssh", buildSshOptions(input.targetPort)];
+	if (input.keyPath) sshCommand.push("-i", shellQuote(input.keyPath));
+	const base = sshCommand.join(" ");
+	if (input.password) {
+		return `sshpass -p ${shellQuote(input.password)} ${base}`;
+	}
+	return base;
+}
+
+function withKeyCleanup(command: string, keyPath?: string): string {
+	if (!keyPath) return command;
+	const quotedKeyPath = shellQuote(keyPath);
+	return `trap 'rm -f -- ${quotedKeyPath}' EXIT\n${command}`;
+}
+
+export function buildRsyncCommand(input: RsyncCommandInput): string {
+	const transport = buildSshTransport(input);
+	const target = `${buildRsyncTargetAddress(input.targetUser, input.targetHost)}:${input.targetPath.replace(/\/$/, "")}/`;
+	const command = `rsync ${input.flags.join(" ")} -e ${shellDoubleQuote(transport)} ${shellQuote(`${input.sourcePath.replace(/\/$/, "")}/`)} ${shellQuote(target)} 2>&1`;
+	return withKeyCleanup(command, input.keyPath);
+}
+
+export function buildTarSyncCommand(input: TarSyncCommandInput): string {
+	const transport = buildSshTransport(input);
+	const targetAddress = buildSshTargetAddress(input.targetUser, input.targetHost);
+	const prepareTarget = input.deleteOrphans
+		? `mkdir -p -- ${shellQuote(input.targetPath)} && cd -- ${shellQuote(input.targetPath)} && find . -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && tar xf - -C ${shellQuote(input.targetPath)}`
+		: `mkdir -p -- ${shellQuote(input.targetPath)} && tar xf - -C ${shellQuote(input.targetPath)}`;
+	const command = `tar cf - -C ${shellQuote(input.sourcePath)} . | ${transport} ${shellQuote(targetAddress)} ${shellQuote(prepareTarget)} 2>&1`;
+	return withKeyCleanup(command, input.keyPath);
+}
+
+async function writeEphemeralPrivateKey(sourceSsh: SshConnectionParams, keyPath: string, privateKey: string): Promise<void> {
+	await execRemoteCommand({
+		...sourceSsh,
+		command: `rm -f -- ${shellQuote(keyPath)} && umask 077 && : > ${shellQuote(keyPath)} && chmod 600 -- ${shellQuote(keyPath)}`,
+		timeout: 15000,
+	});
+	await writeRemoteFile({ ...sourceSsh, remotePath: keyPath, content: privateKey });
+	await execRemoteCommand({
+		...sourceSsh,
+		command: `chmod 600 -- ${shellQuote(keyPath)}`,
+		timeout: 15000,
+	});
+}
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
@@ -95,48 +231,39 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 		if (job.deleteOrphans) flags.push("--delete");
 		if (job.compress) flags.push("--compress");
 
-		// Build the remote-to-remote rsync command
-		// We run rsync from the source server, pushing to target via SSH
+		// Build the remote-to-remote rsync command.
+		// We run rsync from the source server, pushing to target via SSH.
 		const targetHost = job.targetServer.host;
 		const targetPort = job.targetServer.port || 22;
 		const targetUser = job.targetServer.username || "root";
+		const targetKeyPath = job.targetServer.sshKey?.privateKey ? getSyncTempKeyPath(jobId, "rsync") : undefined;
 
-		// Build SSH options for the target connection (from source's perspective)
-		const targetSshOpts = `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${targetPort}`;
-
-		let rsyncCmd: string;
-
-		if (job.targetServer.sshKey?.privateKey) {
-			// Write target key to source server temp file, then use it
-			const keyTempPath = `/tmp/whrkhldsb-sync-key-${jobId}`;
-
-			// First, transfer the key to the source server
-			await execRemoteCommand({
-				...sourceSsh,
-				command: `cat >${keyTempPath} << 'KEYEOF'\n${job.targetServer.sshKey.privateKey}\nKEYEOF\nchmod 600 ${keyTempPath}`,
-				timeout: 15000,
-			});
-
-			rsyncCmd = `rsync ${flags.join(" ")} -e "ssh ${targetSshOpts} -i ${keyTempPath}" "${job.sourcePath}/" "${targetUser}@${targetHost}:${job.targetPath}/" 2>&1; rm -f ${keyTempPath}`;
-		} else if (job.targetServer.password) {
-			// Use sshpass on the source server
-			const escapedPwd = job.targetServer.password.replace(/'/g, "'\\''");
-			rsyncCmd = `rsync ${flags.join(" ")} -e "sshpass -p '${escapedPwd}' ssh ${targetSshOpts}" "${job.sourcePath}/" "${targetUser}@${targetHost}:${job.targetPath}/" 2>&1`;
-		} else {
+		if (!job.targetServer.sshKey?.privateKey && !job.targetServer.password) {
 			throw new Error("目标服务器未配置 SSH 密钥或密码");
 		}
+
+		const rsyncCmd = buildRsyncCommand({
+			flags,
+			sourcePath: job.sourcePath,
+			targetPath: job.targetPath,
+			targetUser,
+			targetHost,
+			targetPort,
+			keyPath: targetKeyPath,
+			password: targetKeyPath ? undefined : (job.targetServer.password ?? undefined),
+		});
 
 		// Ensure target directory exists
 		await execRemoteCommand({
 			...targetSsh,
-			command: `mkdir -p "${job.targetPath}"`,
+			command: `mkdir -p -- ${shellQuote(job.targetPath)}`,
 			timeout: 15000,
 		});
 
 		// Ensure source directory exists
 		await execRemoteCommand({
 			...sourceSsh,
-			command: `mkdir -p "${job.sourcePath}"`,
+			command: `mkdir -p -- ${shellQuote(job.sourcePath)}`,
 			timeout: 15000,
 		});
 
@@ -152,8 +279,11 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 		if (whichRsync.trim() === "MISSING") {
 			// Fallback: use tar + ssh for incremental sync
 			const targetSshKey = job.targetServer.sshKey?.privateKey ? { privateKey: job.targetServer.sshKey.privateKey } : null;
-			output = await executeTarSync(sourceSsh, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, job.targetServer.password ?? null, job.targetPath, job.deleteOrphans);
+			output = await executeTarSync(sourceSsh, jobId, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, job.targetServer.password ?? null, job.targetPath, job.deleteOrphans);
 		} else {
+			if (job.targetServer.sshKey?.privateKey && targetKeyPath) {
+				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, job.targetServer.sshKey.privateKey);
+			}
 			const result = await execRemoteCommand({
 				...sourceSsh,
 				command: rsyncCmd,
@@ -213,6 +343,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 /** Fallback tar-based sync when rsync is not available */
 async function executeTarSync(
 	sourceSsh: SshConnectionParams,
+	jobId: string,
 	sourcePath: string,
 	_targetSsh: SshConnectionParams,
 	targetHost: string,
@@ -223,22 +354,25 @@ async function executeTarSync(
 	targetPath: string,
 	_deleteOrphans: boolean,
 ): Promise<string> {
-	void _deleteOrphans;
-	// Use tar over SSH pipe — simpler but not incremental
-	const sshOpts = `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p ${targetPort}`;
-
-	let sshPrefix: string;
-	if (targetKey) {
-		const keyPath = `/tmp/whrkhldsb-tarkey`;
-		await execRemoteCommand({ ...sourceSsh, command: `echo 'KEY_WRITTEN' > /dev/null`, timeout: 5000 }); // placeholder
-		sshPrefix = `ssh ${sshOpts} -i ${keyPath}`;
-	} else if (targetPassword) {
-		sshPrefix = `sshpass -p '${targetPassword.replace(/'/g, "'\\''")}' ssh ${sshOpts}`;
-	} else {
+	// Use tar over SSH pipe — portable fallback when rsync is unavailable.
+	const keyPath = targetKey ? getSyncTempKeyPath(jobId, "tar") : undefined;
+	if (!targetKey && !targetPassword) {
 		throw new Error("No SSH credentials for target");
 	}
 
-	const cmd = `tar cf - -C "${sourcePath}" . | ${sshPrefix} ${targetUser}@${targetHost} "tar xf - -C '${targetPath}'" 2>&1`;
+	const cmd = buildTarSyncCommand({
+		sourcePath,
+		targetPath,
+		targetUser,
+		targetHost,
+		targetPort,
+		keyPath,
+		password: keyPath ? undefined : (targetPassword ?? undefined),
+		deleteOrphans: _deleteOrphans,
+	});
+	if (targetKey && keyPath) {
+		await writeEphemeralPrivateKey(sourceSsh, keyPath, targetKey.privateKey);
+	}
 	const result = await execRemoteCommand({ ...sourceSsh, command: cmd, timeout: 600_000 });
 	return result.stdout;
 }
