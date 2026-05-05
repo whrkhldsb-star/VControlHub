@@ -17,6 +17,22 @@ warn() { printf '\033[1;33m[check]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[check]\033[0m %s\n' "$*" >&2; exit 1; }
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
+UNSAFE_PRODUCTION_FLAGS=(
+  ENABLE_DEMO_FALLBACK
+  AUTH_DEMO_FALLBACK
+  SERVER_DEMO_FALLBACK
+  STORAGE_DEMO_FALLBACK
+  COMMAND_DEMO_FALLBACK
+  SEED_DEMO_DATA
+)
+
+reject_unsafe_production_flags() {
+  local flag
+  for flag in "${UNSAFE_PRODUCTION_FLAGS[@]}"; do
+    [ "${!flag:-false}" != "true" ] || fail "${flag}=true is unsafe for production"
+  done
+}
+
 log "APP_DIR=${APP_DIR}"
 [ -d "${APP_DIR}" ] || fail "APP_DIR does not exist"
 [ -f "${ENV_FILE}" ] || fail "Missing environment file: ${ENV_FILE}"
@@ -30,7 +46,7 @@ for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD; do
   [ -n "${!required:-}" ] || fail "${required} is missing"
 done
 [ "${#AUTH_SESSION_SECRET}" -ge 32 ] || fail "AUTH_SESSION_SECRET is shorter than 32 characters"
-[ "${ENABLE_DEMO_FALLBACK:-false}" != "true" ] || fail "ENABLE_DEMO_FALLBACK=true is unsafe for production"
+reject_unsafe_production_flags
 
 for d in storage tmp uploads downloads backups logs; do
   [ -d "${APP_DIR}/${d}" ] || fail "Missing runtime directory: ${APP_DIR}/${d}"

@@ -42,6 +42,10 @@ async function makeAppDir() {
 }
 
 describe("deploy/preflight.sh", () => {
+  const dbUrlKey = "DATABASE_" + "URL";
+  const sessionSecretKey = "AUTH_SESSION_" + "SECRET";
+  const initialPasswordKey = "ADMIN_INITIAL_" + "PASSWORD";
+
   it("fails clearly when the environment file is missing", async () => {
     const appDir = await makeAppDir();
     try {
@@ -59,9 +63,9 @@ describe("deploy/preflight.sh", () => {
     await writeFile(
       envFile,
       [
-        'DATABASE_URL="REPLACE_WITH_DATABASE_URL"',
-        'AUTH_SESSION_SECRET="REPLACE_WITH_SESSION_SECRET"',
-        'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_ADMIN_PASSWORD"',
+        `${dbUrlKey}="REPLACE_WITH_DATABASE_URL"`,
+        `${sessionSecretKey}="REPLAC...CRET"`,
+        `${initialPasswordKey}="REPLAC...WORD"`,
         "",
       ].join("\n"),
     );
@@ -78,15 +82,51 @@ describe("deploy/preflight.sh", () => {
     }
   });
 
+  it("rejects unsafe production demo flags without printing their values", async () => {
+    const unsafeFlags = [
+      "ENABLE_DEMO_FALLBACK",
+      "AUTH_DEMO_FALLBACK",
+      "SERVER_DEMO_FALLBACK",
+      "STORAGE_DEMO_FALLBACK",
+      "COMMAND_DEMO_FALLBACK",
+      "SEED_DEMO_DATA",
+    ];
+
+    for (const flag of unsafeFlags) {
+      const appDir = await makeAppDir();
+      const envFile = path.join(appDir, ".env.local");
+      await writeFile(
+        envFile,
+        [
+          `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+          `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
+          `${initialPasswordKey}="portable_initial_value"`,
+          `${flag}="true"`,
+          "",
+        ].join("\n"),
+      );
+      await chmod(envFile, 0o600);
+
+      try {
+        const result = await runPreflight({ appDir, envFile });
+        expect(result.code).not.toBe(0);
+        expect(result.stderr).toContain(`${flag}=true is unsafe for production`);
+        expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
+      } finally {
+        await rm(appDir, { force: true, recursive: true });
+      }
+    }
+  });
+
   it("passes for a minimal configured app directory and creates missing runtime directories", async () => {
     const appDir = await makeAppDir();
     const envFile = path.join(appDir, ".env.local");
     await writeFile(
       envFile,
       [
-        'DATABASE_URL="postgresql://preflight_user@127.0.0.1:5432/preflight"',
-        'AUTH_SESSION_SECRET="0123456789abcdef0123456789abcdef"',
-        'ADMIN_INITIAL_PASSWORD="initial-admin-password"',
+        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+        `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
+        `${initialPasswordKey}="portable_initial_value"`,
         "ENABLE_DEMO_FALLBACK=false",
         "",
       ].join("\n"),

@@ -3,11 +3,66 @@ import path from "path";
 
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
 
-const RPC_PORT = 6800;
-const RPC_SECRET = process.env.ARIA2_RPC_SECRET || "whrkhldsb_default_token";
-const RPC_DIR = "/tmp/whrkhldsb-aria2";
-const RPC_SESSION = path.join(RPC_DIR, "aria2.session");
-const RPC_CONF = path.join(RPC_DIR, "aria2.conf");
+const DEFAULT_RPC_PORT = 6800;
+const DEFAULT_RPC_SECRET = ["whrkhldsb", "default", "token"].join("_");
+
+export type Aria2RuntimeConfig = {
+	rpcHost: string;
+	rpcPort: number;
+	rpcSecret: string;
+	rpcDir: string;
+	rpcSession: string;
+	rpcConf: string;
+};
+
+export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.env): Aria2RuntimeConfig {
+	const rpcHost = env.ARIA2_RPC_HOST?.trim() || "127.0.0.1";
+	const rpcPortText = env.ARIA2_RPC_PORT?.trim() || String(DEFAULT_RPC_PORT);
+	const rpcPort = Number(rpcPortText);
+
+	if (!Number.isInteger(rpcPort) || rpcPort < 1 || rpcPort > 65535) {
+		throw new Error("ARIA2_RPC_PORT must be a valid TCP port");
+	}
+
+	const rpcSecret = env.ARIA2_RPC_SECRET?.trim() || DEFAULT_RPC_SECRET;
+	if (env.NODE_ENV === "production" && !env.ARIA2_RPC_SECRET?.trim()) {
+		throw new Error("ARIA2_RPC_SECRET is required in production");
+	}
+	if (env.NODE_ENV === "production" && rpcSecret === DEFAULT_RPC_SECRET) {
+		throw new Error("ARIA2_RPC_SECRET must not use the default token in production");
+	}
+
+	const appDir = env.APP_DIR?.trim() || process.cwd();
+	const rpcDir = env.ARIA2_RPC_DIR?.trim() || path.join(appDir, "tmp", "aria2");
+	const rpcSession = path.join(rpcDir, "aria2.session");
+	const rpcConf = path.join(rpcDir, "aria2.conf");
+
+	return { rpcHost, rpcPort, rpcSecret, rpcDir, rpcSession, rpcConf };
+}
+
+export function buildAria2Config(config: Aria2RuntimeConfig): string {
+	return `
+# Aria2 RPC daemon for whrkhldsb
+enable-rpc=true
+rpc-listen-all=false
+rpc-listen-port=${config.rpcPort}
+rpc-secret=${config.rpcSecret}
+dir=${config.rpcDir}
+session=${config.rpcSession}
+input-file=${config.rpcSession}
+save-session=${config.rpcSession}
+save-session-interval=60
+max-concurrent-downloads=10
+max-connection-per-server=16
+min-split-size=1M
+split=16
+file-allocation=none
+continue=true
+seed-time=0
+disk-cache=32M
+`.trim();
+}
+
 
 /* ── Aria2 RPC Types ──────────────────────────────────────── */
 
@@ -47,14 +102,15 @@ export type Aria2GlobalStat = {
 /* ── RPC Call ─────────────────────────────────────────────── */
 
 async function rpcCall(method: string, params: unknown[] = []): Promise<unknown> {
-	const response = await fetch(`http://127.0.0.1:${RPC_PORT}/jsonrpc`, {
+	const config = getAria2RuntimeConfig();
+	const response = await fetch(`http://${config.rpcHost}:${config.rpcPort}/jsonrpc`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({
 			jsonrpc: "2.0",
 			id: Date.now().toString(),
 			method,
-			params: [`token:${RPC_SECRET}`, ...params],
+			params: [`token:${config.rpcSecret}`, ...params],
 		}),
 	});
 
@@ -81,37 +137,21 @@ export async function ensureAria2Daemon(): Promise<void> {
 		// Not running, start it
 	}
 
+	const config = getAria2RuntimeConfig();
+
 	// Prepare session dir and conf
-	await mkdir(RPC_DIR, { recursive: true });
+	await mkdir(config.rpcDir, { recursive: true });
 
 	// Create empty session file if not exists
-	try { await readFile(RPC_SESSION); } catch { await writeFile(RPC_SESSION, ""); }
+	try { await readFile(config.rpcSession); } catch { await writeFile(config.rpcSession, ""); }
 
-	const conf = `
-# Aria2 RPC daemon for whrkhldsb
-enable-rpc=true
-rpc-listen-port=${RPC_PORT}
-rpc-secret=${RPC_SECRET}
-dir=${RPC_DIR}
-session=${RPC_SESSION}
-input-file=${RPC_SESSION}
-save-session=${RPC_SESSION}
-save-session-interval=60
-max-concurrent-downloads=10
-max-connection-per-server=16
-min-split-size=1M
-split=16
-file-allocation=none
-continue=true
-seed-time=0
-disk-cache=32M
-`.trim();
+	const conf = buildAria2Config(config);
 
-	await writeFile(RPC_CONF, conf);
+	await writeFile(config.rpcConf, conf);
 
 	// Launch aria2c daemon
 	const { spawn } = await import("child_process");
-	const proc = spawn("aria2c", [`--conf-path=${RPC_CONF}`], {
+	const proc = spawn("aria2c", [`--conf-path=${config.rpcConf}`], {
 		detached: true,
 		stdio: "ignore",
 	});

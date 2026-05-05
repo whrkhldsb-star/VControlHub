@@ -106,6 +106,22 @@ write_env_if_missing() {
   fi
 }
 
+UNSAFE_PRODUCTION_FLAGS=(
+  ENABLE_DEMO_FALLBACK
+  AUTH_DEMO_FALLBACK
+  SERVER_DEMO_FALLBACK
+  STORAGE_DEMO_FALLBACK
+  COMMAND_DEMO_FALLBACK
+  SEED_DEMO_DATA
+)
+
+reject_unsafe_production_flags() {
+  local flag
+  for flag in "${UNSAFE_PRODUCTION_FLAGS[@]}"; do
+    [ "${!flag:-false}" != "true" ] || fail "${flag}=true is not allowed for this production installer. Use an isolated local setup for demos."
+  done
+}
+
 validate_env() {
   [ -f "${ENV_FILE}" ] || fail "Missing ${ENV_FILE}. Create it from deploy/env.production.example first."
   # shellcheck disable=SC1090
@@ -126,9 +142,7 @@ validate_env() {
   if [ -n "${NEXT_PUBLIC_APP_PUBLIC_LABEL:-}" ] && is_placeholder_value "${NEXT_PUBLIC_APP_PUBLIC_LABEL}"; then
     fail "NEXT_PUBLIC_APP_PUBLIC_LABEL still contains a placeholder in ${ENV_FILE}."
   fi
-  if [ -n "${ENABLE_DEMO_FALLBACK:-}" ] && [ "${ENABLE_DEMO_FALLBACK}" = "true" ]; then
-    fail "ENABLE_DEMO_FALLBACK=true is not allowed for this production installer. Use an isolated local setup for demos."
-  fi
+  reject_unsafe_production_flags
 }
 
 create_runtime_dirs() {

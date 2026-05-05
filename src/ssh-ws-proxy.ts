@@ -14,7 +14,19 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 // ── Config ──────────────────────────────────────────────────────────
 
-const PORT = Number(process.env.SSH_WS_PORT || 3001);
+export function resolveSshWsListenConfig(env: Partial<NodeJS.ProcessEnv> = process.env) {
+  const host = env.SSH_WS_HOST?.trim() || "127.0.0.1";
+  const portText = env.SSH_WS_PORT?.trim() || "3001";
+  const port = Number(portText);
+
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error("SSH_WS_PORT must be a valid TCP port");
+  }
+
+  return { host, port };
+}
+
+const { host: HOST, port: PORT } = resolveSshWsListenConfig();
 
 const SESSION_ISSUER = "whrkhldsb";
 const SESSION_AUDIENCE = "whrkhldsb-console";
@@ -233,9 +245,13 @@ wss.on("connection", async (ws, req) => {
  });
 });
 
-server.listen(PORT, "127.0.0.1", () => {
- // Server start is visible via process lifecycle; no console needed
-});
+const shouldStartServer = process.env.NODE_ENV !== "test";
+
+if (shouldStartServer) {
+  server.listen(PORT, HOST, () => {
+    // Server start is visible via process lifecycle; no console needed
+  });
+}
 
 process.on("SIGTERM", () => { wss.close(); server.close(); prisma.$disconnect(); process.exit(0); });
 process.on("SIGINT", () => { wss.close(); server.close(); prisma.$disconnect(); process.exit(0); });
