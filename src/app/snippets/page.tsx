@@ -1,0 +1,7 @@
+import { requireSession } from "@/lib/auth/require-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { listSnippets } from "@/lib/snippet/service";
+export const dynamic="force-dynamic";
+export default async function Page(){const session=await requireSession("/snippets"); if(!sessionHasPermission(session,"snippet:manage")) return <Shell>缺少权限</Shell>; const snippets=await listSnippets({userId:session.userId}); return <Shell><h1 className="text-3xl font-semibold text-white">代码片段库</h1><p className="mt-2 text-sm text-slate-400">沉淀常用脚本、命令和配置片段，支持语言、标签和私有片段。</p><div className="mt-6 grid gap-3">{snippets.map(s=><Card key={s.id}><div className="flex justify-between"><b>{s.title}</b><span className="text-xs text-cyan-300">{s.language}</span></div><pre className="mt-3 max-h-48 overflow-auto rounded bg-black/30 p-3 text-xs text-slate-300">{s.content}</pre></Card>)}{snippets.length===0&&<Card>暂无代码片段。</Card>}</div></Shell>}
+function Shell({ children }: { children: React.ReactNode }) { return <main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100"><div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">{children}</div></main>; }
+function Card({children}:{children:React.ReactNode}){return <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">{children}</div>}

@@ -29,6 +29,9 @@ const IconAlert = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="c
 const IconTask = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5h6M9 12h6m-6 7h6M5 5h.01M5 12h.01M5 19h.01" /></svg>;
 const IconShare = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-5.974l6.632-3.316M18 9a3 3 0 100-6 3 3 0 000 6zm0 12a3 3 0 100-6 3 3 0 000 6z" /></svg>;
 const IconBackup = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v6h6M20 20v-6h-6M5 19A9 9 0 0019 5M19 5h-5m5 0v5" /></svg>;
+const IconCode = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 18l6-6-6-6M8 6l-6 6 6 6" /></svg>;
+const IconTicket = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 5H9a2 2 0 00-2 2v12l5-3 5 3V7a2 2 0 00-2-2z" /></svg>;
+const IconStatus = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h4l3 8 4-16 3 8h4" /></svg>;
 const IconDeploy = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 
 const navItems = [
@@ -42,6 +45,10 @@ const navItems = [
 	{ href: "/backups", label: "备份迁移", icon: <IconBackup /> },
 	{ href: "/templates", label: "命令模板", icon: <IconTemplate /> },
 	{ href: "/deployments", label: "应用部署", icon: <IconDeploy /> },
+	{ href: "/snippets", label: "代码片段", icon: <IconCode /> },
+	{ href: "/media", label: "媒体库", icon: <IconMovie /> },
+	{ href: "/announcements", label: "站内公告", icon: <IconBell /> },
+	{ href: "/tickets", label: "工单请求", icon: <IconTicket /> },
 	{ href: "/requests", label: "审批中心", icon: <IconCheck /> },
 	{ href: "/scheduled-tasks", label: "定时任务", icon: <IconClock /> },
 	{ href: "/alert-rules", label: "智能告警", icon: <IconAlert /> },
@@ -51,6 +58,8 @@ const navItems = [
 
 const systemItems = [
 	{ href: "/users", label: "用户管理", icon: <IconUsers /> },
+	{ href: "/api-tokens", label: "API Token", icon: <IconKey /> },
+	{ href: "/status", label: "公开状态页", icon: <IconStatus /> },
 	{ href: "/audit", label: "审计日志", icon: <IconAudit /> },
 ];
 

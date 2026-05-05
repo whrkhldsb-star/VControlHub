@@ -1,0 +1,7 @@
+import { requireSession } from "@/lib/auth/require-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { listApiTokens } from "@/lib/api-token/service";
+export const dynamic="force-dynamic";
+export default async function Page(){const session=await requireSession("/api-tokens"); if(!sessionHasPermission(session,"api-token:manage")) return <Shell>缺少权限</Shell>; const tokens=await listApiTokens(session.userId); return <Shell><h1 className="text-3xl font-semibold text-white">个人 API Token</h1><p className="mt-2 text-sm text-slate-400">创建后只展示一次明文，数据库仅保存哈希、前缀、尾缀、权限范围和过期时间。</p><div className="mt-6 grid gap-3">{tokens.map(t=><Card key={t.id}><div className="flex justify-between"><b>{t.name}</b><span className="text-xs text-slate-500">{t.revokedAt?"已撤销":"有效"}</span></div><p className="mt-2 font-mono text-xs text-slate-400">{t.tokenPrefix}…{t.tokenSuffix} · {t.scopes.join(", ")}</p></Card>)}{tokens.length===0&&<Card>暂无 Token，可通过 /api/api-tokens 创建。</Card>}</div></Shell>}
+function Shell({ children }: { children: React.ReactNode }) { return <main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100"><div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">{children}</div></main>; }
+function Card({children}:{children:React.ReactNode}){return <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">{children}</div>}

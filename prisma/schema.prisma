@@ -73,6 +73,14 @@ model User {
   shareLinks         ShareLink[]
   backupRecords      BackupRecord[]
   deploymentRuns     DeploymentRun[]
+  snippets           Snippet[]
+  apiTokens          ApiToken[]
+  announcements      Announcement[]
+  mediaItems         MediaItem[]
+  tickets            Ticket[]            @relation("TicketCreator")
+  assignedTickets    Ticket[]            @relation("TicketAssignee")
+  ticketComments     TicketComment[]
+  deploymentExports  DeploymentExport[]
 }
 
 model Role {
@@ -527,4 +535,125 @@ model DeploymentRun {
 
   @@index([status, createdAt])
   @@map("deployment_runs")
+}
+
+model Snippet {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  language    String   @default("text")
+  content     String
+  tags        String[]
+  isPrivate   Boolean  @default(false)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  creator     User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([createdBy, updatedAt])
+  @@map("snippets")
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String
+  tokenHash   String    @unique
+  tokenPrefix String
+  tokenSuffix String
+  scopes      String[]
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  creator     User      @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([createdBy, revokedAt])
+  @@map("api_tokens")
+}
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  body      String
+  level     String    @default("info")
+  pinned    Boolean   @default(false)
+  published Boolean   @default(false)
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime?
+  createdBy String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  creator   User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([published, pinned, startsAt])
+  @@map("announcements")
+}
+
+model MediaItem {
+  id            String   @id @default(cuid())
+  fileEntryId   String?  @unique
+  storageNodeId String
+  name          String
+  relativePath  String
+  mimeType      String
+  mediaType     String
+  size          BigInt?
+  tags          String[]
+  favorite      Boolean  @default(false)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  creator       User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([storageNodeId, mediaType])
+  @@index([favorite, updatedAt])
+  @@map("media_items")
+}
+
+model Ticket {
+  id          String          @id @default(cuid())
+  title       String
+  description String
+  status      String          @default("OPEN")
+  priority    String          @default("NORMAL")
+  createdBy   String
+  assigneeId  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  closedAt    DateTime?
+  creator     User            @relation("TicketCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  assignee    User?           @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  comments    TicketComment[]
+
+  @@index([status, priority, createdAt])
+  @@map("tickets")
+}
+
+model TicketComment {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_comments")
+}
+
+model DeploymentExport {
+  id        String   @id @default(cuid())
+  name      String
+  kind      String   @default("PORTABLE_PACKAGE")
+  manifest  Json
+  files     Json
+  createdBy String?
+  createdAt DateTime @default(now())
+  creator   User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("deployment_exports")
 }

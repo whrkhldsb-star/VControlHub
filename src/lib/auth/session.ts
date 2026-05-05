@@ -9,8 +9,8 @@ const SESSION_COOKIE_NAME = "whrkhldsb_session";
 const SESSION_ISSUER = "whrkhldsb";
 const SESSION_AUDIENCE = "whrkhldsb-console";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const AUTH_BYPASS_PREFIXES = ["/_next", "/api/public", "/favicon.ico"];
-const AUTH_BYPASS_EXACT = new Set(["/login", "/api/login"]);
+const AUTH_BYPASS_PREFIXES = ["/_next", "/api/public", "/api/status", "/favicon.ico"];
+const AUTH_BYPASS_EXACT = new Set(["/login", "/api/login", "/status"]);
 
 export type SessionPayload = {
   userId: string;
