@@ -11,6 +11,18 @@ import { hashPassword } from "../src/lib/auth/password";
 
 const PERMISSION_LABELS: Record<string, { name: string; description: string }> = {
   "audit:read": { name: "查看审计日志", description: "允许查看操作与执行审计日志" },
+  "backup:create": { name: "创建备份", description: "允许创建数据库或平台备份记录" },
+  "backup:read": { name: "查看备份", description: "允许查看备份记录与迁移状态" },
+  "backup:restore": { name: "恢复备份", description: "允许发起备份恢复操作" },
+  "deploy:manage": { name: "管理部署", description: "允许管理应用部署模板与配置" },
+  "deploy:read": { name: "查看部署", description: "允许查看部署模板与运行记录" },
+  "deploy:run": { name: "执行部署", description: "允许基于模板发起应用部署任务" },
+  "health:read": { name: "查看系统健康", description: "允许查看系统健康中心与一键体检结果" },
+  "notification:manage": { name: "管理通知渠道", description: "允许配置告警与通知渠道" },
+  "share:create": { name: "创建分享", description: "允许为云盘文件创建分享链接" },
+  "share:manage": { name: "管理分享", description: "允许撤销和管理文件分享链接" },
+  "share:read": { name: "查看分享", description: "允许查看文件分享记录" },
+  "task:read": { name: "查看任务中心", description: "允许查看统一任务中心与操作队列" },
   "command:approve": { name: "审批命令", description: "允许审批待执行命令" },
   "command:create": { name: "创建命令", description: "允许创建命令执行请求" },
   "command:execute": { name: "执行命令", description: "允许发起和执行命令" },

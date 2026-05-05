@@ -26,6 +26,10 @@ const IconSettings = () => <svg className="w-[18px] h-[18px]" fill="none" stroke
 const IconHeart = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>;
 const IconTemplate = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>;
 const IconAlert = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+const IconTask = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5h6M9 12h6m-6 7h6M5 5h.01M5 12h.01M5 19h.01" /></svg>;
+const IconShare = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-5.974l6.632-3.316M18 9a3 3 0 100-6 3 3 0 000 6zm0 12a3 3 0 100-6 3 3 0 000 6z" /></svg>;
+const IconBackup = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v6h6M20 20v-6h-6M5 19A9 9 0 0019 5M19 5h-5m5 0v5" /></svg>;
+const IconDeploy = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 
 const navItems = [
 	{ href: "/", label: "仪表盘", icon: <IconDashboard /> },
@@ -33,7 +37,11 @@ const navItems = [
 	{ href: "/health", label: "健康看板", icon: <IconHeart /> },
 	{ href: "/files", label: "文件管理", icon: <IconFolder /> },
 	{ href: "/downloads", label: "远程下载", icon: <IconDownload /> },
+	{ href: "/operation-tasks", label: "任务中心", icon: <IconTask /> },
+	{ href: "/shares", label: "分享链接", icon: <IconShare /> },
+	{ href: "/backups", label: "备份迁移", icon: <IconBackup /> },
 	{ href: "/templates", label: "命令模板", icon: <IconTemplate /> },
+	{ href: "/deployments", label: "应用部署", icon: <IconDeploy /> },
 	{ href: "/requests", label: "审批中心", icon: <IconCheck /> },
 	{ href: "/scheduled-tasks", label: "定时任务", icon: <IconClock /> },
 	{ href: "/alert-rules", label: "智能告警", icon: <IconAlert /> },

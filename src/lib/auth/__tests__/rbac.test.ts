@@ -14,9 +14,14 @@ describe("RBAC defaults", () => {
   it("keeps viewer read-only", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.viewer).toEqual([
       "audit:read",
+      "backup:read",
       "command:read",
+      "deploy:read",
+      "health:read",
       "server:read",
+      "share:read",
       "storage:read",
+      "task:read",
       "user:read",
     ]);
   });

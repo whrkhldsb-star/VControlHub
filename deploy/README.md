@@ -106,7 +106,7 @@ npm test
 npm run build
 curl -fsS http://127.0.0.1:3000/login >/dev/null
 # /health 或 /api/health 在未登录时可能按当前认证策略重定向到 /login，这不代表服务失败。
-systemctl status whrkhldsb-next whrkhldsb-ssh-ws caddy --no-pager
+systemctl status whrkhldsb-next.service whrkhldsb-ssh-ws.service caddy --no-pager
 ```
 
 
@@ -146,7 +146,7 @@ Cron 示例：
 
 1. 部署前保留数据库备份：`scripts/backup-db.sh`。
 2. 保留上一版源码目录或 Git tag。
-3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && systemctl restart whrkhldsb-next whrkhldsb-ssh-ws`。
+3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && systemctl restart whrkhldsb-next.service whrkhldsb-ssh-ws.service`。
 
 
 ### Optional: AList WebDAV rclone mount

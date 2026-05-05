@@ -1,0 +1,98 @@
+import { access } from "node:fs/promises";
+import { join, relative } from "node:path";
+
+import { prisma } from "@/lib/db";
+
+export type SystemHealthStatus = "healthy" | "warning" | "critical";
+
+export type SystemHealthCheck = {
+  id: string;
+  label: string;
+  status: SystemHealthStatus;
+  message: string;
+  detail?: string;
+};
+
+export type SystemHealthSummary = {
+  total: number;
+  healthy: number;
+  warning: number;
+  critical: number;
+  overall: SystemHealthStatus;
+};
+
+export type SystemHealthReport = {
+  generatedAt: string;
+  summary: SystemHealthSummary;
+  checks: SystemHealthCheck[];
+};
+
+const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp"];
+const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
+
+function sanitizeDetail(value: string) {
+  return SECRET_PATTERNS.reduce((text, pattern) => text.replace(pattern, (_match, key) => key ? `${key}=[REDACTED]` : "[REDACTED]"), value);
+}
+
+export function summarizeSystemHealth(checks: SystemHealthCheck[]): SystemHealthSummary {
+  const summary = checks.reduce(
+    (acc, check) => {
+      acc[check.status] += 1;
+      return acc;
+    },
+    { total: checks.length, healthy: 0, warning: 0, critical: 0, overall: "healthy" as SystemHealthStatus },
+  );
+  summary.overall = summary.critical > 0 ? "critical" : summary.warning > 0 ? "warning" : "healthy";
+  return summary;
+}
+
+async function checkPathExists(projectRoot: string, dir: string): Promise<SystemHealthCheck> {
+  const absolute = join(projectRoot, dir);
+  try {
+    await access(absolute);
+    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "healthy", message: "目录存在", detail: relative(projectRoot, absolute) };
+  } catch {
+    return { id: `dir-${dir}`, label: `运行目录 ${dir}`, status: "warning", message: "目录不存在，部署脚本会自动创建", detail: dir };
+  }
+}
+
+export async function collectSystemHealthChecks(options: { projectRoot?: string } = {}): Promise<SystemHealthReport> {
+  const projectRoot = options.projectRoot ?? process.cwd();
+  const checks: SystemHealthCheck[] = [];
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    checks.push({ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询" });
+  } catch (error) {
+    checks.push({ id: "database", label: "数据库连接", status: "critical", message: "数据库不可用", detail: sanitizeDetail(error instanceof Error ? error.message : String(error)) });
+  }
+
+  const [serverCount, storageNodeCount] = await Promise.all([
+    prisma.server.count().catch(() => -1),
+    prisma.storageNode.count().catch(() => -1),
+  ]);
+  checks.push({
+    id: "server-inventory",
+    label: "VPS 节点资产",
+    status: serverCount >= 0 ? "healthy" : "warning",
+    message: serverCount >= 0 ? `已纳管 ${serverCount} 个 VPS 节点` : "无法读取 VPS 节点",
+  });
+  checks.push({
+    id: "storage-inventory",
+    label: "云盘存储节点",
+    status: storageNodeCount > 0 ? "healthy" : "warning",
+    message: storageNodeCount > 0 ? `已配置 ${storageNodeCount} 个存储节点` : "尚未配置存储节点",
+  });
+
+  const dirChecks = await Promise.all(RUNTIME_DIRS.map((dir) => checkPathExists(projectRoot, dir)));
+  checks.push({ id: "runtime-directories", label: "运行目录基线", status: dirChecks.some((c) => c.status !== "healthy") ? "warning" : "healthy", message: `${dirChecks.filter((c) => c.status === "healthy").length}/${dirChecks.length} 个运行目录可用` });
+  checks.push(...dirChecks);
+
+  const envState = process.env.DATABASE_URL && process.env.DATABASE_URL !== "REPLACE_WITH_DATABASE_URL" ? "healthy" : "critical";
+  checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符" });
+
+  const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } } }).catch(() => []);
+  checks.push({ id: "notification-settings", label: "通知渠道配置", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `已保存 ${settings.length} 项通知渠道配置` : "可在系统设置中配置通知渠道" });
+
+  return { generatedAt: new Date().toISOString(), summary: summarizeSystemHealth(checks), checks };
+}

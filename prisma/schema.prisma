@@ -51,25 +51,28 @@ enum AuditSeverity {
 }
 
 model User {
-  id                 String            @id @default(cuid())
-  username           String            @unique
+  id                 String              @id @default(cuid())
+  username           String              @unique
   displayName        String?
   passwordHash       String
-  status             UserStatus        @default(PENDING_PASSWORD_RESET)
-  mustChangePassword Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  status             UserStatus          @default(PENDING_PASSWORD_RESET)
+  mustChangePassword Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
   roles              UserRole[]
   storageAccess      UserStorageAccess[]
-  commandRequests    CommandRequest[]  @relation("requester")
+  commandRequests    CommandRequest[]    @relation("requester")
   approvals          CommandApproval[]
   auditLogs          AuditLog[]
-	sshKeys SshKey[] @relation("SshKeyCreator")
-	notifications Notification[]
-	scheduledTasks ScheduledTask[]
-	commandTemplates CommandTemplate[]
-	downloadTasks DownloadTask[]
-	syncJobs SyncJob[]
+  sshKeys            SshKey[]            @relation("SshKeyCreator")
+  notifications      Notification[]
+  scheduledTasks     ScheduledTask[]
+  commandTemplates   CommandTemplate[]
+  downloadTasks      DownloadTask[]
+  syncJobs           SyncJob[]
+  shareLinks         ShareLink[]
+  backupRecords      BackupRecord[]
+  deploymentRuns     DeploymentRun[]
 }
 
 model Role {
@@ -111,40 +114,40 @@ model RolePermission {
 }
 
 model SshKey {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  fingerprint String    @unique
+  fingerprint String   @unique
   publicKey   String
   privateKey  String?
   description String?
   createdById String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  createdBy   User?     @relation("SshKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   User?    @relation("SshKeyCreator", fields: [createdById], references: [id], onDelete: SetNull)
   servers     Server[]
 }
 
 model Server {
- id String @id @default(cuid())
- name String
- host String
- port Int @default(22)
- username String
- sshKeyId String?
- password String?
- description String?
- tags String[]
- enabled Boolean @default(true)
- connectionType ServerConnectionType @default(SSH_KEY)
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
- sshKey SshKey? @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
-	storageNode StorageNode?
-	commandTargets CommandTarget[]
-	metricSnapshots MetricSnapshot[]
-	downloadTasks DownloadTask[]
-	sourceSyncs SyncJob[] @relation("SourceSyncs")
-	targetSyncs SyncJob[] @relation("TargetSyncs")
+  id              String               @id @default(cuid())
+  name            String
+  host            String
+  port            Int                  @default(22)
+  username        String
+  sshKeyId        String?
+  password        String?
+  description     String?
+  tags            String[]
+  enabled         Boolean              @default(true)
+  connectionType  ServerConnectionType @default(SSH_KEY)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  sshKey          SshKey?              @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
+  storageNode     StorageNode?
+  commandTargets  CommandTarget[]
+  metricSnapshots MetricSnapshot[]
+  downloadTasks   DownloadTask[]
+  sourceSyncs     SyncJob[]            @relation("SourceSyncs")
+  targetSyncs     SyncJob[]            @relation("TargetSyncs")
 }
 
 model CommandRequest {
@@ -198,20 +201,21 @@ model ExecutionLog {
 }
 
 model StorageNode {
-  id          String        @id @default(cuid())
-  name        String
-  driver      StorageDriver
-  isDefault   Boolean       @default(false)
-  basePath    String
-  host        String?
-  port        Int?
-  username    String?
-  serverId    String?       @unique
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  server      Server?       @relation(fields: [serverId], references: [id], onDelete: SetNull)
-  fileEntries FileEntry[]
+  id           String              @id @default(cuid())
+  name         String
+  driver       StorageDriver
+  isDefault    Boolean             @default(false)
+  basePath     String
+  host         String?
+  port         Int?
+  username     String?
+  serverId     String?             @unique
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  server       Server?             @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  fileEntries  FileEntry[]
   accessGrants UserStorageAccess[]
+  shareLinks   ShareLink[]
 }
 
 model UserStorageAccess {
@@ -255,205 +259,272 @@ model FileEntry {
 }
 
 model AuditLog {
- id String @id @default(cuid())
- actorType ActorType
- actorId String?
- action String
- severity AuditSeverity @default(INFO)
- detail Json
- createdAt DateTime @default(now())
- actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  id        String        @id @default(cuid())
+  actorType ActorType
+  actorId   String?
+  action    String
+  severity  AuditSeverity @default(INFO)
+  detail    Json
+  createdAt DateTime      @default(now())
+  actor     User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
 }
 
 enum SyncJobStatus {
-	IDLE
-	RUNNING
-	PAUSED
-	ERROR
+  IDLE
+  RUNNING
+  PAUSED
+  ERROR
 }
 
 enum DownloadTaskStatus {
- PENDING
- RUNNING
- COMPLETED
- FAILED
- CANCELLED
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum ScheduledTaskStatus {
-	ACTIVE
-	PAUSED
-	DISABLED
+  ACTIVE
+  PAUSED
+  DISABLED
 }
 
 model ScheduledTask {
-	id String @id @default(cuid())
-	name String
-	cronExpression String
-	command String
-	reason String?
-	status ScheduledTaskStatus @default(ACTIVE)
-	serverIds String[]
-	createdById String?
-	lastRunAt DateTime?
-	nextRunAt DateTime?
-	lastResult String?
-	runCount Int @default(0)
-	createdAt DateTime @default(now())
-	updatedAt DateTime @updatedAt
-	creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  id             String              @id @default(cuid())
+  name           String
+  cronExpression String
+  command        String
+  reason         String?
+  status         ScheduledTaskStatus @default(ACTIVE)
+  serverIds      String[]
+  createdById    String?
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  lastResult     String?
+  runCount       Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  creator        User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
-	@@index([status, nextRunAt])
-	@@map("scheduled_tasks")
+  @@index([status, nextRunAt])
+  @@map("scheduled_tasks")
 }
 
 model MetricSnapshot {
-	id String @id @default(cuid())
-	serverId String
-	cpuUsage Float
-	memUsage Float
-	diskUsage Float // max disk usage percent across mounts
-	isOnline Boolean @default(true)
-	createdAt DateTime @default(now())
+  id        String   @id @default(cuid())
+  serverId  String
+  cpuUsage  Float
+  memUsage  Float
+  diskUsage Float // max disk usage percent across mounts
+  isOnline  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
-	server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
-	@@index([serverId, createdAt])
-	@@map("metric_snapshots")
+  @@index([serverId, createdAt])
+  @@map("metric_snapshots")
 }
 
 model AlertRule {
-	id String @id @default(cuid())
-	name String
-	metric String // cpu_usage | mem_usage | disk_usage | server_offline
-	operator String // gt | gte | lt | lte | eq
-	threshold Float
-	durationSeconds Int @default(0) // 0 = instant alert
-	serverIds String[] // empty = all servers
-	notifyChannels String[] // ["in_app", "email", "webhook"]
-	webhookUrl String?
-	cooldownMinutes Int @default(30)
-	enabled Boolean @default(true)
-	lastTriggeredAt DateTime?
-	createdAt DateTime @default(now())
-	updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  metric          String // cpu_usage | mem_usage | disk_usage | server_offline
+  operator        String // gt | gte | lt | lte | eq
+  threshold       Float
+  durationSeconds Int       @default(0) // 0 = instant alert
+  serverIds       String[] // empty = all servers
+  notifyChannels  String[] // ["in_app", "email", "webhook"]
+  webhookUrl      String?
+  cooldownMinutes Int       @default(30)
+  enabled         Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-	@@map("alert_rules")
+  @@map("alert_rules")
 }
 
 model CommandTemplate {
-	id String @id @default(cuid())
-	name String
-	description String?
-	command String
-	variables String[] // list of {{var}} placeholders
-	tags String[]
-	isBuiltin Boolean @default(false)
-	createdById String?
-	createdAt DateTime @default(now())
-	updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  command     String
+  variables   String[] // list of {{var}} placeholders
+  tags        String[]
+  isBuiltin   Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-	creator User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  creator        User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  deploymentRuns DeploymentRun[]
 
-	@@map("command_templates")
+  @@map("command_templates")
 }
 
 model Setting {
-	key String @id
-	value String
-	updatedAt DateTime @updatedAt
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 
-	@@map("settings")
+  @@map("settings")
 }
 
 model Notification {
-	id String @id @default(cuid())
-	userId String
-	type String
-	title String
-	message String
-	isRead Boolean @default(false)
-	actionUrl String?
-	createdAt DateTime @default(now())
-	user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  actionUrl String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-	@@index([userId, isRead])
-	@@index([userId, createdAt])
-	@@map("notifications")
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
 
 model SyncJob {
-	id String @id @default(cuid())
-	name String
-	sourceServerId String
-	sourcePath String
-	targetServerId String
-	targetPath String
-	syncType String @default("MIRROR")
-	status SyncJobStatus @default(IDLE)
-	schedule String?
-	lastSyncAt DateTime?
-	lastSyncResult String?
-	deleteOrphans Boolean @default(false)
-	compress Boolean @default(false)
-	createdBy String?
-	createdAt DateTime @default(now())
-	updatedAt DateTime @updatedAt
+  id             String        @id @default(cuid())
+  name           String
+  sourceServerId String
+  sourcePath     String
+  targetServerId String
+  targetPath     String
+  syncType       String        @default("MIRROR")
+  status         SyncJobStatus @default(IDLE)
+  schedule       String?
+  lastSyncAt     DateTime?
+  lastSyncResult String?
+  deleteOrphans  Boolean       @default(false)
+  compress       Boolean       @default(false)
+  createdBy      String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-	sourceServer Server @relation("SourceSyncs", fields: [sourceServerId], references: [id], onDelete: Cascade)
-	targetServer Server @relation("TargetSyncs", fields: [targetServerId], references: [id], onDelete: Cascade)
-	creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-	syncLogs SyncLog[]
+  sourceServer Server    @relation("SourceSyncs", fields: [sourceServerId], references: [id], onDelete: Cascade)
+  targetServer Server    @relation("TargetSyncs", fields: [targetServerId], references: [id], onDelete: Cascade)
+  creator      User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  syncLogs     SyncLog[]
 
-	@@map("sync_jobs")
+  @@map("sync_jobs")
 }
 
 model SyncLog {
-	id String @id @default(cuid())
-	syncJobId String
-	status String
-	filesScanned Int @default(0)
-	filesTransferred Int @default(0)
-	filesDeleted Int @default(0)
-	bytesTransferred String @default("0")
-	durationMs Int @default(0)
-	errorMessage String?
-	startedAt DateTime @default(now())
-	completedAt DateTime?
+  id               String    @id @default(cuid())
+  syncJobId        String
+  status           String
+  filesScanned     Int       @default(0)
+  filesTransferred Int       @default(0)
+  filesDeleted     Int       @default(0)
+  bytesTransferred String    @default("0")
+  durationMs       Int       @default(0)
+  errorMessage     String?
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
 
-	syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+  syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
 
-	@@map("sync_logs")
+  @@map("sync_logs")
 }
 
 model DownloadTask {
-	id String @id @default(cuid())
-	url String
-	serverId String
-	targetPath String
-	fileName String?
-	status DownloadTaskStatus @default(PENDING)
-	progress String?
-	pid Int?
-	errorMessage String?
-	relayMode Boolean @default(false)
-	createdBy String?
-	createdAt DateTime @default(now())
-	updatedAt DateTime @updatedAt
+  id           String             @id @default(cuid())
+  url          String
+  serverId     String
+  targetPath   String
+  fileName     String?
+  status       DownloadTaskStatus @default(PENDING)
+  progress     String?
+  pid          Int?
+  errorMessage String?
+  relayMode    Boolean            @default(false)
+  createdBy    String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
-	/* ── Aria2 RPC integration ────────────────────── */
-	aria2Gid String?
+  /**
+   * ── Aria2 RPC integration ──────────────────────
+   */
+  aria2Gid String?
 
-	/* ── Enhanced metadata ───────────────────────── */
-	category String?
-	maxSpeedKb Int?
-	totalBytes String?
-	completedBytes String?
-	downloadSpeed String?
-	fileSize String?
-	isBatch Boolean @default(false)
-	batchUrls String?
+  /**
+   * ── Enhanced metadata ─────────────────────────
+   */
+  category       String?
+  maxSpeedKb     Int?
+  totalBytes     String?
+  completedBytes String?
+  downloadSpeed  String?
+  fileSize       String?
+  isBatch        Boolean @default(false)
+  batchUrls      String?
 
-	server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
-	creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  server  Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator User?  @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+}
+
+model ShareLink {
+  id            String        @id @default(cuid())
+  tokenHash     String        @unique
+  storageNodeId String
+  path          String
+  entryType     FileEntryType @default(FILE)
+  name          String?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  accessCount   Int           @default(0)
+  createdBy     String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  storageNode StorageNode @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+  creator     User?       @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([storageNodeId, path])
+  @@index([expiresAt])
+  @@map("share_links")
+}
+
+model BackupRecord {
+  id           String    @id @default(cuid())
+  type         String
+  status       String    @default("PENDING")
+  filePath     String
+  fileSize     String?
+  note         String?
+  errorMessage String?
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  completedAt  DateTime?
+
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("backup_records")
+}
+
+model DeploymentRun {
+  id               String    @id @default(cuid())
+  templateId       String
+  commandRequestId String?
+  status           String    @default("PENDING")
+  variables        Json
+  renderedCommand  String
+  serverIds        String[]
+  createdBy        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  completedAt      DateTime?
+  errorMessage     String?
+
+  template CommandTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  creator  User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("deployment_runs")
 }

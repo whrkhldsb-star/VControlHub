@@ -1,0 +1,49 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+const { mockPrisma } = vi.hoisted(() => ({
+  mockPrisma: {
+    shareLink: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+  },
+}));
+
+vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/storage/access-control", () => ({
+  assertStorageAccess: vi.fn(async () => ({ allowed: true })),
+}));
+
+const { createShareLink, normalizeSharePath, resolveShareToken } = await import("../service");
+
+describe("share link service", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("creates a share token but stores only its hash", async () => {
+    mockPrisma.shareLink.create.mockImplementation(async ({ data }: any) => ({ id: "share1", ...data, createdAt: new Date(), updatedAt: new Date() }));
+
+    const result = await createShareLink({
+      session: { userId: "u1", username: "alice", roles: ["storage_manager"], mustChangePassword: false },
+      storageNodeId: "node1",
+      path: "docs/report.pdf",
+      entryType: "FILE",
+      expiresInHours: 24,
+    });
+
+    expect(result.token).toHaveLength(48);
+    expect(mockPrisma.shareLink.create.mock.calls[0][0].data.tokenHash).not.toBe(result.token);
+    expect(mockPrisma.shareLink.create.mock.calls[0][0].data.path).toBe("docs/report.pdf");
+  });
+
+  it("normalizes share paths and rejects traversal or unsafe absolute paths", () => {
+    expect(normalizeSharePath("/docs//report.pdf")).toBe("docs/report.pdf");
+    expect(normalizeSharePath("docs\\nested\\report.pdf")).toBe("docs/nested/report.pdf");
+    expect(() => normalizeSharePath("../secret.txt")).toThrow(/安全相对路径/);
+    expect(() => normalizeSharePath("docs/../../secret.txt")).toThrow(/安全相对路径/);
+    expect(() => normalizeSharePath("C:\\secret.txt")).toThrow(/安全相对路径/);
+    expect(() => normalizeSharePath("//server/share.txt")).toThrow(/安全相对路径/);
+    expect(() => normalizeSharePath("docs/\u0000secret.txt")).toThrow(/安全相对路径/);
+  });
+
+  it("rejects expired public share tokens", async () => {
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: new Date("2020-01-01T00:00:00Z"), revokedAt: null });
+    await expect(resolveShareToken("abc")).rejects.toThrow(/已过期/);
+  });
+});
