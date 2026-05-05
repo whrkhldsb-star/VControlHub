@@ -71,6 +71,28 @@ vi.mock("@/lib/storage/service", () => ({
   }),
 }));
 
+vi.mock("@/lib/command/service", () => ({
+  listCommandRequests: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/notification/service", () => ({
+  getUnreadCount: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    auditLog: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    downloadTask: {
+      groupBy: vi.fn().mockResolvedValue([{ status: "COMPLETED", _count: 1 }]),
+    },
+    scheduledTask: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+  },
+}));
+
 import Home from "../page";
 
 describe("Home", () => {

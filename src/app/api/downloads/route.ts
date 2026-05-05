@@ -23,11 +23,77 @@ import {
 } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { execFile } from "child_process";
+import { randomUUID } from "crypto";
 import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import { resolveDownloadTargetPath } from "@/lib/downloads/target-path";
 import { validateDownloadSourceUrl } from "@/lib/downloads/source-url";
+
+function normalizeDownloadFileName(fileName: string | null | undefined): string | null {
+  const value = (fileName ?? "").trim();
+  if (!value) return null;
+  if (value.includes("\0") || value.includes("/") || value.includes("\\")) {
+    throw new Error("下载文件名不能包含路径分隔符");
+  }
+  if (value === "." || value === ".." || value.includes("..")) {
+    throw new Error("下载文件名不能包含 ..");
+  }
+  if (/^[A-Za-z]:/.test(value) || /[\r\n]/.test(value)) {
+    throw new Error("下载文件名无效");
+  }
+  return value;
+}
+
+function relativePathFromDownloadTarget(basePath: string | null | undefined, targetPath: string, fileName: string): string | null {
+  const base = resolveDownloadTargetPath(basePath, "");
+  const fullPath = toRemoteChildPath(targetPath, fileName);
+  const relative = path.posix.relative(base, fullPath);
+  if (!relative || relative.startsWith("..") || path.posix.isAbsolute(relative)) {
+    return null;
+  }
+  return relative;
+}
+
+async function indexDownloadedFileEntry(input: {
+  storageNode: { id: string; basePath: string | null } | null | undefined;
+  targetPath: string;
+  fileName: string | null | undefined;
+  size: number | bigint | null | undefined;
+}) {
+  const safeFileName = normalizeDownloadFileName(input.fileName);
+  if (!input.storageNode?.id || !safeFileName) return;
+
+  const relativePath = relativePathFromDownloadTarget(input.storageNode.basePath, input.targetPath, safeFileName);
+  if (!relativePath) return;
+
+  const existingEntry = await prisma.fileEntry.findFirst({
+    where: { storageNodeId: input.storageNode.id, relativePath },
+    select: { id: true },
+  });
+  const data = {
+    storageNodeId: input.storageNode.id,
+    name: safeFileName,
+    entryType: "FILE" as const,
+    relativePath,
+    size: input.size == null ? null : BigInt(input.size),
+    isDeleted: false,
+  };
+
+  if (existingEntry) {
+    await prisma.fileEntry.update({
+      where: { id: existingEntry.id },
+      data: {
+        name: data.name,
+        entryType: data.entryType,
+        size: data.size,
+        isDeleted: false,
+      },
+    });
+  } else {
+    await prisma.fileEntry.create({ data });
+  }
+}
 
 import {
   buildDirectDownloadCommand,
@@ -174,6 +240,16 @@ export async function POST(request: Request) {
       );
     }
 
+    let safeFileName: string | null;
+    try {
+      safeFileName = normalizeDownloadFileName(fileName);
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "下载文件名无效" },
+        { status: 400 },
+      );
+    }
+
     const relayMode = allUrls.some(isMagnetLink);
 
     // Create task record
@@ -182,7 +258,7 @@ export async function POST(request: Request) {
         url,
         serverId,
         targetPath: resolvedTargetPath,
-        fileName: fileName || null,
+        fileName: safeFileName,
         status: "PENDING",
         progress: relayMode ? "准备中转下载..." : "准备远程下载...",
         relayMode,
@@ -203,6 +279,9 @@ export async function POST(request: Request) {
       username: server.username,
       sshKeyId: server.sshKeyId,
       password: server.password,
+      storageNode: server.storageNode
+        ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
+        : null,
       sshKey: server.sshKey
         ? { privateKey: server.sshKey.privateKey ?? "" }
         : null,
@@ -215,7 +294,7 @@ export async function POST(request: Request) {
         serverForExec,
         allUrls,
         resolvedTargetPath,
-        fileName,
+        safeFileName,
         maxSpeedKb,
       ).catch((error) => {
         logError("[DownloadAPI] Relay execution error:", error);
@@ -226,7 +305,7 @@ export async function POST(request: Request) {
         serverForExec,
         allUrls[0],
         resolvedTargetPath,
-        fileName,
+        safeFileName,
       ).catch((error) => {
         logError("[DownloadAPI] Direct execution error:", error);
       });
@@ -493,16 +572,18 @@ export async function DELETE(request: Request) {
     }
 
     // Kill legacy processes
-    if (task.status === "RUNNING" && task.pid) {
+    if (task.status === "RUNNING") {
       if (task.relayMode) {
-        try {
-          process.kill(task.pid, "SIGTERM");
-        } catch {}
+        if (task.pid) {
+          try {
+            process.kill(task.pid, "SIGTERM");
+          } catch {}
+        }
         const tempDir = `/tmp/whrkhldsb-relay-${taskId}`;
         try {
           await fs.rm(tempDir, { recursive: true, force: true });
         } catch {}
-      } else {
+      } else if (task.pid) {
         try {
           const sshParams = await buildSshParamsFromServer(
             task.server,
@@ -543,6 +624,7 @@ async function executeAria2RelayDownload(
     username: string;
     sshKeyId: string | null;
     password: string | null;
+    storageNode?: { id: string; basePath: string | null } | null;
     sshKey?: { privateKey: string } | null;
   },
   urls: string[],
@@ -677,6 +759,15 @@ async function executeAria2RelayDownload(
     }
 
     // Phase 3: Update + cleanup
+    if (filesToTransfer.length === 1) {
+      await indexDownloadedFileEntry({
+        storageNode: server.storageNode,
+        targetPath,
+        fileName: filesToTransfer[0],
+        size: totalSize,
+      });
+    }
+
     await prisma.downloadTask.update({
       where: { id: taskId },
       data: {
@@ -714,6 +805,7 @@ async function executeDirectDownload(
     username: string;
     sshKeyId: string | null;
     password: string | null;
+    storageNode?: { id: string; basePath: string | null } | null;
     sshKey?: { privateKey: string } | null;
   },
   url: string,
@@ -743,6 +835,13 @@ async function executeDirectDownload(
     const pid = parseInt(pidOutput.trim(), 10);
 
     if (exitCode === 0 && pid > 0) {
+      await indexDownloadedFileEntry({
+        storageNode: server.storageNode,
+        targetPath,
+        fileName,
+        size: null,
+      });
+
       await prisma.downloadTask.update({
         where: { id: taskId },
         data: { pid, progress: "下载中..." },
@@ -783,6 +882,7 @@ async function transferFileViaSsh2(
     username: string;
     sshKeyId: string | null;
     password: string | null;
+    storageNode?: { id: string; basePath: string | null } | null;
     sshKey?: { privateKey: string } | null;
   },
   localFilePath: string,
@@ -800,7 +900,7 @@ async function transferFileViaSsh2(
   const target = toScpTarget(server.username || "root", server.host, remoteFilePath);
 
   if (server.sshKey?.privateKey) {
-    const keyFile = `/tmp/whrkhldsb-key-${taskId}`;
+    const keyFile = path.join("/tmp", `whrkhldsb-key-${taskId}-${randomUUID()}`);
     await fs.writeFile(keyFile, server.sshKey.privateKey, { mode: 0o600 });
     try {
       await execFileAsync(
@@ -812,10 +912,11 @@ async function transferFileViaSsh2(
       await fs.unlink(keyFile).catch(() => {});
     }
   } else if (server.password) {
+    const sshpassEnv = { ...process.env, SSHPASS: server.password };
     await execFileAsync(
       "sshpass",
-      ["-p", server.password, "scp", ...scpArgs, localFilePath, target],
-      { timeout: 600_000, maxBuffer: 50 * 1024 * 1024 },
+      ["-e", "scp", ...scpArgs, localFilePath, target],
+      { timeout: 600_000, maxBuffer: 50 * 1024 * 1024, env: sshpassEnv },
     );
   } else {
     throw new Error("No SSH key or password for file transfer");

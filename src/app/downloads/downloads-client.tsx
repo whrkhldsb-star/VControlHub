@@ -126,6 +126,11 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 	};
 
 	const handleSubmit = async () => {
+		const trimmedFileName = form.fileName.trim();
+		if (trimmedFileName && (trimmedFileName.includes("/") || trimmedFileName.includes("\\") || trimmedFileName.includes(".."))) {
+			setMessage({ type: "error", text: "文件名只能填写单个文件名，不能包含路径分隔符或 .." });
+			return;
+		}
 		setSubmitting(true); setMessage(null);
 		try {
 			const isBatch = form.batchMode;
