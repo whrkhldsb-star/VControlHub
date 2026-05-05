@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAria2Config, getAria2RuntimeConfig } from "../service";
+import { buildAria2Config, buildAria2LaunchConfig, buildAria2SpawnArgs, getAria2RuntimeConfig } from "../service";
 
 describe("aria2 runtime config", () => {
   it("defaults to portable app-scoped paths and loopback RPC", () => {
@@ -35,7 +35,7 @@ describe("aria2 runtime config", () => {
     ).toThrow("ARIA2_RPC_SECRET must not use the default token in production");
   });
 
-  it("builds an aria2 config from runtime settings without hardcoded /tmp state", () => {
+  it("builds an aria2 config from runtime settings without hardcoded /tmp state or persisted RPC secrets", () => {
     const config = getAria2RuntimeConfig({
       APP_DIR: "/opt/whrkhldsb",
       ARIA2_RPC_SECRET: "custom-token",
@@ -44,8 +44,15 @@ describe("aria2 runtime config", () => {
     const text = buildAria2Config(config);
 
     expect(text).toContain("rpc-listen-port=16800");
-    expect(text).toContain("rpc-secret=custom-token");
+    expect(text).not.toContain("custom-token");
+    expect(text).not.toContain("rpc-secret=");
     expect(text).toContain("dir=/opt/whrkhldsb/tmp/aria2");
     expect(text).not.toContain("/tmp/whrkhldsb-aria2");
+    const launchConfig = buildAria2LaunchConfig(config);
+    expect(launchConfig).toContain("rpc-secret=custom-token");
+    expect(buildAria2SpawnArgs("/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf")).toEqual([
+      "--conf-path=/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf",
+    ]);
+    expect(buildAria2SpawnArgs("/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf").join(" ")).not.toContain("custom-token");
   });
 });

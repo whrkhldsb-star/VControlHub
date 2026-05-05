@@ -1,4 +1,4 @@
-import { writeFile, readFile, mkdir } from "fs/promises";
+import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
 import path from "path";
 
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
@@ -46,7 +46,6 @@ export function buildAria2Config(config: Aria2RuntimeConfig): string {
 enable-rpc=true
 rpc-listen-all=false
 rpc-listen-port=${config.rpcPort}
-rpc-secret=${config.rpcSecret}
 dir=${config.rpcDir}
 session=${config.rpcSession}
 input-file=${config.rpcSession}
@@ -61,6 +60,15 @@ continue=true
 seed-time=0
 disk-cache=32M
 `.trim();
+}
+
+export function buildAria2LaunchConfig(config: Aria2RuntimeConfig): string {
+	return `${buildAria2Config(config)}
+rpc-secret=${config.rpcSecret}`;
+}
+
+export function buildAria2SpawnArgs(confPath: string): string[] {
+	return [`--conf-path=${confPath}`];
 }
 
 
@@ -147,28 +155,37 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 	const conf = buildAria2Config(config);
 
-	await writeFile(config.rpcConf, conf);
+	await writeFile(config.rpcConf, conf, { mode: 0o600 });
+	await chmod(config.rpcConf, 0o600).catch(() => undefined);
 
-	// Launch aria2c daemon
-	const { spawn } = await import("child_process");
-	const proc = spawn("aria2c", [`--conf-path=${config.rpcConf}`], {
-		detached: true,
-		stdio: "ignore",
-	});
-	proc.unref();
+	const launchConf = path.join(config.rpcDir, `.aria2.launch.${process.pid}.${Date.now()}.conf`);
+	await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
+	await chmod(launchConf, 0o600).catch(() => undefined);
 
-	// Wait for RPC to become available
-	for (let i = 0; i < 30; i++) {
-		await new Promise((r) => setTimeout(r, 500));
-		try {
-			await rpcCall("aria2.getVersion");
-			daemonStarted = true;
-			return;
-		} catch {
-			continue;
+	try {
+		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.
+		const { spawn } = await import("child_process");
+		const proc = spawn("aria2c", buildAria2SpawnArgs(launchConf), {
+			detached: true,
+			stdio: "ignore",
+		});
+		proc.unref();
+
+		// Wait for RPC to become available
+		for (let i = 0; i < 30; i++) {
+			await new Promise((r) => setTimeout(r, 500));
+			try {
+				await rpcCall("aria2.getVersion");
+				daemonStarted = true;
+				return;
+			} catch {
+				continue;
+			}
 		}
+		throw new Error("Aria2 RPC daemon failed to start within 15 seconds");
+	} finally {
+		await unlink(launchConf).catch(() => undefined);
 	}
-	throw new Error("Aria2 RPC daemon failed to start within 15 seconds");
 }
 
 /* ── Download Operations ──────────────────────────────────── */
