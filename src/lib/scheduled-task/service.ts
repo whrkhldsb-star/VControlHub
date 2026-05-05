@@ -1,0 +1,115 @@
+import { prisma } from "@/lib/db";
+
+/* ── Types ────────────────────────────────────────────────── */
+
+export type CreateScheduledTaskInput = {
+	name: string;
+	cronExpression: string;
+	command: string;
+	reason?: string;
+	serverIds: string[];
+	createdById?: string;
+};
+
+export type UpdateScheduledTaskInput = Partial<CreateScheduledTaskInput> & {
+	status?: "ACTIVE" | "PAUSED" | "DISABLED";
+};
+
+/* ── Basic cron description ───────────────────────────────── */
+
+export function describeCron(expr: string): string {
+	const parts = expr.trim().split(/\s+/);
+	if (parts.length !== 5) return "自定义时间表达式";
+	const [min, hour, day, month, dow] = parts;
+	if (min === "*" && hour === "*") return "每分钟";
+	if (min.startsWith("*/") && hour === "*") return `每 ${min.slice(2)} 分钟`;
+	if (hour === "*" && min !== "*") return `每小时第 ${min} 分钟`;
+	if (min !== "*" && hour !== "*" && day === "*" && month === "*" && dow === "*") return `每天 ${hour}:${min.padStart(2, "0")}`;
+	if (dow !== "*" && min !== "*" && hour !== "*") {
+		const dayNames: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
+		return `每${dayNames[dow] ?? "周" + dow} ${hour}:${min.padStart(2, "0")}`;
+	}
+	return expr;
+}
+
+/* ── Compute next run time (simplified) ───────────────────── */
+
+export function computeNextRun(cronExpression: string): Date {
+	const now = new Date();
+	const parts = cronExpression.trim().split(/\s+/);
+	if (parts.length !== 5) return new Date(now.getTime() + 60_000);
+	const [min] = parts;
+	// Simplified: just add 1 hour for complex expressions
+	const addMs = min === "*" ? 60_000 : min.startsWith("*/") ? parseInt(min.slice(2)) * 60_000 : 3600_000;
+	return new Date(now.getTime() + addMs);
+}
+
+/* ── CRUD ─────────────────────────────────────────────────── */
+
+export async function createScheduledTask(input: CreateScheduledTaskInput) {
+	const nextRun = computeNextRun(input.cronExpression);
+	return prisma.scheduledTask.create({
+		data: {
+			name: input.name,
+			cronExpression: input.cronExpression,
+			command: input.command,
+			reason: input.reason ?? null,
+			serverIds: input.serverIds,
+			createdById: input.createdById ?? null,
+			nextRunAt: nextRun,
+		},
+	});
+}
+
+export async function listScheduledTasks() {
+	return prisma.scheduledTask.findMany({
+		orderBy: { createdAt: "desc" },
+		include: { creator: { select: { username: true, displayName: true } } },
+	});
+}
+
+export async function updateScheduledTask(id: string, input: UpdateScheduledTaskInput) {
+	const data: Record<string, unknown> = {};
+	if (input.name !== undefined) data.name = input.name;
+	if (input.cronExpression !== undefined) {
+		data.cronExpression = input.cronExpression;
+		data.nextRunAt = computeNextRun(input.cronExpression);
+	}
+	if (input.command !== undefined) data.command = input.command;
+	if (input.reason !== undefined) data.reason = input.reason;
+	if (input.serverIds !== undefined) data.serverIds = input.serverIds;
+	if (input.status !== undefined) data.status = input.status;
+	return prisma.scheduledTask.update({ where: { id }, data });
+}
+
+export async function deleteScheduledTask(id: string) {
+	return prisma.scheduledTask.delete({ where: { id } });
+}
+
+export async function toggleScheduledTask(id: string) {
+	const current = await prisma.scheduledTask.findUnique({ where: { id }, select: { status: true } });
+	if (!current) throw new Error("定时任务不存在");
+	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+	const nextRun = newStatus === "ACTIVE" ? undefined : null;
+	return prisma.scheduledTask.update({
+		where: { id },
+		data: {
+			status: newStatus,
+			...(nextRun === null ? { nextRunAt: null } : { nextRunAt: computeNextRun((await prisma.scheduledTask.findUnique({ where: { id }, select: { cronExpression: true } }))!.cronExpression) }),
+		},
+	});
+}
+
+export async function recordTaskRun(id: string, result: string) {
+	const task = await prisma.scheduledTask.findUnique({ where: { id }, select: { cronExpression: true, runCount: true } });
+	if (!task) return;
+	return prisma.scheduledTask.update({
+		where: { id },
+		data: {
+			lastRunAt: new Date(),
+			lastResult: result,
+			runCount: task.runCount + 1,
+			nextRunAt: computeNextRun(task.cronExpression),
+		},
+	});
+}

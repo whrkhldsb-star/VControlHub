@@ -1,0 +1,263 @@
+"use client";
+
+import { useState, useCallback } from "react";
+
+type Task = {
+	id: string; name: string; cronExpression: string; cronDescription: string;
+	command: string; reason: string | null; status: string; serverIds: string[];
+	lastRunAt: string | null; nextRunAt: string | null; lastResult: string | null;
+	runCount: number; createdAt: string;
+	creator: { username: string; displayName: string | null } | null;
+};
+
+type ServerOption = { id: string; name: string; enabled: boolean };
+
+type Props = {
+	tasks: Task[];
+	servers: ServerOption[];
+	canCreate: boolean;
+};
+
+const statusBadge: Record<string, string> = {
+	ACTIVE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
+	PAUSED: "border-amber-400/20 bg-amber-400/10 text-amber-200",
+	DISABLED: "border-slate-400/20 bg-slate-400/10 text-slate-200",
+};
+
+const statusLabel: Record<string, string> = {
+	ACTIVE: "运行中",
+	PAUSED: "已暂停",
+	DISABLED: "已禁用",
+};
+
+function formatTime(iso: string | null): string {
+	if (!iso) return "—";
+	return new Date(iso).toLocaleString("zh-CN");
+}
+
+export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate }: Props) {
+	const [tasks, setTasks] = useState(initialTasks);
+	const [showCreate, setShowCreate] = useState(false);
+
+	const refresh = useCallback(async () => {
+		const res = await fetch("/api/scheduled-tasks");
+		if (res.ok) {
+			const data = await res.json();
+			setTasks(data.tasks ?? []);
+		}
+	}, []);
+
+	const toggleTask = useCallback(async (id: string) => {
+		await fetch("/api/scheduled-tasks", {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ toggleId: id }),
+		});
+		refresh();
+	}, [refresh]);
+
+	const deleteTask = useCallback(async (id: string) => {
+		if (!confirm("确认删除该定时任务？")) return;
+		await fetch(`/api/scheduled-tasks?id=${id}`, { method: "DELETE" });
+		refresh();
+	}, [refresh]);
+
+	return (
+		<div className="space-y-6">
+			{canCreate && !showCreate && (
+				<button
+					onClick={() => setShowCreate(true)}
+					className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+				>
+					+ 创建定时任务
+				</button>
+			)}
+
+			{showCreate && (
+				<CreateTaskForm servers={servers} onClose={() => { setShowCreate(false); refresh(); }} />
+			)}
+
+			{tasks.length === 0 && !showCreate ? (
+				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
+					<div className="text-4xl mb-3">⏰</div>
+					<p className="text-sm text-slate-500">暂无定时任务</p>
+				</div>
+			) : (
+				<div className="space-y-3">
+					{tasks.map((task) => (
+						<article key={task.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors duration-150">
+							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+								<div className="min-w-0 flex-1">
+									<div className="flex flex-wrap items-center gap-2.5">
+										<h2 className="text-lg font-semibold text-white">{task.name}</h2>
+										<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge[task.status] ?? statusBadge.DISABLED}`}>
+											{statusLabel[task.status] ?? task.status}
+										</span>
+									</div>
+									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
+									<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">
+										{task.command}
+									</div>
+									{task.reason && <p className="mt-1.5 text-xs text-slate-500">原因：{task.reason}</p>}
+									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500">
+										<div>目标节点：{task.serverIds.length} 台</div>
+										<div>已执行：{task.runCount} 次</div>
+										<div>上次运行：{formatTime(task.lastRunAt)}</div>
+										<div>下次运行：{formatTime(task.nextRunAt)}</div>
+									</div>
+									{task.lastResult && (
+										<div className="mt-2 text-[11px] text-slate-600 truncate">
+											上次结果：{task.lastResult.slice(0, 100)}
+										</div>
+									)}
+								</div>
+								<div className="flex flex-col gap-2 shrink-0">
+									<button
+										onClick={() => toggleTask(task.id)}
+										className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
+											task.status === "ACTIVE"
+												? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
+												: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
+										}`}
+									>
+										{task.status === "ACTIVE" ? "暂停" : "恢复"}
+									</button>
+									<button
+										onClick={() => deleteTask(task.id)}
+										className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition"
+									>
+										删除
+									</button>
+								</div>
+							</div>
+						</article>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+/* ── Create form ──────────────────────────────────────────── */
+
+function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
+	const [name, setName] = useState("");
+	const [cronExpression, setCron] = useState("0 3 * * *");
+	const [command, setCommand] = useState("");
+	const [reason, setReason] = useState("");
+	const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(new Set());
+	const [submitting, setSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const toggleServer = (id: string) => {
+		setSelectedServerIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) next.delete(id); else next.add(id);
+			return next;
+		});
+	};
+
+	const handleSubmit = async (e: React.FormEvent) => {
+		e.preventDefault();
+		setSubmitting(true);
+		setError(null);
+		try {
+			const res = await fetch("/api/scheduled-tasks", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name,
+					cronExpression,
+					command,
+					reason: reason || null,
+					serverIds: [...selectedServerIds],
+				}),
+			});
+			if (!res.ok) {
+				const data = await res.json();
+				throw new Error(data.error ?? "创建失败");
+			}
+			onClose();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "创建失败");
+		} finally {
+			setSubmitting(false);
+		}
+	};
+
+	const presetCrons = [
+		{ label: "每小时", expr: "0 * * * *" },
+		{ label: "每天 3:00", expr: "0 3 * * *" },
+		{ label: "每天 0:00", expr: "0 0 * * *" },
+		{ label: "每周一 9:00", expr: "0 9 * * 1" },
+		{ label: "每月1日 0:00", expr: "0 0 1 * *" },
+		{ label: "每5分钟", expr: "*/5 * * * *" },
+	];
+
+	const enabledServers = servers.filter((s) => s.enabled);
+
+	return (
+		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<h3 className="text-lg font-semibold text-white">创建定时任务</h3>
+			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white/50 tracking-wide">任务名称</label>
+				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：清理日志" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+			</div>
+
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white/50 tracking-wide">Cron 表达式</label>
+				<input value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<div className="flex flex-wrap gap-1.5">
+					{presetCrons.map((p) => (
+						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
+							className={`rounded-md border px-2.5 py-1 text-[11px] transition ${
+								cronExpression === p.expr
+									? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
+									: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]"
+							}`}
+						>
+							{p.label}
+						</button>
+					))}
+				</div>
+			</div>
+
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white/50 tracking-wide">命令内容</label>
+				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="df -h" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
+			</div>
+
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white/50 tracking-wide">原因 / 备注</label>
+				<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+			</div>
+
+			{enabledServers.length > 0 && (
+				<div className="space-y-1.5">
+					<label className="text-xs font-medium text-white/50 tracking-wide">目标节点</label>
+					<div className="grid gap-1.5 sm:grid-cols-2">
+						{enabledServers.map((s) => (
+							<label key={s.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
+								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]"
+							}`}>
+								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-cyan-400" />
+								<span>{s.name}</span>
+							</label>
+						))}
+					</div>
+				</div>
+			)}
+
+			<div className="flex gap-3 pt-2">
+				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
+					{submitting ? "创建中…" : "创建任务"}
+				</button>
+				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
+					取消
+				</button>
+			</div>
+		</form>
+	);
+}
