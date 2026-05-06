@@ -4,6 +4,39 @@
 
 ## 快速部署
 
+### 方式 A：从私有 Git 仓库一键拉取部署
+
+适合把代码放在 GitHub/GitLab/Gitea 私有仓库后，在新服务器直接拉取。仓库里不要提交 `.env.local`、私钥、数据库备份、上传/下载文件或日志。
+
+```bash
+sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com \
+  REPO_URL=git@github.com:your-org/whrkhldsb.git \
+  bash -c 'mkdir -p /opt/whrkhldsb && git clone "$REPO_URL" /opt/whrkhldsb && /opt/whrkhldsb/deploy/install.sh'
+# 首次运行会生成 /opt/whrkhldsb/.env.local 并停止；编辑后重新运行同一命令。
+sudoedit /opt/whrkhldsb/.env.local
+sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com REPO_URL=git@github.com:your-org/whrkhldsb.git /opt/whrkhldsb/deploy/install.sh
+```
+
+### 方式 B：不上公网仓库，从旧服务器/本地目录同步部署
+
+适合代码只保留在当前服务器或内网机器。先把源码传到新服务器，再用 `SOURCE_DIR` 同步到最终安装目录。
+
+```bash
+# 在旧服务器或本地机器执行；按实际新服务器地址替换 root@new-server。
+rsync -a --delete \
+  --exclude .git --exclude node_modules --exclude .next --exclude .env.local \
+  --exclude storage --exclude tmp --exclude uploads --exclude downloads --exclude backups --exclude logs \
+  /root/whrkhldsb/ root@new-server:/root/whrkhldsb-src/
+
+# 在新服务器执行。
+cd /root/whrkhldsb-src
+sudo SOURCE_DIR=/root/whrkhldsb-src APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
+sudoedit /opt/whrkhldsb/.env.local
+sudo SOURCE_DIR=/root/whrkhldsb-src APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
+```
+
+### 已有源码目录时
+
 ```bash
 cd /path/to/whrkhldsb
 sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
@@ -26,7 +59,9 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
 | `SKIP_PACKAGES` | `0` | 设为 `1` 跳过 apt/Node/Caddy 安装 |
 | `SKIP_CADDY` | `0` | 设为 `1` 跳过 Caddy 配置 |
 | `SKIP_DB_SETUP` | `0` | 设为 `1` 跳过 `prisma migrate deploy` |
-| `SKIP_RESTART` | `0` | 设为 `1` 只安装/构建不重启服务 |
+| `SKIP_RESTART` | `0` | 只安装/构建不重启服务 |
+
+安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 
 首次部署时脚本会优先从 `deploy/env.production.example` 创建 `.env.local`，然后主动停止并提示你编辑配置；这样可以避免带着占位密码/占位密钥继续构建。生产使用前必须设置：
 

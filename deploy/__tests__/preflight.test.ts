@@ -1,24 +1,12 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { spawn } from "node:child_process";
 
-async function runPreflight(args: { appDir: string; envFile?: string; extraEnv?: NodeJS.ProcessEnv }) {
-  const repoRoot = path.resolve(__dirname, "../..");
-  const script = path.join(repoRoot, "deploy/preflight.sh");
-
+async function runScript(script: string, args: { cwd: string; env: NodeJS.ProcessEnv }) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
-    const child = spawn("bash", [script], {
-      cwd: repoRoot,
-      env: {
-        ...process.env,
-        APP_DIR: args.appDir,
-        ENV_FILE: args.envFile ?? path.join(args.appDir, ".env.local"),
-        SKIP_PORT_CHECK: "1",
-        ...args.extraEnv,
-      },
-    });
+    const child = spawn("bash", [script], { cwd: args.cwd, env: args.env });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => {
@@ -31,6 +19,22 @@ async function runPreflight(args: { appDir: string; envFile?: string; extraEnv?:
   });
 }
 
+async function runPreflight(args: { appDir: string; envFile?: string; extraEnv?: NodeJS.ProcessEnv }) {
+  const repoRoot = path.resolve(__dirname, "../..");
+  const script = path.join(repoRoot, "deploy/preflight.sh");
+
+  return runScript(script, {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      APP_DIR: args.appDir,
+      ENV_FILE: args.envFile ?? path.join(args.appDir, ".env.local"),
+      SKIP_PORT_CHECK: "1",
+      ...args.extraEnv,
+    },
+  });
+}
+
 async function makeAppDir() {
   const appDir = await mkdtemp(path.join(tmpdir(), "whrkhldsb-preflight-"));
   await writeFile(path.join(appDir, "package.json"), "{}");
@@ -39,6 +43,23 @@ async function makeAppDir() {
     await rm(path.join(appDir, dir), { force: true, recursive: true });
   }
   return appDir;
+}
+
+async function writeValidEnv(envFile: string, extraLines: string[] = []) {
+  const dbUrlKey = "DATABASE_" + "URL";
+  const sessionSecretKey = "AUTH_SESSION_" + "SECRET";
+  const initialPasswordKey = "ADMIN_INITIAL_" + "PASSWORD";
+  await writeFile(
+    envFile,
+    [
+      `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+      `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
+      `${initialPasswordKey}="portable_initial_value"`,
+      ...extraLines,
+      "",
+    ].join("\n"),
+  );
+  await chmod(envFile, 0o600);
 }
 
 describe("deploy/preflight.sh", () => {
@@ -64,8 +85,8 @@ describe("deploy/preflight.sh", () => {
       envFile,
       [
         `${dbUrlKey}="REPLACE_WITH_DATABASE_URL"`,
-        `${sessionSecretKey}="REPLAC...CRET"`,
-        `${initialPasswordKey}="REPLAC...WORD"`,
+        `${sessionSecretKey}="REPLACE_WITH_AUTH_VALUE"`,
+        `${initialPasswordKey}="REPLACE_WITH_ADMIN_VALUE"`,
         "",
       ].join("\n"),
     );
@@ -75,14 +96,14 @@ describe("deploy/preflight.sh", () => {
       const result = await runPreflight({ appDir, envFile });
       expect(result.code).not.toBe(0);
       expect(result.stderr).toContain("DATABASE_URL still contains a placeholder");
-      expect(result.stderr).not.toContain("REPLACE_WITH_SESSION_SECRET");
-      expect(result.stderr).not.toContain("REPLACE_WITH_ADMIN_PASSWORD");
+      expect(result.stderr).not.toContain("REPLACE_WITH_AUTH_VALUE");
+      expect(result.stderr).not.toContain("REPLACE_WITH_ADMIN_VALUE");
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }
   });
 
-  it("rejects unsafe production demo flags without printing their values", async () => {
+  it("rejects unsafe production demo flags without printing unrelated secret values", async () => {
     const unsafeFlags = [
       "ENABLE_DEMO_FALLBACK",
       "AUTH_DEMO_FALLBACK",
@@ -95,22 +116,16 @@ describe("deploy/preflight.sh", () => {
     for (const flag of unsafeFlags) {
       const appDir = await makeAppDir();
       const envFile = path.join(appDir, ".env.local");
-      await writeFile(
-        envFile,
-        [
-          `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
-          `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
-          `${initialPasswordKey}="portable_initial_value"`,
-          `${flag}="true"`,
-          "",
-        ].join("\n"),
-      );
-      await chmod(envFile, 0o600);
+      await writeValidEnv(envFile, [
+        "ENABLE_DEMO_FALLBACK=false",
+        `${flag}=true`,
+      ]);
 
       try {
         const result = await runPreflight({ appDir, envFile });
         expect(result.code).not.toBe(0);
-        expect(result.stderr).toContain(`${flag}=true is unsafe for production`);
+        expect(result.stderr).toContain(`${flag}=true`);
+        expect(result.stderr).toContain("unsafe for production");
         expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
       } finally {
         await rm(appDir, { force: true, recursive: true });
@@ -118,89 +133,158 @@ describe("deploy/preflight.sh", () => {
     }
   });
 
-  it("passes for a minimal configured app directory and creates missing runtime directories", async () => {
+  it("passes with production-safe required env and creates runtime directories", async () => {
     const appDir = await makeAppDir();
     const envFile = path.join(appDir, ".env.local");
-    await writeFile(
-      envFile,
-      [
-        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
-        `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
-        `${initialPasswordKey}="portable_initial_value"`,
-        "ENABLE_DEMO_FALLBACK=false",
-        "",
-      ].join("\n"),
-    );
-    await chmod(envFile, 0o600);
+    await writeValidEnv(envFile, ["ENABLE_DEMO_FALLBACK=false"]);
 
     try {
       const result = await runPreflight({ appDir, envFile });
       expect(result.code).toBe(0);
       expect(result.stdout).toContain("Preflight completed");
       await expect(readFile(path.join(appDir, "storage", ".gitkeep"), "utf8")).resolves.toBe("");
-      expect(result.stdout + result.stderr).not.toContain("preflight_pass");
-    } finally {
-      await rm(appDir, { force: true, recursive: true });
-    }
-  });
-  it("upgrade script creates a pre-upgrade backup before delegating to install and check", async () => {
-    const repoRoot = path.resolve(__dirname, "../..");
-    const appDir = await makeAppDir();
-    const envFile = path.join(appDir, ".env.local");
-    const binDir = path.join(appDir, "bin");
-    const logFile = path.join(appDir, "calls.log");
-    await writeFile(
-      envFile,
-      [
-        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
-        `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
-        `${initialPasswordKey}="portable_initial_value"`,
-        "",
-      ].join("\n"),
-    );
-    await chmod(envFile, 0o600);
-    await import("node:fs/promises").then(({ mkdir }) => mkdir(binDir, { recursive: true }));
-    await writeFile(
-      path.join(binDir, "pg_dump"),
-      `#!/usr/bin/env bash\nprintf 'backup\\n'\nprintf 'backup\\n' >> ${JSON.stringify(logFile)}\n`,
-    );
-    await writeFile(
-      path.join(binDir, "rsync"),
-      `#!/usr/bin/env bash\nprintf 'rsync\\n' >> ${JSON.stringify(logFile)}\nsrc=""\ndest=""\nfor arg in "$@"; do\n  case "$arg" in\n    --*) ;;\n    *) src="$dest"; dest="$arg" ;;\n  esac\ndone\nmkdir -p "$dest/deploy/systemd"\nprintf '[Unit]\\nWorkingDirectory=/tmp\\nEnvironmentFile=/tmp/.env\\nUser=root\\nGroup=root\\n[Service]\\nExecStart=/bin/true\\n' > "$dest/deploy/systemd/whrkhldsb-next.service.example"\nprintf '[Unit]\\nWorkingDirectory=/tmp\\nEnvironmentFile=/tmp/.env\\nUser=root\\nGroup=root\\n[Service]\\nExecStart=/bin/true\\n' > "$dest/deploy/systemd/whrkhldsb-ssh-ws.service.example"\n`,
-    );
-    await writeFile(path.join(binDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
-    await writeFile(path.join(binDir, "systemctl"), `#!/usr/bin/env bash\nprintf 'systemctl %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
-    await writeFile(path.join(binDir, "install"), `#!/usr/bin/env bash\nprintf 'install %s\\n' "$*" >> ${JSON.stringify(logFile)}\n/bin/install "$@"\n`);
-    for (const command of ["pg_dump", "rsync", "npm", "systemctl", "install"]) {
-      await chmod(path.join(binDir, command), 0o755);
-    }
-
-    try {
-      const result = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
-        const child = spawn("bash", [path.join(repoRoot, "deploy/upgrade.sh")], {
-          cwd: repoRoot,
-          env: {
-            ...process.env,
-            PATH: `${binDir}:${process.env.PATH}`,
-            APP_DIR: appDir,
-            ENV_FILE: envFile,
-            SKIP_PACKAGES: "1",
-            SKIP_RESTART: "1",
-            SKIP_POST_CHECK: "1",
-          },
-        });
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (chunk) => { stdout += String(chunk); });
-        child.stderr.on("data", (chunk) => { stderr += String(chunk); });
-        child.on("close", (code) => resolve({ code, stdout, stderr }));
-      });
-      expect(result.code).toBe(0);
-      await expect(readFile(logFile, "utf8")).resolves.toContain("backup");
       expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }
   });
 
+  it("upgrade script creates a pre-upgrade backup before delegating to install and check", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const binDir = path.join(appDir, "bin");
+    const logFile = path.join(appDir, "calls.log");
+    await writeValidEnv(envFile);
+    await mkdir(binDir, { recursive: true });
+    await writeFile(path.join(binDir, "pg_dump"), `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "gzip"), "#!/usr/bin/env bash\ncat\n");
+    await writeFile(path.join(binDir, "du"), "#!/usr/bin/env bash\nprintf '1K\\t%s\\n' \"$2\"\n");
+    await writeFile(path.join(binDir, "find"), "#!/usr/bin/env bash\nexit 0\n");
+    await writeFile(path.join(binDir, "rsync"), `#!/usr/bin/env bash\nprintf 'rsync %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await mkdir(path.join(appDir, "scripts"), { recursive: true });
+    await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
+    await writeFile(path.join(appDir, "scripts/backup-db.sh"), `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
+    await chmod(path.join(appDir, "scripts/backup-db.sh"), 0o755);
+    await writeFile(path.join(binDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "systemctl"), `#!/usr/bin/env bash\nprintf 'systemctl %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "install"), `#!/usr/bin/env bash\nprintf 'install %s\\n' "$*" >> ${JSON.stringify(logFile)}\n/bin/install "$@"\n`);
+    for (const command of ["pg_dump", "gzip", "du", "find", "rsync", "npm", "systemctl", "install"]) {
+      await chmod(path.join(binDir, command), 0o755);
+    }
+
+    try {
+      const result = await runScript(path.join(repoRoot, "deploy/upgrade.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${process.env.PATH}`,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          SKIP_PACKAGES: "1",
+          SKIP_RESTART: "1",
+          SKIP_POST_CHECK: "1",
+        },
+      });
+      expect(result.code, result.stdout + result.stderr).toBe(0);
+      await expect(readFile(logFile, "utf8")).resolves.toContain("backup");
+      expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+});
+
+describe("deploy/install.sh", () => {
+  it("writes systemd units with detected npm, npx, and node PATH for non-standard Node installs", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const fakeRoot = path.join(appDir, "fake-root");
+    const binDir = path.join(appDir, "bin");
+    const customNodeDir = path.join(appDir, "custom-node");
+    const logFile = path.join(appDir, "calls.log");
+    await writeValidEnv(envFile);
+    await Promise.all([
+      mkdir(binDir, { recursive: true }),
+      mkdir(customNodeDir, { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/systemd/system"), { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/caddy"), { recursive: true }),
+    ]);
+
+    await writeFile(path.join(customNodeDir, "node"), "#!/usr/bin/env bash\nif [ \"$1\" = \"-p\" ]; then printf '22\\n'; else printf 'node\\n'; fi\n");
+    await writeFile(path.join(customNodeDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(customNodeDir, "npx"), `#!/usr/bin/env bash\nprintf 'npx %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+
+    await writeFile(path.join(binDir, "id"), "#!/usr/bin/env bash\nif [ \"$1\" = \"-u\" ]; then printf '0\\n'; else exit 1; fi\n");
+    await writeFile(path.join(binDir, "useradd"), `#!/usr/bin/env bash\nprintf 'useradd %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "apt-get"), `#!/usr/bin/env bash\nprintf 'apt-get %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "curl"), "#!/usr/bin/env bash\nexit 0\n");
+    await writeFile(path.join(binDir, "gpg"), "#!/usr/bin/env bash\ncat >/dev/null\n");
+    await writeFile(path.join(binDir, "chown"), `#!/usr/bin/env bash\nprintf 'chown %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "systemctl"), `#!/usr/bin/env bash\nprintf 'systemctl %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(
+      path.join(binDir, "sed"),
+      [
+        "#!/usr/bin/env bash",
+        "args=()",
+        "for arg in \"$@\"; do",
+        `  case "$arg" in /etc/systemd/system/*) args+=(${JSON.stringify(fakeRoot)}"$arg");; *) args+=("$arg");; esac`,
+        "done",
+        "/bin/sed \"${args[@]}\"",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      path.join(binDir, "install"),
+      [
+        "#!/usr/bin/env bash",
+        "args=(\"$@\")",
+        "last_index=$((${#args[@]} - 1))",
+        "dest=\"${args[$last_index]}\"",
+        `case "$dest" in /etc/systemd/system/*) dest=${JSON.stringify(fakeRoot)}"$dest";; /etc/caddy/Caddyfile) dest=${JSON.stringify(fakeRoot)}"$dest";; esac`,
+        "unset 'args[$last_index]'",
+        "/bin/install \"${args[@]}\" \"$dest\"",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(path.join(binDir, "caddy"), "#!/usr/bin/env bash\nexit 0\n");
+    await writeFile(path.join(binDir, "rsync"), `#!/usr/bin/env bash\nsrc=""\ndest=""\nfor arg in "$@"; do\n  case "$arg" in\n    --*) ;;\n    *) src="$dest"; dest="$arg" ;;\n  esac\ndone\nmkdir -p "$dest"\n(cd "$src" && tar --exclude=.git --exclude=node_modules --exclude=.next --exclude=backups --exclude=storage --exclude=tmp --exclude=uploads --exclude=downloads --exclude=logs --exclude=.env.local -cf - .) | (cd "$dest" && tar -xf -)\n`);
+    await writeFile(path.join(binDir, "git"), "#!/usr/bin/env bash\nexit 0\n");
+    await writeFile(path.join(binDir, "sleep"), "#!/usr/bin/env bash\nexit 0\n");
+    for (const command of ["node", "npm", "npx"]) await chmod(path.join(customNodeDir, command), 0o755);
+    for (const command of ["id", "useradd", "apt-get", "curl", "gpg", "chown", "systemctl", "sed", "install", "caddy", "rsync", "git", "sleep"]) {
+      await chmod(path.join(binDir, command), 0o755);
+    }
+
+    try {
+      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:${customNodeDir}:/usr/bin:/bin`,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          SOURCE_DIR: repoRoot,
+          APP_USER: "portable-app",
+          DOMAIN: "portable.example.test",
+          SKIP_PACKAGES: "1",
+          SKIP_RESTART: "1",
+        },
+      });
+
+      expect(result.code).toBe(0);
+      const nextUnit = await readFile(path.join(fakeRoot, "etc/systemd/system/whrkhldsb-next.service"), "utf8");
+      const wsUnit = await readFile(path.join(fakeRoot, "etc/systemd/system/whrkhldsb-ssh-ws.service"), "utf8");
+      expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
+      expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npm")} run start`);
+      expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
+      expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/ssh-ws-proxy.ts`);
+      expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
 });

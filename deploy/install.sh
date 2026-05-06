@@ -32,6 +32,35 @@ shell_escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\&]/\\&/g'
 }
 
+resolve_command() {
+  local command_name="$1" resolved=""
+  resolved="$(command -v "${command_name}" 2>/dev/null || true)"
+  [ -n "${resolved}" ] || fail "Required command not found: ${command_name}"
+  case "${resolved}" in
+    /*) printf '%s\n' "${resolved}" ;;
+    *) fail "Required command did not resolve to an absolute path: ${command_name}" ;;
+  esac
+}
+
+build_systemd_path() {
+  local node_path="$1" npm_path="$2" npx_path="$3"
+  local path_value="" dir candidate
+  for candidate in "${node_path}" "${npm_path}" "${npx_path}"; do
+    dir="$(dirname "${candidate}")"
+    case ":${path_value}:" in
+      *":${dir}:"*) ;;
+      *) path_value="${path_value:+${path_value}:}${dir}" ;;
+    esac
+  done
+  for dir in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin; do
+    case ":${path_value}:" in
+      *":${dir}:"*) ;;
+      *) path_value="${path_value}:${dir}" ;;
+    esac
+  done
+  printf '%s\n' "${path_value}"
+}
+
 is_placeholder_value() {
   local value="${1:-}"
   case "${value}" in
@@ -187,11 +216,19 @@ build_app() {
 
 install_systemd() {
   log "Installing systemd units"
+  local node_bin npm_bin npx_bin systemd_path
+  node_bin="$(resolve_command node)"
+  npm_bin="$(resolve_command npm)"
+  npx_bin="$(resolve_command npx)"
+  systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
   install -m 0644 "${APP_DIR}/deploy/systemd/whrkhldsb-next.service.example" "/etc/systemd/system/${APP_NAME}-next.service"
   install -m 0644 "${APP_DIR}/deploy/systemd/whrkhldsb-ssh-ws.service.example" "/etc/systemd/system/${APP_NAME}-ssh-ws.service"
   sed -i \
     -e "s#WorkingDirectory=.*#WorkingDirectory=${APP_DIR}#" \
     -e "s#EnvironmentFile=.*#EnvironmentFile=${ENV_FILE}#" \
+    -e "s#Environment=PATH=.*#Environment=PATH=${systemd_path}#" \
+    -e "s#ExecStart=.*npm run start#ExecStart=${npm_bin} run start#" \
+    -e "s#ExecStart=.*npx tsx src/ssh-ws-proxy.ts#ExecStart=${npx_bin} tsx src/ssh-ws-proxy.ts#" \
     -e "s#User=.*#User=${APP_USER}#" \
     -e "s#Group=.*#Group=${APP_USER}#" \
     "/etc/systemd/system/${APP_NAME}-next.service" "/etc/systemd/system/${APP_NAME}-ssh-ws.service"

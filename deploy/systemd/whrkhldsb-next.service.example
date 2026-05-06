@@ -8,6 +8,7 @@ Type=simple
 WorkingDirectory=/opt/whrkhldsb
 EnvironmentFile=/opt/whrkhldsb/.env.local
 Environment=NODE_ENV=production
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=5
