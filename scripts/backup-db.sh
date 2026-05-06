@@ -35,9 +35,17 @@ fi
 BACKUP_DIR="${BACKUP_DIR:-${APP_DIR}/backups}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-BACKUP_FILE="${BACKUP_DIR}/whrkhldsb_${TIMESTAMP}.sql.gz"
+if [ "${1:-}" != "" ]; then
+  BACKUP_FILE="$1"
+  case "${BACKUP_FILE}" in
+    /*) ;;
+    *) BACKUP_FILE="${APP_DIR}/${BACKUP_FILE}" ;;
+  esac
+else
+  BACKUP_FILE="${BACKUP_DIR}/whrkhldsb_${TIMESTAMP}.sql.gz"
+fi
 
-mkdir -p "${BACKUP_DIR}"
+mkdir -p "${BACKUP_DIR}" "$(dirname "${BACKUP_FILE}")"
 
 echo "[$(date -Iseconds)] Starting backup: ${BACKUP_FILE}"
 

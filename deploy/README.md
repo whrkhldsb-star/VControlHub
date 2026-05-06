@@ -48,7 +48,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
 | 脚本 | 用途 | 示例 |
 | --- | --- | --- |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/whrkhldsb ENV_FILE=/opt/whrkhldsb/.env.local deploy/preflight.sh` |
-| `deploy/upgrade.sh` | 升级部署；默认跳过 OS 包安装并复用 `install.sh` 的构建/迁移/重启流程 | `sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/upgrade.sh` |
+| `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/upgrade.sh` |
 | `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/whrkhldsb CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
 | `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb deploy/backup.sh` |
 | `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/whrkhldsb scripts/restore-db.sh /var/backups/whrkhldsb/xxx.sql.gz` |
@@ -63,10 +63,16 @@ RUN_NPM_CHECKS=1 APP_DIR=/opt/whrkhldsb deploy/check.sh
 
 ```bash
 cd /path/to/whrkhldsb
-sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
+sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/upgrade.sh
 ```
 
-脚本会重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 并重启服务。
+`deploy/upgrade.sh` 默认会：
+
+1. 在 `$BACKUP_DIR`（默认 `$APP_DIR/backups`）创建 `pre-upgrade-*.dump` 数据库备份；
+2. 以 `SKIP_PACKAGES=1` 调用 `deploy/install.sh`，重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 并重启服务；
+3. 调用 `deploy/check.sh` 做本地 `/login`、systemd、运行目录和危险开关检查。
+
+可选开关：`SKIP_PRE_BACKUP=1` 跳过升级前备份，`SKIP_POST_CHECK=1` 跳过升级后自检，`CHECK_PUBLIC_URL=https://your.example.com` 增加公网 smoke。
 
 ## 数据库初始化示例
 
@@ -88,7 +94,7 @@ SQL
 - `DATABASE_URL`、`AUTH_SESSION_SECRET`、`ADMIN_INITIAL_PASSWORD` 仍为空或仍是占位值；
 - `AUTH_SESSION_SECRET` 少于 32 个字符；
 - `SSH_WS_ALLOWED_ORIGINS` 或公开标签仍是示例域名；
-- 生产安装中启用了 `ENABLE_DEMO_FALLBACK=true` 或 `SEED_DEMO_DATA=true`。
+- 生产安装中启用了 `ENABLE_DEMO_FALLBACK=true`、`AUTH_DEMO_FALLBACK=true`、`SERVER_DEMO_FALLBACK=true`、`STORAGE_DEMO_FALLBACK=true`、`COMMAND_DEMO_FALLBACK=true` 或 `SEED_DEMO_DATA=true`。
 
 `deploy/install.sh` 在正式构建前会自动调用 `deploy/preflight.sh`，提前检查基础命令、环境文件、占位符、Node/npm、PostgreSQL 客户端、端口占用、磁盘空间和运行目录。该脚本只输出变量名与检查结果，不打印数据库连接串、密码、token 或私钥值。
 

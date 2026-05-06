@@ -143,4 +143,64 @@ describe("deploy/preflight.sh", () => {
       await rm(appDir, { force: true, recursive: true });
     }
   });
+  it("upgrade script creates a pre-upgrade backup before delegating to install and check", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const binDir = path.join(appDir, "bin");
+    const logFile = path.join(appDir, "calls.log");
+    await writeFile(
+      envFile,
+      [
+        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+        `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
+        `${initialPasswordKey}="portable_initial_value"`,
+        "",
+      ].join("\n"),
+    );
+    await chmod(envFile, 0o600);
+    await import("node:fs/promises").then(({ mkdir }) => mkdir(binDir, { recursive: true }));
+    await writeFile(
+      path.join(binDir, "pg_dump"),
+      `#!/usr/bin/env bash\nprintf 'backup\\n'\nprintf 'backup\\n' >> ${JSON.stringify(logFile)}\n`,
+    );
+    await writeFile(
+      path.join(binDir, "rsync"),
+      `#!/usr/bin/env bash\nprintf 'rsync\\n' >> ${JSON.stringify(logFile)}\nsrc=""\ndest=""\nfor arg in "$@"; do\n  case "$arg" in\n    --*) ;;\n    *) src="$dest"; dest="$arg" ;;\n  esac\ndone\nmkdir -p "$dest/deploy/systemd"\nprintf '[Unit]\\nWorkingDirectory=/tmp\\nEnvironmentFile=/tmp/.env\\nUser=root\\nGroup=root\\n[Service]\\nExecStart=/bin/true\\n' > "$dest/deploy/systemd/whrkhldsb-next.service.example"\nprintf '[Unit]\\nWorkingDirectory=/tmp\\nEnvironmentFile=/tmp/.env\\nUser=root\\nGroup=root\\n[Service]\\nExecStart=/bin/true\\n' > "$dest/deploy/systemd/whrkhldsb-ssh-ws.service.example"\n`,
+    );
+    await writeFile(path.join(binDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "systemctl"), `#!/usr/bin/env bash\nprintf 'systemctl %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+    await writeFile(path.join(binDir, "install"), `#!/usr/bin/env bash\nprintf 'install %s\\n' "$*" >> ${JSON.stringify(logFile)}\n/bin/install "$@"\n`);
+    for (const command of ["pg_dump", "rsync", "npm", "systemctl", "install"]) {
+      await chmod(path.join(binDir, command), 0o755);
+    }
+
+    try {
+      const result = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
+        const child = spawn("bash", [path.join(repoRoot, "deploy/upgrade.sh")], {
+          cwd: repoRoot,
+          env: {
+            ...process.env,
+            PATH: `${binDir}:${process.env.PATH}`,
+            APP_DIR: appDir,
+            ENV_FILE: envFile,
+            SKIP_PACKAGES: "1",
+            SKIP_RESTART: "1",
+            SKIP_POST_CHECK: "1",
+          },
+        });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => { stdout += String(chunk); });
+        child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+        child.on("close", (code) => resolve({ code, stdout, stderr }));
+      });
+      expect(result.code).toBe(0);
+      await expect(readFile(logFile, "utf8")).resolves.toContain("backup");
+      expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+
 });
