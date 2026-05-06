@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AlertRulesPage() {
 	const session = await requireSession("/alert-rules");
-	const canManage = sessionHasPermission(session, "user:manage");
+	const canManage = sessionHasPermission(session, "notification:manage");
 
 	const [rules, servers] = await Promise.all([
 		canManage ? listAlertRules() : Promise.resolve([]),
@@ -20,7 +20,7 @@ export default async function AlertRulesPage() {
 		id: r.id, name: r.name, metric: r.metric, operator: r.operator,
 		threshold: r.threshold, durationSeconds: r.durationSeconds,
 		serverIds: r.serverIds, notifyChannels: r.notifyChannels,
-		webhookUrl: r.webhookUrl, cooldownMinutes: r.cooldownMinutes,
+		webhookConfigured: Boolean(r.webhookUrl), cooldownMinutes: r.cooldownMinutes,
 		enabled: r.enabled, lastTriggeredAt: r.lastTriggeredAt?.toISOString() ?? null,
 		createdAt: r.createdAt.toISOString(),
 	}));

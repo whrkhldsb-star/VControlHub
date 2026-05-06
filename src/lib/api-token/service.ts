@@ -1,15 +1,30 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 
-const TOKEN_BYTES = 32;
-const TOKEN_PREFIX = "whr_";
+const TOKEN_BYTES=32;
+const TOKEN_PREFIX="whr_";
+
+export const ALLOWED_API_TOKEN_SCOPES = [
+  "read",
+  "server:read",
+  "storage:read",
+  "health:read",
+  "status:read",
+] as const;
+const ALLOWED_API_TOKEN_SCOPE_SET = new Set<string>(ALLOWED_API_TOKEN_SCOPES);
+
+export function isAllowedApiTokenScope(scope: string) {
+  return ALLOWED_API_TOKEN_SCOPE_SET.has(scope);
+}
 
 export function hashApiToken(token: string) {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
 function normalizeScopes(scopes?: string[]) {
-  return Array.from(new Set((scopes ?? ["read"]).map((s) => s.trim()).filter(Boolean))).slice(0, 20);
+  return Array.from(new Set((scopes ?? ["read"]).map((s) => s.trim()).filter(Boolean)))
+    .filter(isAllowedApiTokenScope)
+    .slice(0, 20);
 }
 
 const API_TOKEN_SAFE_SELECT = {

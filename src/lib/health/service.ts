@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
 import { createNotification } from "@/lib/notification/service";
+import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -179,10 +180,10 @@ export async function evaluateAlerts() {
 			const message = `${rule.name}: ${rule.metric} ${rule.operator} ${rule.threshold} (当前: ${value})`;
 
 			if (rule.notifyChannels.includes("in_app")) {
-			const admins = await prisma.user.findMany({
-				where: { roles: { some: { role: { permissions: { some: { permission: { key: "user:manage" } } } } } } },
-				select: { id: true },
-			});
+				const admins = await prisma.user.findMany({
+					where: { roles: { some: { role: { permissions: { some: { permission: { key: "notification:manage" } } } } } } },
+					select: { id: true },
+				});
 				for (const admin of admins) {
 					await createNotification({
 						userId: admin.id,
@@ -196,7 +197,7 @@ export async function evaluateAlerts() {
 
 			if (rule.notifyChannels.includes("webhook") && rule.webhookUrl) {
 				try {
-					await fetch(rule.webhookUrl, {
+					await fetchWebhookSafely(rule.webhookUrl, {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ alert: rule.name, server: server.serverName, metric: rule.metric, value, threshold: rule.threshold, timestamp: new Date().toISOString() }),

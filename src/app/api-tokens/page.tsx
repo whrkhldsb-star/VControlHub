@@ -1,7 +1,48 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listApiTokens } from "@/lib/api-token/service";
-export const dynamic="force-dynamic";
-export default async function Page(){const session=await requireSession("/api-tokens"); if(!sessionHasPermission(session,"api-token:manage")) return <Shell>缺少权限</Shell>; const tokens=await listApiTokens(session.userId); return <Shell><h1 className="text-3xl font-semibold text-white">个人 API Token</h1><p className="mt-2 text-sm text-slate-400">创建后只展示一次明文，数据库仅保存哈希、前缀、尾缀、权限范围和过期时间。</p><div className="mt-6 grid gap-3">{tokens.map(t=><Card key={t.id}><div className="flex justify-between"><b>{t.name}</b><span className="text-xs text-slate-500">{t.revokedAt?"已撤销":"有效"}</span></div><p className="mt-2 font-mono text-xs text-slate-400">{t.tokenPrefix}…{t.tokenSuffix} · {t.scopes.join(", ")}</p></Card>)}{tokens.length===0&&<Card>暂无 Token，可通过 /api/api-tokens 创建。</Card>}</div></Shell>}
-function Shell({ children }: { children: React.ReactNode }) { return <main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100"><div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">{children}</div></main>; }
-function Card({children}:{children:React.ReactNode}){return <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">{children}</div>}
+import { ALLOWED_API_TOKEN_SCOPES, listApiTokens } from "@/lib/api-token/service";
+import { ApiTokenManagerClient } from "./api-token-manager-client";
+
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const session = await requireSession("/api-tokens");
+  if (!sessionHasPermission(session, "api-token:manage")) {
+    return <Shell><PermissionDenied /></Shell>;
+  }
+  const tokens = await listApiTokens(session.userId);
+  return (
+    <Shell>
+      <div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-[0.24em] text-cyan-300/70">Access Tokens</p>
+          <h1 className="mt-2 text-3xl font-semibold text-white">个人 API Token</h1>
+          <p className="mt-2 max-w-3xl text-sm text-slate-400">
+            用于脚本、监控或外部系统读取平台状态。创建后只展示一次明文，数据库仅保存哈希、前缀、尾缀、权限范围和过期时间。
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-xs text-slate-500">
+          建议为每个用途创建独立 Token，并设置最小权限与过期时间。
+        </div>
+      </div>
+      <ApiTokenManagerClient initialTokens={tokens} allowedScopes={ALLOWED_API_TOKEN_SCOPES} />
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100">
+      <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">{children}</div>
+    </main>
+  );
+}
+
+function PermissionDenied() {
+  return (
+    <section className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] p-6">
+      <h1 className="text-xl font-semibold text-rose-100">缺少权限</h1>
+      <p className="mt-2 text-sm text-rose-100/70">需要 api-token:manage 权限才能管理个人 API Token。</p>
+    </section>
+  );
+}

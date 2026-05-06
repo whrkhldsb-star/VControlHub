@@ -5,7 +5,7 @@ import { useState, useCallback } from "react";
 type AlertRule = {
 	id: string; name: string; metric: string; operator: string;
 	threshold: number; durationSeconds: number; serverIds: string[];
-	notifyChannels: string[]; webhookUrl: string | null;
+	notifyChannels: string[]; webhookConfigured: boolean;
 	cooldownMinutes: number; enabled: boolean;
 	lastTriggeredAt: string | null; createdAt: string;
 };
@@ -103,11 +103,16 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 												{ch === "in_app" ? "站内通知" : ch === "email" ? "邮件" : ch === "webhook" ? "Webhook" : ch}
 											</span>
 										))}
-										{rule.cooldownMinutes > 0 && (
-											<span className="rounded-md border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
-												冷却 {rule.cooldownMinutes}min
-											</span>
-										)}
+						{rule.webhookConfigured && (
+							<span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-200">
+								Webhook 已配置
+							</span>
+						)}
+						{rule.cooldownMinutes > 0 && (
+							<span className="rounded-md border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
+								冷却 {rule.cooldownMinutes}min
+							</span>
+						)}
 									</div>
 									{rule.lastTriggeredAt && (
 										<p className="mt-1 text-[11px] text-slate-600">上次触发：{new Date(rule.lastTriggeredAt).toLocaleString("zh-CN")}</p>
