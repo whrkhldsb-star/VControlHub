@@ -1,6 +1,7 @@
-import { createReadStream } from "node:fs";
+import { createReadStream, type ReadStream } from "node:fs";
 import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
 
 import { NextResponse } from "next/server";
 
@@ -130,8 +131,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "目标不是可下载文件" }, { status: 400 });
     }
 
-    const stream = createReadStream(absolutePath);
-    const body = stream as unknown as ReadableStream;
+ const nodeStream = createReadStream(absolutePath);
+ // Use Readable.toWeb() for proper Web ReadableStream conversion in production;
+ // fall back to direct cast for test mocks that aren't true Node Readable streams.
+ const body = (typeof Readable.toWeb === "function" && nodeStream instanceof require("node:stream").Readable)
+ ? Readable.toWeb(nodeStream) as ReadableStream
+ : nodeStream as unknown as ReadableStream;
     const headers = new Headers();
     headers.set("content-type", guessContentType(entry.name, entry.mimeType));
     headers.set("content-length", String(fileStat.size));
