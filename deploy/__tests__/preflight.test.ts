@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -286,5 +286,33 @@ describe("deploy/install.sh", () => {
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }
+  });
+});
+
+
+describe("compressed archive deployment entrypoints", () => {
+  it("includes a root one-click installer and archive packaging script", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const rootInstaller = path.join(repoRoot, "install.sh");
+    const archiveScript = path.join(repoRoot, "deploy/package.sh");
+
+    await expect(access(rootInstaller)).resolves.toBeUndefined();
+    await expect(access(archiveScript)).resolves.toBeUndefined();
+
+    for (const script of [rootInstaller, archiveScript]) {
+      const result = await runScript(script, {
+        cwd: repoRoot,
+        env: { ...process.env, CHECK_SYNTAX_ONLY: "1" },
+      });
+      expect(result.code, result.stdout + result.stderr).toBe(0);
+    }
+
+    const installer = await readFile(rootInstaller, "utf8");
+    const packager = await readFile(archiveScript, "utf8");
+    expect(installer).toContain("SOURCE_DIR");
+    expect(installer).toContain("deploy/install.sh");
+    expect(packager).toContain(".env.local");
+    expect(packager).toContain("node_modules");
+    expect(packager).toContain("whrkhldsb-release");
   });
 });

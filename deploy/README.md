@@ -17,7 +17,30 @@ sudoedit /opt/whrkhldsb/.env.local
 sudo APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com REPO_URL=git@github.com:your-org/whrkhldsb.git /opt/whrkhldsb/deploy/install.sh
 ```
 
-### 方式 B：不上公网仓库，从旧服务器/本地目录同步部署
+### 方式 B：压缩包部署，解压后直接运行一键脚本
+
+适合离线交付、面板上传、对象存储下载、U 盘拷贝等场景。先在当前服务器生成不含敏感数据和运行数据的发布包：
+
+```bash
+cd /root/whrkhldsb
+./deploy/package.sh
+# 输出示例：/root/whrkhldsb/dist/whrkhldsb-release-YYYYMMDD-HHMMSS.tar.gz
+```
+
+把压缩包传到新服务器后：
+
+```bash
+tar -xzf whrkhldsb-release-YYYYMMDD-HHMMSS.tar.gz
+cd whrkhldsb-release
+sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb ./install.sh
+# 首次运行会生成 /opt/whrkhldsb/.env.local 并停止；编辑后重新运行。
+sudoedit /opt/whrkhldsb/.env.local
+sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb ./install.sh
+```
+
+`deploy/package.sh` 默认排除 `.env.local`、`.env.*.local`、私钥、数据库/备份、`node_modules`、`.next`、上传/下载/日志/临时文件和运行态云盘数据。
+
+### 方式 C：不上公网仓库，从旧服务器/本地目录同步部署
 
 适合代码只保留在当前服务器或内网机器。先把源码传到新服务器，再用 `SOURCE_DIR` 同步到最终安装目录。
 
@@ -35,7 +58,7 @@ sudoedit /opt/whrkhldsb/.env.local
 sudo SOURCE_DIR=/root/whrkhldsb-src APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
 ```
 
-### 已有源码目录时
+### 方式 D：已有源码目录时
 
 ```bash
 cd /path/to/whrkhldsb
