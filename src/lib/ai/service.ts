@@ -103,7 +103,7 @@ export async function getProviderById(id: string, userId: string) {
 }
 
 export async function updateProvider(id: string, userId: string, input: UpdateProviderInput) {
-  const existing = await getProviderById(id, userId);
+  await getProviderById(id, userId); // validate ownership
 
   if (input.isDefault) {
     await prisma.aiProvider.updateMany({
@@ -392,11 +392,6 @@ function detectModelCapabilities(modelId: string): ModelCapabilities {
  isO4Vision;
 
   return { vision, document, video, audio };
-}
-
-/** Backward-compatible shorthand */
-function isVisionModel(modelId: string): boolean {
-  return detectModelCapabilities(modelId).vision;
 }
 
 /* ── Chat Proxy ─────────────────────────────────────────────── */

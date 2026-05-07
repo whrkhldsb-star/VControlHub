@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -197,13 +198,12 @@ function buildAcceptString(caps: ModelCapabilities): string {
 
 /* ── Main Component ─────────────────────────────────────────── */
 export function AiClient({
-  userId,
-  initialProviders,
-  initialConversations,
+	initialProviders,
+	initialConversations,
 }: {
-  userId: string;
-  initialProviders: Provider[];
-  initialConversations: ConvItem[];
+	userId: string;
+	initialProviders: Provider[];
+	initialConversations: ConvItem[];
 }) {
   const [providers, setProviders] = useState(initialProviders);
   const [conversations, setConversations] = useState(initialConversations);
@@ -306,7 +306,7 @@ export function AiClient({
     setTimeout(() => setFileRejectionMsg(null), 4000);
   }, []);
 
-  const handleFileSelect = async (files: FileList | File[]) => {
+  const handleFileSelect = useCallback(async (files: FileList | File[]) => {
     const fileArr = Array.from(files);
     for (const file of fileArr) {
       // Size limit: 20MB
@@ -426,10 +426,10 @@ export function AiClient({
           showRejection(`❌ 不支持的文件类型: ${file.name}。当前模型可接受：${formatAllowedTypes(currentModelCaps)}`);
         }
       }
-    }
-  };
+	}
+	}, [currentModelCaps, activeConv?.enableVision, activeConv?.model, showRejection]);
 
-  // Paste handler — only images for now (browsers don't paste other types)
+	// Paste handler — only images for now (browsers don't paste other types)
   const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -506,7 +506,7 @@ export function AiClient({
 
   // Add optimistic user message
     const optimisticUser: Message = {
-      id: `temp-${Date.now()}`,
+      id: `temp-${crypto.randomUUID()}`,
       conversationId: activeConvId,
       role: "user",
       content: userMsg,
@@ -579,7 +579,7 @@ export function AiClient({
               setStreamReasoning(finalReasoning);
             } else if (parsed.type === "done") {
               const assistantMsg: Message = {
-                id: `stream-${Date.now()}`,
+                id: `stream-${crypto.randomUUID()}`,
                 conversationId: activeConvId,
                 role: "assistant",
                 content: finalContent || "(无响应)",
@@ -750,8 +750,7 @@ const renderContent = (content: string) => {
  let i = 0;
  let listItems: string[] = [];
  let listType: "ul" | "ol" | null = null;
- let tableRows: string[][] = [];
- let inTable = false;
+	let tableRows: string[][] = [];
 
  const flushList = () => {
  if (listItems.length > 0) {
@@ -792,9 +791,8 @@ const renderContent = (content: string) => {
  </table>
  </div>
  );
- tableRows = [];
- inTable = false;
- }
+		tableRows = [];
+	}
  };
 
  while (i < lines.length) {
@@ -880,9 +878,8 @@ const renderContent = (content: string) => {
  i++;
  continue;
  }
- tableRows.push(cells);
- inTable = true;
- i++;
+		tableRows.push(cells);
+		i++;
  continue;
  }
 
@@ -1546,21 +1543,21 @@ const renderContent = (content: string) => {
                       try {
                         const urls: string[] = JSON.parse(msg.imageUrls || "[]");
                         if (urls.length === 0) return null;
-                        return (
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {urls.map((url, i) => (
-                              <img
-                                key={i}
-                                src={url}
-                                alt={`附件 ${i + 1}`}
-                                className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none";
-                                }}
-                              />
-                            ))}
-                          </div>
-                        );
+return (
+						<div className="flex flex-wrap gap-2 mt-2">
+							{urls.map((url, i) => (
+								<img
+									key={i}
+									src={url}
+									alt={`附件 ${i + 1}`}
+									className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10"
+									onError={(e) => {
+										(e.target as HTMLImageElement).style.display = "none";
+									}}
+								/>
+							))}
+						</div>
+					);
                       } catch {
                         return null;
                       }
@@ -1643,8 +1640,8 @@ const renderContent = (content: string) => {
                 <div className="flex flex-wrap gap-2 py-2">
                   {/* URL-based images */}
                   {imageUrls.map((url, i) => (
-                    <div key={`url-${i}`} className="relative group">
-                      <img src={url} alt="" className="w-12 h-12 rounded object-cover border border-white/10" />
+ <div key={`url-${i}`} className="relative group">
+					<img src={url} alt="" className="w-12 h-12 rounded object-cover border border-white/10" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
                         className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
@@ -1656,8 +1653,8 @@ const renderContent = (content: string) => {
                 {/* File attachments */}
                 {fileAttachments.map((file, i) => (
                   <div key={`file-${i}`} className="relative group">
-                    {file.type === "image" && file.preview ? (
-                      <img src={file.preview} alt={file.name} className="w-12 h-12 rounded object-cover border border-white/10" />
+ {file.type === "image" && file.preview ? (
+						<img src={file.preview} alt={file.name} className="w-12 h-12 rounded object-cover border border-white/10" />
                     ) : (
                       <div className="w-12 h-12 rounded border border-white/10 bg-black/30 flex flex-col items-center justify-center">
                         {file.mimeType.startsWith("video/") ? (

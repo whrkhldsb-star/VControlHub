@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile as writeFileToDisk } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile as writeFileToDisk } from "node:fs/promises";
 import * as path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
@@ -25,7 +25,6 @@ vi.mock("@/lib/db", () => ({
  prisma: mockPrisma,
  isDatabaseUnavailableError: vi.fn(() => false),
 }));
-
 import {
 	createFileEntry,
 	createStorageNode,

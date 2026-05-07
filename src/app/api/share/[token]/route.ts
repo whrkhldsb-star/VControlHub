@@ -2,10 +2,9 @@ import { NextResponse } from "next/server";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
 
-import { prisma } from "@/lib/db";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
+import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { resolveShareToken } from "@/lib/share-link/service";
 
 export const dynamic = "force-dynamic";
@@ -74,10 +73,7 @@ export async function GET(
 		}
 
 		const nodeStream = createReadStream(absolutePath);
-		const body =
-			typeof Readable.toWeb === "function" && nodeStream instanceof require("node:stream").Readable
-				? (Readable.toWeb(nodeStream) as ReadableStream)
-				: (nodeStream as unknown as ReadableStream);
+		const body = nodeStreamToWeb(nodeStream);
 
 		const headers = new Headers();
 		headers.set("content-type", guessContentType(share.name || share.path));

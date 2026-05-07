@@ -1,10 +1,10 @@
-import { createReadStream, type ReadStream } from "node:fs";
+import { createReadStream } from "node:fs";
 import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
 
 import { NextResponse } from "next/server";
 
+import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
@@ -139,22 +139,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "目标不是可下载文件" }, { status: 400 });
     }
 
- const nodeStream = createReadStream(absolutePath);
- // Use Readable.toWeb() for proper Web ReadableStream conversion in production;
- // fall back to direct cast for test mocks that aren't true Node Readable streams.
- const body = (typeof Readable.toWeb === "function" && nodeStream instanceof require("node:stream").Readable)
- ? Readable.toWeb(nodeStream) as ReadableStream
- : nodeStream as unknown as ReadableStream;
-    const headers = new Headers();
-    headers.set("content-type", guessContentType(entry.name, entry.mimeType));
-    headers.set("content-length", String(fileStat.size));
-    headers.set("cache-control", "private, no-store");
- headers.set(
- "content-disposition",
- buildContentDisposition(download ? "attachment" : "inline", entry.name),
- );
+	const nodeStream = createReadStream(absolutePath);
+	const body = nodeStreamToWeb(nodeStream);
+	const headers = new Headers();
+	headers.set("content-type", guessContentType(entry.name, entry.mimeType));
+	headers.set("content-length", String(fileStat.size));
+	headers.set("cache-control", "private, no-store");
+	headers.set(
+		"content-disposition",
+		buildContentDisposition(download ? "attachment" : "inline", entry.name),
+	);
 
- return new Response(body, { status: 200, headers });
+	return new Response(body, { status: 200, headers });
  } catch (downloadError) {
  logError("[/api/storage/local] download error:", downloadError);
  return NextResponse.json({ error: "文件不存在或暂时无法读取" }, { status: 404 });

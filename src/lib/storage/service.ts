@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import path from "node:path";

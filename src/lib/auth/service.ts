@@ -1,7 +1,6 @@
-import { isDatabaseUnavailableError, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 import { writeAuditLog } from "@/lib/audit/service";
-import { ADMIN_BOOTSTRAP, getInitialAdminPassword } from "./bootstrap";
 import { hashPassword, verifyPassword } from "./password";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
 import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";

@@ -42,7 +42,8 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_A_SECURE_ADMIN_PASSWORD"',
 		`NEXT_PUBLIC_APP_PUBLIC_LABEL="${domain}"`,
 		'SSH_WS_HOST="127.0.0.1"',
-		'SSH_WS_PORT="3001"',
+		'SSH_WS_PORT="${SSH_WS_PORT:-3001}"',
+		'PORT="${PORT:-3000}"',
 		`SSH_WS_ALLOWED_ORIGINS="https://${domain}"`,
 		...DANGEROUS_ENV_FLAGS.map((key) => `${key}="false"`),
 	].join("\n");
@@ -87,9 +88,9 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 	const caddyfile = [
 		`${domain} {`,
 		"  encode gzip zstd",
-		"  reverse_proxy /ssh 127.0.0.1:3001",
-		"  reverse_proxy /ssh/* 127.0.0.1:3001",
-		"  reverse_proxy 127.0.0.1:3000",
+		" reverse_proxy /ssh 127.0.0.1:{env.SSH_WS_PORT}",
+		" reverse_proxy /ssh/* 127.0.0.1:{env.SSH_WS_PORT}",
+		" reverse_proxy 127.0.0.1:{env.PORT}",
 		"}",
 		"",
 	].join("\n");
