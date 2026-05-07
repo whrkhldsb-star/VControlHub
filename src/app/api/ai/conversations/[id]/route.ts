@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
-  getConversationById,
-  updateConversation,
-  deleteConversation,
-  serializeConversation,
+ getConversationById,
+ updateConversation,
+ deleteConversation,
+ clearConversationMessages,
+ serializeConversation,
 } from "@/lib/ai/service";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,16 @@ export async function PATCH(
       return NextResponse.json({ error: "缺少权限" }, { status: 403 });
     const { id } = await params;
     const body = await request.json();
+
+    // Special action: clear all messages in the conversation
+    if (body.clearMessages) {
+      await clearConversationMessages(id, session.userId);
+      const conv = await getConversationById(id, session.userId);
+      return NextResponse.json({
+        conversation: serializeConversation(conv),
+      });
+    }
+
     const conv = await updateConversation(id, session.userId, body);
     return NextResponse.json({
       conversation: {

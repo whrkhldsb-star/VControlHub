@@ -178,6 +178,7 @@ export async function POST(request: Request) {
   // Stream SSE response back to client
   const encoder = new TextEncoder();
   const startTime = chatResult.startTime;
+  const providerType = chatResult.providerType;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -214,28 +215,55 @@ export async function POST(request: Request) {
 
             try {
               const parsed = JSON.parse(data);
-              const delta = parsed.choices?.[0]?.delta;
 
-              if (delta?.reasoning_content) {
-                fullReasoning += delta.reasoning_content;
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({ type: "reasoning", content: delta.reasoning_content })}\n\n`
-                  )
-                );
-              } else if (delta?.content) {
-                fullContent += delta.content;
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`
-                  )
-                );
-              }
+              if (providerType === "ANTHROPIC") {
+                // ── Anthropic SSE format ──
+                // event: content_block_delta → delta.delta.text
+                // event: message_delta → delta.usage
+                if (parsed.type === "content_block_delta" && parsed.delta?.delta?.text) {
+                  fullContent += parsed.delta.delta.text;
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ type: "content", content: parsed.delta.delta.text })}\n\n`
+                    )
+                  );
+                } else if (parsed.type === "thinking_delta" && parsed.delta?.thinking) {
+                  fullReasoning += parsed.delta.thinking;
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ type: "reasoning", content: parsed.delta.thinking })}\n\n`
+                    )
+                  );
+                } else if (parsed.type === "message_delta" && parsed.usage) {
+                  outputTokens = parsed.usage.output_tokens ?? 0;
+                } else if (parsed.type === "message_start" && parsed.message?.usage) {
+                  inputTokens = parsed.message.usage.input_tokens ?? 0;
+                }
+              } else {
+                // ── OpenAI-compatible SSE format ──
+                const delta = parsed.choices?.[0]?.delta;
 
-              // Capture usage if present
-              if (parsed.usage) {
-                inputTokens = parsed.usage.prompt_tokens ?? 0;
-                outputTokens = parsed.usage.completion_tokens ?? 0;
+                if (delta?.reasoning_content) {
+                  fullReasoning += delta.reasoning_content;
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ type: "reasoning", content: delta.reasoning_content })}\n\n`
+                    )
+                  );
+                } else if (delta?.content) {
+                  fullContent += delta.content;
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`
+                    )
+                  );
+                }
+
+                // Capture usage if present
+                if (parsed.usage) {
+                  inputTokens = parsed.usage.prompt_tokens ?? 0;
+                  outputTokens = parsed.usage.completion_tokens ?? 0;
+                }
               }
             } catch {
               // Skip malformed JSON chunks
@@ -249,18 +277,20 @@ export async function POST(request: Request) {
         );
       }
 
-      // Save assistant message
+      // Save assistant message (always, even on error — partial content is valuable)
       const latencyMs = Date.now() - startTime;
-      await createMessage({
-        conversationId: conv.id,
-        role: "assistant",
-        content: fullContent || "(无响应内容)",
-        reasoningContent: fullReasoning || undefined,
-        model: conv.model,
-        inputTokens,
-        outputTokens,
-        latencyMs,
-      });
+      if (fullContent || fullReasoning) {
+        await createMessage({
+          conversationId: conv.id,
+          role: "assistant",
+          content: fullContent || "(无响应内容)",
+          reasoningContent: fullReasoning || undefined,
+          model: conv.model,
+          inputTokens,
+          outputTokens,
+          latencyMs,
+        });
+      }
 
       // Signal completion
       controller.enqueue(

@@ -86,10 +86,10 @@ export async function listProviders(userId: string) {
     where: { createdBy: userId },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
   });
-  // Mask API keys for listing
+  // Mask API keys for listing — only show last 4 chars
   return providers.map((p) => ({
     ...p,
-    apiKey: p.apiKey.slice(0, 8) + "..." + p.apiKey.slice(-4),
+    apiKey: "••••" + p.apiKey.slice(-4),
     apiKeyFull: undefined,
   }));
 }
@@ -199,9 +199,15 @@ export async function updateConversation(id: string, userId: string, input: Upda
 }
 
 export async function deleteConversation(id: string, userId: string) {
-  const existing = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
-  if (!existing) throw new Error("对话不存在");
-  return prisma.aiConversation.delete({ where: { id } });
+ const existing = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
+ if (!existing) throw new Error("对话不存在");
+ return prisma.aiConversation.delete({ where: { id } });
+}
+
+export async function clearConversationMessages(id: string, userId: string) {
+ const existing = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
+ if (!existing) throw new Error("对话不存在");
+ return prisma.aiMessage.deleteMany({ where: { conversationId: id } });
 }
 
 /* ── Messages ───────────────────────────────────────────────── */
@@ -329,65 +335,68 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 
 /** Detect detailed capabilities of a model from its ID */
 function detectModelCapabilities(modelId: string): ModelCapabilities {
-  const v = modelId.toLowerCase();
+ const v = modelId.toLowerCase();
 
-  // Vision: models that can accept images
-  const vision =
-    v.includes("vision") ||
-    v.includes("gpt-4o") ||
-    v.includes("gpt-4-turbo") ||
-    v.includes("gpt4-turbo") ||
-    v.includes("gpt-4e") ||
-    v.includes("claude-3") ||
-    v.includes("claude-3.5") ||
-    v.includes("claude-4") ||
-    v.includes("gemini") ||
-    v.includes("qwen-vl") ||
-    v.includes("qwen2-vl") ||
-    v.includes("qwen2.5-vl") ||
-    v.includes("glm-4v") ||
-    v.includes("llava") ||
-    v.includes("internvl") ||
-    v.includes("cogvlm") ||
-    v.includes("minicpm-v") ||
-    v.includes("pixtral") ||
-    v.includes("o1") ||
-    v.includes("o3") ||
-    v.includes("o4") ||
-    v.includes("deepseek-vl") ||
-    v.includes("yi-vision");
+ // o1/o3/o4 vision: only specific variants support images
+ const isO1Vision = v.includes("o1") && !v.includes("o1-mini") && !v.includes("o1-preview") && v.includes("o1-");
+ const isO3Vision = v.includes("o3") && !v.includes("o3-mini");
+ const isO4Vision = v.includes("o4");
 
-  // Document: models that can parse PDF/docs natively
-  const document =
-    v.includes("gemini-1.5") ||
-    v.includes("gemini-2") ||
-    v.includes("gemini-pro") ||
-    v.includes("claude-3.5-sonnet") ||
-    v.includes("claude-3.5-haiku") ||
-    v.includes("claude-4") ||
-    v.includes("gpt-4o") ||
-    v.includes("o1") ||
-    v.includes("o3") ||
-    v.includes("o4");
+ // Vision: models that can accept images
+ const vision =
+ v.includes("vision") ||
+ v.includes("gpt-4o") ||
+ v.includes("gpt-4-turbo") ||
+ v.includes("gpt4-turbo") ||
+ v.includes("gpt-4e") ||
+ v.includes("claude-3") ||
+ v.includes("claude-3.5") ||
+ v.includes("claude-4") ||
+ v.includes("gemini") ||
+ v.includes("qwen-vl") ||
+ v.includes("qwen2-vl") ||
+ v.includes("qwen2.5-vl") ||
+ v.includes("glm-4v") ||
+ v.includes("llava") ||
+ v.includes("internvl") ||
+ v.includes("cogvlm") ||
+ v.includes("minicpm-v") ||
+ v.includes("pixtral") ||
+ isO1Vision ||
+ isO3Vision ||
+ isO4Vision ||
+ v.includes("deepseek-vl") ||
+ v.includes("yi-vision");
 
-  // Video: models that can process video frames
-  const video =
-    v.includes("gemini-1.5") ||
-    v.includes("gemini-2") ||
-    v.includes("gemini-pro") ||
-    v.includes("qwen2-vl") ||
-    v.includes("qwen2.5-vl") ||
-    v.includes("gpt-4o") ||
-    v.includes("claude-4");
+ // Document: models that can parse PDF/docs natively
+ const document =
+ v.includes("gemini-1.5") ||
+ v.includes("gemini-2") ||
+ v.includes("gemini-pro") ||
+ v.includes("claude-3.5-sonnet") ||
+ v.includes("claude-3.5-haiku") ||
+ v.includes("claude-4") ||
+ v.includes("gpt-4o") ||
+ isO1Vision ||
+ isO3Vision ||
+ isO4Vision;
 
-  // Audio: models that can accept audio/speech input
-  const audio =
-    v.includes("gemini-2") ||
-    v.includes("gpt-4o-audio") ||
-    v.includes("gpt-4o-realtime") ||
-    v.includes("o1") ||
-    v.includes("o3") ||
-    v.includes("o4");
+ // Video: models that can process video frames
+ const video =
+ v.includes("gemini-1.5") ||
+ v.includes("gemini-2") ||
+ v.includes("gemini-pro") ||
+ v.includes("qwen2-vl") ||
+ v.includes("qwen2.5-vl") ||
+ v.includes("gpt-4o") ||
+ v.includes("claude-4");
+
+ // Audio: models that can accept audio/speech input
+ const audio =
+ v.includes("gemini-2") ||
+ v.includes("gpt-4o-audio") ||
+ v.includes("gpt-4o-realtime") ||
+ isO4Vision;
 
   return { vision, document, video, audio };
 }
@@ -422,34 +431,90 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
   if (!provider) throw new Error("提供商不存在或已禁用");
 
   const baseUrl = provider.baseUrl.replace(/\/+$/, "");
-  const url = `${baseUrl}/chat/completions`;
-
-  const body: Record<string, unknown> = {
-    model: req.model,
-    messages: req.messages,
-    temperature: req.temperature ?? 0.7,
-    max_tokens: req.max_tokens ?? 4096,
-    top_p: req.top_p ?? 1.0,
-    frequency_penalty: req.frequency_penalty ?? 0.0,
-    presence_penalty: req.presence_penalty ?? 0.0,
-    stream: req.stream ?? true,
-    ...(req.extraBody || {}),
-  };
-
-  // Build headers based on provider type
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  let url: string;
+  let body: Record<string, unknown>;
 
   if (provider.type === "ANTHROPIC") {
+    // ── Anthropic Messages API ──
+    // https://docs.anthropic.com/en/api/messages
+    url = `${baseUrl}/messages`;
     headers["x-api-key"] = provider.apiKey;
     headers["anthropic-version"] = "2023-06-01";
+
+    // Extract system prompt from messages (Anthropic sends it separately)
+    const systemMsg = req.messages.find((m) => m.role === "system");
+    const chatMessages = req.messages.filter((m) => m.role !== "system");
+
+    // Convert OpenAI-style content parts to Anthropic format
+    const anthropicMessages = chatMessages.map((m) => {
+      if (typeof m.content === "string") {
+        return { role: m.role, content: m.content };
+      }
+      // Multimodal: convert image_url → Anthropic image blocks
+      const parts: Array<{ type: string; text?: string; source?: Record<string, unknown> }> = [];
+      for (const part of m.content as Array<{ type: string; text?: string; image_url?: { url: string } }>) {
+        if (part.type === "text") {
+          parts.push({ type: "text", text: part.text });
+        } else if (part.type === "image_url" && part.image_url) {
+          const imgSrc = part.image_url.url;
+          if (imgSrc.startsWith("data:")) {
+            // data:image/png;base64,xxxx → extract
+            const match = imgSrc.match(/^data:([^;]+);base64,(.+)$/);
+            if (match) {
+              parts.push({
+                type: "image",
+                source: { type: "base64", media_type: match[1], data: match[2] },
+              });
+            }
+          } else {
+            parts.push({
+              type: "image",
+              source: { type: "url", url: imgSrc },
+            });
+          }
+        }
+      }
+      return { role: m.role, content: parts };
+    });
+
+    body = {
+      model: req.model,
+      messages: anthropicMessages,
+      ...(systemMsg && { system: typeof systemMsg.content === "string" ? systemMsg.content : "" }),
+      max_tokens: req.max_tokens ?? 4096,
+      temperature: req.temperature ?? 0.7,
+      top_p: req.top_p ?? 1.0,
+      stream: req.stream ?? true,
+    };
   } else if (provider.type === "GOOGLE") {
-    // Google uses key in query string, but some proxies accept header
+    // ── Google Gemini API ──
+    // Use OpenAI-compatible proxy if available; otherwise native format
+    url = `${baseUrl}/chat/completions`;
     headers["Authorization"] = `Bearer ${provider.apiKey}`;
+    body = {
+      model: req.model,
+      messages: req.messages,
+      temperature: req.temperature ?? 0.7,
+      max_tokens: req.max_tokens ?? 4096,
+      top_p: req.top_p ?? 1.0,
+      stream: req.stream ?? true,
+    };
   } else {
-    // OpenAI / OpenAI-Compatible
+    // ── OpenAI / OpenAI-Compatible ──
+    url = `${baseUrl}/chat/completions`;
     headers["Authorization"] = `Bearer ${provider.apiKey}`;
+    body = {
+      model: req.model,
+      messages: req.messages,
+      temperature: req.temperature ?? 0.7,
+      max_tokens: req.max_tokens ?? 4096,
+      top_p: req.top_p ?? 1.0,
+      frequency_penalty: req.frequency_penalty ?? 0.0,
+      presence_penalty: req.presence_penalty ?? 0.0,
+      stream: req.stream ?? true,
+      ...(req.extraBody || {}),
+    };
   }
 
   const startTime = Date.now();
@@ -464,7 +529,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
     throw new Error(`AI 请求失败 (${response.status}): ${errText.slice(0, 500)}`);
   }
 
-  return { response, startTime };
+  return { response, startTime, providerType: provider.type };
 }
 
 /* ── Serialization ──────────────────────────────────────────── */

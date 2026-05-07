@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 /* ── Types ──────────────────────────────────────────────────── */
 interface Provider {
@@ -78,6 +78,10 @@ interface FileAttachment {
 /** Client-side model capability detection (mirrors server logic) */
 function detectCapabilities(modelId: string): ModelCapabilities {
   const v = modelId.toLowerCase();
+  // Vision: o1/o3/o4 only specific variants support images
+  const isO1Vision = v.includes("o1") && !v.includes("o1-mini") && !v.includes("o1-preview") && v.includes("o1-");
+  const isO3Vision = v.includes("o3") && !v.includes("o3-mini");
+  const isO4Vision = v.includes("o4");
   const vision =
     v.includes("vision") || v.includes("gpt-4o") || v.includes("gpt-4-turbo") ||
     v.includes("gpt4-turbo") || v.includes("gpt-4e") || v.includes("claude-3") ||
@@ -85,20 +89,20 @@ function detectCapabilities(modelId: string): ModelCapabilities {
     v.includes("qwen-vl") || v.includes("qwen2-vl") || v.includes("qwen2.5-vl") ||
     v.includes("glm-4v") || v.includes("llava") || v.includes("internvl") ||
     v.includes("cogvlm") || v.includes("minicpm-v") || v.includes("pixtral") ||
-    v.includes("o1") || v.includes("o3") || v.includes("o4") ||
+    isO1Vision || isO3Vision || isO4Vision ||
     v.includes("deepseek-vl") || v.includes("yi-vision");
   const document =
     v.includes("gemini-1.5") || v.includes("gemini-2") || v.includes("gemini-pro") ||
     v.includes("claude-3.5-sonnet") || v.includes("claude-3.5-haiku") ||
-    v.includes("claude-4") || v.includes("gpt-4o") || v.includes("o1") ||
-    v.includes("o3") || v.includes("o4");
+    v.includes("claude-4") || v.includes("gpt-4o") || isO1Vision ||
+    isO3Vision || isO4Vision;
   const video =
     v.includes("gemini-1.5") || v.includes("gemini-2") || v.includes("gemini-pro") ||
     v.includes("qwen2-vl") || v.includes("qwen2.5-vl") || v.includes("gpt-4o") ||
     v.includes("claude-4");
   const audio =
     v.includes("gemini-2") || v.includes("gpt-4o-audio") || v.includes("gpt-4o-realtime") ||
-    v.includes("o1") || v.includes("o3") || v.includes("o4");
+    isO4Vision;
   return { vision, document, video, audio };
 }
 
@@ -219,10 +223,12 @@ export function AiClient({
   const [modelsLoading, setModelsLoading] = useState(false);
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
-  const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+ const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
+ const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+ const messagesEndRef = useRef<HTMLDivElement | null>(null);
+ const fileInputRef = useRef<HTMLInputElement | null>(null);
+ const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+ const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeConv = conversations.find((c) => c.id === activeConvId);
   const activeProvider = activeConv
@@ -455,10 +461,28 @@ export function AiClient({
     e.stopPropagation();
   }, []);
 
+  /* ── Stop Generation ─────────────────────────────────────────── */
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setStreaming(false);
+    // Re-fetch to get the partial saved message from server
+    if (activeConvId) {
+      fetch(`/api/ai/conversations/${activeConvId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.conversation?.messages) setMessages(data.conversation.messages);
+        })
+        .catch(() => {});
+    }
+  };
+
   /* ── Send Message ──────────────────────────────────────────── */
   const handleSend = async () => {
-    if (!input.trim() || !activeConvId || streaming) return;
-    // Allow sending with just files (no text required if files present)
+    if (!activeConvId || streaming) return;
+    // Require either text input or file attachments
     if (!input.trim() && fileAttachments.length === 0) return;
     const userMsg = input.trim() || "(附件)";
     const userImages = [...imageUrls];
@@ -472,11 +496,15 @@ export function AiClient({
       .filter((f) => f.type === "image" && f.preview)
       .map((f) => f.preview!);
 
-    setInput("");
-    setImageUrls([]);
-    setFileAttachments([]);
+  setInput("");
+  setImageUrls([]);
+  setFileAttachments([]);
 
-    // Add optimistic user message
+  // Set up abort controller for stop generation
+  const abortController = new AbortController();
+  abortControllerRef.current = abortController;
+
+  // Add optimistic user message
     const optimisticUser: Message = {
       id: `temp-${Date.now()}`,
       conversationId: activeConvId,
@@ -490,23 +518,29 @@ export function AiClient({
       latencyMs: null,
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimisticUser]);
-    setStreaming(true);
-    setStreamContent("");
-    setStreamReasoning("");
+  setMessages((prev) => [...prev, optimisticUser]);
+  setStreaming(true);
+  setStreamContent("");
+  setStreamReasoning("");
+
+  // Auto-title on first message
+  if (messages.length === 0) {
+    autoTitle(activeConvId, userMsg);
+  }
 
     try {
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversationId: activeConvId,
-          content: userMsg,
-          imageUrls: userImages,
-          imageBase64: userImageBase64,
-          fileAttachments: userFiles,
-        }),
-      });
+    const response = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        conversationId: activeConvId,
+        content: userMsg,
+        imageUrls: userImages,
+        imageBase64: userImageBase64,
+        fileAttachments: userFiles,
+      }),
+      signal: abortController.signal,
+    });
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: "请求失败" }));
@@ -566,12 +600,17 @@ export function AiClient({
           }
         }
       }
-    } catch {
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      // User stopped generation — don't show error
+    } else {
       setStreamContent("❌ 网络错误");
-    } finally {
-      setStreaming(false);
-      setStreamContent("");
-      setStreamReasoning("");
+    }
+  } finally {
+    setStreaming(false);
+    setStreamContent("");
+    setStreamReasoning("");
+    abortControllerRef.current = null;
       if (activeConvId) {
         fetch(`/api/ai/conversations/${activeConvId}`)
           .then((r) => r.json())
@@ -611,6 +650,20 @@ export function AiClient({
     }
   };
 
+  /* ── Auto-title: generate from first message ──────────────── */
+  const autoTitle = useCallback(async (convId: string, firstMsg: string) => {
+    const title = firstMsg.slice(0, 30).replace(/\n/g, " ").trim();
+    if (!title || title === "(附件)") return;
+    try {
+      await fetch(`/api/ai/conversations/${convId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title + (firstMsg.length > 30 ? "..." : "") }),
+      });
+      refreshConversations();
+    } catch { /* ignore */ }
+  }, [refreshConversations]);
+
   /* ── Delete Conversation ──────────────────────────────────── */
   const handleDeleteConv = async (id: string) => {
     if (!confirm("确定删除此对话？")) return;
@@ -619,38 +672,260 @@ export function AiClient({
     refreshConversations();
   };
 
-  /* ── Render Message Content ────────────────────────────────── */
-  const renderContent = (content: string) => {
-    const parts = content.split(/(```[\s\S]*?```)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("```") && part.endsWith("```")) {
-        const lines = part.slice(3, -3).split("\n");
-        const lang = lines[0]?.trim() || "";
-        const code = lang ? lines.slice(1).join("\n") : lines.join("\n");
-        return (
-          <pre key={i} className="bg-black/40 rounded-lg p-3 my-2 overflow-x-auto text-xs leading-relaxed">
-            {lang && <div className="text-cyan-400/60 text-[10px] mb-1">{lang}</div>}
-            <code>{code}</code>
-          </pre>
-        );
-      }
-      const inlineParts = part.split(/(`[^`]+`)/g);
-      return (
-        <span key={i}>
-          {inlineParts.map((ip, j) => {
-            if (ip.startsWith("`") && ip.endsWith("`")) {
-              return (
-                <code key={j} className="bg-black/30 px-1.5 py-0.5 rounded text-cyan-300 text-xs">
-                  {ip.slice(1, -1)}
-                </code>
-              );
-            }
-            return <span key={j}>{ip}</span>;
-          })}
-        </span>
-      );
-    });
-  };
+/* ── Escape HTML to prevent XSS ──────────────────────────────── */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+/* ── Copy to clipboard ──────────────────────────────────────── */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/* ── Render inline markdown (bold, italic, code, links, strikethrough) ─ */
+const renderInline = (text: string): React.ReactNode[] => {
+ // Split by inline code first, then process formatting in non-code parts
+ const codeParts = text.split(/(`[^`]+`)/g);
+ const result: React.ReactNode[] = [];
+ codeParts.forEach((cp, ci) => {
+ if (cp.startsWith("`") && cp.endsWith("`")) {
+ result.push(
+ <code key={`c-${ci}`} className="bg-black/30 px-1.5 py-0.5 rounded text-cyan-300 text-xs">
+ {cp.slice(1, -1)}
+ </code>
+ );
+ return;
+ }
+ // Process formatting: **bold**, *italic*, ~~strike~~, [link](url)
+ const fmtParts = cp.split(/(\*\*[^*]+\*\*|\*[^*]+\*|~~[^~]+~~|\[[^\]]+\]\([^)]+\))/g);
+ fmtParts.forEach((fp, fi) => {
+ if (fp.startsWith("**") && fp.endsWith("**")) {
+ result.push(<strong key={`b-${ci}-${fi}`}>{fp.slice(2, -2)}</strong>);
+ } else if (fp.startsWith("*") && fp.endsWith("*") && !fp.startsWith("**")) {
+ result.push(<em key={`i-${ci}-${fi}`}>{fp.slice(1, -1)}</em>);
+ } else if (fp.startsWith("~~") && fp.endsWith("~~")) {
+ result.push(<s key={`s-${ci}-${fi}`}>{fp.slice(2, -2)}</s>);
+ } else if (/^\[.+\]\(.+\)$/.test(fp)) {
+ const linkMatch = fp.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+ if (linkMatch) {
+ result.push(
+ <a key={`a-${ci}-${fi}`} href={linkMatch[2]} target="_blank" rel="noopener noreferrer"
+ className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30">
+ {linkMatch[1]}
+ </a>
+ );
+ } else {
+ result.push(<span key={`t-${ci}-${fi}`}>{escapeHtml(fp)}</span>);
+ }
+ } else {
+ result.push(<span key={`t-${ci}-${fi}`}>{escapeHtml(fp)}</span>);
+ }
+ });
+ });
+ return result;
+};
+
+/* ── Render Message Content (full markdown: headings, lists, links, code, tables) ─ */
+const renderContent = (content: string) => {
+ // 1. Extract fenced code blocks first (they must not be processed)
+ const codeBlocks: string[] = [];
+ const withoutCode = content.replace(/(```[\s\S]*?```)/g, (m) => {
+ codeBlocks.push(m);
+ return `\x00CODE${codeBlocks.length - 1}\x00`;
+ });
+
+ // 2. Split into lines for block-level processing
+ const lines = withoutCode.split("\n");
+ const elements: React.ReactNode[] = [];
+ let i = 0;
+ let listItems: string[] = [];
+ let listType: "ul" | "ol" | null = null;
+ let tableRows: string[][] = [];
+ let inTable = false;
+
+ const flushList = () => {
+ if (listItems.length > 0) {
+ const Tag = listType === "ol" ? "ol" : "ul";
+ elements.push(
+ <Tag key={`list-${elements.length}`} className={`ml-4 my-1.5 ${listType === "ol" ? "list-decimal" : "list-disc"} text-xs text-slate-300 space-y-0.5`}>
+ {listItems.map((li, liIdx) => (
+ <li key={liIdx}>{renderInline(li)}</li>
+ ))}
+ </Tag>
+ );
+ listItems = [];
+ listType = null;
+ }
+ };
+
+ const flushTable = () => {
+ if (tableRows.length > 0) {
+ elements.push(
+ <div key={`tbl-${elements.length}`} className="my-2 overflow-x-auto">
+ <table className="text-xs border-collapse w-full">
+ <thead>
+ <tr>
+ {tableRows[0]?.map((cell, ci) => (
+ <th key={ci} className="border border-white/10 px-2 py-1 text-left text-cyan-400/80 bg-black/20">{renderInline(cell)}</th>
+ ))}
+ </tr>
+ </thead>
+ <tbody>
+ {tableRows.slice(1).map((row, ri) => (
+ <tr key={ri}>
+ {row.map((cell, ci) => (
+ <td key={ci} className="border border-white/10 px-2 py-1 text-slate-300">{renderInline(cell)}</td>
+ ))}
+ </tr>
+ ))}
+ </tbody>
+ </table>
+ </div>
+ );
+ tableRows = [];
+ inTable = false;
+ }
+ };
+
+ while (i < lines.length) {
+ const line = lines[i];
+
+ // Check for code block placeholder
+ const codeMatch = line.match(/^\x00CODE(\d+)\x00$/);
+ if (codeMatch) {
+ flushList();
+ flushTable();
+ const block = codeBlocks[parseInt(codeMatch[1])];
+ const blockLines = block.slice(3, -3).split("\n");
+ const lang = blockLines[0]?.trim() || "";
+ const code = lang ? blockLines.slice(1).join("\n") : blockLines.join("\n");
+ elements.push(
+ <div key={`cb-${elements.length}`} className="relative group/code bg-black/40 rounded-lg my-2 overflow-hidden">
+ <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/5">
+ <span className="text-[10px] text-cyan-400/60 font-mono">{lang || "code"}</span>
+ <button
+ onClick={() => copyToClipboard(code)}
+ className="text-[10px] text-slate-500 hover:text-cyan-300 transition opacity-0 group-hover/code:opacity-100 flex items-center gap-1"
+ >
+ <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+ <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+ </svg>
+ 复制
+ </button>
+ </div>
+ <pre className="p-3 overflow-x-auto text-xs leading-relaxed">
+ <code>{code}</code>
+ </pre>
+ </div>
+ );
+ i++;
+ continue;
+ }
+
+ // Headings: # ## ### etc.
+ const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+ if (headingMatch) {
+ flushList(); flushTable();
+ const level = headingMatch[1].length;
+ const sizes: Record<number, string> = {
+ 1: "text-base font-bold", 2: "text-sm font-bold", 3: "text-sm font-semibold",
+ 4: "text-xs font-semibold", 5: "text-xs font-medium", 6: "text-xs font-medium text-slate-400",
+ };
+ elements.push(
+ <div key={`h-${elements.length}`} className={`${sizes[level] || "text-xs"} text-white mt-3 mb-1`}>
+ {renderInline(headingMatch[2])}
+ </div>
+ );
+ i++;
+ continue;
+ }
+
+ // Unordered list: - or * with space
+ const ulMatch = line.match(/^[\s]*[-*]\s+(.+)$/);
+ if (ulMatch) {
+ flushTable();
+ if (listType !== "ul") { flushList(); listType = "ul"; }
+ listItems.push(ulMatch[1]);
+ i++;
+ continue;
+ }
+
+ // Ordered list: 1. 2. etc.
+ const olMatch = line.match(/^[\s]*\d+\.\s+(.+)$/);
+ if (olMatch) {
+ flushTable();
+ if (listType !== "ol") { flushList(); listType = "ol"; }
+ listItems.push(olMatch[1]);
+ i++;
+ continue;
+ }
+
+ // Table row: | cell | cell |
+ const tableMatch = line.match(/^\|(.+)\|$/);
+ if (tableMatch) {
+ flushList();
+ const cells = tableMatch[1].split("|").map(c => c.trim());
+ // Skip separator row: |---|---|
+ if (cells.every(c => /^[-:]+$/.test(c))) {
+ i++;
+ continue;
+ }
+ tableRows.push(cells);
+ inTable = true;
+ i++;
+ continue;
+ }
+
+ // Horizontal rule: --- or ***
+ if (/^[-*_]{3,}\s*$/.test(line.trim())) {
+ flushList(); flushTable();
+ elements.push(<hr key={`hr-${elements.length}`} className="border-white/10 my-3" />);
+ i++;
+ continue;
+ }
+
+ // Blank line → paragraph break
+ if (line.trim() === "") {
+ flushList(); flushTable();
+ i++;
+ continue;
+ }
+
+ // Default: paragraph text
+ flushList(); flushTable();
+ // Collect consecutive text lines as one paragraph
+ const paraLines: string[] = [];
+ while (i < lines.length) {
+ const l = lines[i];
+ if (l.trim() === "" || l.match(/^\x00CODE/) || l.match(/^#{1,6}\s+/) ||
+ l.match(/^[\s]*[-*]\s+/) || l.match(/^[\s]*\d+\.\s+/) || l.match(/^\|/)) break;
+ paraLines.push(l);
+ i++;
+ }
+ if (paraLines.length > 0) {
+ elements.push(
+ <p key={`p-${elements.length}`} className="my-1">
+ {renderInline(paraLines.join("\n"))}
+ </p>
+ );
+ }
+ }
+
+ flushList();
+ flushTable();
+
+ return elements;
+};
 
   /* ── Provider Form State ────────────────────────────────────── */
   const [provForm, setProvForm] = useState({
@@ -775,8 +1050,12 @@ export function AiClient({
   return (
     <div className="flex h-[calc(100vh-0px)] overflow-hidden">
       {/* ── Left Sidebar: Conversation List ───────────────────── */}
+      {/* Mobile sidebar backdrop */}
       {showSidebar && (
-        <div className="w-64 flex-shrink-0 border-r border-white/[0.06] bg-slate-950/50 flex flex-col">
+        <div className="hidden max-md:block fixed inset-0 z-30 bg-black/50" onClick={() => setShowSidebar(false)} />
+      )}
+      {showSidebar && (
+        <div className="w-64 flex-shrink-0 border-r border-white/[0.06] bg-slate-950/50 flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white">AI 助手</h2>
@@ -859,10 +1138,19 @@ export function AiClient({
 
       {/* ── Main Chat Area ──────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
-        {activeConv ? (
-          <>
-            {/* Chat header */}
-            <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-slate-950/30">
+      {activeConv ? (
+        <>
+          {/* Chat header */}
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-slate-950/30">
+            {/* Mobile sidebar toggle */}
+            <button
+              onClick={() => setShowSidebar(true)}
+              className="md:hidden flex-shrink-0 text-slate-400 hover:text-slate-200 transition"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-medium text-white truncate">{activeConv.title}</h3>
                 <p className="text-[10px] text-slate-500">
@@ -874,12 +1162,29 @@ export function AiClient({
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="h-7 px-2.5 rounded-lg text-xs text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition"
-                >
-                  ⚙ 设置
-                </button>
+<button
+ onClick={() => setShowSettings(!showSettings)}
+ className="h-7 px-2.5 rounded-lg text-xs text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition"
+ >
+ ⚙ 设置
+ </button>
+ <button
+ onClick={async () => {
+ if (!confirm("确定清空此对话的所有消息？此操作不可恢复。")) return;
+ try {
+ await fetch(`/api/ai/conversations/${activeConvId}`, {
+ method: "PATCH",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ clearMessages: true }),
+ });
+ setMessages([]);
+ } catch { /* ignore */ }
+ }}
+ className="h-7 px-2.5 rounded-lg text-xs text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition"
+ title="清空对话消息"
+ >
+ 🗑 清空
+ </button>
                 <button
                   onClick={() => {
                     const title = prompt("修改对话标题", activeConv.title);
@@ -894,6 +1199,37 @@ export function AiClient({
                   className="h-7 px-2.5 rounded-lg text-xs text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition"
                 >
                   ✏ 重命名
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch(`/api/ai/conversations/${activeConvId}`);
+                      const data = await r.json();
+                      const conv = data.conversation;
+                      if (!conv) return;
+                      const exportText = [
+                        `# ${conv.title}`,
+                        `模型: ${conv.model} | 提供商: ${activeProvider?.name || "未知"}`,
+                        `创建: ${conv.createdAt}`,
+                        "",
+                        ...conv.messages.map((m: Message) => {
+                          const role = m.role === "user" ? "👤 用户" : m.role === "assistant" ? "🤖 助手" : "系统";
+                          return `---\n${role}:\n\n${m.content}\n`;
+                        }),
+                      ].join("\n");
+                      const blob = new Blob([exportText], { type: "text/markdown;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `${conv.title.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, "_")}.md`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch { /* ignore */ }
+                  }}
+                  className="h-7 px-2.5 rounded-lg text-xs text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition"
+                  title="导出对话为 Markdown"
+                >
+                  📥 导出
                 </button>
               </div>
             </div>
@@ -1203,8 +1539,8 @@ export function AiClient({
                         </div>
                       </details>
                     )}
-                    {/* Main content */}
-                    <div className="whitespace-pre-wrap break-words">{renderContent(msg.content)}</div>
+ {/* Main content */}
+ <div className="break-words">{renderContent(msg.content)}</div>
                     {/* Image URLs */}
                     {(() => {
                       try {
@@ -1229,15 +1565,31 @@ export function AiClient({
                         return null;
                       }
                     })()}
-                    {/* Meta info */}
-                    {msg.role === "assistant" && (msg.inputTokens || msg.outputTokens || msg.latencyMs) && (
-                      <div className="mt-2 flex gap-3 text-[10px] text-slate-600">
-                        {msg.model && <span>{msg.model}</span>}
-                        {msg.inputTokens != null && <span>↑{msg.inputTokens}</span>}
-                        {msg.outputTokens != null && <span>↓{msg.outputTokens}</span>}
-                        {msg.latencyMs != null && <span>{(msg.latencyMs / 1000).toFixed(1)}s</span>}
-                      </div>
-                    )}
+  {/* Meta info */}
+  {msg.role === "assistant" && (msg.inputTokens || msg.outputTokens || msg.latencyMs) && (
+    <div className="mt-2 flex gap-3 text-[10px] text-slate-600">
+      {msg.model && <span>{msg.model}</span>}
+      {msg.inputTokens != null && <span>↑{msg.inputTokens}</span>}
+      {msg.outputTokens != null && <span>↓{msg.outputTokens}</span>}
+      {msg.latencyMs != null && <span>{(msg.latencyMs / 1000).toFixed(1)}s</span>}
+    </div>
+  )}
+  {/* Copy message button */}
+  <button
+    onClick={async () => {
+      const ok = await copyToClipboard(msg.content);
+      if (ok) {
+        setCopyFeedback(msg.id);
+        setTimeout(() => setCopyFeedback(null), 2000);
+      }
+    }}
+    className="mt-1.5 text-[10px] text-slate-600 hover:text-cyan-400 transition flex items-center gap-1"
+  >
+    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+    {copyFeedback === msg.id ? "已复制" : "复制"}
+  </button>
                   </div>
                   {msg.role === "user" && (
                     <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-[11px] font-semibold text-cyan-400 uppercase">
@@ -1264,7 +1616,7 @@ export function AiClient({
                         </div>
                       </details>
                     )}
-                    <div className="whitespace-pre-wrap break-words">{renderContent(streamContent)}</div>
+                    <div className="break-words">{renderContent(streamContent)}</div>
                   </div>
                 </div>
               )}
@@ -1415,15 +1767,26 @@ export function AiClient({
                     el.style.height = Math.min(el.scrollHeight, 120) + "px";
                   }}
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-                  className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
-                  </svg>
-                </button>
+            <button
+              onClick={handleSend}
+              disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
+              className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
+              </svg>
+            </button>
+            {streaming && (
+              <button
+                onClick={handleStopGeneration}
+                className="h-10 w-10 rounded-xl bg-red-500/20 text-red-300 flex items-center justify-center hover:bg-red-500/30 transition"
+                title="停止生成"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+              </button>
+            )}
               </div>
             </div>
           </>
@@ -1466,39 +1829,83 @@ export function AiClient({
             </div>
 
             <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
-              {/* Existing providers */}
-              {providers.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-xs text-slate-500 uppercase tracking-wider">已添加的提供商</h4>
-                  {providers.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/5">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-white font-medium">{p.name}</span>
-                          <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
-                            {providerTypes[p.type] || p.type}
-                          </span>
-                          {p.isDefault && (
-                            <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">默认</span>
-                          )}
-                          {!p.enabled && (
-                            <span className="text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">已禁用</span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                          {p.baseUrl} · {p.defaultModel} · Key: {p.apiKey}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteProvider(p.id)}
-                        className="text-xs text-red-400/60 hover:text-red-400 transition"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  ))}
-                </div>
+  {/* Existing providers */}
+  {providers.length > 0 && (
+    <div className="space-y-2">
+      <h4 className="text-xs text-slate-500 uppercase tracking-wider">已添加的提供商</h4>
+      {providers.map((p) => (
+        <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-black/30 border border-white/5">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white font-medium">{p.name}</span>
+              <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
+                {providerTypes[p.type] || p.type}
+              </span>
+              {p.isDefault && (
+                <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">默认</span>
               )}
+              {!p.enabled && (
+                <span className="text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">已禁用</span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+              {p.baseUrl} · {p.defaultModel}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={async () => {
+                try {
+                  await fetch(`/api/ai/providers/${p.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ enabled: !p.enabled }),
+                  });
+                  refreshProviders();
+                } catch { /* ignore */ }
+              }}
+              className={`text-xs transition ${p.enabled ? "text-amber-400/60 hover:text-amber-400" : "text-green-400/60 hover:text-green-400"}`}
+            >
+              {p.enabled ? "禁用" : "启用"}
+            </button>
+            <button
+              onClick={async () => {
+                const newKey = prompt("输入新的 API Key（留空保持不变）:");
+                if (newKey === null) return;
+                const newUrl = prompt("Base URL:", p.baseUrl);
+                if (newUrl === null) return;
+                const newModel = prompt("默认模型:", p.defaultModel);
+                if (newModel === null) return;
+                const patchBody: Record<string, string> = {};
+                if (newKey?.trim()) patchBody.apiKey = newKey.trim();
+                if (newUrl !== p.baseUrl) patchBody.baseUrl = newUrl;
+                if (newModel !== p.defaultModel) patchBody.defaultModel = newModel;
+                if (Object.keys(patchBody).length > 0) {
+                  try {
+                    await fetch(`/api/ai/providers/${p.id}`, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(patchBody),
+                    });
+                    refreshProviders();
+                  } catch { alert("更新失败"); }
+                }
+              }}
+              className="text-xs text-cyan-400/60 hover:text-cyan-400 transition"
+            >
+              编辑
+            </button>
+            <button
+              onClick={() => handleDeleteProvider(p.id)}
+              className="text-xs text-red-400/60 hover:text-red-400 transition"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
 
               {/* Add new provider form */}
               <div className="space-y-3">
