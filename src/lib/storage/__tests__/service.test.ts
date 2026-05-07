@@ -27,12 +27,11 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
- createFileEntry,
- createStorageNode,
- getLocalEditableFileDraft,
- getStorageOverview,
- listFileEntries,
- updateLocalFileContent,
+	createFileEntry,
+	createStorageNode,
+	getLocalEditableFileDraft,
+	getStorageOverview,
+	listFileEntries,
 } from "@/lib/storage/service";
 import { prisma } from "@/lib/db";
 
@@ -300,57 +299,5 @@ describe("storage service", () => {
  } finally {
  await rm(tempRoot, { recursive: true, force: true });
  }
- });
-
- it("updates editable local files and refreshes metadata", async () => {
- vi.clearAllMocks();
- const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-editable-"));
- const relativePath = "docs/notes.txt";
- const absolutePath = path.join(tempRoot, relativePath);
- await mkdir(path.dirname(absolutePath), { recursive: true });
- await writeFileToDisk(absolutePath, "before", "utf8");
-
- vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
- id: "file_3",
- name: "notes.txt",
- entryType: "FILE",
- mimeType: "text/plain",
- size: BigInt(12),
- checksumSha256: null,
- relativePath,
- storageNodeId: "node_1",
- parentId: null,
- isDeleted: false,
- createdAt: new Date(),
- updatedAt: new Date("2026-04-20T01:02:03.000Z"),
- storageNode: {
- id: "node_1",
- name: "主控本机",
- driver: "LOCAL",
- basePath: tempRoot,
- },
- } as any);
- vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
- id: "file_3",
- checksumSha256: "dummy",
- size: BigInt(14),
- } as any);
-
- try {
- const result = await updateLocalFileContent({ fileEntryId: "file_3", content: "updated text!!" });
- const persisted = await readFile(absolutePath, "utf8");
-
- expect(persisted).toBe("updated text!!");
- expect(prisma.fileEntry.update).toHaveBeenCalledWith({
- where: { id: "file_3" },
- data: {
- size: BigInt(Buffer.byteLength("updated text!!", "utf8")),
- checksumSha256: expect.any(String),
- },
- });
- expect(result).toMatchObject({ id: "file_3" });
- } finally {
- await rm(tempRoot, { recursive: true, force: true });
- }
- });
+});
 });

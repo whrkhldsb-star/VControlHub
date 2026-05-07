@@ -1,19 +1,16 @@
 [Unit]
-Description=whrkhldsb Next.js application
-After=network-online.target postgresql.service
-Wants=network-online.target
+Description=whrkhldsb Next.js App
+After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/root/whrkhldsb
-EnvironmentFile=/root/whrkhldsb/.env.local
-Environment=NODE_ENV=production
-Environment=PATH=/root/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/root/.local/bin/npm run start
-Restart=always
-RestartSec=5
 User=root
 Group=root
+WorkingDirectory=/root/whrkhldsb
+EnvironmentFile=/root/whrkhldsb/.env.local
+ExecStart=/root/.local/bin/node /root/whrkhldsb/node_modules/.bin/next start -p 3000
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target

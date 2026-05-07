@@ -23,7 +23,7 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
 					<div className="h-3 w-1/2 rounded bg-white/[0.04]" />
 					<div className="h-3 w-1/3 rounded bg-white/[0.04]" />
 				</div>
-		))}
+			))}
 		</div>
 	);
 }

@@ -5,16 +5,10 @@ import { PPKError, parseFromString } from "ppk-to-openssh";
 
 import { revalidatePath } from "next/cache";
 
-import { DEMO_SERVERS } from "@/lib/demo-data";
-import { isDemoFallbackEnabled } from "@/lib/demo/isolation";
-import { isDatabaseUnavailableError, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 
 import { getServerConnectionSummary, normalizeServerInput } from "./config";
 import { createServerSchema, type CreateServerInput } from "./schema";
-
-const DEMO_SSH_KEYS = [
-  { id: "ssh_demo_root", name: "prod-root-key", fingerprint: "SHA256:demo-prod-root", description: "演示密钥：用于本地演示节点" },
-];
 
 type ServerCommandTarget = {
   id: string;
@@ -106,12 +100,7 @@ function enrichServer(server: ServerWithRelations) {
 }
 
 export async function listSshKeys() {
-  try {
-    return await prisma.sshKey.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, fingerprint: true, description: true } });
-  } catch (error) {
-    if (isDatabaseUnavailableError(error) && isDemoFallbackEnabled("SERVER_DEMO_FALLBACK")) return DEMO_SSH_KEYS;
-    throw error;
-  }
+ return prisma.sshKey.findMany({ orderBy: { createdAt: "desc" }, select: { id: true, name: true, fingerprint: true, description: true } });
 }
 
 function normalizeAuthorizedKey(input: string) {
@@ -367,8 +356,7 @@ export async function deleteServerProfile(serverId: string) {
 }
 
 export async function listServerProfiles() {
- try {
-  const servers = await prisma.server.findMany({
+ const servers = await prisma.server.findMany({
    orderBy: { createdAt: "desc" },
    include: {
     sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } },
@@ -381,9 +369,5 @@ export async function listServerProfiles() {
    },
   });
 
-  return servers.map((server) => enrichServer(server));
- } catch (error) {
-  if (isDatabaseUnavailableError(error) && isDemoFallbackEnabled("SERVER_DEMO_FALLBACK")) return DEMO_SERVERS;
-  throw error;
- }
+ return servers.map((server) => enrichServer(server));
 }

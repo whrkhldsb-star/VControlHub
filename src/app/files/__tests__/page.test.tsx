@@ -113,21 +113,19 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/app/storage/actions", () => ({
- getStorageFormOptions: vi.fn().mockResolvedValue({
- servers: [{ id: "srv_1", name: "香港一号", host: "203.0.113.10" }],
- nodes: [
- { id: "node_1", name: "主控本机", driver: "LOCAL" },
- { id: "node_2", name: "香港媒体库", driver: "SFTP" },
- ],
- }),
- createStorageNodeAction: vi.fn(),
- createFileEntryAction: vi.fn(),
- createFolderAction: vi.fn().mockResolvedValue({ success: "文件夹已创建" }),
- updateLocalFileContentAction: vi.fn(),
- deleteFileEntryAction: vi.fn(),
- restoreFileEntryAction: vi.fn(),
- permanentDeleteFileEntryAction: vi.fn(),
- renameFileEntryAction: vi.fn(),
+	getStorageFormOptions: vi.fn().mockResolvedValue({
+		servers: [{ id: "srv_1", name: "香港一号", host: "203.0.113.10" }],
+		nodes: [
+			{ id: "node_1", name: "主控本机", driver: "LOCAL" },
+			{ id: "node_2", name: "香港媒体库", driver: "SFTP" },
+		],
+	}),
+	createStorageNodeAction: vi.fn(),
+	createFolderAction: vi.fn().mockResolvedValue({ success: "文件夹已创建" }),
+	deleteFileEntryAction: vi.fn(),
+	restoreFileEntryAction: vi.fn(),
+	permanentDeleteFileEntryAction: vi.fn(),
+	renameFileEntryAction: vi.fn(),
 }));
 
 vi.mock("./create-folder-form", () => ({

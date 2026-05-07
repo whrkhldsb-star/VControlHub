@@ -1,5 +1,3 @@
-import { DEMO_AUTH_USER } from "@/lib/demo-data";
-import { isDemoFallbackEnabled } from "@/lib/demo/isolation";
 import { isDatabaseUnavailableError, prisma } from "@/lib/db";
 
 import { writeAuditLog } from "@/lib/audit/service";
@@ -9,94 +7,68 @@ import { changePasswordSchema, loginSchema, type ChangePasswordInput, type Login
 import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";
 
 export type AuthenticatedUser = {
-  id: string;
-  username: string;
-  displayName: string | null;
-  mustChangePassword: boolean;
-  status: string;
-  roles: RoleKey[];
-  permissions: Permission[];
+ id: string;
+ username: string;
+ displayName: string | null;
+ mustChangePassword: boolean;
+ status: string;
+ roles: RoleKey[];
+ permissions: Permission[];
 };
 
 export type ChangePasswordResult = {
-  success: boolean;
-  error?: string;
+ success: boolean;
+ error?: string;
 };
 
 function deriveRoleKeys(keys: string[]): RoleKey[] {
-  return keys.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
+ return keys.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
 }
 
 function collectPermissions(roleKeys: RoleKey[]): Permission[] {
-  return Array.from(
-    new Set(roleKeys.flatMap((roleKey) => DEFAULT_ROLE_PERMISSIONS[roleKey])),
-  );
-}
-
-
-async function authenticateDemoUser(payload: LoginInput): Promise<AuthenticatedUser | null> {
-  if (payload.username !== ADMIN_BOOTSTRAP.username || payload.password !== getInitialAdminPassword()) {
-    return null;
-  }
-
-  const roles = [...DEMO_AUTH_USER.roles] as RoleKey[];
-  return {
-    id: DEMO_AUTH_USER.id,
-    username: DEMO_AUTH_USER.username,
-    displayName: DEMO_AUTH_USER.displayName,
-    mustChangePassword: DEMO_AUTH_USER.mustChangePassword,
-    status: DEMO_AUTH_USER.status,
-    roles,
-    permissions: collectPermissions(roles),
-  };
+ return Array.from(
+ new Set(roleKeys.flatMap((roleKey) => DEFAULT_ROLE_PERMISSIONS[roleKey])),
+ );
 }
 
 export async function authenticateUser(input: LoginInput): Promise<AuthenticatedUser | null> {
-	const parsed = loginSchema.safeParse(input);
-	if (!parsed.success) {
-		return null;
-	}
-	const payload = parsed.data;
+ const parsed = loginSchema.safeParse(input);
+ if (!parsed.success) {
+ return null;
+ }
+ const payload = parsed.data;
 
-	try {
-    const user = await prisma.user.findUnique({
-      where: { username: payload.username },
-      include: {
-        roles: {
-          include: {
-            role: true,
-          },
-        },
-      },
-    });
+ const user = await prisma.user.findUnique({
+ where: { username: payload.username },
+ include: {
+ roles: {
+ include: {
+ role: true,
+ },
+ },
+ },
+ });
 
-    if (!user) {
-      return null;
-    }
+ if (!user) {
+ return null;
+ }
 
-    const passwordMatches = await verifyPassword(payload.password, user.passwordHash);
-    if (!passwordMatches) {
-      return null;
-    }
+ const passwordMatches = await verifyPassword(payload.password, user.passwordHash);
+ if (!passwordMatches) {
+ return null;
+ }
 
-    const roleKeys = deriveRoleKeys(user.roles.map((entry) => entry.role.key));
+ const roleKeys = deriveRoleKeys(user.roles.map((entry) => entry.role.key));
 
-    return {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      mustChangePassword: user.mustChangePassword,
-      status: user.status,
-      roles: roleKeys,
-      permissions: collectPermissions(roleKeys),
-    };
-  } catch (error) {
-    if (isDatabaseUnavailableError(error) && isDemoFallbackEnabled("AUTH_DEMO_FALLBACK")) {
-      return authenticateDemoUser(payload);
-    }
-
-    throw error;
-  }
+ return {
+ id: user.id,
+ username: user.username,
+ displayName: user.displayName,
+ mustChangePassword: user.mustChangePassword,
+ status: user.status,
+ roles: roleKeys,
+ permissions: collectPermissions(roleKeys),
+ };
 }
 
 export async function changePassword(input: ChangePasswordInput & { userId: string }): Promise<ChangePasswordResult> {

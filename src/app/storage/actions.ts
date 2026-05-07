@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { writeAuditLog } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
-import { checkStorageNodeHealth, createFileEntry, createStorageNode, listStorageNodes, updateLocalFileContent, updateStorageNode, deleteStorageNode } from "@/lib/storage/service";
+import { checkStorageNodeHealth, createFileEntry, createStorageNode, listStorageNodes, updateStorageNode, deleteStorageNode } from "@/lib/storage/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import {
@@ -72,36 +72,6 @@ export async function createStorageNodeAction(_prev: StorageActionState | null, 
     return { success: "存储节点已创建。" } satisfies StorageActionState;
   } catch (error) {
     return { error: error instanceof Error ? error.message : "创建存储节点失败" } satisfies StorageActionState;
-  }
-}
-
-export async function createFileEntryAction(_prev: StorageActionState | null, formData: FormData) {
-  await requirePermission("storage:write");
-
-  try {
-    const sizeRaw = String(formData.get("size") ?? "").trim();
-    const mimeTypeRaw = String(formData.get("mimeType") ?? "").trim();
-    const checksumRaw = String(formData.get("checksumSha256") ?? "").trim();
-    const parentIdRaw = String(formData.get("parentId") ?? "").trim();
-
-    await createFileEntry({
-      storageNodeId: String(formData.get("storageNodeId") ?? ""),
-      name: String(formData.get("name") ?? ""),
-      entryType: String(formData.get("entryType") ?? "FILE").toUpperCase() as "FILE" | "DIRECTORY",
-      mimeType: mimeTypeRaw || undefined,
-      size: sizeRaw ? Number(sizeRaw) : undefined,
-      checksumSha256: checksumRaw || undefined,
-      relativePath: String(formData.get("relativePath") ?? ""),
-      parentId: parentIdRaw || undefined,
-    });
-
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
-
-    return { success: "文件条目已登记。" } satisfies StorageActionState;
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : "登记文件条目失败" } satisfies StorageActionState;
   }
 }
 
@@ -230,29 +200,6 @@ export async function createFolderAction(_prev: StorageActionState | null, formD
   } catch (error) {
     return { error: error instanceof Error ? error.message : "创建文件夹失败" } satisfies StorageActionState;
   }
-}
-
-export async function updateLocalFileContentAction(_prev: StorageActionState | null, formData: FormData) {
-  const session = await requirePermission("storage:write");
-
-  if (session.username !== "admin") {
-    return { error: "仅限 admin 账号在线编辑本机已上传文件。" } satisfies StorageActionState;
-  }
-
-  try {
-    await updateLocalFileContent({
-      fileEntryId: String(formData.get("fileEntryId") ?? ""),
-      content: String(formData.get("content") ?? ""),
-    });
-
-    revalidatePath("/");
-    revalidatePath("/storage");
-    revalidatePath("/files");
-
-    return { success: "文件内容已保存，可直接重新下载最新版本。" } satisfies StorageActionState;
-  } catch (error) {
-	return { error: error instanceof Error ? error.message : "保存文件失败" } satisfies StorageActionState;
-	}
 }
 
 export async function deleteFileEntryAction(_prev: StorageActionState | null, formData: FormData) {

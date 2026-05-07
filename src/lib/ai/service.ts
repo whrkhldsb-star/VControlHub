@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 
 /* ── Types ──────────────────────────────────────────────────── */
-export interface CreateProviderInput {
+interface CreateProviderInput {
   name: string;
   type?: string;
   apiKey: string;
@@ -14,7 +14,7 @@ export interface CreateProviderInput {
   createdBy: string;
 }
 
-export interface UpdateProviderInput {
+interface UpdateProviderInput {
   name?: string;
   type?: string;
   apiKey?: string;
@@ -26,7 +26,7 @@ export interface UpdateProviderInput {
   settings?: Record<string, unknown>;
 }
 
-export interface CreateConversationInput {
+interface CreateConversationInput {
   title?: string;
   providerId: string;
   model: string;
@@ -40,7 +40,7 @@ export interface CreateConversationInput {
   createdBy: string;
 }
 
-export interface UpdateConversationInput {
+interface UpdateConversationInput {
   title?: string;
   model?: string;
   systemPrompt?: string;
@@ -237,15 +237,8 @@ export async function createMessage(input: {
   });
 }
 
-export async function listMessages(conversationId: string) {
-  return prisma.aiMessage.findMany({
-    where: { conversationId },
-    orderBy: { createdAt: "asc" },
-  });
-}
-
 /* ── Fetch Models from Provider API ─────────────────────────── */
-export interface AiModelInfo {
+interface AiModelInfo {
   id: string;
   name: string;
   owned_by?: string;
@@ -257,7 +250,7 @@ export interface AiModelInfo {
   capabilities?: ModelCapabilities;
 }
 
-export interface ModelCapabilities {
+interface ModelCapabilities {
   /** Can accept image inputs */
   vision: boolean;
   /** Can accept PDF/document files */
@@ -407,7 +400,7 @@ function isVisionModel(modelId: string): boolean {
 }
 
 /* ── Chat Proxy ─────────────────────────────────────────────── */
-export interface ChatCompletionRequest {
+interface ChatCompletionRequest {
   providerId: string;
   model: string;
   messages: Array<{

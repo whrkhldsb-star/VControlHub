@@ -82,11 +82,6 @@ export function createLogger(scope: string) {
 
 const defaultLogger = createLogger("app");
 
-/** Log a debug message — only in development. */
-export function logDebug(...args: unknown[]): void {
-  defaultLogger.debug("debug", { args });
-}
-
 /** Log a handled, non-fatal error with production-safe redaction. */
 export function logError(...args: unknown[]): void {
   const [first, ...rest] = args;

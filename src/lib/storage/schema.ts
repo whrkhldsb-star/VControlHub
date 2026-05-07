@@ -49,14 +49,8 @@ export const fileEntryMutationSchema = z.object({
   fileEntryId: z.string().trim().min(1, "文件条目不能为空"),
 });
 
-export const updateLocalFileContentSchema = z.object({
-  fileEntryId: z.string().trim().min(1, "文件条目不能为空"),
-  content: z.string().max(512 * 1024, "可编辑文件内容不能超过 512 KB"),
-});
-
 export type CreateStorageNodeInput = z.infer<typeof createStorageNodeSchema>;
 export type UpdateStorageNodeInput = z.infer<typeof updateStorageNodeSchema>;
 export type CreateFileEntryInput = z.infer<typeof createFileEntrySchema>;
 export type UpdateFileEntryInput = z.infer<typeof updateFileEntrySchema>;
 export type FileEntryMutationInput = z.infer<typeof fileEntryMutationSchema>;
-export type UpdateLocalFileContentInput = z.infer<typeof updateLocalFileContentSchema>;

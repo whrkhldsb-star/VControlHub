@@ -1,27 +1,23 @@
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { access, readFile, stat, writeFile } from "node:fs/promises";
+import { access, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-import { isDemoFallbackEnabled } from "@/lib/demo/isolation";
-import { isDatabaseUnavailableError, prisma } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
-import { DEMO_STORAGE_OVERVIEW } from "@/lib/demo-data";
 
 import {
-  createFileEntrySchema,
-  createStorageNodeSchema,
-  fileEntryMutationSchema,
-  updateLocalFileContentSchema,
-  updateFileEntrySchema,
-  updateStorageNodeSchema,
-  type CreateFileEntryInput,
-  type CreateStorageNodeInput,
-  type FileEntryMutationInput,
-  type UpdateLocalFileContentInput,
-  type UpdateFileEntryInput,
-  type UpdateStorageNodeInput,
+	createFileEntrySchema,
+	createStorageNodeSchema,
+	fileEntryMutationSchema,
+	updateFileEntrySchema,
+	updateStorageNodeSchema,
+	type CreateFileEntryInput,
+	type CreateStorageNodeInput,
+	type FileEntryMutationInput,
+	type UpdateFileEntryInput,
+	type UpdateStorageNodeInput,
 } from "./schema";
 
 const EDITABLE_TEXT_MIME_PREFIXES = ["text/"];
@@ -396,8 +392,7 @@ export async function deleteStorageNode(storageNodeId: string) {
 }
 
 export async function listStorageNodes() {
-  try {
-    const nodes = await prisma.storageNode.findMany({
+ const nodes = await prisma.storageNode.findMany({
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
       include: {
         server: { select: { id: true, name: true, host: true, port: true, username: true } },
@@ -434,14 +429,7 @@ export async function listStorageNodes() {
  host: node.host ?? node.server?.host,
  port: node.port ?? node.server?.port,
  }),
-    }));
-  } catch (error) {
-    if (isDatabaseUnavailableError(error) && isDemoFallbackEnabled("STORAGE_DEMO_FALLBACK")) {
-      return DEMO_STORAGE_OVERVIEW.nodes;
-    }
-
-    throw error;
-  }
+ }));
 }
 
 export async function createFileEntry(input: CreateFileEntryInput) {
@@ -525,8 +513,7 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
 }
 
 export async function listFileEntries(storageNodeId?: string) {
-  try {
-    const where = {
+ const where = {
       isDeleted: false,
       ...(storageNodeId ? { storageNodeId } : {}),
     };
@@ -578,19 +565,7 @@ export async function listFileEntries(storageNodeId?: string) {
 				localEditable: entry.storageNode.driver === "LOCAL" && isEditableTextFile({ entryType: entry.entryType, name: entry.name, mimeType: entry.mimeType }),
 				previewable: Boolean(entry.mimeType?.startsWith("video/") || entry.mimeType?.startsWith("audio/") || entry.mimeType?.startsWith("image/") || entry.mimeType === "application/pdf" || entry.mimeType?.startsWith("text/")),
 			};
-		});
-  } catch (error) {
-    if (isDatabaseUnavailableError(error)) {
-      return storageNodeId
-        ? DEMO_STORAGE_OVERVIEW.entries.filter((entry) => {
-            const node = DEMO_STORAGE_OVERVIEW.nodes.find((item) => item.name === entry.storageNode.name);
-            return node?.id === storageNodeId;
-          })
-        : DEMO_STORAGE_OVERVIEW.entries;
-    }
-
-    throw error;
-  }
+ });
 }
 
 export async function listDeletedFileEntries(storageNodeId?: string) {
@@ -681,8 +656,7 @@ function buildDirectorySummaries(entries: Awaited<ReturnType<typeof listFileEntr
 }
 
 export async function getStorageOverview() {
-  try {
-    const [nodes, entries, deletedEntries] = await Promise.all([listStorageNodes(), listFileEntries(), listDeletedFileEntries()]);
+ const [nodes, entries, deletedEntries] = await Promise.all([listStorageNodes(), listFileEntries(), listDeletedFileEntries()]);
     const remoteDirectories = buildDirectorySummaries(entries);
 
     return {
@@ -700,14 +674,7 @@ export async function getStorageOverview() {
         deletedEntries: deletedEntries.length,
         remoteDirectoryCount: remoteDirectories.length,
       },
-    };
-  } catch (error) {
-    if (isDatabaseUnavailableError(error)) {
-      return { ...DEMO_STORAGE_OVERVIEW, deletedEntries: [], stats: { ...DEMO_STORAGE_OVERVIEW.stats, deletedEntries: 0 } };
-    }
-
-    throw error;
-  }
+ };
 }
 
 export async function getLocalEditableFileDraft(fileEntryId: string) {
@@ -722,20 +689,4 @@ export async function getLocalEditableFileDraft(fileEntryId: string) {
     byteSize: fileStat.size,
 	updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
   };
-}
-
-export async function updateLocalFileContent(input: UpdateLocalFileContentInput) {
-  const payload = updateLocalFileContentSchema.parse(input);
-  const { entry, absolutePath } = await resolveLocalEditableFileEntry(payload.fileEntryId);
-  const contentBuffer = Buffer.from(payload.content, "utf8");
-
-  await writeFile(absolutePath, contentBuffer);
-
-  return prisma.fileEntry.update({
-    where: { id: entry.id },
-    data: {
-      size: BigInt(contentBuffer.byteLength),
-      checksumSha256: createHash("sha256").update(contentBuffer).digest("hex"),
-    },
-  });
 }

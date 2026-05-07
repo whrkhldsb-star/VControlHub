@@ -10,6 +10,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { logError } from "@/lib/logging";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 
 type UploadLike = {
@@ -155,7 +156,7 @@ export async function GET(request: Request) {
 
  return new Response(body, { status: 200, headers });
  } catch (downloadError) {
- console.error("[/api/storage/local] download error:", downloadError);
+ logError("[/api/storage/local] download error:", downloadError);
  return NextResponse.json({ error: "文件不存在或暂时无法读取" }, { status: 404 });
  }
 }

@@ -4,9 +4,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 import { isProtectedByApproval } from "@/lib/auth/rbac";
-import { isDemoFallbackEnabled } from "@/lib/demo/isolation";
-import { isDatabaseUnavailableError, prisma } from "@/lib/db";
-import { DEMO_COMMAND_REQUESTS } from "@/lib/demo-data";
+import { prisma } from "@/lib/db";
 
 import { createCommandSchema, reviewCommandSchema, type CreateCommandInput, type ReviewCommandInput } from "./schema";
 
@@ -459,8 +457,7 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
 }
 
 export async function listCommandRequests() {
-  try {
-    const requests = await prisma.commandRequest.findMany({
+ const requests = await prisma.commandRequest.findMany({
       orderBy: { createdAt: "desc" },
       include: {
         requester: { select: { id: true, username: true, displayName: true } },
@@ -470,12 +467,5 @@ export async function listCommandRequests() {
       },
     });
 
-    return requests.map(mapCommandRequest);
-  } catch (error) {
-    if (isDatabaseUnavailableError(error) && isDemoFallbackEnabled("COMMAND_DEMO_FALLBACK")) {
-      return DEMO_COMMAND_REQUESTS;
-    }
-
-    throw error;
-  }
+ return requests.map(mapCommandRequest);
 }
