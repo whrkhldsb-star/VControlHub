@@ -15,6 +15,7 @@ const { mockPrisma } = vi.hoisted(() => ({
  create: vi.fn(),
  findMany: vi.fn(),
  findUnique: vi.fn(),
+ findFirst: vi.fn(),
  update: vi.fn(),
  },
  },
@@ -228,6 +229,7 @@ describe("storage service", () => {
 
  it("creates file metadata entries", async () => {
  vi.clearAllMocks();
+ vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
  vi.mocked(prisma.fileEntry.create).mockResolvedValueOnce({
  id: "file_2",
  name: "notes.txt",

@@ -445,20 +445,33 @@ export async function listStorageNodes() {
 }
 
 export async function createFileEntry(input: CreateFileEntryInput) {
-  const payload = createFileEntrySchema.parse(input);
+ const payload = createFileEntrySchema.parse(input);
 
-  return prisma.fileEntry.create({
-    data: {
-      storageNodeId: payload.storageNodeId,
-      name: payload.name,
-      entryType: payload.entryType,
-      mimeType: payload.mimeType,
-      size: payload.size == null ? undefined : BigInt(payload.size),
-      checksumSha256: payload.checksumSha256,
-      relativePath: payload.relativePath,
-      parentId: payload.parentId,
-    },
-  });
+ // Check for duplicate entry (same node + same relativePath)
+ const existing = await prisma.fileEntry.findFirst({
+ where: {
+ storageNodeId: payload.storageNodeId,
+ relativePath: payload.relativePath,
+ isDeleted: false,
+ },
+ select: { id: true },
+ });
+ if (existing) {
+ throw new Error(`路径已存在: ${payload.relativePath}`);
+ }
+
+ return prisma.fileEntry.create({
+ data: {
+ storageNodeId: payload.storageNodeId,
+ name: payload.name,
+ entryType: payload.entryType,
+ mimeType: payload.mimeType,
+ size: payload.size == null ? undefined : BigInt(payload.size),
+ checksumSha256: payload.checksumSha256,
+ relativePath: payload.relativePath,
+ parentId: payload.parentId,
+ },
+ });
 }
 
 export async function updateFileEntry(input: UpdateFileEntryInput) {

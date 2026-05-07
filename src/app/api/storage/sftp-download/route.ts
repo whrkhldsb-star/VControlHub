@@ -187,7 +187,7 @@ export async function GET(request: Request) {
  host,
  port,
  username,
- privateKey,
+ ...(connectionType === "PASSWORD" ? { password } : { privateKey }),
  readyTimeout: 15000,
  timeout: 10000,
  };

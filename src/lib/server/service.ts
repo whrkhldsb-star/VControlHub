@@ -42,7 +42,7 @@ type ServerWithRelations = {
   connectionType: "SSH_KEY" | "PASSWORD";
   createdAt: Date | string;
   updatedAt: Date | string;
-  sshKey?: { id: string; name: string; fingerprint?: string | null } | null;
+  sshKey?: { id: string; name: string; fingerprint?: string | null; publicKey?: string | null; privateKey?: string | null; createdAt?: Date | string } | null;
   storageNode?: { id: string; name: string; driver: string; isDefault: boolean; basePath: string } | null;
   commandTargets?: ServerCommandTarget[];
 };
@@ -67,14 +67,21 @@ function enrichServer(server: ServerWithRelations) {
 		port: server.port,
 		username: server.username,
 		sshKeyId: server.sshKeyId,
-		password: server.password,
+ password: server.password ? "••••••••" : null,
 		description: server.description,
 		tags: server.tags,
 		enabled: server.enabled,
 		connectionType: server.connectionType,
 		createdAt: serializeDate(server.createdAt),
 		updatedAt: serializeDate(server.updatedAt),
-		sshKey: server.sshKey,
+ sshKey: server.sshKey ? {
+ id: server.sshKey.id,
+ name: server.sshKey.name,
+ fingerprint: server.sshKey.fingerprint,
+ publicKey: server.sshKey.publicKey,
+ hasPrivateKey: !!server.sshKey.privateKey,
+ createdAt: server.sshKey.createdAt,
+ } : null,
 		storageNode: server.storageNode,
 		statusLabel: buildServerStatusLabel(server.enabled),
 		connectionTypeLabel: buildServerConnectionTypeLabel(server.connectionType),
@@ -263,7 +270,7 @@ export async function createServerProfile(input: CreateServerInput) {
    password: normalized.connectionType === "PASSWORD" ? normalized.password : null,
    enabled: true,
   },
-  include: { sshKey: { select: { id: true, name: true, fingerprint: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
+  include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
  });
 
  // Auto-create associated storage node
@@ -295,7 +302,7 @@ export async function createServerProfile(input: CreateServerInput) {
  // Re-fetch to include the newly created storageNode relation
  const refreshed = await prisma.server.findUnique({
  where: { id: server.id },
- include: { sshKey: { select: { id: true, name: true, fingerprint: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
+ include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
  });
 
  revalidatePath("/storage");
@@ -340,7 +347,7 @@ export async function updateServerProfile(serverId: string, input: Partial<Creat
    tags: normalized.tags,
    enabled: typeof input.enabled === "boolean" ? input.enabled : current.enabled,
   },
-  include: { sshKey: { select: { id: true, name: true, fingerprint: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
+  include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
  });
 
  return enrichServer(updated);
@@ -364,7 +371,7 @@ export async function listServerProfiles() {
   const servers = await prisma.server.findMany({
    orderBy: { createdAt: "desc" },
    include: {
-    sshKey: { select: { id: true, name: true, fingerprint: true } },
+    sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } },
     storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } },
     commandTargets: {
      select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } },

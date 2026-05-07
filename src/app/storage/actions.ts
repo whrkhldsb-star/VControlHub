@@ -388,32 +388,36 @@ export async function permanentDeleteFileEntryAction(_prev: StorageActionState |
 			return { error: "文件条目不存在" } satisfies StorageActionState;
 		}
 
-		if (entry.entryType === "DIRECTORY") {
-			const prefix = entry.relativePath + "/";
-			await prisma.fileEntry.deleteMany({
-				where: {
-					storageNodeId: entry.storageNodeId,
-					relativePath: { startsWith: prefix },
-				},
-			});
-		}
+ if (entry.entryType === "DIRECTORY") {
+ const prefix = entry.relativePath + "/";
+ await prisma.fileEntry.deleteMany({
+ where: {
+ storageNodeId: entry.storageNodeId,
+ relativePath: { startsWith: prefix },
+ },
+ });
+ }
 
-		if (entry.storageNode.driver === "LOCAL" && entry.entryType === "FILE") {
-			try {
-				const { unlink } = await import("node:fs/promises");
-				const path = await import("node:path");
-				const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
-				const absolutePath = path.resolve(entry.storageNode.basePath, normalizedRelativePath);
-				const allowedRoot = path.resolve(entry.storageNode.basePath);
-				const relativeToRoot = path.relative(allowedRoot, absolutePath);
+ if (entry.storageNode.driver === "LOCAL") {
+ try {
+ const { unlink, rm } = await import("node:fs/promises");
+ const path = await import("node:path");
+ const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
+ const absolutePath = path.resolve(entry.storageNode.basePath, normalizedRelativePath);
+ const allowedRoot = path.resolve(entry.storageNode.basePath);
+ const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
-				if (!relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot)) {
-					await unlink(absolutePath);
-				}
-			} catch {
-				// Silently ignore fs errors — DB delete proceeds regardless
-			}
-		}
+ if (!relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot)) {
+ if (entry.entryType === "FILE") {
+ await unlink(absolutePath);
+ } else if (entry.entryType === "DIRECTORY") {
+ await rm(absolutePath, { recursive: true, force: true });
+ }
+ }
+ } catch {
+ // Silently ignore fs errors — DB delete proceeds regardless
+ }
+ }
 
 		await prisma.fileEntry.delete({
 			where: { id: fileEntryId },
@@ -487,12 +491,12 @@ export async function renameFileEntryAction(_prev: StorageActionState | null, fo
 				select: { id: true, relativePath: true },
 			});
 
-			for (const child of children) {
-				await prisma.fileEntry.update({
-					where: { id: child.id },
-					data: { relativePath: child.relativePath.replace(oldPrefix, newPrefix) },
-				});
-			}
+ for (const child of children) {
+ await prisma.fileEntry.update({
+ where: { id: child.id },
+ data: { relativePath: newPrefix + child.relativePath.slice(oldPrefix.length) },
+ });
+ }
 		}
 
 		await prisma.fileEntry.update({

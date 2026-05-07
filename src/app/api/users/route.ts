@@ -67,9 +67,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "用户名和密码不能为空" }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "密码至少6位" }, { status: 400 });
-    }
+ if (password.length < 8) {
+ return NextResponse.json({ error: "密码至少8位" }, { status: 400 });
+ }
 
     // Check if username exists
     const existing = await prisma.user.findUnique({ where: { username } });

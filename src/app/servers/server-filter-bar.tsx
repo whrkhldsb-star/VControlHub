@@ -127,7 +127,7 @@ function BatchCommandButton({ selectedIds }: { selectedIds: Set<string>; filtere
 				body: JSON.stringify({
 					title: `批量命令 (${selectedIds.size}台)`,
 					command,
-					targetServerIds: [...selectedIds],
+ serverIds: [...selectedIds],
 				}),
 			});
 			if (res.ok) {

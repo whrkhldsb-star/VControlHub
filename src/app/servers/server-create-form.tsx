@@ -43,21 +43,27 @@ function ConnectionTypeFields({
 				<input type="hidden" name="connectionType" value={connectionType} />
 			</div>
 
-			{connectionType === "SSH_KEY" ? (
-				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="sshKeyId">SSH 密钥</label>
-					<select
-						id="sshKeyId"
-						name="sshKeyId"
-						required
-						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
-					>
-						<option value="">选择密钥</option>
-						{sshKeys.map((key) => (
-							<option key={key.id} value={key.id}>{key.name}</option>
-						))}
-					</select>
-				</div>
+ {connectionType === "SSH_KEY" ? (
+ <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+ <div className="space-y-1.5">
+ <label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="sshKeyId">SSH 密钥</label>
+ <select
+ id="sshKeyId"
+ name="sshKeyId"
+ required
+ className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
+ >
+ <option value="">选择密钥</option>
+ {sshKeys.map((key) => (
+ <option key={key.id} value={key.id}>{key.name}</option>
+ ))}
+ </select>
+ </div>
+ <div className="space-y-1.5">
+ <label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="serverUsername">用户名</label>
+ <input id="serverUsername" name="username" type="text" required placeholder="root" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+ </div>
+ </div>
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2">
 					<div className="space-y-1.5">

@@ -70,27 +70,34 @@ function guessContentType(fileName: string, mimeType: string | null) {
 export async function GET(request: Request) {
   const session = await requireSession("/storage");
 
-  const url = new URL(request.url);
-  const relativePath = url.searchParams.get("path");
-  const download = url.searchParams.get("download") === "1";
+ const url = new URL(request.url);
+ const relativePath = url.searchParams.get("path");
+ const storageNodeId = url.searchParams.get("nodeId");
+ const download = url.searchParams.get("download") === "1";
 
-  if (!relativePath) {
-    return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
-  }
+ if (!relativePath) {
+ return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
+ }
 
-  const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
-  if (!normalizedDownloadPath.ok) {
-    return NextResponse.json({ error: normalizedDownloadPath.reason }, { status: 400 });
-  }
+ const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
+ if (!normalizedDownloadPath.ok) {
+ return NextResponse.json({ error: normalizedDownloadPath.reason }, { status: 400 });
+ }
 
-  const entry = await prisma.fileEntry.findFirst({
-    where: {
-      relativePath: normalizedDownloadPath.path,
-      isDeleted: false,
-      storageNode: {
-        driver: "LOCAL",
-      },
-    },
+ const entryWhere: Record<string, unknown> = {
+ relativePath: normalizedDownloadPath.path,
+ isDeleted: false,
+ storageNode: {
+ driver: "LOCAL",
+ },
+ };
+ // If nodeId specified, scope to that specific node to avoid cross-node path collisions
+ if (storageNodeId) {
+ entryWhere.storageNodeId = storageNodeId;
+ }
+
+ const entry = await prisma.fileEntry.findFirst({
+ where: entryWhere,
     include: {
       storageNode: {
         select: {

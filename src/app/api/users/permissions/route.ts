@@ -133,9 +133,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
   }
 
-  if (!body.userId) {
-    return NextResponse.json({ error: "缺少 userId 参数" }, { status: 400 });
-  }
+ if (!body.userId) {
+ return NextResponse.json({ error: "缺少 userId 参数" }, { status: 400 });
+ }
+
+ // Prevent self-modification of permissions (privilege escalation)
+ if (body.userId === session.userId) {
+ return NextResponse.json({ error: "不能修改自己的权限" }, { status: 403 });
+ }
 
   const targetUser = await prisma.user.findUnique({ where: { id: body.userId }, select: { id: true, username: true } });
   if (!targetUser) {
