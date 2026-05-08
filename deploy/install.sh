@@ -369,6 +369,8 @@ install_systemd() {
 		[ -f "${src}" ] || fail "Systemd template not found: ${src}"
 		local dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-${svc}.service"
 		mkdir -p "$(dirname "${dst}")"
+		# Remove immutable flag if present (from hardening or previous deployment)
+		chattr -i "${dst}" 2>/dev/null || true
 		sed \
 			-e "s#{{SITE_NAME}}#${SITE_NAME}#g" \
 			-e "s#{{APP_DIR}}#${APP_DIR}#g" \
