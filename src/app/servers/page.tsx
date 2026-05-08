@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
+import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
 
@@ -37,8 +38,7 @@ export default async function ServersPage() {
 	const storageCount = servers.filter((s) => s.storageNode).length;
 
 	return (
-		<main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100">
-			<div className="mx-auto max-w-7xl px-6 py-10 lg:px-10">
+		<PageShell maxW="max-w-7xl">
 				{/* Header */}
 				<header className="mb-8">
 					<h1 className="text-3xl font-semibold tracking-tight text-white">VPS 管理</h1>
@@ -171,19 +171,7 @@ export default async function ServersPage() {
 						</div>
 					}
 				/>
-			</div>
-		</main>
-	);
-}
-
-/* ── Sub-components ──────────────────────────────────────────── */
-
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-	return (
-		<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
-			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</div>
-			<div className={`mt-1.5 text-2xl font-semibold ${accent ? "text-cyan-300" : "text-white"}`}>{value}</div>
-		</article>
+		</PageShell>
 	);
 }
 
@@ -209,10 +197,3 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 	);
 }
 
-function EmptyState({ text }: { text: string }) {
-	return (
-		<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-6 text-sm text-slate-500 text-center">
-			{text}
-		</div>
-	);
-}

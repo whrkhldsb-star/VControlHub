@@ -1,4 +1,5 @@
 "use client";
+import { StatCard } from "@/components/page-shell";
 
 import { useMemo, useState } from "react";
 
@@ -105,9 +106,9 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Token 总数" value={tokens.length} />
-        <StatCard label="当前有效" value={activeCount} tone="emerald" />
-        <StatCard label="允许权限范围" value={allowedScopes.length} tone="cyan" />
+<StatCard label="Token 总数" value={tokens.length} />
+					<StatCard label="当前有效" value={activeCount} accentColor="emerald" />
+					<StatCard label="允许权限范围" value={allowedScopes.length} accentColor="cyan" />
       </div>
 
       {createdPlaintext && (
@@ -208,12 +209,3 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   );
 }
 
-function StatCard({ label, value, tone = "slate" }: { label: string; value: number; tone?: "slate" | "cyan" | "emerald" }) {
-  const toneClass = tone === "cyan" ? "text-cyan-200" : tone === "emerald" ? "text-emerald-200" : "text-white";
-  return (
-    <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${toneClass}`}>{value}</p>
-    </div>
-  );
-}

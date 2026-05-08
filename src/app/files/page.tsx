@@ -4,6 +4,7 @@ import { getStorageOverview } from "@/lib/storage/service";
 
 import { getStorageFormOptions } from "@/app/storage/actions";
 import { FilesBrowserSpa } from "./files-browser-spa";
+import { PageShell } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
 
 type StorageDirectory = Awaited<ReturnType<typeof getStorageOverview>>["remoteDirectories"][number];
@@ -350,8 +351,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps = {}) {
 	const sftpNodes = storage.nodes.filter((n) => n.driver === "SFTP");
 
 	return (
-		<main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100">
-			<div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-10 lg:px-10">
+		<PageShell maxW="max-w-7xl">
 				<header className="mb-8">
 					<h1 className="text-3xl font-semibold tracking-tight text-white">文件与存储管理</h1>
 					<p className="mt-1.5 text-sm text-slate-500">文件浏览、上传下载、存储节点管理一体化</p>
@@ -399,7 +399,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps = {}) {
 						serverName: n.server?.name ?? null,
 					}))}
 				/>
-			</div>
-		</main>
+		</PageShell>
 	);
 }

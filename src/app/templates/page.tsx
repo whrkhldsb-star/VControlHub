@@ -4,6 +4,7 @@ import { listTemplates } from "@/lib/command-template/service";
 import { listServerProfiles } from "@/lib/server/service";
 
 import { TemplateListClient } from "./template-list-client";
+import { PageShell } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,7 @@ export default async function CommandTemplatesPage() {
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled }));
 
 	return (
-		<main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100">
-			<div className="mx-auto max-w-6xl px-6 py-10 lg:px-10">
+		<PageShell maxW="max-w-7xl">
 				<header className="mb-8">
 					<h1 className="text-3xl font-semibold tracking-tight text-white">命令模板</h1>
 					<p className="mt-1.5 text-sm text-slate-500">
@@ -36,7 +36,6 @@ export default async function CommandTemplatesPage() {
 					</p>
 				</header>
 				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} />
-			</div>
-		</main>
+		</PageShell>
 	);
 }

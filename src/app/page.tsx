@@ -6,6 +6,7 @@ import { getStorageOverview } from "@/lib/storage/service";
 import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
+import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +34,7 @@ export default async function Home() {
 	const dlFailed = downloadStats.find((d) => d.status === "FAILED")?._count ?? 0;
 
 	return (
-		<main className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100">
-			<div className="mx-auto w-full max-w-6xl px-6 py-10 lg:px-10">
+		<PageShell maxW="max-w-7xl">
 				{/* Header */}
 				<header className="mb-10">
 					<h1 className="text-3xl font-semibold tracking-tight text-white">仪表盘</h1>
@@ -193,27 +193,7 @@ export default async function Home() {
 						)}
 					</div>
 				</section>
-			</div>
-		</main>
-	);
-}
-
-/* ── Sub-components ──────────────────────────────────────────── */
-
-function StatCard({ label, value, accent, accentColor, detail }: {
-	label: string; value: string; accent: boolean; accentColor?: "cyan" | "amber"; detail?: string;
-}) {
-	const colorMap = {
-		cyan: { value: "text-cyan-300", detail: "text-cyan-400/70" },
-		amber: { value: "text-amber-300", detail: "text-amber-400/70" },
-	};
-	const c = accent && accentColor ? colorMap[accentColor] : null;
-	return (
-		<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
-			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</div>
-			<div className={`mt-1.5 text-2xl font-semibold ${c ? c.value : "text-white"}`}>{value}</div>
-			{detail && <p className={`mt-0.5 text-[11px] ${c ? c.detail : "text-slate-500"}`}>{detail}</p>}
-		</article>
+		</PageShell>
 	);
 }
 
@@ -252,10 +232,3 @@ function Badge({ color, children }: { color: "amber" | "emerald" | "rose" | "sla
 	);
 }
 
-function EmptyState({ text }: { text: string }) {
-	return (
-		<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-6 text-sm text-slate-500 text-center">
-			{text}
-		</div>
-	);
-}
