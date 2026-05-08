@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    env_file: .env.local
+    volumes:
+      - app-storage:/app/storage
+      - app-uploads:/app/uploads
+      - app-downloads:/app/downloads
+      - app-logs:/app/logs
+      - app-backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PG_DB_NAME:-whrkhldsb}
+      POSTGRES_USER: ${PG_DB_USER:-whrkhldsb}
+      POSTGRES_PASSWORD: ${PG_DB_PASSWORD:-changeme}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_DB_USER:-whrkhldsb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg-data:
+  app-storage:
+  app-uploads:
+  app-downloads:
+  app-logs:
+  app-backups:
