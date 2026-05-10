@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -11,11 +11,13 @@ interface CatalogItem {
 	icon: string;
 	description: string;
 	image: string;
-	port: number;
+	defaultPort: number;
+	internalPort: number | null;
 	path: string;
 	status: string;
 	id: string | null;
 	containerId: string | null;
+	port: number | null;
 	error: string | null;
 }
 
@@ -42,6 +44,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [tab, setTab] = useState<Tab>("store");
 	const [actionSlug, setActionSlug] = useState<string | null>(null);
 	const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+	// Install dialog state
+	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
+	const [customPort, setCustomPort] = useState<string>("");
+	const [portCheck, setPortCheck] = useState<{ available: boolean; usedBy: string | null; checking: boolean } | null>(null);
+
+	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const fetchCatalog = useCallback(async () => {
 		try {
@@ -73,17 +81,78 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		return () => clearTimeout(t);
 	}, [catalog, fetchCatalog]);
 
-	const doInstall = async (slug: string) => {
-		setActionSlug(slug);
+	// Debounced port availability check
+	const checkPortAvailability = useCallback(async (port: number) => {
+		setPortCheck({ available: false, usedBy: null, checking: true });
+		try {
+			const res = await fetch(`/api/quick-services/check-port?port=${port}`);
+			const data = await res.json();
+			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
+		} catch {
+			setPortCheck({ available: true, usedBy: null, checking: false });
+		}
+	}, []);
+
+	// When user types a custom port, debounce check
+	const handlePortInput = useCallback((value: string) => {
+		setCustomPort(value);
+		if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
+		const port = Number(value);
+		if (!value || isNaN(port) || port < 1 || port > 65535) {
+			setPortCheck(null);
+			return;
+		}
+		portCheckTimer.current = setTimeout(() => {
+			checkPortAvailability(port);
+		}, 400);
+	}, [checkPortAvailability]);
+
+	// Open install dialog
+	const openInstallDialog = (item: CatalogItem) => {
+		setInstallDialog({ slug: item.slug, name: item.name, defaultPort: item.defaultPort });
+		setCustomPort(String(item.defaultPort));
+		// Immediately check the default port
+		setPortCheck({ available: false, usedBy: null, checking: true });
+		checkPortAvailability(item.defaultPort);
+	};
+
+	// Close install dialog
+	const closeInstallDialog = () => {
+		setInstallDialog(null);
+		setCustomPort("");
+		setPortCheck(null);
+		if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
+	};
+
+	const doInstall = async () => {
+		if (!installDialog) return;
+		const port = Number(customPort);
+		if (isNaN(port) || port < 1 || port > 65535) {
+			setMessage({ type: "err", text: "端口号无效，请输入 1-65535 之间的数字" });
+			return;
+		}
+		if (portCheck && !portCheck.available) {
+			setMessage({ type: "err", text: `端口 ${port} 已被占用（${portCheck.usedBy}），请更换端口` });
+			return;
+		}
+		setActionSlug(installDialog.slug);
+		closeInstallDialog();
 		try {
 			const res = await fetch("/api/quick-services", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ slug }),
+				body: JSON.stringify({ slug: installDialog.slug, customPort: port }),
 			});
 			const data = await res.json();
-			if (!res.ok) throw new Error(data.error ?? "安装失败");
-			setMessage({ type: "ok", text: `${slug} 安装任务已提交，正在拉取镜像…` });
+			if (!res.ok) {
+				if (data.portConflict) {
+					setMessage({ type: "err", text: data.error });
+				} else {
+					throw new Error(data.error ?? "安装失败");
+				}
+				return;
+			}
+			setMessage({ type: "ok", text: `${installDialog.name} 安装任务已提交，正在拉取镜像…` });
 			setTimeout(fetchCatalog, 1500);
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "安装失败" });
@@ -102,7 +171,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error ?? "操作失败");
-			setMessage({ type: "ok", text: data.status === "running" ? `${slug} 已启动` : `${slug} 已停止` });
+			setMessage({ type: "ok", text: data.status === "running" ? `已启动` : `已停止` });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "操作失败" });
@@ -112,13 +181,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	};
 
 	const doUninstall = async (slug: string) => {
-		if (!confirm(`确定要卸载 ${slug} 吗？容器将被删除，数据卷保留。`)) return;
+		if (!confirm(`确定要卸载吗？容器将被删除，数据卷保留。`)) return;
 		setActionSlug(slug);
 		try {
 			const res = await fetch(`/api/quick-services/${slug}`, { method: "DELETE" });
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.error ?? "卸载失败");
-			setMessage({ type: "ok", text: `${slug} 已卸载` });
+			setMessage({ type: "ok", text: `已卸载` });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "卸载失败" });
@@ -183,7 +252,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									item={item}
 									tab={tab}
 									busy={actionSlug === item.slug}
-									onInstall={() => doInstall(item.slug)}
+									onInstall={() => openInstallDialog(item)}
 									onStart={() => doAction(item.slug, "start")}
 									onStop={() => doAction(item.slug, "stop")}
 									onSync={() => doAction(item.slug, "sync")}
@@ -205,6 +274,87 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
 					<div className="text-4xl mb-3">✅</div>
 					<p className="text-sm text-slate-500">所有服务都已安装！</p>
+				</div>
+			)}
+
+			{/* Install Dialog (port picker) */}
+			{installDialog && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeInstallDialog}>
+					<div className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0c0f1a] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+						<h3 className="text-lg font-semibold text-white mb-1">安装 {installDialog.name}</h3>
+						<p className="text-xs text-slate-500 mb-4">选择服务监听的端口，安装后可通过该端口访问服务。</p>
+
+						<div className="space-y-3">
+							<label className="block">
+								<span className="text-xs text-slate-400 mb-1 block">端口号</span>
+								<div className="relative">
+									<input
+										type="number"
+										min={1}
+										max={65535}
+										value={customPort}
+										onChange={(e) => handlePortInput(e.target.value)}
+										className={`w-full rounded-lg border bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none transition ${
+											portCheck
+												? portCheck.available
+													? "border-emerald-400/40 focus:border-emerald-400"
+													: "border-rose-400/40 focus:border-rose-400"
+												: "border-white/[0.08] focus:border-cyan-400"
+										}`}
+										placeholder="1-65535"
+									/>
+									{portCheck?.checking && (
+										<div className="absolute right-3 top-1/2 -translate-y-1/2">
+											<div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
+										</div>
+									)}
+									{portCheck && !portCheck.checking && (
+										<div className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium ${portCheck.available ? "text-emerald-400" : "text-rose-400"}`}>
+											{portCheck.available ? "✓ 可用" : "✗ 占用"}
+										</div>
+									)}
+								</div>
+							</label>
+
+							{portCheck && !portCheck.available && portCheck.usedBy && (
+								<div className="text-xs text-rose-300/80 bg-rose-500/[0.06] rounded-lg px-3 py-2 border border-rose-400/10">
+									端口被占用：{portCheck.usedBy}
+								</div>
+							)}
+
+							<div className="flex items-center gap-2 text-[10px] text-slate-500">
+								<span>推荐端口: {installDialog.defaultPort}</span>
+								<button
+									type="button"
+									onClick={async () => {
+										try {
+											const res = await fetch(`/api/quick-services/check-port?action=allocate&preferred=${installDialog.defaultPort}`);
+											const data = await res.json();
+											if (data.port) {
+												handlePortInput(String(data.port));
+											}
+										} catch { /* ignore */ }
+									}}
+									className="text-cyan-400/70 hover:text-cyan-300 underline underline-offset-2"
+								>
+									自动分配
+								</button>
+							</div>
+						</div>
+
+						<div className="flex items-center justify-end gap-3 mt-6">
+							<button onClick={closeInstallDialog} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+								取消
+							</button>
+							<button
+								onClick={doInstall}
+								disabled={portCheck?.checking || (portCheck ? !portCheck.available : false)}
+								className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
+							>
+								确认安装
+							</button>
+						</div>
+					</div>
 				</div>
 			)}
 		</div>
@@ -238,6 +388,8 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 		error: "异常",
 	};
 
+	const displayPort = item.port ?? item.defaultPort;
+
 	return (
 		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col gap-3 hover:border-white/[0.12] transition">
 			{/* Header */}
@@ -259,7 +411,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 
 			{/* Meta */}
 			<div className="flex items-center gap-3 text-[10px] text-slate-500">
-				<span>端口 {item.port}</span>
+				<span>端口 {displayPort}</span>
 				{item.path && <span>路径 {item.path}</span>}
 			</div>
 
