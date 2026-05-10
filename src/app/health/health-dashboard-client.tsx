@@ -120,7 +120,7 @@ export function HealthDashboardClient({ serverCount: _serverCount }: Props) {
 			{/* Summary cards */}
 			<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 				<SummaryCard label="节点总数" value={total} color="slate" />
-n				<SummaryCard label="在线正常" value={online} color="emerald" />
+				<SummaryCard label="在线正常" value={online} color="emerald" />
 				<SummaryCard label="性能警告" value={warning} color="amber" />
 				<SummaryCard label="严重告警" value={critical} color="rose" />
 				<SummaryCard label="离线/停用" value={offline} color="slate" />
