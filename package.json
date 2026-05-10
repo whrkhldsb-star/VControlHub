@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && ln -sfn ../../static .next/standalone/.next/static 2>/dev/null; ln -sfn ../../public .next/standalone/public 2>/dev/null; echo ✓ standalone static/public linked",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
+    "start:dev": "next dev",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",

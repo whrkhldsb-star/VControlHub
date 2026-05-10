@@ -43,6 +43,7 @@ PG_AUTO_SETUP="${PG_AUTO_SETUP:-1}"
 PG_DB_NAME="${PG_DB_NAME:-${APP_SLUG}}"
 PG_DB_USER="${PG_DB_USER:-${APP_SLUG}}"
 PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
+SKIP_SEED="${SKIP_SEED:-0}"
 SKIP_RESTART="${SKIP_RESTART:-0}"
 REPO_URL="${REPO_URL:-}"
 SOURCE_DIR="${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -216,15 +217,14 @@ sync_source() {
 }
 
 write_env_if_missing() {
-  if [ ! -f "${ENV_FILE}" ]; then
-    [ -f "${ENV_TEMPLATE}" ] || ENV_TEMPLATE="${APP_DIR}/.env.example"
-    [ -f "${ENV_TEMPLATE}" ] || fail "No environment template found at ${ENV_TEMPLATE} or ${APP_DIR}/.env.example"
-    log "Creating ${ENV_FILE} from ${ENV_TEMPLATE}"
-    cp "${ENV_TEMPLATE}" "${ENV_FILE}"
-    chmod 600 "${ENV_FILE}"
-    warn "Edit ${ENV_FILE} and set DATABASE_URL, AUTH_SESSION_SECRET, ADMIN_INITIAL_PASSWORD, public domain/origin values before production use."
-    fail "Environment file created but not yet customized. Re-run this installer after editing ${ENV_FILE}."
-  fi
+ if [ ! -f "${ENV_FILE}" ]; then
+ [ -f "${ENV_TEMPLATE}" ] || ENV_TEMPLATE="${APP_DIR}/.env.example"
+ [ -f "${ENV_TEMPLATE}" ] || fail "No environment template found at ${ENV_TEMPLATE} or ${APP_DIR}/.env.example"
+ log "Creating ${ENV_FILE} from ${ENV_TEMPLATE}"
+ cp "${ENV_TEMPLATE}" "${ENV_FILE}"
+ chmod 600 "${ENV_FILE}"
+ warn "Created ${ENV_FILE} from template — placeholder secrets will be auto-generated next."
+ fi
 }
 
 UNSAFE_PRODUCTION_FLAGS=(
@@ -264,6 +264,92 @@ validate_env() {
     fail "NEXT_PUBLIC_APP_PUBLIC_LABEL still contains a placeholder in ${ENV_FILE}."
   fi
   reject_unsafe_production_flags
+}
+
+auto_generate_env_secrets() {
+ [ -f "${ENV_FILE}" ] || return 0
+ # shellcheck disable=SC1090
+ set -a; source "${ENV_FILE}"; set +a
+
+ local changed=0
+
+ # ── AUTH_SESSION_SECRET ──────────────────────────────────────────
+ if is_placeholder_value "${AUTH_SESSION_SECRET:-}" || [ -z "${AUTH_SESSION_SECRET:-}" ]; then
+  local secret
+  secret="$(openssl rand -base64 48)"
+  local escaped
+  escaped="$(shell_escape_sed_replacement "${secret}")"
+  sed -i "s#^AUTH_SESSION_SECRET=.*#AUTH_SESSION_SECRET=${escaped}#" "${ENV_FILE}"
+  AUTH_SESSION_SECRET="${secret}"
+  log "Auto-generated AUTH_SESSION_SECRET"
+  changed=1
+ fi
+
+ # ── ADMIN_INITIAL_PASSWORD ───────────────────────────────────────
+ if is_placeholder_value "${ADMIN_INITIAL_PASSWORD:-}" || [ -z "${ADMIN_INITIAL_PASSWORD:-}" ]; then
+  local admin_pw
+  admin_pw="$(openssl rand -base64 24)"
+  local escaped_pw
+  escaped_pw="$(shell_escape_sed_replacement "${admin_pw}")"
+  sed -i "s#^ADMIN_INITIAL_PASSWORD=.*#ADMIN_INITIAL_PASSWORD=${escaped_pw}#" "${ENV_FILE}"
+  ADMIN_INITIAL_PASSWORD="${admin_pw}"
+  warn "============================================================"
+  warn "  Auto-generated ADMIN_INITIAL_PASSWORD (save this!):"
+  warn "  ${admin_pw}"
+  warn "============================================================"
+  changed=1
+ fi
+
+ # ── NEXT_PUBLIC_APP_PUBLIC_LABEL ─────────────────────────────────
+ if is_placeholder_value "${NEXT_PUBLIC_APP_PUBLIC_LABEL:-}" && [ -n "${DOMAIN:-}" ]; then
+  local escaped
+  escaped="$(shell_escape_sed_replacement "${DOMAIN}")"
+  sed -i "s#^NEXT_PUBLIC_APP_PUBLIC_LABEL=.*#NEXT_PUBLIC_APP_PUBLIC_LABEL=${escaped}#" "${ENV_FILE}"
+  log "Auto-set NEXT_PUBLIC_APP_PUBLIC_LABEL=${DOMAIN}"
+  changed=1
+ fi
+
+ # ── SSH_WS_ALLOWED_ORIGINS ───────────────────────────────────────
+ if is_placeholder_value "${SSH_WS_ALLOWED_ORIGINS:-}" && [ -n "${DOMAIN:-}" ]; then
+  local origin="https://${DOMAIN}"
+  local escaped
+  escaped="$(shell_escape_sed_replacement "${origin}")"
+  sed -i "s#^SSH_WS_ALLOWED_ORIGINS=.*#SSH_WS_ALLOWED_ORIGINS=${escaped}#" "${ENV_FILE}"
+  log "Auto-set SSH_WS_ALLOWED_ORIGINS=${origin}"
+  changed=1
+ fi
+
+ # ── AUTH_SESSION_COOKIE_NAME, ISSUER, AUDIENCE ───────────────────
+ if is_placeholder_value "${AUTH_SESSION_COOKIE_NAME:-}" || [ -z "${AUTH_SESSION_COOKIE_NAME:-}" ]; then
+  local cookie_name="${APP_SLUG}-session"
+  local escaped
+  escaped="$(shell_escape_sed_replacement "${cookie_name}")"
+  sed -i "s#^AUTH_SESSION_COOKIE_NAME=.*#AUTH_SESSION_COOKIE_NAME=${escaped}#" "${ENV_FILE}"
+  log "Auto-set AUTH_SESSION_COOKIE_NAME=${cookie_name}"
+  changed=1
+ fi
+
+ if is_placeholder_value "${AUTH_SESSION_ISSUER:-}" || [ -z "${AUTH_SESSION_ISSUER:-}" ]; then
+  local issuer="${APP_SLUG}"
+  local escaped
+  escaped="$(shell_escape_sed_replacement "${issuer}")"
+  sed -i "s#^AUTH_SESSION_ISSUER=.*#AUTH_SESSION_ISSUER=${escaped}#" "${ENV_FILE}"
+  log "Auto-set AUTH_SESSION_ISSUER=${issuer}"
+  changed=1
+ fi
+
+ if is_placeholder_value "${AUTH_SESSION_AUDIENCE:-}" || [ -z "${AUTH_SESSION_AUDIENCE:-}" ]; then
+  local audience="${APP_SLUG}-console"
+  local escaped
+  escaped="$(shell_escape_sed_replacement "${audience}")"
+  sed -i "s#^AUTH_SESSION_AUDIENCE=.*#AUTH_SESSION_AUDIENCE=${escaped}#" "${ENV_FILE}"
+  log "Auto-set AUTH_SESSION_AUDIENCE=${audience}"
+  changed=1
+ fi
+
+ if [ "${changed}" -eq 1 ]; then
+  chmod 600 "${ENV_FILE}"
+ fi
 }
 
 create_runtime_dirs() {
@@ -346,9 +432,13 @@ build_app() {
   set +a
   npm ci
   npm run prisma:generate
-  if [ "${SKIP_DB_SETUP}" != "1" ]; then
-    npm run prisma:deploy
-  fi
+ if [ "${SKIP_DB_SETUP}" != "1" ]; then
+ npm run prisma:deploy
+ fi
+ if [ "${SKIP_DB_SETUP}" != "1" ] && [ "${SKIP_SEED}" != "1" ]; then
+ log "Seeding database (admin user, roles, permissions)"
+ npm run db:seed
+ fi
   npm run build
   chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
@@ -414,22 +504,23 @@ restart_services() {
 }
 
 main() {
-  need_root
-  install_packages
-  prepare_app_user
-  sync_source
-  write_env_if_missing
-  validate_env
-  if [ -x "${APP_DIR}/deploy/preflight.sh" ]; then
-    APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" NEXT_HOST="${NEXT_HOST}" NEXT_PORT="${NEXT_PORT}" SSH_WS_PORT="${SSH_WS_PORT}" "${APP_DIR}/deploy/preflight.sh"
-  fi
-  create_runtime_dirs
+ need_root
+ install_packages
+ prepare_app_user
+ sync_source
+ write_env_if_missing
+ auto_generate_env_secrets
  setup_postgres
-  build_app
-  install_systemd
-  install_caddy
-  restart_services
-  log "Done. App directory: ${APP_DIR}"
+ validate_env
+ if [ -x "${APP_DIR}/deploy/preflight.sh" ]; then
+ APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" NEXT_HOST="${NEXT_HOST}" NEXT_PORT="${NEXT_PORT}" SSH_WS_PORT="${SSH_WS_PORT}" "${APP_DIR}/deploy/preflight.sh"
+ fi
+ create_runtime_dirs
+ build_app
+ install_systemd
+ install_caddy
+ restart_services
+ log "Done. App directory: ${APP_DIR}"
 }
 
 main "$@"

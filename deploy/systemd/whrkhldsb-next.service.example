@@ -9,7 +9,7 @@ WorkingDirectory={{APP_DIR}}
 EnvironmentFile={{ENV_FILE}}
 Environment=NODE_ENV=production
 Environment=PATH={{SYSTEMD_PATH}}
-ExecStart={{NPM_BIN}} run start
+ExecStart=/usr/bin/env node {{APP_DIR}}/.next/standalone/server.js
 Restart=always
 RestartSec=5
 User={{APP_USER}}
