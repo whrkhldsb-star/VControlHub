@@ -261,11 +261,11 @@ describe("deploy/install.sh", () => {
       const wsUnitPath = path.join(fakeRoot, "etc/systemd/system/customsvc-ssh-ws.service");
       const nextUnit = await readFile(nextUnitPath, "utf8");
       const wsUnit = await readFile(wsUnitPath, "utf8");
-      expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
-      expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npm")} run start`);
-      expect(nextUnit).toContain("Description=自定义控制台 Next.js application");
-      expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
-      expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/ssh-ws-proxy.ts`);
+	expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
+	expect(nextUnit).toContain(`ExecStart=/usr/bin/env node ${appDir}/.next/standalone/server.js`);
+	expect(nextUnit).toContain("Description=自定义控制台 Next.js application");
+	expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
+	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/ssh-ws-proxy.ts`);
       expect(wsUnit).toContain("Description=自定义控制台 SSH WebSocket proxy");
       expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
       expect(result.stdout + result.stderr).not.toContain("whrkhldsb-next.service");
