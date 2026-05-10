@@ -34,6 +34,7 @@ const IconTicket = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="
 const IconStatus = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12h4l3 8 4-16 3 8h4" /></svg>;
 const IconDeploy = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 const IconAi = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.09-.75.202-.25.112-.499.268-.75.468M9.75 3.104c.251.023.501.09.75.202.25.112.499.268.75.468M5 14.5l-1.43 1.43a2.25 2.25 0 01-3.182 0l-.03-.03a2.25 2.25 0 010-3.182L5 14.5zm0 0l6.25-6.25" /></svg>;
+const IconStore = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v0A2.25 2.25 0 018.25 8.25H6A2.25 2.25 0 013.75 6v0zM13.5 6a2.25 2.25 0 012.25-2.25h2.25A2.25 2.25 0 0120.25 6v0a2.25 2.25 0 01-2.25 2.25h-2.25A2.25 2.25 0 0113.5 6v0zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25v0a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v0z" /></svg>;
 
 const navItems = [
 	{ href: "/", label: "仪表盘", icon: <IconDashboard /> },
@@ -46,6 +47,7 @@ const navItems = [
 	{ href: "/backups", label: "备份迁移", icon: <IconBackup /> },
 	{ href: "/templates", label: "命令模板", icon: <IconTemplate /> },
 	{ href: "/deployments", label: "应用部署", icon: <IconDeploy /> },
+	{ href: "/quick-services", label: "快捷服务", icon: <IconStore /> },
 	{ href: "/snippets", label: "代码片段", icon: <IconCode /> },
  { href: "/media", label: "媒体库", icon: <IconMovie /> },
  { href: "/ai", label: "AI 助手", icon: <IconAi /> },
@@ -65,14 +67,18 @@ const systemItems = [
 	{ href: "/audit", label: "审计日志", icon: <IconAudit /> },
 ];
 
-const externalLinks = [
-	{ href: "/files-proxy/", label: "AList 云盘", icon: <IconCloud /> },
-	{ href: "/web/index.html", label: "Emby 影视", icon: <IconMovie /> },
-];
+/* externalLinks removed — now driven by quickServices prop */
 
 import { getAppName, getPublicLabel } from "@/lib/branding";
 
-export function AppSidebar({ username }: { username?: string }) {
+interface QuickServiceLink {
+	slug: string;
+	name: string;
+	icon: string;
+	path: string;
+}
+
+export function AppSidebar({ username, quickServices = [] }: { username?: string; quickServices?: QuickServiceLink[] }) {
 	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -138,28 +144,28 @@ export function AppSidebar({ username }: { username?: string }) {
 					</Link>
 				))}
 
-				{/* External service links */}
-				{externalLinks.length > 0 && (
-					<>
-						<div className="pt-4 pb-1 px-3.5 text-[10px] uppercase tracking-[0.2em] text-slate-600 font-medium">
-							快捷服务
-						</div>
-						{externalLinks.map((item) => (
-							<a
-								key={item.href}
-								href={item.href}
-								target="_blank"
-								rel="noopener noreferrer"
-								onClick={() => setMobileOpen(false)}
-								className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition-all duration-150"
-							>
-								{item.icon}
-								<span>{item.label}</span>
-								<IconExternal />
-							</a>
-						))}
-					</>
-				)}
+			{/* Quick service links (dynamic from DB) */}
+			{quickServices.length > 0 && (
+				<>
+					<div className="pt-4 pb-1 px-3.5 text-[10px] uppercase tracking-[0.2em] text-slate-600 font-medium">
+						快捷服务
+					</div>
+					{quickServices.map((item) => (
+						<a
+							key={item.slug}
+							href={item.path}
+							target="_blank"
+							rel="noopener noreferrer"
+							onClick={() => setMobileOpen(false)}
+							className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition-all duration-150"
+						>
+							<span className="text-[18px] leading-none">{item.icon}</span>
+							<span>{item.name}</span>
+							<IconExternal />
+						</a>
+					))}
+				</>
+			)}
 			</div>
 
 			{/* Bottom User Area */}
