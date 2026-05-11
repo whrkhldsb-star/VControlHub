@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { createAnnouncement, listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/service";
 export const dynamic = "force-dynamic";
 export async function GET(){ const session=await requireSession(); const manage=sessionHasPermission(session,"announcement:manage"); return NextResponse.json({ announcements: manage ? await listAnnouncements() : await listActiveAnnouncements() }); }

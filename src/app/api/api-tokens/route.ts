@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   ALLOWED_API_TOKEN_SCOPES,
   createApiToken,

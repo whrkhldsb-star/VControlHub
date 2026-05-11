@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { listAlertRules, createAlertRule, updateAlertRule, deleteAlertRule, toggleAlertRule } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { evaluateAlerts } from "@/lib/health/service";
@@ -68,11 +67,9 @@ async function parseBody(request: Request) {
 }
 
 async function requireAlertSession() {
-	const session = await requireSession();
-	if (!sessionHasPermission(session, "notification:manage")) {
-		return { session, response: NextResponse.json({ error: "权限不足" }, { status: 403 }) };
-	}
-	return { session, response: null };
+	const authed = await requireApiPermission("notification:manage");
+	if (authed instanceof NextResponse) return { session: null as never, response: authed };
+	return { session: authed.session, response: null };
 }
 
 function auditRuleDetail(rule: { id?: string; name?: string; metric?: string; notifyChannels?: string[]; webhookUrl?: string | null }) {

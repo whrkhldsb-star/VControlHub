@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { createCommandRequest, listCommandRequests } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 

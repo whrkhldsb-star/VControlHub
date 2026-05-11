@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { getAllSettings, setManySettings } from "@/lib/settings/service";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export async function GET() {
 		const settings = await getAllSettings();
 		return NextResponse.json({ settings });
 	} catch {
-		return NextResponse.json({ error: "未认证" }, { status: 401 });
+		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 }
 

@@ -1,7 +1,6 @@
 import { UserStatus } from "@prisma/client";
 
 import { ADMIN_BOOTSTRAP, getInitialAdminPassword } from "@/lib/auth/bootstrap";
-import { assertProductionDemoIsolation } from "@/lib/demo/isolation";
 import { prisma } from "@/lib/db";
 import {
   ALL_PERMISSIONS,
@@ -228,8 +227,15 @@ async function seedDemoData() {
 }
 
 export async function seedDatabase() {
-  assertProductionDemoIsolation();
-  await seedPermissions();
+	if (process.env.NODE_ENV === "production") {
+		const demoFlags = ["SEED_DEMO_DATA", "DEMO_MODE", "ENABLE_DEMO_FALLBACK", "AUTH_DEMO_FALLBACK", "SERVER_DEMO_FALLBACK", "STORAGE_DEMO_FALLBACK", "COMMAND_DEMO_FALLBACK"];
+		for (const flag of demoFlags) {
+			if (process.env[flag]?.trim().toLowerCase() === "true") {
+				throw new Error(`${flag}=true is forbidden when NODE_ENV=production`);
+			}
+		}
+	}
+	await seedPermissions();
   await seedRoles();
   await seedAdmin();
   if (shouldSeedDemoData()) {

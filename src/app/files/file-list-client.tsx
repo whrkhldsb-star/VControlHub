@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { OFFICE_MIME_SET, ARCHIVE_MIME_SET, EXTENDED_TEXT_MIME_SET, CSV_MIME_SET, MARKDOWN_MIME_SET, IMAGE_MIME_SET, AUDIO_MIME_SET, VIDEO_MIME_SET, isDocumentMime, isMediaMime } from "@/lib/storage/mime-constants";
 import { deleteFileEntryAction } from "../storage/actions";
 import { moveFileAction } from "./move-file-action";
 import { DeleteConfirmButton } from "./delete-confirm-button";
@@ -47,45 +48,15 @@ function buildDownloadHref(entry: StorageEntry) {
 	return `/api/storage/local?path=${encodeURIComponent(entry.relativePath)}`;
 }
 
-const OFFICE_MIME_SET = new Set([
-	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-	"application/msword",
-	"application/vnd.ms-excel",
-	"application/vnd.ms-powerpoint",
-]);
-
-const ARCHIVE_MIME_SET = new Set([
-	"application/zip",
-	"application/x-zip-compressed",
-	"application/x-rar-compressed",
-	"application/x-7z-compressed",
-	"application/gzip",
-	"application/x-tar",
-	"application/java-archive",
-	"application/x-bzip2",
-	"application/x-xz",
-]);
-
+/* ── EXTENDED_PREVIEW_MIMES: superset for preview eligibility ── */
 const EXTENDED_PREVIEW_MIMES = new Set([
 	"image/svg+xml",
-	"application/json",
-	"application/ld+json",
-	"application/xml",
-	"application/javascript",
-	"application/x-javascript",
-	"application/x-sh",
-	"application/x-yaml",
-	"application/yaml",
-	"application/toml",
 	"application/x-ndjson",
 	"application/sql",
-	"application/x-shellscript",
-	"text/csv",
-	"text/tab-separated-values",
-	"text/markdown",
-	"text/x-markdown",
+	"application/yaml",
+	...EXTENDED_TEXT_MIME_SET,
+	...CSV_MIME_SET,
+	...MARKDOWN_MIME_SET,
 ]);
 
 function getPreviewHref(entry: StorageEntry) {

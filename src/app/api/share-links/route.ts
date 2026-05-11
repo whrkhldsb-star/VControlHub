@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { createShareLink, listShareLinks, revokeShareLink } from "@/lib/share-link/service";
 
 export const dynamic = "force-dynamic";

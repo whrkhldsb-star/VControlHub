@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/require-session";
+import { OFFICE_MIME_TYPES, ARCHIVE_MIME_TYPES, CSV_MIME_TYPES, MARKDOWN_MIME_TYPES, EXTENDED_TEXT_MIME_TYPES, IMAGE_MIME_SET, AUDIO_MIME_SET, VIDEO_MIME_SET } from "@/lib/storage/mime-constants";
 import { MediaPreviewClient } from "./media-preview-client";
 import { TextPreviewClient } from "./text-preview-client";
 import { MarkdownPreviewClient } from "./markdown-preview-client";
@@ -19,59 +20,6 @@ type PreviewPageProps = {
 		relativePath?: string;
 	}>;
 };
-
-const OFFICE_MIME_TYPES = [
-	"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-	"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-	"application/vnd.openxmlformats-officedocument.presentationml.presentation",
-	"application/msword",
-	"application/vnd.ms-excel",
-	"application/vnd.ms-powerpoint",
-];
-
-const ARCHIVE_MIME_TYPES = [
-	"application/zip",
-	"application/x-zip-compressed",
-	"application/x-rar-compressed",
-	"application/x-7z-compressed",
-	"application/gzip",
-	"application/x-tar",
-	"application/java-archive",
-	"application/x-bzip2",
-	"application/x-xz",
-];
-
-const CSV_MIME_TYPES = [
-	"text/csv",
-	"application/csv",
-	"text/tab-separated-values",
-];
-
-const MARKDOWN_MIME_TYPES = [
-	"text/markdown",
-	"text/x-markdown",
-];
-
-const EXTENDED_TEXT_MIME_TYPES = [
-	"application/json",
-	"application/ld+json",
-	"application/xml",
-	"application/javascript",
-	"application/x-javascript",
-	"application/x-sh",
-	"application/x-yaml",
-	"application/yaml",
-	"application/toml",
-	"application/x-ndjson",
-	"application/x-httpd-php",
-	"application/x-python-code",
-	"application/x-ruby",
-	"application/sql",
-	"application/x-shellscript",
-	"application/x-config",
-	"application/x-sublime-config",
-	"image/svg+xml",
-];
 
 /* Fallback: detect type by file extension when MIME is generic/unknown */
 function detectByExtension(name: string): { isMarkdown: boolean; isCsv: boolean; isText: boolean } {

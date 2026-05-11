@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
+
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { auditUserAction } from "@/lib/audit/service";

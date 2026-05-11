@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { fetchModelsFromProvider } from "@/lib/ai/service";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +10,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: Request) {
   try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "ai:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    const authed = await requireApiPermission("ai:manage");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
 
     const providerId = new URL(request.url).searchParams.get("providerId");
     if (!providerId)

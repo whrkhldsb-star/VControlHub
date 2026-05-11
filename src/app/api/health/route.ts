@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { verifyApiToken } from "@/lib/api-token/service";
 import { collectAllHealth, getMetricHistory, snapshotMetrics } from "@/lib/health/service";
 

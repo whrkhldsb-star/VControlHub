@@ -1,5 +1,5 @@
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { NextResponse } from "next/server";
+import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { sendChatRequest, createMessage, getConversationById } from "@/lib/ai/service";
 
 export const dynamic = "force-dynamic";
@@ -11,30 +11,23 @@ export const dynamic = "force-dynamic";
  * Also saves user + assistant messages to the conversation.
  *
  * Body: {
- *   conversationId: string;
- *   content: string;
- *   imageUrls?: string[];       // URL-based images
- *   imageBase64?: Array<{       // Base64-encoded images (from file upload)
- *     mimeType: string;
- *     data: string;             // base64 data (without data: prefix)
- *   }>;
- *   fileAttachments?: Array<{   // Text file contents to inject
- *     name: string;
- *     content: string;
- *   }>;
+ * conversationId: string;
+ * content: string;
+ * imageUrls?: string[]; // URL-based images
+ * imageBase64?: Array<{ // Base64-encoded images (from file upload)
+ * mimeType: string;
+ * data: string; // base64 data (without data: prefix)
+ * }>;
+ * fileAttachments?: Array<{ // Text file contents to inject
+ * name: string;
+ * content: string;
+ * }>;
  * }
  */
 export async function POST(request: Request) {
-  let session: Awaited<ReturnType<typeof requireSession>>;
-  try {
-    session = await requireSession();
-  } catch {
-    return new Response(JSON.stringify({ error: "未认证" }), { status: 401 });
-  }
-
-  if (!sessionHasPermission(session, "ai:manage")) {
-    return new Response(JSON.stringify({ error: "缺少权限" }), { status: 403 });
-  }
+ const authed = await requireApiPermission("ai:manage");
+ if (authed instanceof NextResponse) return authed;
+ const { session } = authed;
 
   let body: {
     conversationId: string;

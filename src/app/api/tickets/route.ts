@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
 import { addTicketComment, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 export const dynamic = "force-dynamic";
 export async function GET(){ const session=await requireSession(); if(!sessionHasPermission(session,"ticket:manage")) return NextResponse.json({error:"缺少权限"},{status:403}); return NextResponse.json({ tickets: await listTickets(session.userId) }); }

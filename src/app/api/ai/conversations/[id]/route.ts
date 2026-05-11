@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import {
  getConversationById,
  updateConversation,
@@ -16,9 +15,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "ai:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    const authed = await requireApiPermission("ai:manage");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
     const { id } = await params;
     const conv = await getConversationById(id, session.userId);
     return NextResponse.json({ conversation: serializeConversation(conv) });
@@ -33,9 +32,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "ai:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    const authed = await requireApiPermission("ai:manage");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
     const { id } = await params;
     const body = await request.json();
 
@@ -67,9 +66,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "ai:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    const authed = await requireApiPermission("ai:manage");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
     const { id } = await params;
     await deleteConversation(id, session.userId);
     return NextResponse.json({ ok: true });

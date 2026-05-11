@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
 
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { buildPortableDeploymentPackage, createDeploymentExport } from "@/lib/deploy-export/service";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-	const session = await requireSession();
-	if (!sessionHasPermission(session, "deploy:export"))
-		return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+	const authed = await requireApiPermission("deploy:export");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
 
 	const domain = new URL(request.url).searchParams.get("domain") ?? undefined;
 	return NextResponse.json(buildPortableDeploymentPackage({ domain }));
 }
 
 export async function POST(request: Request) {
-	const session = await requireSession();
-	if (!sessionHasPermission(session, "deploy:export"))
-		return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+	const authed = await requireApiPermission("deploy:export");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
 
 	const body = await request.json().catch(() => ({}));
 	return NextResponse.json(

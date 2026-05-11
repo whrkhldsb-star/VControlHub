@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireSession } from "@/lib/auth/require-session";
+
 import { listAuditLogs } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";

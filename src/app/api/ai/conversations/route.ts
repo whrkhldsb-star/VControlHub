@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import {
   createConversation,
   listConversations,
@@ -11,23 +10,23 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "ai:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    const authed = await requireApiPermission("ai:manage");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
     const conversations = await listConversations(session.userId);
     return NextResponse.json({
       conversations: conversations.map(serializeConversationListItem),
     });
   } catch {
-    return NextResponse.json({ error: "未认证" }, { status: 401 });
+    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "ai:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    const authed = await requireApiPermission("ai:manage");
+	if (authed instanceof NextResponse) return authed;
+	const { session } = authed;
     const body = await request.json();
     const conv = await createConversation({ ...body, createdBy: session.userId });
     return NextResponse.json(
