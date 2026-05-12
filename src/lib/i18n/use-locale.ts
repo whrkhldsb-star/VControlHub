@@ -28,6 +28,10 @@ export function useI18n() {
 
 export { I18nContext };
 
+/**
+ * Internal hook — used only by I18nProvider.
+ * Components should use useI18n() instead.
+ */
 export function useLocale() {
 	const [locale, setLocaleState] = useState<Locale>("zh");
 

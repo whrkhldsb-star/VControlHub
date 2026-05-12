@@ -42,6 +42,11 @@ export async function POST() {
 
 export async function PUT(request: Request) {
 	try {
+		const session = await getApiSession();
+		if (!session) {
+			return NextResponse.json({ error: "未登录或会话已过期" }, { status: 401 });
+		}
+
 		const { code, secret } = (await request.json()) as { code: string; secret: string };
 		if (!code || !secret) {
 			return NextResponse.json({ error: "缺少验证码或密钥" }, { status: 400 });

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
 import { createLogger } from "@/lib/logging";
 import { getAppSlug } from "@/lib/branding";
@@ -12,7 +12,7 @@ const SESSION_ISSUER = process.env.AUTH_SESSION_ISSUER?.trim() || APP_SLUG;
 const SESSION_AUDIENCE = process.env.AUTH_SESSION_AUDIENCE?.trim() || `${APP_SLUG}-console`;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const AUTH_BYPASS_PREFIXES = ["/_next", "/api/public", "/api/status", "/favicon.ico"];
-const AUTH_BYPASS_EXACT = new Set(["/login", "/api/login", "/status"]);
+const AUTH_BYPASS_EXACT = new Set(["/login", "/login/verify-2fa", "/api/login", "/api/auth/2fa/verify-login", "/status"]);
 
 export type SessionPayload = {
   userId: string;
@@ -109,10 +109,76 @@ export async function verifySessionToken(token: string) {
     throw new Error("Session token expired");
   }
 
-  return {
-    userId: payload.userId,
-    username: payload.username,
-    roles: payload.roles,
-    mustChangePassword: payload.mustChangePassword,
-  } satisfies SessionPayload;
+ return {
+ userId: payload.userId,
+ username: payload.username,
+ roles: payload.roles,
+ mustChangePassword: payload.mustChangePassword,
+ } satisfies SessionPayload;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pending 2FA Token
+// ─────────────────────────────────────────────────────────────
+// When a user with 2FA enabled passes the password check, we
+// create a short-lived "pending 2FA" token instead of a full
+// session. This token is stored in a separate cookie and can
+// only be exchanged for a real session after TOTP verification.
+
+const PENDING_2FA_COOKIE_NAME = `${APP_SLUG}_pending_2fa`;
+const PENDING_2FA_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+type Pending2faPayload = SessionPayload & {
+ pending2fa: true;
+ nonce: string;
+};
+
+export function getPending2faCookieName() {
+	return PENDING_2FA_COOKIE_NAME;
+}
+
+export async function createPending2faToken(payload: SessionPayload): Promise<string> {
+	const now = Date.now();
+	const nonce = randomBytes(16).toString("hex");
+	const envelope: Pending2faPayload & { iss: string; aud: string; iat: number; exp: number } = {
+		...payload,
+		pending2fa: true,
+		nonce,
+		iss: SESSION_ISSUER,
+		aud: SESSION_AUDIENCE,
+		iat: now,
+		exp: now + PENDING_2FA_TTL_MS,
+	};
+	const encodedPayload = encodeBase64Url(JSON.stringify(envelope));
+	const signature = signPayload(encodedPayload);
+	return `${encodedPayload}.${signature}`;
+}
+
+export async function verifyPending2faToken(token: string): Promise<SessionPayload | null> {
+	try {
+		const [encodedPayload, providedSignature] = token.split(".");
+		if (!encodedPayload || !providedSignature) return null;
+
+		const expectedSignature = signPayload(encodedPayload);
+		const providedBuffer = Buffer.from(providedSignature, "utf8");
+		const expectedBuffer = Buffer.from(expectedSignature, "utf8");
+
+		if (providedBuffer.length !== expectedBuffer.length) return null;
+		if (!timingSafeEqual(providedBuffer, expectedBuffer)) return null;
+
+		const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
+
+		if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) return null;
+		if (payload.exp <= Date.now()) return null;
+		if (!payload.pending2fa) return null;
+
+		return {
+			userId: payload.userId,
+			username: payload.username,
+			roles: payload.roles,
+			mustChangePassword: payload.mustChangePassword,
+		};
+	} catch {
+		return null;
+	}
 }

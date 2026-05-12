@@ -16,7 +16,7 @@ import type { NextRequest } from "next/server";
 // ── Public paths that skip auth ──────────────────────────────────
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
-const PUBLIC_PATHS_EXACT = new Set(["/login", "/api/login", "/status", "/api/status"]);
+const PUBLIC_PATHS_EXACT = new Set(["/login", "/login/verify-2fa", "/api/login", "/api/auth/2fa/verify-login", "/status", "/api/status"]);
 
 const PUBLIC_PATH_PREFIXES = [
 	"/_next", // static assets
@@ -50,7 +50,7 @@ function hasValidSessionCookie(request: NextRequest): boolean {
 }
 
 // ── Security headers ─────────────────────────────────────────────
-function addSecurityHeaders(response: NextResponse): NextResponse {
+function addSecurityHeaders(response: NextResponse, request: NextRequest): NextResponse {
 	const headers = response.headers;
 
 	// Prevent clickjacking
@@ -72,7 +72,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 	);
 
 	// HSTS — only add when the request is already HTTPS
-	if (requestUrlIsHttps(response)) {
+	if (requestUrlIsHttps(request)) {
 		headers.set(
 			"Strict-Transport-Security",
 			"max-age=31536000; includeSubDomains; preload",
@@ -87,7 +87,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 				"default-src 'self'",
 				"script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js needs unsafe-inline/eval
 				"style-src 'self' 'unsafe-inline'", // Tailwind needs unsafe-inline
-				"img-src 'self' data: blob: https:",
+				"img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
 				"font-src 'self' data:",
 				"connect-src 'self' ws: wss:", // WebSocket for SSH terminal
 				"frame-ancestors 'self'", // equivalent to X-Frame-Options SAMEORIGIN
@@ -100,12 +100,13 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 	return response;
 }
 
-function requestUrlIsHttps(response: NextResponse): boolean {
+function requestUrlIsHttps(request: NextRequest): boolean {
 	// Check if the original request was HTTPS via the X-Forwarded-Proto header
 	// (set by reverse proxies like Caddy/Apache) or the URL protocol
-	const proto = response.headers.get("x-forwarded-proto");
+	const proto = request.headers.get("x-forwarded-proto");
 	if (proto === "https") return true;
-	return false;
+	// Also check the request URL directly
+	return request.nextUrl.protocol === "https:";
 }
 
 // ── Main middleware ───────────────────────────────────────────────
@@ -114,7 +115,7 @@ export function middleware(request: NextRequest) {
 
 	// 1) Allow public paths through
 	if (isPublicPath(pathname)) {
-		return addSecurityHeaders(NextResponse.next());
+		return addSecurityHeaders(NextResponse.next(), request);
 	}
 
 	// 2) Check session cookie for protected paths
@@ -129,7 +130,7 @@ export function middleware(request: NextRequest) {
 		const loginUrl = request.nextUrl.clone();
 		loginUrl.pathname = "/login";
 		loginUrl.searchParams.set("next", pathname);
-		return addSecurityHeaders(NextResponse.redirect(loginUrl));
+		return addSecurityHeaders(NextResponse.redirect(loginUrl), request);
 	}
 
 	// 3) CSRF protection for state-changing API requests
@@ -137,7 +138,7 @@ export function middleware(request: NextRequest) {
 		const csrfCookie = request.cookies.get("csrf_token")?.value;
 		const csrfHeader = request.headers.get("x-csrf-token");
 		// Skip CSRF for login endpoint (no session yet)
-		if (pathname !== "/api/login" && pathname !== "/api/auth/signout") {
+		if (pathname !== "/api/login" && pathname !== "/api/auth/signout" && pathname !== "/api/auth/2fa/verify-login") {
 			if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
 				return NextResponse.json(
 					{ error: "CSRF token 验证失败" },
@@ -148,7 +149,7 @@ export function middleware(request: NextRequest) {
 	}
 
 	// 4) Authenticated — pass through with security headers
-	return addSecurityHeaders(NextResponse.next());
+	return addSecurityHeaders(NextResponse.next(), request);
 }
 
 export const config = {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 
 type Step = "idle" | "setup" | "verify" | "disable";
 
@@ -11,49 +11,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [code, setCode] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-
-	// Draw QR code on canvas
-	useEffect(() => {
-		if (step !== "setup" || !otpauthUrl || !canvasRef.current) return;
-		const canvas = canvasRef.current;
-		const ctx = canvas.getContext("2d");
-		if (!ctx) return;
-
-		// Simple QR generation using Google Charts API (or inline)
-		// For offline use, we'll just display the otpauth URL and secret
-		// In production you'd use a QR lib, but here we show the text
-		const size = 200;
-		canvas.width = size;
-		canvas.height = size;
-		ctx.fillStyle = "#ffffff";
-		ctx.fillRect(0, 0, size, size);
-
-		// Draw URL text as fallback (real QR would use a library)
-		ctx.fillStyle = "#0f172a";
-		ctx.font = "10px monospace";
-		ctx.textAlign = "center";
-		ctx.fillText("扫描二维码添加", size / 2, 20);
-		ctx.fillText("到验证器 App", size / 2, 36);
-
-		// Draw a stylized TOTP icon
-		ctx.strokeStyle = "#0891b2";
-		ctx.lineWidth = 2;
-		ctx.beginPath();
-		ctx.arc(size / 2, size / 2 + 10, 50, 0, Math.PI * 2);
-		ctx.stroke();
-		ctx.fillStyle = "#0891b2";
-		ctx.font = "bold 28px sans-serif";
-		ctx.textAlign = "center";
-		ctx.fillText("2FA", size / 2, size / 2 + 18);
-
-		ctx.fillStyle = "#64748b";
-		ctx.font = "9px monospace";
-		const words = otpauthUrl.split("&");
-		words.forEach((w, i) => {
-			ctx.fillText(w.slice(0, 28), size / 2, size - 20 + i * 12);
-		});
-	}, [step, otpauthUrl]);
+	// QR code rendered via Google Charts API (replaces canvas placeholder)
 
 	const handleSetup = async () => {
 		setLoading(true);
@@ -162,7 +120,13 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-slate-400">
 						1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码
 					</p>
-					<canvas ref={canvasRef} className="mx-auto rounded-lg border border-white/[0.06]" />
+					<img
+						src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(otpauthUrl)}`}
+						alt="2FA QR Code"
+						className="mx-auto rounded-lg border border-white/[0.06]"
+						width={200}
+						height={200}
+					/>
 					<div className="bg-slate-900 rounded-lg p-3">
 						<p className="text-[10px] text-slate-500 mb-1">密钥（手动输入）：</p>
 						<code className="text-xs text-cyan-400 break-all select-all">{secret}</code>

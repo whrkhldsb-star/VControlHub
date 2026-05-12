@@ -8,6 +8,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
+import { getSessionCookieName } from "@/lib/auth/session";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -34,6 +35,9 @@ export default function RootLayout({
 			lang="zh-CN"
 			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
 		>
+			<head>
+				<meta name="session-cookie-name" content={getSessionCookieName()} />
+			</head>
 			<body className="min-h-full flex flex-row">
 				<I18nProvider>
 					<ToastProvider>

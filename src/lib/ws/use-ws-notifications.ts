@@ -30,21 +30,61 @@ type UseWsNotificationsReturn = {
 	lastServerAlert: { serverId: string; serverName: string; message: string } | null;
 };
 
+/**
+ * Get the exact session cookie name from the <meta> tag injected by layout,
+ * or fall back to parsing document.cookie for *_session pattern.
+ * This avoids the overly broad regex that could match wrong cookies.
+ */
+function getSessionTokenFromCookie(): string | null {
+	// Prefer meta tag if available (set by layout)
+	const metaTag = document.querySelector('meta[name="session-cookie-name"]');
+	const cookieName = metaTag?.getAttribute("content");
+
+	if (cookieName) {
+		// Exact match for the known cookie name
+		const exactMatch = document.cookie.match(
+			new RegExp(`(?:^|;\\s*)${cookieName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]+)`)
+		);
+		if (exactMatch) return exactMatch[1];
+	}
+
+	// Fallback: find a cookie ending with _session
+	const fallbackMatch = document.cookie.match(/(?:^|;\s*)(\w+_session)=([^;]+)/);
+	if (fallbackMatch) return fallbackMatch[2];
+
+	return null;
+}
+
 export function useWsNotifications(): UseWsNotificationsReturn {
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const heartbeatRef = useRef<ReturnType<typeof setInterval>>(undefined);
 	const [connected, setConnected] = useState(false);
 	const [lastNotification, setLastNotification] = useState<WsNotification | null>(null);
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [lastDownloadProgress, setLastDownloadProgress] = useState<{ taskId: string; progress: number; status: string } | null>(null);
 	const [lastServerAlert, setLastServerAlert] = useState<{ serverId: string; serverName: string; message: string } | null>(null);
 
-	const connect = useCallback(() => {
-		// Get session token from cookie
-		const cookieMatch = document.cookie.match(/(?:^|;\s*)\w+_session=([^;]+)/);
-		if (!cookieMatch) return;
+	const cleanup = useCallback(() => {
+		if (heartbeatRef.current) {
+			clearInterval(heartbeatRef.current);
+			heartbeatRef.current = undefined;
+		}
+		if (reconnectTimer.current) {
+			clearTimeout(reconnectTimer.current);
+			reconnectTimer.current = undefined;
+		}
+		if (wsRef.current) {
+			wsRef.current.onclose = null; // prevent reconnect loop on intentional close
+			wsRef.current.close();
+			wsRef.current = null;
+		}
+	}, []);
 
-		const token = cookieMatch[1];
+	const connect = useCallback(() => {
+		const token = getSessionTokenFromCookie();
+		if (!token) return;
+
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 		const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
 
@@ -54,12 +94,10 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 
 			ws.onopen = () => {
 				setConnected(true);
-				// Start heartbeat
-				const heartbeat = setInterval(() => {
+				// Start heartbeat — store in ref for proper cleanup
+				heartbeatRef.current = setInterval(() => {
 					if (ws.readyState === WebSocket.OPEN) {
 						ws.send(JSON.stringify({ type: "ping" }));
-					} else {
-						clearInterval(heartbeat);
 					}
 				}, 30_000);
 			};
@@ -86,6 +124,11 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 
 			ws.onclose = () => {
 				setConnected(false);
+				// Clear heartbeat on disconnect
+				if (heartbeatRef.current) {
+					clearInterval(heartbeatRef.current);
+					heartbeatRef.current = undefined;
+				}
 				// Auto-reconnect after 3 seconds
 				reconnectTimer.current = setTimeout(connect, 3000);
 			};
@@ -101,11 +144,8 @@ export function useWsNotifications(): UseWsNotificationsReturn {
 
 	useEffect(() => {
 		connect();
-		return () => {
-			if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-			if (wsRef.current) wsRef.current.close();
-		};
-	}, [connect]);
+		return cleanup;
+	}, [connect, cleanup]);
 
 	return { connected, lastNotification, unreadCount, lastDownloadProgress, lastServerAlert };
 }

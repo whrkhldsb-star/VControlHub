@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authenticateUser } from "@/lib/auth/service";
-import { createSessionToken, getSessionCookieName } from "@/lib/auth/session";
+import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, verifyPending2faToken } from "@/lib/auth/session";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
@@ -78,7 +78,32 @@ export async function POST(request: Request) {
 
 		// Log successful login & clear any previous failure count
 		clearLoginFailure(username);
-		auditUserAction(user.id, "auth.login", { username, ip: clientIp });
+		auditUserAction(user.id, "auth.login_password_ok", { username, ip: clientIp });
+
+		// ── 2FA Check ──
+		// If the user has 2FA enabled, redirect to the verification page
+		// instead of creating a full session right away.
+		if (user.twoFactorEnabled && user.twoFactorSecret) {
+			const pendingToken = await createPending2faToken({
+				userId: user.id,
+				username: user.username,
+				roles: user.roles,
+				mustChangePassword: user.mustChangePassword,
+			});
+			const requestUrl = new URL(request.url);
+			const params = new URLSearchParams({ next: nextPath });
+			const response = redirectWithRelativeLocation(`/login/verify-2fa?${params.toString()}`);
+			response.cookies.set(getPending2faCookieName(), pendingToken, {
+				httpOnly: true,
+				sameSite: "lax",
+				secure: requestUrl.protocol === "https:",
+				path: "/",
+				maxAge: 5 * 60, // 5-minute expiry for 2FA pending token
+			});
+			return response;
+		}
+
+		// ── No 2FA — create full session ──
 
 		const token = await createSessionToken({
 			userId: user.id,

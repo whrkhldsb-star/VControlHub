@@ -1,12 +1,16 @@
 /**
  * Server monitoring API — CPU, memory, disk, uptime, network stats.
  * GET /api/monitoring/stats
+ * Requires authenticated session.
  */
 import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 import os from "os";
+import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 
 export async function GET() {
+	const session = await requireApiSession();
+	if (!isSessionPayload(session)) return session; // 401 response
 	try {
 		const cpus = os.cpus();
 		const totalMem = os.totalmem();

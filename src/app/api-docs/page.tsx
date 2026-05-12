@@ -3,43 +3,43 @@
 import { useEffect, useRef } from "react";
 
 /**
- * API Documentation page — embedded Swagger UI via scalar.
- * Loads the OpenAPI spec from /api/docs/openapi.json
+ * API Documentation page — embedded Scalar API reference.
+ * Loads the OpenAPI spec from /api/docs/openapi.json via data-spec-url attribute.
  */
 export default function ApiDocsPage() {
 	const containerRef = useRef<HTMLDivElement>(null);
+	const linkRef = useRef<HTMLLinkElement | null>(null);
+	const scriptRef = useRef<HTMLScriptElement | null>(null);
 
 	useEffect(() => {
-		// Load Scalar API reference (modern Swagger UI alternative)
+		// Load Scalar CSS
 		const link = document.createElement("link");
 		link.rel = "stylesheet";
 		link.href = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest/dist/style.css";
 		document.head.appendChild(link);
+		linkRef.current = link;
 
+		// Create the scalar container with data-spec-url attribute
+		// Scalar auto-initializes when it finds this element in the DOM
+		const el = document.createElement("div");
+		el.id = "scalar-api-reference";
+		el.setAttribute("data-spec-url", "/api/docs/openapi.json");
+		containerRef.current?.appendChild(el);
+
+		// Load Scalar JS — it auto-detects data-spec-url on mount
 		const script = document.createElement("script");
 		script.src = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest";
-		script.onload = () => {
-			if ((window as unknown as Record<string, unknown>).Scalar) {
-				const el = document.createElement("div");
-				el.id = "scalar-api-reference";
-				containerRef.current?.appendChild(el);
-
-				const initScript = document.createElement("script");
-				initScript.textContent = `
-					document.getElementById('scalar-api-reference')?.dispatchEvent(
-						new CustomEvent('scalar:load-spec', { detail: { spec: ${JSON.stringify(null)} } })
-					);
-				`;
-				// Use data-url attribute approach instead
-				el.setAttribute("data-url", "/api/docs/openapi.json");
-				el.setAttribute("data-spec-url", "/api/docs/openapi.json");
-			}
-		};
+		scriptRef.current = script;
 		document.head.appendChild(script);
 
 		return () => {
-			document.head.removeChild(link);
-			document.head.removeChild(script);
+			// Safe cleanup — only remove elements we created
+			if (linkRef.current && linkRef.current.parentNode) {
+				linkRef.current.parentNode.removeChild(linkRef.current);
+			}
+			if (scriptRef.current && scriptRef.current.parentNode) {
+				scriptRef.current.parentNode.removeChild(scriptRef.current);
+			}
 		};
 	}, []);
 
@@ -56,7 +56,7 @@ export default function ApiDocsPage() {
 					格式规范。
 				</p>
 
-				{/* Fallback: simple HTML API list if Scalar fails to load */}
+				{/* Scalar will mount here */}
 				<div ref={containerRef} className="min-h-[600px]" />
 
 				<noscript>

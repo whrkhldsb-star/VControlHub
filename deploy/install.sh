@@ -515,16 +515,23 @@ build_app() {
  log "Seeding database (admin user, roles, permissions)"
  npm run db:seed
  fi
-  npm run build
-  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+ npm run build
+ # Verify tsx is available (needed by custom server for WebSocket support)
+ if ! npx tsx --version >/dev/null 2>&1; then
+ log "Installing tsx (TypeScript execution engine for custom server)"
+ npm install -D tsx
+ fi
+ chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
 
 install_systemd() {
 	log "Installing systemd units"
-	local node_bin npm_bin npx_bin systemd_path
+	local node_bin npm_bin npx_bin tsx_bin systemd_path
 	node_bin="$(resolve_command node)"
 	npm_bin="$(resolve_command npm)"
 	npx_bin="$(resolve_command npx)"
+	# Resolve tsx path — installed as devDependency, run via npx
+	tsx_bin="$(command -v tsx 2>/dev/null || npm ls tsx --parseable 2>/dev/null | head -1 || echo "${npm_bin%/npm}/npx")"
 	systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
 	local svc
 	for svc in next ssh-ws; do

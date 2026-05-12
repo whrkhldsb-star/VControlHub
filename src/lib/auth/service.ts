@@ -10,6 +10,8 @@ export type AuthenticatedUser = {
  username: string;
  displayName: string | null;
  mustChangePassword: boolean;
+ twoFactorEnabled: boolean;
+ twoFactorSecret: string | null;
  status: string;
  roles: RoleKey[];
  permissions: Permission[];
@@ -64,6 +66,8 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  username: user.username,
  displayName: user.displayName,
  mustChangePassword: user.mustChangePassword,
+ twoFactorEnabled: user.twoFactorEnabled,
+ twoFactorSecret: user.twoFactorSecret,
  status: user.status,
  roles: roleKeys,
  permissions: collectPermissions(roleKeys),

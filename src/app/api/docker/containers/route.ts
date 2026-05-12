@@ -8,26 +8,23 @@
  * GET    /api/docker/containers?logs=xxx  — get container logs
  */
 import { NextRequest, NextResponse } from "next/server";
+import { execSync } from "child_process";
+import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 
 const DOCKER_SOCKET = "/var/run/docker.sock";
 const DOCKER_API = "http://localhost";
 
-async function dockerFetch(path: string, init?: RequestInit) {
-	const base: RequestInit = {
-		...init,
-	headers: { ...init?.headers },
-} as RequestInit;
-(base as Record<string, unknown>).unixSocket = DOCKER_SOCKET;
-	try {
-		const res = await fetch(`${DOCKER_API}${path}`, base);
-		return res;
-	} catch {
-		// Fallback: try curl if fetch doesn't support unix sockets
-		return null;
-	}
+/** Validate Docker container ID: only allow hex chars and names (alphanumeric + _.-) */
+function isValidDockerId(value: string): boolean {
+	return /^[a-zA-Z0-9_.-]+$/.test(value) && value.length <= 128;
 }
 
-/** Use curl as fallback for Docker socket communication */
+/** Validate tail parameter: only allow positive integers */
+function isValidTail(value: string): boolean {
+	return /^\d{1,5}$/.test(value) && parseInt(value, 10) <= 50000;
+}
+
+/** Use curl for Docker socket communication (fetch doesn't support unix sockets) */
 async function dockerCurl(path: string, method = "GET", body?: string): Promise<{ ok: boolean; status: number; data: unknown }> {
 	const args = [
 		"--silent", "--show-error",
@@ -38,7 +35,6 @@ async function dockerCurl(path: string, method = "GET", body?: string): Promise<
 	if (body) {
 		args.push("-H", "Content-Type: application/json", "-d", body);
 	}
-	const { execSync } = require("child_process");
 	try {
 		const out = execSync(`curl ${args.map(a => `"${a}"`).join(" ")}`, {
 			timeout: 10000,
@@ -53,9 +49,21 @@ async function dockerCurl(path: string, method = "GET", body?: string): Promise<
 }
 
 export async function GET(req: NextRequest) {
+	const session = await requireApiSession();
+	if (!isSessionPayload(session)) return session; // 401 response
+
 	const id = req.nextUrl.searchParams.get("id");
 	const logs = req.nextUrl.searchParams.get("logs");
-	const tail = req.nextUrl.searchParams.get("tail") || "100";
+	const tailRaw = req.nextUrl.searchParams.get("tail") || "100";
+	const tail = isValidTail(tailRaw) ? tailRaw : "100";
+
+	// Validate container IDs to prevent command injection
+	if (id && !isValidDockerId(id)) {
+		return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
+	}
+	if (logs && !isValidDockerId(logs)) {
+		return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
+	}
 
 	try {
 		if (logs) {
@@ -77,11 +85,19 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+	const session = await requireApiSession();
+	if (!isSessionPayload(session)) return session; // 401 response
+
 	try {
 		const { id, action } = await req.json() as { id: string; action: "start" | "stop" | "restart" | "remove" };
 
 		if (!id || !action) {
 			return NextResponse.json({ error: "缺少容器ID或操作" }, { status: 400 });
+		}
+
+		// Validate container ID to prevent command injection
+		if (!isValidDockerId(id)) {
+			return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
 		}
 
 		const actionMap: Record<string, string> = {
