@@ -1,10 +1,46 @@
 @import "tailwindcss";
 
 :root {
+	/* Dark theme (default) */
 	--background: #020617;
 	--foreground: #ededed;
 	--accent: #22d3ee;
 	--accent-dim: #0891b2;
+	--card-bg: rgba(255,255,255,0.02);
+	--card-border: rgba(255,255,255,0.06);
+	--sidebar-bg: #0f172a;
+	--sidebar-hover: rgba(255,255,255,0.06);
+	--text-primary: #ffffff;
+	--text-secondary: #94a3b8;
+	--text-muted: #64748b;
+	--input-bg: rgba(255,255,255,0.05);
+	--input-border: rgba(255,255,255,0.1);
+	--scrollbar-thumb: rgba(255,255,255,0.12);
+	--scrollbar-thumb-hover: rgba(255,255,255,0.22);
+	--focus-ring: rgba(34,211,238,0.5);
+	--selection-bg: rgba(34,211,238,0.25);
+	--selection-fg: white;
+}
+
+html.light {
+	--background: #f8fafc;
+	--foreground: #0f172a;
+	--accent: #0891b2;
+	--accent-dim: #0e7490;
+	--card-bg: #ffffff;
+	--card-border: #e2e8f0;
+	--sidebar-bg: #ffffff;
+	--sidebar-hover: #f1f5f9;
+	--text-primary: #0f172a;
+	--text-secondary: #475569;
+	--text-muted: #94a3b8;
+	--input-bg: #f1f5f9;
+	--input-border: #e2e8f0;
+	--scrollbar-thumb: rgba(0,0,0,0.15);
+	--scrollbar-thumb-hover: rgba(0,0,0,0.25);
+	--focus-ring: rgba(8,145,178,0.4);
+	--selection-bg: rgba(8,145,178,0.2);
+	--selection-fg: #0f172a;
 }
 
 @theme inline {
@@ -18,19 +54,20 @@ body {
 	background: var(--background);
 	color: var(--foreground);
 	font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+	transition: background 0.2s, color 0.2s;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
 /* Smooth focus transitions */
 *:focus-visible {
-	outline: 2px solid rgba(34,211,238,0.5);
+	outline: 2px solid var(--focus-ring);
 	outline-offset: 2px;
 }
 
 /* Selection */
-::selection { background: rgba(34,211,238,0.25); color: white; }
+::selection { background: var(--selection-bg); color: var(--selection-fg); }

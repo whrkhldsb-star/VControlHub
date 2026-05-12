@@ -1,26 +1,34 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 
-/* ── Notification bell with unread badge ──────────────────── */
+/* ── Notification bell with real-time WebSocket push ──────── */
 
 export function NotificationBell() {
-	const [unreadCount, setUnreadCount] = useState(0);
 	const [isOpen, setIsOpen] = useState(false);
 	const [notifications, setNotifications] = useState<Array<{
 		id: string; type: string; title: string; message: string; isRead: boolean; actionUrl: string | null; createdAt: string;
 	}>>([]);
 	const panelRef = useRef<HTMLDivElement>(null);
 
+	// WebSocket real-time updates
+	const { connected: wsConnected, lastNotification, unreadCount, lastServerAlert } = useWsNotifications();
+
+	// Fallback: poll if WS not connected
+	const [polledUnread, setPolledUnread] = useState(0);
+	const effectiveUnread = wsConnected ? unreadCount : polledUnread;
+
 	const fetchUnread = useCallback(async () => {
+		if (wsConnected) return; // WS handles it
 		try {
 			const res = await fetch("/api/notifications");
 			if (res.ok) {
 				const data = await res.json();
-				setUnreadCount(data.unreadCount ?? 0);
+				setPolledUnread(data.unreadCount ?? 0);
 			}
 		} catch { /* ignore */ }
-	}, []);
+	}, [wsConnected]);
 
 	const fetchList = useCallback(async () => {
 		try {
@@ -28,19 +36,49 @@ export function NotificationBell() {
 			if (res.ok) {
 				const data = await res.json();
 				setNotifications(data.notifications ?? []);
-				setUnreadCount(data.unreadCount ?? 0);
+				if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
 			}
 		} catch { /* ignore */ }
-	}, []);
+	}, [wsConnected]);
 
+	// Poll fallback when WS not connected
 	useEffect(() => {
+		if (wsConnected) return;
 		const timer = window.setTimeout(() => { void fetchUnread(); }, 0);
 		const interval = setInterval(fetchUnread, 30_000);
-		return () => {
-			window.clearTimeout(timer);
-			clearInterval(interval);
-		};
-	}, [fetchUnread]);
+		return () => { window.clearTimeout(timer); clearInterval(interval); };
+	}, [fetchUnread, wsConnected]);
+
+	// Toast effect when new notification arrives via WS
+	useEffect(() => {
+		if (lastNotification) {
+			// Prepend to local list
+			setNotifications((prev) => [{
+				id: lastNotification.id,
+				type: "system",
+				title: lastNotification.title,
+				message: lastNotification.message,
+				isRead: false,
+				actionUrl: lastNotification.actionUrl ?? null,
+				createdAt: lastNotification.createdAt,
+			}, ...prev].slice(0, 50));
+		}
+	}, [lastNotification]);
+
+	// Toast for server alerts
+	useEffect(() => {
+		if (lastServerAlert) {
+			setNotifications((prev) => [{
+				id: `alert-${Date.now()}`,
+				type: "server_alert",
+				title: `服务器告警：${lastServerAlert.serverName}`,
+				message: lastServerAlert.message,
+				isRead: false,
+				actionUrl: "/servers",
+				createdAt: new Date().toISOString(),
+			}, ...prev].slice(0, 50));
+		}
+	}, [lastServerAlert]);
 
 	useEffect(() => {
 		const handleClick = (e: MouseEvent) => {
@@ -59,7 +97,8 @@ export function NotificationBell() {
 
 	const markAllRead = async () => {
 		await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
-		setUnreadCount(0);
+		if (wsConnected) { /* WS will update count */ }
+		else { setPolledUnread(0); }
 		setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 	};
 
@@ -73,10 +112,14 @@ export function NotificationBell() {
 				<svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
 				</svg>
-				{unreadCount > 0 && (
-					<span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
-						{unreadCount > 99 ? "99+" : unreadCount}
+				{effectiveUnread > 0 && (
+					<span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white animate-pulse">
+						{effectiveUnread > 99 ? "99+" : effectiveUnread}
 					</span>
+				)}
+				{/* WS connection indicator */}
+				{wsConnected && (
+					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400" title="实时连接" />
 				)}
 			</button>
 
@@ -84,11 +127,14 @@ export function NotificationBell() {
 				<div className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.08] bg-slate-950/95 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto">
 					<div className="sticky top-0 bg-slate-950/90 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
 						<span className="text-sm font-medium text-white">通知</span>
-						{unreadCount > 0 && (
-							<button onClick={markAllRead} className="text-[11px] text-cyan-400/80 hover:text-cyan-300 transition">
-								全部已读
-							</button>
-						)}
+						<div className="flex items-center gap-2">
+							{wsConnected && <span className="text-[10px] text-emerald-400/70">实时</span>}
+							{effectiveUnread > 0 && (
+								<button onClick={markAllRead} className="text-[11px] text-cyan-400/80 hover:text-cyan-300 transition">
+									全部已读
+								</button>
+							)}
+						</div>
 					</div>
 					{notifications.length === 0 ? (
 						<div className="p-6 text-center text-xs text-slate-500">暂无通知</div>

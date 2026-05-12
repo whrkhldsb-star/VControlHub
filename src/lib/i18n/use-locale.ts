@@ -1,0 +1,57 @@
+/**
+ * React hook for i18n — locale switching with localStorage persistence.
+ */
+"use client";
+
+import { useEffect, useState, useCallback, createContext, useContext } from "react";
+import { type Locale, t, getAllTranslations } from "./translations";
+
+const STORAGE_KEY = "vps-locale";
+
+interface I18nContextValue {
+	locale: Locale;
+	setLocale: (l: Locale) => void;
+	t: (key: string) => string;
+	translations: Record<string, string>;
+}
+
+const I18nContext = createContext<I18nContextValue>({
+	locale: "zh",
+	setLocale: () => {},
+	t: (k) => k,
+	translations: {},
+});
+
+export function useI18n() {
+	return useContext(I18nContext);
+}
+
+export { I18nContext };
+
+export function useLocale() {
+	const [locale, setLocaleState] = useState<Locale>("zh");
+
+	useEffect(() => {
+		const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
+		if (saved === "zh" || saved === "en") {
+			setLocaleState(saved);
+		} else if (navigator.language.startsWith("en")) {
+			setLocaleState("en");
+		}
+	}, []);
+
+	const setLocale = useCallback((l: Locale) => {
+		setLocaleState(l);
+		localStorage.setItem(STORAGE_KEY, l);
+		document.documentElement.lang = l;
+	}, []);
+
+	const translate = useCallback(
+		(key: string) => t(key, locale),
+		[locale]
+	);
+
+	const translations = getAllTranslations(locale);
+
+	return { locale, setLocale, t: translate, translations };
+}

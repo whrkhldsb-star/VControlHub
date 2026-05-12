@@ -7,6 +7,7 @@ import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
 import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
+import { DashboardCharts } from "@/components/dashboard-charts";
 
 export const dynamic = "force-dynamic";
 
@@ -127,9 +128,15 @@ export default async function Home() {
 						badge={unreadNotif > 0 ? `${unreadNotif} 未读` : undefined}
 						badgeColor="amber"
 					/>
-				</section>
+			</section>
 
-				{/* Two columns: Recent activity + Audit log */}
+			{/* Dashboard Charts */}
+			<section className="mt-8">
+				<h2 className="text-lg font-semibold text-white mb-4">数据趋势</h2>
+				<DashboardCharts />
+			</section>
+
+			{/* Two columns: Recent activity + Audit log */}
 				<section className="mt-8 grid gap-6 lg:grid-cols-2">
 					{/* Recent Approval Activity */}
 					<div>

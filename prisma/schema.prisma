@@ -84,6 +84,9 @@ model User {
  deploymentExports DeploymentExport[]
  aiProviders AiProvider[]
  aiConversations AiConversation[]
+ twoFactorEnabled Boolean @default(false)
+ twoFactorSecret String?
+ preferences Json?
 }
 
 model Role {
