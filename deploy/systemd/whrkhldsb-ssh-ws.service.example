@@ -1,8 +1,9 @@
 [Unit]
 Description={{SITE_NAME}} SSH WebSocket proxy
-After=network-online.target postgresql.service
+After=network-online.target {{SERVICE_PREFIX}}-next.service
 Wants=network-online.target
-Requires=postgresql.service
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -15,6 +16,22 @@ Restart=always
 RestartSec=5
 User={{APP_USER}}
 Group={{APP_USER}}
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/tmp
+PrivateTmp=true
+
+# Resource limits
+MemoryMax=256M
+MemoryHigh=192M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{SERVICE_PREFIX}}-ssh-ws
 
 [Install]
 WantedBy=multi-user.target

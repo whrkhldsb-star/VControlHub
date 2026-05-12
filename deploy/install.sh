@@ -261,7 +261,7 @@ validate_env() {
  # shellcheck disable=SC1090
  set -a; source "${ENV_FILE}"; set +a
  local required
- for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD; do
+ for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET; do
  [ -n "${!required:-}" ] || fail "${required} is required in ${ENV_FILE}."
  if is_placeholder_value "${!required:-}"; then
  fail "${required} still contains a placeholder in ${ENV_FILE}."
@@ -388,6 +388,18 @@ auto_generate_env_secrets() {
  escaped="$(shell_escape_sed_replacement "${audience}")"
  sed -i "s#^AUTH_SESSION_AUDIENCE=.*#AUTH_SESSION_AUDIENCE=${escaped}#" "${ENV_FILE}"
  log "Auto-set AUTH_SESSION_AUDIENCE=${audience}"
+ changed=1
+ fi
+
+ # ── SSH_WS_SECRET ────────────────────────────────────────────────
+ if is_placeholder_value "${SSH_WS_SECRET:-}" || [ -z "${SSH_WS_SECRET:-}" ]; then
+ local ws_secret
+ ws_secret="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 48)"
+ local escaped_ws
+ escaped_ws="$(shell_escape_sed_replacement "${ws_secret}")"
+ sed -i "s#^SSH_WS_SECRET=.*#SSH_WS_SECRET=${escaped_ws}#" "${ENV_FILE}"
+ SSH_WS_SECRET="${ws_secret}"
+ log "Auto-generated SSH_WS_SECRET"
  changed=1
  fi
 
@@ -552,6 +564,8 @@ install_systemd() {
 			-e "s#{{NPM_BIN}}#${npm_bin}#g" \
 			-e "s#{{NPX_BIN}}#${npx_bin}#g" \
 			-e "s#{{APP_USER}}#${APP_USER}#g" \
+			-e "s#{{APP_SLUG}}#${APP_SLUG}#g" \
+			-e "s#{{SERVICE_PREFIX}}#${SERVICE_PREFIX}#g" \
 			"${src}" > "${dst}"
 		chmod 0644 "${dst}"
 	done
@@ -559,32 +573,76 @@ install_systemd() {
 	systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
 }
 install_caddy() {
-  [ "${SKIP_CADDY}" = "1" ] && { warn "Skipping Caddy setup"; return; }
-  [ -n "${DOMAIN}" ] || { warn "DOMAIN is empty; skipping Caddy config"; return; }
-  log "Installing Caddy reverse proxy for ${DOMAIN}"
-	install -m 0644 "${APP_DIR}/deploy/Caddyfile.example" "${DESTDIR}/etc/caddy/Caddyfile"
-  local escaped_domain escaped_next escaped_ssh_ws
-  escaped_domain="$(shell_escape_sed_replacement "${DOMAIN}")"
-  escaped_next="$(shell_escape_sed_replacement "${NEXT_HOST}:${NEXT_PORT}")"
-  escaped_ssh_ws="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
-  sed -i \
-    -e "s#your-domain.example#${escaped_domain}#g" \
-    -e "s#127.0.0.1:3000#${escaped_next}#g" \
-    -e "s#127.0.0.1:3001#${escaped_ssh_ws}#g" \
-	"${DESTDIR}/etc/caddy/Caddyfile"
-	caddy validate --config "${DESTDIR}/etc/caddy/Caddyfile" --adapter caddyfile
-	systemctl enable caddy
-	# Ensure Apache/Nginx is not stealing port 80/443 from Caddy.
-	if systemctl is-active --quiet apache2 2>/dev/null; then
-		log "Stopping Apache2 (Caddy will handle ports 80/443)"
-		systemctl stop apache2
-		systemctl disable apache2
-	fi
-	if systemctl is-active --quiet nginx 2>/dev/null; then
-		log "Stopping Nginx (Caddy will handle ports 80/443)"
-		systemctl stop nginx
-		systemctl disable nginx
-	fi
+ [ "${SKIP_CADDY}" = "1" ] && { warn "Skipping Caddy setup"; return; }
+ [ -n "${DOMAIN}" ] || { warn "DOMAIN is empty; skipping Caddy config"; return; }
+ log "Installing Caddy reverse proxy for ${DOMAIN}"
+ install -m 0644 "${APP_DIR}/deploy/Caddyfile.example" "${DESTDIR}/etc/caddy/Caddyfile"
+ local escaped_domain escaped_next escaped_ssh_ws
+ escaped_domain="$(shell_escape_sed_replacement "${DOMAIN}")"
+ escaped_next="$(shell_escape_sed_replacement "${NEXT_HOST}:${NEXT_PORT}")"
+ escaped_ssh_ws="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
+ sed -i \
+ -e "s#your-domain.example#${escaped_domain}#g" \
+ -e "s#127.0.0.1:3000#${escaped_next}#g" \
+ -e "s#127.0.0.1:3001#${escaped_ssh_ws}#g" \
+ "${DESTDIR}/etc/caddy/Caddyfile"
+ caddy validate --config "${DESTDIR}/etc/caddy/Caddyfile" --adapter caddyfile
+ systemctl enable caddy
+ # Ensure Apache/Nginx is not stealing port 80/443 from Caddy.
+ if systemctl is-active --quiet apache2 2>/dev/null; then
+ log "Stopping Apache2 (Caddy will handle ports 80/443)"
+ systemctl stop apache2
+ systemctl disable apache2
+ fi
+ if systemctl is-active --quiet nginx 2>/dev/null; then
+ log "Stopping Nginx (Caddy will handle ports 80/443)"
+ systemctl stop nginx
+ systemctl disable nginx
+ fi
+}
+
+install_apache() {
+ # When SKIP_CADDY=1, set up Apache as the reverse proxy instead.
+ # This covers IP-only deployments where no domain/TLS is needed.
+ [ "${SKIP_CADDY}" = "1" ] || { return; }
+ if ! have_cmd apache2 && ! have_cmd apachectl; then
+  log "Apache not found — installing"
+  apt-get install -y apache2
+ fi
+ log "Installing Apache reverse proxy config"
+ a2enmod proxy proxy_http proxy_wstunnel rewrite headers 2>/dev/null || true
+
+ # Determine ServerName: use DOMAIN if set, otherwise auto-detect external IP
+ local server_name="${DOMAIN:-}"
+ if [ -z "${server_name}" ]; then
+  server_name="$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)" || true
+  if [ -z "${server_name}" ]; then
+   server_name="$(curl -fsS --max-time 3 ifconfig.me 2>/dev/null)" || true
+  fi
+  [ -n "${server_name}" ] || fail "Cannot determine server IP for Apache ServerName. Set DOMAIN= or SKIP_CADDY=0."
+ fi
+
+ local apache_src="${APP_DIR}/deploy/apache-next-proxy.example.conf"
+ [ -f "${apache_src}" ] || fail "Apache template not found: ${apache_src}"
+ local apache_dst="${DESTDIR}/etc/apache2/sites-available/next-proxy.conf"
+ mkdir -p "$(dirname "${apache_dst}")"
+
+ local escaped_server_name escaped_next_host_port
+ escaped_server_name="$(shell_escape_sed_replacement "${server_name}")"
+ escaped_next_host_port="$(shell_escape_sed_replacement "${NEXT_HOST}:${NEXT_PORT}")"
+
+ sed \
+  -e "s#{{SERVER_NAME}}#${escaped_server_name}#g" \
+  -e "s#{{NEXT_HOST}}:{{NEXT_PORT}}#${escaped_next_host_port}#g" \
+  "${apache_src}" > "${apache_dst}"
+ chmod 0644 "${apache_dst}"
+
+ # Disable default site, enable our proxy site
+ a2dissite 000-default 2>/dev/null || true
+ a2ensite next-proxy 2>/dev/null || true
+ apache2ctl configtest 2>/dev/null || warn "Apache config test had warnings"
+ systemctl enable apache2
+ log "Apache reverse proxy configured for ${server_name} → ${NEXT_HOST}:${NEXT_PORT}"
 }
 
 restart_services() {
@@ -625,6 +683,7 @@ main() {
  build_app
  install_systemd
  install_caddy
+ install_apache
  restart_services
  log "Done. App directory: ${APP_DIR}"
 }
