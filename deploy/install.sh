@@ -261,7 +261,7 @@ validate_env() {
  # shellcheck disable=SC1090
  set -a; source "${ENV_FILE}"; set +a
  local required
- for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET; do
+ for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY; do
  [ -n "${!required:-}" ] || fail "${required} is required in ${ENV_FILE}."
  if is_placeholder_value "${!required:-}"; then
  fail "${required} still contains a placeholder in ${ENV_FILE}."
@@ -400,6 +400,45 @@ auto_generate_env_secrets() {
  sed -i "s#^SSH_WS_SECRET=.*#SSH_WS_SECRET=${escaped_ws}#" "${ENV_FILE}"
  SSH_WS_SECRET="${ws_secret}"
  log "Auto-generated SSH_WS_SECRET"
+ changed=1
+ fi
+
+ # ── ENCRYPTION_KEY (for SSH private key encryption at rest) ──────
+ if is_placeholder_value "${ENCRYPTION_KEY:-}" || [ -z "${ENCRYPTION_KEY:-}" ]; then
+ local enc_key
+ enc_key="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 48)"
+ local escaped_enc
+ escaped_enc="$(shell_escape_sed_replacement "${enc_key}")"
+ sed -i "s#^ENCRYPTION_KEY=.*#ENCRYPTION_KEY=${escaped_enc}#" "${ENV_FILE}"
+ ENCRYPTION_KEY="${enc_key}"
+ log "Auto-generated ENCRYPTION_KEY"
+ changed=1
+ fi
+
+ # ── SSH_WS_ALLOWED_ORIGINS ────────────────────────────────────────
+ # Must include the origin(s) that the browser uses to access the site.
+ # When using Apache/Caddy reverse proxy, the browser origin is the
+ # external URL (http://IP or https://domain), NOT localhost:3000.
+ if is_placeholder_value "${SSH_WS_ALLOWED_ORIGINS:-}" || [ -z "${SSH_WS_ALLOWED_ORIGINS:-}" ]; then
+ local ws_origins=""
+ if [ -n "${DOMAIN:-}" ]; then
+ ws_origins="https://${DOMAIN},http://${DOMAIN}"
+ else
+ # IP-only deployment — auto-detect external IP
+ local ext_ip=""
+ ext_ip="$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)" || true
+ [ -z "${ext_ip}" ] && ext_ip="$(curl -fsS --max-time 3 ifconfig.me 2>/dev/null)" || true
+ if [ -n "${ext_ip}" ]; then
+ ws_origins="http://${ext_ip}"
+ fi
+ fi
+ # Always allow localhost for development / internal health checks
+ ws_origins="http://localhost:3000,http://127.0.0.1:3000${ws_origins:+,}${ws_origins}"
+ local escaped_origins
+ escaped_origins="$(shell_escape_sed_replacement "${ws_origins}")"
+ sed -i "s#^SSH_WS_ALLOWED_ORIGINS=.*#SSH_WS_ALLOWED_ORIGINS=${escaped_origins}#" "${ENV_FILE}"
+ SSH_WS_ALLOWED_ORIGINS="${ws_origins}"
+ log "Auto-set SSH_WS_ALLOWED_ORIGINS=${ws_origins}"
  changed=1
  fi
 
@@ -627,14 +666,16 @@ install_apache() {
  local apache_dst="${DESTDIR}/etc/apache2/sites-available/next-proxy.conf"
  mkdir -p "$(dirname "${apache_dst}")"
 
- local escaped_server_name escaped_next_host_port
+ local escaped_server_name escaped_next_host_port escaped_ssh_ws_host_port
  escaped_server_name="$(shell_escape_sed_replacement "${server_name}")"
  escaped_next_host_port="$(shell_escape_sed_replacement "${NEXT_HOST}:${NEXT_PORT}")"
+ escaped_ssh_ws_host_port="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
 
  sed \
-  -e "s#{{SERVER_NAME}}#${escaped_server_name}#g" \
-  -e "s#{{NEXT_HOST}}:{{NEXT_PORT}}#${escaped_next_host_port}#g" \
-  "${apache_src}" > "${apache_dst}"
+ -e "s#{{SERVER_NAME}}#${escaped_server_name}#g" \
+ -e "s#{{NEXT_HOST}}:{{NEXT_PORT}}#${escaped_next_host_port}#g" \
+ -e "s#{{SSH_WS_HOST}}:{{SSH_WS_PORT}}#${escaped_ssh_ws_host_port}#g" \
+ "${apache_src}" > "${apache_dst}"
  chmod 0644 "${apache_dst}"
 
  # Disable default site, enable our proxy site
@@ -642,7 +683,7 @@ install_apache() {
  a2ensite next-proxy 2>/dev/null || true
  apache2ctl configtest 2>/dev/null || warn "Apache config test had warnings"
  systemctl enable apache2
- log "Apache reverse proxy configured for ${server_name} → ${NEXT_HOST}:${NEXT_PORT}"
+ log "Apache reverse proxy configured for ${server_name} → ${NEXT_HOST}:${NEXT_PORT} + SSH-WS ${SSH_WS_HOST}:${SSH_WS_PORT}"
 }
 
 restart_services() {

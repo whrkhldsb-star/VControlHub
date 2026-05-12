@@ -67,6 +67,13 @@ check "No direct 3000 access"      "ss -tlnp | grep '0.0.0.0:3000' ; echo missin
 check "Security headers present"   "curl -sS -D- http://${TARGET}/login | grep X-Content-Type-Options" 0
 
 echo ""
+echo "── 6. SSH-WS Proxy ──"
+check "SSH-WS service running"     "systemctl is-active whrkhldsb-ssh-ws" 0
+check "SSH-WS on 127.0.0.1:3001"   "ss -tlnp | grep '127.0.0.1:3001'" 0
+check "SSH_WS_SECRET configured"   "grep -q 'SSH_WS_SECRET=..' /root/firstproject/.env.local" 0
+check "SSH_WS_ALLOWED_ORIGINS has target" "grep SSH_WS_ALLOWED_ORIGINS /root/firstproject/.env.local | grep -q \"${TARGET}\"" 0
+
+echo ""
 echo "═══════════════════════════════════════════════"
 if [ "${FAIL}" -eq 0 ]; then
     echo " ✅ ALL ${PASS} CHECKS PASSED"
