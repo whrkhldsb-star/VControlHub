@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:servers:monitor");
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { collectServerMetrics } from "@/lib/server/monitor";
@@ -9,7 +13,8 @@ export async function GET(request: Request) {
 	let session;
 	try {
 		session = await requireSession();
-	} catch {
+	} catch (error) {
+		logger.error("获取服务器监控数据时会话验证失败", error);
 		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 

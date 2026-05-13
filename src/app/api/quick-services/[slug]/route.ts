@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:quick-services:slug");
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { startService, stopService, uninstallService, syncServiceStatus, getQuickService } from "@/lib/quick-service/service";
@@ -30,6 +34,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 
 		return NextResponse.json({ error: "未知操作，支持: start/stop/sync" }, { status: 400 });
 	} catch (err) {
+		logger.error("快捷服务操作失败", err);
 		const msg = err instanceof Error ? err.message : "操作失败";
 		return NextResponse.json({ error: msg }, { status: 500 });
 	}
@@ -45,6 +50,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		await uninstallService(slug);
 		return NextResponse.json({ success: true });
 	} catch (err) {
+		logger.error("卸载快捷服务失败", err);
 		const msg = err instanceof Error ? err.message : "卸载失败";
 		return NextResponse.json({ error: msg }, { status: 500 });
 	}

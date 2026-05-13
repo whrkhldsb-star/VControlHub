@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:settings");
+
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
@@ -31,7 +35,8 @@ export async function GET() {
 		// getAllSettingsMasked already masks sensitive values (***)
 		const settings = await getAllSettingsMasked();
 		return NextResponse.json({ settings });
-	} catch {
+	} catch (error) {
+		logger.error("获取系统设置失败", error);
 		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 }

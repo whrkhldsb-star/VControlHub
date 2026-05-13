@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:quick-services:check-port");
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
@@ -45,7 +49,8 @@ export async function GET(request: Request) {
 
 		const result = checkPort(port);
 		return NextResponse.json({ port, ...result });
-	} catch {
+	} catch (error) {
+		logger.error("检查端口可用性失败", error);
 		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { prisma } from "@/lib/db";
@@ -168,37 +169,42 @@ function buildProgressText(st: Aria2Status): string {
 
 /* ── POST: Create download task ───────────────────────────── */
 
+const postDownloadSchema = z.object({
+  url: z.string().url("请输入有效的URL"),
+  serverId: z.string().min(1, "缺少 serverId"),
+  targetPath: z.string().min(1, "缺少 targetPath"),
+  fileName: z.string().optional(),
+  category: z.string().optional(),
+  maxSpeedKb: z.number().optional(),
+  isBatch: z.boolean().optional(),
+  batchUrls: z.array(z.string()).optional(),
+});
+
 export async function POST(request: Request) {
   const session = await requireSession();
   if (!sessionHasPermission(session, "storage:write")) {
     return NextResponse.json({ error: "缺少权限" }, { status: 403 });
   }
 
-  try {
-    const body = await request.json();
-    const {
-      url,
-      serverId,
-      targetPath,
-      fileName,
-      category,
-      maxSpeedKb,
-      isBatch,
-      batchUrls,
-    } = body as {
-      url: string;
-      serverId: string;
-      targetPath: string;
-      fileName?: string;
-      category?: string;
-      maxSpeedKb?: number;
-      isBatch?: boolean;
-      batchUrls?: string[];
-    };
-
-    if (!url || !serverId || !targetPath) {
-      return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
-    }
+	try {
+	const body = await request.json();
+	const parsed = postDownloadSchema.safeParse(body);
+	if (!parsed.success) {
+	return NextResponse.json(
+	{ error: "输入校验失败", details: parsed.error.flatten().fieldErrors },
+	{ status: 400 },
+	);
+	}
+	const {
+	url,
+	serverId,
+	targetPath,
+	fileName,
+	category,
+	maxSpeedKb,
+	isBatch,
+	batchUrls,
+	} = parsed.data;
 
     const allUrls = isBatch && batchUrls?.length ? batchUrls : [url];
     for (const u of allUrls) {

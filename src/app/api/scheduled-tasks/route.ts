@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:scheduled-tasks");
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { createScheduledTask, listScheduledTasks, updateScheduledTask, deleteScheduledTask, toggleScheduledTask } from "@/lib/scheduled-task/service";
@@ -28,7 +32,8 @@ export async function GET() {
 			creator: t.creator,
 		}));
 		return NextResponse.json({ tasks: serialized });
-	} catch {
+	} catch (error) {
+		logger.error("获取计划任务列表失败", error);
 		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 }

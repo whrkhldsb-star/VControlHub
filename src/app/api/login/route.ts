@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { authenticateUser } from "@/lib/auth/service";
 import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, verifyPending2faToken } from "@/lib/auth/session";
@@ -8,6 +9,12 @@ import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, i
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 
 const logger = createLogger("api:login");
+
+const loginFormSchema = z.object({
+  username: z.string().min(1, "用户名不能为空"),
+  password: z.string().min(1, "密码不能为空"),
+  next: z.string().optional(),
+});
 
 function safeNextPath(nextValue: FormDataEntryValue | null) {
 	const next = typeof nextValue === "string" ? nextValue : "/";
@@ -45,8 +52,18 @@ export async function POST(request: Request) {
 		}
 
 		const formData = await request.formData();
-		const username = String(formData.get("username") ?? "");
-		const password = String(formData.get("password") ?? "");
+		const formRaw = {
+			username: String(formData.get("username") ?? ""),
+			password: String(formData.get("password") ?? ""),
+			next: formData.get("next") instanceof File ? undefined : (formData.get("next") as string | null) ?? undefined,
+		};
+		const parsed = loginFormSchema.safeParse(formRaw);
+		if (!parsed.success) {
+			const firstError = Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "输入校验失败";
+			const params = new URLSearchParams({ error: "invalid", detail: firstError });
+			return redirectWithRelativeLocation(`/login?${params.toString()}`);
+		}
+		const { username, password } = parsed.data;
 		const nextPath = safeNextPath(formData.get("next"));
 
 		// Check account lockout before attempting authentication

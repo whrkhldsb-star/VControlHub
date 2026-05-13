@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 
@@ -8,6 +9,25 @@ import { auditUserAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("api:users");
+
+const postUserSchema = z.object({
+  username: z.string().min(2, "用户名至少2个字符"),
+  password: z.string().min(6, "密码至少6位"),
+  roleKeys: z.array(z.string()).optional(),
+  displayName: z.string().optional(),
+});
+
+const patchUserSchema = z
+  .object({
+    userId: z.string().min(1, "缺少用户ID"),
+    action: z.enum(["disable", "enable", "reset_password"]).optional(),
+    roleKeys: z.array(z.string()).optional(),
+    newPassword: z.string().min(6, "新密码至少6位").optional(),
+  })
+  .refine(
+    (data) => data.action !== undefined || data.roleKeys !== undefined || data.newPassword !== undefined,
+    { message: "至少提供一个更新字段", path: [] },
+  );
 
 export const dynamic = "force-dynamic";
 
@@ -57,20 +77,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { username, displayName, password, roleKeys } = body as {
-      username: string;
-      displayName?: string;
-      password: string;
-      roleKeys: string[];
-    };
-
-    if (!username || !password) {
-      return NextResponse.json({ error: "用户名和密码不能为空" }, { status: 400 });
+    const parsed = postUserSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "输入校验失败", details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      );
     }
-
- if (password.length < 8) {
- return NextResponse.json({ error: "密码至少8位" }, { status: 400 });
- }
+    const { username, displayName, password, roleKeys } = parsed.data;
 
     // Check if username exists
     const existing = await prisma.user.findUnique({ where: { username } });
@@ -111,7 +125,7 @@ export async function POST(request: Request) {
     }
 
     // Audit log
-    auditUserAction(session.userId, "user.create", { targetUsername: username, roles: roleKeys });
+	auditUserAction(session.userId, "user.create", { targetUsername: username, roles: roleKeys ?? [] });
 
     return NextResponse.json({ success: true, userId: user.id });
   } catch (error) {
@@ -130,16 +144,14 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const { userId, action: userAction, roleKeys, newPassword } = body as {
-      userId: string;
-      action?: "disable" | "enable" | "reset_password";
-      roleKeys?: string[];
-      newPassword?: string;
-    };
-
-    if (!userId) {
-      return NextResponse.json({ error: "缺少用户ID" }, { status: 400 });
+    const parsed = patchUserSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "输入校验失败", details: parsed.error.flatten().fieldErrors },
+        { status: 400 },
+      );
     }
+    const { userId, action: userAction, roleKeys, newPassword } = parsed.data;
 
     const targetUser = await prisma.user.findUnique({ where: { id: userId } });
     if (!targetUser) {

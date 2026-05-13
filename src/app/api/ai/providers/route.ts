@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:ai:providers");
+
 import { requireApiSession } from "@/lib/auth/require-api-session";
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import {
@@ -16,8 +20,9 @@ export async function GET() {
 	const { session } = authed;
  const providers = await listProviders(session.userId);
  return NextResponse.json({ providers: providers.map(serializeProvider) });
- } catch {
- return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+} catch (error) {
+	logger.error("获取AI提供商列表失败", error);
+	return NextResponse.json({ error: "服务器错误" }, { status: 500 });
  }
 }
 

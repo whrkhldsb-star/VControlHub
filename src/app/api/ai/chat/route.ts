@@ -39,18 +39,18 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: "无效请求" }), { status: 400 });
+    return NextResponse.json({ error: "无效请求" }, { status: 400 });
   }
 
   if (!body.conversationId || !body.content?.trim()) {
-    return new Response(JSON.stringify({ error: "缺少必要参数" }), { status: 400 });
+    return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
   }
 
   let conv: Awaited<ReturnType<typeof getConversationById>>;
   try {
     conv = await getConversationById(body.conversationId, session.userId);
   } catch {
-    return new Response(JSON.stringify({ error: "对话不存在" }), { status: 404 });
+    return NextResponse.json({ error: "对话不存在" }, { status: 404 });
   }
 
   const provider = conv.provider;
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "AI 请求失败";
-    return new Response(JSON.stringify({ error: msg }), { status: 502 });
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 
   // Stream SSE response back to client

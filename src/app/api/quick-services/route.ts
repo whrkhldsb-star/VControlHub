@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { createLogger } from "@/lib/logging";
+
+const logger = createLogger("api:quick-services");
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
@@ -40,7 +44,8 @@ export async function GET() {
 		}));
 		const usedPorts = getUsedPorts();
 		return NextResponse.json({ catalog, installed, usedPorts });
-	} catch {
+	} catch (error) {
+		logger.error("获取快捷服务列表失败", error);
 		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 }
