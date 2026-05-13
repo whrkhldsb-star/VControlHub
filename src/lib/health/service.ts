@@ -137,7 +137,10 @@ export async function getMetricHistory(serverId: string, hours: number = 24) {
 /* ── Alert evaluation ─────────────────────────────────────── */
 
 export async function evaluateAlerts() {
-	const rules = await prisma.alertRule.findMany({ where: { enabled: true } });
+	const rules = await prisma.alertRule.findMany({
+		where: { enabled: true },
+		select: { id: true, name: true, metric: true, threshold: true, operator: true, enabled: true, lastTriggeredAt: true, cooldownMinutes: true, serverIds: true, notifyChannels: true, webhookUrl: true },
+	});
 	if (rules.length === 0) return;
 
 	const health = await collectAllHealth();

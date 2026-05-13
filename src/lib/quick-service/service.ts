@@ -81,11 +81,17 @@ export { SERVICE_CATALOG } from "./catalog";
 /* ── CRUD ──────────────────────────────────────────────────────── */
 
 export async function listQuickServices() {
-	return prisma.quickService.findMany({ orderBy: [{ category: "asc" }, { name: "asc" }] });
+	return prisma.quickService.findMany({
+		orderBy: [{ category: "asc" }, { name: "asc" }],
+		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
+	});
 }
 
 export async function getQuickService(slug: string) {
-	return prisma.quickService.findUnique({ where: { slug } });
+	return prisma.quickService.findUnique({
+		where: { slug },
+		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
+	});
 }
 
 /* ── Install: create DB record + run docker ────────────────────── */

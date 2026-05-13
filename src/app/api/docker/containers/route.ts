@@ -1,6 +1,7 @@
 /**
  * Docker containers API — list, inspect, start/stop/restart, logs.
- * Uses Docker Engine API via unix socket /var/run/docker.sock
+ * Uses Docker Engine API via Node.js HTTP over unix socket /var/run/docker.sock
+ * Zero child_process calls — pure Node.js HTTP, no curl, no injection risk.
  *
  * GET /api/docker/containers — list containers
  * GET /api/docker/containers?id=xxx — inspect one container
@@ -8,16 +9,14 @@
  * GET /api/docker/containers?logs=xxx — get container logs
  */
 import { NextRequest, NextResponse } from "next/server";
-import { execFile } from "child_process";
-import { promisify } from "node:util";
+import http from "node:http";
 import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 import { createLogger } from "@/lib/logging";
 
-const execFileAsync = promisify(execFile);
 const logger = createLogger("api:docker:containers");
 
 const DOCKER_SOCKET = "/var/run/docker.sock";
-const DOCKER_API = "http://localhost";
+const DOCKER_API_HOST = "localhost";
 
 /** Validate Docker container ID: only allow hex chars and names (alphanumeric + _.-) */
 function isValidDockerId(value: string): boolean {
@@ -30,30 +29,46 @@ function isValidTail(value: string): boolean {
 }
 
 /**
- * Use curl for Docker socket communication (fetch doesn't support unix sockets).
- * Uses execFile with array args — no shell interpolation, no injection risk.
+ * Call Docker Engine API via Node.js HTTP over unix socket.
+ * No curl, no child_process — pure Node.js http.request.
  */
-async function dockerCurl(apiPath: string, method = "GET", body?: string): Promise<{ ok: boolean; status: number; data: unknown }> {
-	const args = [
-		"--silent", "--show-error",
-		"-X", method,
-		"--unix-socket", DOCKER_SOCKET,
-		`${DOCKER_API}${apiPath}`,
-	];
-	if (body) {
-		args.push("-H", "Content-Type: application/json", "-d", body);
-	}
-	try {
-		const { stdout } = await execFileAsync("curl", args, {
+function dockerRequest(apiPath: string, method = "GET", body?: string): Promise<{ ok: boolean; status: number; data: unknown }> {
+	return new Promise((resolve) => {
+		const options: http.RequestOptions = {
+			socketPath: DOCKER_SOCKET,
+			path: apiPath,
+			method,
+			host: DOCKER_API_HOST,
+			headers: body
+				? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) }
+				: {},
 			timeout: 10000,
-			encoding: "utf-8",
+		};
+
+		const req = http.request(options, (res) => {
+			const chunks: Buffer[] = [];
+			res.on("data", (chunk: Buffer) => chunks.push(chunk));
+			res.on("end", () => {
+				const raw = Buffer.concat(chunks).toString("utf-8");
+				let data: unknown;
+				try { data = JSON.parse(raw); } catch { data = raw; }
+				resolve({ ok: res.statusCode! >= 200 && res.statusCode! < 300, status: res.statusCode!, data });
+			});
 		});
-		return { ok: true, status: 200, data: JSON.parse(stdout) };
-	} catch (e: unknown) {
-		const err = e as { stdout?: string; status?: number };
-		const data = err.stdout ? (() => { try { return JSON.parse(err.stdout); } catch { return err.stdout; } })() : null;
-		return { ok: false, status: err.status || 500, data };
-	}
+
+		req.on("error", (err) => {
+			logger.error("Docker socket request failed", err, { apiPath, method });
+			resolve({ ok: false, status: 502, data: { message: "Docker daemon unreachable" } });
+		});
+
+		req.on("timeout", () => {
+			req.destroy();
+			resolve({ ok: false, status: 504, data: { message: "Docker API timeout" } });
+		});
+
+		if (body) req.write(body);
+		req.end();
+	});
 }
 
 export async function GET(req: NextRequest) {
@@ -65,7 +80,7 @@ export async function GET(req: NextRequest) {
 	const tailRaw = req.nextUrl.searchParams.get("tail") || "100";
 	const tail = isValidTail(tailRaw) ? tailRaw : "100";
 
-	// Validate container IDs to prevent command injection
+	// Validate container IDs to prevent path traversal
 	if (id && !isValidDockerId(id)) {
 		return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
 	}
@@ -75,16 +90,16 @@ export async function GET(req: NextRequest) {
 
 	try {
 		if (logs) {
-			const result = await dockerCurl(`/containers/${logs}/logs?stdout=true&stderr=true&tail=${tail}`);
+			const result = await dockerRequest(`/containers/${logs}/logs?stdout=true&stderr=true&tail=${tail}`);
 			return NextResponse.json(result);
 		}
 
 		if (id) {
-			const result = await dockerCurl(`/containers/${id}/json`);
+			const result = await dockerRequest(`/containers/${id}/json`);
 			return NextResponse.json(result);
 		}
 
-		const result = await dockerCurl("/containers/json?all=true");
+		const result = await dockerRequest("/containers/json?all=true");
 		return NextResponse.json(result);
 	} catch (error) {
 		logger.error("GET请求失败", error);
@@ -103,26 +118,24 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "缺少容器ID或操作" }, { status: 400 });
 		}
 
-		// Validate container ID to prevent command injection
+		// Validate container ID to prevent path traversal
 		if (!isValidDockerId(id)) {
 			return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
 		}
 
-		const actionMap: Record<string, string> = {
-			start: `/containers/${id}/start`,
-			stop: `/containers/${id}/stop`,
-			restart: `/containers/${id}/restart`,
-			remove: `/containers/${id}?force=true`,
+		const actionMap: Record<string, { path: string; method: string }> = {
+			start: { path: `/containers/${id}/start`, method: "POST" },
+			stop: { path: `/containers/${id}/stop`, method: "POST" },
+			restart: { path: `/containers/${id}/restart`, method: "POST" },
+			remove: { path: `/containers/${id}?force=true`, method: "DELETE" },
 		};
 
-		const httpMethod = action === "remove" ? "DELETE" : "POST";
-		const apiPath = actionMap[action];
-
-		if (!apiPath) {
+		const target = actionMap[action];
+		if (!target) {
 			return NextResponse.json({ error: "无效操作" }, { status: 400 });
 		}
 
-		const result = await dockerCurl(apiPath, httpMethod);
+		const result = await dockerRequest(target.path, target.method);
 		return NextResponse.json(result);
 	} catch (error) {
 		logger.error("POST请求失败", error);

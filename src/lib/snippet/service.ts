@@ -8,9 +8,10 @@ export async function createSnippet(input: { title: string; content: string; lan
 }
 
 export async function listSnippets(input: { userId?: string; q?: string; language?: string } = {}) {
-  const q = input.q?.trim();
-  return prisma.snippet.findMany({
-    where: { AND: [input.language ? { language: input.language } : {}, q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}, { OR: [{ isPrivate: false }, input.userId ? { createdBy: input.userId } : {}] }] },
-    orderBy: { updatedAt: "desc" },
-  });
+ const q = input.q?.trim();
+ return prisma.snippet.findMany({
+ where: { AND: [input.language ? { language: input.language } : {}, q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}, { OR: [{ isPrivate: false }, input.userId ? { createdBy: input.userId } : {}] }] },
+ orderBy: { updatedAt: "desc" },
+ select: { id: true, title: true, content: true, language: true, description: true, tags: true, isPrivate: true, createdBy: true, createdAt: true, updatedAt: true },
+ });
 }

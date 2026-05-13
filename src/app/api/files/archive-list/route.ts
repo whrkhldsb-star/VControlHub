@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 	// relativePath format: /<node-base-path>/subdir/file.zip
 	// We need to find the storage node's basePath
 	const { prisma } = await import("@/lib/db");
-	const node = await prisma.storageNode.findUnique({ where: { id: nodeId } });
+	const node = await prisma.storageNode.findUnique({ where: { id: nodeId }, select: { id: true, name: true, driver: true, basePath: true } });
 	if (!node) {
 		return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
 	}

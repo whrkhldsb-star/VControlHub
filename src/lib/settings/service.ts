@@ -34,13 +34,13 @@ const DEFAULTS: Record<string, string> = {
 
 /* ── Get / Set ────────────────────────────────────────────── */
 export async function getSetting(key: string): Promise<string> {
-	const row = await prisma.setting.findUnique({ where: { key } });
+	const row = await prisma.setting.findUnique({ where: { key }, select: { key: true, value: true } });
 	const raw = row?.value ?? DEFAULTS[key] ?? "";
 	return isSensitiveKey(key) ? safeDecrypt(raw) : raw;
 }
 
 export async function getAllSettings(): Promise<Record<string, string>> {
-	const rows = await prisma.setting.findMany();
+	const rows = await prisma.setting.findMany({ select: { key: true, value: true } });
 	const result: Record<string, string> = { ...DEFAULTS };
 	for (const row of rows) {
 		result[row.key] = isSensitiveKey(row.key) ? safeDecrypt(row.value) : row.value;

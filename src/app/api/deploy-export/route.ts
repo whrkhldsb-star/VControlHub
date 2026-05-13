@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { buildPortableDeploymentPackage, createDeploymentExport } from "@/lib/deploy-export/service";
+
+const deployExportPostSchema = z.object({
+  format: z.enum(["docker-compose", "systemd", "env"]),
+  services: z.array(z.object({ name: z.string(), type: z.string() })),
+  serverId: z.string().optional(),
+  domain: z.string().optional(),
+  appName: z.string().optional(),
+});
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +29,11 @@ export async function POST(request: Request) {
 	const { session } = authed;
 
 	const body = await request.json().catch(() => ({}));
+	const parsed = deployExportPostSchema.safeParse(body);
+	if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+	const data = parsed.data;
 	return NextResponse.json(
-		{ export: await createDeploymentExport({ userId: session.userId, domain: body.domain, appName: body.appName }) },
+		{ export: await createDeploymentExport({ userId: session.userId, domain: data.domain, appName: data.appName }) },
 		{ status: 201 },
 	);
 }

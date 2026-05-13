@@ -8,8 +8,8 @@ export function classifyMedia(mimeType?: string | null) {
 }
 
 export async function listMediaItems(input: { mediaType?: "image" | "video"; q?: string; favorite?: boolean } = {}) {
-  const q = input.q?.trim();
-  return prisma.mediaItem.findMany({ where: { mediaType: input.mediaType, favorite: input.favorite, ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { relativePath: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}) }, orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }] });
+ const q = input.q?.trim();
+ return prisma.mediaItem.findMany({ where: { mediaType: input.mediaType, favorite: input.favorite, ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { relativePath: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}) }, orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }], select: { id: true, name: true, mediaType: true, relativePath: true, size: true, favorite: true, createdAt: true } });
 }
 
 export async function scanMediaFromFileEntries(userId?: string) {
