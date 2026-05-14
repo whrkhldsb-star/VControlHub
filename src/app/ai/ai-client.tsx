@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { Provider, ConvItem, Message, ModelInfo, ModelCapabilities, FileAttachment, ToolCallEvent, ToolApprovalNeeded } from "./ai-types";
 import { PROVIDER_TYPES, COMMON_BASE_URLS, DEFAULT_PROV_FORM, DEFAULT_SETTINGS_FORM } from "./ai-types";
 import { detectCapabilities, readFileAsText, readFileAsDataURL, categorizeFile, formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";

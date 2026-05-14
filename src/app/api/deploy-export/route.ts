@@ -1,3 +1,7 @@
+/**
+ * @deprecated No frontend currently calls this endpoint.
+ * Kept for future deployment-export feature.
+ */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 

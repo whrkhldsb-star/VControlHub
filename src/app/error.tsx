@@ -18,45 +18,28 @@ export default function RootError({
 	reset: () => void;
 }) {
 	return (
-		<div style={{ maxWidth: 600, margin: "80px auto", padding: "0 24px", textAlign: "center" }}>
-			<h2 style={{ fontSize: 24, fontWeight: 600, color: "#fff", marginBottom: 12 }}>
+		<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
+			<h2 className="mb-3 text-2xl font-semibold text-white">
 				页面加载出错
 			</h2>
-			<p style={{ fontSize: 15, color: "#a3a3a3", lineHeight: 1.6, marginBottom: 8 }}>
+			<p className="mb-2 text-[15px] leading-relaxed text-neutral-400">
 				{error.message || "发生了未知错误"}
 			</p>
 			{error.digest && (
-				<p style={{ fontSize: 13, color: "#737373", marginBottom: 16 }}>
+				<p className="mb-4 text-[13px] text-neutral-500">
 					错误标识: {error.digest}
 				</p>
 			)}
-			<div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 20 }}>
+			<div className="mt-5 flex justify-center gap-3">
 				<button
 					onClick={reset}
-					style={{
-						padding: "8px 24px",
-						fontSize: 14,
-						background: "#2563eb",
-						color: "#fff",
-						border: "none",
-						borderRadius: 8,
-						cursor: "pointer",
-					}}
+					className="cursor-pointer rounded-lg border-none bg-blue-600 px-6 py-2 text-sm text-white hover:bg-blue-700"
 				>
 					重试
 				</button>
 				<NextLink
 					href="/"
-					style={{
-						padding: "8px 24px",
-						fontSize: 14,
-						background: "#262626",
-						color: "#e5e5e5",
-						borderRadius: 8,
-						textDecoration: "none",
-						display: "inline-flex",
-						alignItems: "center",
-					}}
+					className="inline-flex items-center rounded-lg bg-neutral-800 px-6 py-2 text-sm text-neutral-200 no-underline hover:bg-neutral-700"
 				>
 					返回首页
 				</NextLink>

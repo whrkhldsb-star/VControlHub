@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React from "react";
+import type React from "react";
 
 /* ── Escape HTML to prevent XSS ──────────────────────────────── */
 export function escapeHtml(text: string): string {
