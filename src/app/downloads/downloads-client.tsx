@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -99,12 +100,9 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 
 	const fetchTasks = useCallback(async () => {
 		try {
-			const res = await fetch("/api/downloads");
-			if (res.ok) {
-				const data = await res.json();
-				setTasks(data.tasks ?? data);
-				setGlobalStat(data.globalStat ?? null);
-			}
+			const data = await csrfFetch("/api/downloads");
+			setTasks(data.tasks ?? data);
+			setGlobalStat(data.globalStat ?? null);
 		} catch {} finally { setLoading(false); }
 	}, []);
 
@@ -142,17 +140,12 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 				maxSpeedKb: form.maxSpeedKb ? parseInt(form.maxSpeedKb, 10) : undefined,
 				isBatch, batchUrls,
 			};
-			const res = await fetch("/api/downloads", {
+			const data = await csrfFetch("/api/downloads", {
 				method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 			});
-			const data = await res.json();
-			if (res.ok) {
-				setMessage({ type: "success", text: isBatch ? `批量下载已创建 (${batchUrls?.length ?? 0} 个链接)` : "下载任务已创建" });
-				setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
-				setShowForm(false); fetchTasks();
-			} else {
-				setMessage({ type: "error", text: data.error || "创建失败" });
-			}
+			setMessage({ type: "success", text: isBatch ? `批量下载已创建 (${batchUrls?.length ?? 0} 个链接)` : "下载任务已创建" });
+			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
+			setShowForm(false); fetchTasks();
 		} catch { setMessage({ type: "error", text: "网络错误" }); }
 		finally { setSubmitting(false); }
 	};
@@ -160,21 +153,21 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 	const handleAction = async (taskId: string, action: string) => {
 		try {
 			if (action === "cancel") {
-				const res = await fetch(`/api/downloads?taskId=${taskId}`, { method: "DELETE" });
-				if (res.ok) { setMessage({ type: "success", text: "任务已取消" }); fetchTasks(); }
+				await csrfFetch(`/api/downloads?taskId=${taskId}`, { method: "DELETE" });
+				setMessage({ type: "success", text: "任务已取消" }); fetchTasks();
 			} else {
-				const res = await fetch("/api/downloads", {
+				await csrfFetch("/api/downloads", {
 					method: "PATCH", headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ taskId, action }),
 				});
-				if (res.ok) fetchTasks();
+				fetchTasks();
 			}
 		} catch {}
 	};
 
 	const handleGlobalSpeedLimit = async (kb: number) => {
 		try {
-			await fetch("/api/downloads", {
+			await csrfFetch("/api/downloads", {
 				method: "PATCH", headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ globalMaxSpeedKb: kb }),
 			});

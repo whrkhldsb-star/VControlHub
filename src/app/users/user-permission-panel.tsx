@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };
@@ -74,12 +75,10 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/users/permissions?userId=${encodeURIComponent(userId)}`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "加载权限失败");
-        return data as PermissionsPayload;
-      })
+csrfFetch(`/api/users/permissions?userId=${encodeURIComponent(userId)}`)
+ .then((data) => {
+ return data as PermissionsPayload;
+ })
       .then((data) => {
         if (cancelled) return;
         setPayload(data);
@@ -128,13 +127,11 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
     }));
 
     try {
-      const res = await fetch("/api/users/permissions", {
+      const data = await csrfFetch("/api/users/permissions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, roleKeys, permissionKeys, storageAccess: normalizedGrants }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "保存失败");
       setMessage({ type: "success", text: "权限配置已保存" });
       onSaved();
     } catch (error) {

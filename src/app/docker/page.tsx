@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 interface Container {
 	Id: string;
@@ -22,9 +23,8 @@ export default function DockerPage() {
 
 	const fetchContainers = async () => {
 		try {
-			const res = await fetch("/api/docker/containers");
-			const data = await res.json();
-			if (data.error) { setError(data.error); return; }
+			const data = await csrfFetch("/api/docker/containers");
+if (data.error) { setError(data.error); return; }
 			if (data.data && Array.isArray(data.data)) {
 				setContainers(data.data);
 			} else if (Array.isArray(data)) {
@@ -37,7 +37,7 @@ export default function DockerPage() {
 	const handleAction = async (id: string, action: "start" | "stop" | "restart" | "remove") => {
 		setActionLoading(id);
 		try {
-			await fetch("/api/docker/containers", {
+			await csrfFetch("/api/docker/containers", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ id, action }),
@@ -50,8 +50,7 @@ export default function DockerPage() {
 	const fetchLogs = async (id: string) => {
 		setLogsId(id);
 		try {
-			const res = await fetch(`/api/docker/containers?logs=${id}&tail=50`);
-			const data = await res.json();
+			const data = await csrfFetch(`/api/docker/containers?logs=${id}&tail=50`);
 			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
 		} catch { setLogs("获取日志失败"); }
 	};

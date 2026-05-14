@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type NotificationItem = {
 	id: string;
@@ -47,19 +48,19 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
 
 	const markAllRead = useCallback(async () => {
-		await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
+		await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
 		setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 		setUnreadCount(0);
 	}, []);
 
 	const markOneRead = useCallback(async (id: string) => {
-		await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
+		await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
 		setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
 		setUnreadCount((c) => Math.max(0, c - 1));
 	}, []);
 
 	const deleteOne = useCallback(async (id: string) => {
-		await fetch(`/api/notifications?id=${id}`, { method: "DELETE" });
+		await csrfFetch(`/api/notifications?id=${id}`, { method: "DELETE" });
 		setNotifications((prev) => {
 			const deleted = prev.find((n) => n.id === id);
 			if (deleted && !deleted.isRead) setUnreadCount((c) => Math.max(0, c - 1));

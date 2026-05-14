@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
 

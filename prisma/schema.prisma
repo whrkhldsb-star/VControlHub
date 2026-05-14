@@ -142,26 +142,30 @@ model SshKey {
 }
 
 model Server {
-  id              String               @id @default(cuid())
-  name            String
-  host            String
-  port            Int                  @default(22)
-  username        String
-  sshKeyId        String?
-  password        String?
-  description     String?
-  tags            String[]
-  enabled         Boolean              @default(true)
-  connectionType  ServerConnectionType @default(SSH_KEY)
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
-  sshKey          SshKey?              @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
-  storageNode     StorageNode?
-  commandTargets  CommandTarget[]
-  metricSnapshots MetricSnapshot[]
-  downloadTasks   DownloadTask[]
-  sourceSyncs     SyncJob[]            @relation("SourceSyncs")
-  targetSyncs     SyncJob[]            @relation("TargetSyncs")
+ id String @id @default(cuid())
+ name String
+ host String
+ port Int @default(22)
+ username String
+ sshKeyId String?
+ password String?
+ description String?
+ tags String[]
+ enabled Boolean @default(true)
+ connectionType ServerConnectionType @default(SSH_KEY)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ sshKey SshKey? @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
+ storageNode StorageNode?
+ commandTargets CommandTarget[]
+ metricSnapshots MetricSnapshot[]
+ downloadTasks DownloadTask[]
+ sourceSyncs SyncJob[] @relation("SourceSyncs")
+ targetSyncs SyncJob[] @relation("TargetSyncs")
+
+ @@index([host, port])
+ @@index([enabled])
+ @@map("servers")
 }
 
 model CommandRequest {
@@ -494,8 +498,12 @@ model DownloadTask {
   isBatch        Boolean @default(false)
   batchUrls      String?
 
-  server  Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  creator User?  @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+ server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+ creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+ @@index([serverId, status])
+ @@index([status, createdAt])
+ @@map("download_tasks")
 }
 
 model ShareLink {
@@ -706,7 +714,8 @@ model AiProvider {
  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
  conversations AiConversation[]
 
- @@index([createdBy])
+ @@unique([createdBy, name])
+ @@index([enabled])
  @@map("ai_providers")
 }
 

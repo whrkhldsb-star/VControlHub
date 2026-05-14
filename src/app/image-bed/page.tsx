@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { PageShell, Card } from "@/components/page-shell";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type ImageItem = {
 	id: string;
@@ -54,14 +55,11 @@ export default function ImageBedPage() {
 		try {
 			const params = new URLSearchParams({ page: String(p), limit: "30" });
 			if (album) params.set("album", album);
-			const res = await fetch(`/api/images/list?${params}`);
-			if (res.ok) {
-				const data = await res.json();
-				setImages(data.images || []);
-				setTotal(data.total || 0);
-				setTotalPages(data.totalPages || 1);
-				setPage(p);
-			}
+			const data = await csrfFetch(`/api/images/list?${params}`);
+			setImages(data.images || []);
+			setTotal(data.total || 0);
+			setTotalPages(data.totalPages || 1);
+			setPage(p);
 		} catch {
 			showToast("获取图片列表失败");
 		} finally {
@@ -71,12 +69,9 @@ export default function ImageBedPage() {
 
 	const fetchStats = async () => {
 		try {
-			const res = await fetch("/api/images/stats");
-			if (res.ok) {
-				const data = await res.json();
-				setStats(data);
-				setShowStats(true);
-			}
+			const data = await csrfFetch("/api/images/stats") as ImageStats;
+			setStats(data);
+			setShowStats(true);
 		} catch {
 			showToast("获取统计信息失败");
 		}
@@ -84,11 +79,8 @@ export default function ImageBedPage() {
 
 	const fetchStorageNodes = async () => {
 		try {
-			const res = await fetch("/api/storage");
-			if (res.ok) {
-				const data = await res.json();
-				setStorageNodes((data.nodes || data || []).map((n: { id: string; name: string }) => ({ id: n.id, name: n.name })));
-			}
+			const data = await csrfFetch("/api/storage/nodes");
+			setStorageNodes((data.nodes || data || []).map((n: { id: string; name: string }) => ({ id: n.id, name: n.name })));
 		} catch { /* non-fatal */ }
 	};
 
@@ -107,12 +99,8 @@ export default function ImageBedPage() {
 			formData.append("file", file);
 			if (album) formData.append("album", album);
 			try {
-				const res = await fetch("/api/images/upload", { method: "POST", body: formData });
-				if (res.ok) success++;
-				else {
-					const err = await res.json();
-					showToast(err.error || "上传失败");
-				}
+				await csrfFetch("/api/images/upload", { method: "POST", body: formData });
+				success++;
 			} catch {
 				showToast("上传出错");
 			}
@@ -127,9 +115,8 @@ export default function ImageBedPage() {
 	const handleDelete = async (id: string) => {
 		if (!confirm("确定删除此图片？外链将失效。")) return;
 		try {
-			const res = await fetch(`/api/images/${id}`, { method: "DELETE" });
-			if (res.ok) { showToast("✅ 已删除"); fetchImages(page); }
-			else showToast("删除失败");
+			await csrfFetch(`/api/images/${id}`, { method: "DELETE" });
+			showToast("✅ 已删除"); fetchImages(page);
 		} catch { showToast("删除出错"); }
 	};
 
@@ -140,41 +127,32 @@ export default function ImageBedPage() {
 		try {
 			const body: Record<string, unknown> = { action, ids: Array.from(selectedIds) };
 			if (action === "moveAlbum") body.album = batchAlbum;
-			const res = await fetch("/api/images/batch", {
+			const data = await csrfFetch("/api/images/batch", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(body),
 			});
-			if (res.ok) {
-				const data = await res.json();
-				showToast(`✅ 批量操作成功，影响 ${data.deleted || data.updated || 0} 张图片`);
-				setSelectedIds(new Set());
-				setBatchMode(false);
-				fetchImages(page);
-			} else {
-				const err = await res.json();
-				showToast(err.error || "批量操作失败");
-			}
+			showToast(`✅ 批量操作成功，影响 ${data.deleted || data.updated || 0} 张图片`);
+			setSelectedIds(new Set());
+			setBatchMode(false);
+			fetchImages(page);
 		} catch { showToast("批量操作出错"); }
 	};
 
 	const handlePublishFromStorage = async () => {
 		try {
-			const res = await fetch("/api/images/publish-from-storage", {
+			await csrfFetch("/api/images/publish-from-storage", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(publishForm),
 			});
-			if (res.ok) {
-				showToast("✅ 从云盘发布成功");
-				setShowPublishModal(false);
-				setPublishForm({ storageNodeId: "", relativePath: "", filename: "", album: "" });
-				fetchImages(1);
-			} else {
-				const err = await res.json();
-				showToast(err.error || "发布失败");
-			}
-		} catch { showToast("发布出错"); }
+			showToast("✅ 从云盘发布成功");
+			setShowPublishModal(false);
+			setPublishForm({ storageNodeId: "", relativePath: "", filename: "", album: "" });
+			fetchImages(1);
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : "发布出错");
+		}
 	};
 
 	const toggleSelect = (id: string) => {

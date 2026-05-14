@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type AuditLog = {
   id: string;
@@ -66,11 +67,8 @@ export function AuditLogClient() {
       const params = new URLSearchParams({ page: String(page), pageSize: "50" });
       if (severityFilter) params.set("severity", severityFilter);
       if (actionFilter) params.set("action", actionFilter);
-      const res = await fetch(`/api/audit?${params}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
+const json = await csrfFetch(`/api/audit?${params}`);
+setData(json as AuditListResponse);
     } catch {
       // ignore
     } finally {

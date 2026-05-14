@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -81,10 +82,8 @@ export function ServerMonitorCard({ serverId }: Props) {
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const fetchMetrics = useCallback(async () => {
-		try {
-			const res = await fetch(`/api/servers/monitor?serverId=${encodeURIComponent(serverId)}`);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = await res.json();
+	try {
+			const data = await csrfFetch(`/api/servers/monitor?serverId=${encodeURIComponent(serverId)}`) as Metrics & { error?: string };
 			if (data.error) {
 				setError(data.error);
 				setMetrics(null);

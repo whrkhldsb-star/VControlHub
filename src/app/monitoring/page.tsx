@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 interface Stats {
 	hostname: string; platform: string; arch: string; uptime: string;
@@ -21,8 +22,7 @@ export default function MonitoringPage() {
 
 	const fetchStats = async () => {
 		try {
-			const res = await fetch("/api/monitoring/stats");
-			const data = await res.json();
+			const data = await csrfFetch("/api/monitoring/stats") as Stats & { error?: string };
 			if (!data.error) setStats(data);
 		} catch { /* */ }
 		finally { setLoading(false); }

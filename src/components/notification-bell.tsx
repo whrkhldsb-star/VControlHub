@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
@@ -22,22 +23,16 @@ export function NotificationBell() {
 	const fetchUnread = useCallback(async () => {
 		if (wsConnected) return; // WS handles it
 		try {
-			const res = await fetch("/api/notifications");
-			if (res.ok) {
-				const data = await res.json();
-				setPolledUnread(data.unreadCount ?? 0);
-			}
+			const data = await csrfFetch("/api/notifications");
+			setPolledUnread(data.unreadCount ?? 0);
 		} catch { /* ignore */ }
 	}, [wsConnected]);
 
 	const fetchList = useCallback(async () => {
 		try {
-			const res = await fetch("/api/notifications");
-			if (res.ok) {
-				const data = await res.json();
-				setNotifications(data.notifications ?? []);
-				if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
-			}
+			const data = await csrfFetch("/api/notifications");
+			setNotifications(data.notifications ?? []);
+			if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
 		} catch { /* ignore */ }
 	}, [wsConnected]);
 
@@ -96,7 +91,7 @@ export function NotificationBell() {
 	};
 
 	const markAllRead = async () => {
-		await fetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
+		await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
 		if (wsConnected) { /* WS will update count */ }
 		else { setPolledUnread(0); }
 		setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));

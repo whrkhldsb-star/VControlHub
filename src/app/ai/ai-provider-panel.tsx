@@ -3,6 +3,8 @@
 
 import type { Provider } from "./ai-types";
 import { PROVIDER_TYPES, COMMON_BASE_URLS } from "./ai-types";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useToast } from "@/components/toast-provider";
 
 export interface ProviderFormState {
   name: string;
@@ -35,6 +37,7 @@ export function AiProviderPanel({
   onRefreshProviders,
   setProvForm,
 }: ProviderPanelProps) {
+	const { addToast } = useToast();
   if (!show) return null;
 
   return (
@@ -80,7 +83,7 @@ export function AiProviderPanel({
                     <button
                       onClick={async () => {
                         try {
-                          await fetch(`/api/ai/providers/${p.id}`, {
+                          await csrfFetch(`/api/ai/providers/${p.id}`, {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ enabled: !p.enabled }),
@@ -106,13 +109,13 @@ export function AiProviderPanel({
                         if (newModel !== p.defaultModel) patchBody.defaultModel = newModel;
                         if (Object.keys(patchBody).length > 0) {
                           try {
-                            await fetch(`/api/ai/providers/${p.id}`, {
+                            await csrfFetch(`/api/ai/providers/${p.id}`, {
                               method: "PATCH",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify(patchBody),
                             });
                             onRefreshProviders();
-                          } catch { alert("更新失败"); }
+                          } catch { addToast("error", "更新失败"); }
                         }
                       }}
                       className="text-xs text-cyan-400/60 hover:text-cyan-400 transition"

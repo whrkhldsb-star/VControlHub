@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -58,23 +59,17 @@ export function HealthDashboardClient({ serverCount: _serverCount }: Props) {
 
 	const fetchHealth = useCallback(async () => {
 		try {
-			const res = await fetch("/api/health");
-			if (res.ok) {
-				const data = await res.json();
-				setOverview(data);
-				setLastRefresh(new Date().toLocaleTimeString("zh-CN"));
-			}
+			const data = await csrfFetch("/api/health") as HealthOverview;
+			setOverview(data);
+			setLastRefresh(new Date().toLocaleTimeString("zh-CN"));
 		} catch { /* ignore */ }
 		setLoading(false);
 	}, []);
 
 	const fetchHistory = useCallback(async (serverId: string) => {
 		try {
-			const res = await fetch(`/api/health?historyFor=${serverId}&hours=24`);
-			if (res.ok) {
-				const data = await res.json();
-				setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
-			}
+			const data = await csrfFetch(`/api/health?historyFor=${serverId}&hours=24`);
+			setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
 		} catch { /* ignore */ }
 	}, []);
 

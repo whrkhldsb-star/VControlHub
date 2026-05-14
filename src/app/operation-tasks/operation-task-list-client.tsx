@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { OperationTask } from "@/lib/operation-task/service";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 const sourceLabels: Record<string, string> = { command: "命令", scheduled: "定时", download: "下载", sync: "同步", backup: "备份", deployment: "部署" };
 const statusClass: Record<string, string> = {
@@ -20,8 +21,8 @@ export function OperationTaskListClient({ initialTasks }: { initialTasks: Operat
   const refresh = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/operation-tasks");
-      if (res.ok) setTasks((await res.json()).tasks ?? []);
+      const data = await csrfFetch("/api/operation-tasks");
+      setTasks(data.tasks ?? []);
     } finally { setRefreshing(false); }
   };
   const counts = tasks.reduce<Record<string, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {});

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useToast } from "@/components/toast-provider";
 
 type AlertRule = {
 	id: string; name: string; metric: string; operator: string;
@@ -30,19 +32,17 @@ const operatorLabels: Record<string, string> = {
 };
 
 export function AlertRuleListClient({ rules: initialRules, servers, canManage }: Props) {
+	const { addToast } = useToast();
 	const [rules, setRules] = useState(initialRules);
 	const [showCreate, setShowCreate] = useState(false);
 
 	const refresh = useCallback(async () => {
-		const res = await fetch("/api/alert-rules");
-		if (res.ok) {
-			const data = await res.json();
+			const data = await csrfFetch("/api/alert-rules");
 			setRules(data.rules ?? []);
-		}
 	}, []);
 
 	const toggleRule = useCallback(async (id: string) => {
-		await fetch("/api/alert-rules", {
+		await csrfFetch("/api/alert-rules", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ toggleId: id }),
@@ -52,13 +52,13 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 	const deleteRule = useCallback(async (id: string) => {
 		if (!confirm("确认删除该告警规则？")) return;
-		await fetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
+		await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
 		refresh();
 	}, [refresh]);
 
 	const triggerNow = useCallback(async () => {
-		await fetch("/api/alert-rules", { method: "PUT" });
-		alert("告警检测已触发");
+		await csrfFetch("/api/alert-rules", { method: "PUT" });
+		addToast("error", "告警检测已触发");
 	}, []);
 
 	return (
@@ -169,21 +169,6 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 		setSubmitting(true);
 		setError(null);
 		try {
-			const res = await fetch("/api/alert-rules", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name, metric, operator, threshold,
-					cooldownMinutes: cooldown,
-					notifyChannels: channels,
-					webhookUrl: channels.includes("webhook") ? webhookUrl : null,
-					serverIds: [],
-				}),
-			});
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error ?? "创建失败");
-			}
 			onClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "创建失败");

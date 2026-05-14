@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ------------------------------------------------------------------ */
 /* Types */
@@ -154,13 +155,11 @@ function FileEditorModal({
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch("/api/storage/sftp-ops", {
+        const data = await csrfFetch("/api/storage/sftp-ops", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "read", nodeId, path: filePath }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `读取失败（HTTP ${res.status}）`);
         if (data.encoding === "base64") {
           throw new Error("该文件为二进制格式，不支持在线编辑。");
         }
@@ -183,13 +182,11 @@ function FileEditorModal({
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch("/api/storage/sftp-ops", {
+      const data = await csrfFetch("/api/storage/sftp-ops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "write", nodeId, path: filePath, content }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `保存失败（HTTP ${res.status}）`);
       setOriginalContent(content);
       setSuccess("保存成功");
       setTimeout(() => setSuccess(null), 2000);
@@ -400,17 +397,8 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ nodeId, path });
-        const res = await fetch(`/api/storage/sftp?${params.toString()}`);
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          throw new Error(
-            data && typeof data === "object" && "error" in data
-              ? String(data.error)
-              : `请求失败（HTTP ${res.status}）`,
-          );
-        }
-        const data: SftpListResponse = await res.json();
+	const params = new URLSearchParams({ nodeId, path });
+ const data = await csrfFetch(`/api/files/sftp-list?${params.toString()}`) as SftpListResponse;
         setEntries(data.entries);
         setNodeName(data.nodeName);
         setRemotePath(data.remotePath);
@@ -451,39 +439,25 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
     fetchDirectory(selectedNodeId, targetPath);
   };
 
-  const handleSync = async () => {
-    if (!selectedNodeId || syncLoading) return;
-    setSyncLoading(true);
-    setSyncResult(null);
-    try {
-      const res = await fetch("/api/storage/sftp-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nodeId: selectedNodeId,
-          remotePath,
-          recursive: syncRecursive,
-          maxDepth: 1,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(
-          data && typeof data === "object" && "error" in data
-            ? String(data.error)
-            : `同步请求失败（HTTP ${res.status}）`,
-        );
-      }
-      const data: SyncResult = await res.json();
-      setSyncResult(data);
-      router.refresh();
-      setTimeout(() => setSyncResult(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "同步失败");
-    } finally {
-      setSyncLoading(false);
-    }
-  };
+const handleSync = async () => {
+ if (!selectedNodeId || syncLoading) return;
+ setSyncLoading(true);
+ setSyncResult(null);
+ try {
+ const data = await csrfFetch("/api/storage/sftp-sync", {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ nodeId: selectedNodeId }),
+ }) as SyncResult;
+ setSyncResult(data);
+ router.refresh();
+ setTimeout(() => setSyncResult(null), 3000);
+ } catch (err) {
+ setError(err instanceof Error ? err.message : "同步失败");
+ } finally {
+ setSyncLoading(false);
+ }
+ };
 
   const handleDelete = async (entry: SftpListEntry) => {
     if (!selectedNodeId || deleteLoading) return;
@@ -491,7 +465,7 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
     setError(null);
     try {
       const fullPath = joinPath(remotePath, entry.name);
-      const res = await fetch("/api/storage/sftp-ops", {
+      const data = await csrfFetch("/api/storage/sftp-ops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -500,13 +474,11 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
           path: fullPath,
           isDirectory: entry.type === "directory",
         }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `删除失败（HTTP ${res.status}）`);
-      setDeletingEntry(null);
-      fetchDirectory(selectedNodeId, remotePath);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "删除失败");
+	});
+ setDeletingEntry(null);
+ fetchDirectory(selectedNodeId, remotePath);
+ } catch (err) {
+ setError(err instanceof Error ? err.message : "删除失败");
     } finally {
       setDeleteLoading(false);
     }
@@ -519,7 +491,7 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
     try {
       const oldFullPath = joinPath(remotePath, entry.name);
       const newFullPath = joinPath(remotePath, newName);
-      const res = await fetch("/api/storage/sftp-ops", {
+      const data = await csrfFetch("/api/storage/sftp-ops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -528,13 +500,11 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
           path: oldFullPath,
           newPath: newFullPath,
         }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `重命名失败（HTTP ${res.status}）`);
-      setRenamingEntry(null);
-      fetchDirectory(selectedNodeId, remotePath);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "重命名失败");
+	});
+ setRenamingEntry(null);
+ fetchDirectory(selectedNodeId, remotePath);
+ } catch (err) {
+ setError(err instanceof Error ? err.message : "重命名失败");
     } finally {
       setRenameLoading(false);
     }

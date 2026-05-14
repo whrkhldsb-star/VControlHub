@@ -2,6 +2,7 @@
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Verify2faFormProps = {
 	nextPath: string;
@@ -61,15 +62,13 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 		setErrorMsg(undefined);
 
 		try {
-			const res = await fetch("/api/auth/2fa/verify-login", {
+
+			const data = await csrfFetch("/api/auth/2fa/verify-login", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ code }),
 			});
-
-			const data = await res.json();
-
-			if (res.ok && data.success) {
+if (data.success) {
 				router.push(nextPath);
 				router.refresh();
 				return;

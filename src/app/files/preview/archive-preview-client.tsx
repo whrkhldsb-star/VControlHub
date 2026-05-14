@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type ArchiveEntry = {
 	name: string;
@@ -38,12 +39,7 @@ export function ArchivePreviewClient({
 				driver,
 				name,
 			});
-			const res = await fetch(`/api/files/archive-list?${params.toString()}`);
-			if (!res.ok) {
-				const data = await res.json().catch(() => ({}));
-				throw new Error(data.error || `请求失败 (${res.status})`);
-			}
-			const data = await res.json();
+			const data = await csrfFetch(`/api/files/archive-list?${params.toString()}`);
 			setEntries(data.entries ?? []);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "未知错误");
@@ -56,13 +52,12 @@ export function ArchivePreviewClient({
 		startExtractTransition(async () => {
 			setExtractResult(null);
 			try {
-				const res = await fetch("/api/files/extract", {
+				const data = await csrfFetch("/api/files/extract", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ nodeId, relativePath, driver, name }),
 				});
-				const data = await res.json().catch(() => ({}));
-				if (!res.ok) throw new Error(data.error || `解压失败 (${res.status})`);
+				if (data.error) throw new Error(data.error);
 				setExtractResult(data.message || "解压完成");
 			} catch (err) {
 				setExtractResult(err instanceof Error ? err.message : "解压失败");

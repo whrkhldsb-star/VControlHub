@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ------------------------------------------------------------------ */
 /* SSH Terminal Modal — xterm.js + WebSocket */
@@ -72,11 +73,8 @@ const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
  // ── Fetch SSH_WS_SECRET from server API ────────────────────
  let wsSecret = "";
  try {
- const res = await fetch("/api/auth/ws-token");
- if (res.ok) {
- const data = await res.json();
- wsSecret = data.secret || "";
- }
+ const data = await csrfFetch("/api/auth/ws-token");
+wsSecret = data.secret || "";
  } catch {
  // If the API is unreachable, try connecting without secret
  // (development mode may not require it)

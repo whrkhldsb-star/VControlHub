@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type DirectAccessResponse = {
 	fallbackUrl?: string;
@@ -29,13 +30,11 @@ export function DirectAccessButton({
 		setError(null);
 
 		try {
-			const res = await fetch("/api/storage/direct-access", {
+			const data = await csrfFetch("/api/storage/direct-access", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ nodeId, relativePath }),
-			});
-
-			const data: DirectAccessResponse = await res.json();
+			}) as DirectAccessResponse;
 
 			if (data.fallbackUrl) {
 				setDirectInfo(data);
@@ -44,7 +43,7 @@ export function DirectAccessButton({
 				return;
 			}
 
-			if (!res.ok || data.error) {
+			if (data.error) {
 				setError(data.error ?? "请求中转播放失败");
 				return;
 			}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { UserPermissionPanel } from "./user-permission-panel";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -55,13 +56,13 @@ export function UserManagementClient() {
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const res = await fetch("/api/users");
-      if (res.ok) setUsers(await res.json());
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-}, []);
+	const fetchUsers = useCallback(async () => {
+		try {
+			const data = await csrfFetch("/api/users") as { users: UserInfo[] };
+			setUsers(data.users);
+		} catch { /* ignore */ }
+		finally { setLoading(false); }
+	}, []);
 
 	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
@@ -72,42 +73,35 @@ export function UserManagementClient() {
 
   const handleCreate = async () => {
     setCreating(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createForm),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: `用户 ${createForm.username} 创建成功` });
-        setCreateForm({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
-        setShowCreateForm(false);
-        fetchUsers();
-      } else {
-        setMessage({ type: "error", text: data.error || "创建失败" });
-      }
-    } catch {
-      setMessage({ type: "error", text: "网络错误" });
-    } finally {
-      setCreating(false);
-    }
+	setMessage(null);
+		try {
+			await csrfFetch("/api/users", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(createForm),
+			});
+			setMessage({ type: "success", text: `用户 ${createForm.username} 创建成功` });
+			setCreateForm({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
+			setShowCreateForm(false);
+			fetchUsers();
+		} catch (err) {
+			setMessage({ type: "error", text: err instanceof Error ? err.message : "创建失败" });
+		} finally {
+			setCreating(false);
+		}
   };
 
   const handleToggleStatus = async (userId: string, currentStatus: string, username: string) => {
     const action = currentStatus === "DISABLED" ? "enable" : "disable";
-    try {
-      const res = await fetch("/api/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, action }),
-      });
-      if (res.ok) {
-        setMessage({ type: "success", text: `已${action === "enable" ? "启用" : "禁用"} ${username}` });
-        fetchUsers();
-      }
-    } catch { /* ignore */ }
+try {
+ await csrfFetch("/api/users", {
+ method: "PATCH",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({ userId, action }),
+ });
+ setMessage({ type: "success", text: `已${action === "enable" ? "启用" : "禁用"} ${username}` });
+ fetchUsers();
+ } catch { /* ignore */ }
   };
 
   const toggleRole = (roleKey: string) => {

@@ -10,6 +10,8 @@ import { AiSidebar } from "./ai-sidebar";
 import { AiChatHeader } from "./ai-chat-header";
 import { AiSettingsPanel } from "./ai-settings-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
+import { useToast } from "@/components/toast-provider";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Main Component ─────────────────────────────────────────── */
 export function AiClient({
@@ -20,7 +22,8 @@ export function AiClient({
 	initialProviders: Provider[];
 	initialConversations: ConvItem[];
 }) {
-  const [providers, setProviders] = useState(initialProviders);
+ const { addToast } = useToast();
+ const [providers, setProviders] = useState(initialProviders);
   const [conversations, setConversations] = useState(initialConversations);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -74,27 +77,25 @@ export function AiClient({
       setMessages([]);
       return;
     }
-    fetch(`/api/ai/conversations/${activeConvId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.conversation?.messages) setMessages(data.conversation.messages);
-      })
-      .catch(() => {});
-  }, [activeConvId]);
+	csrfFetch(`/api/ai/conversations/${activeConvId}`)
+			.then((data) => {
+				if (data.conversation?.messages) setMessages(data.conversation.messages);
+			})
+			.catch(() => {});
+	}, [activeConvId]);
 
   // Fetch models when provider changes
-  const fetchModels = useCallback(async (providerId: string) => {
-    setModelsLoading(true);
-    try {
-      const r = await fetch(`/api/ai/models?providerId=${providerId}`);
-      const data = await r.json();
-      if (data.models) setModelList(data.models);
-    } catch {
-      setModelList([]);
-    } finally {
-      setModelsLoading(false);
-    }
-  }, []);
+	const fetchModels = useCallback(async (providerId: string) => {
+		setModelsLoading(true);
+		try {
+			const data = await csrfFetch(`/api/ai/models?providerId=${providerId}`);
+			if (data.models) setModelList(data.models);
+		} catch {
+			setModelList([]);
+		} finally {
+			setModelsLoading(false);
+		}
+	}, []);
 
   useEffect(() => {
     if (activeConv?.providerId) {
@@ -105,17 +106,15 @@ export function AiClient({
   }, [activeConv?.providerId, fetchModels]);
 
   // Refresh conversation list
-  const refreshConversations = useCallback(async () => {
-    const r = await fetch("/api/ai/conversations");
-    const data = await r.json();
-    if (data.conversations) setConversations(data.conversations);
-  }, []);
+	const refreshConversations = useCallback(async () => {
+		const data = await csrfFetch("/api/ai/conversations");
+		if (data.conversations) setConversations(data.conversations);
+	}, []);
 
-  const refreshProviders = useCallback(async () => {
-    const r = await fetch("/api/ai/providers");
-    const data = await r.json();
-    if (data.providers) setProviders(data.providers);
-  }, []);
+	const refreshProviders = useCallback(async () => {
+		const data = await csrfFetch("/api/ai/providers");
+		if (data.providers) setProviders(data.providers);
+	}, []);
 
   /* ── File Handling (capability-aware) ─────────────────────── */
   const showRejection = useCallback((msg: string) => {
@@ -285,16 +284,15 @@ export function AiClient({
       abortControllerRef.current = null;
     }
     setStreaming(false);
-    // Re-fetch to get the partial saved message from server
-    if (activeConvId) {
-      fetch(`/api/ai/conversations/${activeConvId}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.conversation?.messages) setMessages(data.conversation.messages);
-        })
-        .catch(() => {});
-    }
-  };
+		// Re-fetch to get the partial saved message from server
+		if (activeConvId) {
+			csrfFetch(`/api/ai/conversations/${activeConvId}`)
+				.then((data) => {
+					if (data.conversation?.messages) setMessages(data.conversation.messages);
+				})
+				.catch(() => {});
+		}
+	};
 
   /* ── Send Message ──────────────────────────────────────────── */
   const handleSend = async () => {
@@ -345,28 +343,30 @@ export function AiClient({
     autoTitle(activeConvId, userMsg);
   }
 
-    try {
-    const response = await fetch("/api/ai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        conversationId: activeConvId,
-        content: userMsg,
-        imageUrls: userImages,
-        imageBase64: userImageBase64,
-        fileAttachments: userFiles,
-      }),
-      signal: abortController.signal,
-    });
+ try {
+ // Use raw mode for SSE streaming — csrfFetch returns Response, not parsed JSON
+ const response = await csrfFetch<Response>("/api/ai/chat", {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ body: JSON.stringify({
+ conversationId: activeConvId,
+ content: userMsg,
+ imageUrls: userImages,
+ imageBase64: userImageBase64,
+ fileAttachments: userFiles,
+ }),
+ signal: abortController.signal,
+ raw: true,
+});
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: "请求失败" }));
-        setStreamContent(`❌ ${err.error || "请求失败"}`);
-        setStreaming(false);
-        return;
-      }
+ if (!response.ok) {
+ const err = await response.json().catch(() => ({ error: "请求失败" }));
+ setStreamContent(`❌ ${err.error || "请求失败"}`);
+ setStreaming(false);
+ return;
+ }
 
-      const reader = response.body?.getReader();
+ const reader = response.body?.getReader();
       if (!reader) return;
 
       const decoder = new TextDecoder();
@@ -429,8 +429,8 @@ export function AiClient({
     setStreamReasoning("");
     abortControllerRef.current = null;
       if (activeConvId) {
-        fetch(`/api/ai/conversations/${activeConvId}`)
-          .then((r) => r.json())
+        csrfFetch(`/api/ai/conversations/${activeConvId}`)
+          
           .then((data) => {
             if (data.conversation?.messages) setMessages(data.conversation.messages);
           })
@@ -444,12 +444,12 @@ export function AiClient({
   const handleNewConv = async () => {
     const defaultProvider = providers.find((p) => p.isDefault && p.enabled) || providers.find((p) => p.enabled);
     if (!defaultProvider) {
-      alert("请先添加一个 AI 提供商");
+      addToast("error", "请先添加一个 AI 提供商");
       setShowProviders(true);
       return;
     }
     try {
-      const r = await fetch("/api/ai/conversations", {
+      const data = await csrfFetch("/api/ai/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -457,13 +457,12 @@ export function AiClient({
           model: defaultProvider.defaultModel,
         }),
       });
-      const data = await r.json();
-      if (data.conversation) {
+if (data.conversation) {
         await refreshConversations();
         setActiveConvId(data.conversation.id);
       }
     } catch {
-      alert("创建对话失败");
+      addToast("error", "创建对话失败");
     }
   };
 
@@ -472,7 +471,7 @@ export function AiClient({
     const title = firstMsg.slice(0, 30).replace(/\n/g, " ").trim();
     if (!title || title === "(附件)") return;
     try {
-      await fetch(`/api/ai/conversations/${convId}`, {
+      await csrfFetch(`/api/ai/conversations/${convId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title + (firstMsg.length > 30 ? "..." : "") }),
@@ -484,7 +483,7 @@ export function AiClient({
   /* ── Delete Conversation ──────────────────────────────────── */
   const handleDeleteConv = async (id: string) => {
     if (!confirm("确定删除此对话？")) return;
-    await fetch(`/api/ai/conversations/${id}`, { method: "DELETE" });
+    await csrfFetch(`/api/ai/conversations/${id}`, { method: "DELETE" });
     if (activeConvId === id) setActiveConvId(null);
     refreshConversations();
   };
@@ -494,7 +493,7 @@ export function AiClient({
 
   const handleCreateProvider = async () => {
     if (!provForm.name.trim() || !provForm.apiKey.trim()) {
-      alert("名称和 API Key 不能为空");
+      addToast("error", "名称和 API Key 不能为空");
       return;
     }
     const models = provForm.availableModels
@@ -502,7 +501,7 @@ export function AiClient({
       .map((m) => m.trim())
       .filter(Boolean);
     try {
-      await fetch("/api/ai/providers", {
+      await csrfFetch("/api/ai/providers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -521,13 +520,13 @@ export function AiClient({
         isDefault: true,
       });
     } catch {
-      alert("添加失败");
+      addToast("error", "添加失败");
     }
   };
 
   const handleDeleteProvider = async (id: string) => {
     if (!confirm("确定删除此提供商？关联的对话也会被删除。")) return;
-    await fetch(`/api/ai/providers/${id}`, { method: "DELETE" });
+    await csrfFetch(`/api/ai/providers/${id}`, { method: "DELETE" });
     if (activeConv?.providerId === id) setActiveConvId(null);
     refreshProviders();
     refreshConversations();
@@ -554,7 +553,7 @@ export function AiClient({
   const handleSaveSettings = async () => {
     if (!activeConvId) return;
     try {
-      await fetch(`/api/ai/conversations/${activeConvId}`, {
+      await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settingsForm),
@@ -562,7 +561,7 @@ export function AiClient({
       await refreshConversations();
       setShowSettings(false);
     } catch {
-      alert("保存失败");
+      addToast("error", "保存失败");
     }
   };
 
@@ -597,7 +596,7 @@ export function AiClient({
           onClearMessages={async () => {
             if (!confirm("确定清空此对话的所有消息？此操作不可恢复。")) return;
             try {
-              await fetch(`/api/ai/conversations/${activeConvId}`, {
+              await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ clearMessages: true }),
@@ -608,7 +607,7 @@ export function AiClient({
           onRenameConv={() => {
             const title = prompt("修改对话标题", activeConv.title);
             if (title?.trim()) {
-              fetch(`/api/ai/conversations/${activeConvId}`, {
+              csrfFetch(`/api/ai/conversations/${activeConvId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ title: title.trim() }),
@@ -617,9 +616,8 @@ export function AiClient({
           }}
           onExportConv={async () => {
             try {
-              const r = await fetch(`/api/ai/conversations/${activeConvId}`);
-              const data = await r.json();
-              const conv = data.conversation;
+              const data = await csrfFetch(`/api/ai/conversations/${activeConvId}`);
+const conv = data.conversation;
               if (!conv) return;
               const exportText = [
                 `# ${conv.title}`,

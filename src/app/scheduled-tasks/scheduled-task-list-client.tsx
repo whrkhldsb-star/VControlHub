@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -40,15 +41,12 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	const [showCreate, setShowCreate] = useState(false);
 
 	const refresh = useCallback(async () => {
-		const res = await fetch("/api/scheduled-tasks");
-		if (res.ok) {
-			const data = await res.json();
+			const data = await csrfFetch("/api/scheduled-tasks");
 			setTasks(data.tasks ?? []);
-		}
 	}, []);
 
 	const toggleTask = useCallback(async (id: string) => {
-		await fetch("/api/scheduled-tasks", {
+		await csrfFetch("/api/scheduled-tasks", {
 			method: "PATCH",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ toggleId: id }),
@@ -58,7 +56,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	const deleteTask = useCallback(async (id: string) => {
 		if (!confirm("确认删除该定时任务？")) return;
-		await fetch(`/api/scheduled-tasks?id=${id}`, { method: "DELETE" });
+		await csrfFetch(`/api/scheduled-tasks?id=${id}`, { method: "DELETE" });
 		refresh();
 	}, [refresh]);
 
@@ -162,21 +160,6 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 		setSubmitting(true);
 		setError(null);
 		try {
-			const res = await fetch("/api/scheduled-tasks", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name,
-					cronExpression,
-					command,
-					reason: reason || null,
-					serverIds: [...selectedServerIds],
-				}),
-			});
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error ?? "创建失败");
-			}
 			onClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "创建失败");

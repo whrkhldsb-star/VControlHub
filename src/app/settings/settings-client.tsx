@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Props = {
 	settings: Record<string, string>;
@@ -25,15 +26,6 @@ export function SettingsClient({ settings: initialSettings, canManage }: Props) 
 			const payload: Record<string, string> = {};
 			for (const k of keys) {
 				payload[k] = settings[k] ?? "";
-			}
-			const res = await fetch("/api/settings", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			});
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error ?? "保存失败");
 			}
 			setSaved(true);
 			setTimeout(() => setSaved(false), 3000);

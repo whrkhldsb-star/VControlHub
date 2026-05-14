@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Step = "idle" | "setup" | "verify" | "disable";
 
@@ -17,8 +18,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		setLoading(true);
 		setError("");
 		try {
-			const res = await fetch("/api/auth/2fa/setup", { method: "POST" });
-			const data = await res.json();
+			const data = await csrfFetch("/api/auth/2fa/setup", { method: "POST" });
 			if (data.error) { setError(data.error); return; }
 			setSecret(data.secret);
 			setOtpauthUrl(data.otpauthUrl);
@@ -33,21 +33,19 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		setError("");
 		try {
 			// First verify the code
-			const verifyRes = await fetch("/api/auth/2fa/setup", {
+			const verifyData = await csrfFetch("/api/auth/2fa/setup", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ code, secret }),
 			});
-			const verifyData = await verifyRes.json();
 			if (!verifyData.valid) { setError("验证码错误，请重试"); return; }
 
 			// Then enable 2FA
-			const enableRes = await fetch("/api/auth/2fa/enable", {
+			const enableData = await csrfFetch("/api/auth/2fa/enable", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ code, secret }),
 			});
-			const enableData = await enableRes.json();
 			if (enableData.error) { setError(enableData.error); return; }
 			setStep("idle");
 			window.location.reload();
@@ -60,12 +58,11 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 		setLoading(true);
 		setError("");
 		try {
-			const res = await fetch("/api/auth/2fa/disable", {
+			const data = await csrfFetch("/api/auth/2fa/disable", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ code }),
 			});
-			const data = await res.json();
 			if (data.error) { setError(data.error); return; }
 			setStep("idle");
 			window.location.reload();

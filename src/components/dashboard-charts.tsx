@@ -5,6 +5,7 @@ import {
 	AreaChart, Area, BarChart, Bar, LineChart, Line,
 	XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type AnalyticsData = {
 	servers?: Array<{ time: string; cpu: number; memory: number; disk: number }>;
@@ -20,11 +21,8 @@ export function DashboardCharts() {
 	useEffect(() => {
 		(async () => {
 			try {
-				const res = await fetch("/api/dashboard/analytics?type=all");
-				if (res.ok) {
-					const json = await res.json();
-					setData(json);
-				}
+const json = await csrfFetch("/api/dashboard/analytics?type=all");
+setData(json);
 			} catch { /* ignore */ }
 			setLoading(false);
 		})();

@@ -2,6 +2,7 @@
 import { StatCard } from "@/components/page-shell";
 
 import { useMemo, useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 export type SafeApiToken = {
   id: string;
@@ -68,14 +69,12 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
     setError(null);
     setCreatedPlaintext(null);
     try {
-      const response = await fetch("/api/api-tokens", {
+      const data = await csrfFetch("/api/api-tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, scopes: selectedScopes, expiresAt: expiresAt || null }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error ?? "创建 Token 失败");
-      setTokens((current) => [data.apiToken, ...current]);
+		});
+			setTokens((current) => [data.apiToken, ...current]);
       setCreatedPlaintext(data.token);
       setName("");
       setSelectedScopes(["read"]);
@@ -91,12 +90,10 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
     if (!confirm(`确认撤销 Token「${token.name}」？撤销后不可恢复。`)) return;
     setRevokingId(token.id);
     setError(null);
-    try {
-      const response = await fetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error ?? "撤销 Token 失败");
-      setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
-    } catch (err) {
+try {
+ const data = await csrfFetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
+ setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
+ } catch (err) {
       setError(err instanceof Error ? err.message : "撤销 Token 失败");
     } finally {
       setRevokingId(null);

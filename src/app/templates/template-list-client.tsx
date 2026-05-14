@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useToast } from "@/components/toast-provider";
 
 type Template = {
 	id: string; name: string; description: string | null;
@@ -18,6 +20,7 @@ type Props = {
 };
 
 export function TemplateListClient({ templates: initialTemplates, servers, canCreate }: Props) {
+	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);
 	const [filterTag, setFilterTag] = useState<string | null>(null);
@@ -30,16 +33,13 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 		: templates;
 
 	const refresh = useCallback(async () => {
-		const res = await fetch("/api/command-templates");
-		if (res.ok) {
-			const data = await res.json();
+			const data = await csrfFetch("/api/command-templates");
 			setTemplates(data.templates ?? []);
-		}
 	}, []);
 
 	const handleDelete = useCallback(async (id: string) => {
 		if (!confirm("确认删除该模板？")) return;
-		await fetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
+		await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
 		refresh();
 	}, [refresh]);
 
@@ -50,7 +50,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 			for (const [k, v] of Object.entries(vars)) {
 				command = command.replaceAll(`{{${k}}}`, v);
 			}
-			const res = await fetch("/api/commands", {
+			await csrfFetch("/api/commands", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -59,14 +59,9 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 					targetServerIds: serverIds,
 				}),
 			});
-			if (res.ok) {
-				alert("命令已提交审批");
-			} else {
-				const data = await res.json();
-				alert(data.error ?? "提交失败");
-			}
-		} catch {
-			alert("提交失败");
+			addToast("success", "命令已提交审批");
+		} catch (err) {
+			addToast("error", err instanceof Error ? err.message : "提交失败");
 		}
 		setDeploying(null);
 	}, []);
@@ -249,7 +244,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 		setSubmitting(true);
 		setError(null);
 		try {
-			const res = await fetch("/api/command-templates", {
+			const data = await csrfFetch("/api/command-templates", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
@@ -257,10 +252,6 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 					tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
 				}),
 			});
-			if (!res.ok) {
-				const data = await res.json();
-				throw new Error(data.error ?? "创建失败");
-			}
 			onClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "创建失败");

@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type StorageUploadNode = { id: string; name: string; driver: string };
 
@@ -101,14 +102,9 @@ export function FileUploadDropzone({
     const uploadItems = files.filter((file) => file.size >= 0);
     if (uploadItems.length === 0) return;
 
-    const baseDirResult = normalizeRelativePath(effectiveRelativeDir);
-    if (!baseDirResult.ok) {
-      setMessage({ type: "error", text: baseDirResult.reason });
-      setQueue([]);
-      return;
-    }
-
-    const baseDir = baseDirResult.path;
+	const baseDirResult = normalizeRelativePath(effectiveRelativeDir);
+	if (!baseDirResult.ok) { setSubmitting(false); return; }
+	const baseDir = baseDirResult.path;
     setSubmitting(true);
     setMessage(null);
     setQueue(uploadItems.map((file) => ({ name: file.name, status: "pending", message: "等待上传" })));
@@ -126,20 +122,15 @@ export function FileUploadDropzone({
 
       setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "uploading", message: "上传中…" } : item)));
 
-      try {
-        const response = await fetch("/api/storage/local", {
-          method: "POST",
-          body: formData,
-        });
-        const payload = (await response.json()) as { error?: string; relativePath?: string; size?: number };
+	try {
+ const data = await csrfFetch("/api/storage/local", {
+ method: "POST",
+ body: formData,
+ }) as { error?: string; relativePath?: string; size?: number };
 
-        if (!response.ok) {
-          throw new Error(payload.error ?? "上传失败");
-        }
-
-        successCount++;
-        setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "success", message: `完成：${payload.relativePath ?? relativePath}` } : item)));
-        onUploadComplete?.({ relativePath: payload.relativePath ?? relativePath, size: payload.size ?? file.size });
+ successCount++;
+ setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "success", message: `完成：${data.relativePath ?? relativePath}` } : item)));
+ onUploadComplete?.({ relativePath: data.relativePath ?? relativePath, size: data.size ?? file.size });
       } catch (error) {
         failureCount++;
         const errorMessage = error instanceof Error ? error.message : "上传失败";

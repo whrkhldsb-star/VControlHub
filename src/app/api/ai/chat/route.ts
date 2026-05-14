@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiSession } from "@/lib/auth/require-api-session";
 import { sendChatRequest, createMessage, getConversationById } from "@/lib/ai/service";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
+
+const AI_CHAT_LIMIT = { maxRequests: 20, windowMs: 60_000 };
 
 const chatSchema = z.object({
   conversationId: z.string().optional(),
@@ -33,6 +36,15 @@ const chatSchema = z.object({
  * }
  */
 export async function POST(request: Request) {
+ // Rate limit: 20 AI chat requests per minute per IP
+ const rl = checkRateLimit(getClientIp(request), AI_CHAT_LIMIT);
+ if (!rl.allowed) {
+  return NextResponse.json(
+   { error: "请求过于频繁，请稍后再试" },
+   { status: 429, headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) } },
+  );
+ }
+
  const authed = await requireApiSession();
  if (authed instanceof NextResponse) return authed;
  const { session } = authed;

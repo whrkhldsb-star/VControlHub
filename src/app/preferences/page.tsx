@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 interface Preferences {
 	sidebarCollapsed: boolean;
@@ -59,8 +60,8 @@ export default function PreferencesPage() {
 		if (local) {
 			try { setPrefs({ ...defaultPrefs, ...JSON.parse(local) }); } catch {}
 		}
-		fetch("/api/preferences")
-			.then((r) => r.json())
+		csrfFetch("/api/preferences")
+			
 			.then((data) => {
 				if (!data.error) {
 					setPrefs({ ...defaultPrefs, ...data });
@@ -75,7 +76,7 @@ export default function PreferencesPage() {
 		setPrefs(newPrefs);
 		localStorage.setItem("vps-preferences", JSON.stringify(newPrefs));
 		try {
-			await fetch("/api/preferences", {
+			await csrfFetch("/api/preferences", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(newPrefs),

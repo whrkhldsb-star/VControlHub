@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { logError } from "@/lib/logging";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { FileListClient, type FolderProp, type FileProp } from "./file-list-client";
 import { SearchScopeToggle } from "./search-scope-toggle";
@@ -239,17 +240,7 @@ export function FilesBrowserSpa({
 				if (effectiveNodeId) params.set("nodeId", effectiveNodeId);
 
 				const url = `/api/files/list${params.toString() ? `?${params.toString()}` : ""}`;
-				const res = await fetch(url, { signal: controller.signal });
-
-				if (!res.ok) {
-					if (res.status === 401) {
-						router.push("/login");
-						return;
-					}
-					throw new Error(`Failed to fetch files: ${res.status}`);
-				}
-
-				const json = await res.json();
+				const json = await csrfFetch(url, { signal: controller.signal });
 				setData(json as FilesApiResponse);
 
 				// Update URL without page reload

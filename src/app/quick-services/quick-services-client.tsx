@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -53,10 +54,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	const fetchCatalog = useCallback(async () => {
 		try {
-			const res = await fetch("/api/quick-services");
-			if (!res.ok) throw new Error("加载失败");
-			const data = await res.json();
-			setCatalog(data.catalog ?? []);
+			const data = await csrfFetch("/api/quick-services");
+setCatalog(data.catalog ?? []);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "加载失败");
 		} finally {
@@ -85,9 +84,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const checkPortAvailability = useCallback(async (port: number) => {
 		setPortCheck({ available: false, usedBy: null, checking: true });
 		try {
-			const res = await fetch(`/api/quick-services/check-port?port=${port}`);
-			const data = await res.json();
-			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
+			const data = await csrfFetch("/api/quick-services");
+setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
 		} catch {
 			setPortCheck({ available: true, usedBy: null, checking: false });
 		}
@@ -138,20 +136,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setActionSlug(installDialog.slug);
 		closeInstallDialog();
 		try {
-			const res = await fetch("/api/quick-services", {
+			const data = await csrfFetch("/api/quick-services", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ slug: installDialog.slug, customPort: port }),
 			});
-			const data = await res.json();
-			if (!res.ok) {
-				if (data.portConflict) {
-					setMessage({ type: "err", text: data.error });
-				} else {
-					throw new Error(data.error ?? "安装失败");
-				}
-				return;
-			}
 			setMessage({ type: "ok", text: `${installDialog.name} 安装任务已提交，正在拉取镜像…` });
 			setTimeout(fetchCatalog, 1500);
 		} catch (err) {
@@ -164,13 +153,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const doAction = async (slug: string, action: string) => {
 		setActionSlug(slug);
 		try {
-			const res = await fetch(`/api/quick-services/${slug}`, {
+			const data = await csrfFetch(`/api/quick-services/${slug}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ action }),
 			});
-			const data = await res.json();
-			if (!res.ok) throw new Error(data.error ?? "操作失败");
 			setMessage({ type: "ok", text: data.status === "running" ? `已启动` : `已停止` });
 			fetchCatalog();
 		} catch (err) {
@@ -184,9 +171,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		if (!confirm(`确定要卸载吗？容器将被删除，数据卷保留。`)) return;
 		setActionSlug(slug);
 		try {
-			const res = await fetch(`/api/quick-services/${slug}`, { method: "DELETE" });
-			const data = await res.json();
-			if (!res.ok) throw new Error(data.error ?? "卸载失败");
+			const data = await csrfFetch(`/api/quick-services/${slug}`, { method: "DELETE" });
 			setMessage({ type: "ok", text: `已卸载` });
 			fetchCatalog();
 		} catch (err) {
@@ -328,9 +313,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									type="button"
 									onClick={async () => {
 										try {
-											const res = await fetch(`/api/quick-services/check-port?action=allocate&preferred=${installDialog.defaultPort}`);
-											const data = await res.json();
-											if (data.port) {
+							const data = await csrfFetch(`/api/quick-services/check-port?action=allocate&preferred=${installDialog.defaultPort}`);
+							if (data.port) {
 												handlePortInput(String(data.port));
 											}
 										} catch { /* ignore */ }
