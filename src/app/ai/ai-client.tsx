@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import type { Provider, ConvItem, Message, ModelInfo, ModelCapabilities, FileAttachment } from "./ai-types";
+import type { Provider, ConvItem, Message, ModelInfo, ModelCapabilities, FileAttachment, ToolCallEvent, ToolApprovalNeeded } from "./ai-types";
 import { PROVIDER_TYPES, COMMON_BASE_URLS, DEFAULT_PROV_FORM, DEFAULT_SETTINGS_FORM } from "./ai-types";
 import { detectCapabilities, readFileAsText, readFileAsDataURL, categorizeFile, formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";
 import { renderContent, copyToClipboard } from "./ai-markdown-renderer";
@@ -39,8 +39,9 @@ export function AiClient({
   const [showSidebar, setShowSidebar] = useState(true);
   const [modelList, setModelList] = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
-  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
-  const [modelSearch, setModelSearch] = useState("");
+ const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+ const [modelSearch, setModelSearch] = useState("");
+ const [pendingApprovals, setPendingApprovals] = useState<ToolApprovalNeeded[]>([]);
  const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
  const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -409,9 +410,31 @@ export function AiClient({
                 createdAt: new Date().toISOString(),
               };
               setMessages((prev) => [...prev, assistantMsg]);
-            } else if (parsed.type === "error") {
-              setStreamContent(`❌ ${parsed.error}`);
-            }
+ } else if (parsed.type === "error") {
+  setStreamContent(`❌ ${parsed.error}`);
+ } else if (parsed.type === "tool_call") {
+  // AI 发起了工具调用
+  const tc = parsed.toolCall as ToolCallEvent;
+  if (tc.autoApproved) {
+   setStreamContent((prev) => prev + `\n\n⚡ 执行: ${tc.actionName}...`);
+  } else {
+   setStreamContent((prev) => prev + `\n\n🔒 需要审批: ${tc.actionName}`);
+  }
+ } else if (parsed.type === "tool_result") {
+  // 工具执行结果
+  const success = parsed.success as boolean;
+  const toolCallId = parsed.toolCallId as string;
+  if (success) {
+   setStreamContent((prev) => prev + `\n✅ 操作执行成功`);
+  } else {
+   setStreamContent((prev) => prev + `\n❌ 操作执行失败: ${JSON.stringify(parsed.data).slice(0, 200)}`);
+  }
+ } else if (parsed.type === "tool_approval_needed") {
+  // 需要审批的操作
+  const approval = parsed as ToolApprovalNeeded;
+  setPendingApprovals((prev) => [...prev, approval]);
+  setStreamContent((prev) => prev + `\n⏳ 等待审批: ${approval.actionName} (风险: ${approval.riskLevel})`);
+ }
           } catch {
             // Skip
           }
@@ -545,8 +568,9 @@ if (data.conversation) {
         topP: activeConv.topP,
         frequencyPenalty: activeConv.frequencyPenalty,
         presencePenalty: activeConv.presencePenalty,
-        enableVision: activeConv.enableVision,
-      });
+ enableVision: activeConv.enableVision,
+ hostingEnabled: activeConv.hostingEnabled,
+ });
     }
   }, [activeConv]);
 
@@ -795,6 +819,59 @@ return (
                 </div>
               )}
               <div ref={messagesEndRef} />
+ {/* AI托管审批面板 */}
+ {pendingApprovals.length > 0 && (
+  <div className="px-4 py-2 border-t border-amber-500/20 bg-amber-950/30">
+   <div className="text-xs text-amber-400 font-medium mb-2">🔒 待审批操作 ({pendingApprovals.length})</div>
+   <div className="space-y-2">
+    {pendingApprovals.map((approval) => (
+     <div key={approval.actionId} className="flex items-center justify-between bg-black/30 rounded-lg p-2.5">
+      <div className="flex-1 min-w-0">
+       <div className="text-sm text-white font-medium">{approval.actionName}</div>
+       <div className="text-xs text-slate-400 truncate">
+ 风险: <span className={
+ approval.riskLevel === "critical" ? "text-red-400" :
+ approval.riskLevel === "high" ? "text-orange-400" :
+ approval.riskLevel === "medium" ? "text-yellow-400" : "text-green-400"
+ }>{approval.riskLevel}</span>
+ {typeof approval.params.serverId === "string" && <span className="ml-2">服务器: {approval.params.serverId}</span>}
+       </div>
+      </div>
+      <div className="flex gap-2 ml-3">
+       <button
+        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white transition"
+        onClick={async () => {
+         try {
+          await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ action: "reject", reason: "用户拒绝" }),
+          });
+          setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
+          addToast("success", "已拒绝操作");
+         } catch { addToast("error", "操作失败"); }
+        }}
+       >拒绝</button>
+       <button
+        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
+        onClick={async () => {
+          try {
+          await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
+           method: "PATCH",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ action: "approve" }),
+          });
+          setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
+          addToast("success", "已批准并执行操作");
+         } catch { addToast("error", "操作失败"); }
+        }}
+       >批准</button>
+      </div>
+     </div>
+    ))}
+   </div>
+  </div>
+ )}
             </div>
 
             {/* File/Attachment preview area */}
@@ -804,7 +881,7 @@ return (
                   {/* URL-based images */}
                   {imageUrls.map((url, i) => (
  <div key={`url-${i}`} className="relative group">
-					<img src={url} alt="" className="w-12 h-12 rounded object-cover border border-white/10" />
+					<img src={url} alt="" width={48} height={48} loading="lazy" className="w-12 h-12 rounded object-cover border border-white/10" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
                         className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
@@ -817,7 +894,7 @@ return (
                 {fileAttachments.map((file, i) => (
                   <div key={`file-${i}`} className="relative group">
  {file.type === "image" && file.preview ? (
-						<img src={file.preview} alt={file.name} className="w-12 h-12 rounded object-cover border border-white/10" />
+						<img src={file.preview} alt={file.name} width={48} height={48} loading="lazy" className="w-12 h-12 rounded object-cover border border-white/10" />
                     ) : (
                       <div className="w-12 h-12 rounded border border-white/10 bg-black/30 flex flex-col items-center justify-center">
                         {file.mimeType.startsWith("video/") ? (

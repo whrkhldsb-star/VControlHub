@@ -382,7 +382,7 @@ export default function ImageBedPage() {
 			{previewImage && (
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
 					<div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-						<img src={previewImage.publicUrl} alt={previewImage.filename} className="max-w-full max-h-[85vh] rounded-lg" />
+						<img src={previewImage.publicUrl} alt={previewImage.filename} width={800} height={600} loading="lazy" className="max-w-full max-h-[85vh] rounded-lg" />
 						<div className="mt-3 flex items-center justify-between">
 							<div>
 								<div className="text-sm text-white font-medium">{previewImage.filename}</div>

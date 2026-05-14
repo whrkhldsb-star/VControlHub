@@ -4,14 +4,15 @@
 import type { ModelInfo, ModelCapabilities } from "./ai-types";
 
 interface SettingsFormState {
-  model: string;
-  systemPrompt: string;
-  temperature: number;
-  maxTokens: number;
-  topP: number;
-  frequencyPenalty: number;
-  presencePenalty: number;
-  enableVision: boolean;
+ model: string;
+ systemPrompt: string;
+ temperature: number;
+ maxTokens: number;
+ topP: number;
+ frequencyPenalty: number;
+ presencePenalty: number;
+ enableVision: boolean;
+ hostingEnabled: boolean;
 }
 
 interface SettingsPanelProps {
@@ -278,10 +279,26 @@ export function AiSettingsPanel({
                 <span className="text-[9px] text-cyan-400/60 ml-1">推荐</span>
               )}
             </span>
-          </label>
-        </div>
+ </label>
+ </div>
 
-        {/* Save button */}
+ {/* Hosting (AI托管) toggle */}
+ <div className="flex items-end gap-2">
+ <label className="flex items-center gap-2 cursor-pointer">
+ <input
+ type="checkbox"
+ checked={settingsForm.hostingEnabled}
+ onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
+ className="rounded border-white/20 bg-black/30 text-amber-400 focus:ring-amber-400/30"
+ />
+ <span className="text-xs text-slate-300">
+ 🤖 AI托管模式
+ <span className="text-[9px] text-amber-400/60 ml-1">AI可操作VPS</span>
+ </span>
+ </label>
+ </div>
+
+ {/* Save button */}
         <div className="flex items-end gap-2">
           <button
             onClick={onSaveSettings}

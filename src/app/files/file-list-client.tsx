@@ -533,7 +533,7 @@ export function FileListClient({
 								{thumbUrl ? (
 									<div data-testid="file-thumbnail-overlay" className="w-full h-28 rounded-xl overflow-hidden border border-white/[0.06]">
 										{/* eslint-disable-next-line @next/next/no-img-element */}
-										<img src={thumbUrl} alt={entry.name} className="h-full w-full object-cover" loading="lazy" />
+										<img src={thumbUrl} alt={entry.name} width={224} height={112} className="h-full w-full object-cover" loading="lazy" />
 									</div>
 								) : (
 									<div className="rounded-xl bg-white/[0.03] p-4">
@@ -705,7 +705,7 @@ export function FileListClient({
 							<div className="shrink-0 w-12 h-12 rounded-xl border border-white/[0.06] bg-slate-900/80 overflow-hidden flex items-center justify-center">
 								{thumbUrl ? (
 									/* eslint-disable-next-line @next/next/no-img-element */
-									<img src={thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+									<img src={thumbUrl} alt="" width={48} height={48} className="h-full w-full object-cover" loading="lazy" />
 								) : (
 									<FileTypeIcon entry={entry} size={28} />
 								)}

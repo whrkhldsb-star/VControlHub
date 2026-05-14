@@ -386,31 +386,97 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
   const [deletingEntry, setDeletingEntry] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // File editor state
-  const [editingFile, setEditingFile] = useState<{ path: string; name: string } | null>(null);
+ // File editor state
+ const [editingFile, setEditingFile] = useState<{ path: string; name: string } | null>(null);
 
-  const router = useRouter();
+ // Direct connect state
+ const [directConnect, setDirectConnect] = useState(false);
+ const [proxyInfo, setProxyInfo] = useState<{ port: number; accessToken: string; publicUrl: string } | null>(null);
+ const [proxyLoading, setProxyLoading] = useState(false);
+ const [proxyError, setProxyError] = useState<string | null>(null);
 
-  const fetchDirectory = useCallback(
-    async (nodeId: string, path: string) => {
-      if (!nodeId) return;
-      setLoading(true);
-      setError(null);
-      try {
-	const params = new URLSearchParams({ nodeId, path });
+ const router = useRouter();
+
+ const fetchDirectory = useCallback(
+ async (nodeId: string, path: string) => {
+ if (!nodeId) return;
+ setLoading(true);
+ setError(null);
+ try {
+  const params = new URLSearchParams({ nodeId, path });
  const data = await csrfFetch(`/api/files/sftp-list?${params.toString()}`) as SftpListResponse;
-        setEntries(data.entries);
-        setNodeName(data.nodeName);
-        setRemotePath(data.remotePath);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "未知错误");
-        setEntries([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+ setEntries(data.entries);
+ setNodeName(data.nodeName);
+ setRemotePath(data.remotePath);
+ } catch (err) {
+ setError(err instanceof Error ? err.message : "未知错误");
+ setEntries([]);
+ } finally {
+ setLoading(false);
+ }
+ },
+ [],
+ );
+
+ /* ── Direct connect proxy management ──────────────────────── */
+ const checkProxyStatus = useCallback(async (nodeId: string) => {
+ try {
+ const data = await csrfFetch(`/api/servers/${nodeId}/file-proxy`) as { status: string; proxy?: { port: number; accessToken: string; publicUrl?: string } };
+ if (data.status === "running" && data.proxy) {
+ setProxyInfo({ port: data.proxy.port, accessToken: data.proxy.accessToken, publicUrl: data.proxy.publicUrl || "" });
+ } else {
+ setProxyInfo(null);
+ }
+ } catch {
+ setProxyInfo(null);
+ }
+ }, []);
+
+ const startProxy = useCallback(async (nodeId: string) => {
+ setProxyLoading(true);
+ setProxyError(null);
+ try {
+ const data = await csrfFetch(`/api/servers/${nodeId}/file-proxy`, {
+ method: "POST",
+ headers: { "Content-Type": "application/json" },
+ }) as { status: string; proxy?: { port: number; accessToken: string; publicUrl?: string }; error?: string };
+ if (data.error) {
+ setProxyError(data.error);
+ setProxyInfo(null);
+ } else if (data.proxy) {
+ setProxyInfo({ port: data.proxy.port, accessToken: data.proxy.accessToken, publicUrl: data.proxy.publicUrl || "" });
+ setProxyError(null);
+ }
+ } catch (err) {
+ setProxyError(err instanceof Error ? err.message : "启动代理失败");
+ setProxyInfo(null);
+ } finally {
+ setProxyLoading(false);
+ }
+ }, []);
+
+ const stopProxy = useCallback(async (nodeId: string) => {
+ setProxyLoading(true);
+ try {
+ await csrfFetch(`/api/servers/${nodeId}/file-proxy`, { method: "DELETE" });
+ setProxyInfo(null);
+ } catch {
+ // ignore
+ } finally {
+ setProxyLoading(false);
+ }
+ }, []);
+
+ const toggleDirectConnect = useCallback(async () => {
+ if (!selectedNodeId) return;
+ if (directConnect) {
+ await stopProxy(selectedNodeId);
+ setDirectConnect(false);
+ } else {
+ await startProxy(selectedNodeId);
+ setDirectConnect(true);
+ }
+ }, [selectedNodeId, directConnect, startProxy, stopProxy]);
 
  /* eslint-disable react-hooks/set-state-in-effect */
  useEffect(() => {
@@ -425,9 +491,15 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  }, [selectedNodeId, fetchDirectory]);
  /* eslint-enable react-hooks/set-state-in-effect */
 
-  const handleNodeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedNodeId(e.target.value);
-  };
+ const handleNodeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+ setSelectedNodeId(e.target.value);
+ setDirectConnect(false);
+ setProxyInfo(null);
+ setProxyError(null);
+ if (e.target.value) {
+ checkProxyStatus(e.target.value);
+ }
+ };
 
   const handleNavigate = (entry: SftpListEntry) => {
     if (entry.type !== "directory") return;
@@ -527,25 +599,55 @@ const handleSync = async () => {
           </p>
         </div>
 
-        {/* Node selector */}
-        <div className="flex items-center gap-3">
-          <label htmlFor="sftp-node-select" className="text-sm text-slate-400">
-            节点
-          </label>
-          <select
-            id="sftp-node-select"
-            value={selectedNodeId}
-            onChange={handleNodeChange}
-            className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-          >
-            <option value="">— 选择 SFTP 节点 —</option>
-            {sftpNodes.map((node) => (
-              <option key={node.id} value={node.id}>
-                {node.name}
-              </option>
-            ))}
-          </select>
-        </div>
+ {/* Node selector + Direct connect toggle */}
+ <div className="flex items-center gap-3 flex-wrap">
+ <div className="flex items-center gap-3">
+ <label htmlFor="sftp-node-select" className="text-sm text-slate-400">
+ 节点
+ </label>
+ <select
+ id="sftp-node-select"
+ value={selectedNodeId}
+ onChange={handleNodeChange}
+ className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+ >
+ <option value="">— 选择 SFTP 节点 —</option>
+ {sftpNodes.map((node) => (
+ <option key={node.id} value={node.id}>
+ {node.name}
+ </option>
+ ))}
+ </select>
+ </div>
+ {selectedNodeId && (
+ <div className="flex items-center gap-2">
+ <button
+ type="button"
+ onClick={toggleDirectConnect}
+ disabled={proxyLoading}
+ className={`relative flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+ directConnect
+ ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
+ : "bg-slate-800 text-slate-400 border border-white/10 hover:bg-slate-700"
+ } ${proxyLoading ? "opacity-50 cursor-wait" : ""}`}
+ >
+ {proxyLoading ? (
+ <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+ ) : directConnect ? (
+ <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+ ) : (
+ <span className="inline-block h-2 w-2 rounded-full bg-slate-500" />
+ )}
+ {directConnect ? "直连模式 ON" : "直连模式"}
+ </button>
+ {directConnect && proxyInfo && (
+ <span className="text-[10px] text-emerald-400/70">
+ :{proxyInfo.port}
+ </span>
+ )}
+ </div>
+ )}
+ </div>
       </div>
 
       {/* Not selected yet */}
@@ -561,12 +663,19 @@ const handleSync = async () => {
         </div>
       )}
 
-      {/* Error */}
-      {selectedNodeId && error && !loading && (
-        <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-5 py-4 text-sm text-rose-200">
-          ❌ {error}
-        </div>
-      )}
+ {/* Error */}
+ {selectedNodeId && error && !loading && (
+ <div className="mt-5 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-5 py-4 text-sm text-rose-200">
+ ❌ {error}
+ </div>
+ )}
+
+ {/* Proxy error */}
+ {proxyError && (
+ <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-5 py-3 text-xs text-amber-200">
+ ⚠️ 直连代理: {proxyError}
+ </div>
+ )}
 
       {/* Breadcrumb + file list */}
       {selectedNodeId && !loading && nodeName && (
@@ -757,14 +866,19 @@ const handleSync = async () => {
                           />
                         ) : (
                           <>
-                            {isFile && (
-                              <a
-                                href={buildSftpDownloadUrl(selectedNodeId, fullPath)}
-                                className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
-                              >
-                                下载
-                              </a>
-                            )}
+ {isFile && (
+ <a
+ href={directConnect && proxyInfo
+ ? `${proxyInfo.publicUrl}:${proxyInfo.port}${fullPath}?token=${proxyInfo.accessToken}`
+ : buildSftpDownloadUrl(selectedNodeId, fullPath)
+ }
+ target={directConnect && proxyInfo ? "_blank" : undefined}
+ rel={directConnect ? "noopener noreferrer" : undefined}
+ className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
+ >
+ 下载
+ </a>
+ )}
                             {canView && (
                               <button
                                 type="button"

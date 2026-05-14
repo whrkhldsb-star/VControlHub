@@ -37,29 +37,31 @@ interface UpdateProviderInput {
 }
 
 interface CreateConversationInput {
-  title?: string;
-  providerId: string;
-  model: string;
-  systemPrompt?: string;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  enableVision?: boolean;
-  createdBy: string;
+ title?: string;
+ providerId: string;
+ model: string;
+ systemPrompt?: string;
+ temperature?: number;
+ maxTokens?: number;
+ topP?: number;
+ frequencyPenalty?: number;
+ presencePenalty?: number;
+ enableVision?: boolean;
+ hostingEnabled?: boolean;
+ createdBy: string;
 }
 
 interface UpdateConversationInput {
-  title?: string;
-  model?: string;
-  systemPrompt?: string;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  frequencyPenalty?: number;
-  presencePenalty?: number;
-  enableVision?: boolean;
+ title?: string;
+ model?: string;
+ systemPrompt?: string;
+ temperature?: number;
+ maxTokens?: number;
+ topP?: number;
+ frequencyPenalty?: number;
+ presencePenalty?: number;
+ enableVision?: boolean;
+ hostingEnabled?: boolean;
 }
 
 /* ── Provider CRUD ──────────────────────────────────────────── */
@@ -162,8 +164,9 @@ export async function createConversation(input: CreateConversationInput) {
       topP: input.topP ?? 1.0,
       frequencyPenalty: input.frequencyPenalty ?? 0.0,
       presencePenalty: input.presencePenalty ?? 0.0,
-      enableVision: input.enableVision ?? false,
-      createdBy: input.createdBy,
+ enableVision: input.enableVision ?? false,
+ hostingEnabled: input.hostingEnabled ?? false,
+ createdBy: input.createdBy,
     },
     include: { provider: true },
   });
@@ -205,8 +208,9 @@ export async function updateConversation(id: string, userId: string, input: Upda
       ...(input.topP !== undefined && { topP: input.topP }),
       ...(input.frequencyPenalty !== undefined && { frequencyPenalty: input.frequencyPenalty }),
       ...(input.presencePenalty !== undefined && { presencePenalty: input.presencePenalty }),
-      ...(input.enableVision !== undefined && { enableVision: input.enableVision }),
-    },
+ ...(input.enableVision !== undefined && { enableVision: input.enableVision }),
+ ...(input.hostingEnabled !== undefined && { hostingEnabled: input.hostingEnabled }),
+ },
   });
 }
 
@@ -409,20 +413,23 @@ function detectModelCapabilities(modelId: string): ModelCapabilities {
 
 /* ── Chat Proxy ─────────────────────────────────────────────── */
 interface ChatCompletionRequest {
-  providerId: string;
-  model: string;
-  messages: Array<{
-    role: "user" | "assistant" | "system";
-    content: string | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>;
-  }>;
-  temperature?: number;
-  max_tokens?: number;
-  top_p?: number;
-  frequency_penalty?: number;
-  presence_penalty?: number;
-  stream?: boolean;
-  /** Extra provider-specific body fields (e.g. Anthropic "max_tokens") */
-  extraBody?: Record<string, unknown>;
+ providerId: string;
+ model: string;
+ messages: Array<{
+ role: "user" | "assistant" | "system" | "tool";
+ content: string | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string } }>;
+ tool_call_id?: string; // for role=tool
+ tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>; // for role=assistant
+ }>;
+ temperature?: number;
+ max_tokens?: number;
+ top_p?: number;
+ frequency_penalty?: number;
+ presence_penalty?: number;
+ stream?: boolean;
+ tools?: Array<{ type: "function"; function: { name: string; description: string; parameters: Record<string, unknown> } }>;
+ /** Extra provider-specific body fields (e.g. Anthropic "max_tokens") */
+ extraBody?: Record<string, unknown>;
 }
 
 export async function sendChatRequest(req: ChatCompletionRequest, userId: string) {
@@ -480,15 +487,22 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
       return { role: m.role, content: parts };
     });
 
-    body = {
-      model: req.model,
-      messages: anthropicMessages,
-      ...(systemMsg && { system: typeof systemMsg.content === "string" ? systemMsg.content : "" }),
-      max_tokens: req.max_tokens ?? 4096,
-      temperature: req.temperature ?? 0.7,
-      top_p: req.top_p ?? 1.0,
-      stream: req.stream ?? true,
-    };
+ body = {
+ model: req.model,
+ messages: anthropicMessages,
+ ...(systemMsg && { system: typeof systemMsg.content === "string" ? systemMsg.content : "" }),
+ max_tokens: req.max_tokens ?? 4096,
+ temperature: req.temperature ?? 0.7,
+ top_p: req.top_p ?? 1.0,
+ stream: req.stream ?? true,
+ ...(req.tools && req.tools.length > 0 && {
+ tools: req.tools.map((t) => ({
+ name: t.function.name,
+ description: t.function.description,
+ input_schema: t.function.parameters,
+ })),
+ }),
+ };
   } else if (provider.type === "GOOGLE") {
     // ── Google Gemini API ──
     // Use OpenAI-compatible proxy if available; otherwise native format
@@ -502,22 +516,23 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
       top_p: req.top_p ?? 1.0,
       stream: req.stream ?? true,
     };
-  } else {
-    // ── OpenAI / OpenAI-Compatible ──
-    url = `${baseUrl}/chat/completions`;
-    headers["Authorization"] = `Bearer ${rawApiKey}`;
-    body = {
-      model: req.model,
-      messages: req.messages,
-      temperature: req.temperature ?? 0.7,
-      max_tokens: req.max_tokens ?? 4096,
-      top_p: req.top_p ?? 1.0,
-      frequency_penalty: req.frequency_penalty ?? 0.0,
-      presence_penalty: req.presence_penalty ?? 0.0,
-      stream: req.stream ?? true,
-      ...(req.extraBody || {}),
-    };
-  }
+ } else {
+ // ── OpenAI / OpenAI-Compatible ──
+ url = `${baseUrl}/chat/completions`;
+ headers["Authorization"] = `Bearer ${rawApiKey}`;
+ body = {
+ model: req.model,
+ messages: req.messages,
+ temperature: req.temperature ?? 0.7,
+ max_tokens: req.max_tokens ?? 4096,
+ top_p: req.top_p ?? 1.0,
+ frequency_penalty: req.frequency_penalty ?? 0.0,
+ presence_penalty: req.presence_penalty ?? 0.0,
+ stream: req.stream ?? true,
+ ...(req.tools && req.tools.length > 0 && { tools: req.tools }),
+ ...(req.extraBody || {}),
+ };
+ }
 
   const startTime = Date.now();
   const response = await fetch(url, {

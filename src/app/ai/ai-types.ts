@@ -16,21 +16,22 @@ export interface Provider {
 }
 
 export interface ConvItem {
-  id: string;
-  title: string;
-  providerId: string;
-  model: string;
-  systemPrompt: string | null;
-  temperature: number;
-  maxTokens: number;
-  topP: number;
-  frequencyPenalty: number;
-  presencePenalty: number;
-  enableVision: boolean;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  provider: { id: string; name: string; type: string } | null;
+ id: string;
+ title: string;
+ providerId: string;
+ model: string;
+ systemPrompt: string | null;
+ temperature: number;
+ maxTokens: number;
+ topP: number;
+ frequencyPenalty: number;
+ presencePenalty: number;
+ enableVision: boolean;
+ hostingEnabled: boolean;
+ createdBy: string;
+ createdAt: string;
+ updatedAt: string;
+ provider: { id: string; name: string; type: string } | null;
 }
 
 export interface Message {
@@ -99,12 +100,52 @@ export const DEFAULT_PROV_FORM = {
 };
 
 export const DEFAULT_SETTINGS_FORM = {
-  model: "",
-  systemPrompt: "",
-  temperature: 0.7,
-  maxTokens: 4096,
-  topP: 1.0,
-  frequencyPenalty: 0.0,
-  presencePenalty: 0.0,
-  enableVision: false,
+ model: "",
+ systemPrompt: "",
+ temperature: 0.7,
+ maxTokens: 4096,
+ topP: 1.0,
+ frequencyPenalty: 0.0,
+ presencePenalty: 0.0,
+ enableVision: false,
+ hostingEnabled: false,
 };
+
+/* ── AI 托管操作类型 ───────────────────────────────────────── */
+
+export interface HostedAction {
+ id: string;
+ conversationId: string;
+ messageId: string;
+ serverId: string | null;
+ actionType: string;
+ actionName: string;
+ params: string;
+ status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "EXECUTING" | "COMPLETED" | "FAILED" | "CANCELLED";
+ riskLevel: string;
+ autoApproved: boolean;
+ result: string | null;
+ errorMessage: string | null;
+ createdAt: string;
+ approvedAt: string | null;
+ executedAt: string | null;
+ completedAt: string | null;
+ server: { id: string; name: string; host: string } | null;
+}
+
+export interface ToolCallEvent {
+ id: string;
+ name: string;
+ args: Record<string, unknown>;
+ riskLevel: string;
+ autoApproved: boolean;
+ actionName: string;
+}
+
+export interface ToolApprovalNeeded {
+ toolCallId: string;
+ actionId: string;
+ actionName: string;
+ riskLevel: string;
+ params: Record<string, unknown>;
+}

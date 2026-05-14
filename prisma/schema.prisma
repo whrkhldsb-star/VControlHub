@@ -45,9 +45,19 @@ enum FileEntryType {
 }
 
 enum AuditSeverity {
-  INFO
-  WARNING
-  CRITICAL
+ INFO
+ WARNING
+ CRITICAL
+}
+
+enum AiHostedActionStatus {
+ PENDING_APPROVAL
+ APPROVED
+ REJECTED
+ EXECUTING
+ COMPLETED
+ FAILED
+ CANCELLED
 }
 
 model User {
@@ -84,6 +94,8 @@ model User {
  deploymentExports DeploymentExport[]
  aiProviders AiProvider[]
  aiConversations AiConversation[]
+ aiHostedRequests AiHostedAction[] @relation("AiHostedRequester")
+ aiHostedApprovals AiHostedAction[] @relation("AiHostedApprover")
  twoFactorEnabled Boolean @default(false)
  twoFactorSecret String?
  preferences Json?
@@ -162,6 +174,10 @@ model Server {
  downloadTasks DownloadTask[]
  sourceSyncs SyncJob[] @relation("SourceSyncs")
  targetSyncs SyncJob[] @relation("TargetSyncs")
+ publicUrl String? // 目标服务器公网访问地址（直连模式）
+ fileProxyPort Int @default(0) // 文件代理端口（0=未启用）
+ hostedActions AiHostedAction[]
+ fileProxies ServerFileProxy[]
 
  @@index([host, port])
  @@index([enabled])
@@ -731,33 +747,39 @@ model AiConversation {
  frequencyPenalty Float @default(0.0)
  presencePenalty Float @default(0.0)
  enableVision Boolean @default(false)
+ hostingEnabled Boolean @default(false) // AI托管模式：允许AI操作VPS
  createdBy String
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
  provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
  creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
  messages AiMessage[]
+ hostedActions AiHostedAction[]
 
  @@index([createdBy, updatedAt])
  @@map("ai_conversations")
 }
 
 model AiMessage {
-  id        String   @id @default(cuid())
-  conversationId String
-  role      String   // "user" | "assistant" | "system"
-  content   String
-  reasoningContent String?
-  imageUrls String   @default("[]")
-  model     String?
-  inputTokens  Int?
-  outputTokens Int?
-  latencyMs    Int?
-  createdAt DateTime @default(now())
-  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+ id String @id @default(cuid())
+ conversationId String
+ role String // "user" | "assistant" | "system" | "tool"
+ content String
+ reasoningContent String?
+ imageUrls String @default("[]")
+ toolCalls String @default("[]") // JSON: [{id, type, function: {name, arguments}}]
+ toolCallId String? // 用于 role=tool 时关联的 tool_call id
+ model String?
+ inputTokens Int?
+ outputTokens Int?
+ latencyMs Int?
+ createdAt DateTime @default(now())
+ conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+ hostedActions AiHostedAction[]
 
-  @@index([conversationId, createdAt])
-  @@map("ai_messages")
+ @@index([conversationId, createdAt])
+ @@index([toolCallId])
+ @@map("ai_messages")
 }
 
 model QuickService {
@@ -808,4 +830,55 @@ model ImageUpload {
  @@index([album])
  @@index([isPublic, createdAt])
  @@map("image_uploads")
+}
+
+model AiHostedAction {
+ id String @id @default(cuid())
+ conversationId String
+ messageId String
+ serverId String?
+ actionType String // get_status | read_logs | execute_command | restart_service | modify_config | deploy_docker
+ actionName String // 人类可读的操作名称
+ params String @default("{}") // JSON: 操作参数
+ status AiHostedActionStatus @default(PENDING_APPROVAL)
+ riskLevel String @default("medium") // low | medium | high | critical
+ autoApproved Boolean @default(false) // 是否自动批准（安全操作）
+ result String? // JSON: 执行结果
+ errorMessage String?
+ requesterId String // AI发起时为system user id
+ approverId String?
+ createdAt DateTime @default(now())
+ approvedAt DateTime?
+ executedAt DateTime?
+ completedAt DateTime?
+
+ conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+ message AiMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+ server Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+ requester User @relation("AiHostedRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+ approver User? @relation("AiHostedApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+ @@index([status, createdAt])
+ @@index([conversationId, createdAt])
+ @@index([serverId, status])
+ @@map("ai_hosted_actions")
+}
+
+model ServerFileProxy {
+ id String @id @default(cuid())
+ serverId String
+ proxyType String @default("python_http") // python_http | node_agent | nginx
+ port Int
+ status String @default("starting") // starting | running | stopped | error
+ pid Int? // 进程ID
+ accessToken String? // 一次性访问令牌
+ expiresAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+
+ server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+ @@unique([serverId, proxyType])
+ @@index([serverId, status])
+ @@map("server_file_proxies")
 }

@@ -12,8 +12,16 @@ import {
 export const dynamic = "force-dynamic";
 
 const updateConversationSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  systemPrompt: z.string().max(2000).optional(),
+ title: z.string().min(1).max(200).optional(),
+ systemPrompt: z.string().max(2000).optional(),
+ model: z.string().optional(),
+ temperature: z.number().min(0).max(2).optional(),
+ maxTokens: z.number().int().min(1).max(128000).optional(),
+ topP: z.number().min(0).max(1).optional(),
+ frequencyPenalty: z.number().min(-2).max(2).optional(),
+ presencePenalty: z.number().min(-2).max(2).optional(),
+ enableVision: z.boolean().optional(),
+ hostingEnabled: z.boolean().optional(),
 });
 
 export async function GET(

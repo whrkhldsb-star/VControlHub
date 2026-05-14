@@ -3,40 +3,29 @@ import { z } from "zod";
 import { requireApiSession } from "@/lib/auth/require-api-session";
 import { sendChatRequest, createMessage, getConversationById } from "@/lib/ai/service";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { prisma } from "@/lib/db";
+import { getOpenAIToolsFormat, getAnthropicToolsFormat } from "@/lib/ai/hosted-tools";
+import { parseToolCall, createHostedAction, executeSafeAction } from "@/lib/ai/hosted-service";
 
 export const dynamic = "force-dynamic";
 
 const AI_CHAT_LIMIT = { maxRequests: 20, windowMs: 60_000 };
 
 const chatSchema = z.object({
-  conversationId: z.string().optional(),
-  message: z.string().min(1),
-  model: z.string().optional(),
-  providerId: z.string().optional(),
+ conversationId: z.string().optional(),
+ message: z.string().min(1),
+ model: z.string().optional(),
+ providerId: z.string().optional(),
 });
 
-/**
- * POST /api/ai/chat
- *
- * Streams a chat completion response as SSE.
- * Also saves user + assistant messages to the conversation.
- *
- * Body: {
- * conversationId: string;
- * content: string;
- * imageUrls?: string[]; // URL-based images
- * imageBase64?: Array<{ // Base64-encoded images (from file upload)
- * mimeType: string;
- * data: string; // base64 data (without data: prefix)
- * }>;
- * fileAttachments?: Array<{ // Text file contents to inject
- * name: string;
- * content: string;
- * }>;
- * }
- */
+type HistoryMessage = {
+ role: "user" | "assistant" | "system" | "tool";
+ content: string | Array<{ type: "text" | "image_url"; text?: string; image_url?: { url: string; detail?: string } }>;
+ tool_call_id?: string;
+ tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }>;
+};
+
 export async function POST(request: Request) {
- // Rate limit: 20 AI chat requests per minute per IP
  const rl = checkRateLimit(getClientIp(request), AI_CHAT_LIMIT);
  if (!rl.allowed) {
   return NextResponse.json(
@@ -50,286 +39,409 @@ export async function POST(request: Request) {
  const { session } = authed;
 
  let body: {
-   conversationId: string;
-   content: string;
-   imageUrls?: string[];
-   imageBase64?: Array<{ mimeType: string; data: string }>;
-   fileAttachments?: Array<{ name: string; content: string }>;
+  conversationId: string;
+  content: string;
+  imageUrls?: string[];
+  imageBase64?: Array<{ mimeType: string; data: string }>;
+  fileAttachments?: Array<{ name: string; content: string }>;
  };
  try {
-   body = await request.json();
+  body = await request.json();
  } catch {
-   return NextResponse.json({ error: "无效请求" }, { status: 400 });
+  return NextResponse.json({ error: "无效请求" }, { status: 400 });
  }
 
  const parsed = chatSchema.safeParse(body);
  if (!parsed.success) {
-   return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+  return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
  }
 
  if (!body.conversationId || !body.content?.trim()) {
-   return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
+  return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
  }
 
-  let conv: Awaited<ReturnType<typeof getConversationById>>;
-  try {
-    conv = await getConversationById(body.conversationId, session.userId);
-  } catch {
-    return NextResponse.json({ error: "对话不存在" }, { status: 404 });
+ let conv: Awaited<ReturnType<typeof getConversationById>>;
+ try {
+  conv = await getConversationById(body.conversationId, session.userId);
+ } catch {
+  return NextResponse.json({ error: "对话不存在" }, { status: 404 });
+ }
+
+ const provider = conv.provider;
+ const isVisionCapable = conv.enableVision;
+ const isHostingEnabled = conv.hostingEnabled;
+
+ // Build message history for the API
+ const historyMessages: HistoryMessage[] = [];
+
+ // System prompt
+ if (conv.systemPrompt) {
+  historyMessages.push({ role: "system", content: conv.systemPrompt });
+ }
+
+ // History
+ for (const msg of conv.messages) {
+  if (msg.role === "system") continue;
+  
+  // Tool call results (role=tool)
+  if (msg.role === "tool") {
+   historyMessages.push({
+    role: "tool",
+    content: msg.content,
+    tool_call_id: msg.toolCallId || undefined,
+   });
+   continue;
   }
-
-  const provider = conv.provider;
-  const isVisionCapable = conv.enableVision;
-
-  // Build message history for the API
-  const historyMessages: Array<{
-    role: "user" | "assistant" | "system";
-    content: string | Array<{
-      type: "text" | "image_url";
-      text?: string;
-      image_url?: { url: string; detail?: string };
-    }>;
-  }> = [];
-
-  // System prompt
-  if (conv.systemPrompt) {
-    historyMessages.push({ role: "system", content: conv.systemPrompt });
+  
+  // Assistant messages with tool calls
+  const toolCallsData = JSON.parse(msg.toolCalls || "[]");
+  if (msg.role === "assistant" && toolCallsData.length > 0) {
+   historyMessages.push({
+    role: "assistant",
+    content: msg.content || "",
+    tool_calls: toolCallsData,
+   });
+   continue;
   }
-
-  // History
-  for (const msg of conv.messages) {
-    if (msg.role === "system") continue;
-    if (msg.role === "user" && isVisionCapable) {
-      const imgUrls: string[] = JSON.parse(msg.imageUrls || "[]");
-      if (imgUrls.length > 0) {
-        const content: Array<{
-          type: "text" | "image_url";
-          text?: string;
-          image_url?: { url: string };
-        }> = [{ type: "text", text: msg.content }];
-        for (const u of imgUrls) {
-          content.push({ type: "image_url", image_url: { url: u } });
-        }
-        historyMessages.push({ role: "user", content });
-        continue;
-      }
-    }
-    historyMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
-  }
-
-  // Build the new user message content
-  const userText = body.content.trim();
-  const userImageUrls = body.imageUrls ?? [];
-  const userImageBase64 = body.imageBase64 ?? [];
-  const userFiles = body.fileAttachments ?? [];
-  const hasImages = isVisionCapable && (userImageUrls.length > 0 || userImageBase64.length > 0);
-  const hasFiles = userFiles.length > 0;
-
-  // Build text content including file attachments
-  let fullText = userText;
-  if (hasFiles) {
-    const fileParts = userFiles
-      .map((f) => `--- File: ${f.name} ---\n${f.content}\n--- End of ${f.name} ---`)
-      .join("\n\n");
-    fullText = `${userText}\n\n📎 附件内容:\n\n${fileParts}`;
-  }
-
-  if (hasImages) {
-    // Multimodal message with text + images
+  
+  if (msg.role === "user" && isVisionCapable) {
+   const imgUrls: string[] = JSON.parse(msg.imageUrls || "[]");
+   if (imgUrls.length > 0) {
     const content: Array<{
-      type: "text" | "image_url";
-      text?: string;
-      image_url?: { url: string; detail?: string };
-    }> = [{ type: "text", text: fullText }];
-
-    // Add URL-based images
-    for (const url of userImageUrls) {
-      content.push({ type: "image_url", image_url: { url } });
-    }
-    // Add base64-encoded images (from file upload)
-    for (const img of userImageBase64) {
-      content.push({
-        type: "image_url",
-        image_url: { url: `data:${img.mimeType};base64,${img.data}` },
-      });
+     type: "text" | "image_url";
+     text?: string;
+     image_url?: { url: string };
+    }> = [{ type: "text", text: msg.content }];
+    for (const u of imgUrls) {
+     content.push({ type: "image_url", image_url: { url: u } });
     }
     historyMessages.push({ role: "user", content });
-  } else {
-    historyMessages.push({ role: "user", content: fullText });
+    continue;
+   }
   }
+  historyMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
+ }
 
-  // Save user message (store all image URLs for history replay)
-  const allImageUrls = [
-    ...userImageUrls,
-    ...userImageBase64.map((img) => `data:${img.mimeType};base64,...(${img.data.length} chars)`),
-  ];
+ // Build the new user message content
+ const userText = body.content.trim();
+ const userImageUrls = body.imageUrls ?? [];
+ const userImageBase64 = body.imageBase64 ?? [];
+ const userFiles = body.fileAttachments ?? [];
+ const hasImages = isVisionCapable && (userImageUrls.length > 0 || userImageBase64.length > 0);
+ const hasFiles = userFiles.length > 0;
 
-  await createMessage({
-    conversationId: conv.id,
-    role: "user",
-    content: userText,
-    imageUrls: allImageUrls,
-  });
+ // Build text content including file attachments
+ let fullText = userText;
+ if (hasFiles) {
+  const fileParts = userFiles
+   .map((f) => `--- File: ${f.name} ---\n${f.content}\n--- End of ${f.name} ---`)
+   .join("\n\n");
+  fullText = `${userText}\n\n📎 附件内容:\n\n${fileParts}`;
+ }
 
-  // Send to AI provider (streaming)
+ if (hasImages) {
+  const content: Array<{
+   type: "text" | "image_url";
+   text?: string;
+   image_url?: { url: string; detail?: string };
+  }> = [{ type: "text", text: fullText }];
+
+  for (const url of userImageUrls) {
+   content.push({ type: "image_url", image_url: { url } });
+  }
+  for (const img of userImageBase64) {
+   content.push({
+    type: "image_url",
+    image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+   });
+  }
+  historyMessages.push({ role: "user", content });
+ } else {
+  historyMessages.push({ role: "user", content: fullText });
+ }
+
+ // Save user message
+ const allImageUrls = [
+  ...userImageUrls,
+  ...userImageBase64.map((img) => `data:${img.mimeType};base64,...(${img.data.length} chars)`),
+ ];
+
+ await createMessage({
+  conversationId: conv.id,
+  role: "user",
+  content: userText,
+  imageUrls: allImageUrls,
+ });
+
+ // Prepare tools if hosting is enabled
+ const tools = isHostingEnabled ? getOpenAIToolsFormat() : undefined;
+
+ // ── AI 请求 + Tool Calling 循环 ──────────────────────────────
+ // 最多 5 轮 tool calling 循环，防止无限循环
+ const MAX_TOOL_ROUNDS = 5;
+ let currentMessages = [...historyMessages];
+ let finalContent = "";
+ let finalReasoning = "";
+ let totalInputTokens = 0;
+ let totalOutputTokens = 0;
+ const allToolResults: Array<{ toolCallId: string; toolName: string; result: unknown; needsApproval: boolean; actionId?: string }> = [];
+
+ for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
   let chatResult: Awaited<ReturnType<typeof sendChatRequest>>;
   try {
-    chatResult = await sendChatRequest(
-      {
-        providerId: provider.id,
-        model: conv.model,
-        messages: historyMessages,
-        temperature: conv.temperature,
-        max_tokens: conv.maxTokens,
-        top_p: conv.topP,
-        frequency_penalty: conv.frequencyPenalty,
-        presence_penalty: conv.presencePenalty,
-        stream: true,
-      },
-      session.userId
-    );
+   chatResult = await sendChatRequest(
+    {
+     providerId: provider.id,
+     model: conv.model,
+     messages: currentMessages,
+     temperature: conv.temperature,
+     max_tokens: conv.maxTokens,
+     top_p: conv.topP,
+     frequency_penalty: conv.frequencyPenalty,
+     presence_penalty: conv.presencePenalty,
+     stream: round === 0, // 只有第一轮用流式（直接返回给用户）
+     tools,
+    },
+    session.userId,
+   );
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : "AI 请求失败";
-    return NextResponse.json({ error: msg }, { status: 502 });
+   const msg = e instanceof Error ? e.message : "AI 请求失败";
+   return NextResponse.json({ error: msg }, { status: 502 });
   }
 
-  // Stream SSE response back to client
-  const encoder = new TextEncoder();
-  const startTime = chatResult.startTime;
-  const providerType = chatResult.providerType;
+  // ── 第一轮：流式返回给客户端，同时检测 tool_calls ───────────
+  if (round === 0) {
+   const encoder = new TextEncoder();
+   const startTime = chatResult.startTime;
+   const providerType = chatResult.providerType;
 
-  const stream = new ReadableStream({
+   const stream = new ReadableStream({
     async start(controller) {
-      let fullContent = "";
-      let fullReasoning = "";
-      let inputTokens = 0;
-      let outputTokens = 0;
+     let fullContent = "";
+     let fullReasoning = "";
+     let inputTokens = 0;
+     let outputTokens = 0;
+     let toolCalls: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> = [];
 
-      try {
-        const reader = chatResult.response.body?.getReader();
-        if (!reader) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "无法读取响应流" })}\n\n`));
-          controller.close();
-          return;
-        }
+     try {
+      const reader = chatResult.response.body?.getReader();
+      if (!reader) {
+       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "无法读取响应流" })}\n\n`));
+       controller.close();
+       return;
+      }
 
-        const decoder = new TextDecoder();
-        let buffer = "";
+      const decoder = new TextDecoder();
+      let buffer = "";
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      while (true) {
+       const { done, value } = await reader.read();
+       if (done) break;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
+       buffer += decoder.decode(value, { stream: true });
+       const lines = buffer.split("\n");
+       buffer = lines.pop() || "";
 
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith("data: ")) continue;
-            const data = trimmed.slice(6);
+       for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data: ")) continue;
+        const data = trimmed.slice(6);
 
-            if (data === "[DONE]") continue;
+        if (data === "[DONE]") continue;
 
-            try {
-              const parsed = JSON.parse(data);
+        try {
+         const parsed = JSON.parse(data);
 
-              if (providerType === "ANTHROPIC") {
-                // ── Anthropic SSE format ──
-                // event: content_block_delta → delta.delta.text
-                // event: message_delta → delta.usage
-                if (parsed.type === "content_block_delta" && parsed.delta?.delta?.text) {
-                  fullContent += parsed.delta.delta.text;
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({ type: "content", content: parsed.delta.delta.text })}\n\n`
-                    )
-                  );
-                } else if (parsed.type === "thinking_delta" && parsed.delta?.thinking) {
-                  fullReasoning += parsed.delta.thinking;
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({ type: "reasoning", content: parsed.delta.thinking })}\n\n`
-                    )
-                  );
-                } else if (parsed.type === "message_delta" && parsed.usage) {
-                  outputTokens = parsed.usage.output_tokens ?? 0;
-                } else if (parsed.type === "message_start" && parsed.message?.usage) {
-                  inputTokens = parsed.message.usage.input_tokens ?? 0;
-                }
-              } else {
-                // ── OpenAI-compatible SSE format ──
-                const delta = parsed.choices?.[0]?.delta;
-
-                if (delta?.reasoning_content) {
-                  fullReasoning += delta.reasoning_content;
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({ type: "reasoning", content: delta.reasoning_content })}\n\n`
-                    )
-                  );
-                } else if (delta?.content) {
-                  fullContent += delta.content;
-                  controller.enqueue(
-                    encoder.encode(
-                      `data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`
-                    )
-                  );
-                }
-
-                // Capture usage if present
-                if (parsed.usage) {
-                  inputTokens = parsed.usage.prompt_tokens ?? 0;
-                  outputTokens = parsed.usage.completion_tokens ?? 0;
-                }
-              }
-            } catch {
-              // Skip malformed JSON chunks
-            }
+         if (providerType === "ANTHROPIC") {
+          if (parsed.type === "content_block_delta" && parsed.delta?.delta?.text) {
+           fullContent += parsed.delta.delta.text;
+           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", content: parsed.delta.delta.text })}\n\n`));
+          } else if (parsed.type === "thinking_delta" && parsed.delta?.thinking) {
+           fullReasoning += parsed.delta.thinking;
+           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "reasoning", content: parsed.delta.thinking })}\n\n`));
+          } else if (parsed.type === "message_delta" && parsed.usage) {
+           outputTokens = parsed.usage.output_tokens ?? 0;
+          } else if (parsed.type === "message_start" && parsed.message?.usage) {
+           inputTokens = parsed.message.usage.input_tokens ?? 0;
           }
-        }
-      } catch (err) {
-        const errMsg = err instanceof Error ? err.message : "流式传输错误";
-        controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ type: "error", error: errMsg })}\n\n`)
-        );
+          // Anthropic tool_use block
+          else if (parsed.type === "content_block_start" && parsed.content_block?.type === "tool_use") {
+           toolCalls.push({
+            id: parsed.content_block.id,
+            type: "function",
+            function: { name: parsed.content_block.name, arguments: "" },
+           });
+          } else if (parsed.type === "content_block_delta" && parsed.delta?.partial_json && toolCalls.length > 0) {
+           toolCalls[toolCalls.length - 1].function.arguments += parsed.delta.partial_json;
+          }
+         } else {
+          // OpenAI-compatible
+          const delta = parsed.choices?.[0]?.delta;
+
+          if (delta?.reasoning_content) {
+           fullReasoning += delta.reasoning_content;
+           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "reasoning", content: delta.reasoning_content })}\n\n`));
+          } else if (delta?.content) {
+           fullContent += delta.content;
+           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", content: delta.content })}\n\n`));
+          }
+
+          // OpenAI tool_calls in delta
+          if (delta?.tool_calls) {
+           for (const tc of delta.tool_calls as Array<{ index: number; id?: string; type?: string; function?: { name?: string; arguments?: string } }>) {
+            if (tc.id) {
+             // New tool call starting
+             toolCalls[tc.index] = {
+              id: tc.id,
+              type: "function",
+              function: { name: tc.function?.name || "", arguments: tc.function?.arguments || "" },
+             };
+            } else if (toolCalls[tc.index]) {
+             // Continuing existing tool call
+             if (tc.function?.name) toolCalls[tc.index].function.name += tc.function.name;
+             if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
+            }
+           }
+          }
+
+          if (parsed.usage) {
+           inputTokens = parsed.usage.prompt_tokens ?? 0;
+           outputTokens = parsed.usage.completion_tokens ?? 0;
+          }
+         }
+        } catch { /* skip malformed JSON */ }
+       }
+      }
+     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "流式传输错误";
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: errMsg })}\n\n`));
+     }
+
+     // Save assistant message
+     const latencyMs = Date.now() - startTime;
+     finalContent = fullContent || "";
+     finalReasoning = fullReasoning || "";
+     totalInputTokens = inputTokens;
+     totalOutputTokens = outputTokens;
+
+     const assistantMsg = await prisma.aiMessage.create({
+      data: {
+       conversationId: conv.id,
+       role: "assistant",
+       content: fullContent || "(无响应内容)",
+       reasoningContent: fullReasoning || undefined,
+       toolCalls: JSON.stringify(toolCalls),
+       model: conv.model,
+       inputTokens,
+       outputTokens,
+       latencyMs,
+      },
+     });
+
+     // ── 处理 tool_calls ────────────────────────────────
+     if (toolCalls.length > 0 && isHostingEnabled) {
+      // 发送 tool_call 事件给前端
+      for (const tc of toolCalls) {
+       const parsed_tc = parseToolCall(tc);
+       if (parsed_tc) {
+        controller.enqueue(encoder.encode(
+         `data: ${JSON.stringify({ type: "tool_call", toolCall: { id: tc.id, name: parsed_tc.tool.name, args: parsed_tc.args, riskLevel: parsed_tc.tool.riskLevel, autoApproved: parsed_tc.tool.autoApproved, actionName: parsed_tc.tool.actionName } })}\n\n`
+        ));
+       }
       }
 
-      // Save assistant message (always, even on error — partial content is valuable)
-      const latencyMs = Date.now() - startTime;
-      if (fullContent || fullReasoning) {
-        await createMessage({
-          conversationId: conv.id,
-          role: "assistant",
-          content: fullContent || "(无响应内容)",
-          reasoningContent: fullReasoning || undefined,
-          model: conv.model,
-          inputTokens,
-          outputTokens,
-          latencyMs,
+      // 执行每个 tool_call
+      for (const tc of toolCalls) {
+       const parsed_tc = parseToolCall(tc);
+       if (!parsed_tc) continue;
+
+       const { tool, args, toolCallId } = parsed_tc;
+
+       // 创建托管操作记录
+       const action = await createHostedAction({
+        conversationId: conv.id,
+        messageId: assistantMsg.id,
+        toolCallId,
+        tool,
+        args,
+        userId: session.userId,
+       });
+
+       if (tool.autoApproved) {
+        // 安全操作：直接执行
+        const execResult = await executeSafeAction({
+         actionType: tool.actionType,
+         serverId: (args.serverId as string) || null,
+         params: args,
         });
+
+        // 更新操作状态
+        await prisma.aiHostedAction.update({
+         where: { id: action.id },
+         data: {
+          status: execResult.success ? "COMPLETED" : "FAILED",
+          result: JSON.parse(JSON.stringify(execResult.data || {})),
+          errorMessage: execResult.error,
+          completedAt: new Date(),
+         },
+        });
+
+        // 保存 tool 结果消息
+        await prisma.aiMessage.create({
+         data: {
+          conversationId: conv.id,
+          role: "tool",
+          content: JSON.stringify(execResult),
+          toolCallId,
+         },
+        });
+
+        // 通知前端
+        controller.enqueue(encoder.encode(
+         `data: ${JSON.stringify({ type: "tool_result", toolCallId, success: execResult.success, data: execResult.data, actionId: action.id })}\n\n`
+        ));
+
+        allToolResults.push({ toolCallId, toolName: tool.name, result: execResult, needsApproval: false, actionId: action.id });
+       } else {
+        // 危险操作：需要审批
+        controller.enqueue(encoder.encode(
+         `data: ${JSON.stringify({ type: "tool_approval_needed", toolCallId, actionId: action.id, actionName: tool.actionName, riskLevel: tool.riskLevel, params: args })}\n\n`
+        ));
+
+        allToolResults.push({ toolCallId, toolName: tool.name, result: "等待审批", needsApproval: true, actionId: action.id });
+       }
       }
+     }
 
-      // Signal completion
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify({
-            type: "done",
-            inputTokens,
-            outputTokens,
-            latencyMs,
-          })}\n\n`
-        )
-      );
-      controller.close();
+     // Signal completion
+     controller.enqueue(encoder.encode(
+      `data: ${JSON.stringify({
+       type: "done",
+       inputTokens: totalInputTokens,
+       outputTokens: totalOutputTokens,
+       latencyMs: Date.now() - startTime,
+       toolResults: allToolResults,
+      })}\n\n`
+     ));
+     controller.close();
     },
-  });
+   });
 
-  return new Response(stream, {
+   return new Response(stream, {
     headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+     "Content-Type": "text/event-stream",
+     "Cache-Control": "no-cache",
+     Connection: "keep-alive",
     },
-  });
+   });
+  }
+
+  // ── 后续轮次（非流式，处理 tool calling 循环）─────────
+  // 后续轮次只在用户审批后通过 /api/ai/hosted-actions/[id]/approve 触发
+  // 不在此处实现完整循环，避免长时间阻塞
+  break;
+ }
+
+ // Fallback (should not reach here)
+ return NextResponse.json({ error: "意外错误" }, { status: 500 });
 }
