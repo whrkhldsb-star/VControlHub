@@ -20,21 +20,15 @@ const logger = createLogger("api:storage:sftp-ops");
 export const dynamic = "force-dynamic";
 
 const postSchema = z.object({
-  serverId: z.string().min(1),
-  action: z.enum(["mkdir", "rename", "delete", "chmod"]),
+  nodeId: z.string().min(1),
+  action: z.enum(["delete", "rename", "read", "write"]),
   path: z.string().min(1),
-  target: z.string().optional(),
-  mode: z.string().optional(),
+  newPath: z.string().optional(),
+  content: z.string().optional(),
+  isDirectory: z.boolean().optional(),
 });
 
-type SftpOpsBody = {
- action: "delete" | "rename" | "read" | "write";
- nodeId: string;
- path: string;
- newPath?: string;
- content?: string;
- isDirectory?: boolean;
-};
+type SftpOpsBody = z.infer<typeof postSchema>;
 
 export async function POST(request: Request) {
   const session = await requireSession();

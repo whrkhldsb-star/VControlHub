@@ -39,15 +39,17 @@ describe("login action", () => {
   });
 
   it("stores session cookie and redirects after successful login", async () => {
-    vi.mocked(authenticateUser).mockResolvedValueOnce({
-      id: "u_1",
-      username: "admin",
-      displayName: "Admin",
-      mustChangePassword: true,
-      status: "PENDING_PASSWORD_RESET",
-      roles: ["admin"],
-      permissions: ["command:execute"],
-    });
+	vi.mocked(authenticateUser).mockResolvedValueOnce({
+		id: "u_1",
+		username: "admin",
+		displayName: "Admin",
+		mustChangePassword: true,
+		twoFactorEnabled: false,
+		twoFactorSecret: null,
+		status: "PENDING_PASSWORD_RESET",
+		roles: ["admin"],
+		permissions: ["command:execute"],
+	});
     vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");
 
     const formData = new FormData();

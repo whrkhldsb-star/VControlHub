@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { ToastProvider } from "@/components/toast-provider";
 import { AlertRuleListClient } from "../alert-rule-list-client";
 
 vi.mock("@/lib/auth/require-session", () => ({
@@ -31,9 +32,13 @@ vi.mock("@/lib/server/service", () => ({
 
 import AlertRulesPage from "../page";
 
+function wrap(ui: React.ReactElement) {
+	return <ToastProvider>{ui}</ToastProvider>;
+}
+
 describe("alert rules client", () => {
 	it("does not render full webhook URLs from serialized rule metadata", () => {
-		render(<AlertRuleListClient
+		render(wrap(<AlertRuleListClient
 			rules={[{
 				id: "rule1",
 				name: "Webhook rule",
@@ -51,7 +56,7 @@ describe("alert rules client", () => {
 			}]}
 			servers={[]}
 			canManage={true}
-		/>);
+		/>));
 
 		expect(screen.getByText("Webhook rule")).toBeInTheDocument();
 		expect(screen.getByText("Webhook 已配置")).toBeInTheDocument();
@@ -60,7 +65,7 @@ describe("alert rules client", () => {
 
 	it("redacts webhook URLs before passing server-rendered rules to the client", async () => {
 		const page = await AlertRulesPage();
-		render(page);
+		render(wrap(page));
 
 		await waitFor(() => expect(screen.getByText("Webhook rule")).toBeInTheDocument());
 		expect(screen.getByText("Webhook 已配置")).toBeInTheDocument();

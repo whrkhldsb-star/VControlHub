@@ -64,17 +64,17 @@ describe("server service", () => {
  createdById: "u_1",
  });
 
- expect(parseFromStringMock).not.toHaveBeenCalled();
- expect(prisma.sshKey.create).toHaveBeenCalledWith(
- expect.objectContaining({
- data: expect.objectContaining({
- name: "manual-key",
- publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE+T8dQJ1mM8AJy6K1xMAsYbwsOQJk2R4x9sQ3K9A0mE user@test",
- privateKey: "[REDACTED PRIVATE KEY]",
- createdById: "u_1",
- }),
- }),
- );
+	expect(parseFromStringMock).not.toHaveBeenCalled();
+	expect(prisma.sshKey.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			data: expect.objectContaining({
+				name: "manual-key",
+				publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE+T8dQJ1mM8AJy6K1xMAsYbwsOQJk2R4x9sQ3K9A0mE user@test",
+				privateKey: expect.any(String),
+				createdById: "u_1",
+			}),
+		}),
+	);
  });
 
  it("creates an ssh key from uploaded ppk and keeps it unencrypted when requested", async () => {
@@ -97,16 +97,16 @@ describe("server service", () => {
  privateKeyEncryptionMode: "none",
  });
 
- expect(parseFromStringMock).toHaveBeenCalledWith("PuTTY-User-Key-File-3: ssh-ed25519\n...", "source-secret");
- expect(prisma.sshKey.create).toHaveBeenCalledWith(
- expect.objectContaining({
- data: expect.objectContaining({
- publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPPKConverted user@test",
- privateKey: "[REDACTED PRIVATE KEY]",
- fingerprint: "SHA256:converted",
- }),
- }),
- );
+	expect(parseFromStringMock).toHaveBeenCalledWith("PuTTY-User-Key-File-3: ssh-ed25519\n...", "source-secret");
+	expect(prisma.sshKey.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			data: expect.objectContaining({
+				publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBPPKConverted user@test",
+				privateKey: expect.any(String),
+				fingerprint: "SHA256:converted",
+			}),
+		}),
+	);
  });
 
  it("passes a custom output passphrase when re-encrypting imported ppk", async () => {

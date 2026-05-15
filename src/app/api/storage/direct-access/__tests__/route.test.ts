@@ -121,19 +121,14 @@ describe("/api/storage/direct-access", () => {
     );
   });
 
-  it("keeps DELETE as an authenticated no-op for old clients", async () => {
-    vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
-    sessionHasPermissionMock.mockReturnValueOnce(true);
+	it("keeps DELETE as an authenticated no-op for old clients", async () => {
+		vi.clearAllMocks();
+		requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
+		sessionHasPermissionMock.mockReturnValueOnce(true);
 
-    const response = await DELETE(
-      new Request("https://example.com/api/storage/direct-access", {
-        method: "DELETE",
-        body: JSON.stringify({ nodeId: "node_1", legacyPort: 18080 }),
-      }),
-    );
+		const response = await DELETE();
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ stopped: true, mode: "managed-download" });
-  });
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toMatchObject({ stopped: true, mode: "managed-download" });
+	});
 });

@@ -72,7 +72,7 @@ const {
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
-vi.mock("@/lib/logging", () => ({ logError: logErrorMock }));
+vi.mock("@/lib/logging", () => ({ logError: logErrorMock, createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }));
 vi.mock("@/lib/aria2/service", () => ({
   ensureAria2Daemon: ensureAria2DaemonMock,

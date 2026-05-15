@@ -103,7 +103,7 @@ export function FileUploadDropzone({
     if (uploadItems.length === 0) return;
 
 	const baseDirResult = normalizeRelativePath(effectiveRelativeDir);
-	if (!baseDirResult.ok) { setSubmitting(false); return; }
+	if (!baseDirResult.ok) { setMessage({ type: "error", text: baseDirResult.reason }); setSubmitting(false); return; }
 	const baseDir = baseDirResult.path;
     setSubmitting(true);
     setMessage(null);

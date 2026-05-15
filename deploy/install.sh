@@ -45,6 +45,7 @@ PG_DB_USER="${PG_DB_USER:-${APP_SLUG}}"
 PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
 SKIP_SEED="${SKIP_SEED:-0}"
 SKIP_RESTART="${SKIP_RESTART:-0}"
+SKIP_BUILD="${SKIP_BUILD:-0}"
 REPO_URL="${REPO_URL:-}"
 SOURCE_DIR="${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
@@ -556,8 +557,12 @@ build_app() {
  set -a
  # shellcheck disable=SC1090
  source "${ENV_FILE}"
- set +a
- npm ci
+	set +a
+	if [ "${SKIP_BUILD}" = "1" ]; then
+		log "Skipping npm install and build (SKIP_BUILD=1)"
+		return
+	fi
+	npm ci
  npm run prisma:generate
  if [ "${SKIP_DB_SETUP}" != "1" ]; then
  npm run prisma:deploy

@@ -10,14 +10,14 @@ describe("DirectAccessButton", () => {
 
   it("uses the managed SFTP fallback when direct public serving is disabled", async () => {
     const onUrlReady = vi.fn();
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
-      ok: false,
-      json: async () => ({
-        error: "VPS 直连播放已停用，请使用受控的 SFTP 中转预览/下载。",
-        fallbackUrl: "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
-        mode: "managed-download",
-      }),
-    } as Response);
+	const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+		ok: true,
+		json: async () => ({
+			error: "VPS 直连播放已停用，请使用受控的 SFTP 中转预览/下载。",
+			fallbackUrl: "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
+			mode: "managed-download",
+		}),
+	} as Response);
 
     render(
       <DirectAccessButton

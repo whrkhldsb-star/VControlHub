@@ -163,30 +163,39 @@ describe("deploy/preflight.sh", () => {
     await writeFile(path.join(binDir, "find"), "#!/usr/bin/env bash\nexit 0\n");
     await writeFile(path.join(binDir, "rsync"), `#!/usr/bin/env bash\nprintf 'rsync %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
     await mkdir(path.join(appDir, "scripts"), { recursive: true });
-    await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
-    await writeFile(path.join(appDir, "scripts/backup-db.sh"), `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
-    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
-    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
+	await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
+	await mkdir(path.join(appDir, "deploy"), { recursive: true });
+	await writeFile(path.join(appDir, "scripts/backup-db.sh"), `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
+	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
+	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
+	await writeFile(path.join(appDir, "deploy/apache-next-proxy.example.conf"), "<VirtualHost *:80>\nServerName {{SERVER_NAME}}\nProxyPass / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\nProxyPass /ssh ws://{{SSH_WS_HOST}}:{{SSH_WS_PORT}}/\n</VirtualHost>\n");
     await chmod(path.join(appDir, "scripts/backup-db.sh"), 0o755);
     await writeFile(path.join(binDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
     await writeFile(path.join(binDir, "systemctl"), `#!/usr/bin/env bash\nprintf 'systemctl %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
-    await writeFile(path.join(binDir, "install"), `#!/usr/bin/env bash\nprintf 'install %s\\n' "$*" >> ${JSON.stringify(logFile)}\n/bin/install "$@"\n`);
-    for (const command of ["pg_dump", "gzip", "du", "find", "rsync", "npm", "systemctl", "install"]) {
+	await writeFile(path.join(binDir, "install"), `#!/usr/bin/env bash\nprintf 'install %s\\n' "$*" >> ${JSON.stringify(logFile)}\n/bin/install "$@"\n`);
+	await writeFile(path.join(binDir, "a2enmod"), "#!/usr/bin/env bash\nexit 0\n");
+	await writeFile(path.join(binDir, "ip"), '#!/usr/bin/env bash\nprintf "31.59.111.31\\n"\n');
+	await writeFile(path.join(binDir, "apache2"), "#!/usr/bin/env bash\nexit 0\n");
+	await writeFile(path.join(binDir, "apachectl"), "#!/usr/bin/env bash\nexit 0\n");
+	for (const command of ["pg_dump", "gzip", "du", "find", "rsync", "npm", "systemctl", "install", "a2enmod", "ip", "apache2", "apachectl"]) {
       await chmod(path.join(binDir, command), 0o755);
     }
 
     try {
       const result = await runScript(path.join(repoRoot, "deploy/upgrade.sh"), {
         cwd: repoRoot,
-        env: {
-          ...process.env,
-          PATH: `${binDir}:${process.env.PATH}`,
-          APP_DIR: appDir,
-          ENV_FILE: envFile,
-          SKIP_PACKAGES: "1",
-          SKIP_RESTART: "1",
-          SKIP_POST_CHECK: "1",
-        },
+		env: {
+			...process.env,
+			PATH: `${binDir}:${process.env.PATH}`,
+			APP_DIR: appDir,
+			ENV_FILE: envFile,
+			SKIP_PACKAGES: "1",
+			SKIP_RESTART: "1",
+			SKIP_POST_CHECK: "1",
+			SKIP_BUILD: "1",
+			SKIP_DB_SETUP: "1",
+			SKIP_CADDY: "1",
+		},
       });
       expect(result.code, result.stdout + result.stderr).toBe(0);
       await expect(readFile(logFile, "utf8")).resolves.toContain("backup");
@@ -253,7 +262,10 @@ describe("deploy/install.sh", () => {
 		DESTDIR: fakeRoot,
 		SKIP_PACKAGES: "1",
 		SKIP_RESTART: "1",
-        },
+		SKIP_BUILD: "1",
+		SKIP_DB_SETUP: "1",
+		SKIP_CADDY: "1",
+	},
       });
 
       expect(result.code).toBe(0);
@@ -262,7 +274,7 @@ describe("deploy/install.sh", () => {
       const nextUnit = await readFile(nextUnitPath, "utf8");
       const wsUnit = await readFile(wsUnitPath, "utf8");
 	expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
-	expect(nextUnit).toContain(`ExecStart=/usr/bin/env node ${appDir}/.next/standalone/server.js`);
+	expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/server.ts`);
 	expect(nextUnit).toContain("Description=自定义控制台 Next.js application");
 	expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
 	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/ssh-ws-proxy.ts`);
