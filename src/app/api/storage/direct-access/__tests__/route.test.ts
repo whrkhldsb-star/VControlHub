@@ -126,7 +126,7 @@ describe("/api/storage/direct-access", () => {
 		requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
 		sessionHasPermissionMock.mockReturnValueOnce(true);
 
-		const response = await DELETE();
+		const response = await DELETE(new Request("http://local/api/storage/direct-access", { method: "DELETE" }));
 
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toMatchObject({ stopped: true, mode: "managed-download" });

@@ -108,7 +108,7 @@ describe("/api/alert-rules", () => {
   it("audits toggle, delete, and manual evaluation actions", async () => {
     await route.PATCH(new Request("http://local/api/alert-rules", { method: "PATCH", body: JSON.stringify({ toggleId: "rule1" }) }));
     await route.DELETE(new Request("http://local/api/alert-rules?id=rule1", { method: "DELETE" }));
-    await route.PUT();
+	await route.PUT(new Request("http://local/api/alert-rules", { method: "PUT" }));
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "alert_rule.toggle", expect.objectContaining({ ruleId: "rule1" }));
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "alert_rule.delete", expect.objectContaining({ ruleId: "rule1" }));
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "alert_rule.evaluate", expect.objectContaining({ manual: true }));
