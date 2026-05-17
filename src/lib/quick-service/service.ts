@@ -178,11 +178,17 @@ async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, ho
 	const volArgs = tmpl.volumesJson.map((v) => `-v ${shellQuote(v.host)}:${shellQuote(v.container)}`).join(" ");
 	const envArgs = Object.entries(tmpl.envJson)
 		.filter(([, v]) => v !== "")
-		.map(([k, v]) => `-e ${k}=${shellQuote(String(v))}`)
+		.map(([k, v]) => {
+			// Replace localhost/127.0.0.1 with host.docker.internal so containers can reach host services
+			const resolved = String(v) === "127.0.0.1" || String(v) === "localhost"
+				? "host.docker.internal"
+				: String(v);
+			return `-e ${k}=${shellQuote(resolved)}`;
+		})
 		.join(" ");
 	const cmdSuffix = tmpl.command ? ` ${tmpl.command}` : "";
 
-	const cmd = `docker run -d --name ${shellQuote(containerName)} --restart unless-stopped ${portMapping} ${extraPortMappings} ${volArgs} ${envArgs} ${tmpl.image}${cmdSuffix}`;
+	const cmd = `docker run -d --name ${shellQuote(containerName)} --restart unless-stopped --add-host=host.docker.internal:host-gateway ${portMapping} ${extraPortMappings} ${volArgs} ${envArgs} ${tmpl.image}${cmdSuffix}`;
 
 	const { stdout } = await run(cmd, { timeout: 300_000 }); // 5min for image pull
 	const containerId = stdout.trim().substring(0, 12);

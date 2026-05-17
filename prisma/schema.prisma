@@ -882,3 +882,59 @@ model ServerFileProxy {
  @@index([serverId, status])
  @@map("server_file_proxies")
 }
+
+// ── App Store: External Catalog Sources ──────────────────────────────
+
+model AppSource {
+	id String @id @default(cuid())
+	name String @unique // e.g. "linuxserver", "coolify", "caprover"
+	displayName String @map("display_name") // e.g. "LinuxServer.io"
+	url String // source API endpoint or repo URL
+	type String @default("json") // json | github | custom
+	enabled Boolean @default(true)
+	/** Cron-style sync interval, e.g. "daily", "hourly", or ISO duration */
+	syncInterval String @default("daily") @map("sync_interval")
+	lastSyncAt DateTime? @map("last_sync_at")
+	lastSyncStatus String? @map("last_sync_status") // success | error
+	lastSyncError String? @map("last_sync_error")
+	syncCount Int @default(0) @map("sync_count")
+	/** JSON: source-specific config (e.g. GitHub repo, branch, path) */
+	configJson String @default("{}") @map("config_json")
+	createdAt DateTime @default(now()) @map("created_at")
+	updatedAt DateTime @updatedAt @map("updated_at")
+
+	apps AppSourceApp[]
+
+	@@map("app_sources")
+}
+
+model AppSourceApp {
+	id String @id @default(cuid())
+	sourceId String @map("source_id")
+	source AppSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+	/** Unique slug within source, prefixed with source name: e.g. "linuxserver-sonarr" */
+	slug String @unique
+	name String
+	category String @default("other")
+	icon String @default("📦")
+	description String @default("")
+	image String
+	defaultPort Int @default(8080) @map("default_port")
+	internalPort Int? @map("internal_port")
+	path String @default("/")
+	envJson String @default("{}") @map("env_json")
+	volumesJson String @default("[]") @map("volumes_json")
+	command String?
+	extraPortsJson String @default("[]") @map("extra_ports_json")
+	/** Raw data from source for reference/debugging */
+	rawJson String? @map("raw_json")
+	/** Version/tag from source for change detection */
+	sourceVersion String? @map("source_version")
+	createdAt DateTime @default(now()) @map("created_at")
+	updatedAt DateTime @updatedAt @map("updated_at")
+
+	@@index([sourceId, category])
+	@@index([category])
+
+	@@map("app_source_apps")
+}

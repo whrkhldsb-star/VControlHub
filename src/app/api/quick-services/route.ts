@@ -16,10 +16,11 @@ import {
 	getUsedPorts,
 } from "@/lib/quick-service/service";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 
 export const dynamic = "force-dynamic";
 
-/** GET /api/quick-services — list catalog + installed services */
+/** GET /api/quick-services — list catalog + installed + remote services */
 export async function GET() {
 	try {
 		const session = await requireSession();
@@ -28,6 +29,8 @@ export async function GET() {
 
 		const installed = await listQuickServices();
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
+
+		// Local catalog
 		const catalog = SERVICE_CATALOG.map((t) => ({
 			slug: t.slug,
 			name: t.name,
@@ -43,16 +46,40 @@ export async function GET() {
 			containerId: installedMap.get(t.slug)?.containerId ?? null,
 			port: installedMap.get(t.slug)?.port ?? null,
 			error: installedMap.get(t.slug)?.error ?? null,
+			source: "local",
 		}));
+
+		// Remote catalog (from synced app sources)
+		const remoteApps = await getRemoteApps();
+		const remoteCatalog = remoteApps.map((app) => ({
+			slug: app.slug,
+			name: app.name,
+			category: app.category,
+			icon: app.icon,
+			description: app.description,
+			image: app.image,
+			defaultPort: app.defaultPort,
+			internalPort: app.internalPort ?? null,
+			path: app.path,
+			status: installedMap.has(app.slug) ? installedMap.get(app.slug)!.status : "available",
+			id: installedMap.get(app.slug)?.id ?? null,
+			containerId: installedMap.get(app.slug)?.containerId ?? null,
+			port: installedMap.get(app.slug)?.port ?? null,
+			error: installedMap.get(app.slug)?.error ?? null,
+			source: app.sourceName,
+			stars: app.stars,
+			monthlyPulls: app.monthlyPulls,
+		}));
+
 		const usedPorts = getUsedPorts();
-		return NextResponse.json({ catalog, installed, usedPorts });
+		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts });
 	} catch (error) {
 		logger.error("获取快捷服务列表失败", error);
 		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
 	}
 }
 
-/** POST /api/quick-services — install a service */
+/** POST /api/quick-services — install a service (local or remote) */
 export async function POST(request: Request) {
 	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
 	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
@@ -64,7 +91,19 @@ export async function POST(request: Request) {
 		const parsed = installSchema.safeParse(await request.json());
 		if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
 		const { slug, customPort } = parsed.data;
-		const template = SERVICE_CATALOG.find((t) => t.slug === slug);
+
+		// First try local catalog
+		let template = SERVICE_CATALOG.find((t) => t.slug === slug);
+
+		// If not found locally, try remote apps
+		if (!template) {
+			const remoteApps = await getRemoteApps();
+			const remoteApp = remoteApps.find((a) => a.slug === slug);
+			if (remoteApp) {
+				template = normalizedAppToTemplate(remoteApp);
+			}
+		}
+
 		if (!template) return NextResponse.json({ error: "未知服务" }, { status: 400 });
 
 		// Validate custom port if provided
