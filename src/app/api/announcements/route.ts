@@ -15,7 +15,7 @@ const announcementPostSchema = z.object({
 
 
 export const dynamic= "force-dynamic";
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
 	try {
 		const session = await requireSession();
 		const manage = sessionHasPermission(session, "announcement:manage");

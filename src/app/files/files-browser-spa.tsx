@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { logError } from "@/lib/logging";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -215,7 +214,6 @@ export function FilesBrowserSpa({
 	deletedEntries: DeletedEntryProp[];
 	sftpNodes: { id: string; name: string; driver: string; serverId: string | null; serverName: string | null }[];
 }) {
-	const router = useRouter();
 	const [data, setData] = useState<FilesApiResponse>(initialData);
 	const [loading, setLoading] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
@@ -259,7 +257,7 @@ export function FilesBrowserSpa({
 				setLoading(false);
 			}
 		},
-		[router, data.nodeIdFilter],
+		[data.nodeIdFilter],
 	);
 
 	const { navigateToFolder } = useFolderNavigation(fetchFiles);

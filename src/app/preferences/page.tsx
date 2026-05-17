@@ -83,6 +83,7 @@ export default function PreferencesPage() {
 		// Try localStorage first for instant load, then sync from server
 		const local = localStorage.getItem("vps-preferences");
 		if (local) {
+
 			try { setPrefs({ ...defaultPrefs, ...JSON.parse(local) }); } catch {}
 		}
 		csrfFetch("/api/preferences")

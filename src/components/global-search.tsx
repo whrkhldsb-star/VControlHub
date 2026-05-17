@@ -77,9 +77,12 @@ export function GlobalSearch() {
 	useEffect(() => {
 		if (open) {
 			setTimeout(() => inputRef.current?.focus(), 50);
+
 			setSelectedIndex(0);
 		}
 	}, [open]);
+
+
 
 	useEffect(() => {
 		setSelectedIndex(0);

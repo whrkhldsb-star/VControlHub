@@ -74,6 +74,7 @@ export function AiClient({
   // Fetch messages when conversation changes
   useEffect(() => {
     if (!activeConvId) {
+
       setMessages([]);
       return;
     }
@@ -96,6 +97,7 @@ export function AiClient({
 			setModelsLoading(false);
 		}
 	}, []);
+
 
   useEffect(() => {
     if (activeConv?.providerId) {
@@ -554,6 +556,7 @@ if (data.conversation) {
   };
 
   /* ── Settings Update ───────────────────────────────────────── */
+
   const [settingsForm, setSettingsForm] = useState(DEFAULT_SETTINGS_FORM);
 
   useEffect(() => {

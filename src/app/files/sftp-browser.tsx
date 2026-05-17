@@ -182,7 +182,7 @@ function FileEditorModal({
     setError(null);
     setSuccess(null);
     try {
-      const data = await csrfFetch("/api/storage/sftp-ops", {
+      const _data = await csrfFetch("/api/storage/sftp-ops", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "write", nodeId, path: filePath, content }),

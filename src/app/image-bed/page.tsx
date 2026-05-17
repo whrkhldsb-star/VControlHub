@@ -84,7 +84,7 @@ export default function ImageBedPage() {
 		} catch { /* non-fatal */ }
 	};
 
-	useEffect(() => { fetchImages(1); }, []);
+	useEffect(() => { fetchImages(1); }, [fetchImages]);
 
 	const handleUpload = async (files: FileList | File[]) => {
 		setUploading(true);

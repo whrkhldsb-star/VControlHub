@@ -15,6 +15,7 @@ export function useCsrfToken(): string | null {
 			.map((c) => c.trim())
 			.find((c) => c.startsWith("csrf_token="));
 		if (cookie) {
+
 			setToken(decodeURIComponent(cookie.split("=").slice(1).join("=")));
 		}
 	}, []);

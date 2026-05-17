@@ -48,6 +48,7 @@ export function NotificationBell() {
 	useEffect(() => {
 		if (lastNotification) {
 			// Prepend to local list
+
 			setNotifications((prev) => [{
 				id: lastNotification.id,
 				type: "system",
@@ -61,6 +62,7 @@ export function NotificationBell() {
 	}, [lastNotification]);
 
 	// Toast for server alerts
+
 	useEffect(() => {
 		if (lastServerAlert) {
 			setNotifications((prev) => [{

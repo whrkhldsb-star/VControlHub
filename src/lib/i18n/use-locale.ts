@@ -38,6 +38,7 @@ export function useLocale() {
 	useEffect(() => {
 		const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
 		if (saved === "zh" || saved === "en") {
+
 			setLocaleState(saved);
 		} else if (navigator.language.startsWith("en")) {
 			setLocaleState("en");

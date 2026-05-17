@@ -59,7 +59,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const triggerNow = useCallback(async () => {
 		await csrfFetch("/api/alert-rules", { method: "PUT" });
 		addToast("error", "告警检测已触发");
-	}, []);
+	}, [addToast]);
 
 	return (
 		<div className="space-y-6">

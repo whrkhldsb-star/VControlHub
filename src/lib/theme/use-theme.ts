@@ -16,6 +16,7 @@ export function useTheme() {
 	useEffect(() => {
 		const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
 		if (stored === "light" || stored === "dark") {
+
 			setThemeState(stored);
 			document.documentElement.classList.toggle("light", stored === "light");
 		} else {

@@ -48,6 +48,7 @@ export default function MonitoringPage() {
 		finally { setLoading(false); }
 	};
 
+
 	useEffect(() => { fetchStats(); }, []);
 	useEffect(() => {
 		if (!autoRefresh) return;

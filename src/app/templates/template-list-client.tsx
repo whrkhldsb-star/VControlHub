@@ -64,7 +64,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 			addToast("error", err instanceof Error ? err.message : "提交失败");
 		}
 		setDeploying(null);
-	}, []);
+	}, [addToast]);
 
 	return (
 		<div className="space-y-6">

@@ -63,6 +63,7 @@ setCatalog(data.catalog ?? []);
 		}
 	}, []);
 
+
 	useEffect(() => { fetchCatalog(); }, [fetchCatalog]);
 
 	// Auto-dismiss message
