@@ -49,12 +49,16 @@ async function writeValidEnv(envFile: string, extraLines: string[] = []) {
   const dbUrlKey = "DATABASE_" + "URL";
   const sessionSecretKey = "AUTH_SESSION_" + "SECRET";
   const initialPasswordKey = "ADMIN_INITIAL_" + "PASSWORD";
+  const sshWsSecretKey = "SSH_WS_" + "SECRET";
+  const encryptionKey = "ENCRYPTION_" + "KEY";
   await writeFile(
     envFile,
     [
       `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
       `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
       `${initialPasswordKey}="portable_initial_value"`,
+      `${sshWsSecretKey}="0123456789abcdef0123456789abcdef"`,
+      `${encryptionKey}="abcdef0123456789abcdef0123456789"`,
       ...extraLines,
       "",
     ].join("\n"),

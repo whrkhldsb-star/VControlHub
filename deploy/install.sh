@@ -56,9 +56,19 @@ need_root() { [ "$(id -u)" -eq 0 ] || fail "Please run as root (or via sudo)."; 
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 shell_escape_sed_replacement() {
- # Escape &, \, and / for use in sed s### replacement strings.
+ # Escape &, \, /, #, and | for use in sed replacement strings.
  # Also escape newlines (rare in secrets but breaks sed if present).
- printf '%s' "$1" | sed -e 's/[&\\/]/\\&/g'
+ printf '%s' "$1" | sed -e 's/[&\/#|]/\\&/g'
+}
+
+set_env_var() {
+ local name="$1" value="${2:-}" escaped
+ escaped="$(shell_escape_sed_replacement "${value}")"
+ if grep -q "^${name}=" "${ENV_FILE}" 2>/dev/null; then
+ sed -i "s|^${name}=.*|${name}=\"${escaped}\"|g" "${ENV_FILE}"
+ else
+ printf '%s="%s"\n' "${name}" "${value}" >> "${ENV_FILE}"
+ fi
 }
 
 resolve_command() {
@@ -291,9 +301,7 @@ auto_generate_env_secrets() {
  if is_placeholder_value "${AUTH_SESSION_SECRET:-}" || [ -z "${AUTH_SESSION_SECRET:-}" ]; then
  local secret
  secret="$(openssl rand -base64 48)"
- local escaped
- escaped="$(shell_escape_sed_replacement "${secret}")"
- sed -i "s|^AUTH_SESSION_SECRET=.*#AUTH_SESSION_SECRET=${escaped}#|g" "${ENV_FILE}"
+ set_env_var AUTH_SESSION_SECRET "${secret}"
  AUTH_SESSION_SECRET="${secret}"
  log "Auto-generated AUTH_SESSION_SECRET"
  changed=1
@@ -303,9 +311,7 @@ auto_generate_env_secrets() {
  if is_placeholder_value "${ADMIN_INITIAL_PASSWORD:-}" || [ -z "${ADMIN_INITIAL_PASSWORD:-}" ]; then
  local admin_pw
  admin_pw="$(openssl rand -base64 24)"
- local escaped_pw
- escaped_pw="$(shell_escape_sed_replacement "${admin_pw}")"
- sed -i "s|^ADMIN_INITIAL_PASSWORD=.*#ADMIN_INITIAL_PASSWORD=${escaped_pw}#|g" "${ENV_FILE}"
+ set_env_var ADMIN_INITIAL_PASSWORD "${admin_pw}"
  ADMIN_INITIAL_PASSWORD="${admin_pw}"
  warn "============================================================"
  warn " Auto-generated ADMIN_INITIAL_PASSWORD (save this!):"
@@ -317,14 +323,12 @@ auto_generate_env_secrets() {
  # ── NEXT_PUBLIC_APP_PUBLIC_LABEL ─────────────────────────────────
  if is_placeholder_value "${NEXT_PUBLIC_APP_PUBLIC_LABEL:-}"; then
  if [ -n "${DOMAIN:-}" ]; then
- local escaped
- escaped="$(shell_escape_sed_replacement "${DOMAIN}")"
- sed -i "s|^NEXT_PUBLIC_APP_PUBLIC_LABEL=.*#NEXT_PUBLIC_APP_PUBLIC_LABEL=${escaped}#|g" "${ENV_FILE}"
+ set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${DOMAIN}"
  log "Auto-set NEXT_PUBLIC_APP_PUBLIC_LABEL=${DOMAIN}"
  changed=1
  else
  # DOMAIN not set — clear the placeholder so validate_env won't reject it
- sed -i 's|^NEXT_PUBLIC_APP_PUBLIC_LABEL=.*#NEXT_PUBLIC_APP_PUBLIC_LABEL=#|g' "${ENV_FILE}"
+ set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL ""
  NEXT_PUBLIC_APP_PUBLIC_LABEL=""
  warn "DOMAIN not set; cleared NEXT_PUBLIC_APP_PUBLIC_LABEL placeholder"
  fi
@@ -340,27 +344,21 @@ auto_generate_env_secrets() {
  # ── AUTH_SESSION_COOKIE_NAME, ISSUER, AUDIENCE ───────────────────
  if is_placeholder_value "${AUTH_SESSION_COOKIE_NAME:-}" || [ -z "${AUTH_SESSION_COOKIE_NAME:-}" ]; then
  local cookie_name="${APP_SLUG}-session"
- local escaped
- escaped="$(shell_escape_sed_replacement "${cookie_name}")"
- sed -i "s|^AUTH_SESSION_COOKIE_NAME=.*#AUTH_SESSION_COOKIE_NAME=${escaped}#|g" "${ENV_FILE}"
+ set_env_var AUTH_SESSION_COOKIE_NAME "${cookie_name}"
  log "Auto-set AUTH_SESSION_COOKIE_NAME=${cookie_name}"
  changed=1
  fi
 
  if is_placeholder_value "${AUTH_SESSION_ISSUER:-}" || [ -z "${AUTH_SESSION_ISSUER:-}" ]; then
  local issuer="${APP_SLUG}"
- local escaped
- escaped="$(shell_escape_sed_replacement "${issuer}")"
- sed -i "s|^AUTH_SESSION_ISSUER=.*#AUTH_SESSION_ISSUER=${escaped}#|g" "${ENV_FILE}"
+ set_env_var AUTH_SESSION_ISSUER "${issuer}"
  log "Auto-set AUTH_SESSION_ISSUER=${issuer}"
  changed=1
  fi
 
  if is_placeholder_value "${AUTH_SESSION_AUDIENCE:-}" || [ -z "${AUTH_SESSION_AUDIENCE:-}" ]; then
  local audience="${APP_SLUG}-console"
- local escaped
- escaped="$(shell_escape_sed_replacement "${audience}")"
- sed -i "s|^AUTH_SESSION_AUDIENCE=.*#AUTH_SESSION_AUDIENCE=${escaped}#|g" "${ENV_FILE}"
+ set_env_var AUTH_SESSION_AUDIENCE "${audience}"
  log "Auto-set AUTH_SESSION_AUDIENCE=${audience}"
  changed=1
  fi
@@ -369,11 +367,18 @@ auto_generate_env_secrets() {
  if is_placeholder_value "${SSH_WS_SECRET:-}" || [ -z "${SSH_WS_SECRET:-}" ]; then
  local ws_secret
  ws_secret="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 48)"
- local escaped_ws
- escaped_ws="$(shell_escape_sed_replacement "${ws_secret}")"
- sed -i "s|^SSH_WS_SECRET=.*#SSH_WS_SECRET=${escaped_ws}#|g" "${ENV_FILE}"
+ set_env_var SSH_WS_SECRET "${ws_secret}"
  SSH_WS_SECRET="${ws_secret}"
  log "Auto-generated SSH_WS_SECRET"
+ changed=1
+ fi
+
+ # ── NEXT_PUBLIC_SSH_WS_SECRET ────────────────────────────────────
+ # Older builds read this value on the browser side; keep it in sync when present.
+ if is_placeholder_value "${NEXT_PUBLIC_SSH_WS_SECRET:-}" || [ -z "${NEXT_PUBLIC_SSH_WS_SECRET:-}" ] || [ "${NEXT_PUBLIC_SSH_WS_SECRET:-}" != "${SSH_WS_SECRET:-}" ]; then
+ set_env_var NEXT_PUBLIC_SSH_WS_SECRET "${SSH_WS_SECRET:-}"
+ NEXT_PUBLIC_SSH_WS_SECRET="${SSH_WS_SECRET:-}"
+ log "Synced NEXT_PUBLIC_SSH_WS_SECRET with SSH_WS_SECRET"
  changed=1
  fi
 
@@ -381,9 +386,7 @@ auto_generate_env_secrets() {
  if is_placeholder_value "${ENCRYPTION_KEY:-}" || [ -z "${ENCRYPTION_KEY:-}" ]; then
  local enc_key
  enc_key="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 48)"
- local escaped_enc
- escaped_enc="$(shell_escape_sed_replacement "${enc_key}")"
- sed -i "s|^ENCRYPTION_KEY=.*#ENCRYPTION_KEY=${escaped_enc}#|g" "${ENV_FILE}"
+ set_env_var ENCRYPTION_KEY "${enc_key}"
  ENCRYPTION_KEY="${enc_key}"
  log "Auto-generated ENCRYPTION_KEY"
  changed=1
@@ -408,9 +411,7 @@ auto_generate_env_secrets() {
  fi
  # Always allow localhost for development / internal health checks
  ws_origins="http://localhost:3000,http://127.0.0.1:3000${ws_origins:+,}${ws_origins}"
- local escaped_origins
- escaped_origins="$(shell_escape_sed_replacement "${ws_origins}")"
- sed -i "s|^SSH_WS_ALLOWED_ORIGINS=.*#SSH_WS_ALLOWED_ORIGINS=${escaped_origins}#|g" "${ENV_FILE}"
+ set_env_var SSH_WS_ALLOWED_ORIGINS "${ws_origins}"
  SSH_WS_ALLOWED_ORIGINS="${ws_origins}"
  log "Auto-set SSH_WS_ALLOWED_ORIGINS=${ws_origins}"
  changed=1
@@ -465,9 +466,7 @@ setup_postgres() {
 			# Generate alphanumeric-only password to avoid sed/SQL escaping issues
 			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
 			# Save generated password to .env.local
-			local escaped_pg_pw
-			escaped_pg_pw="$(shell_escape_sed_replacement "${PG_DB_PASSWORD}")"
-			sed -i "s|^PG_DB_PASSWORD=.*#PG_DB_PASSWORD=${escaped_pg_pw}#|g" "${ENV_FILE}"
+			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
 			warn "Generated random PostgreSQL password for ${PG_DB_USER}; saved to ${ENV_FILE}"
 		fi
 		log "Creating PostgreSQL user ${PG_DB_USER}"
@@ -476,9 +475,7 @@ setup_postgres() {
 		# User exists — ensure it has a password set (handle empty-password scenario)
 		if [ -z "${PG_DB_PASSWORD}" ]; then
 			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
-			local escaped_pg_pw
-			escaped_pg_pw="$(shell_escape_sed_replacement "${PG_DB_PASSWORD}")"
-			sed -i "s|^PG_DB_PASSWORD=.*#PG_DB_PASSWORD=${escaped_pg_pw}#|g" "${ENV_FILE}"
+			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
 			warn "Generated random PostgreSQL password for existing user ${PG_DB_USER}; saved to ${ENV_FILE}"
 		fi
 		sudo -u postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${PG_DB_PASSWORD}';" 2>/dev/null || true
@@ -491,34 +488,27 @@ setup_postgres() {
 	fi
 
 	# Always sync DATABASE_URL with PG_DB_PASSWORD to prevent mismatch
-	local generated_url
+	local generated_url current_url current_pw need_url_update
 	if [ -n "${PG_DB_PASSWORD}" ]; then
 		generated_url="postgresql://${PG_DB_USER}:${PG_DB_PASSWORD}@127.0.0.1:5432/${PG_DB_NAME}"
 	else
 		generated_url="postgresql://${PG_DB_USER}@127.0.0.1:5432/${PG_DB_NAME}"
 	fi
-	local current_url
-	current_url="$(grep '^DATABASE_URL=' "${ENV_FILE}" 2>/dev/null | head -1 | cut -d= -f2- || true)"
-	# Update if placeholder, empty, or password portion doesn't match PG_DB_PASSWORD
-	local need_url_update=0
+	current_url="${DATABASE_URL:-}"
+	need_url_update=0
 	if is_placeholder_value "${current_url}" || [ -z "${current_url}" ]; then
 		need_url_update=1
 	elif [ -n "${PG_DB_PASSWORD}" ]; then
-		# Extract password from current DATABASE_URL and compare
-		local current_pw
-		current_pw="$(printf '%s' "${current_url}" | sed -n 's#^postgresql://[^:]*:\([^@]*\)@.*#\1#p' 2>/dev/null || true)"
+		current_pw="$(printf '%s' "${current_url}" | sed -n 's#^[^:]*://[^:]*:\([^@]*\)@.*#\1#p' 2>/dev/null || true)"
 		if [ "${current_pw}" != "${PG_DB_PASSWORD}" ]; then
 			need_url_update=1
 		fi
 	fi
 	if [ "${need_url_update}" -eq 1 ]; then
 		log "Updating DATABASE_URL in ${ENV_FILE} (syncing with PG_DB_PASSWORD)"
-		local escaped_url
-		escaped_url="$(shell_escape_sed_replacement "${generated_url}")"
-		sed -i "s|^DATABASE_URL=.*#DATABASE_URL=${escaped_url}#|g" "${ENV_FILE}"
+		set_env_var DATABASE_URL "${generated_url}"
 	fi
 }
-
 build_app() {
  log "Installing dependencies and building application"
  cd "${APP_DIR}"
