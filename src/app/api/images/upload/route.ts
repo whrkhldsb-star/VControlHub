@@ -93,7 +93,8 @@ export async function POST(request: Request) {
 		}
 
 		// Ensure upload directory exists
-		await mkdir(UPLOAD_DIR, { recursive: true });
+		const uploadDir = UPLOAD_DIR;
+		await mkdir(uploadDir, { recursive: true });
 
 		// Save original + generate thumbnail + WebP/AVIF variants
 		const ext = path.extname(storageKey).toLowerCase();
@@ -101,12 +102,12 @@ export async function POST(request: Request) {
 		const thumbName = `${base}_thumb.webp`;
 
 		await Promise.all([
-			writeFile(path.join(UPLOAD_DIR, storageKey), buffer),
+			writeFile(path.join(uploadDir, storageKey), buffer),
 			// Generate thumbnail (best-effort)
 			(async () => {
 				try {
 					const thumb = await generateThumbnail(buffer);
-					await writeFile(path.join(UPLOAD_DIR, thumbName), thumb);
+					await writeFile(path.join(uploadDir, thumbName), thumb);
 				} catch { /* best-effort */ }
 			})(),
 			// Generate WebP variant (best-effort)
@@ -114,7 +115,7 @@ export async function POST(request: Request) {
 				try {
 					if (!mimeType.includes("webp")) {
 						const webp = await convertToWebP(buffer);
-						await writeFile(path.join(UPLOAD_DIR, `${base}.webp`), webp);
+						await writeFile(path.join(uploadDir, `${base}.webp`), webp);
 					}
 				} catch { /* best-effort */ }
 			})(),
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
 				try {
 					if (!mimeType.includes("avif")) {
 						const avif = await convertToAVIF(buffer);
-						await writeFile(path.join(UPLOAD_DIR, `${base}.avif`), avif);
+						await writeFile(path.join(uploadDir, `${base}.avif`), avif);
 					}
 				} catch { /* best-effort */ }
 			})(),

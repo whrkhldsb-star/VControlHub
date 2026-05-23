@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Provider, ConvItem, Message, ModelCapabilities, FileAttachment, ToolCallEvent, ToolApprovalNeeded, ModelInfo } from "./ai-types";
 import { DEFAULT_PROV_FORM, DEFAULT_SETTINGS_FORM } from "./ai-types";
@@ -730,13 +731,16 @@ const conv = data.conversation;
 return (
 						<div className="flex flex-wrap gap-2 mt-2">
 							{urls.map((url, i) => (
-								<img
+								<Image
 									key={i}
 									src={url}
 									alt={`附件 ${i + 1}`}
+									width={200}
+									height={200}
+									unoptimized
 									className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10"
 									onError={(e) => {
-										(e.target as HTMLImageElement).style.display = "none";
+										(e.currentTarget as HTMLImageElement).style.display = "none";
 									}}
 								/>
 							))}
@@ -878,7 +882,7 @@ return (
                   {/* URL-based images */}
                   {imageUrls.map((url, i) => (
  <div key={`url-${i}`} className="relative group">
-					<img src={url} alt="" width={48} height={48} loading="lazy" className="w-12 h-12 rounded object-cover border border-white/10" />
+					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
                         className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
@@ -891,7 +895,7 @@ return (
                 {fileAttachments.map((file, i) => (
                   <div key={`file-${i}`} className="relative group">
  {file.type === "image" && file.preview ? (
-						<img src={file.preview} alt={file.name} width={48} height={48} loading="lazy" className="w-12 h-12 rounded object-cover border border-white/10" />
+						<Image src={file.preview} alt={file.name} width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10" />
                     ) : (
                       <div className="w-12 h-12 rounded border border-white/10 bg-black/30 flex flex-col items-center justify-center">
                         {file.mimeType.startsWith("video/") ? (

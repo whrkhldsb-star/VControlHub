@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -117,12 +118,13 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-slate-400">
 						1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码
 					</p>
-					<img
+					<Image
 						src={`https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(otpauthUrl)}`}
 						alt="2FA QR Code"
 						className="mx-auto rounded-lg border border-white/[0.06]"
 						width={200}
 						height={200}
+						unoptimized
 					/>
 					<div className="bg-slate-900 rounded-lg p-3">
 						<p className="text-[10px] text-slate-500 mb-1">密钥（手动输入）：</p>

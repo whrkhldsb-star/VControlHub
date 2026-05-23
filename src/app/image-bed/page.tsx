@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { PageShell, Card } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -337,12 +338,14 @@ export default function ImageBedPage() {
 										{selectedIds.has(img.id) && "✓"}
 									</div>
 								)}
-								<img
+								<Image
 									src={img.publicUrl}
 									alt={img.filename}
-									className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+									fill
+									sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+									unoptimized
+									className="object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
 									onClick={() => !batchMode && setPreviewImage(img)}
-									loading="lazy"
 								/>
 								{/* Hover overlay */}
 								{!batchMode && (
@@ -382,7 +385,7 @@ export default function ImageBedPage() {
 			{previewImage && (
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
 					<div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-						<img src={previewImage.publicUrl} alt={previewImage.filename} width={800} height={600} loading="lazy" className="max-w-full max-h-[85vh] rounded-lg" />
+						<Image src={previewImage.publicUrl} alt={previewImage.filename} width={800} height={600} loading="lazy" unoptimized className="max-w-full max-h-[85vh] rounded-lg" />
 						<div className="mt-3 flex items-center justify-between">
 							<div>
 								<div className="text-sm text-white font-medium">{previewImage.filename}</div>

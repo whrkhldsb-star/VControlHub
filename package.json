@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "build:runtime": "esbuild src/server.ts src/ssh-ws-proxy.ts --bundle --platform=node --target=node22 --format=cjs --outdir=dist --packages=external --tsconfig=tsconfig.json",
     "start": "node dist/server.js",
     "start:ssh-ws": "node dist/ssh-ws-proxy.js",
@@ -18,7 +18,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "verify": "npm run prisma:generate && npm run typecheck && npm run lint && npm test && npm run build && npm run build:runtime"
+    "verify": "npm run prisma:generate && npm run typecheck && npm run lint && npm test && npm run build && npm run build:runtime",
+    "build:turbopack": "next build",
+    "build:webpack": "next build --webpack"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",
@@ -37,7 +39,8 @@
     "recharts": "^3.8.1",
     "sharp": "^0.34.5",
     "ssh2": "^1.17.0",
-    "ws": "^8.20.0",
+    "ssh2-streams": "^0.4.10",
+    "ws": "^8.21.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {

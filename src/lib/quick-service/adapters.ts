@@ -159,8 +159,6 @@ async function fetchLinuxServer(url: string): Promise<NormalizedApp[]> {
 		})
 		.map((img): NormalizedApp => {
 			const category = mapCategory(img.category);
-			// Skip headless/desktop-only apps that can't run as web services
-			const isDesktop = /altus|chromium|firefox|chrome|desktop/i.test(img.name);
 			return {
 				slug: `linuxserver-${img.name}`,
 				name: img.name

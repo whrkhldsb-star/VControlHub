@@ -1,7 +1,14 @@
 import * as path from "node:path";
 
+function resolveUploadDir() {
+	const explicitDir = process.env.IMAGE_UPLOAD_DIR?.trim();
+	if (explicitDir) return explicitDir;
+	const appDir = process.env.APP_DIR?.trim() || "/opt/whrkhldsb";
+	return path.join(appDir, "uploads", "image-bed");
+}
+
 /** Directory where uploaded image files are stored on disk. */
-export const UPLOAD_DIR = path.join(process.cwd(), "uploads", "image-bed");
+export const UPLOAD_DIR = resolveUploadDir();
 
 /** Recognized image file extensions (lowercase, with leading dot). */
 export const IMAGE_EXTENSIONS = new Set([

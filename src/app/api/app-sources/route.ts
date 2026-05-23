@@ -5,9 +5,9 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { syncSource, syncAllSources, getRemoteApps } from "@/lib/quick-service/app-source-sync";
+import { type NormalizedApp } from "@/lib/quick-service/adapters";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import { listQuickServices } from "@/lib/quick-service/service";
-import { normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("api:app-sources");
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 		});
 
 		// Get remote apps if requested
-		let remoteApps: any[] = [];
+		let remoteApps: NormalizedApp[] = [];
 		if (includeApps) {
 			remoteApps = await getRemoteApps();
 		}

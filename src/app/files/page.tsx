@@ -223,7 +223,7 @@ function serializeTreeNode(node: FileTreeNode, depth = 0): SerializedTreeNode[] 
 	return children;
 }
 
-export default async function FilesPage({ searchParams }: FilesPageProps = {}) {
+export default async function FilesPage({ searchParams }: FilesPageProps) {
 	const session = await requireSession("/files");
 	const canEditLocalFiles = sessionHasPermission(session, "storage:write");
 	const canDelete = sessionHasPermission(session, "storage:delete");

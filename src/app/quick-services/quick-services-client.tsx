@@ -117,7 +117,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const checkPortAvailability = useCallback(async (port: number) => {
 		setPortCheck({ available: false, usedBy: null, checking: true });
 		try {
-			const data = await csrfFetch(`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}`, { raw: false } as any);
+			const data = await csrfFetch<{ available: boolean; usedBy?: string | null }>(`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}`);
 			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
 		} catch (err) {
 			setPortCheck({ available: false, usedBy: err instanceof Error ? err.message : "检查失败", checking: false });
@@ -237,7 +237,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			});
 			fetchSources();
 			if (!enabled) fetchCatalog(); // refresh catalog when disabling a source
-		} catch (err) {
+		} catch {
 			setMessage({ type: "err", text: "操作失败" });
 		}
 	};
@@ -249,7 +249,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			setMessage({ type: "ok", text: "源已删除" });
 			fetchSources();
 			fetchCatalog();
-		} catch (err) {
+		} catch {
 			setMessage({ type: "err", text: "删除失败" });
 		}
 	};
@@ -515,9 +515,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									type="button"
 									onClick={async () => {
 										try {
-											const data = await csrfFetch(`/api/quick-services/check-port?action=allocate&preferred=${installDialog.defaultPort}`);
-											if ((data as any).port) {
-												handlePortInput(String((data as any).port));
+											const data = await csrfFetch<{ port?: number }>(`/api/quick-services/check-port?action=allocate&preferred=${installDialog.defaultPort}`);
+											if (data.port) {
+												handlePortInput(String(data.port));
 											}
 										} catch { /* ignore */ }
 									}}
