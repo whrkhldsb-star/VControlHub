@@ -49,6 +49,9 @@ function buildDirectAccessStrategy(input: {
   host?: string | null;
   port?: number | null;
   relativePath?: string | null;
+  directAccessMode?: "PROXY" | "DIRECT" | "AUTO" | null;
+  publicBaseUrl?: string | null;
+  directAccessExpiresSeconds?: number | null;
 }) {
   if (input.driver === "LOCAL") {
     return {
@@ -61,12 +64,26 @@ function buildDirectAccessStrategy(input: {
   const host = input.host ?? "unknown";
   const port = input.port ?? 22;
   const params = new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath ?? "" });
-  const href = `/api/storage/sftp-download?${params.toString()}`;
+  const fallbackHref = `/api/storage/sftp-download?${params.toString()}`;
+  const directParams = new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath ?? "" });
+  const directHref = `/api/storage/direct-access?${directParams.toString()}`;
+  const mode = input.directAccessMode ?? "PROXY";
+
+  if ((mode === "DIRECT" || mode === "AUTO") && input.publicBaseUrl) {
+    return {
+      mode: "direct-url" as const,
+      description: `远端文件可切换为存储服务器直连（${mode === "AUTO" ? "自动优先直连" : "直连模式"}），不可用时回退到管理端 SFTP 中转（来自 ${host}:${port}）。`,
+      href: directHref,
+      fallbackHref,
+      publicBaseUrl: input.publicBaseUrl,
+      expiresSeconds: input.directAccessExpiresSeconds ?? 300,
+    };
+  }
 
   return {
     mode: "managed-download" as const,
     description: `远端文件经管理端 SFTP 代理中转下载（来自 ${host}:${port}）。`,
-    href,
+    href: fallbackHref,
   };
 }
 
@@ -280,6 +297,9 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
       port: payload.port,
       username: payload.username,
       serverId: payload.serverId,
+      directAccessMode: payload.directAccessMode,
+      publicBaseUrl: payload.publicBaseUrl || null,
+      directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
     },
     include: {
       server: {
@@ -303,6 +323,9 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
  nodeId: storageNode.id,
  host: storageNode.host ?? storageNode.server?.host,
  port: storageNode.port ?? storageNode.server?.port,
+ directAccessMode: storageNode.directAccessMode,
+ publicBaseUrl: storageNode.publicBaseUrl,
+ directAccessExpiresSeconds: storageNode.directAccessExpiresSeconds,
  }),
   };
 }
@@ -339,6 +362,9 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
       port: payload.port ?? current.port,
       username: payload.username ?? current.username,
       serverId: payload.serverId ?? current.serverId,
+      directAccessMode: payload.directAccessMode ?? current.directAccessMode,
+      publicBaseUrl: payload.publicBaseUrl === undefined ? current.publicBaseUrl : (payload.publicBaseUrl || null),
+      directAccessExpiresSeconds: payload.directAccessExpiresSeconds ?? current.directAccessExpiresSeconds,
     },
   });
 }
@@ -381,6 +407,9 @@ export async function listStorageNodes() {
 		port: node.port,
 		username: node.username,
 		serverId: node.serverId,
+		directAccessMode: node.directAccessMode,
+		publicBaseUrl: node.publicBaseUrl,
+		directAccessExpiresSeconds: node.directAccessExpiresSeconds,
 		createdAt: node.createdAt?.toISOString?.() ?? node.createdAt,
 		updatedAt: node.updatedAt?.toISOString?.() ?? node.updatedAt,
 		...serializeHealthFields(node),
@@ -399,6 +428,9 @@ export async function listStorageNodes() {
  nodeId: node.id,
  host: node.host ?? node.server?.host,
  port: node.port ?? node.server?.port,
+ directAccessMode: node.directAccessMode,
+ publicBaseUrl: node.publicBaseUrl,
+ directAccessExpiresSeconds: node.directAccessExpiresSeconds,
  }),
  }));
 }
@@ -502,6 +534,9 @@ export async function listFileEntries(storageNodeId?: string) {
             host: true,
             port: true,
             username: true,
+            directAccessMode: true,
+            publicBaseUrl: true,
+            directAccessExpiresSeconds: true,
             server: { select: { id: true, name: true, host: true, port: true } },
           },
         },
@@ -515,6 +550,9 @@ export async function listFileEntries(storageNodeId?: string) {
 				host: entry.storageNode.host ?? entry.storageNode.server?.host,
 				port: entry.storageNode.port ?? entry.storageNode.server?.port,
 				relativePath: entry.relativePath,
+				directAccessMode: entry.storageNode.directAccessMode,
+				publicBaseUrl: entry.storageNode.publicBaseUrl,
+				directAccessExpiresSeconds: entry.storageNode.directAccessExpiresSeconds,
 			});
 
 			return {

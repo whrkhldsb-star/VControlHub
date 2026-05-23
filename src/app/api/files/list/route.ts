@@ -320,6 +320,7 @@ export async function GET(request: NextRequest) {
 				previewable: entry.previewable,
 				directAccessMode: entry.directAccess.mode,
 				directAccessHref: entry.directAccess.href ?? null,
+				directAccessFallbackHref: "fallbackHref" in entry.directAccess ? entry.directAccess.fallbackHref : null,
 				directAccessDescription: entry.directAccess.description,
 				storageNodeId: entry.storageNode.id,
 				storageNodeName: entry.storageNode.name,

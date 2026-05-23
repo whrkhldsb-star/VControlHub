@@ -39,6 +39,12 @@ enum StorageDriver {
   SFTP
 }
 
+enum StorageAccessMode {
+  PROXY
+  DIRECT
+  AUTO
+}
+
 enum FileEntryType {
   FILE
   DIRECTORY
@@ -247,6 +253,9 @@ model StorageNode {
   driver       StorageDriver
   isDefault    Boolean             @default(false)
   basePath     String
+  directAccessMode StorageAccessMode @default(PROXY)
+  publicBaseUrl String?
+  directAccessExpiresSeconds Int @default(300)
   host         String?
   port         Int?
   username     String?

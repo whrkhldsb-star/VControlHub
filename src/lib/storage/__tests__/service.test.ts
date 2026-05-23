@@ -47,8 +47,11 @@ describe("storage service", () => {
  host: null,
  port: null,
  username: null,
- serverId: null,
- server: null,
+serverId: null,
+directAccessMode: "PROXY",
+publicBaseUrl: null,
+directAccessExpiresSeconds: 300,
+server: null,
  createdAt: new Date(),
  updatedAt: new Date(),
  } as any);
@@ -76,8 +79,11 @@ describe("storage service", () => {
  host: "203.0.113.11",
  port: 22,
  username: "root",
- serverId: "srv_1",
- server: {
+serverId: "srv_1",
+directAccessMode: "DIRECT",
+publicBaseUrl: "https://cdn.example.com/media",
+directAccessExpiresSeconds: 900,
+server: {
  id: "srv_1",
  name: "hk-media-1",
  host: "203.0.113.11",
@@ -100,7 +106,8 @@ describe("storage service", () => {
  });
 
  expect(result.connectionSummary).toContain("SFTP 存储");
- expect(result.directAccess.mode).toBe("managed-download");
+ expect(result.directAccess.mode).toBe("direct-url");
+ expect(result.directAccess.description).toContain("存储服务器直连");
  });
 
  it("lists file entries with preview flags and direct access strategy", async () => {
@@ -126,8 +133,11 @@ describe("storage service", () => {
  basePath: "/data/media",
  host: "203.0.113.11",
  port: 22,
- username: "root",
- server: {
+username: "root",
+directAccessMode: "DIRECT",
+publicBaseUrl: "https://cdn.example.com/media",
+directAccessExpiresSeconds: 900,
+server: {
  id: "srv_1",
  name: "hk-media-1",
  host: "203.0.113.11",
@@ -140,7 +150,8 @@ describe("storage service", () => {
  const result = await listFileEntries();
 
  expect(result[0]?.previewable).toBe(true);
- expect(result[0]?.directAccess.mode).toBe("managed-download");
+ expect(result[0]?.directAccess.mode).toBe("direct-url");
+ expect(result[0]?.directAccess.href).toContain("/api/storage/direct-access");
  expect(result[0]?.sizeLabel).toBe("1.0 KB");
  });
 
@@ -156,8 +167,11 @@ describe("storage service", () => {
  host: null,
  port: null,
  username: null,
- serverId: null,
- server: null,
+serverId: null,
+directAccessMode: "PROXY",
+publicBaseUrl: null,
+directAccessExpiresSeconds: 300,
+server: null,
  fileEntries: [{ id: "f_1" }],
  createdAt: new Date(),
  updatedAt: new Date(),

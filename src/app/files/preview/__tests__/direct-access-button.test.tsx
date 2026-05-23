@@ -8,7 +8,7 @@ describe("DirectAccessButton", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses the managed SFTP fallback when direct public serving is disabled", async () => {
+  it("uses the managed SFTP fallback when direct access returns proxy mode", async () => {
     const onUrlReady = vi.fn();
 	const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
 		ok: true,
@@ -29,7 +29,7 @@ describe("DirectAccessButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "使用受控中转播放" }));
+    fireEvent.click(screen.getByRole("button", { name: "按节点设置播放" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -42,7 +42,7 @@ describe("DirectAccessButton", () => {
         "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
       );
     });
-    expect(screen.getByText("✅ 已切换到受控 SFTP 中转播放")).toBeInTheDocument();
+    expect(screen.getByText("✅ 当前：网站服务器中转")).toBeInTheDocument();
     expect(screen.queryByText("VPS 直连播放已停用，请使用受控的 SFTP 中转预览/下载。")).not.toBeInTheDocument();
   });
 
@@ -57,6 +57,6 @@ describe("DirectAccessButton", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "使用受控中转播放" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "按节点设置播放" })).not.toBeInTheDocument();
   });
 });

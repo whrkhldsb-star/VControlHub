@@ -1,9 +1,12 @@
+import crypto from "node:crypto";
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 
 import { prisma } from "@/lib/db";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { withRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -11,16 +14,28 @@ export const dynamic = "force-dynamic";
 
 const directAccessSchema = z.object({ nodeId: z.string().min(1), relativePath: z.string().min(1) });
 
-/**
- * Direct public HTTP serving from remote VPS nodes was intentionally disabled.
- *
- * The previous prototype started an unmanaged public file server on the target
- * VPS, but that server cannot enforce this app's auth, signed tokens, expiry,
- * or exact-file authorization. Remote SFTP media access should use the managed
- * `/api/storage/sftp-download` stream instead, which authenticates every
- * request through the control plane and constrains paths under the storage
- * node base path.
- */
+function fallbackUrl(nodeId: string, relativePath: string) {
+	const params = new URLSearchParams({ nodeId, path: relativePath });
+	return `/api/storage/sftp-download?${params.toString()}`;
+}
+
+function buildSignedDirectUrl(input: { publicBaseUrl: string; relativePath: string; expiresSeconds: number }) {
+	const base = input.publicBaseUrl.endsWith("/") ? input.publicBaseUrl : `${input.publicBaseUrl}/`;
+	const relativeSegments = input.relativePath.split("/").filter(Boolean).map((segment) => encodeURIComponent(segment));
+	const url = new URL(relativeSegments.join("/"), base);
+	const expires = Math.floor(Date.now() / 1000) + input.expiresSeconds;
+	const secret = process.env.STORAGE_DIRECT_ACCESS_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
+
+	if (!secret) {
+		throw new Error("未配置直连签名密钥 STORAGE_DIRECT_ACCESS_SECRET");
+	}
+
+	const signedPath = `/${relativeSegments.join("/")}`;
+	const signature = crypto.createHmac("sha256", secret).update(`${signedPath}.${expires}`).digest("hex");
+	url.searchParams.set("expires", String(expires));
+	url.searchParams.set("signature", signature);
+	return url.toString();
+}
 
 export async function POST(request: Request) {
 	const rl = withRateLimit(request, UPLOAD_LIMIT);
@@ -36,7 +51,7 @@ export async function POST(request: Request) {
 
 	const node = await prisma.storageNode.findUnique({
 		where: { id: nodeId },
-		select: { basePath: true },
+		select: { basePath: true, driver: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true },
 	});
 
 	if (!node) {
@@ -49,15 +64,39 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: "请求路径超出存储节点根目录" }, { status: 400 });
 	}
 
-	const params = new URLSearchParams({ nodeId, path: relativePath });
-	return NextResponse.json(
-		{
-			error: "VPS 直连播放已停用，请使用受控的 SFTP 中转预览/下载。",
-			fallbackUrl: `/api/storage/sftp-download?${params.toString()}`,
-			mode: "managed-download",
-		},
-		{ status: 410 },
-	);
+	const fallback = fallbackUrl(nodeId, relativePath);
+	const access = await assertStorageAccess({ session, storageNodeId: nodeId, relativePath, operation: "read" });
+	if (!access.allowed) {
+		return NextResponse.json({ error: access.reason }, { status: 403 });
+	}
+
+	if (node.driver !== "SFTP") {
+		return NextResponse.json({ mode: "managed-download", fallbackUrl: fallback });
+	}
+
+	if (node.directAccessMode === "DIRECT" || node.directAccessMode === "AUTO") {
+		if (node.publicBaseUrl) {
+			try {
+				return NextResponse.json({
+					mode: "direct-url",
+					url: buildSignedDirectUrl({
+						publicBaseUrl: node.publicBaseUrl,
+						relativePath,
+						expiresSeconds: node.directAccessExpiresSeconds ?? 300,
+					}),
+					fallbackUrl: fallback,
+					expiresSeconds: node.directAccessExpiresSeconds ?? 300,
+				});
+			} catch (error) {
+				if (node.directAccessMode === "DIRECT") {
+					const message = error instanceof Error ? error.message : "生成直连链接失败";
+					return NextResponse.json({ error: message, mode: "managed-download", fallbackUrl: fallback }, { status: 500 });
+				}
+			}
+		}
+	}
+
+	return NextResponse.json({ mode: "managed-download", fallbackUrl: fallback });
 }
 
 export async function DELETE(request: Request) {

@@ -1,9 +1,14 @@
 import { z } from "zod";
 
+export const storageAccessModeSchema = z.enum(["PROXY", "DIRECT", "AUTO"]);
+
 export const createStorageNodeSchema = z.object({
   name: z.string().trim().min(2, "存储节点名称至少 2 个字符").max(64, "存储节点名称最多 64 个字符"),
   driver: z.enum(["LOCAL", "SFTP"]),
   basePath: z.string().trim().min(1, "存储根路径不能为空").max(255, "存储根路径过长"),
+  directAccessMode: storageAccessModeSchema.optional().default("PROXY"),
+  publicBaseUrl: z.string().trim().url("直连基础 URL 格式不正确").max(2048, "直连基础 URL 过长").optional().or(z.literal("")),
+  directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional().default(300),
   isDefault: z.boolean().optional().default(false),
   host: z.string().trim().max(255, "主机名过长").optional(),
   port: z.coerce.number().int().min(1, "端口最小为 1").max(65535, "端口最大为 65535").optional(),
@@ -16,6 +21,9 @@ export const updateStorageNodeSchema = z.object({
   name: z.string().trim().min(2, "存储节点名称至少 2 个字符").max(64, "存储节点名称最多 64 个字符").optional(),
   driver: z.enum(["LOCAL", "SFTP"]).optional(),
   basePath: z.string().trim().min(1, "存储根路径不能为空").max(255, "存储根路径过长").optional(),
+  directAccessMode: storageAccessModeSchema.optional(),
+  publicBaseUrl: z.string().trim().url("直连基础 URL 格式不正确").max(2048, "直连基础 URL 过长").optional().or(z.literal("")),
+  directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional(),
   isDefault: z.boolean().optional(),
   host: z.string().trim().max(255, "主机名过长").optional(),
   port: z.coerce.number().int().min(1, "端口最小为 1").max(65535, "端口最大为 65535").optional(),
@@ -49,8 +57,8 @@ export const fileEntryMutationSchema = z.object({
   fileEntryId: z.string().trim().min(1, "文件条目不能为空"),
 });
 
-export type CreateStorageNodeInput = z.infer<typeof createStorageNodeSchema>;
-export type UpdateStorageNodeInput = z.infer<typeof updateStorageNodeSchema>;
+export type CreateStorageNodeInput = z.input<typeof createStorageNodeSchema>;
+export type UpdateStorageNodeInput = z.input<typeof updateStorageNodeSchema>;
 export type CreateFileEntryInput = z.infer<typeof createFileEntrySchema>;
 export type UpdateFileEntryInput = z.infer<typeof updateFileEntrySchema>;
 export type FileEntryMutationInput = z.infer<typeof fileEntryMutationSchema>;

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { requireSessionMock, sessionHasPermissionMock, prismaMock } = vi.hoisted(() => ({
+const { requireSessionMock, sessionHasPermissionMock, assertStorageAccessMock, prismaMock } = vi.hoisted(() => ({
   requireSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
+  assertStorageAccessMock: vi.fn(),
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
@@ -22,9 +23,25 @@ vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
 }));
 
+vi.mock("@/lib/storage/access-control", () => ({
+  assertStorageAccess: assertStorageAccessMock,
+}));
+
 import { DELETE, POST } from "../route";
 
+function directNode(overrides: Record<string, unknown> = {}) {
+  return {
+    basePath: "/data/file",
+    driver: "SFTP",
+    directAccessMode: "PROXY",
+    publicBaseUrl: null,
+    directAccessExpiresSeconds: 300,
+    ...overrides,
+  };
+}
+
 describe("/api/storage/direct-access", () => {
+  process.env.STORAGE_DIRECT_ACCESS_SECRET = "test-secret";
   it("returns 403 when the session lacks storage read permission", async () => {
     vi.clearAllMocks();
     requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "viewer" });
@@ -75,7 +92,7 @@ describe("/api/storage/direct-access", () => {
     expect(response.status).toBe(404);
     expect(prismaMock.storageNode.findUnique).toHaveBeenCalledWith({
       where: { id: "missing_node" },
-      select: { basePath: true },
+      select: { basePath: true, driver: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true },
     });
     await expect(response.json()).resolves.toMatchObject({ error: "存储节点不存在" });
   });
@@ -84,7 +101,7 @@ describe("/api/storage/direct-access", () => {
     vi.clearAllMocks();
     requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
     sessionHasPermissionMock.mockReturnValueOnce(true);
-    prismaMock.storageNode.findUnique.mockResolvedValueOnce({ basePath: "/data/file" });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(directNode());
 
     const response = await POST(
       new Request("https://example.com/api/storage/direct-access", {
@@ -97,11 +114,15 @@ describe("/api/storage/direct-access", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "请求路径超出存储节点根目录" });
   });
 
-  it("disables direct public serving and returns a managed SFTP fallback", async () => {
+  it("returns managed SFTP fallback when node is configured for proxy mode", async () => {
     vi.clearAllMocks();
     requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
     sessionHasPermissionMock.mockReturnValueOnce(true);
-    prismaMock.storageNode.findUnique.mockResolvedValueOnce({ basePath: "/data/file" });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(directNode({
+      directAccessMode: "PROXY",
+      publicBaseUrl: "https://cdn.example.com/media",
+    }));
 
     const response = await POST(
       new Request("https://example.com/api/storage/direct-access", {
@@ -110,25 +131,63 @@ describe("/api/storage/direct-access", () => {
       }),
     );
 
-    expect(response.status).toBe(410);
+    expect(response.status).toBe(200);
     const payload = await response.json();
-    expect(payload).toMatchObject({
-      error: "VPS 直连播放已停用，请使用受控的 SFTP 中转预览/下载。",
-      mode: "managed-download",
-    });
-    expect(payload.fallbackUrl).toBe(
-      "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo+file.mp4",
-    );
+    expect(payload).toMatchObject({ mode: "managed-download" });
+    expect(payload.fallbackUrl).toBe("/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo+file.mp4");
   });
 
-	it("keeps DELETE as an authenticated no-op for old clients", async () => {
-		vi.clearAllMocks();
-		requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
-		sessionHasPermissionMock.mockReturnValueOnce(true);
+  it("returns a short-lived signed storage-server URL when direct mode is enabled", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
+    sessionHasPermissionMock.mockReturnValueOnce(true);
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(directNode({
+      directAccessMode: "DIRECT",
+      publicBaseUrl: "https://cdn.example.com/media/",
+      directAccessExpiresSeconds: 600,
+    }));
 
-		const response = await DELETE(new Request("http://local/api/storage/direct-access", { method: "DELETE" }));
+    const response = await POST(
+      new Request("https://example.com/api/storage/direct-access", {
+        method: "POST",
+        body: JSON.stringify({ nodeId: "node_1", relativePath: "movies/demo file.mp4" }),
+      }),
+    );
 
-		expect(response.status).toBe(200);
-		await expect(response.json()).resolves.toMatchObject({ stopped: true, mode: "managed-download" });
-	});
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.mode).toBe("direct-url");
+    expect(payload.url).toMatch(/^https:\/\/cdn\.example\.com\/media\/movies\/demo%20file\.mp4\?expires=\d+&signature=[a-f0-9]{64}$/);
+    expect(payload.fallbackUrl).toBe("/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo+file.mp4");
+  });
+
+  it("falls back to managed SFTP when auto mode lacks a public base URL", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
+    sessionHasPermissionMock.mockReturnValueOnce(true);
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(directNode({ directAccessMode: "AUTO" }));
+
+    const response = await POST(
+      new Request("https://example.com/api/storage/direct-access", {
+        method: "POST",
+        body: JSON.stringify({ nodeId: "node_1", relativePath: "movies/demo.mp4" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ mode: "managed-download" });
+  });
+
+  it("keeps DELETE as an authenticated no-op for old clients", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
+    sessionHasPermissionMock.mockReturnValueOnce(true);
+
+    const response = await DELETE(new Request("http://local/api/storage/direct-access", { method: "DELETE" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ stopped: true, mode: "managed-download" });
+  });
 });

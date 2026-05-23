@@ -5,8 +5,9 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type DirectAccessResponse = {
 	fallbackUrl?: string;
+	url?: string;
 	error?: string;
-	mode?: "managed-download" | string;
+	mode?: "managed-download" | "direct-url" | string;
 };
 
 export function DirectAccessButton({
@@ -23,9 +24,10 @@ export function DirectAccessButton({
 }) {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [directInfo, setDirectInfo] = useState<DirectAccessResponse | null>(null);
+	const [activeMode, setActiveMode] = useState<"managed-download" | "direct-url" | null>(null);
+	const [fallbackUrl, setFallbackUrl] = useState<string | null>(null);
 
-	const requestDirectAccess = useCallback(async () => {
+	const requestAccess = useCallback(async (prefer: "auto" | "proxy") => {
 		setLoading(true);
 		setError(null);
 
@@ -36,19 +38,32 @@ export function DirectAccessButton({
 				body: JSON.stringify({ nodeId, relativePath }),
 			}) as DirectAccessResponse;
 
-			if (data.fallbackUrl) {
-				setDirectInfo(data);
+			if (data.fallbackUrl) setFallbackUrl(data.fallbackUrl);
+
+			if (prefer === "proxy" && data.fallbackUrl) {
 				onUrlReady(data.fallbackUrl);
-				setError(null);
+				setActiveMode("managed-download");
+				return;
+			}
+
+			if (data.mode === "direct-url" && data.url) {
+				onUrlReady(data.url);
+				setActiveMode("direct-url");
+				return;
+			}
+
+			if (data.fallbackUrl) {
+				onUrlReady(data.fallbackUrl);
+				setActiveMode("managed-download");
 				return;
 			}
 
 			if (data.error) {
-				setError(data.error ?? "请求中转播放失败");
+				setError(data.error ?? "请求播放地址失败");
 				return;
 			}
 
-			setError("服务端未返回可用的中转播放地址");
+			setError("服务端未返回可用的播放地址");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "请求失败");
 		} finally {
@@ -60,20 +75,29 @@ export function DirectAccessButton({
 
 	return (
 		<div className="flex flex-wrap items-center gap-3">
-			{!directInfo?.fallbackUrl ? (
+			<button
+				type="button"
+				onClick={() => requestAccess("auto")}
+				disabled={loading}
+				className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50"
+			>
+				{loading ? "正在准备播放地址…" : "按节点设置播放"}
+			</button>
+			{fallbackUrl ? (
 				<button
 					type="button"
-					onClick={requestDirectAccess}
+					onClick={() => requestAccess("proxy")}
 					disabled={loading}
-					className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50"
+					className="rounded-full border border-slate-500/40 bg-slate-800 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700 disabled:opacity-50"
 				>
-					{loading ? "正在准备中转播放…" : "使用受控中转播放"}
+					强制网站中转
 				</button>
-			) : (
+			) : null}
+			{activeMode ? (
 				<span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100">
-					✅ 已切换到受控 SFTP 中转播放
+					✅ 当前：{activeMode === "direct-url" ? "存储服务器直连" : "网站服务器中转"}
 				</span>
-			)}
+			) : null}
 			{error ? <span className="text-xs text-red-300">{error}</span> : null}
 		</div>
 	);

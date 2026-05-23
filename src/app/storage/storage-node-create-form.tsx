@@ -69,6 +69,22 @@ export function StorageNodeCreateForm({
               <span>用户名</span>
               <input name="username" defaultValue="root" className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white" />
             </label>
+            <label className="grid gap-2 text-sm text-slate-300 md:col-span-2">
+              <span>访问模式</span>
+              <select name="directAccessMode" defaultValue="PROXY" className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white">
+                <option value="PROXY">网站服务器中转（最安全）</option>
+                <option value="DIRECT">存储服务器直连（需签名外链服务）</option>
+                <option value="AUTO">自动：可直连则直连，否则中转</option>
+              </select>
+            </label>
+            <label className="grid gap-2 text-sm text-slate-300">
+              <span>直连基础 URL</span>
+              <input name="publicBaseUrl" type="url" className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white" placeholder="https://cdn.example.com/media" />
+            </label>
+            <label className="grid gap-2 text-sm text-slate-300">
+              <span>直连链接有效期（秒）</span>
+              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white" />
+            </label>
           </>
         ) : null}
         <label className="flex items-center gap-3 text-sm text-slate-300 md:col-span-2">
