@@ -6,6 +6,7 @@ import {
   joinStoragePath,
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
+  sanitizeArchiveEntries,
   resolveStoragePathWithinBase,
 } from "../path-utils";
 
@@ -61,5 +62,20 @@ describe("storage path utils", () => {
     expect(isSafeArchiveEntryPath("/absolute.txt")).toBe(false);
     expect(isSafeArchiveEntryPath("C:/Windows/system.ini")).toBe(false);
     expect(isSafeArchiveEntryPath("folder\\..\\secret.txt")).toBe(false);
+    expect(isSafeArchiveEntryPath("folder/./photo.png")).toBe(true);
+    expect(isSafeArchiveEntryPath("folder/../../secret.txt")).toBe(false);
+    expect(isSafeArchiveEntryPath(`folder/${"a".repeat(256)}.txt`)).toBe(false);
+    expect(isSafeArchiveEntryPath("folder/bad\u0000name.txt")).toBe(false);
+  });
+
+  it("filters unsafe archive entries before returning them to clients", () => {
+    const entries = sanitizeArchiveEntries([
+      { name: "folder/photo.png", size: 1 },
+      { name: "../secret.txt", size: 2 },
+      { name: "folder/../../escape.txt", size: 3 },
+      { name: "C:/Windows/system.ini", size: 4 },
+    ]);
+
+    expect(entries).toEqual([{ name: "folder/photo.png", size: 1 }]);
   });
 });

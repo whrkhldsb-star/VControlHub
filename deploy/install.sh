@@ -83,6 +83,12 @@ set_env_var() {
  fi
 }
 
+remove_env_var() {
+ local name="$1"
+ [ -f "${ENV_FILE}" ] || return 0
+ sed -i "/^${name}=/d" "${ENV_FILE}"
+}
+
 resolve_command() {
   local command_name="$1" resolved=""
   resolved="$(command -v "${command_name}" 2>/dev/null || true)"
@@ -419,12 +425,13 @@ auto_generate_env_secrets() {
  changed=1
  fi
 
- # ── NEXT_PUBLIC_SSH_WS_SECRET ────────────────────────────────────
- # Older builds read this value on the browser side; keep it in sync when present.
- if is_placeholder_value "${NEXT_PUBLIC_SSH_WS_SECRET:-}" || [ -z "${NEXT_PUBLIC_SSH_WS_SECRET:-}" ] || [ "${NEXT_PUBLIC_SSH_WS_SECRET:-}" != "${SSH_WS_SECRET:-}" ]; then
- set_env_var NEXT_PUBLIC_SSH_WS_SECRET "${SSH_WS_SECRET:-}"
- NEXT_PUBLIC_SSH_WS_SECRET="${SSH_WS_SECRET:-}"
- log "Synced NEXT_PUBLIC_SSH_WS_SECRET with SSH_WS_SECRET"
+ # ── Public browser env guard ─────────────────────────────────────
+ # SSH_WS_SECRET is a server-only signing key. Never mirror it into a
+ # NEXT_PUBLIC_* variable because those values are bundled into browser code.
+ if [ -n "${NEXT_PUBLIC_SSH_WS_SECRET:-}" ]; then
+ warn "Removing deprecated NEXT_PUBLIC_SSH_WS_SECRET from ${ENV_FILE}; browser-exposed SSH secrets are not allowed"
+ remove_env_var NEXT_PUBLIC_SSH_WS_SECRET
+ unset NEXT_PUBLIC_SSH_WS_SECRET
  changed=1
  fi
 

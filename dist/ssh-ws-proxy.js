@@ -25,7 +25,7 @@ __export(ssh_ws_proxy_exports, {
 });
 module.exports = __toCommonJS(ssh_ws_proxy_exports);
 var import_http = require("http");
-var import_node_crypto = require("node:crypto");
+var import_node_crypto2 = require("node:crypto");
 var import_ws = require("ws");
 var import_ssh2 = require("ssh2");
 var import_client = require("@prisma/client");
@@ -226,6 +226,52 @@ function createLogger(scope) {
 }
 var defaultLogger = createLogger("app");
 
+// src/lib/auth/ssh-ws-token.ts
+var import_node_crypto = require("node:crypto");
+var SSH_WS_HANDSHAKE_AUDIENCE = "ssh-ws-handshake";
+function decodeBase64Url(input) {
+  return Buffer.from(input, "base64url").toString("utf8");
+}
+function signPayload(payload, secret) {
+  return (0, import_node_crypto.createHmac)("sha256", secret).update(payload).digest("base64url");
+}
+function hashSession(sessionId, secret) {
+  return (0, import_node_crypto.createHmac)("sha256", secret).update(sessionId).digest("base64url");
+}
+function normalizeOrigin(origin) {
+  return origin.trim().toLowerCase();
+}
+function safeEqual(a, b) {
+  const left = Buffer.from(a, "utf8");
+  const right = Buffer.from(b, "utf8");
+  return left.length === right.length && (0, import_node_crypto.timingSafeEqual)(left, right);
+}
+function verifySshWsHandshakeToken(token, input) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 2) return null;
+    const [encodedPayload, providedSignature] = parts;
+    if (!encodedPayload || !providedSignature) return null;
+    const expectedSignature = signPayload(encodedPayload, input.secret);
+    if (!safeEqual(providedSignature, expectedSignature)) return null;
+    const payload = JSON.parse(decodeBase64Url(encodedPayload));
+    if (payload.aud !== SSH_WS_HANDSHAKE_AUDIENCE) return null;
+    if (payload.exp <= (input.now ?? Date.now())) return null;
+    if (payload.serverId !== input.serverId) return null;
+    if (payload.origin !== normalizeOrigin(input.origin)) return null;
+    if (!safeEqual(payload.sessionHash, hashSession(input.sessionId, input.secret))) return null;
+    return {
+      userId: payload.userId,
+      serverId: payload.serverId,
+      origin: payload.origin,
+      issuedAt: payload.iat,
+      expiresAt: payload.exp
+    };
+  } catch {
+    return null;
+  }
+}
+
 // src/ssh-ws-proxy.ts
 var logger = createLogger("ssh-ws-proxy");
 function resolveSshWsListenConfig(env = process.env) {
@@ -263,22 +309,22 @@ var prisma = new import_client.PrismaClient({
   adapter: prismaAdapter,
   log: ["error"]
 });
-function decodeBase64Url(input) {
+function decodeBase64Url2(input) {
   return Buffer.from(input, "base64url").toString("utf8");
 }
-function signPayload(payload) {
-  return (0, import_node_crypto.createHmac)("sha256", getSessionSecret()).update(payload).digest("base64url");
+function signPayload2(payload) {
+  return (0, import_node_crypto2.createHmac)("sha256", getSessionSecret()).update(payload).digest("base64url");
 }
 function verifySessionToken(token) {
   try {
     const [encodedPayload, providedSignature] = token.split(".");
     if (!encodedPayload || !providedSignature) return null;
-    const expectedSignature = signPayload(encodedPayload);
+    const expectedSignature = signPayload2(encodedPayload);
     const providedBuffer = Buffer.from(providedSignature, "utf8");
     const expectedBuffer = Buffer.from(expectedSignature, "utf8");
     if (providedBuffer.length !== expectedBuffer.length) return null;
-    if (!(0, import_node_crypto.timingSafeEqual)(providedBuffer, expectedBuffer)) return null;
-    const payload = JSON.parse(decodeBase64Url(encodedPayload));
+    if (!(0, import_node_crypto2.timingSafeEqual)(providedBuffer, expectedBuffer)) return null;
+    const payload = JSON.parse(decodeBase64Url2(encodedPayload));
     if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) return null;
     if (payload.exp <= Date.now()) return null;
     return {
@@ -357,16 +403,9 @@ wss.on("connection", async (ws, req) => {
   const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const serverId = url.searchParams.get("serverId");
   const token = url.searchParams.get("token");
-  const wsSecret = url.searchParams.get("secret");
-  if (SSH_WS_SECRET) {
-    if (!wsSecret || !(0, import_node_crypto.timingSafeEqual)(Buffer.from(wsSecret), Buffer.from(SSH_WS_SECRET))) {
-      ws.send(JSON.stringify({ type: "error", data: "\u7F3A\u5C11\u6216\u65E0\u6548\u7684 secret \u53C2\u6570" }));
-      ws.close();
-      return;
-    }
-  }
-  if (!serverId || !token) {
-    ws.send(JSON.stringify({ type: "error", data: "\u7F3A\u5C11 serverId \u6216 token \u53C2\u6570" }));
+  const handshake = url.searchParams.get("handshake");
+  if (!serverId || !token || !handshake) {
+    ws.send(JSON.stringify({ type: "error", data: "\u7F3A\u5C11 serverId\u3001token \u6216 handshake \u53C2\u6570" }));
     ws.close();
     return;
   }
@@ -380,6 +419,20 @@ wss.on("connection", async (ws, req) => {
     ws.send(JSON.stringify({ type: "error", data: "\u7F3A\u5C11 SSH \u7EC8\u7AEF\u6743\u9650" }));
     ws.close();
     return;
+  }
+  if (SSH_WS_SECRET) {
+    const origin = (req.headers.origin || "").trim();
+    const handshakePayload = verifySshWsHandshakeToken(handshake, {
+      serverId,
+      origin,
+      sessionId: token,
+      secret: SSH_WS_SECRET
+    });
+    if (!handshakePayload || handshakePayload.userId !== session.userId) {
+      ws.send(JSON.stringify({ type: "error", data: "SSH WebSocket \u4E34\u65F6\u4EE4\u724C\u65E0\u6548\u6216\u5DF2\u8FC7\u671F" }));
+      ws.close();
+      return;
+    }
   }
   const connParams = await resolveServerConnection(serverId);
   if (!connParams) {

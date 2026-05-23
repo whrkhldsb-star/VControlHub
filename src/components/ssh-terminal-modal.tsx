@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 
 /* ------------------------------------------------------------------ */
 /* SSH Terminal Modal — xterm.js + WebSocket */
@@ -48,18 +49,9 @@ const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 	});
  const [newFavorite, setNewFavorite] = useState("");
 
- // Determine WS URL — connect via same origin (Apache/Caddy proxies /ssh to WS proxy)
- const wsUrl = useMemo(() => {
- if (typeof window === "undefined") return "";
- const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
- const wsHost = window.location.host; // includes port if non-standard
- return `${protocol}//${wsHost}/ssh?serverId=${serverId}&token=${encodeURIComponent(sessionToken)}`;
- // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [serverId, sessionToken, reconnectKey]);
-
  // Initialize xterm and WebSocket
  useEffect(() => {
- if (!wsUrl || !termRef.current) return;
+ if (!termRef.current) return;
 
  let disposed = false;
 
@@ -70,14 +62,27 @@ const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 
  if (disposed || !termRef.current) return;
 
- // ── Fetch SSH_WS_SECRET from server API ────────────────────
- let wsSecret = "";
+ // ── Fetch a short-lived SSH WebSocket handshake token ─────
+ let handshakeToken = "";
  try {
- const data = await csrfFetch("/api/auth/ws-token");
-wsSecret = data.secret || "";
+ const data = await csrfFetch("/api/auth/ws-token", {
+ method: "POST",
+ body: JSON.stringify({ serverId, sessionToken }),
+ });
+ handshakeToken = data.token || "";
  } catch {
- // If the API is unreachable, try connecting without secret
- // (development mode may not require it)
+ if (!disposed) {
+ setStatus("error");
+ setErrorMsg("无法获取 SSH WebSocket 临时令牌，请重新登录后再试");
+ }
+ return;
+ }
+ if (!handshakeToken) {
+ if (!disposed) {
+ setStatus("error");
+ setErrorMsg("SSH WebSocket 临时令牌为空，请检查服务配置");
+ }
+ return;
  }
 
  const term = new Terminal({
@@ -119,7 +124,13 @@ wsSecret = data.secret || "";
       fitAddonRef.current = fitAddon;
 
  // Connect WebSocket
- const finalWsUrl = wsSecret ? `${wsUrl}&secret=${encodeURIComponent(wsSecret)}` : wsUrl;
+ const finalWsUrl = buildSshWebSocketUrl({
+ pageProtocol: window.location.protocol,
+ host: window.location.host,
+ serverId,
+ sessionToken,
+ handshakeToken,
+ });
  const ws = new WebSocket(finalWsUrl);
       wsRef.current = ws;
 
@@ -227,7 +238,7 @@ wsSecret = data.secret || "";
         terminalRef.current = null;
       }
     };
-  }, [wsUrl]);
+  }, [serverId, sessionToken, reconnectKey]);
 
  // Save favorites to localStorage whenever they change
  const saveFavorites = (items: string[]) => {
@@ -265,7 +276,7 @@ wsSecret = data.secret || "";
  }
  setStatus("connecting");
  setErrorMsg("");
- // Trigger re-connect by bumping the reconnect key (forces useMemo recalc + useEffect re-run)
+ // Trigger re-connect by bumping the reconnect key (forces the connection effect to re-run)
  setReconnectKey((prev) => prev + 1);
  };
 

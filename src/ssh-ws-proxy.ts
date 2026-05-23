@@ -15,6 +15,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getAppSlug } from "./lib/branding";
 import { createLogger } from "./lib/logging";
+import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 
 const logger = createLogger("ssh-ws-proxy");
 
@@ -209,19 +210,10 @@ wss.on("connection", async (ws, req) => {
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 	const serverId = url.searchParams.get("serverId");
 	const token = url.searchParams.get("token");
-	const wsSecret = url.searchParams.get("secret");
+	const handshake = url.searchParams.get("handshake");
 
-	// ── SSH_WS_SECRET authentication ────────────────────────────────
-	if (SSH_WS_SECRET) {
-		if (!wsSecret || !timingSafeEqual(Buffer.from(wsSecret), Buffer.from(SSH_WS_SECRET))) {
-			ws.send(JSON.stringify({ type: "error", data: "缺少或无效的 secret 参数" }));
-			ws.close();
-			return;
-		}
-	}
-
- if (!serverId || !token) {
- ws.send(JSON.stringify({ type: "error", data: "缺少 serverId 或 token 参数" }));
+ if (!serverId || !token || !handshake) {
+ ws.send(JSON.stringify({ type: "error", data: "缺少 serverId、token 或 handshake 参数" }));
  ws.close();
  return;
  }
@@ -237,6 +229,21 @@ wss.on("connection", async (ws, req) => {
     ws.send(JSON.stringify({ type: "error", data: "缺少 SSH 终端权限" }));
     ws.close();
     return;
+  }
+
+  if (SSH_WS_SECRET) {
+    const origin = (req.headers.origin || "").trim();
+    const handshakePayload = verifySshWsHandshakeToken(handshake, {
+      serverId,
+      origin,
+      sessionId: token,
+      secret: SSH_WS_SECRET,
+    });
+    if (!handshakePayload || handshakePayload.userId !== session.userId) {
+      ws.send(JSON.stringify({ type: "error", data: "SSH WebSocket 临时令牌无效或已过期" }));
+      ws.close();
+      return;
+    }
   }
 
   const connParams = await resolveServerConnection(serverId);

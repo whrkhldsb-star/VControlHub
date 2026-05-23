@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { resolveSshWsListenConfig } from "../ssh-ws-proxy";
@@ -17,5 +19,12 @@ describe("resolveSshWsListenConfig", () => {
   it("rejects invalid port values clearly", () => {
     expect(() => resolveSshWsListenConfig({ SSH_WS_PORT: "not-a-port" })).toThrow("SSH_WS_PORT must be a valid TCP port");
     expect(() => resolveSshWsListenConfig({ SSH_WS_PORT: "70000" })).toThrow("SSH_WS_PORT must be a valid TCP port");
+  });
+
+  it("does not retain the legacy raw secret query-parameter check", async () => {
+    const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
+    expect(source).toContain('url.searchParams.get("handshake")');
+    expect(source).toContain("verifySshWsHandshakeToken");
+    expect(source).not.toContain('url.searchParams.get("secret")');
   });
 });

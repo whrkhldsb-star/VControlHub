@@ -397,6 +397,19 @@ describe("deploy/install.sh", () => {
     expect(script).toContain('if [ "${SKIP_CADDY}" != "1" ]; then\n  return 0\n fi');
   });
 
+  it("uses a real URL-encoded PostgreSQL password in DATABASE_URL instead of a redacted placeholder", async () => {
+    const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
+    expect(script).toContain('generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"');
+    expect(script).not.toContain('generated_url="postgresql://${PG_DB_USER}:***@127.0.0.1:5432/${PG_DB_NAME}"');
+  });
+
+  it("removes deprecated browser-exposed SSH WebSocket secrets from generated env files", async () => {
+    const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
+    expect(script).toContain("remove_env_var NEXT_PUBLIC_SSH_WS_SECRET");
+    expect(script).toContain("browser-exposed SSH secrets are not allowed");
+    expect(script).not.toContain("Synced NEXT_PUBLIC_SSH_WS_SECRET with SSH_WS_SECRET");
+  });
+
   it("defaults to root for in-place deployments under /root unless APP_USER is explicit", async () => {
     const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
     expect(script).toContain("APP_USER_EXPLICIT");

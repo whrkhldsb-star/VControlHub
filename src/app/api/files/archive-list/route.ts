@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { resolveStoragePathWithinBase, sanitizeArchiveEntries } from "@/lib/storage/path-utils";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 	const fullPath = resolvedPath.path;
 
 	try {
-		const entries = await listArchiveContents(name, fullPath);
+		const entries = sanitizeArchiveEntries(await listArchiveContents(name, fullPath));
 		return NextResponse.json({ entries });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "读取压缩包失败";

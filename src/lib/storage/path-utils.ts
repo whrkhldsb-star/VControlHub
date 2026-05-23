@@ -5,6 +5,7 @@ export type StoragePathResult =
   | { ok: false; reason: string };
 
 const INVALID_SEGMENT_CHARS = /[\u0000-\u001f\u007f\\:*?"<>|]/;
+const INVALID_ARCHIVE_ENTRY_CHARS = /[\u0000-\u001f\u007f]/;
 const MAX_PATH_LENGTH = 4096;
 const MAX_SEGMENT_LENGTH = 255;
 
@@ -115,8 +116,30 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
 }
 
 export function isSafeArchiveEntryPath(value: string | null | undefined): boolean {
-  const normalizedInput = normalizePathInput(value);
-  if (!normalizedInput || normalizedInput.startsWith("/") || path.win32.isAbsolute(normalizedInput)) return false;
-  const segments = normalizedInput.split("/").filter(Boolean);
-  return segments.every((segment) => segment !== "." && segment !== "..");
+  const rawInput = (value ?? "").trim();
+  if (rawInput.includes("\\")) return false;
+  const normalizedInput = normalizePathInput(rawInput);
+  if (
+    !normalizedInput ||
+    normalizedInput.length > MAX_PATH_LENGTH ||
+    normalizedInput.startsWith("/") ||
+    path.win32.isAbsolute(normalizedInput)
+  ) return false;
+
+  const normalized = path.posix.normalize(normalizedInput);
+  if (normalized === "." || normalized === ".." || normalized.startsWith("../") || path.posix.isAbsolute(normalized)) {
+    return false;
+  }
+
+  const segments = normalized.split("/").filter(Boolean);
+  return segments.every((segment) => (
+    segment !== "." &&
+    segment !== ".." &&
+    segment.length <= MAX_SEGMENT_LENGTH &&
+    !INVALID_ARCHIVE_ENTRY_CHARS.test(segment)
+  ));
+}
+
+export function sanitizeArchiveEntries<T extends { name: string }>(entries: T[]): T[] {
+  return entries.filter((entry) => isSafeArchiveEntryPath(entry.name));
 }
