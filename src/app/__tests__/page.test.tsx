@@ -1,5 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/auth/csrf-client", () => ({
+  csrfFetch: vi.fn().mockResolvedValue({
+    servers: [{ time: "2026-01-01T00:00:00.000Z", cpu: 12, memory: 34, disk: 56 }],
+    downloads: [{ date: "2026-01-01", completed: 1, failed: 0, running: 0, pending: 0 }],
+    audit: [{ date: "2026-01-01", total: 2 }],
+    imageBed: [{ date: "2026-01-01", count: 3, size: 4096 }],
+  }),
+}));
 
 vi.mock("@/lib/auth/require-session", () => ({
   requireSession: vi.fn().mockResolvedValue({
@@ -109,5 +118,9 @@ describe("Home", () => {
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /查看全部/ })).toHaveAttribute("href", "/audit");
+
+    await waitFor(() => {
+      expect(screen.getByRole("img", { name: "📈 服务器资源趋势（24h）" })).toBeInTheDocument();
+    });
   });
 });

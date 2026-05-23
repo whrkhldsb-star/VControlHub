@@ -1,10 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-	// Standalone output removed — we use custom server (npx tsx src/server.ts)
-	// which requires full node_modules for WebSocket support.
-	// Re-enable "output: standalone" only if deploying via Docker images.
-	serverExternalPackages: ["ssh2"],
+	// Keep native SSH-related packages outside Next's server bundles.
+	serverExternalPackages: ["ssh2", "ppk-to-openssh"],
 	// Image optimization configuration
 	images: {
 		remotePatterns: [

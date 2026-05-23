@@ -577,16 +577,25 @@ build_app() {
 		return
 	fi
 	npm ci
- npm run prisma:generate
- if [ "${SKIP_DB_SETUP}" != "1" ]; then
- npm run prisma:deploy
- fi
- if [ "${SKIP_DB_SETUP}" != "1" ] && [ "${SKIP_SEED}" != "1" ]; then
- log "Seeding database (admin user, roles, permissions)"
- npm run db:seed
- fi
- npm run build
- npm run build:runtime
+	npm run prisma:generate
+	if [ "${SKIP_DB_SETUP}" != "1" ]; then
+	npm run prisma:deploy
+	fi
+	if [ "${SKIP_DB_SETUP}" != "1" ] && [ "${SKIP_SEED}" != "1" ]; then
+	log "Seeding database (admin user, roles, permissions)"
+	npm run db:seed
+	fi
+	npm run build
+	npm run build:runtime
+	# The build cache is useful only between builds. Removing it after a successful
+	# production deploy keeps small VPS disks from filling up while preserving all
+	# runtime files (.next/server, .next/static, dist, node_modules).
+	rm -rf .next/cache
+	# Runtime does not need TypeScript, test libraries, ESLint, or the Prisma CLI.
+	# Prune them after migrations/builds to reduce production disk usage and module
+	# scan overhead. Future upgrades still run npm ci first, so build tools return
+	# before the next deploy.
+	npm prune --omit=dev
  # Verify compiled runtime entrypoints are available before systemd restart.
  if [ ! -f dist/server.js ] || [ ! -f dist/ssh-ws-proxy.js ]; then
    fail "Runtime bundle missing after build. Expected dist/server.js and dist/ssh-ws-proxy.js."
