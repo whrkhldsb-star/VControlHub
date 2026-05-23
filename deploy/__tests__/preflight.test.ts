@@ -170,8 +170,8 @@ describe("deploy/preflight.sh", () => {
 	await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
 	await mkdir(path.join(appDir, "deploy"), { recursive: true });
 	await writeFile(path.join(appDir, "scripts/backup-db.sh"), `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
-	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
-	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nWorkingDirectory=/tmp\nEnvironmentFile=/tmp/.env\nUser=root\nGroup=root\n[Service]\nExecStart=/bin/true\n");
+	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
 	await writeFile(path.join(appDir, "deploy/apache-next-proxy.example.conf"), "<VirtualHost *:80>\nServerName {{SERVER_NAME}}\nProxyPass / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\nProxyPass /ssh ws://{{SSH_WS_HOST}}:{{SSH_WS_PORT}}/\n</VirtualHost>\n");
     await chmod(path.join(appDir, "scripts/backup-db.sh"), 0o755);
     await writeFile(path.join(binDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
@@ -204,6 +204,54 @@ describe("deploy/preflight.sh", () => {
       expect(result.code, result.stdout + result.stderr).toBe(0);
       await expect(readFile(logFile, "utf8")).resolves.toContain("backup");
       expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses to install systemd templates with service keys under Unit", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const fakeRoot = path.join(appDir, "fake-root");
+    const binDir = path.join(appDir, "bin");
+    await writeValidEnv(envFile);
+    await Promise.all([
+      mkdir(binDir, { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/systemd/system"), { recursive: true }),
+      mkdir(path.join(appDir, "deploy/systemd"), { recursive: true }),
+    ]);
+
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nWorkingDirectory=/tmp\n[Service]\nExecStart=/bin/true\n");
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=ok\n[Service]\nExecStart=/bin/true\n");
+    for (const command of ["id", "useradd", "apt-get", "curl", "gpg", "chown", "install", "caddy", "rsync", "git", "sleep", "systemctl", "node", "npm", "npx", "systemd-analyze"]) {
+      let body = "#!/usr/bin/env bash\nexit 0\n";
+      if (command === "id") body = "#!/usr/bin/env bash\nif [ \"$1\" = \"-u\" ]; then printf '0\\n'; else exit 0; fi\n";
+      if (command === "node") body = "#!/usr/bin/env bash\nif [ \"$1\" = \"-p\" ]; then printf '22\\n'; else printf 'node\\n'; fi\n";
+      await writeFile(path.join(binDir, command), body);
+      await chmod(path.join(binDir, command), 0o755);
+    }
+
+    try {
+      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:/usr/bin:/bin`,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          SOURCE_DIR: repoRoot,
+          DESTDIR: fakeRoot,
+          SKIP_PACKAGES: "1",
+          SKIP_RESTART: "1",
+          SKIP_BUILD: "1",
+          SKIP_DB_SETUP: "1",
+          SKIP_CADDY: "1",
+        },
+      });
+
+      expect(result.code).not.toBe(0);
+      expect(result.stderr + result.stdout).toContain("service-only keys must be under [Service]");
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }
@@ -278,15 +326,63 @@ describe("deploy/install.sh", () => {
       const nextUnit = await readFile(nextUnitPath, "utf8");
       const wsUnit = await readFile(wsUnitPath, "utf8");
 	expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
-	expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} --yes tsx src/server.ts`);
+	expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npm")} run start`);
 	expect(nextUnit).toContain("Description=自定义控制台 Next.js application");
 	expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
-	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} --yes tsx src/ssh-ws-proxy.ts`);
+	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npm")} run start:ssh-ws`);
       expect(wsUnit).toContain("Description=自定义控制台 SSH WebSocket proxy");
       expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
       expect(result.stdout + result.stderr).not.toContain("whrkhldsb-next.service");
     } finally {
       await rm(appDir, { force: true, recursive: true });
+    }
+  });
+
+  it("refuses DESTDIR unless restarts are disabled so tests cannot overwrite live units", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const fakeRoot = path.join(appDir, "fakeroot");
+    const binDir = await mkdtemp(path.join(tmpdir(), "whrkhldsb-bin-"));
+
+    await Promise.all([
+      mkdir(path.join(appDir, "deploy/systemd"), { recursive: true }),
+      mkdir(path.join(appDir, "node_modules"), { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/systemd/system"), { recursive: true }),
+    ]);
+    await writeFile(envFile, "DATABASE_URL=postgresql://u:p@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n");
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+    for (const command of ["id", "useradd", "apt-get", "curl", "gpg", "chown", "install", "rsync", "git", "sleep", "systemd-analyze", "node", "npm", "npx"]) {
+      let body = "#!/usr/bin/env bash\nexit 0\n";
+      if (command === "id") body = "#!/usr/bin/env bash\nif [ \"$1\" = \"-u\" ]; then printf '0\\n'; else exit 0; fi\n";
+      await writeFile(path.join(binDir, command), body);
+      await chmod(path.join(binDir, command), 0o755);
+    }
+
+    try {
+      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:/usr/bin:/bin`,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          SOURCE_DIR: repoRoot,
+          DESTDIR: fakeRoot,
+          SKIP_PACKAGES: "1",
+          SKIP_BUILD: "1",
+          SKIP_DB_SETUP: "1",
+          SKIP_CADDY: "1",
+        },
+      });
+
+      expect(result.code).not.toBe(0);
+      expect(result.stderr + result.stdout).toContain("DESTDIR");
+      expect(result.stderr + result.stdout).toContain("SKIP_RESTART=1");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+      await rm(binDir, { force: true, recursive: true });
     }
   });
 

@@ -52,7 +52,11 @@ SOURCE_DIR="${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 log() { printf '\033[1;32m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*"; }
 warn() { printf '\033[1;33m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*" >&2; }
 fail() { printf '\033[1;31m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*" >&2; exit 1; }
-need_root() { [ "$(id -u)" -eq 0 ] || fail "Please run as root (or via sudo)."; }
+need_root() {
+ local uid
+ uid="$(id -u 2>/dev/null || printf '1')"
+ [ "${uid}" = "0" ] || fail "Please run as root (or via sudo)."
+}
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 shell_escape_sed_replacement() {
@@ -582,17 +586,23 @@ build_app() {
  npm run db:seed
  fi
  npm run build
- # Verify tsx is available (needed by custom server for WebSocket support)
- if ! npx tsx --version >/dev/null 2>&1; then
- log "Installing tsx (TypeScript execution engine for custom server)"
- npm install -D tsx
+ npm run build:runtime
+ # Verify compiled runtime entrypoints are available before systemd restart.
+ if [ ! -f dist/server.js ] || [ ! -f dist/ssh-ws-proxy.js ]; then
+   fail "Runtime bundle missing after build. Expected dist/server.js and dist/ssh-ws-proxy.js."
  fi
  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
 
 install_systemd() {
 	log "Installing systemd units"
-	local node_bin npm_bin npx_bin tsx_bin systemd_path
+	if [ -n "${DESTDIR}" ]; then
+		case "${DESTDIR}" in
+			/tmp/*|/var/tmp/*) ;;
+			*) fail "Refusing to install systemd units with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
+		esac
+	fi
+	local node_bin npm_bin npx_bin systemd_path
 	node_bin="$(resolve_node_tool node)"
 	npm_bin="$(resolve_node_tool npm)"
 	npx_bin="$(resolve_node_tool npx)"
@@ -604,7 +614,26 @@ install_systemd() {
 			src="${APP_DIR}/deploy/systemd/whrkhldsb-${svc}.service.example"
 		fi
 		[ -f "${src}" ] || fail "Systemd template not found: ${src}"
+		if [ -n "${DESTDIR}" ]; then
+			case "${src}" in
+				/tmp/*|/var/tmp/*) ;;
+				*) fail "Refusing to use production systemd template source ${src} while DESTDIR=${DESTDIR}. Test templates must live inside the isolated temp app dir." ;;
+			esac
+		fi
+		if awk '
+			/^\[/ { section=$0 }
+			section == "[Unit]" && /^[[:space:]]*(WorkingDirectory|EnvironmentFile|User|Group)=/ { bad=1 }
+			END { exit bad ? 0 : 1 }
+		' "${src}"; then
+			fail "Invalid systemd template ${src}: service-only keys must be under [Service], not [Unit]. Refusing to install a broken unit."
+		fi
+		if ! grep -Eq '^\[Service\]' "${src}" || ! grep -Eq '^ExecStart=' "${src}"; then
+			fail "Invalid systemd template ${src}: missing [Service] or ExecStart."
+		fi
 		local dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-${svc}.service"
+		if [ -n "${DESTDIR}" ] && [ "${SKIP_RESTART}" != "1" ]; then
+			fail "Refusing to write systemd units under DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
+		fi
 		mkdir -p "$(dirname "${dst}")"
 		# Remove immutable flag if present (from hardening or previous deployment)
 		chattr -i "${dst}" 2>/dev/null || true
@@ -620,6 +649,7 @@ sed \
 			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
 			"${src}" > "${dst}"
 		chmod 0644 "${dst}"
+		systemd-analyze verify "${dst}" >/dev/null 2>&1 || warn "systemd-analyze verify reported warnings for ${dst}"
 	done
 	systemctl daemon-reload
 	systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
