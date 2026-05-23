@@ -12,7 +12,7 @@ EnvironmentFile={{ENV_FILE}}
 Environment=NODE_ENV=production
 Environment=PORT=3000
 Environment=PATH={{SYSTEMD_PATH}}
-ExecStart={{NPX_BIN}} tsx src/server.ts
+ExecStart={{NPX_BIN}} --yes tsx src/server.ts
 Restart=always
 RestartSec=5
 User={{APP_USER}}

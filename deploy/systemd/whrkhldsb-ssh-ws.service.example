@@ -11,7 +11,7 @@ WorkingDirectory={{APP_DIR}}
 EnvironmentFile={{ENV_FILE}}
 Environment=NODE_ENV=production
 Environment=PATH={{SYSTEMD_PATH}}
-ExecStart={{NPX_BIN}} tsx src/ssh-ws-proxy.ts
+ExecStart={{NPX_BIN}} --yes tsx src/ssh-ws-proxy.ts
 Restart=always
 RestartSec=5
 User={{APP_USER}}

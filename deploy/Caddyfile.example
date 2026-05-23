@@ -1,5 +1,13 @@
-your-domain.example {
+{
+    auto_https disable_redirects
+}
+
+http://your-domain.example, https://your-domain.example {
     encode gzip zstd
+
+    # Cloudflare can connect to the origin over HTTP while the visitor URL is
+    # already HTTPS. Disable Caddy's automatic HTTP->HTTPS redirect to avoid an
+    # external 308 loop when Cloudflare SSL mode is Flexible.
 
     header {
         X-Content-Type-Options nosniff

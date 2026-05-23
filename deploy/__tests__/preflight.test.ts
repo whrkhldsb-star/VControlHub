@@ -278,10 +278,10 @@ describe("deploy/install.sh", () => {
       const nextUnit = await readFile(nextUnitPath, "utf8");
       const wsUnit = await readFile(wsUnitPath, "utf8");
 	expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
-	expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/server.ts`);
+	expect(nextUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} --yes tsx src/server.ts`);
 	expect(nextUnit).toContain("Description=自定义控制台 Next.js application");
 	expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
-	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} tsx src/ssh-ws-proxy.ts`);
+	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npx")} --yes tsx src/ssh-ws-proxy.ts`);
       expect(wsUnit).toContain("Description=自定义控制台 SSH WebSocket proxy");
       expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
       expect(result.stdout + result.stderr).not.toContain("whrkhldsb-next.service");

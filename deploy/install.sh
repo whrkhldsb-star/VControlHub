@@ -81,6 +81,40 @@ resolve_command() {
   esac
 }
 
+resolve_node_tool() {
+  local command_name="$1" resolved="" candidate=""
+
+  resolved="$(resolve_command "${command_name}")"
+  if [ "${APP_USER}" = "root" ]; then
+    printf '%s\n' "${resolved}"
+    return 0
+  fi
+  case "${resolved}" in
+    /root/*)
+      # The root user's Hermes/local Node shims live under /root, which non-root
+      # service users cannot traverse and cause systemd status=203/EXEC failures.
+      # In that case, fall back to a system-wide Node installation.
+      ;;
+    *)
+      printf '%s\n' "${resolved}"
+      return 0
+      ;;
+  esac
+
+  for candidate in \
+    "/usr/bin/${command_name}" \
+    "/usr/local/bin/${command_name}" \
+    "/bin/${command_name}" \
+    "/opt/node/bin/${command_name}"; do
+    if [ -x "${candidate}" ]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  fail "${command_name} resolved to ${resolved}, which is under /root and not executable by APP_USER=${APP_USER}. Install Node.js system-wide or set APP_USER=root for /root deployments."
+}
+
 build_systemd_path() {
   local node_path="$1" npm_path="$2" npx_path="$3"
   local path_value="" dir candidate
@@ -546,11 +580,9 @@ build_app() {
 install_systemd() {
 	log "Installing systemd units"
 	local node_bin npm_bin npx_bin tsx_bin systemd_path
-	node_bin="$(resolve_command node)"
-	npm_bin="$(resolve_command npm)"
-	npx_bin="$(resolve_command npx)"
-	# Resolve tsx path — installed as devDependency, run via npx
-	tsx_bin="$(command -v tsx 2>/dev/null || npm ls tsx --parseable 2>/dev/null | head -1 || echo "${npm_bin%/npm}/npx")"
+	node_bin="$(resolve_node_tool node)"
+	npm_bin="$(resolve_node_tool npm)"
+	npx_bin="$(resolve_node_tool npx)"
 	systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
 	local svc
 	for svc in next ssh-ws; do
