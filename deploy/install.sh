@@ -566,6 +566,8 @@ build_app() {
  # shellcheck disable=SC1090
  source "${ENV_FILE}"
 	set +a
+	export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
+	export NEXT_TELEMETRY_DISABLED="${NEXT_TELEMETRY_DISABLED:-1}"
 	if [ "${SKIP_BUILD}" = "1" ]; then
 		log "Skipping npm install and build (SKIP_BUILD=1)"
 		return
