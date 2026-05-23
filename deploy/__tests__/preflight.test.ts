@@ -386,6 +386,17 @@ describe("deploy/install.sh", () => {
     }
   });
 
+  it("restarts Caddy when the service is inactive before restarting app services", async () => {
+    const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
+    expect(script).toContain("systemctl is-active --quiet caddy");
+    expect(script).toContain("systemctl restart caddy");
+  });
+
+  it("uses explicit zero-status returns for skipped Apache setup under set -e", async () => {
+    const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
+    expect(script).toContain('if [ "${SKIP_CADDY}" != "1" ]; then\n  return 0\n fi');
+  });
+
   it("defaults to root for in-place deployments under /root unless APP_USER is explicit", async () => {
     const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
     expect(script).toContain("APP_USER_EXPLICIT");

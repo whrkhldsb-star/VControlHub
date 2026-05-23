@@ -695,7 +695,9 @@ sed -i \
 install_apache() {
  # When SKIP_CADDY=1, set up Apache as the reverse proxy instead.
  # This covers IP-only deployments where no domain/TLS is needed.
- [ "${SKIP_CADDY}" = "1" ] || { return; }
+ if [ "${SKIP_CADDY}" != "1" ]; then
+  return 0
+ fi
  if ! have_cmd apache2 && ! have_cmd apachectl; then
   log "Apache not found — installing"
   apt-get install -y apache2
@@ -742,8 +744,18 @@ restart_services() {
  [ "${SKIP_RESTART}" = "1" ] && { warn "Skipping service restart"; return; }
  log "Restarting services"
  systemctl restart "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
- [ "${SKIP_CADDY}" = "1" ] || systemctl reload caddy || systemctl restart caddy
- # Wait for Next.js to be ready (standalone server can take a few seconds)
+	# Restart Caddy with the newly rendered config. `systemctl reload caddy` fails
+	# when Caddy is installed/enabled but not currently running (common after a
+	# reboot or first install), so try reload only for an active service and fall
+	# back to restart otherwise.
+	if [ "${SKIP_CADDY}" != "1" ]; then
+		if systemctl is-active --quiet caddy; then
+			systemctl reload caddy || systemctl restart caddy
+		else
+			systemctl restart caddy
+		fi
+	fi
+	# Wait for Next.js to be ready (standalone server can take a few seconds)
  local retries=15
  while [ "${retries}" -gt 0 ]; do
  if curl -fsS "http://${NEXT_HOST}:${NEXT_PORT}/login" >/dev/null 2>&1; then
