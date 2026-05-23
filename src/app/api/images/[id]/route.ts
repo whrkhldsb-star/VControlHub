@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { withRateLimit, rateLimitResponse, IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 					select: { basePath: true, driver: true },
 				});
 				if (storageNode?.driver === "LOCAL" && image.relativePath) {
-					await unlink(path.join(storageNode.basePath, image.relativePath, image.storageKey)).catch(() => {});
+					const resolvedDir = resolveStoragePathWithinBase(storageNode.basePath, image.relativePath);
+					if (resolvedDir.ok) {
+						await unlink(path.join(resolvedDir.path, image.storageKey)).catch(() => {});
+					}
 				}
 			} catch (e) {
 				logError("image-bed:delete-storage-copy", e);

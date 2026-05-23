@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPathName,
+  isSafeArchiveEntryPath,
   joinStoragePath,
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
+  resolveStoragePathWithinBase,
 } from "../path-utils";
 
 describe("storage path utils", () => {
@@ -43,5 +45,21 @@ describe("storage path utils", () => {
   it("extracts safe names from normalized paths", () => {
     expect(getPathName("team-a/docs/a.txt")).toBe("a.txt");
     expect(getPathName("a.txt")).toBe("a.txt");
+  });
+
+  it("resolves paths only inside the configured storage root", () => {
+    const resolved = resolveStoragePathWithinBase("/srv/storage", "team-a/docs/a.txt");
+    expect(resolved).toEqual({ ok: true, path: "/srv/storage/team-a/docs/a.txt" });
+    expect(resolveStoragePathWithinBase("/srv/storage", "../secret.png").ok).toBe(false);
+    expect(resolveStoragePathWithinBase("/srv/storage", "/etc/passwd").ok).toBe(false);
+  });
+
+  it("detects archive entries that could escape during extraction", () => {
+    expect(isSafeArchiveEntryPath("folder/photo.png")).toBe(true);
+    expect(isSafeArchiveEntryPath("../secret.txt")).toBe(false);
+    expect(isSafeArchiveEntryPath("folder/../../secret.txt")).toBe(false);
+    expect(isSafeArchiveEntryPath("/absolute.txt")).toBe(false);
+    expect(isSafeArchiveEntryPath("C:/Windows/system.ini")).toBe(false);
+    expect(isSafeArchiveEntryPath("folder\\..\\secret.txt")).toBe(false);
   });
 });

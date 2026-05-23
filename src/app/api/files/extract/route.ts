@@ -5,6 +5,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import fs from "node:fs/promises";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const execFileAsync = promisify(execFile);
@@ -24,6 +26,9 @@ export async function POST(request: NextRequest) {
 	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 	const session = await requireSession();
 	if (!session) return NextResponse.json({ error: "未授权" }, { status: 401 });
+	if (!sessionHasPermission(session, "storage:write")) {
+		return NextResponse.json({ error: "缺少云盘写入权限" }, { status: 403 });
+	}
 
 	let rawBody: unknown;
 	try {
@@ -61,9 +66,11 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
 	}
 
-	const fullPath = path.join(node.basePath, relativePath.replace(/^\/+/, ""));
-	const targetDir = path.dirname(fullPath);
-
+	const resolvedPath = resolveStoragePathWithinBase(node.basePath, relativePath.replace(/^\/+/, ""));
+	if (!resolvedPath.ok) {
+		return NextResponse.json({ error: resolvedPath.reason }, { status: 400 });
+	}
+	const fullPath = resolvedPath.path;
 	// Verify the file exists
 	try {
 		await fs.access(fullPath);
@@ -74,38 +81,36 @@ export async function POST(request: NextRequest) {
 	const ext = path.extname(name).toLowerCase();
 
 	try {
-		if (ext === ".zip" || ext === ".jar") {
-			await execFileAsync("unzip", ["-o", fullPath, "-d", targetDir], {
-				maxBuffer: 10 * 1024 * 1024,
-				timeout: 60000,
-			});
-		} else if (ext === ".tar.gz" || ext === ".tgz") {
-			await execFileAsync("tar", ["-xzf", fullPath, "-C", targetDir], {
-				maxBuffer: 10 * 1024 * 1024,
-				timeout: 60000,
-			});
-		} else if (ext === ".tar") {
-			await execFileAsync("tar", ["-xf", fullPath, "-C", targetDir], {
-				maxBuffer: 10 * 1024 * 1024,
-				timeout: 60000,
-			});
-		} else if (ext === ".gz" && !name.endsWith(".tar.gz")) {
+		if (ext === ".gz" && !name.endsWith(".tar.gz")) {
 			const outputName = name.replace(/\.gz$/, "");
-			const _outputPath = path.join(targetDir, outputName);
+			const outputPath = resolveStoragePathWithinBase(node.basePath, path.posix.join(path.posix.dirname(relativePath.replace(/^\/+/, "")), outputName));
+			if (!outputPath.ok) {
+				return NextResponse.json({ error: outputPath.reason }, { status: 400 });
+			}
 			await execFileAsync("gunzip", ["-k", "-f", fullPath], {
 				maxBuffer: 10 * 1024 * 1024,
 				timeout: 60000,
 			});
-		} else if (ext === ".7z") {
-			await execFileAsync("7z", ["x", fullPath, `-o${targetDir}`, "-y"], {
-				maxBuffer: 10 * 1024 * 1024,
-				timeout: 60000,
-			});
-		} else if (ext === ".rar") {
-			await execFileAsync("unrar", ["x", "-y", fullPath, targetDir + "/"], {
-				maxBuffer: 10 * 1024 * 1024,
-				timeout: 60000,
-			});
+		} else if (ext === ".zip" || ext === ".jar") {
+			return NextResponse.json(
+				{ error: "为避免符号链接/硬链接穿越风险，暂不支持在线解压 zip/jar，请先在可信环境中解压" },
+				{ status: 400 },
+			);
+		} else if (ext === ".tar.gz" || ext === ".tgz") {
+			return NextResponse.json(
+				{ error: "为避免符号链接/硬链接穿越风险，暂不支持在线解压 tar/tgz，请先在可信环境中解压" },
+				{ status: 400 },
+			);
+		} else if (ext === ".tar") {
+			return NextResponse.json(
+				{ error: "为避免符号链接/硬链接穿越风险，暂不支持在线解压 tar，请先在可信环境中解压" },
+				{ status: 400 },
+			);
+		} else if (ext === ".7z" || ext === ".rar") {
+			return NextResponse.json(
+				{ error: "为避免符号链接/硬链接穿越风险，暂不支持在线解压 7z/RAR，请先在可信环境中解压" },
+				{ status: 400 },
+			);
 		} else {
 			return NextResponse.json(
 				{ error: `不支持的压缩包格式: ${ext}` },

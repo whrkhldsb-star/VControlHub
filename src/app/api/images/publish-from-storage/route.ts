@@ -14,6 +14,7 @@ import * as crypto from "node:crypto";
 import { createLogger } from "@/lib/logging";
 import { UPLOAD_DIR, IMAGE_EXTENSIONS, mimeTypeFromExt } from "@/lib/image-bed/constants";
 import { withRateLimit, rateLimitResponse, IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
 const logger = createLogger("api:images:publish-from-storage");
 
@@ -46,7 +47,11 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: "仅支持本地存储节点" }, { status: 400 });
 		}
 
-		const sourcePath = path.join(storageNode.basePath, relativePath);
+		const resolvedSourcePath = resolveStoragePathWithinBase(storageNode.basePath, relativePath);
+		if (!resolvedSourcePath.ok) {
+			return NextResponse.json({ error: resolvedSourcePath.reason }, { status: 400 });
+		}
+		const sourcePath = resolvedSourcePath.path;
 		const ext = path.extname(relativePath).toLowerCase();
 		if (!IMAGE_EXTENSIONS.has(ext)) {
 			return NextResponse.json({ error: "不支持该文件类型" }, { status: 400 });

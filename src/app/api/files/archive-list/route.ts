@@ -3,6 +3,8 @@ import { requireSession } from "@/lib/auth/require-session";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +20,9 @@ type ArchiveEntry = {
 export async function GET(request: NextRequest) {
 	const session = await requireSession();
 	if (!session) return NextResponse.json({ error: "未授权" }, { status: 401 });
+	if (!sessionHasPermission(session, "storage:read")) {
+		return NextResponse.json({ error: "缺少云盘读取权限" }, { status: 403 });
+	}
 
 	const { searchParams } = request.nextUrl;
 	const nodeId = searchParams.get("nodeId") ?? "";
@@ -45,7 +50,11 @@ export async function GET(request: NextRequest) {
 		return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
 	}
 
-	const fullPath = path.join(node.basePath, relativePath.replace(/^\/+/, ""));
+	const resolvedPath = resolveStoragePathWithinBase(node.basePath, relativePath.replace(/^\/+/, ""));
+	if (!resolvedPath.ok) {
+		return NextResponse.json({ error: resolvedPath.reason }, { status: 400 });
+	}
+	const fullPath = resolvedPath.path;
 
 	try {
 		const entries = await listArchiveContents(name, fullPath);

@@ -96,3 +96,27 @@ export function getPathName(relativePath: string): string {
   const parts = normalized.path.split("/");
   return parts[parts.length - 1] ?? "";
 }
+
+export function resolveStoragePathWithinBase(basePath: string, relativePath: string | null | undefined): StoragePathResult {
+  const normalizedPath = normalizeStorageRelativePath(relativePath);
+  if (!normalizedPath.ok) {
+    return normalizedPath;
+  }
+
+  const allowedRoot = path.resolve(basePath);
+  const absolutePath = path.resolve(allowedRoot, normalizedPath.path);
+  const relativeToRoot = path.relative(allowedRoot, absolutePath);
+
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    return { ok: false, reason: "路径超出允许范围" };
+  }
+
+  return { ok: true, path: absolutePath };
+}
+
+export function isSafeArchiveEntryPath(value: string | null | undefined): boolean {
+  const normalizedInput = normalizePathInput(value);
+  if (!normalizedInput || normalizedInput.startsWith("/") || path.win32.isAbsolute(normalizedInput)) return false;
+  const segments = normalizedInput.split("/").filter(Boolean);
+  return segments.every((segment) => segment !== "." && segment !== "..");
+}

@@ -13,6 +13,7 @@ import { z } from "zod";
 import http from "node:http";
 import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 import { createLogger } from "@/lib/logging";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withRateLimit, rateLimitResponse, COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const logger = createLogger("api:docker:containers");
@@ -78,6 +79,9 @@ function dockerRequest(apiPath: string, method = "GET", body?: string): Promise<
 export async function GET(req: NextRequest) {
 	const session = await requireApiSession();
 	if (!isSessionPayload(session)) return session; // 401 response
+	if (!sessionHasPermission(session, "docker:manage")) {
+		return NextResponse.json({ error: "缺少 Docker 管理权限" }, { status: 403 });
+	}
 
 	const id = req.nextUrl.searchParams.get("id");
 	const logs = req.nextUrl.searchParams.get("logs");
@@ -116,6 +120,9 @@ export async function POST(req: NextRequest) {
 	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 	const session = await requireApiSession();
 	if (!isSessionPayload(session)) return session; // 401 response
+	if (!sessionHasPermission(session, "docker:manage")) {
+		return NextResponse.json({ error: "缺少 Docker 管理权限" }, { status: 403 });
+	}
 
 	try {
 		const parsed = containerActionSchema.safeParse(await req.json());

@@ -114,13 +114,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	}, [catalog, remoteCatalog, fetchCatalog]);
 
 	// Debounced port availability check
-	const checkPortAvailability = useCallback(async (_port: number) => {
+	const checkPortAvailability = useCallback(async (port: number) => {
 		setPortCheck({ available: false, usedBy: null, checking: true });
 		try {
-			const data = await csrfFetch("/api/quick-services/check-port", { raw: false } as any);
+			const data = await csrfFetch(`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}`, { raw: false } as any);
 			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
-		} catch {
-			setPortCheck({ available: true, usedBy: null, checking: false });
+		} catch (err) {
+			setPortCheck({ available: false, usedBy: err instanceof Error ? err.message : "检查失败", checking: false });
 		}
 	}, []);
 

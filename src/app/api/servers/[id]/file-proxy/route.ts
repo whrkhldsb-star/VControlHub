@@ -9,6 +9,7 @@
 
 import { NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth/require-api-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { randomUUID } from "crypto";
 import { withRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -72,6 +73,9 @@ export async function GET(
 ) {
  const authed = await requireApiSession();
  if (authed instanceof NextResponse) return authed;
+ if (!sessionHasPermission(authed.session, "server:ssh")) {
+  return NextResponse.json({ error: "缺少服务器 SSH 权限" }, { status: 403 });
+ }
  const { id } = await params;
 
  const server = await prisma.server.findUnique({
@@ -130,6 +134,9 @@ export async function POST(
  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
  const authed = await requireApiSession();
  if (authed instanceof NextResponse) return authed;
+ if (!sessionHasPermission(authed.session, "server:ssh")) {
+  return NextResponse.json({ error: "缺少服务器 SSH 权限" }, { status: 403 });
+ }
  const { id } = await params;
 	try {
 
@@ -294,6 +301,9 @@ export async function DELETE(
  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
  const authed = await requireApiSession();
  if (authed instanceof NextResponse) return authed;
+ if (!sessionHasPermission(authed.session, "server:ssh")) {
+  return NextResponse.json({ error: "缺少服务器 SSH 权限" }, { status: 403 });
+ }
  const { id } = await params;
 	try {
 

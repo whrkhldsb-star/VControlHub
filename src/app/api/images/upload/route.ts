@@ -11,6 +11,7 @@ import { logError } from "@/lib/logging";
 import { extractMetadata, generateThumbnail, convertToWebP, convertToAVIF } from "@/lib/image/service";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { withRateLimit, rateLimitResponse, IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -136,9 +137,12 @@ export async function POST(request: Request) {
 					select: { id: true, driver: true, basePath: true },
 				});
 				if (storageNode && storageNode.driver === "LOCAL") {
-					const targetDir = path.join(storageNode.basePath, relativePath);
-					await mkdir(targetDir, { recursive: true });
-					await writeFile(path.join(targetDir, storageKey), buffer);
+					const resolvedPath = resolveStoragePathWithinBase(storageNode.basePath, relativePath);
+					if (!resolvedPath.ok) {
+						return NextResponse.json({ error: resolvedPath.reason }, { status: 400 });
+					}
+					await mkdir(resolvedPath.path, { recursive: true });
+					await writeFile(path.join(resolvedPath.path, storageKey), buffer);
 				}
 			} catch (e) {
 				// Non-fatal: cloud copy is best-effort

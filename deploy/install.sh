@@ -61,6 +61,14 @@ shell_escape_sed_replacement() {
  printf '%s' "$1" | sed -e 's/[&\/#|]/\\&/g'
 }
 
+sql_literal() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
+urlencode() {
+  python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+}
+
 set_env_var() {
  local name="$1" value="${2:-}" escaped
  escaped="$(shell_escape_sed_replacement "${value}")"
@@ -137,7 +145,7 @@ build_systemd_path() {
 is_placeholder_value() {
   local value="${1:-}"
   case "${value}" in
-    ""|*REPLACE_WITH*|*CHANGE_ME*|*CHANGE_THIS*|*your-domain.example*|*example.com*|*'***'*|*\*\*\**)
+    ""|*REPLACE_WITH*|*CHANGE_ME*|*CHANGE_THIS*|*your-domain.example*|*example.com*|*\${encoded_pw}*|*\*\*\**)
       return 0
       ;;
     *)
@@ -493,26 +501,26 @@ setup_postgres() {
 	fi
 
 	# Create database and user if they do not exist
-	local pg_user_exists pg_db_exists
+	local pg_user_exists pg_db_exists pg_password_sql
+	pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
 	pg_user_exists="$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PG_DB_USER}'" 2>/dev/null || true)"
 	if [ "${pg_user_exists}" != "1" ]; then
 		if [ -z "${PG_DB_PASSWORD}" ]; then
-			# Generate alphanumeric-only password to avoid sed/SQL escaping issues
 			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
-			# Save generated password to .env.local
+			pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
 			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
 			warn "Generated random PostgreSQL password for ${PG_DB_USER}; saved to ${ENV_FILE}"
 		fi
 		log "Creating PostgreSQL user ${PG_DB_USER}"
-		sudo -u postgres psql -c "CREATE USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${PG_DB_PASSWORD}';" 2>/dev/null || warn "Failed to create PostgreSQL user (may already exist)"
+		sudo -u postgres psql -c "CREATE USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || warn "Failed to create PostgreSQL user (may already exist)"
 	else
-		# User exists — ensure it has a password set (handle empty-password scenario)
 		if [ -z "${PG_DB_PASSWORD}" ]; then
 			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
+			pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
 			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
 			warn "Generated random PostgreSQL password for existing user ${PG_DB_USER}; saved to ${ENV_FILE}"
 		fi
-		sudo -u postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${PG_DB_PASSWORD}';" 2>/dev/null || true
+		sudo -u postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || true
 	fi
 
 	pg_db_exists="$(sudo -u postgres psql -lqtAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" 2>/dev/null || true)"
@@ -522,9 +530,10 @@ setup_postgres() {
 	fi
 
 	# Always sync DATABASE_URL with PG_DB_PASSWORD to prevent mismatch
-	local generated_url current_url current_pw need_url_update
+	local generated_url current_url current_pw need_url_update encoded_pw
+	encoded_pw="$(urlencode "${PG_DB_PASSWORD}")"
 	if [ -n "${PG_DB_PASSWORD}" ]; then
-		generated_url="postgresql://${PG_DB_USER}:${PG_DB_PASSWORD}@127.0.0.1:5432/${PG_DB_NAME}"
+		generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"
 	else
 		generated_url="postgresql://${PG_DB_USER}@127.0.0.1:5432/${PG_DB_NAME}"
 	fi
@@ -533,7 +542,7 @@ setup_postgres() {
 	if is_placeholder_value "${current_url}" || [ -z "${current_url}" ]; then
 		need_url_update=1
 	elif [ -n "${PG_DB_PASSWORD}" ]; then
-		current_pw="$(printf '%s' "${current_url}" | sed -n 's#^[^:]*://[^:]*:\([^@]*\)@.*#\1#p' 2>/dev/null || true)"
+		current_pw="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(urllib.parse.urlparse(sys.argv[1]).password or ""))' "${current_url}" 2>/dev/null || true)"
 		if [ "${current_pw}" != "${PG_DB_PASSWORD}" ]; then
 			need_url_update=1
 		fi
@@ -541,8 +550,10 @@ setup_postgres() {
 	if [ "${need_url_update}" -eq 1 ]; then
 		log "Updating DATABASE_URL in ${ENV_FILE} (syncing with PG_DB_PASSWORD)"
 		set_env_var DATABASE_URL "${generated_url}"
+		DATABASE_URL="${generated_url}"
 	fi
 }
+
 build_app() {
  log "Installing dependencies and building application"
  cd "${APP_DIR}"
