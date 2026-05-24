@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
+import { collectSystemHealthChecks } from "@/lib/system-health/service";
 import { HealthDashboardClient } from "./health-dashboard-client";
 
 export default async function HealthPage() {
@@ -18,6 +19,8 @@ export default async function HealthPage() {
 	}
 
 	const servers = await listServerProfiles();
+	const systemHealth = await collectSystemHealthChecks({ projectRoot: process.cwd() }).catch(() => null);
+	const systemHealthSummary = systemHealth?.summary ?? null;
 
 	return (
 		<main className="p-6">
@@ -31,7 +34,7 @@ export default async function HealthPage() {
 					纳管节点 {servers.length} 台
 				</div>
 			</header>
-			<HealthDashboardClient serverCount={servers.length} />
+			<HealthDashboardClient serverCount={servers.length} systemHealthSummary={systemHealthSummary} />
 		</main>
 	);
 }

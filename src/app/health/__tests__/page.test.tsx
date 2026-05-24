@@ -10,9 +10,15 @@ const { requireSessionMock, sessionHasPermissionMock, listServerProfilesMock } =
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
 vi.mock("@/lib/server/service", () => ({ listServerProfiles: listServerProfilesMock }));
+vi.mock("@/lib/system-health/service", () => ({
+  collectSystemHealthChecks: vi.fn().mockResolvedValue({ summary: { total: 4, healthy: 3, warning: 1, critical: 0, overall: "warning" } }),
+}));
 vi.mock("../health-dashboard-client", () => ({
-  HealthDashboardClient: ({ serverCount }: { serverCount: number }) => (
-    <div data-testid="health-dashboard">节点数量：{serverCount}</div>
+  HealthDashboardClient: ({ serverCount, systemHealthSummary }: { serverCount: number; systemHealthSummary?: { total: number; healthy: number; warning: number; critical: number; overall: string } }) => (
+    <div data-testid="health-dashboard">
+      节点数量：{serverCount}
+      <span data-testid="system-health-overall">{systemHealthSummary?.overall ?? "none"}</span>
+    </div>
   ),
 }));
 

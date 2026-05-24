@@ -3,13 +3,21 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
-/* ── Types ────────────────────────────────────────────────── */
+type SystemHealthStatus = "healthy" | "warning" | "critical";
+type SystemHealthSummary = { total: number; healthy: number; warning: number; critical: number; overall: SystemHealthStatus };
 
 type ServerHealth = {
-	serverId: string; serverName: string; host: string; enabled: boolean;
+	serverId: string;
+	serverName: string;
+	host: string;
+	enabled: boolean;
 	status: "healthy" | "warning" | "critical" | "offline" | "unknown";
-	cpu?: number; mem?: number; diskMax?: number; uptime?: string;
-	lastCheck: string; error?: string;
+	cpu?: number;
+	mem?: number;
+	diskMax?: number;
+	uptime?: string;
+	lastCheck: string;
+	error?: string;
 };
 
 type HealthOverview = {
@@ -19,7 +27,8 @@ type HealthOverview = {
 
 type MetricPoint = { cpu: number; mem: number; disk: number; online: boolean; t: string };
 
-type Props = { serverCount: number };
+type Props = { serverCount: number; systemHealthSummary?: SystemHealthSummary | null };
+
 
 /* ── Status helpers ───────────────────────────────────────── */
 
@@ -47,7 +56,7 @@ function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 
 /* ── Component ────────────────────────────────────────────── */
 
-export function HealthDashboardClient({ serverCount: _serverCount }: Props) {
+export function HealthDashboardClient({ serverCount: _serverCount, systemHealthSummary }: Props) {
 	void _serverCount;
 	const [overview, setOverview] = useState<HealthOverview | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -112,6 +121,15 @@ export function HealthDashboardClient({ serverCount: _serverCount }: Props) {
 
 	return (
 		<div className="space-y-6">
+			{systemHealthSummary && (
+				<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+					<SummaryCard label="系统检查" value={systemHealthSummary.total} color="slate" />
+					<SummaryCard label="健康" value={systemHealthSummary.healthy} color="emerald" />
+					<SummaryCard label="警告" value={systemHealthSummary.warning} color="amber" />
+					<SummaryCard label="严重" value={systemHealthSummary.critical} color="rose" />
+				</section>
+			)}
+
 			{/* Summary cards */}
 			<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 				<SummaryCard label="节点总数" value={total} color="slate" />
