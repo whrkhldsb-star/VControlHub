@@ -49,6 +49,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blog", "other"];
+const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
 
 type Tab = "store" | "community" | "installed" | "sources";
 
@@ -325,6 +326,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			? sortByPriority(filterBySearch(remoteAvailable))
 			: sortByPriority(filterBySearch(installed));
 	const grouped = groupByCategory(currentItems);
+	const recommendedItems = RECOMMENDED_SERVICE_SLUGS
+		.map((slug) => catalog.find((item) => item.slug === slug) ?? remoteCatalog.find((item) => item.slug === slug))
+		.filter((item): item is CatalogItem => Boolean(item));
 
 	return (
 		<div className="space-y-6">
@@ -357,6 +361,33 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					</button>
 				)}
 			</div>
+
+			{tab === "store" && !search && recommendedItems.length > 0 && (
+				<section className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.05] p-4">
+					<div className="flex items-center justify-between gap-3">
+						<div>
+							<h2 className="text-sm font-semibold text-white">推荐快速服务</h2>
+							<p className="mt-1 text-xs text-slate-400">优先覆盖文件、监控、容器管理、密码库和代码托管。</p>
+						</div>
+						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200">MVP 优先</span>
+					</div>
+					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{recommendedItems.map((item) => (
+							<ServiceCard
+								key={`recommended-${item.slug}`}
+								item={item}
+								tab="store"
+								busy={actionSlug === item.slug}
+								onInstall={() => openInstallDialog(item)}
+								onStart={() => doAction(item.slug, "start")}
+								onStop={() => doAction(item.slug, "stop")}
+								onSync={() => doAction(item.slug, "sync")}
+								onUninstall={() => doUninstall(item.slug)}
+							/>
+						))}
+					</div>
+				</section>
+			)}
 
 			{/* Tab bar */}
 			<div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 border border-white/[0.06] w-fit">

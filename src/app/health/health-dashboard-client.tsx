@@ -29,6 +29,47 @@ type MetricPoint = { cpu: number; mem: number; disk: number; online: boolean; t:
 
 type Props = { serverCount: number; systemHealthSummary?: SystemHealthSummary | null };
 
+type RepairSuggestion = {
+	id: string;
+	label: string;
+	description: string;
+	action: string;
+	status: SystemHealthStatus;
+};
+
+const repairSuggestions = (summary?: SystemHealthSummary | null): RepairSuggestion[] => {
+	if (!summary) return [];
+	return [
+		{
+			id: "db",
+			label: "检查数据库连接",
+			description: summary.critical > 0 ? "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。" : "数据库状态正常，可继续关注业务层告警。",
+			action: "验证 DATABASE_URL、数据库进程和 Prisma 连接",
+			status: summary.critical > 0 ? "critical" : "healthy",
+		},
+		{
+			id: "runtime",
+			label: "确认运行目录",
+			description: summary.warning > 0 ? "部署目录或缓存目录可能缺失，建议补齐并复查权限。" : "运行目录基线已就绪。",
+			action: "检查 storage / uploads / downloads / backups / logs / tmp",
+			status: summary.warning > 0 ? "warning" : "healthy",
+		},
+		{
+			id: "git",
+			label: "核对 GitHub 同步",
+			description: summary.warning > 0 ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "本地提交与 origin/main 保持一致。",
+			action: "比对本地 HEAD 与 origin/main",
+			status: summary.warning > 0 ? "warning" : "healthy",
+		},
+	];
+};
+
+const repairToneClasses: Record<SystemHealthStatus, { border: string; bg: string; badge: string }> = {
+	healthy: { border: "border-emerald-400/20", bg: "bg-emerald-400/10", badge: "border-emerald-400/30 text-emerald-100" },
+	warning: { border: "border-amber-400/20", bg: "bg-amber-400/10", badge: "border-amber-400/30 text-amber-100" },
+	critical: { border: "border-rose-400/20", bg: "bg-rose-400/10", badge: "border-rose-400/30 text-rose-100" },
+};
+
 
 /* ── Status helpers ───────────────────────────────────────── */
 
@@ -122,15 +163,34 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 	return (
 		<div className="space-y-6">
 			{systemHealthSummary && (
-				<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-					<SummaryCard label="系统检查" value={systemHealthSummary.total} color="slate" />
-					<SummaryCard label="健康" value={systemHealthSummary.healthy} color="emerald" />
-					<SummaryCard label="警告" value={systemHealthSummary.warning} color="amber" />
-					<SummaryCard label="严重" value={systemHealthSummary.critical} color="rose" />
-				</section>
+				<>
+					<section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+						<div className="flex items-center justify-between gap-3">
+							<div>
+								<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">系统自检</p>
+								<h2 className="mt-1 text-lg font-semibold text-white">修复建议</h2>
+							</div>
+							<span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-slate-300">{systemHealthSummary.overall}</span>
+						</div>
+						<div className="grid gap-3 lg:grid-cols-3">
+							{repairSuggestions(systemHealthSummary).map((item) => {
+								const tone = repairToneClasses[item.status];
+								return (
+									<article key={item.id} className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
+										<div className="flex items-center justify-between gap-3">
+											<h3 className="text-sm font-semibold text-white">{item.label}</h3>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}>{item.status}</span>
+										</div>
+										<p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
+										<p className="mt-3 text-xs text-slate-400">建议动作：{item.action}</p>
+									</article>
+								);
+							})}
+						</div>
+					</section>
+				</>
 			)}
 
-			{/* Summary cards */}
 			<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 				<SummaryCard label="节点总数" value={total} color="slate" />
 				<SummaryCard label="在线正常" value={online} color="emerald" />
@@ -138,8 +198,6 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 				<SummaryCard label="严重告警" value={critical} color="rose" />
 				<SummaryCard label="离线/停用" value={offline} color="slate" />
 			</section>
-
-			{/* Controls */}
 			<div className="flex items-center justify-between">
 				<div className="text-xs text-slate-500">
 					上次刷新：{lastRefresh || "—"}

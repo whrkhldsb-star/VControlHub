@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getStorageOverview } from "@/lib/storage/service";
@@ -373,6 +375,24 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 					<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
 						<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">回收站</div>
 					<div className="mt-1.5 text-2xl font-semibold text-white">{storage.stats.deletedEntries}</div>
+					</article>
+				</section>
+
+				<section className="mb-8 grid gap-3 lg:grid-cols-3">
+					<Link href="/files?scope=all" className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4 transition hover:bg-cyan-400/[0.1]">
+						<div className="text-sm font-semibold text-white">全局文件搜索</div>
+						<p className="mt-1.5 text-sm leading-6 text-slate-300">跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。</p>
+						<div className="mt-3 text-xs text-cyan-200">打开全局搜索</div>
+					</Link>
+					<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+						<div className="text-sm font-semibold text-white">大文件处理</div>
+						<p className="mt-1.5 text-sm leading-6 text-slate-300">上传下载仍走受控接口，建议先按节点筛选，再处理镜像包、备份包和长日志。</p>
+						<div className="mt-3 text-xs text-slate-500">当前目录：{totalItems} 项</div>
+					</article>
+					<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+						<div className="text-sm font-semibold text-white">代码与配置预览</div>
+						<p className="mt-1.5 text-sm leading-6 text-slate-300">文本、Markdown、JSON、YAML、CSV 和归档文件会优先进入预览页，便于确认后再下载或编辑。</p>
+						<div className="mt-3 text-xs text-slate-500">搜索范围：{searchScope === "all" ? "全部节点" : "当前目录"}</div>
 					</article>
 				</section>
 

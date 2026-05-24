@@ -46,7 +46,11 @@ echo ""
 echo "── 1. System Services ──"
 check "${APP_SLUG}-next service"   "systemctl is-active ${APP_SLUG}-next" 0
 check "${APP_SLUG}-ssh-ws service" "systemctl is-active ${APP_SLUG}-ssh-ws" 0
-check "Apache service"             "systemctl is-active apache2" 0
+if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+    check "Caddy service"          "systemctl is-active caddy" 0
+else
+    check "Apache service"         "systemctl is-active apache2" 0
+fi
 check "PostgreSQL service"         "systemctl is-active postgresql" 0
 
 echo ""
