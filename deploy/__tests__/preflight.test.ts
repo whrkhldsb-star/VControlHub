@@ -171,8 +171,8 @@ describe("deploy/preflight.sh", () => {
 	await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
 	await mkdir(path.join(appDir, "deploy"), { recursive: true });
 	await writeFile(path.join(appDir, "scripts/backup-db.sh"), `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
-	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
-	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+	await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{RUNTIME_ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
 	await writeFile(path.join(appDir, "deploy/apache-next-proxy.example.conf"), "<VirtualHost *:80>\nServerName {{SERVER_NAME}}\nProxyPass / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\nProxyPass /ssh ws://{{SSH_WS_HOST}}:{{SSH_WS_PORT}}/\n</VirtualHost>\n");
     await chmod(path.join(appDir, "scripts/backup-db.sh"), 0o755);
     await writeFile(path.join(binDir, "npm"), `#!/usr/bin/env bash\nprintf 'npm %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`);
@@ -384,6 +384,7 @@ describe("deploy/install.sh", () => {
           PATH: `${binDir}:${customNodeDir}:/usr/bin:/bin`,
           APP_DIR: appDir,
           ENV_FILE: envFile,
+          RUNTIME_ENV_FILE: path.join(appDir, ".env.runtime"),
           SOURCE_DIR: repoRoot,
           APP_NAME: "custom-console",
           APP_USER: "portable-app",
@@ -409,7 +410,12 @@ describe("deploy/install.sh", () => {
 	expect(nextUnit).toContain("Description=自定义控制台 Next.js application");
 	expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
 	expect(wsUnit).toContain(`ExecStart=${path.join(customNodeDir, "npm")} run start:ssh-ws`);
-      expect(wsUnit).toContain("Description=自定义控制台 SSH WebSocket proxy");
+	expect(nextUnit).toContain(`EnvironmentFile=${path.join(appDir, ".env.runtime")}`);
+	expect(wsUnit).toContain(`EnvironmentFile=${path.join(appDir, ".env.runtime")}`);
+	expect(wsUnit).toContain("Environment=SSH_WS_PORT=3001");
+	const runtimeEnv = await readFile(path.join(appDir, ".env.runtime"), "utf8");
+	expect(runtimeEnv).not.toMatch(/^(PORT|NEXT_PORT|SSH_WS_PORT)=/m);
+	expect(runtimeEnv).toContain("DATABASE_URL=");
       expect(result.stdout + result.stderr).not.toContain("portable_initial_value");
       expect(result.stdout + result.stderr).not.toContain("whrkhldsb-next.service");
     } finally {

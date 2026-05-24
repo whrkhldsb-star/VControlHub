@@ -13,7 +13,7 @@ import {
  tellStatus,
 } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { execFile } from "child_process";
 import { randomUUID } from "crypto";
 import { promisify } from "util";
@@ -226,7 +226,7 @@ export async function transferFileViaSsh2(
    await fs.unlink(keyFile).catch(() => {});
   }
  } else if (server.password) {
-  const sshpassEnv = { ...process.env, SSHPASS: server.password };
+  const sshpassEnv = { ...process.env, SSHPASS: decryptServerPassword(server.password) };
   await execFileAsync("sshpass", ["-e", "scp", ...scpArgs, localFilePath, target], { timeout: 600_000, maxBuffer: 50 * 1024 * 1024, env: sshpassEnv });
  } else {
   throw new Error("No SSH key or password for file transfer");

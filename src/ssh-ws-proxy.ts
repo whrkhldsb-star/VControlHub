@@ -9,8 +9,8 @@ import { createServer } from "http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { prisma } from "@/lib/db";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getAppSlug } from "./lib/branding";
@@ -65,13 +65,6 @@ export function requireSshWsSecret(env: Partial<NodeJS.ProcessEnv> = process.env
 const SSH_WS_SECRET = requireSshWsSecret();
 
 // ── Prisma (matching the main app's initialization) ─────────────────
-
-const prismaAdapter = new PrismaPg(process.env.DATABASE_URL!);
-const prisma = new PrismaClient({
-  adapter: prismaAdapter,
-  log: ["error"],
-});
-
 // ── Session verification ────────────────────────────────────────────
 
 type SessionPayload = {
@@ -150,8 +143,8 @@ async function resolveServerConnection(serverId: string) {
   port: srv.port,
   username: srv.username,
   connectionType: srv.connectionType,
-	privateKey: srv.connectionType === "SSH_KEY" ? (srv.sshKey!.privateKey ?? undefined) : undefined,
-	password: srv.connectionType === "PASSWORD" ? (srv.password ?? undefined) : undefined,
+	privateKey: srv.connectionType === "SSH_KEY" ? decryptSshPrivateKey(srv.sshKey!.privateKey ?? "") : undefined,
+	password: srv.connectionType === "PASSWORD" ? decryptServerPassword(srv.password ?? "") : undefined,
  };
 }
 

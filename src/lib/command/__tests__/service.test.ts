@@ -86,6 +86,8 @@ describe("command service execution flow", () => {
           host: "203.0.113.10",
           port: 22,
           username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
         },
         commandRequest: { command: "uptime" },
@@ -116,6 +118,46 @@ describe("command service execution flow", () => {
     });
   });
 
+  it("decrypts stored server password before password SSH execution", async () => {
+    const { encryptServerPassword } = await import("@/lib/ssh/ssh-key-crypto");
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_pw_1",
+      status: "APPROVED",
+      targets: [{ id: "target_pw_1" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_pw_1",
+        server: {
+          id: "srv_pw_1",
+          name: "pw-prod-1",
+          host: "203.0.113.20",
+          port: 22,
+          username: "admin",
+          connectionType: "PASSWORD",
+          password: encryptServerPassword("plain-secret"),
+          sshKey: null,
+        },
+        commandRequest: { command: "uptime" },
+      },
+    ]);
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_pw_1", status: "COMPLETED" });
+
+    await createCommandRequest({
+      title: "Run uptime",
+      command: "uptime",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_pw_1"],
+    });
+
+    expect(spawnMock).toHaveBeenCalledWith(
+      "sshpass",
+      expect.arrayContaining(["-p", "plain-secret"]),
+      expect.any(Object),
+    );
+  });
+
   it("approves assistant request and advances execution flow", async () => {
     mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_assistant_1", status: "PENDING_APPROVAL" });
     mockPrisma.commandRequest.update
@@ -131,6 +173,8 @@ describe("command service execution flow", () => {
           host: "198.51.100.7",
           port: 22,
           username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
           sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
         },
         commandRequest: { command: "systemctl restart nginx" },

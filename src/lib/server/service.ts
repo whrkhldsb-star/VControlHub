@@ -6,7 +6,7 @@ import { PPKError, parseFromString } from "ppk-to-openssh";
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db";
-import { encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { encryptServerPasswordIfPlain, encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { getServerConnectionSummary, normalizeServerInput } from "./config";
 import { createServerSchema, type CreateServerInput } from "./schema";
 
@@ -256,7 +256,7 @@ export async function createServerProfile(input: CreateServerInput) {
    tags: normalized.tags,
    connectionType: normalized.connectionType,
    sshKeyId: normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId : null,
-   password: normalized.connectionType === "PASSWORD" ? normalized.password : null,
+   password: normalized.connectionType === "PASSWORD" && normalized.password ? encryptServerPasswordIfPlain(normalized.password) : null,
    enabled: true,
   },
   include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
@@ -331,7 +331,7 @@ export async function updateServerProfile(serverId: string, input: Partial<Creat
    username: normalized.username,
    connectionType: normalized.connectionType,
    sshKeyId: normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId : null,
-   password: normalized.connectionType === "PASSWORD" ? normalized.password : null,
+   password: normalized.connectionType === "PASSWORD" && normalized.password ? encryptServerPasswordIfPlain(normalized.password) : null,
    description: normalized.description,
    tags: normalized.tags,
    enabled: typeof input.enabled === "boolean" ? input.enabled : current.enabled,

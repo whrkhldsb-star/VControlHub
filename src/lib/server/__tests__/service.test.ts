@@ -307,17 +307,17 @@ describe("server service", () => {
  tags: [],
  });
 
- expect(prisma.server.create).toHaveBeenCalledWith(
- expect.objectContaining({
- data: expect.objectContaining({
- host: "10.0.0.1",
- username: "admin",
- connectionType: "PASSWORD",
- sshKeyId: null,
- password: "secret123",
- }),
- }),
- );
+	expect(prisma.server.create).toHaveBeenCalledWith(
+	expect.objectContaining({
+	data: expect.objectContaining({
+	host: "10.0.0.1",
+	username: "admin",
+	connectionType: "PASSWORD",
+	sshKeyId: null,
+	password: expect.stringMatching(/^enc:v1:/),
+	}),
+	}),
+	);
  expect(result.connectionSummary).toContain("使用密码连接");
  });
 

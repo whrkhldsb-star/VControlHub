@@ -28,8 +28,165 @@ var import_http = require("http");
 var import_node_crypto2 = require("node:crypto");
 var import_ws = require("ws");
 var import_ssh2 = require("ssh2");
+
+// src/lib/db.ts
 var import_client = require("@prisma/client");
 var import_adapter_pg = require("@prisma/adapter-pg");
+function getPrismaAdapter() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is required to initialize Prisma.");
+  }
+  if (!global.__appPrismaAdapter__) {
+    const poolSize = parseInt(process.env.DB_POOL_SIZE ?? "10", 10);
+    const poolIdleTimeout = parseInt(process.env.DB_POOL_IDLE_TIMEOUT_MS ?? "30000", 10);
+    const url = new URL(process.env.DATABASE_URL);
+    if (!url.searchParams.has("pool_max")) url.searchParams.set("pool_max", String(poolSize));
+    if (!url.searchParams.has("pool_idle_timeout")) url.searchParams.set("pool_idle_timeout", String(poolIdleTimeout));
+    global.__appPrismaAdapter__ = new import_adapter_pg.PrismaPg(url.toString());
+  }
+  return global.__appPrismaAdapter__;
+}
+function createPrismaClient() {
+  return new import_client.PrismaClient({
+    adapter: getPrismaAdapter(),
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"]
+  });
+}
+function getPrismaClient() {
+  if (!global.__appPrisma__) {
+    global.__appPrisma__ = createPrismaClient();
+  }
+  return global.__appPrisma__;
+}
+var prisma = new Proxy({}, {
+  get(_target, property, receiver) {
+    const client = getPrismaClient();
+    return Reflect.get(client, property, receiver);
+  }
+});
+
+// src/lib/crypto/service.ts
+var import_crypto = require("crypto");
+
+// src/lib/logging.ts
+var SENSITIVE_KEY_PATTERN = /(?:password|passwd|pwd|secret|token|authorization|cookie|private.?key|database.?url|dsn|credential|api.?key)/i;
+var SECRET_VALUE_PATTERNS = [
+  /postgres(?:ql)?:\/\/[^\s]+/i,
+  /mysql:\/\/[^\s]+/i,
+  /mongodb(?:\+srv)?:\/\/[^\s]+/i,
+  /redis:\/\/[^\s]+/i,
+  /Bearer\s+[A-Za-z0-9._~+/=-]+/i,
+  /password\s*=\s*[^\s,;]+/i,
+  /token\s*=\s*[^\s,;]+/i,
+  /secret\s*=\s*[^\s,;]+/i,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/i
+];
+var MAX_DEPTH = 6;
+function redactString(value) {
+  return SECRET_VALUE_PATTERNS.reduce((current, pattern) => current.replace(pattern, "[REDACTED]"), value);
+}
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype;
+}
+function redactSensitiveValue(value, key = "", depth = 0) {
+  if (SENSITIVE_KEY_PATTERN.test(key)) return "[REDACTED]";
+  if (value == null) return value;
+  if (typeof value === "string") return redactString(value);
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: redactString(value.message),
+      stack: process.env.NODE_ENV === "production" ? void 0 : redactString(value.stack ?? "")
+    };
+  }
+  if (depth >= MAX_DEPTH) return "[Truncated]";
+  if (Array.isArray(value)) return value.map((item) => redactSensitiveValue(item, "", depth + 1));
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [entryKey, redactSensitiveValue(entryValue, entryKey, depth + 1)])
+    );
+  }
+  return redactString(String(value));
+}
+function emit(level, scope, message, errorOrContext, context) {
+  if (level === "debug" && process.env.NODE_ENV === "production") return;
+  const payload = {
+    level,
+    scope,
+    message,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  if (errorOrContext instanceof Error) {
+    payload.error = redactSensitiveValue(errorOrContext);
+    if (context) payload.context = redactSensitiveValue(context);
+  } else if (errorOrContext !== void 0) {
+    payload.context = redactSensitiveValue(errorOrContext);
+  }
+  const line = JSON.stringify(payload);
+  if (level === "error") console.error(line);
+  else if (level === "warn") console.warn(line);
+  else console.log(line);
+}
+function createLogger(scope) {
+  return {
+    debug: (message, context) => emit("debug", scope, message, context),
+    info: (message, context) => emit("info", scope, message, context),
+    warn: (message, errorOrContext, context) => emit("warn", scope, message, errorOrContext, context),
+    error: (message, error, context) => emit("error", scope, message, error, context)
+  };
+}
+var defaultLogger = createLogger("app");
+
+// src/lib/crypto/service.ts
+var logger = createLogger("crypto");
+var ALGORITHM = "aes-256-gcm";
+function getEncryptionKey() {
+  const key = process.env.ENCRYPTION_KEY;
+  if (!key) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_KEY environment variable is required in production");
+    }
+    const generated = (0, import_crypto.randomBytes)(32).toString("hex");
+    process.env.ENCRYPTION_KEY = generated;
+    logger.warn("ENCRYPTION_KEY not set, auto-generated for development. Set it in .env for persistence.");
+  }
+  return (0, import_crypto.scryptSync)(process.env.ENCRYPTION_KEY, "salt-vps-platform", 32);
+}
+function decrypt(ciphertext) {
+  const key = getEncryptionKey();
+  const [ivB64, tagB64, dataB64] = ciphertext.split(":");
+  if (!ivB64 || !tagB64 || !dataB64) throw new Error("Invalid encrypted format");
+  const iv = Buffer.from(ivB64, "base64");
+  const authTag = Buffer.from(tagB64, "base64");
+  const data = Buffer.from(dataB64, "base64");
+  const decipher = (0, import_crypto.createDecipheriv)(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  return decipher.update(data) + decipher.final("utf8");
+}
+function isEncrypted(value) {
+  return /^[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+:[A-Za-z0-9+/=]+$/.test(value);
+}
+
+// src/lib/ssh/ssh-key-crypto.ts
+var SERVER_PASSWORD_PREFIX = "enc:v1:";
+function stripServerPasswordPrefix(value) {
+  return value.startsWith(SERVER_PASSWORD_PREFIX) ? value.slice(SERVER_PASSWORD_PREFIX.length) : value;
+}
+function decryptServerPassword(storedPassword) {
+  const payload = stripServerPasswordPrefix(storedPassword);
+  if (isEncrypted(payload)) {
+    return decrypt(payload);
+  }
+  return storedPassword;
+}
+function decryptSshPrivateKey(storedKey) {
+  if (isEncrypted(storedKey)) {
+    return decrypt(storedKey);
+  }
+  return storedKey;
+}
 
 // src/lib/auth/rbac.ts
 var PERMISSIONS = [
@@ -155,77 +312,6 @@ function getAppSlug(env = process.env) {
   return slugifyAppName(env.APP_SLUG || env.APP_NAME || DEFAULT_APP_NAME);
 }
 
-// src/lib/logging.ts
-var SENSITIVE_KEY_PATTERN = /(?:password|passwd|pwd|secret|token|authorization|cookie|private.?key|database.?url|dsn|credential|api.?key)/i;
-var SECRET_VALUE_PATTERNS = [
-  /postgres(?:ql)?:\/\/[^\s]+/i,
-  /mysql:\/\/[^\s]+/i,
-  /mongodb(?:\+srv)?:\/\/[^\s]+/i,
-  /redis:\/\/[^\s]+/i,
-  /Bearer\s+[A-Za-z0-9._~+/=-]+/i,
-  /password\s*=\s*[^\s,;]+/i,
-  /token\s*=\s*[^\s,;]+/i,
-  /secret\s*=\s*[^\s,;]+/i,
-  /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/i
-];
-var MAX_DEPTH = 6;
-function redactString(value) {
-  return SECRET_VALUE_PATTERNS.reduce((current, pattern) => current.replace(pattern, "[REDACTED]"), value);
-}
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype;
-}
-function redactSensitiveValue(value, key = "", depth = 0) {
-  if (SENSITIVE_KEY_PATTERN.test(key)) return "[REDACTED]";
-  if (value == null) return value;
-  if (typeof value === "string") return redactString(value);
-  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return value;
-  if (value instanceof Date) return value.toISOString();
-  if (value instanceof Error) {
-    return {
-      name: value.name,
-      message: redactString(value.message),
-      stack: process.env.NODE_ENV === "production" ? void 0 : redactString(value.stack ?? "")
-    };
-  }
-  if (depth >= MAX_DEPTH) return "[Truncated]";
-  if (Array.isArray(value)) return value.map((item) => redactSensitiveValue(item, "", depth + 1));
-  if (isPlainObject(value)) {
-    return Object.fromEntries(
-      Object.entries(value).map(([entryKey, entryValue]) => [entryKey, redactSensitiveValue(entryValue, entryKey, depth + 1)])
-    );
-  }
-  return redactString(String(value));
-}
-function emit(level, scope, message, errorOrContext, context) {
-  if (level === "debug" && process.env.NODE_ENV === "production") return;
-  const payload = {
-    level,
-    scope,
-    message,
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  if (errorOrContext instanceof Error) {
-    payload.error = redactSensitiveValue(errorOrContext);
-    if (context) payload.context = redactSensitiveValue(context);
-  } else if (errorOrContext !== void 0) {
-    payload.context = redactSensitiveValue(errorOrContext);
-  }
-  const line = JSON.stringify(payload);
-  if (level === "error") console.error(line);
-  else if (level === "warn") console.warn(line);
-  else console.log(line);
-}
-function createLogger(scope) {
-  return {
-    debug: (message, context) => emit("debug", scope, message, context),
-    info: (message, context) => emit("info", scope, message, context),
-    warn: (message, errorOrContext, context) => emit("warn", scope, message, errorOrContext, context),
-    error: (message, error, context) => emit("error", scope, message, error, context)
-  };
-}
-var defaultLogger = createLogger("app");
-
 // src/lib/auth/ssh-ws-token.ts
 var import_node_crypto = require("node:crypto");
 var SSH_WS_HANDSHAKE_AUDIENCE = "ssh-ws-handshake";
@@ -273,7 +359,7 @@ function verifySshWsHandshakeToken(token, input) {
 }
 
 // src/ssh-ws-proxy.ts
-var logger = createLogger("ssh-ws-proxy");
+var logger2 = createLogger("ssh-ws-proxy");
 function resolveSshWsListenConfig(env = process.env) {
   const host = env.SSH_WS_HOST?.trim() || "127.0.0.1";
   const portText = env.SSH_WS_PORT?.trim() || "3001";
@@ -297,18 +383,13 @@ function requireSshWsSecret(env = process.env) {
     if (nodeEnv === "production") {
       throw new Error("SSH_WS_SECRET must be set in production");
     }
-    logger.warn(
+    logger2.warn(
       "\u26A0 SSH_WS_SECRET is not set \u2014 skipping WS secret validation (development only). Set SSH_WS_SECRET before deploying to production."
     );
   }
   return secret;
 }
 var SSH_WS_SECRET = requireSshWsSecret();
-var prismaAdapter = new import_adapter_pg.PrismaPg(process.env.DATABASE_URL);
-var prisma = new import_client.PrismaClient({
-  adapter: prismaAdapter,
-  log: ["error"]
-});
 function decodeBase64Url2(input) {
   return Buffer.from(input, "base64url").toString("utf8");
 }
@@ -360,8 +441,8 @@ async function resolveServerConnection(serverId) {
     port: srv.port,
     username: srv.username,
     connectionType: srv.connectionType,
-    privateKey: srv.connectionType === "SSH_KEY" ? srv.sshKey.privateKey ?? void 0 : void 0,
-    password: srv.connectionType === "PASSWORD" ? srv.password ?? void 0 : void 0
+    privateKey: srv.connectionType === "SSH_KEY" ? decryptSshPrivateKey(srv.sshKey.privateKey ?? "") : void 0,
+    password: srv.connectionType === "PASSWORD" ? decryptServerPassword(srv.password ?? "") : void 0
   };
 }
 var server = (0, import_http.createServer)((_req, res) => {
@@ -387,7 +468,7 @@ var wss = new import_ws.WebSocketServer({
 var ALLOWED_ORIGINS = (process.env.SSH_WS_ALLOWED_ORIGINS?.trim() || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
 function isOriginAllowed(req) {
   if (ALLOWED_ORIGINS.length === 0) {
-    logger.error("SSH_WS_ALLOWED_ORIGINS is not configured \u2014 rejecting WebSocket connection. Set this env var to allow connections.");
+    logger2.error("SSH_WS_ALLOWED_ORIGINS is not configured \u2014 rejecting WebSocket connection. Set this env var to allow connections.");
     return false;
   }
   const origin = (req.headers.origin || "").trim().toLowerCase();

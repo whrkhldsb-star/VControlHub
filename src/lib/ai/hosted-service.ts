@@ -9,6 +9,7 @@
 
 import { prisma } from "@/lib/db";
 import { getToolByName, type HostedTool } from "./hosted-tools";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 // ── 类型 ──────────────────────────────────────────────────
 
@@ -108,9 +109,9 @@ export async function executeSafeAction(
       };
 
       if (server.sshKey?.privateKey) {
-        connectConfig.privateKey = server.sshKey.privateKey;
+        connectConfig.privateKey = decryptSshPrivateKey(server.sshKey.privateKey);
       } else if (server.password) {
-        connectConfig.password = server.password;
+        connectConfig.password = decryptServerPassword(server.password);
       }
 
       sshClient.on("ready", () => {

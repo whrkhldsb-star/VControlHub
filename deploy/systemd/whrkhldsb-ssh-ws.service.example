@@ -8,8 +8,9 @@ StartLimitBurst=3
 [Service]
 Type=simple
 WorkingDirectory={{APP_DIR}}
-EnvironmentFile={{ENV_FILE}}
+EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=NODE_ENV=production
+Environment=SSH_WS_PORT={{SSH_WS_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
 ExecStart={{NPM_BIN}} run start:ssh-ws
 Restart=always

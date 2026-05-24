@@ -1,6 +1,7 @@
 import { Client, type ConnectConfig } from "ssh2";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
-export type SshConnectionParams= {
+export type SshConnectionParams = {
  host: string;
  port: number;
  username: string;
@@ -255,7 +256,7 @@ export async function buildSshParamsFromServer(server: {
  host: server.host,
  port: server.port,
  username: server.username,
- ...(sshKey?.privateKey ? { privateKey: sshKey.privateKey } : {}),
- ...(server.password ? { password: server.password } : {}),
+ ...(sshKey?.privateKey ? { privateKey: decryptSshPrivateKey(sshKey.privateKey) } : {}),
+ ...(server.password ? { password: decryptServerPassword(server.password) } : {}),
  };
 }

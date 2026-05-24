@@ -13,6 +13,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { randomUUID } from "crypto";
 import { withRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,9 @@ async function sshExec(
   };
 
   if (server.sshKey?.privateKey) {
-   config.privateKey = server.sshKey.privateKey;
+   config.privateKey = decryptSshPrivateKey(server.sshKey.privateKey);
   } else if (server.password) {
-   config.password = server.password;
+   config.password = decryptServerPassword(server.password);
   }
 
   sshClient.on("ready", () => {

@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { prisma } from "@/lib/db";
 import { notifyCommandPending, notifyCommandResult } from "@/lib/notification/service";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 import { createCommandSchema, reviewCommandSchema, type CreateCommandInput, type ReviewCommandInput } from "./schema";
 
@@ -187,8 +188,8 @@ async function executeTargets(commandRequestId: string) {
  let completedCount = 0;
 
  for (const target of targets) {
-  const privateKey = target.server.sshKey?.privateKey?.trim();
-  const password = target.server.password?.trim();
+  const privateKey = target.server.sshKey?.privateKey ? decryptSshPrivateKey(target.server.sshKey.privateKey).trim() : undefined;
+  const password = target.server.password ? decryptServerPassword(target.server.password).trim() : undefined;
   const connectionType = target.server.connectionType;
 
   if (connectionType === "SSH_KEY" && !privateKey) {

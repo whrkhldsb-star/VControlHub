@@ -35,6 +35,7 @@ NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_HOST="${SSH_WS_HOST:-127.0.0.1}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
+RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"
 ENV_TEMPLATE="${ENV_TEMPLATE:-${APP_DIR}/deploy/env.production.example}"
 SKIP_PACKAGES="${SKIP_PACKAGES:-0}"
 SKIP_CADDY="${SKIP_CADDY:-0}"
@@ -651,6 +652,31 @@ build_app() {
  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
 
+create_runtime_env_file() {
+	[ -f "${ENV_FILE}" ] || fail "Missing ${ENV_FILE}; cannot create ${RUNTIME_ENV_FILE}."
+	log "Writing runtime environment file ${RUNTIME_ENV_FILE}"
+	python3 - "${ENV_FILE}" "${RUNTIME_ENV_FILE}" <<'PY'
+from pathlib import Path
+import sys
+source = Path(sys.argv[1])
+dest = Path(sys.argv[2])
+skip = {"PORT", "NEXT_PORT", "SSH_WS_PORT", "HOSTNAME"}
+lines = []
+for line in source.read_text().splitlines():
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or "=" not in line:
+        lines.append(line)
+        continue
+    key = line.split("=", 1)[0].strip()
+    if key in skip:
+        continue
+    lines.append(line)
+dest.write_text("\n".join(lines).rstrip() + "\n")
+PY
+	chmod 600 "${RUNTIME_ENV_FILE}"
+	chown "${APP_USER}:${APP_USER}" "${RUNTIME_ENV_FILE}" 2>/dev/null || true
+}
+
 install_systemd() {
 	log "Installing systemd units"
 	if [ -n "${DESTDIR}" ]; then
@@ -698,6 +724,7 @@ sed \
 			-e "s|{{SITE_NAME}}|${SITE_NAME}|g" \
 			-e "s|{{APP_DIR}}|${APP_DIR}|g" \
 			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
+			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
 			-e "s|{{SYSTEMD_PATH}}|${systemd_path}|g" \
 			-e "s|{{NPM_BIN}}|${npm_bin}|g" \
 			-e "s|{{NPX_BIN}}|${npx_bin}|g" \
@@ -850,9 +877,10 @@ main() {
  if [ -x "${APP_DIR}/deploy/preflight.sh" ]; then
  APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" NEXT_HOST="${NEXT_HOST}" NEXT_PORT="${NEXT_PORT}" SSH_WS_PORT="${SSH_WS_PORT}" "${APP_DIR}/deploy/preflight.sh"
  fi
- create_runtime_dirs
- build_app
- install_systemd
+	create_runtime_dirs
+	build_app
+	create_runtime_env_file
+	install_systemd
  install_caddy
  install_apache
  restart_services

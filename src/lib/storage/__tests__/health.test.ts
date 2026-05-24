@@ -29,6 +29,11 @@ vi.mock("@/lib/ssh/client", () => ({
   listRemoteDirectory: listRemoteDirectoryMock,
 }));
 
+vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+  decryptServerPassword: vi.fn((value: string) => (value === "enc:v1:SECRET" ? "SECRET" : value)),
+  decryptSshPrivateKey: vi.fn((value: string) => (value === "enc:v1:PRIVATE KEY" ? "PRIVATE KEY" : value)),
+}));
+
 import { checkStorageNodeHealth } from "../service";
 
 describe("checkStorageNodeHealth", () => {
@@ -101,6 +106,28 @@ describe("checkStorageNodeHealth", () => {
       username: "deployer",
       privateKey: "PRIVATE KEY",
       remotePath: "/data/root",
+    }));
+  });
+
+  it("decrypts encrypted SFTP server credentials before health checks", async () => {
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node-1",
+      driver: "SFTP",
+      basePath: "/data/root",
+      host: null,
+      port: null,
+      username: null,
+      server: { host: "server-host", port: 22, username: "root", password: "enc:v1:SECRET", sshKeyId: null, sshKey: null },
+    });
+    listRemoteDirectoryMock.mockResolvedValueOnce([]);
+
+    await checkStorageNodeHealth("node-1");
+
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({
+      host: "server-host",
+      port: 22,
+      username: "root",
+      password: "SECRET",
     }));
   });
 

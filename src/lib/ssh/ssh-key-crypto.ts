@@ -12,6 +12,39 @@
 
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 
+const SERVER_PASSWORD_PREFIX = "enc:v1:";
+
+function stripServerPasswordPrefix(value: string): string {
+	return value.startsWith(SERVER_PASSWORD_PREFIX) ? value.slice(SERVER_PASSWORD_PREFIX.length) : value;
+}
+
+/** Encrypt a server login password before database storage. */
+export function encryptServerPassword(plainPassword: string): string {
+	return `${SERVER_PASSWORD_PREFIX}${encrypt(plainPassword)}`;
+}
+
+/**
+ * Decrypt a server login password retrieved from the database.
+ * Legacy plain-text passwords pass through unchanged for zero-downtime reads.
+ */
+export function decryptServerPassword(storedPassword: string): string {
+	const payload = stripServerPasswordPrefix(storedPassword);
+	if (isEncrypted(payload)) {
+		return decrypt(payload);
+	}
+	return storedPassword;
+}
+
+/** Detect whether a server password has already been encrypted by this app. */
+export function isEncryptedServerPassword(value: string): boolean {
+	return value.startsWith(SERVER_PASSWORD_PREFIX) && isEncrypted(stripServerPasswordPrefix(value));
+}
+
+/** Encrypt only when a value is still legacy plain text. */
+export function encryptServerPasswordIfPlain(value: string): string {
+	return isEncryptedServerPassword(value) ? value : encryptServerPassword(value);
+}
+
 /** Encrypt a private key before database storage. */
 export function encryptSshPrivateKey(plainKey: string): string {
 	return encrypt(plainKey);

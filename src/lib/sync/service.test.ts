@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRsyncCommand,
   buildTarSyncCommand,
+  decryptSyncTargetCredentials,
   getSyncTempKeyPath,
   shellQuote,
 } from "@/lib/sync/service";
@@ -51,6 +52,19 @@ describe("sync service command helpers", () => {
     expect(command).toContain("tar cf - -C ");
     expect(command).toContain("root@example.com");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
+  });
+
+  it("decrypts target credentials once before building remote sync commands", () => {
+    const credentials = decryptSyncTargetCredentials({
+      password: "enc:v1:password-ciphertext",
+      sshKey: { privateKey: "enc:v1:key-ciphertext" },
+    }, {
+      decryptPassword: (value) => (value === "enc:v1:password-ciphertext" ? "plain-password" : value),
+      decryptPrivateKey: (value) => (value === "enc:v1:key-ciphertext" ? "PRIVATE KEY" : value),
+    });
+
+    expect(credentials.password).toBe("plain-password");
+    expect(credentials.privateKey).toBe("PRIVATE KEY");
   });
 	it("rejects unsafe SSH users and hosts before building commands", () => {
 		expect(() =>

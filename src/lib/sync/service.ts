@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { execRemoteCommand, buildSshParamsFromServer, writeRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
+import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { logError } from "@/lib/logging";
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -38,6 +39,28 @@ type RsyncCommandInput = SyncTargetCommandInput & {
 type TarSyncCommandInput = SyncTargetCommandInput & {
 	deleteOrphans: boolean;
 };
+
+type SyncTargetCredentialsInput = {
+	password?: string | null;
+	sshKey?: { privateKey?: string | null } | null;
+};
+
+type CredentialDecryptors = {
+	decryptPassword?: (value: string) => string;
+	decryptPrivateKey?: (value: string) => string;
+};
+
+export function decryptSyncTargetCredentials(
+	input: SyncTargetCredentialsInput,
+	decryptors: CredentialDecryptors = {},
+): { password?: string; privateKey?: string } {
+	const decryptPassword = decryptors.decryptPassword ?? decryptServerPassword;
+	const decryptPrivateKey = decryptors.decryptPrivateKey ?? decryptSshPrivateKey;
+	return {
+		password: input.password ? decryptPassword(input.password) : undefined,
+		privateKey: input.sshKey?.privateKey ? decryptPrivateKey(input.sshKey.privateKey) : undefined,
+	};
+}
 
 import { shellQuote } from "@/lib/shell-quote";
 export { shellQuote };
@@ -235,9 +258,10 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 		const targetHost = job.targetServer.host;
 		const targetPort = job.targetServer.port || 22;
 		const targetUser = job.targetServer.username || "root";
-		const targetKeyPath = job.targetServer.sshKey?.privateKey ? getSyncTempKeyPath(jobId, "rsync") : undefined;
+		const targetCredentials = decryptSyncTargetCredentials(job.targetServer);
+		const targetKeyPath = targetCredentials.privateKey ? getSyncTempKeyPath(jobId, "rsync") : undefined;
 
-		if (!job.targetServer.sshKey?.privateKey && !job.targetServer.password) {
+		if (!targetCredentials.privateKey && !targetCredentials.password) {
 			throw new Error("目标服务器未配置 SSH 密钥或密码");
 		}
 
@@ -249,7 +273,7 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 			targetHost,
 			targetPort,
 			keyPath: targetKeyPath,
-			password: targetKeyPath ? undefined : (job.targetServer.password ?? undefined),
+			password: targetKeyPath ? undefined : targetCredentials.password,
 		});
 
 		// Ensure target directory exists
@@ -277,11 +301,11 @@ export async function executeSyncJob(jobId: string): Promise<void> {
 
 		if (whichRsync.trim() === "MISSING") {
 			// Fallback: use tar + ssh for incremental sync
-			const targetSshKey = job.targetServer.sshKey?.privateKey ? { privateKey: job.targetServer.sshKey.privateKey } : null;
-			output = await executeTarSync(sourceSsh, jobId, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, job.targetServer.password ?? null, job.targetPath, job.deleteOrphans);
+			const targetSshKey = targetCredentials.privateKey ? { privateKey: targetCredentials.privateKey } : null;
+			output = await executeTarSync(sourceSsh, jobId, job.sourcePath, targetSsh, targetHost, targetPort, targetUser, targetSshKey, targetCredentials.password ?? null, job.targetPath, job.deleteOrphans);
 		} else {
-			if (job.targetServer.sshKey?.privateKey && targetKeyPath) {
-				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, job.targetServer.sshKey.privateKey);
+			if (targetCredentials.privateKey && targetKeyPath) {
+				await writeEphemeralPrivateKey(sourceSsh, targetKeyPath, targetCredentials.privateKey);
 			}
 			const result = await execRemoteCommand({
 				...sourceSsh,

@@ -5,7 +5,6 @@ import { getAppSlug } from "@/lib/branding";
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
 
 const DEFAULT_RPC_PORT = 6800;
-const DEFAULT_RPC_SECRET = [getAppSlug(), "default", "token"].join("_");
 
 export type Aria2RuntimeConfig = {
 	rpcHost: string;
