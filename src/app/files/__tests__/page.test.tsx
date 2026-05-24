@@ -335,18 +335,18 @@ describe("FilesPage", () => {
  },
  });
 
- render(await FilesPage({ searchParams: Promise.resolve({}) }));
+	render(await FilesPage({ searchParams: Promise.resolve({}) }));
 
- expect(screen.getByText("回收站")).toBeInTheDocument();
- const restoreBtns = screen.queryAllByTestId("restore-btn");
- const permanentDeleteBtns = screen.queryAllByTestId("permanent-delete-btn");
- if (restoreBtns.length === 0) {
- const allButtons = screen.getAllByRole("button");
- expect(allButtons.some((btn) => btn.textContent?.includes("恢复"))).toBe(true);
- expect(allButtons.some((btn) => btn.textContent?.includes("永久删除"))).toBe(true);
- } else {
- expect(restoreBtns.some((btn) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
- expect(permanentDeleteBtns.some((btn) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
- }
- });
+	expect(screen.getByRole("heading", { name: /回收站/ })).toBeInTheDocument();
+	const restoreBtns = screen.queryAllByTestId("restore-btn");
+	const permanentDeleteBtns = screen.queryAllByTestId("permanent-delete-btn");
+	if (restoreBtns.length === 0) {
+		const allButtons = screen.getAllByRole("button");
+		expect(allButtons.some((btn) => btn.textContent?.includes("恢复"))).toBe(true);
+		expect(allButtons.some((btn) => btn.textContent?.includes("永久删除"))).toBe(true);
+	} else {
+		expect(restoreBtns.some((btn) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
+		expect(permanentDeleteBtns.some((btn) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
+	}
+});
 });

@@ -18,7 +18,7 @@
 
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
-type RateLimitConfig = { maxRequests: number; windowMs: number };
+export type RateLimitConfig = { maxRequests: number; windowMs: number };
 
 /** AI chat: 20 messages per minute per IP */
 export const AI_CHAT_LIMIT: RateLimitConfig = { maxRequests: 20, windowMs: 60_000 };
