@@ -52,9 +52,9 @@ const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blo
 const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
 
 const SOURCE_PRESETS = [
-	{ key: "linuxserver", label: "LinuxServer.io", type: "linuxserver", url: "https://example.com/linuxserver.json", description: "第三方容器镜像目录，适合媒体、下载、监控类服务。" },
-	{ key: "github", label: "GitHub Raw JSON", type: "github", url: "https://example.com/apps.json", description: "公开 JSON 目录，适合自建或社区维护的服务清单。" },
-	{ key: "json", label: "通用 JSON", type: "json", url: "https://example.com/apps.json", description: "兼容自定义 JSON 格式，适合你自己整理的目录。" },
+	{ key: "linuxserver", label: "LinuxServer.io", type: "linuxserver", url: "https://example.com/linuxserver.json", description: "媒体、下载、监控类服务。", badge: "LSIO" },
+	{ key: "github", label: "GitHub Raw JSON", type: "github", url: "https://example.com/apps.json", description: "社区维护的公开 JSON 目录。", badge: "GitHub" },
+	{ key: "json", label: "通用 JSON", type: "json", url: "https://example.com/apps.json", description: "你自己整理的任意 JSON 目录。", badge: "JSON" },
 ] as const;
 
 type Tab = "store" | "community" | "installed" | "sources";
@@ -525,13 +525,22 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
 								<p className="mt-1 text-sm text-slate-400">先选一个预设，再按你的实际源地址微调。</p>
 							</div>
-							<div className="flex flex-wrap gap-2">
-								{SOURCE_PRESETS.map((preset) => (
-									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-lg border px-3 py-1.5 text-xs transition ${sourcePreset === preset.key ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
-										{preset.label}
+							<span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-slate-500">点卡片填充</span>
+						</div>
+						<div className="grid gap-3 sm:grid-cols-3">
+							{SOURCE_PRESETS.map((preset) => {
+								const active = sourcePreset === preset.key;
+								return (
+									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"}`}>
+										<div className="flex items-center justify-between gap-2">
+											<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
+										</div>
+										<h4 className="mt-2 text-sm font-semibold text-white">{preset.label}</h4>
+										<p className="mt-1 text-xs leading-5 text-slate-400">{preset.description}</p>
 									</button>
-								))}
-							</div>
+								);
+							})}
 						</div>
 						<div className="grid gap-3 md:grid-cols-2">
 							<label className="space-y-1">
