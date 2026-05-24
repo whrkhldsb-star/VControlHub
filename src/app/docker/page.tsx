@@ -19,6 +19,31 @@ type ComposeGroup = {
 	containers: Container[];
 };
 
+type ContainerStats = {
+	id: string;
+	name: string;
+	cpuPercent: number;
+	memoryUsageBytes: number;
+	memoryLimitBytes: number;
+	memoryPercent: number;
+	networkRxBytes: number;
+	networkTxBytes: number;
+	blockReadBytes: number;
+	blockWriteBytes: number;
+	pids: number;
+};
+
+function formatBytes(bytes: number) {
+	const units = ["B", "KB", "MB", "GB", "TB"];
+	let value = Math.max(0, Number.isFinite(bytes) ? bytes : 0);
+	let index = 0;
+	while (value >= 1024 && index < units.length - 1) {
+		value /= 1024;
+		index += 1;
+	}
+	return index === 0 ? `${Math.round(value)} ${units[index]}` : `${value.toFixed(1)} ${units[index]}`;
+}
+
 export default function DockerPage() {
 	const [containers, setContainers] = useState<Container[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -26,6 +51,7 @@ export default function DockerPage() {
 	const [logsId, setLogsId] = useState<string | null>(null);
 	const [logs, setLogs] = useState("");
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
+	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 
@@ -95,9 +121,27 @@ export default function DockerPage() {
 		}
 	};
 
+	const fetchStats = async (id: string) => {
+		try {
+			const data = await csrfFetch(`/api/docker/containers?stats=${id}`);
+			if (data.data) {
+				setStats((prev) => ({ ...prev, [id]: data.data as ContainerStats }));
+			}
+		} finally {
+			// no-op
+		}
+	};
+
 	useEffect(() => {
 		fetchContainers();
 	}, []);
+
+	useEffect(() => {
+		const running = containers.filter((container) => container.State === "running").slice(0, 12);
+		for (const container of running) {
+			void fetchStats(container.Id);
+		}
+	}, [containers]);
 
 	const stateColors: Record<string, string> = {
 		running: "bg-emerald-500/10 text-emerald-400",
@@ -149,37 +193,48 @@ export default function DockerPage() {
 								<p className="text-[11px] text-slate-500">compose 项目 · {group.containers.length} 个容器</p>
 							</div>
 							<div className="space-y-3">
-								{group.containers.map((c) => (
-									<div key={c.Id} className="rounded-lg border border-white/[0.06] bg-black/20 p-4">
-										<div className="flex items-center justify-between gap-3 mb-2">
-											<div className="flex items-center gap-3 min-w-0">
-												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
-													{c.State}
-												</span>
-												<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+								{group.containers.map((c) => {
+									const stat = stats[c.Id];
+									return (
+										<div key={c.Id} className="rounded-lg border border-white/[0.06] bg-black/20 p-4">
+											<div className="flex items-center justify-between gap-3 mb-2">
+												<div className="flex items-center gap-3 min-w-0">
+													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
+														{c.State}
+													</span>
+													<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+												</div>
+												<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
 											</div>
-											<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
-										</div>
-										<div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mb-3">
-											<span>{c.Status}</span>
-											{c.Labels?.["com.docker.compose.service"] ? <span>service: {c.Labels["com.docker.compose.service"]}</span> : null}
-											{c.Labels?.["com.docker.compose.version"] ? <span>v{c.Labels["com.docker.compose.version"]}</span> : null}
-										</div>
-										<div className="flex flex-wrap items-center gap-2">
-											{c.State !== "running" && (
-												<button onClick={() => handleAction(c.Id, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>
+											<div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mb-3">
+												<span>{c.Status}</span>
+												{c.Labels?.["com.docker.compose.service"] ? <span>service: {c.Labels["com.docker.compose.service"]}</span> : null}
+												{c.Labels?.["com.docker.compose.version"] ? <span>v{c.Labels["com.docker.compose.version"]}</span> : null}
+											</div>
+											{stat && (
+												<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
+													<div className="rounded-lg bg-cyan-500/10 px-2 py-1.5 text-cyan-300">CPU {stat.cpuPercent.toFixed(1)}%</div>
+													<div className="rounded-lg bg-purple-500/10 px-2 py-1.5 text-purple-300">内存 {formatBytes(stat.memoryUsageBytes)} / {stat.memoryPercent.toFixed(1)}%</div>
+													<div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-300">↓ {formatBytes(stat.networkRxBytes)}</div>
+													<div className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-amber-300">↑ {formatBytes(stat.networkTxBytes)}</div>
+												</div>
 											)}
-											{c.State === "running" && (
-												<>
-													<button onClick={() => handleAction(c.Id, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
-													<button onClick={() => handleAction(c.Id, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
-												</>
-											)}
-											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
-											<button onClick={() => handleAction(c.Id, "remove")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
+											<div className="flex flex-wrap items-center gap-2">
+												{c.State !== "running" && (
+													<button onClick={() => handleAction(c.Id, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>
+												)}
+												{c.State === "running" && (
+													<>
+														<button onClick={() => handleAction(c.Id, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
+														<button onClick={() => handleAction(c.Id, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
+													</>
+												)}
+												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
+												<button onClick={() => handleAction(c.Id, "remove")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
+											</div>
 										</div>
-									</div>
-								))}
+									);
+								})}
 							</div>
 						</section>
 					))}

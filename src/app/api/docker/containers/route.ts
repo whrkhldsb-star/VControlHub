@@ -15,6 +15,7 @@ import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 import { createLogger } from "@/lib/logging";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withRateLimit, rateLimitResponse, COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
+import { parseDockerStats } from "@/lib/docker/stats";
 
 const logger = createLogger("api:docker:containers");
 
@@ -85,6 +86,7 @@ export async function GET(req: NextRequest) {
 
 	const id = req.nextUrl.searchParams.get("id");
 	const logs = req.nextUrl.searchParams.get("logs");
+	const stats = req.nextUrl.searchParams.get("stats");
 	const tailRaw = req.nextUrl.searchParams.get("tail") || "100";
 	const tail = isValidTail(tailRaw) ? tailRaw : "100";
 
@@ -95,8 +97,20 @@ export async function GET(req: NextRequest) {
 	if (logs && !isValidDockerId(logs)) {
 		return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
 	}
+	if (stats && !isValidDockerId(stats)) {
+		return NextResponse.json({ error: "无效的容器ID格式" }, { status: 400 });
+	}
 
 	try {
+		if (stats) {
+			const result = await dockerRequest(`/containers/${stats}/stats?stream=false`);
+			if (!result.ok) return NextResponse.json(result);
+			const detail = await dockerRequest(`/containers/${stats}/json`);
+			const detailData = detail.data && typeof detail.data === "object" ? detail.data as { Name?: string } : {};
+			const name = detailData.Name?.replace(/^\//, "") || stats.slice(0, 12);
+			return NextResponse.json({ ok: true, status: result.status, data: parseDockerStats(stats, name, result.data as Record<string, unknown>) });
+		}
+
 		if (logs) {
 			const result = await dockerRequest(`/containers/${logs}/logs?stdout=true&stderr=true&tail=${tail}`);
 			return NextResponse.json(result);

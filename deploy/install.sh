@@ -199,8 +199,9 @@ install_packages() {
 
 	log "Checking system dependencies..."
 
-	# Core tools that come from apt
-	for pkg_cmd in "ca-certificates:ca-certificates" "curl:curl" "gnupg:gnupg" "git:git" "openssh-client:ssh" "sshpass:sshpass" "rsync:rsync" "build-essential:make"; do
+	# Core tools that come from apt. iproute2 provides `ss` and interface
+	# inspection utilities used by the installer and traffic dashboard checks.
+	for pkg_cmd in "ca-certificates:ca-certificates" "curl:curl" "gnupg:gnupg" "git:git" "openssh-client:ssh" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "build-essential:make"; do
 		local cmd="${pkg_cmd%%:*}"
 		local pkg="${pkg_cmd##*:}"
 		if have_cmd "${cmd}"; then
