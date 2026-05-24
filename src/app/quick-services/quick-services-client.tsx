@@ -51,6 +51,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blog", "other"];
 const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
 
+const SOURCE_PRESETS = [
+	{ key: "linuxserver", label: "LinuxServer.io", type: "linuxserver", url: "https://example.com/linuxserver.json", description: "第三方容器镜像目录，适合媒体、下载、监控类服务。" },
+	{ key: "github", label: "GitHub Raw JSON", type: "github", url: "https://example.com/apps.json", description: "公开 JSON 目录，适合自建或社区维护的服务清单。" },
+	{ key: "json", label: "通用 JSON", type: "json", url: "https://example.com/apps.json", description: "兼容自定义 JSON 格式，适合你自己整理的目录。" },
+] as const;
+
 type Tab = "store" | "community" | "installed" | "sources";
 
 function sortByPriority(items: CatalogItem[]): CatalogItem[] {
@@ -83,6 +89,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [tab, setTab] = useState<Tab>("community");
 	const [actionSlug, setActionSlug] = useState<string | null>(null);
 	const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+	const [newSourceName, setNewSourceName] = useState("");
+	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
+	const [newSourceUrl, setNewSourceUrl] = useState("");
+	const [newSourceType, setNewSourceType] = useState<"json" | "github" | "linuxserver">("json");
+	const [sourcePreset, setSourcePreset] = useState<(typeof SOURCE_PRESETS)[number]["key"] | null>(null);
 	// Install dialog state
 	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
@@ -279,6 +290,43 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		}
 	};
 
+	const applySourcePreset = (key: (typeof SOURCE_PRESETS)[number]["key"]) => {
+		const preset = SOURCE_PRESETS.find((item) => item.key === key);
+		if (!preset) return;
+		setSourcePreset(key);
+		setNewSourceType(preset.type);
+		setNewSourceDisplayName(preset.label);
+		setNewSourceName(preset.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
+		setNewSourceUrl(preset.url);
+	};
+
+	const doAddSource = async () => {
+		if (!newSourceName.trim() || !newSourceDisplayName.trim() || !newSourceUrl.trim()) {
+			setMessage({ type: "err", text: "请先填写完整的源信息" });
+			return;
+		}
+		try {
+			await csrfFetch("/api/app-sources", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name: newSourceName.trim(),
+					displayName: newSourceDisplayName.trim(),
+					url: newSourceUrl.trim(),
+					type: newSourceType,
+				}),
+			});
+			setMessage({ type: "ok", text: "应用源已添加" });
+			setNewSourceName("");
+			setNewSourceDisplayName("");
+			setNewSourceUrl("");
+			setSourcePreset(null);
+			await fetchSources();
+		} catch (err) {
+			setMessage({ type: "err", text: err instanceof Error ? err.message : "添加失败" });
+		}
+	};
+
 	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">加载中…</div>;
 	if (error) return <div className="text-sm text-rose-400 py-12 text-center">{error}</div>;
 
@@ -471,6 +519,47 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Sources management tab */}
 			{tab === "sources" && (
 				<div className="space-y-4">
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
+						<div className="flex items-center justify-between gap-3">
+							<div>
+								<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
+								<p className="mt-1 text-sm text-slate-400">先选一个预设，再按你的实际源地址微调。</p>
+							</div>
+							<div className="flex flex-wrap gap-2">
+								{SOURCE_PRESETS.map((preset) => (
+									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-lg border px-3 py-1.5 text-xs transition ${sourcePreset === preset.key ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
+										{preset.label}
+									</button>
+								))}
+							</div>
+						</div>
+						<div className="grid gap-3 md:grid-cols-2">
+							<label className="space-y-1">
+								<span className="text-xs text-slate-400">源名称</span>
+								<input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="linuxserver" />
+							</label>
+							<label className="space-y-1">
+								<span className="text-xs text-slate-400">显示名称</span>
+								<input value={newSourceDisplayName} onChange={(e) => setNewSourceDisplayName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="LinuxServer.io" />
+							</label>
+							<label className="space-y-1 md:col-span-2">
+								<span className="text-xs text-slate-400">源地址</span>
+								<input value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="https://..." />
+							</label>
+						</div>
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div className="flex gap-2">
+								{(["linuxserver", "github", "json"] as const).map((type) => (
+									<button key={type} type="button" onClick={() => setNewSourceType(type)} className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
+										{type}
+									</button>
+								))}
+							</div>
+							<button type="button" onClick={doAddSource} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition">
+								添加源
+							</button>
+						</div>
+					</div>
 					<div className="flex items-center justify-between">
 						<p className="text-xs text-slate-500">管理第三方应用源，同步后可在「社区推荐」中一键安装</p>
 						<button
