@@ -52,6 +52,24 @@ const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blo
 
 type Tab = "store" | "community" | "installed" | "sources";
 
+function sortByPriority(items: CatalogItem[]): CatalogItem[] {
+	return [...items].sort((a, b) => {
+		const rank = (item: CatalogItem) => {
+			if (item.status === "error") return 0;
+			if (item.status === "installing") return 1;
+			if (item.status === "stopped") return 2;
+			if (item.status === "running") return 3;
+			return 4;
+		};
+		const rankDiff = rank(a) - rank(b);
+		if (rankDiff !== 0) return rankDiff;
+		const activityA = (a.monthlyPulls ?? 0) + (a.stars ?? 0);
+		const activityB = (b.monthlyPulls ?? 0) + (b.stars ?? 0);
+		if (activityA !== activityB) return activityB - activityA;
+		return a.name.localeCompare(b.name, "zh-Hans-CN");
+	});
+}
+
 /* ── Main Component ─────────────────────────────────────────────── */
 
 export function QuickServicesClient({ canManage }: { canManage: boolean }) {
@@ -271,7 +289,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const localAvailable = catalog.filter((s) => s.status === "available");
 	const remoteAvailable = remoteCatalog.filter((s) => s.status === "available");
 
-	// Search filter
+	const summary = {
+		running: allItems.filter((s) => s.status === "running").length,
+		stopped: allItems.filter((s) => s.status === "stopped").length,
+		error: allItems.filter((s) => s.status === "error").length,
+		available: localAvailable.length + remoteAvailable.length,
+	};
+
 	const filterBySearch = (items: CatalogItem[]) => {
 		if (!search.trim()) return items;
 		const q = search.toLowerCase();
@@ -296,10 +320,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	};
 
 	const currentItems = tab === "store"
-		? filterBySearch(localAvailable)
+		? sortByPriority(filterBySearch(localAvailable))
 		: tab === "community"
-			? filterBySearch(remoteAvailable)
-			: filterBySearch(installed);
+			? sortByPriority(filterBySearch(remoteAvailable))
+			: sortByPriority(filterBySearch(installed));
 	const grouped = groupByCategory(currentItems);
 
 	return (
@@ -310,6 +334,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					{message.text}
 				</div>
 			)}
+
+			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+				<SummaryPill label="运行中" value={summary.running} tone="emerald" />
+				<SummaryPill label="已停止" value={summary.stopped} tone="amber" />
+				<SummaryPill label="异常" value={summary.error} tone="rose" />
+				<SummaryPill label="可安装" value={summary.available} tone="cyan" />
+			</div>
 
 			{/* Search bar */}
 			<div className="relative">
@@ -548,6 +579,22 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 }
 
 /* ── Service Card ────────────────────────────────────────────────── */
+
+function SummaryPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "cyan" }) {
+	const toneClass = {
+		emerald: "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-200",
+		amber: "border-amber-400/20 bg-amber-500/[0.06] text-amber-200",
+		rose: "border-rose-400/20 bg-rose-500/[0.06] text-rose-200",
+		cyan: "border-cyan-400/20 bg-cyan-500/[0.06] text-cyan-200",
+	}[tone];
+
+	return (
+		<div className={`rounded-xl border p-4 ${toneClass}`}>
+			<div className="text-[11px] uppercase tracking-wider text-current/70">{label}</div>
+			<div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+		</div>
+	);
+}
 
 function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUninstall }: {
 	item: CatalogItem;

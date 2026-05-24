@@ -1,5 +1,6 @@
 import { access } from "node:fs/promises";
 import { join, relative } from "node:path";
+import { execSync } from "node:child_process";
 
 import { prisma } from "@/lib/db";
 
@@ -32,6 +33,14 @@ const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secre
 
 function sanitizeDetail(value: string) {
   return SECRET_PATTERNS.reduce((text, pattern) => text.replace(pattern, (_match, key) => key ? `${key}=[REDACTED]` : "[REDACTED]"), value);
+}
+
+function safeExec(command: string): string | null {
+  try {
+    return execSync(command, { encoding: "utf8", timeout: 5000 }).trim();
+  } catch {
+    return null;
+  }
 }
 
 export function summarizeSystemHealth(checks: SystemHealthCheck[]): SystemHealthSummary {
@@ -93,6 +102,29 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
 
   const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } } }).catch(() => []);
   checks.push({ id: "notification-settings", label: "通知渠道配置", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `已保存 ${settings.length} 项通知渠道配置` : "可在系统设置中配置通知渠道" });
+
+  const gitHead = safeExec(`git -C ${JSON.stringify(projectRoot)} rev-parse --short HEAD`);
+  const gitRemoteHead = safeExec(`git -C ${JSON.stringify(projectRoot)} ls-remote origin refs/heads/main | awk '{print $1}' | cut -c1-7`);
+  if (gitHead) {
+    const gitHealthy = !gitRemoteHead || gitHead === gitRemoteHead;
+    checks.push({
+      id: "git-sync",
+      label: "GitHub 同步状态",
+      status: gitHealthy ? "healthy" : "warning",
+      message: gitRemoteHead
+        ? gitHealthy
+          ? `本地提交 ${gitHead} 与 origin/main 一致`
+          : `本地 ${gitHead} 与 origin/main ${gitRemoteHead} 不一致`
+        : `当前提交 ${gitHead}，远端状态暂不可确认`,
+    });
+  } else {
+    checks.push({
+      id: "git-sync",
+      label: "GitHub 同步状态",
+      status: "warning",
+      message: "当前目录不是可识别的 Git 仓库或无法读取 HEAD",
+    });
+  }
 
   return { generatedAt: new Date().toISOString(), summary: summarizeSystemHealth(checks), checks };
 }
