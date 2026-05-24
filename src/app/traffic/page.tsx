@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 type InterfaceTraffic = {
 	iface: string;
@@ -53,6 +54,9 @@ export default function TrafficPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [autoRefresh, setAutoRefresh] = useState(true);
+	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
+		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
+	);
 
 	const fetchSummary = useCallback(async (iface = selectedIface) => {
 		try {
@@ -72,14 +76,24 @@ export default function TrafficPage() {
 	}, [selectedIface]);
 
 	useEffect(() => {
+		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
+		window.addEventListener("storage", onStorage);
+		window.addEventListener("vps-preferences-updated", onStorage);
+		return () => {
+			window.removeEventListener("storage", onStorage);
+			window.removeEventListener("vps-preferences-updated", onStorage);
+		};
+	}, []);
+
+	useEffect(() => {
 		const timer = setTimeout(() => { void fetchSummary(); }, 0);
 		return () => clearTimeout(timer);
 	}, [fetchSummary]);
 	useEffect(() => {
-		if (!autoRefresh) return;
-		const id = setInterval(() => { void fetchSummary(); }, 5000);
+		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
+		const id = setInterval(() => { void fetchSummary(); }, refreshIntervalSeconds * 1000);
 		return () => clearInterval(id);
-	}, [autoRefresh, fetchSummary]);
+	}, [autoRefresh, fetchSummary, refreshIntervalSeconds]);
 
 	const primary = summary?.currentServer.primaryInterface ?? null;
 
@@ -92,7 +106,7 @@ export default function TrafficPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					<button onClick={() => fetchSummary()} className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20">刷新</button>
-					<button onClick={() => setAutoRefresh((v) => !v)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/60 text-slate-300"}`}>{autoRefresh ? "● 5s 自动刷新" : "自动刷新"}</button>
+					<button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/60 text-slate-300"}`}>{autoRefresh ? `● ${getRefreshIntervalLabel(refreshIntervalSeconds)} 自动刷新` : refreshIntervalSeconds <= 0 ? "自动刷新已关闭" : `自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})`}</button>
 				</div>
 			</div>
 

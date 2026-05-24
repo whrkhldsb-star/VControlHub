@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 interface Container {
 	Id: string;
@@ -52,6 +53,10 @@ export default function DockerPage() {
 	const [logs, setLogs] = useState("");
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
 	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
+	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
+	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
+		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
+	);
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
 
@@ -136,12 +141,33 @@ export default function DockerPage() {
 		fetchContainers();
 	}, []);
 
+	const runningContainers = useMemo(() => containers.filter((container) => container.State === "running").slice(0, 12), [containers]);
+
 	useEffect(() => {
-		const running = containers.filter((container) => container.State === "running").slice(0, 12);
-		for (const container of running) {
+		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
+		window.addEventListener("storage", onStorage);
+		window.addEventListener("vps-preferences-updated", onStorage);
+		return () => {
+			window.removeEventListener("storage", onStorage);
+			window.removeEventListener("vps-preferences-updated", onStorage);
+		};
+	}, []);
+
+	useEffect(() => {
+		for (const container of runningContainers) {
 			void fetchStats(container.Id);
 		}
-	}, [containers]);
+	}, [runningContainers]);
+
+	useEffect(() => {
+		if (!statsAutoRefresh || refreshIntervalSeconds <= 0 || runningContainers.length === 0) return;
+		const id = setInterval(() => {
+			for (const container of runningContainers) {
+				void fetchStats(container.Id);
+			}
+		}, refreshIntervalSeconds * 1000);
+		return () => clearInterval(id);
+	}, [refreshIntervalSeconds, runningContainers, statsAutoRefresh]);
 
 	const stateColors: Record<string, string> = {
 		running: "bg-emerald-500/10 text-emerald-400",
@@ -164,15 +190,30 @@ export default function DockerPage() {
 				<span className="text-slate-600">·</span>
 				<span>{ungrouped.length} 个独立容器</span>
 			</div>
-			<div className="flex items-center gap-3 mb-6">
+			<div className="flex flex-wrap items-center gap-3 mb-6">
 				<button
 					onClick={() => {
 						setLoading(true);
-						fetchContainers();
+						void fetchContainers();
 					}}
 					className="px-3 py-1.5 text-xs font-medium bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition"
 				>
 					刷新列表
+				</button>
+				<button
+					onClick={() => {
+						for (const container of runningContainers) void fetchStats(container.Id);
+					}}
+					className="px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-300 rounded-lg hover:bg-purple-500/20 transition"
+				>
+					刷新统计
+				</button>
+				<button
+					onClick={() => setStatsAutoRefresh((v) => !v)}
+					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
+					className={`px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/50 text-slate-400"}`}
+				>
+					{statsAutoRefresh ? `● 统计自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})` : refreshIntervalSeconds <= 0 ? "统计自动刷新已关闭" : `统计自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})`}
 				</button>
 			</div>
 

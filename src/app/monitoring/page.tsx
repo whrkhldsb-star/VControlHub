@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 interface Stats {
 	hostname: string; platform: string; arch: string; uptime: string;
@@ -39,22 +40,34 @@ export default function MonitoringPage() {
 	const [stats, setStats] = useState<Stats | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [autoRefresh, setAutoRefresh] = useState(false);
+	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
+		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
+	);
 
-	const fetchStats = async () => {
+	const fetchStats = useCallback(async () => {
 		try {
 			const data = await csrfFetch("/api/monitoring/stats") as Stats & { error?: string };
 			if (!data.error) setStats(data);
 		} catch { /* */ }
 		finally { setLoading(false); }
-	};
+	}, []);
 
-
-	useEffect(() => { fetchStats(); }, []);
 	useEffect(() => {
-		if (!autoRefresh) return;
-		const id = setInterval(fetchStats, 5000);
+		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
+		window.addEventListener("storage", onStorage);
+		window.addEventListener("vps-preferences-updated", onStorage);
+		return () => {
+			window.removeEventListener("storage", onStorage);
+			window.removeEventListener("vps-preferences-updated", onStorage);
+		};
+	}, []);
+
+	useEffect(() => { void fetchStats(); }, [fetchStats]);
+	useEffect(() => {
+		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
+		const id = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
 		return () => clearInterval(id);
-	}, [autoRefresh]);
+	}, [autoRefresh, fetchStats, refreshIntervalSeconds]);
 
 	if (loading) return <PageShell><div className="text-sm text-slate-500">加载中...</div></PageShell>;
 	if (!stats) return <PageShell><div className="text-sm text-rose-400">无法获取监控数据</div></PageShell>;
@@ -68,8 +81,9 @@ export default function MonitoringPage() {
 				<button onClick={fetchStats}
 					className="px-3 py-1.5 text-xs font-medium bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition">刷新</button>
 				<button onClick={() => setAutoRefresh(!autoRefresh)}
-					className={`px-3 py-1.5 text-xs font-medium rounded-lg transition ${autoRefresh ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-700/50 text-slate-400"}`}>
-					{autoRefresh ? "● 自动刷新 (5s)" : "自动刷新"}
+					disabled={refreshIntervalSeconds <= 0}
+					className={`px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-700/50 text-slate-400"}`}>
+					{autoRefresh ? `● 自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})` : refreshIntervalSeconds <= 0 ? "自动刷新已关闭" : `自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})`}
 				</button>
 			</div>
 

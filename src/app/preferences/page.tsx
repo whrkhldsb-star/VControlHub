@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 
 interface Preferences {
 	sidebarCollapsed: boolean;
@@ -39,14 +40,6 @@ const widgetOptions = [
 	{ label: "数据图表", value: "analytics" },
 	{ label: "审计日志", value: "audit-log" },
 	{ label: "服务器状态", value: "server-status" },
-];
-
-const refreshOptions = [
-	{ label: "关闭", value: 0 },
-	{ label: "5秒", value: 5 },
-	{ label: "15秒", value: 15 },
-	{ label: "30秒", value: 30 },
-	{ label: "60秒", value: 60 },
 ];
 
 /** Section card — extracted to module top to avoid re-creation on every render */
@@ -101,6 +94,7 @@ export default function PreferencesPage() {
 	const save = async (newPrefs: Preferences) => {
 		setPrefs(newPrefs);
 		localStorage.setItem("vps-preferences", JSON.stringify(newPrefs));
+		window.dispatchEvent(new Event("vps-preferences-updated"));
 		try {
 			await csrfFetch("/api/preferences", {
 				method: "PUT",
@@ -168,8 +162,8 @@ export default function PreferencesPage() {
 				</Section>
 
 				<Section title="⏱️ 自动刷新">
-					<div className="flex gap-2">
-						{refreshOptions.map((opt) => (
+					<div className="flex flex-wrap gap-2">
+						{REFRESH_INTERVAL_OPTIONS.map((opt) => (
 							<button
 								key={opt.value}
 								onClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}
@@ -183,8 +177,8 @@ export default function PreferencesPage() {
 							</button>
 						))}
 					</div>
+					<p className="text-[11px] text-slate-500">控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。</p>
 				</Section>
-
 				<Section title="📐 显示">
 					<Toggle label="紧凑模式" checked={prefs.compactMode} onChange={(v) => save({ ...prefs, compactMode: v })} />
 					<Toggle label="侧边栏默认收起" checked={prefs.sidebarCollapsed} onChange={(v) => save({ ...prefs, sidebarCollapsed: v })} />

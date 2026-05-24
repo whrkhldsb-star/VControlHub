@@ -19,7 +19,7 @@ const prefsSchema = z.object({
 	dashboardWidgets: z.array(z.string()).optional(),
 	notificationsEnabled: z.boolean().optional(),
 	notificationSound: z.boolean().optional(),
-	autoRefreshInterval: z.number().int().min(0).optional(),
+	autoRefreshInterval: z.number().int().min(0).max(300).optional(),
 	compactMode: z.boolean().optional(),
 });
 
