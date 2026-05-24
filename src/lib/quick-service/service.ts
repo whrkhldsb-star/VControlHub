@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { execSync, exec } from "child_process";
+import { execFileSync, execSync, exec } from "child_process";
 import { promisify } from "util";
 
 const run = promisify(exec);
@@ -80,14 +80,14 @@ export type { ServiceTemplate } from "./types";
 export async function listQuickServices() {
 	return prisma.quickService.findMany({
 		orderBy: [{ category: "asc" }, { name: "asc" }],
-		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
+		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, internalPort: true, extraPortsJson: true, command: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
 	});
 }
 
 export async function getQuickService(slug: string) {
 	return prisma.quickService.findUnique({
 		where: { slug },
-		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
+		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, internalPort: true, extraPortsJson: true, command: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
 	});
 }
 
@@ -123,6 +123,7 @@ export async function installService(opts: InstallOptions) {
 	// ── Step 4: Create DB record (installing state) ──
 	const envStr = JSON.stringify(template.envJson);
 	const volStr = JSON.stringify(template.volumesJson);
+	const extraPortsStr = JSON.stringify(template.extraPorts ?? []);
 	const svc = await prisma.quickService.upsert({
 		where: { slug: template.slug },
 		update: {
@@ -130,6 +131,9 @@ export async function installService(opts: InstallOptions) {
 			image: template.image,
 			port: hostPort,
 			path: template.path,
+			internalPort: template.internalPort ?? null,
+			extraPortsJson: extraPortsStr,
+			command: template.command ?? null,
 			envJson: envStr,
 			volumesJson: volStr,
 			error: null,
@@ -143,6 +147,9 @@ export async function installService(opts: InstallOptions) {
 			image: template.image,
 			port: hostPort,
 			path: template.path,
+			internalPort: template.internalPort ?? null,
+			extraPortsJson: extraPortsStr,
+			command: template.command ?? null,
 			envJson: envStr,
 			volumesJson: volStr,
 			status: "installing",
@@ -235,9 +242,12 @@ export async function startService(slug: string) {
 			description: svc.description,
 			image: svc.image,
 			defaultPort: svc.port,
+			internalPort: svc.internalPort ?? undefined,
 			path: svc.path,
 			envJson: JSON.parse(svc.envJson),
 			volumesJson: JSON.parse(svc.volumesJson),
+			extraPorts: JSON.parse(svc.extraPortsJson || "[]"),
+			command: svc.command ?? undefined,
 		};
 		await startDockerContainer(svc.id, tmpl, svc.port);
 	}
@@ -297,7 +307,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 				const pid = pidMatch[1];
 				if (!/^\d+$/.test(pid)) throw new Error('Invalid PID');
 				try {
-					const cmdLine = execSync(`cat /proc/${pid}/cmdline 2>/dev/null | tr '\\0' ' '`, {
+					const cmdLine = execFileSync("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
 						timeout: 3000,
 						encoding: "utf8",
 					});

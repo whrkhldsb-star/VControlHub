@@ -801,6 +801,9 @@ model QuickService {
   image        String   // docker image e.g. "xhofe/alist:latest"
   port         Int      // host port to expose
   path         String   @default("") // reverse proxy path e.g. "/files-proxy/"
+  internalPort Int?     // container port for the primary host port mapping
+  extraPortsJson String @default("[]") // JSON: [{host:9001, container:9001}]
+  command      String?  // optional command appended to docker run image
   envJson      String   @default("{}") // JSON string of env vars
   volumesJson  String   @default("[]") // JSON: [{host:"/opt/alist/data", container:"/opt/alist/data"}]
   status       String   @default("available") // available|installing|running|stopped|error
