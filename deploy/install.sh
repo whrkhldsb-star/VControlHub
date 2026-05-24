@@ -89,6 +89,31 @@ remove_env_var() {
  sed -i "/^${name}=/d" "${ENV_FILE}"
 }
 
+print_usage() {
+ cat <<EOF
+Usage: sudo ./install.sh [--show-credentials]
+
+Options:
+  --show-credentials   Print credentials saved during the first install and exit.
+  -h, --help           Show this help.
+EOF
+}
+
+show_credentials() {
+ [ -f "${ENV_FILE}" ] || fail "Credentials file not found: ${ENV_FILE}. Run the installer first, or set APP_DIR/ENV_FILE to the installed app."
+ # shellcheck disable=SC1090
+ set -a; source "${ENV_FILE}"; set +a
+
+ printf 'App directory: %s\n' "${APP_DIR}"
+ printf 'Environment file: %s\n' "${ENV_FILE}"
+ printf 'Admin username: admin\n'
+ printf 'Admin initial password: %s\n' "${ADMIN_INITIAL_PASSWORD:-<missing>}"
+ printf 'PostgreSQL database: %s\n' "${PG_DB_NAME}"
+ printf 'PostgreSQL username: %s\n' "${PG_DB_USER}"
+ printf 'PostgreSQL password: %s\n' "${PG_DB_PASSWORD:-<missing>}"
+ printf 'DATABASE_URL: %s\n' "${DATABASE_URL:-<missing>}"
+}
+
 resolve_command() {
   local command_name="$1" resolved=""
   resolved="$(command -v "${command_name}" 2>/dev/null || true)"
@@ -543,13 +568,10 @@ setup_postgres() {
 	# Always sync DATABASE_URL with PG_DB_PASSWORD to prevent mismatch
 	local generated_url current_url current_pw need_url_update encoded_pw
 	encoded_pw="$(urlencode "${PG_DB_PASSWORD}")"
-	if [ -n "${PG_DB_PASSWORD}" ]; then
-		generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"
-	else
-		generated_url="postgresql://${PG_DB_USER}@127.0.0.1:5432/${PG_DB_NAME}"
-	fi
+	generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"
 	current_url="${DATABASE_URL:-}"
 	need_url_update=0
+
 	if is_placeholder_value "${current_url}" || [ -z "${current_url}" ]; then
 		need_url_update=1
 	elif [ -n "${PG_DB_PASSWORD}" ]; then
@@ -780,6 +802,21 @@ restart_services() {
 }
 
 main() {
+ case "${1:-}" in
+  --show-credentials)
+   shift
+   [ "$#" -eq 0 ] || fail "--show-credentials does not accept extra arguments."
+   show_credentials
+   return
+   ;;
+  -h|--help)
+   print_usage
+   return
+   ;;
+  "") ;;
+  *) fail "Unknown argument: $1. Use --help for usage." ;;
+ esac
+
  need_root
  install_packages
  prepare_app_user

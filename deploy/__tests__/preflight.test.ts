@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-async function runScript(script: string, args: { cwd: string; env: NodeJS.ProcessEnv }) {
+async function runScript(script: string, args: { cwd: string; env: NodeJS.ProcessEnv; args?: string[] }) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
-    const child = spawn("bash", [script], { cwd: args.cwd, env: args.env });
+    const child = spawn("bash", [script, ...(args.args ?? [])], { cwd: args.cwd, env: args.env });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => {
@@ -401,6 +401,41 @@ describe("deploy/install.sh", () => {
     const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
     expect(script).toContain('generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"');
     expect(script).not.toContain('generated_url="postgresql://${PG_DB_USER}:***@127.0.0.1:5432/${PG_DB_NAME}"');
+  });
+
+  it("can print saved first-install credentials without running the installer", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    await writeFile(
+      envFile,
+      [
+        'ADMIN_INITIAL_PASSWORD="admin-first-pass"',
+        'PG_DB_PASSWORD="pg-first-pass"',
+        'DATABASE_URL="postgresql://whrkhldsb:pg-first-pass@127.0.0.1:5432/whrkhldsb"',
+      ].join("\n"),
+    );
+
+    try {
+      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+        },
+        args: ["--show-credentials"],
+      });
+
+      expect(result.code, result.stdout + result.stderr).toBe(0);
+      expect(result.stdout).toContain("Admin username: admin");
+      expect(result.stdout).toContain("Admin initial password: admin-first-pass");
+      expect(result.stdout).toContain("PostgreSQL password: pg-first-pass");
+      expect(result.stdout).toContain("DATABASE_URL: postgresql://whrkhldsb:pg-first-pass@127.0.0.1:5432/whrkhldsb");
+      expect(result.stdout + result.stderr).not.toContain("Installing dependencies");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
   });
 
   it("removes deprecated browser-exposed SSH WebSocket secrets from generated env files", async () => {
