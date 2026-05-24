@@ -80,7 +80,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [usedPorts, setUsedPorts] = useState<number[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [tab, setTab] = useState<Tab>("store");
+	const [tab, setTab] = useState<Tab>("community");
 	const [actionSlug, setActionSlug] = useState<string | null>(null);
 	const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 	// Install dialog state
@@ -455,7 +455,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Tab bar */}
 			<div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 border border-white/[0.06] w-fit">
 				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-400 hover:text-white"}`}>
-					🏪 精选商店 ({localAvailable.length})
+					🏪 本地精选 ({localAvailable.length})
 				</button>
 				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300" : "text-slate-400 hover:text-white"}`}>
 					🌐 社区推荐 ({remoteAvailable.length})
