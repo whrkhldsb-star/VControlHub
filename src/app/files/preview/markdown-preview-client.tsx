@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import DOMPurify from "dompurify";
 
 /** Sanitize HTML to prevent XSS while preserving safe formatting elements */
-function sanitizeHtml(html: string): string {
+export function sanitizeHtml(html: string): string {
 	return DOMPurify.sanitize(html, {
 		ALLOWED_TAGS: [
 			"h1", "h2", "h3", "h4", "h5", "h6", "p", "br", "hr",
@@ -12,7 +12,7 @@ function sanitizeHtml(html: string): string {
 			"ul", "ol", "li", "blockquote",
 			"table", "thead", "tbody", "tr", "th", "td",
 		],
-		ALLOWED_ATTR: ["href", "target", "rel", "class", "style"],
+		ALLOWED_ATTR: ["href", "target", "rel", "class"],
 		ALLOW_DATA_ATTR: false,
 	});
 }
@@ -24,7 +24,7 @@ type PreviewState = { loading: true } | { loading: false; content: string | null
  * Supports: headings, bold, italic, fenced code blocks, inline code,
  * links, ordered/unordered lists, blockquotes, tables, horizontal rules.
  */
-function renderMarkdown(md: string): string {
+export function renderMarkdown(md: string): string {
 	// Normalize line endings
 	const src = md.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
@@ -150,8 +150,15 @@ function escapeHtml(str: string): string {
 		.replace(/'/g, "&#39;");
 }
 
+function stripDangerousText(text: string): string {
+	return text
+		.replace(/on\w+\s*=\s*[^\s)]+/gi, "")
+		.replace(/\b(?:javascript|data|vbscript):/gi, "");
+}
+
 /** Apply inline Markdown formatting (bold, italic, code, links) */
 function inlineFormat(text: string): string {
+	text = escapeHtml(stripDangerousText(text));
 	// Inline code (must be before bold/italic to avoid conflicts)
 	text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
 	// Bold + italic
@@ -166,7 +173,7 @@ function inlineFormat(text: string): string {
 		if (trimmed.startsWith('javascript:') || trimmed.startsWith('data:') || trimmed.startsWith('vbscript:')) {
 			return match; // 不转换危险链接
 		}
-		return `<a href="${escapeHtml(url.trim())}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+		return `<a href="${url.trim()}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 	});
 	return text;
 }
@@ -201,7 +208,7 @@ function tryParseTable(lines: string[], start: number): { html: string; nextLine
 
 	const headerHtml = headers
 		.map((h, idx) => {
-			const align = aligns[idx] ? ` style="text-align:${aligns[idx]}"` : "";
+			const align = aligns[idx] ? ` class="align-${aligns[idx]}"` : "";
 			return `<th${align}>${inlineFormat(h)}</th>`;
 		})
 		.join("");
@@ -210,7 +217,7 @@ function tryParseTable(lines: string[], start: number): { html: string; nextLine
 		.map((row) => {
 			const cells = row
 				.map((c, idx) => {
-					const align = aligns[idx] ? ` style="text-align:${aligns[idx]}"` : "";
+					const align = aligns[idx] ? ` class="align-${aligns[idx]}"` : "";
 					return `<td${align}>${inlineFormat(c)}</td>`;
 				})
 				.join("");
@@ -305,7 +312,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 
 			{/* Rendered markdown */}
 			<div
-				className="prose prose-invert max-w-none text-sm leading-relaxed [&_a]:text-cyan-400 [&_a]:underline [&_a:hover]:text-cyan-300 [&_blockquote]:border-l-4 [&_blockquote]:border-slate-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-400 [&_code]:rounded [&_code]:bg-slate-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-cyan-300 [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-white [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-white [&_h4]:mt-3 [&_h4]:mb-1.5 [&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-white [&_h5]:mt-3 [&_h5]:mb-1 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:text-white [&_h6]:mt-3 [&_h6]:mb-1 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-slate-300 [&_hr]:border-slate-700 [&_hr]:my-4 [&_li]:text-slate-200 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_p]:my-2 [&_p]:text-slate-200 [&_pre]:rounded-xl [&_pre]:bg-slate-900 [&_pre]:p-4 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-slate-800 [&_strong]:text-white [&_strong]:font-semibold [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_td]:border [&_td]:border-slate-700 [&_td]:px-3 [&_td]:py-2 [&_td]:text-slate-200 [&_th]:border [&_th]:border-slate-700 [&_th]:bg-slate-900 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-white [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2"
+				className="prose prose-invert max-w-none text-sm leading-relaxed [&_a]:text-cyan-400 [&_a]:underline [&_a:hover]:text-cyan-300 [&_blockquote]:border-l-4 [&_blockquote]:border-slate-600 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-slate-400 [&_code]:rounded [&_code]:bg-slate-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-cyan-300 [&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-white [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:text-white [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-white [&_h4]:mt-3 [&_h4]:mb-1.5 [&_h4]:text-base [&_h4]:font-semibold [&_h4]:text-white [&_h5]:mt-3 [&_h5]:mb-1 [&_h5]:text-sm [&_h5]:font-semibold [&_h5]:text-white [&_h6]:mt-3 [&_h6]:mb-1 [&_h6]:text-sm [&_h6]:font-semibold [&_h6]:text-slate-300 [&_hr]:border-slate-700 [&_hr]:my-4 [&_li]:text-slate-200 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_p]:my-2 [&_p]:text-slate-200 [&_pre]:rounded-xl [&_pre]:bg-slate-900 [&_pre]:p-4 [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:border [&_pre]:border-slate-800 [&_strong]:text-white [&_strong]:font-semibold [&_table]:w-full [&_table]:my-3 [&_table]:border-collapse [&_td.align-center]:text-center [&_td.align-right]:text-right [&_td]:border [&_td]:border-slate-700 [&_td]:px-3 [&_td]:py-2 [&_td]:text-slate-200 [&_th.align-center]:text-center [&_th.align-right]:text-right [&_th]:border [&_th]:border-slate-700 [&_th]:bg-slate-900 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_th]:text-white [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2"
 				dangerouslySetInnerHTML={{ __html: html }}
 			/>
 		</div>

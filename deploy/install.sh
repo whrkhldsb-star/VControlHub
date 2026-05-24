@@ -684,6 +684,8 @@ install_systemd() {
 			/tmp/*|/var/tmp/*) ;;
 			*) fail "Refusing to install systemd units with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
 		esac
+		[ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
+		[ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
 	fi
 	local node_bin npm_bin npx_bin systemd_path
 	node_bin="$(resolve_node_tool node)"
@@ -714,9 +716,6 @@ install_systemd() {
 			fail "Invalid systemd template ${src}: missing [Service] or ExecStart."
 		fi
 		local dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-${svc}.service"
-		if [ -n "${DESTDIR}" ] && [ "${SKIP_RESTART}" != "1" ]; then
-			fail "Refusing to write systemd units under DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
-		fi
 		mkdir -p "$(dirname "${dst}")"
 		# Remove immutable flag if present (from hardening or previous deployment)
 		chattr -i "${dst}" 2>/dev/null || true

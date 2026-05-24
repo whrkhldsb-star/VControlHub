@@ -245,6 +245,7 @@ describe("deploy/preflight.sh", () => {
           DESTDIR: fakeRoot,
           SKIP_PACKAGES: "1",
           SKIP_RESTART: "1",
+          INSTALL_SYSTEMD_UNITS: "1",
           SKIP_BUILD: "1",
           SKIP_DB_SETUP: "1",
           SKIP_CADDY: "1",
@@ -314,6 +315,7 @@ describe("deploy/install.sh", () => {
           DESTDIR: fakeRoot,
           SKIP_PACKAGES: "1",
           SKIP_RESTART: "1",
+          INSTALL_SYSTEMD_UNITS: "1",
           SKIP_BUILD: "1",
           SKIP_DB_SETUP: "1",
           SKIP_CADDY: "1",
@@ -394,6 +396,7 @@ describe("deploy/install.sh", () => {
 		DESTDIR: fakeRoot,
 		SKIP_PACKAGES: "1",
 		SKIP_RESTART: "1",
+		INSTALL_SYSTEMD_UNITS: "1",
 		SKIP_BUILD: "1",
 		SKIP_DB_SETUP: "1",
 		SKIP_CADDY: "1",
@@ -423,7 +426,7 @@ describe("deploy/install.sh", () => {
     }
   });
 
-  it("refuses DESTDIR unless restarts are disabled so tests cannot overwrite live units", async () => {
+  it("refuses DESTDIR unless restarts and explicit unit rendering are enabled so tests cannot overwrite live units", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
     const envFile = path.join(appDir, ".env.local");
@@ -435,7 +438,7 @@ describe("deploy/install.sh", () => {
       mkdir(path.join(appDir, "node_modules"), { recursive: true }),
       mkdir(path.join(fakeRoot, "etc/systemd/system"), { recursive: true }),
     ]);
-    await writeFile(envFile, "DATABASE_URL=postgresql://u:p@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n");
+    await writeFile(envFile, "PG_DB_PASSWORD=12345678901234567890123456789012\nDATABASE_URL=postgresql://u:pass@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n");
     await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
     await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
     await writeFile(path.join(appDir, "deploy/apache-next-proxy.example.conf"), "[VirtualHost *:80]\nServerName {{SERVER_NAME}}\nProxyPass / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\nProxyPassReverse / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\n");
@@ -447,7 +450,7 @@ describe("deploy/install.sh", () => {
     }
 
     try {
-      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+      const withoutSkipRestart = await runScript(path.join(repoRoot, "deploy/install.sh"), {
         cwd: repoRoot,
         env: {
           ...process.env,
@@ -463,9 +466,29 @@ describe("deploy/install.sh", () => {
         },
       });
 
-      expect(result.code).not.toBe(0);
-      expect(result.stderr + result.stdout).toContain("DESTDIR");
-      expect(result.stderr + result.stdout).toContain("SKIP_RESTART=1");
+      expect(withoutSkipRestart.code).not.toBe(0);
+      expect(withoutSkipRestart.stderr + withoutSkipRestart.stdout).toContain("DESTDIR");
+      expect(withoutSkipRestart.stderr + withoutSkipRestart.stdout).toContain("SKIP_RESTART=1");
+
+      const withoutExplicitUnitRender = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:/usr/bin:/bin`,
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          SOURCE_DIR: repoRoot,
+          DESTDIR: fakeRoot,
+          SKIP_PACKAGES: "1",
+          SKIP_RESTART: "1",
+          SKIP_BUILD: "1",
+          SKIP_DB_SETUP: "1",
+          SKIP_CADDY: "1",
+        },
+      });
+
+      expect(withoutExplicitUnitRender.code).not.toBe(0);
+      expect(withoutExplicitUnitRender.stderr + withoutExplicitUnitRender.stdout).toContain("INSTALL_SYSTEMD_UNITS=1");
     } finally {
       await rm(appDir, { force: true, recursive: true });
       await rm(binDir, { force: true, recursive: true });

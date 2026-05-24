@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireApiPermission } from "@/lib/auth/require-api-permission";
 import { createSshWsHandshakeToken } from "@/lib/auth/ssh-ws-token";
+import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const HANDSHAKE_TTL_MS = 60_000;
 
@@ -23,6 +24,9 @@ function resolveRequestOrigin(request: NextRequest) {
  * Never returns SSH_WS_SECRET to the browser.
  */
 export async function POST(request: NextRequest) {
+  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
+  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
   const result = await requireApiPermission("server:ssh");
   if (result instanceof NextResponse) return result;
 

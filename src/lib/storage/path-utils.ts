@@ -117,7 +117,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
 
 export function isSafeArchiveEntryPath(value: string | null | undefined): boolean {
   const rawInput = (value ?? "").trim();
-  if (rawInput.includes("\\")) return false;
+  if (rawInput.includes("\\") || rawInput.includes(":")) return false;
   const normalizedInput = normalizePathInput(rawInput);
   if (
     !normalizedInput ||

@@ -62,6 +62,7 @@ describe("storage path utils", () => {
     expect(isSafeArchiveEntryPath("/absolute.txt")).toBe(false);
     expect(isSafeArchiveEntryPath("C:/Windows/system.ini")).toBe(false);
     expect(isSafeArchiveEntryPath("folder\\..\\secret.txt")).toBe(false);
+    expect(isSafeArchiveEntryPath("folder/file:ads.txt")).toBe(false);
     expect(isSafeArchiveEntryPath("folder/./photo.png")).toBe(true);
     expect(isSafeArchiveEntryPath("folder/../../secret.txt")).toBe(false);
     expect(isSafeArchiveEntryPath(`folder/${"a".repeat(256)}.txt`)).toBe(false);

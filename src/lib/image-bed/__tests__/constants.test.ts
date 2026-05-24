@@ -19,8 +19,10 @@ describe("image-bed constants", () => {
     expect(UPLOAD_DIR).toBe("/srv/example-app/uploads/image-bed");
   });
 
-  it("uses the production app dir as the deterministic default upload root", async () => {
-    const { UPLOAD_DIR } = await loadConstants();
+	it("uses the production app dir as the deterministic default upload root", async () => {
+		vi.stubEnv("APP_DIR", "");
+
+		const { UPLOAD_DIR } = await loadConstants();
 
     expect(UPLOAD_DIR).toBe("/opt/whrkhldsb/uploads/image-bed");
   });
