@@ -58,7 +58,7 @@ describe("login action", () => {
 
     await expect(login(null, formData)).rejects.toThrow("REDIRECT:/");
     expect(setMock).toHaveBeenCalledWith(
-      "whrkhldsb_session",
+      expect.stringMatching(/[-_]session$/),
       "signed-token",
       expect.objectContaining({ httpOnly: true }),
     );

@@ -9,6 +9,12 @@ import {
 } from "../src/lib/auth/rbac";
 import { hashPassword } from "../src/lib/auth/password";
 
+function seedLog(message: string) {
+  if (process.env.SEED_DEBUG === "1") {
+    console.error(`[seed] ${new Date().toISOString()} ${message}`);
+  }
+}
+
 const PERMISSION_LABELS: Record<string, { name: string; description: string }> = {
   "announcement:manage": { name: "管理公告", description: "允许发布、置顶和下线站内公告" },
  "api-token:manage": { name: "管理 API Token", description: "允许创建和撤销个人 API Token" },
@@ -57,56 +63,78 @@ const ROLE_LABELS: Record<RoleKey, { name: string; description: string }> = {
 };
 
 async function seedPermissions() {
-  for (const permission of ALL_PERMISSIONS) {
-    const label = PERMISSION_LABELS[permission];
-    await prisma.permission.upsert({
-      where: { key: permission },
-      update: {
-        name: label.name,
-        description: label.description,
-      },
-      create: {
-        key: permission,
-        name: label.name,
-        description: label.description,
-      },
-    });
-  }
+  seedLog("seedPermissions:start");
+  await prisma.$transaction(
+    ALL_PERMISSIONS.map((permission) => {
+      const label = PERMISSION_LABELS[permission];
+      return prisma.permission.upsert({
+        where: { key: permission },
+        update: {
+          name: label.name,
+          description: label.description,
+        },
+        create: {
+          key: permission,
+          name: label.name,
+          description: label.description,
+        },
+      });
+    }),
+  );
+  seedLog("seedPermissions:done");
 }
 
 async function seedRoles() {
-  for (const [roleKey, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS) as [RoleKey, typeof ALL_PERMISSIONS][]) {
-    const role = await prisma.role.upsert({
-      where: { key: roleKey },
-      update: {
-        name: ROLE_LABELS[roleKey].name,
-        description: ROLE_LABELS[roleKey].description,
-      },
-      create: {
-        key: roleKey,
-        name: ROLE_LABELS[roleKey].name,
-        description: ROLE_LABELS[roleKey].description,
-      },
-    });
-
-    await prisma.rolePermission.deleteMany({ where: { roleId: role.id } });
-
-    for (const permission of permissions) {
-      const permissionRecord = await prisma.permission.findUniqueOrThrow({
-        where: { key: permission },
-      });
-
-      await prisma.rolePermission.create({
-        data: {
-          roleId: role.id,
-          permissionId: permissionRecord.id,
+  seedLog("seedRoles:start");
+  const roleEntries = Object.entries(DEFAULT_ROLE_PERMISSIONS) as [RoleKey, typeof ALL_PERMISSIONS][];
+  const roles = await prisma.$transaction(
+    roleEntries.map(([roleKey]) =>
+      prisma.role.upsert({
+        where: { key: roleKey },
+        update: {
+          name: ROLE_LABELS[roleKey].name,
+          description: ROLE_LABELS[roleKey].description,
         },
-      });
+        create: {
+          key: roleKey,
+          name: ROLE_LABELS[roleKey].name,
+          description: ROLE_LABELS[roleKey].description,
+        },
+      }),
+    ),
+  );
+
+  const permissions = await prisma.permission.findMany({
+    where: { key: { in: ALL_PERMISSIONS } },
+    select: { id: true, key: true },
+  });
+  const permissionIdByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));
+  const roleIdByKey = new Map(roles.map((role, index) => [roleEntries[index][0], role.id]));
+
+  await prisma.$transaction(roles.map((role) => prisma.rolePermission.deleteMany({ where: { roleId: role.id } })));
+
+  const rolePermissionRows = roleEntries.flatMap(([roleKey, rolePermissions]) => {
+    const roleId = roleIdByKey.get(roleKey);
+    if (!roleId) {
+      throw new Error(`Seed role ${roleKey} was not created`);
     }
+    return rolePermissions.map((permission) => {
+      const permissionId = permissionIdByKey.get(permission);
+      if (!permissionId) {
+        throw new Error(`Seed permission ${permission} was not created`);
+      }
+      return { roleId, permissionId };
+    });
+  });
+
+  if (rolePermissionRows.length > 0) {
+    await prisma.rolePermission.createMany({ data: rolePermissionRows, skipDuplicates: true });
   }
+  seedLog("seedRoles:done");
 }
 
 async function seedAdmin() {
+ seedLog("seedAdmin:start");
  const passwordHash = await hashPassword(getInitialAdminPassword());
  const existingAdmin = await prisma.user.findUnique({
  where: { username: ADMIN_BOOTSTRAP.username },
@@ -150,6 +178,7 @@ async function seedAdmin() {
       roleId: adminRole.id,
     },
   });
+  seedLog("seedAdmin:done");
 }
 
 function shouldSeedDemoData() {
@@ -230,6 +259,7 @@ async function seedDemoData() {
 }
 
 export async function seedDatabase() {
+	seedLog("seedDatabase:start");
 	if (process.env.NODE_ENV === "production") {
 		const demoFlags = ["SEED_DEMO_DATA", "DEMO_MODE", "ENABLE_DEMO_FALLBACK", "AUTH_DEMO_FALLBACK", "SERVER_DEMO_FALLBACK", "STORAGE_DEMO_FALLBACK", "COMMAND_DEMO_FALLBACK"];
 		for (const flag of demoFlags) {
@@ -242,14 +272,18 @@ export async function seedDatabase() {
   await seedRoles();
   await seedAdmin();
   if (shouldSeedDemoData()) {
+    seedLog("seedDemoData:start");
     await seedDemoData();
+    seedLog("seedDemoData:done");
   }
+  seedLog("seedDatabase:done");
 }
 
 if (process.env.NODE_ENV !== "test") {
   seedDatabase()
     .then(async () => {
       await prisma.$disconnect();
+      process.exit(0);
     })
     .catch(async (error) => {
       console.error(error);

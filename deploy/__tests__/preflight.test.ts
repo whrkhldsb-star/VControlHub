@@ -4,9 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-async function runScript(script: string, args: { cwd: string; env: NodeJS.ProcessEnv; args?: string[] }) {
+async function runScript(script: string, args: { cwd: string; env: NodeJS.ProcessEnv; args?: string[]; timeoutMs?: number }) {
   return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
     const child = spawn("bash", [script, ...(args.args ?? [])], { cwd: args.cwd, env: args.env });
+    const timer = args.timeoutMs ? setTimeout(() => { child.kill("SIGTERM"); }, args.timeoutMs) : undefined;
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (chunk) => {
@@ -15,7 +16,7 @@ async function runScript(script: string, args: { cwd: string; env: NodeJS.Proces
     child.stderr.on("data", (chunk) => {
       stderr += String(chunk);
     });
-    child.on("close", (code) => resolve({ code, stdout, stderr }));
+    child.on("close", (code) => { if (timer) clearTimeout(timer); resolve({ code, stdout, stderr }); });
   });
 }
 
@@ -259,6 +260,84 @@ describe("deploy/preflight.sh", () => {
 });
 
 describe("deploy/install.sh", () => {
+
+  it("syncs generated env identity and database settings with installer overrides", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    const fakeRoot = path.join(appDir, "fake-root");
+    const binDir = path.join(appDir, "bin");
+    await Promise.all([
+      mkdir(binDir, { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/systemd/system"), { recursive: true }),
+      mkdir(path.join(appDir, "deploy/systemd"), { recursive: true }),
+    ]);
+    await writeFile(path.join(appDir, "deploy/env.production.example"), [
+      'APP_SLUG="whrkhldsb"',
+      'PG_DB_NAME="whrkhldsb"',
+      'PG_DB_USER="whrkhldsb"',
+      'NEXT_PORT="3000"',
+      'SSH_WS_PORT="3001"',
+      'DATABASE_URL="postgresql://smoke_console:smoke_pw@127.0.0.1:5432/smoke_console"',
+      'AUTH_SESSION_SECRET="REPLACE_WITH_AUTH_SESSION_SECRET"',
+      'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_ADMIN_INITIAL_PASSWORD"',
+      'SSH_WS_SECRET="REPLACE_WITH_SSH_WS_SECRET"',
+      'ENCRYPTION_KEY="REPLACE_WITH_ENCRYPTION_KEY"',
+      'SSH_WS_ALLOWED_ORIGINS="REPLACE_WITH_ORIGINS"',
+      '',
+    ].join("\n"));
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+    await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+    await writeFile(path.join(appDir, "deploy/apache-next-proxy.example.conf"), "[VirtualHost *:80]\nServerName {{SERVER_NAME}}\nProxyPass / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\nProxyPassReverse / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\n");
+    for (const command of ["id", "useradd", "apt-get", "curl", "gpg", "chown", "install", "rsync", "git", "sleep", "systemd-analyze", "systemctl", "node", "npm", "npx", "openssl", "ip", "apache2", "apachectl", "a2enmod", "a2dissite", "a2ensite", "apache2ctl"]) {
+      let body = "#!/usr/bin/env bash\nexit 0\n";
+      if (command === "id") body = "#!/usr/bin/env bash\nif [ \"$1\" = \"-u\" ]; then printf '0\\n'; else exit 0; fi\n";
+      if (command === "node") body = "#!/usr/bin/env bash\nif [ \"$1\" = \"-p\" ]; then printf '22\\n'; else printf 'node\\n'; fi\n";
+      if (command === "openssl") body = "#!/usr/bin/env bash\nprintf '0123456789abcdef0123456789abcdef0123456789abcdef'\n";
+      await writeFile(path.join(binDir, command), body);
+      await chmod(path.join(binDir, command), 0o755);
+    }
+
+    try {
+      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          PATH: `${binDir}:/usr/bin:/bin`,
+          APP_NAME: "smoke-console",
+          APP_SLUG: "smoke-console",
+          SERVICE_PREFIX: "smoke-console",
+          DOMAIN: "smoke.example.test",
+          APP_DIR: appDir,
+          ENV_FILE: envFile,
+          SOURCE_DIR: repoRoot,
+          DESTDIR: fakeRoot,
+          SKIP_PACKAGES: "1",
+          SKIP_RESTART: "1",
+          SKIP_BUILD: "1",
+          SKIP_DB_SETUP: "1",
+          SKIP_CADDY: "1",
+          PG_DB_NAME: "smoke_console",
+          PG_DB_USER: "smoke_console",
+          NEXT_PORT: "3100",
+          SSH_WS_PORT: "3101",
+        },
+        timeoutMs: 20000,
+      });
+
+      expect(result.code, result.stdout + result.stderr).toBe(0);
+      const envContent = await readFile(envFile, "utf8");
+      expect(envContent).toContain('APP_SLUG="smoke-console"');
+      expect(envContent).toContain('PG_DB_NAME="smoke_console"');
+      expect(envContent).toContain('PG_DB_USER="smoke_console"');
+      expect(envContent).toContain('NEXT_PORT="3100"');
+      expect(envContent).toContain('PORT="3100"');
+      expect(envContent).toContain('SSH_WS_PORT="3101"');
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  }, 30000);
+
   it("writes systemd units with detected npm, npx, and node PATH for non-standard Node installs", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
@@ -353,6 +432,7 @@ describe("deploy/install.sh", () => {
     await writeFile(envFile, "DATABASE_URL=postgresql://u:p@localhost:5432/db\nAUTH_SESSION_SECRET=12345678901234567890123456789012\nSSH_WS_SECRET=12345678901234567890123456789012\nSSH_WS_ALLOWED_ORIGINS=http://localhost\nENCRYPTION_KEY=12345678901234567890123456789012\nADMIN_INITIAL_PASSWORD=12345678901234567890123456789012\n");
     await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-next.service.example"), "[Unit]\nDescription=test next\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
     await writeFile(path.join(appDir, "deploy/systemd/whrkhldsb-ssh-ws.service.example"), "[Unit]\nDescription=test ws\n[Service]\nWorkingDirectory={{APP_DIR}}\nEnvironmentFile={{ENV_FILE}}\nUser={{APP_USER}}\nGroup={{APP_USER}}\nExecStart=/bin/true\n");
+    await writeFile(path.join(appDir, "deploy/apache-next-proxy.example.conf"), "[VirtualHost *:80]\nServerName {{SERVER_NAME}}\nProxyPass / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\nProxyPassReverse / http://{{NEXT_HOST}}:{{NEXT_PORT}}/\n");
     for (const command of ["id", "useradd", "apt-get", "curl", "gpg", "chown", "install", "rsync", "git", "sleep", "systemd-analyze", "node", "npm", "npx"]) {
       let body = "#!/usr/bin/env bash\nexit 0\n";
       if (command === "id") body = "#!/usr/bin/env bash\nif [ \"$1\" = \"-u\" ]; then printf '0\\n'; else exit 0; fi\n";
@@ -399,6 +479,7 @@ describe("deploy/install.sh", () => {
 
   it("uses a real URL-encoded PostgreSQL password in DATABASE_URL instead of a redacted placeholder", async () => {
     const script = await readFile(path.resolve(__dirname, "../install.sh"), "utf8");
+    expect(script).toContain('encoded_pw="$(urlencode "${PG_DB_PASSWORD}")"');
     expect(script).toContain('generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"');
     expect(script).not.toContain('generated_url="postgresql://${PG_DB_USER}:***@127.0.0.1:5432/${PG_DB_NAME}"');
   });

@@ -327,6 +327,25 @@ write_env_if_missing() {
  fi
 }
 
+sync_installer_env_overrides() {
+ [ -f "${ENV_FILE}" ] || return 0
+ # Values supplied to the installer are authoritative for this install. The
+ # checked-in env template contains whrkhldsb defaults for the hosted instance;
+ # without syncing these back, sourcing .env.local later can silently override a
+ # custom APP_SLUG/PG_DB_NAME/port and make fresh installs target the wrong app.
+ set_env_var APP_NAME "${APP_NAME}"
+ set_env_var APP_SLUG "${APP_SLUG}"
+ set_env_var SITE_NAME "${SITE_NAME}"
+ set_env_var NEXT_HOST "${NEXT_HOST}"
+ set_env_var NEXT_PORT "${NEXT_PORT}"
+ set_env_var PORT "${NEXT_PORT}"
+ set_env_var SSH_WS_HOST "${SSH_WS_HOST}"
+ set_env_var SSH_WS_PORT "${SSH_WS_PORT}"
+ set_env_var PG_DB_NAME "${PG_DB_NAME}"
+ set_env_var PG_DB_USER "${PG_DB_USER}"
+ chmod 600 "${ENV_FILE}"
+}
+
 UNSAFE_PRODUCTION_FLAGS=(
   ENABLE_DEMO_FALLBACK
   AUTH_DEMO_FALLBACK
@@ -682,6 +701,8 @@ sed \
 			-e "s|{{SYSTEMD_PATH}}|${systemd_path}|g" \
 			-e "s|{{NPM_BIN}}|${npm_bin}|g" \
 			-e "s|{{NPX_BIN}}|${npx_bin}|g" \
+			-e "s|{{NEXT_PORT}}|${NEXT_PORT}|g" \
+			-e "s|{{SSH_WS_PORT}}|${SSH_WS_PORT}|g" \
 			-e "s|{{APP_USER}}|${APP_USER}|g" \
 			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
 			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
@@ -822,6 +843,7 @@ main() {
  prepare_app_user
  sync_source
  write_env_if_missing
+ sync_installer_env_overrides
  auto_generate_env_secrets
  setup_postgres
  validate_env

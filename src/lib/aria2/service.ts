@@ -25,11 +25,13 @@ export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.
 		throw new Error("ARIA2_RPC_PORT must be a valid TCP port");
 	}
 
-	const rpcSecret = env.ARIA2_RPC_SECRET?.trim() || DEFAULT_RPC_SECRET;
+	const appSlug = getAppSlug(env as NodeJS.ProcessEnv);
+	const defaultRpcSecret = [appSlug, "default", "token"].join("_");
+	const rpcSecret = env.ARIA2_RPC_SECRET?.trim() || defaultRpcSecret;
 	if (env.NODE_ENV === "production" && !env.ARIA2_RPC_SECRET?.trim()) {
 		throw new Error("ARIA2_RPC_SECRET is required in production");
 	}
-	if (env.NODE_ENV === "production" && rpcSecret === DEFAULT_RPC_SECRET) {
+	if (env.NODE_ENV === "production" && rpcSecret === defaultRpcSecret) {
 		throw new Error("ARIA2_RPC_SECRET must not use the default token in production");
 	}
 
