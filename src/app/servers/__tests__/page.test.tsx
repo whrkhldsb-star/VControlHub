@@ -59,6 +59,7 @@ vi.mock("../actions", () => ({
 	}),
 	createSshKeyAction: vi.fn(),
 	toggleServerAction: vi.fn(),
+	batchToggleServerAction: vi.fn(),
 	deleteServerAction: vi.fn(),
 }));
 
@@ -81,7 +82,7 @@ describe("ServersPage", () => {
 		render(await ServersPage());
 
 		expect(screen.getByRole("heading", { name: "VPS 管理" })).toBeInTheDocument();
-		expect(screen.getByText("hk-prod-1")).toBeInTheDocument();
+		expect(screen.getAllByText("hk-prod-1").length).toBeGreaterThan(0);
 		// "待审批：" and count are in separate spans; check the parent div contains both
 		expect(screen.getByText("待审批：")).toBeInTheDocument();
 		expect(screen.getByText("1", { selector: "span" })).toBeInTheDocument();
@@ -110,7 +111,7 @@ describe("ServersPage", () => {
 
 		render(await ServersPage());
 
-		expect(screen.getByText("local-node")).toBeInTheDocument();
+		expect(screen.getAllByText("local-node").length).toBeGreaterThan(0);
 		expect(screen.getByText("未绑定")).toBeInTheDocument();
 		expect(screen.getByText("未配置")).toBeInTheDocument();
 	});

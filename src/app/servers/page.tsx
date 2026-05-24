@@ -7,7 +7,7 @@ import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
 
-import { batchToggleServerAction, getServerFormOptions } from "./actions";
+import { getServerFormOptions } from "./actions";
 import { BatchServerActionPanel } from "./batch-server-action-panel";
 import { CommandCreateForm } from "./command-create-form";
 import { ServerCardActions } from "./server-card-actions";

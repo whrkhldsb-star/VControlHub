@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listDeploymentRuns, listDeploymentTemplates, createDeploymentRunFromTemplate } from "@/lib/deployment/service";
+import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState } from "@/components/page-shell";
 
