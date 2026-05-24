@@ -272,7 +272,7 @@ sync_source() {
   else
  if have_cmd rsync; then
 			rsync -a --delete \
---exclude .git --exclude node_modules --exclude .next --exclude backups --exclude storage --exclude tmp --exclude uploads --exclude downloads --exclude logs --exclude .env.local \
+--exclude .git --exclude node_modules --exclude .next --exclude backups --exclude /storage --exclude tmp --exclude uploads --exclude downloads --exclude logs --exclude .env.local \
  "${SOURCE_DIR}/" "${APP_DIR}/"
     else
       warn "rsync not found; falling back to tar-based source sync"
