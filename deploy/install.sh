@@ -266,7 +266,7 @@ sync_source() {
       git -C "${APP_DIR}" fetch --all --prune
       git -C "${APP_DIR}" pull --ff-only
     else
-      rm -rf "${APP_DIR:?}"/*
+      find "${APP_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
       git clone "${REPO_URL}" "${APP_DIR}"
     fi
   else

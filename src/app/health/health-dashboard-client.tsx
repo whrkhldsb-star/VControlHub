@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";
@@ -35,6 +36,7 @@ type RepairSuggestion = {
 	description: string;
 	action: string;
 	status: SystemHealthStatus;
+	href?: string;
 };
 
 const repairSuggestions = (summary?: SystemHealthSummary | null): RepairSuggestion[] => {
@@ -67,6 +69,14 @@ const repairSuggestions = (summary?: SystemHealthSummary | null): RepairSuggesti
 			description: summary.warning > 0 ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "本地提交与 origin/main 保持一致。",
 			action: "比对本地 HEAD 与 origin/main",
 			status: summary.warning > 0 ? "warning" : "healthy",
+		},
+		{
+			id: "audit",
+			label: "复查审计高风险动作",
+			description: summary.critical > 0 ? "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。" : "可快速查看最近的命令执行、删除、权限和令牌操作。",
+			action: "查看 command.execute / storage.file_delete / api_token.create",
+			href: "/audit?action=command.execute",
+			status: summary.critical > 0 ? "critical" : "warning",
 		},
 	];
 };
@@ -172,13 +182,16 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 			{systemHealthSummary && (
 				<>
 					<section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-						<div className="flex items-center justify-between gap-3">
-							<div>
-								<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">系统自检</p>
-								<h2 className="mt-1 text-lg font-semibold text-white">修复建议</h2>
-							</div>
-							<span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs text-slate-300">{systemHealthSummary.overall}</span>
-						</div>
+			<div className="flex items-center justify-between gap-3">
+				<div>
+					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">系统自检</p>
+					<h2 className="mt-1 text-lg font-semibold text-white">修复建议</h2>
+				</div>
+				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
+					<Link href="/audit" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">看审计日志</Link>
+					<Link href="/" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">回到首页</Link>
+				</div>
+			</div>
 						<div className="grid gap-3 lg:grid-cols-3">
 							{repairSuggestions(systemHealthSummary).map((item) => {
 								const tone = repairToneClasses[item.status];
@@ -189,10 +202,10 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}>{item.status}</span>
 										</div>
 										<p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
-										<p className="mt-3 text-xs text-slate-400">建议动作：{item.action}</p>
-									</article>
-								);
-							})}
+									<p className="mt-3 text-xs text-slate-400">建议动作：{item.href ? <Link href={item.href} className="text-cyan-200 transition hover:text-cyan-100">{item.action}</Link> : item.action}</p>
+								</article>
+							);
+						})}
 						</div>
 					</section>
 				</>
@@ -208,6 +221,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 			<div className="flex items-center justify-between">
 				<div className="text-xs text-slate-500">
 					上次刷新：{lastRefresh || "—"}
+					{overview.critical > 0 ? " · 有严重告警" : overview.warning > 0 ? " · 有警告项" : " · 当前整体正常"}
 				</div>
 				<div className="flex items-center gap-3">
 					<button

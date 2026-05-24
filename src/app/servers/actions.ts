@@ -105,6 +105,34 @@ export async function toggleServerAction(_prevState: ServerActionState | null, f
  }
 }
 
+export async function batchToggleServerAction(_prevState: ServerActionState | null, formData: FormData) {
+ await requirePermission("server:write");
+
+ try {
+  const enabled = formData.get("enabled") === "true";
+  const serverIds = formData.getAll("serverIds").map(String).filter(Boolean);
+
+  if (serverIds.length === 0) {
+    return { error: "请先选择至少 1 台节点" } as ServerActionState;
+  }
+
+  const { prisma } = await import("@/lib/db");
+  const result = await prisma.server.updateMany({
+    where: { id: { in: serverIds } },
+    data: { enabled },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/servers");
+
+  return {
+    success: enabled ? `已批量启用 ${result.count} 台节点。` : `已批量停用 ${result.count} 台节点。`,
+  } as ServerActionState;
+ } catch (error) {
+  return { error: error instanceof Error ? error.message : "批量更新节点状态失败" } as ServerActionState;
+ }
+}
+
 export async function deleteServerAction(_prevState: ServerActionState | null, formData: FormData) {
  await requirePermission("server:write");
 

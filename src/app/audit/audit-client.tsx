@@ -22,6 +22,10 @@ type AuditListResponse = {
   totalPages: number;
 };
 
+type AuditLogClientProps = {
+  initialActionFilter?: string;
+};
+
 function severityBadge(severity: string) {
   const styles: Record<string, string> = {
     INFO: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
@@ -38,6 +42,9 @@ function formatAction(action: string): string {
     "auth.login_rate_limited": "登录限速",
     "auth.password_change": "修改密码",
     "auth.signout": "退出登录",
+    "api_token.create": "创建令牌",
+    "docker.container_restart": "重启容器",
+    "user.permission_update": "调整权限",
     "storage.file_delete": "删除文件",
     "storage.file_upload": "上传文件",
     "storage.file_move": "移动文件",
@@ -54,12 +61,12 @@ function formatAction(action: string): string {
   return labels[action] ?? action;
 }
 
-export function AuditLogClient() {
+export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
   const [data, setData] = useState<AuditListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [severityFilter, setSeverityFilter] = useState("");
-  const [actionFilter, setActionFilter] = useState("");
+  const [actionFilter, setActionFilter] = useState(initialActionFilter);
   const [searchQuery, setSearchQuery] = useState("");
 
   const fetchLogs = useCallback(async () => {
@@ -156,6 +163,21 @@ export function AuditLogClient() {
           >
             ↻ 刷新
           </button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {["auth.login", "command.execute", "storage.file_delete", "server.delete", "api_token.create"].map((action) => (
+            <button
+              key={action}
+              type="button"
+              onClick={() => {
+                setActionFilter(action);
+                setPage(1);
+              }}
+              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+            >
+              {formatAction(action)}
+            </button>
+          ))}
         </div>
       </div>
 
