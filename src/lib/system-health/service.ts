@@ -29,6 +29,11 @@ export type SystemHealthReport = {
 };
 
 const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp"];
+const SERVICE_CHECKS = [
+	{ id: "next-service", label: "Next.js 服务", unit: "whrkhldsb-next.service" },
+	{ id: "ssh-ws-service", label: "SSH WebSocket 服务", unit: "whrkhldsb-ssh-ws.service" },
+	{ id: "caddy-service", label: "Caddy 反代服务", unit: "caddy.service" },
+];
 const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
 
 function sanitizeDetail(value: string) {
@@ -96,6 +101,18 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
   const dirChecks = await Promise.all(RUNTIME_DIRS.map((dir) => checkPathExists(projectRoot, dir)));
   checks.push({ id: "runtime-directories", label: "运行目录基线", status: dirChecks.some((c) => c.status !== "healthy") ? "warning" : "healthy", message: `${dirChecks.filter((c) => c.status === "healthy").length}/${dirChecks.length} 个运行目录可用` });
   checks.push(...dirChecks);
+
+  const serviceChecks = SERVICE_CHECKS.map((service) => {
+    const state = safeExec(`systemctl is-active ${service.unit}`);
+    if (state === "active") {
+      return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} 正在运行` };
+    }
+    if (state) {
+      return { id: service.id, label: service.label, status: "critical" as const, message: `${service.unit} 当前状态为 ${state}` };
+    }
+    return { id: service.id, label: service.label, status: "warning" as const, message: `${service.unit} 状态暂不可读` };
+  });
+  checks.push(...serviceChecks);
 
   const envState = process.env.DATABASE_URL && process.env.DATABASE_URL !== "REPLACE_WITH_DATABASE_URL" ? "healthy" : "critical";
   checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符" });

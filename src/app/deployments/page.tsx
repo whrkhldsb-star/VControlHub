@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
+import { listDeploymentRuns, listDeploymentTemplates, createDeploymentRunFromTemplate } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState } from "@/components/page-shell";
 
@@ -16,6 +16,7 @@ export default async function DeploymentsPage() {
 		prisma.server.findMany({ where: { enabled: true }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, host: true, username: true } }),
 	]);
 	const firstTemplate = templates[0];
+	const latestRun = runs[0];
 	return (
 		<PageShell>
 			<header className="mb-8">
@@ -61,6 +62,15 @@ export default async function DeploymentsPage() {
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{r.renderedCommand}</code>
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
+							{canRun && (
+								<form action="/api/deployments" method="post" className="mt-3 flex flex-wrap items-center gap-2">
+									<input type="hidden" name="templateId" value={r.templateId} />
+									<input type="hidden" name="variablesJson" value={JSON.stringify(r.variables)} />
+									<input type="hidden" name="reason" value={`回退重发：${r.template.name}`} />
+									{r.serverIds.map((id) => <input key={id} type="hidden" name="serverIds" value={id} />)}
+									<button className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-400/15">按此记录重发</button>
+								</form>
+							)}
 						</div>
 					))}
 				</div>

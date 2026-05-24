@@ -26,10 +26,19 @@ async function readRequestBody(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
     const formData = await request.formData();
+    const variablesJson = formData.get("variablesJson");
+    let variables: Record<string, string> = {};
+    if (typeof variablesJson === "string" && variablesJson.trim()) {
+      try {
+        variables = JSON.parse(variablesJson) as Record<string, string>;
+      } catch {
+        variables = {};
+      }
+    }
     return {
       templateId: formData.get("templateId"),
       serverIds: formData.getAll("serverIds"),
-      variables: {},
+      variables,
       reason: formData.get("reason") || undefined,
     };
   }

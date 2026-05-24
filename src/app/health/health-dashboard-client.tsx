@@ -55,6 +55,13 @@ const repairSuggestions = (summary?: SystemHealthSummary | null): RepairSuggesti
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
+			id: "services",
+			label: "核对核心服务",
+			description: summary.critical > 0 ? "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。" : "核心服务在线，可继续检查业务功能。",
+			action: "验证 whrkhldsb-next.service / whrkhldsb-ssh-ws.service / caddy.service",
+			status: summary.critical > 0 ? "critical" : "healthy",
+		},
+		{
 			id: "git",
 			label: "核对 GitHub 同步",
 			description: summary.warning > 0 ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "本地提交与 origin/main 保持一致。",
