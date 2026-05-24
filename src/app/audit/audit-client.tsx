@@ -60,6 +60,7 @@ export function AuditLogClient() {
   const [page, setPage] = useState(1);
   const [severityFilter, setSeverityFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -67,57 +68,95 @@ export function AuditLogClient() {
       const params = new URLSearchParams({ page: String(page), pageSize: "50" });
       if (severityFilter) params.set("severity", severityFilter);
       if (actionFilter) params.set("action", actionFilter);
-const json = await csrfFetch(`/api/audit?${params}`);
-setData(json as AuditListResponse);
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      const json = await csrfFetch(`/api/audit?${params}`);
+      setData(json as AuditListResponse);
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-}, [page, severityFilter, actionFilter]);
+  }, [page, severityFilter, actionFilter, searchQuery]);
 
 	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
 		fetchLogs();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [page, severityFilter, actionFilter]);
+	}, [page, severityFilter, actionFilter, searchQuery]);
 	/* eslint-enable react-hooks/set-state-in-effect */
 
   return (
     <div>
       {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <select
-          value={severityFilter}
-          onChange={(e) => { setSeverityFilter(e.target.value); setPage(1); }}
-          className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-        >
-          <option value="">全部级别</option>
-          <option value="INFO">INFO</option>
-          <option value="WARNING">WARNING</option>
-          <option value="CRITICAL">CRITICAL</option>
-        </select>
-        <select
-          value={actionFilter}
-          onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-          className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-        >
-          <option value="">全部类型</option>
-          <option value="auth.login">登录</option>
-          <option value="auth.login_failed">登录失败</option>
-          <option value="auth.password_change">修改密码</option>
-          <option value="storage.file_delete">删除文件</option>
-          <option value="server.create">创建节点</option>
-          <option value="command.execute">执行命令</option>
-          <option value="download.create">创建下载</option>
-        </select>
-        <button
-          type="button"
-          onClick={fetchLogs}
-          className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
-        >
-          ↻ 刷新
-        </button>
+      <div className="mb-6 space-y-3">
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+            placeholder="搜索动作、用户名或显示名"
+            className="min-w-[240px] flex-1 rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={fetchLogs}
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+          >
+            搜索
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setPage(1);
+            }}
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
+          >
+            清除
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <select
+            value={severityFilter}
+            onChange={(e) => {
+              setSeverityFilter(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+          >
+            <option value="">全部级别</option>
+            <option value="INFO">INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="CRITICAL">CRITICAL</option>
+          </select>
+          <select
+            value={actionFilter}
+            onChange={(e) => {
+              setActionFilter(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+          >
+            <option value="">全部类型</option>
+            <option value="auth.login">登录</option>
+            <option value="auth.login_failed">登录失败</option>
+            <option value="auth.password_change">修改密码</option>
+            <option value="storage.file_delete">删除文件</option>
+            <option value="server.create">创建节点</option>
+            <option value="command.execute">执行命令</option>
+            <option value="download.create">创建下载</option>
+          </select>
+          <button
+            type="button"
+            onClick={fetchLogs}
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+          >
+            ↻ 刷新
+          </button>
+        </div>
       </div>
 
       {/* Table */}

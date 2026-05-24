@@ -384,16 +384,16 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 						<p className="mt-1.5 text-sm leading-6 text-slate-300">跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。</p>
 						<div className="mt-3 text-xs text-cyan-200">打开全局搜索</div>
 					</Link>
-					<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
-						<div className="text-sm font-semibold text-white">大文件处理</div>
-						<p className="mt-1.5 text-sm leading-6 text-slate-300">上传下载仍走受控接口，建议先按节点筛选，再处理镜像包、备份包和长日志。</p>
-						<div className="mt-3 text-xs text-slate-500">当前目录：{totalItems} 项</div>
-					</article>
-					<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
-						<div className="text-sm font-semibold text-white">代码与配置预览</div>
-						<p className="mt-1.5 text-sm leading-6 text-slate-300">文本、Markdown、JSON、YAML、CSV 和归档文件会优先进入预览页，便于确认后再下载或编辑。</p>
-						<div className="mt-3 text-xs text-slate-500">搜索范围：{searchScope === "all" ? "全部节点" : "当前目录"}</div>
-					</article>
+					<Link href="/files?scope=current" className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]">
+						<div className="text-sm font-semibold text-white">当前目录检索</div>
+						<p className="mt-1.5 text-sm leading-6 text-slate-300">在当前路径内筛选文件名，适合编辑前先缩小范围。</p>
+						<div className="mt-3 text-xs text-slate-400">仅当前目录</div>
+					</Link>
+					<Link href="/files?tab=recycle" className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]">
+						<div className="text-sm font-semibold text-white">回收站</div>
+						<p className="mt-1.5 text-sm leading-6 text-slate-300">查看最近删除的文件，做误删恢复前的快速核对。</p>
+						<div className="mt-3 text-xs text-slate-400">进入回收站</div>
+					</Link>
 				</section>
 
 				<StorageNodeManager

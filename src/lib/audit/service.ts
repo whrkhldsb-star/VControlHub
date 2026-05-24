@@ -62,11 +62,27 @@ export async function listAuditLogs(
 ): Promise<AuditLogListResult> {
  const page = Math.max(1, input.page ?? 1);
  const pageSize = Math.min(100, Math.max(1, input.pageSize ?? 50));
- const where: Record<string, unknown> = {};
+	const where: Record<string, unknown> = {};
 
- if (input.action) where.action = input.action;
- if (input.severity) where.severity = input.severity;
- if (input.actorId) where.actorId = input.actorId;
+	if (input.action) where.action = input.action;
+	if (input.severity) where.severity = input.severity;
+	if (input.actorId) where.actorId = input.actorId;
+	if (input.search) {
+		where.OR = [
+			{ action: { contains: input.search, mode: "insensitive" } },
+			{ actorType: { contains: input.search, mode: "insensitive" } },
+			{
+				actor: {
+					is: {
+						OR: [
+							{ username: { contains: input.search, mode: "insensitive" } },
+							{ displayName: { contains: input.search, mode: "insensitive" } },
+						],
+					},
+				},
+			},
+		];
+	}
 
  const [logs, total] = await Promise.all([
  prisma.auditLog.findMany({
