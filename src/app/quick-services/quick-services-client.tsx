@@ -77,6 +77,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [catalog, setCatalog] = useState<CatalogItem[]>([]);
 	const [remoteCatalog, setRemoteCatalog] = useState<CatalogItem[]>([]);
 	const [sources, setSources] = useState<AppSource[]>([]);
+	const [usedPorts, setUsedPorts] = useState<number[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("store");
@@ -90,6 +91,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [syncing, setSyncing] = useState<string | null>(null);
 	// Search
 	const [search, setSearch] = useState("");
+	const [origin, setOrigin] = useState("");
 
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -98,6 +100,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			const data = await csrfFetch("/api/quick-services");
 			setCatalog(data.catalog ?? []);
 			setRemoteCatalog(data.remoteCatalog ?? []);
+			setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "加载失败");
 		} finally {
@@ -115,6 +118,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	}, []);
 
 	useEffect(() => { fetchCatalog(); fetchSources(); }, [fetchCatalog, fetchSources]);
+	useEffect(() => {
+		if (typeof window !== "undefined") setOrigin(window.location.origin);
+	}, []);
 
 	// Auto-dismiss message
 	useEffect(() => {
@@ -329,6 +335,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const recommendedItems = RECOMMENDED_SERVICE_SLUGS
 		.map((slug) => catalog.find((item) => item.slug === slug) ?? remoteCatalog.find((item) => item.slug === slug))
 		.filter((item): item is CatalogItem => Boolean(item));
+	const runningItems = installed.filter((item) => item.status === "running");
+	const errorItems = installed.filter((item) => item.status === "error");
+	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");
+	const lastSyncedSource = sources
+		.filter((source) => source.lastSyncAt)
+		.sort((a, b) => new Date(b.lastSyncAt ?? 0).getTime() - new Date(a.lastSyncAt ?? 0).getTime())[0];
+	const nextAction = errorItems.length > 0
+		? { label: "查看异常服务", tab: "installed" as Tab, tone: "rose" }
+		: runningItems.length > 0
+			? { label: "管理运行服务", tab: "installed" as Tab, tone: "emerald" }
+			: { label: "安装推荐服务", tab: "store" as Tab, tone: "cyan" };
 
 	return (
 		<div className="space-y-6">
@@ -345,6 +362,52 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<SummaryPill label="异常" value={summary.error} tone="rose" />
 				<SummaryPill label="可安装" value={summary.available} tone="cyan" />
 			</div>
+
+			<section className="grid gap-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+					<div className="flex items-start justify-between gap-3">
+						<div>
+							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">运行概览</p>
+							<h2 className="mt-1 text-base font-semibold text-white">{runningItems.length > 0 ? `${runningItems.length} 个服务在线` : "还没有运行中的服务"}</h2>
+						</div>
+						<button
+							type="button"
+							onClick={() => setTab(nextAction.tab)}
+							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15" : nextAction.tone === "emerald" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15" : "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15"}`}
+						>
+							{nextAction.label}
+						</button>
+					</div>
+					<div className="mt-4 grid gap-2 sm:grid-cols-2">
+						{runningItems.slice(0, 4).map((item) => (
+							<a key={item.slug} href={origin ? `${origin}:${item.port ?? item.defaultPort}` : "#"} target="_blank" rel="noreferrer" className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
+								<div className="flex items-center justify-between gap-2">
+									<span className="truncate text-sm font-medium text-white">{item.icon} {item.name}</span>
+									<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>
+								</div>
+								<p className="mt-1 truncate text-[11px] text-slate-400">{item.image}</p>
+							</a>
+						))}
+						{runningItems.length === 0 && <p className="text-sm text-slate-500">从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。</p>}
+					</div>
+				</div>
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">端口</p>
+					<h3 className="mt-1 text-base font-semibold text-white">{usedPorts.length} 个监听端口</h3>
+					<p className="mt-2 text-sm leading-6 text-slate-400">安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。</p>
+					<div className="mt-3 flex flex-wrap gap-1.5">
+						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{port}</span>)}
+					</div>
+				</div>
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">应用源</p>
+					<h3 className="mt-1 text-base font-semibold text-white">{sources.filter((s) => s.enabled).length}/{sources.length} 个源启用</h3>
+					<p className="mt-2 text-sm leading-6 text-slate-400">{lastSyncedSource ? `最近同步：${lastSyncedSource.displayName}` : "还没有同步记录。"}</p>
+					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
+						{staleSources.length > 0 ? `处理 ${staleSources.length} 个待同步源` : "管理应用源"}
+					</button>
+				</div>
+			</section>
 
 			{/* Search bar */}
 			<div className="relative">
