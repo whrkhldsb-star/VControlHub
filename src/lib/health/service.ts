@@ -139,7 +139,7 @@ export async function getMetricHistory(serverId: string, hours: number = 24) {
 export async function evaluateAlerts() {
 	const rules = await prisma.alertRule.findMany({
 		where: { enabled: true },
-		select: { id: true, name: true, metric: true, threshold: true, operator: true, enabled: true, lastTriggeredAt: true, cooldownMinutes: true, serverIds: true, notifyChannels: true, webhookUrl: true },
+		select: { id: true, name: true, metric: true, threshold: true, operator: true, durationSeconds: true, enabled: true, lastMatchedAt: true, lastTriggeredAt: true, cooldownMinutes: true, serverIds: true, notifyChannels: true, webhookUrl: true },
 	});
 	if (rules.length === 0) return;
 
@@ -176,7 +176,22 @@ export async function evaluateAlerts() {
 				case "eq": triggered = value === rule.threshold; break;
 			}
 
-			if (!triggered) continue;
+			if (!triggered) {
+				if (rule.lastMatchedAt) {
+					await prisma.alertRule.update({ where: { id: rule.id }, data: { lastMatchedAt: null } });
+				}
+				continue;
+			}
+
+			const now = new Date();
+			if (rule.durationSeconds > 0) {
+				if (!rule.lastMatchedAt) {
+					await prisma.alertRule.update({ where: { id: rule.id }, data: { lastMatchedAt: now } });
+					continue;
+				}
+				const matchedForMs = now.getTime() - rule.lastMatchedAt.getTime();
+				if (matchedForMs < rule.durationSeconds * 1000) continue;
+			}
 
 			// Fire alert
 			const title = `告警: ${server.serverName} ${rule.metric === "server_offline" ? "离线" : rule.metric.replace("_", " ")}`;
@@ -209,7 +224,7 @@ export async function evaluateAlerts() {
 			}
 
 			// Update last triggered
-			await prisma.alertRule.update({ where: { id: rule.id }, data: { lastTriggeredAt: new Date() } });
+			await prisma.alertRule.update({ where: { id: rule.id }, data: { lastTriggeredAt: now, lastMatchedAt: now } });
 		}
 	}
 }

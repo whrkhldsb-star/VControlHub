@@ -398,6 +398,7 @@ model AlertRule {
   webhookUrl      String?
   cooldownMinutes Int       @default(30)
   enabled         Boolean   @default(true)
+  lastMatchedAt   DateTime?
   lastTriggeredAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
