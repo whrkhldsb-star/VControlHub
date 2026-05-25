@@ -47,6 +47,7 @@ PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
 SKIP_SEED="${SKIP_SEED:-0}"
 SKIP_RESTART="${SKIP_RESTART:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
+SKIP_SYSTEMD="${SKIP_SYSTEMD:-0}"
 REPO_URL="${REPO_URL:-}"
 SOURCE_DIR="${SOURCE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
@@ -679,6 +680,11 @@ PY
 }
 
 install_systemd() {
+	if [ "${SKIP_SYSTEMD}" = "1" ]; then
+		[ -n "${DESTDIR}" ] || fail "SKIP_SYSTEMD=1 is only allowed together with DESTDIR for isolated installer tests. Use SKIP_RESTART=1 for live dry-runs."
+		warn "Skipping systemd unit installation"
+		return
+	fi
 	log "Installing systemd units"
 	if [ -n "${DESTDIR}" ]; then
 		case "${DESTDIR}" in
@@ -687,6 +693,10 @@ install_systemd() {
 		esac
 		[ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
 		[ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
+	else
+		case "${APP_DIR}" in
+			/tmp/*|/var/tmp/*) fail "Refusing to install live systemd units from temporary APP_DIR=${APP_DIR}. Use DESTDIR for isolated installer tests." ;;
+		esac
 	fi
 	local node_bin npm_bin npx_bin systemd_path
 	node_bin="$(resolve_node_tool node)"

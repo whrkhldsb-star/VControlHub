@@ -62,10 +62,10 @@ export function MediaPreviewClient({
 
 			{/* Status indicator */}
 			{streamUrl ? (
-				<span className="text-xs text-cyan-300">🛡️ 受控 SFTP 中转播放中</span>
+				<span className="text-xs text-cyan-300">🎛️ 已切换播放流量路径</span>
 			) : driver === "SFTP" ? (
 				<span className="text-xs text-slate-500">
-					当前通过受控 SFTP 中转播放，所有请求都会经过登录、权限和路径校验
+					默认通过网站服务器中转播放；可在上方切换为目标服务器直连，适合大视频/音频。
 				</span>
 			) : null}
 		</div>
