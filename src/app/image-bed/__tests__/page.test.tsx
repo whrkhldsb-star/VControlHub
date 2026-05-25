@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -56,5 +56,42 @@ describe("ImageBedPage", () => {
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
 
     expect(await screen.findByText("缺少权限")).toBeInTheDocument();
+  });
+
+  it("shows image upload progress and per-file failures", async () => {
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) return { images: [], total: 0, totalPages: 1 };
+      if (url === "/api/images/upload") {
+        const formData = init?.body as FormData;
+        const file = formData.get("file") as File;
+        if (file.name === "ok.png") {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        if (file.name === "bad.png") throw new Error("图片解码失败");
+        return { id: `img_${file.name}` };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPage />);
+
+    await screen.findByText("暂无图片，上传第一张吧 🎉");
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(["ok"], "ok.png", { type: "image/png" }),
+          new File(["bad"], "bad.png", { type: "image/png" }),
+        ],
+      },
+    });
+
+    expect(await screen.findByRole("status", { name: "图片上传进度" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("status", { name: "图片上传进度" })).toHaveTextContent("已完成 1/2 张"));
+    expect(screen.getByRole("status", { name: "图片上传进度" })).toHaveTextContent("成功 1 · 失败 1");
+    expect(screen.getByText(/ok\.png/)).toHaveTextContent("上传完成");
+    expect(screen.getByText(/bad\.png/)).toHaveTextContent("失败：图片解码失败");
+    expect(screen.getByRole("alert")).toHaveTextContent("上传完成 1/2 张，1 张失败");
   });
 });

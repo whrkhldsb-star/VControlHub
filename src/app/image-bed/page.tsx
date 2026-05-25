@@ -25,6 +25,20 @@ type ImageStats = {
 	uploadTrend: Array<{ date: string; count: number }>;
 };
 
+type UploadQueueItem = { name: string; status: "pending" | "uploading" | "success" | "error" | "skipped"; message: string };
+
+type UploadProgress = {
+	total: number;
+	current: number;
+	success: number;
+	failure: number;
+	queue: UploadQueueItem[];
+} | null;
+
+function getErrorMessage(error: unknown, fallback: string): string {
+	return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export default function ImageBedPage() {
 	const [images, setImages] = useState<ImageItem[]>([]);
 	const [total, setTotal] = useState(0);
@@ -44,6 +58,7 @@ export default function ImageBedPage() {
 	const [showPublishModal, setShowPublishModal] = useState(false);
 	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
 	const [publishForm, setPublishForm] = useState({ storageNodeId: "", relativePath: "", filename: "", album: "" });
+	const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const showToast = (msg: string) => {
@@ -92,12 +107,44 @@ export default function ImageBedPage() {
 	useEffect(() => { fetchImages(1); }, [fetchImages]);
 
 	const handleUpload = async (files: FileList | File[]) => {
+		const uploadItems = Array.from(files);
+		if (uploadItems.length === 0) return;
+
 		setUploading(true);
+		setUploadProgress({
+			total: uploadItems.length,
+			current: 0,
+			success: 0,
+			failure: 0,
+			queue: uploadItems.map((file) => ({ name: file.name, status: "pending", message: "等待上传" })),
+		});
+
 		let success = 0;
-		for (const file of Array.from(files)) {
-			if (!file.type.startsWith("image/")) continue;
+		let failure = 0;
+		for (let index = 0; index < uploadItems.length; index++) {
+			const file = uploadItems[index];
+			setUploadProgress((prev) => prev ? {
+				...prev,
+				current: index + 1,
+				queue: prev.queue.map((item, i) => i === index ? { ...item, status: "uploading", message: `正在上传第 ${index + 1}/${uploadItems.length} 张` } : item),
+			} : prev);
+
+			if (!file.type.startsWith("image/")) {
+				failure++;
+				setUploadProgress((prev) => prev ? {
+					...prev,
+					failure,
+					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "skipped", message: "失败：不是图片文件" } : item),
+				} : prev);
+				continue;
+			}
 			if (file.size > 20 * 1024 * 1024) {
-				showToast(`${file.name} 超过 20MB 限制`);
+				failure++;
+				setUploadProgress((prev) => prev ? {
+					...prev,
+					failure,
+					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "error", message: "失败：超过 20MB 限制" } : item),
+				} : prev);
 				continue;
 			}
 			const formData = new FormData();
@@ -106,14 +153,31 @@ export default function ImageBedPage() {
 			try {
 				await csrfFetch("/api/images/upload", { method: "POST", body: formData });
 				success++;
-			} catch {
-				showToast("上传出错");
+				setUploadProgress((prev) => prev ? {
+					...prev,
+					success,
+					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "success", message: "上传完成" } : item),
+				} : prev);
+			} catch (error) {
+				failure++;
+				const errorMessage = getErrorMessage(error, "上传失败");
+				setUploadProgress((prev) => prev ? {
+					...prev,
+					failure,
+					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "error", message: `失败：${errorMessage}` } : item),
+				} : prev);
 			}
 		}
 		setUploading(false);
-		if (success > 0) {
+		if (fileInputRef.current) fileInputRef.current.value = "";
+		if (success > 0 && failure === 0) {
 			showToast(`✅ 成功上传 ${success} 张图片`);
-			fetchImages(1);
+			void fetchImages(1);
+		} else if (success > 0) {
+			showToast(`上传完成 ${success}/${uploadItems.length} 张，${failure} 张失败`);
+			void fetchImages(1);
+		} else {
+			showToast(`上传失败：${failure}/${uploadItems.length} 张未上传`);
 		}
 	};
 
@@ -310,6 +374,29 @@ export default function ImageBedPage() {
 				<div className="text-xs text-slate-500 mt-1">支持 JPG / PNG / GIF / WebP / AVIF / SVG，单文件最大 20MB</div>
 			</div>
 
+			{/* Upload Progress */}
+			{uploadProgress && (
+				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-white/10 bg-slate-900/70 p-4 text-sm text-slate-300">
+					<div className="flex items-center justify-between gap-3">
+						<span>{uploading ? `正在上传第 ${uploadProgress.current}/${uploadProgress.total} 张` : `已完成 ${uploadProgress.success}/${uploadProgress.total} 张`}</span>
+						<span className="text-xs text-slate-500">成功 {uploadProgress.success} · 失败 {uploadProgress.failure}</span>
+					</div>
+					<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+						<div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${Math.round(((uploadProgress.success + uploadProgress.failure) / Math.max(uploadProgress.total, 1)) * 100)}%` }} />
+					</div>
+					<div className="mt-3 space-y-1 text-xs">
+						{uploadProgress.queue.map((item, index) => (
+							<div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
+								<span className="truncate">{item.name} · {item.message}</span>
+								<span className={item.status === "success" ? "text-emerald-300" : item.status === "error" || item.status === "skipped" ? "text-rose-300" : item.status === "uploading" ? "text-cyan-300" : "text-slate-500"}>
+									{item.status === "success" ? "完成" : item.status === "error" || item.status === "skipped" ? "失败" : item.status === "uploading" ? "上传中" : "等待"}
+								</span>
+							</div>
+						))}
+					</div>
+				</div>
+			)}
+
 			{/* Album Filter */}
 			<div className="mt-4 flex items-center gap-3">
 				<input
@@ -443,7 +530,7 @@ export default function ImageBedPage() {
 
 			{/* Toast */}
 			{toast && (
-				<div className="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-sm text-slate-200 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
+				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-sm text-slate-200 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
 					{toast}
 				</div>
 			)}
