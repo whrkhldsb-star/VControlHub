@@ -79,6 +79,10 @@ function computePct(completed: string | null, total: string | null): number {
 	return Math.min(100, Math.round((c / t) * 10) / 10);
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+	return error instanceof Error && error.message ? error.message : fallback;
+}
+
 /* ── Main Component ───────────────────────────────────────── */
 
 export function DownloadsClient({ servers, canManage }: { servers: ServerOption[]; canManage: boolean }) {
@@ -103,7 +107,10 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 			const data = await csrfFetch("/api/downloads");
 			setTasks(data.tasks ?? data);
 			setGlobalStat(data.globalStat ?? null);
-		} catch {} finally { setLoading(false); }
+			setMessage((current) => current?.type === "error" ? null : current);
+		} catch (error) {
+			setMessage({ type: "error", text: getErrorMessage(error, "下载列表加载失败") });
+		} finally { setLoading(false); }
 	}, []);
 
 	useEffect(() => {
@@ -151,27 +158,35 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 	};
 
 	const handleAction = async (taskId: string, action: string) => {
+		setMessage(null);
 		try {
 			if (action === "cancel") {
 				await csrfFetch(`/api/downloads?taskId=${taskId}`, { method: "DELETE" });
-				setMessage({ type: "success", text: "任务已取消" }); fetchTasks();
+				setMessage({ type: "success", text: "任务已取消" });
+				void fetchTasks();
 			} else {
 				await csrfFetch("/api/downloads", {
 					method: "PATCH", headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ taskId, action }),
 				});
-				fetchTasks();
+				void fetchTasks();
 			}
-		} catch {}
+		} catch (error) {
+			setMessage({ type: "error", text: getErrorMessage(error, "下载任务操作失败") });
+		}
 	};
 
 	const handleGlobalSpeedLimit = async (kb: number) => {
+		setMessage(null);
 		try {
 			await csrfFetch("/api/downloads", {
 				method: "PATCH", headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ globalMaxSpeedKb: kb }),
 			});
-		} catch {}
+			setMessage({ type: "success", text: kb === 0 ? "已取消全局限速" : `已设置全局限速 ${kb} KB/s` });
+		} catch (error) {
+			setMessage({ type: "error", text: getErrorMessage(error, "全局限速设置失败") });
+		}
 	};
 
 	const filteredTasks = tasks
@@ -184,7 +199,7 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 	return (
 		<div>
 			{message && (
-				<div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+				<div role={message.type === "error" ? "alert" : "status"} className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
 					message.type === "success" ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-200" : "border-rose-400/30 bg-rose-400/5 text-rose-200"
 				}`}>
 					{message.text}
@@ -354,7 +369,7 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 			{/* Task list */}
 			{loading ? (
 				<div className="py-10 text-sm text-slate-500">加载中...</div>
-			) : filteredTasks.length === 0 ? (
+			) : filteredTasks.length === 0 && message?.type !== "error" ? (
 				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
 					<div className="text-4xl mb-3">⬇️</div>
 					<p className="text-sm text-slate-500">{filter === "ALL" ? "暂无下载任务" : `没有${statusLabel[filter]}的任务`}</p>
