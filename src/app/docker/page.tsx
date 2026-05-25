@@ -45,6 +45,10 @@ function formatBytes(bytes: number) {
 	return index === 0 ? `${Math.round(value)} ${units[index]}` : `${value.toFixed(1)} ${units[index]}`;
 }
 
+function getContainerName(container: Pick<Container, "Id" | "Names">) {
+	return (container.Names?.[0] || container.Id?.slice(0, 12) || "未知容器").replace(/^\//, "");
+}
+
 export default function DockerPage() {
 	const [containers, setContainers] = useState<Container[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -100,8 +104,11 @@ export default function DockerPage() {
 		}
 	};
 
-	const handleAction = async (id: string, action: "start" | "stop" | "restart" | "remove") => {
+	const handleAction = async (container: Container, action: "start" | "stop" | "restart" | "remove") => {
+		if (action === "remove" && !confirm(`确定删除容器 ${getContainerName(container)}？此操作不可恢复。`)) return;
+		const id = container.Id;
 		setActionLoading(id);
+		setError("");
 		try {
 			await csrfFetch("/api/docker/containers", {
 				method: "POST",
@@ -109,8 +116,8 @@ export default function DockerPage() {
 				body: JSON.stringify({ id, action }),
 			});
 			await fetchContainers();
-		} catch {
-			// ignore
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Docker 操作失败");
 		} finally {
 			setActionLoading(null);
 		}
@@ -262,16 +269,16 @@ export default function DockerPage() {
 											)}
 											<div className="flex flex-wrap items-center gap-2">
 												{c.State !== "running" && (
-													<button onClick={() => handleAction(c.Id, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>
+													<button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>
 												)}
 												{c.State === "running" && (
 													<>
-														<button onClick={() => handleAction(c.Id, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
-														<button onClick={() => handleAction(c.Id, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
+														<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
+														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 													</>
 												)}
 												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
-												<button onClick={() => handleAction(c.Id, "remove")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
+												<button onClick={() => handleAction(c, "remove")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 											</div>
 										</div>
 									);
@@ -299,8 +306,8 @@ export default function DockerPage() {
 											<span>{c.Status}</span>
 										</div>
 										<div className="flex flex-wrap items-center gap-2">
-											{c.State !== "running" && <button onClick={() => handleAction(c.Id, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>}
-											{c.State === "running" && <button onClick={() => handleAction(c.Id, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>}
+											{c.State !== "running" && <button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>}
+											{c.State === "running" && <button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>}
 											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
 										</div>
 									</div>
