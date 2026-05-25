@@ -121,6 +121,17 @@ export function ServerCreateForm({
 
 			<ConnectionTypeFields sshKeys={sshKeys} />
 
+			<label className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-sm text-slate-200">
+				<div className="flex items-start gap-3">
+					<input name="enableDirectGateway" type="checkbox" className="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950" />
+					<div>
+						<div className="font-medium text-cyan-100">启用目标服务器直连</div>
+						<p className="mt-1 text-xs text-slate-400">默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct Gateway 微服务。</p>
+						<p className="mt-1 text-xs text-slate-500">启用后对上传、下载、在线浏览/播放全局生效；之后也可在服务器管理面板切回中转并删除服务。</p>
+					</div>
+				</div>
+			</label>
+
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="serverTags">标签</label>
 				<input id="serverTags" name="tags" type="text" placeholder="逗号分隔，例如 prod,web" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />

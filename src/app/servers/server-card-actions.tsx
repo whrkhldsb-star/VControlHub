@@ -5,7 +5,7 @@ import { useActionState, useState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 import { SshTerminalModal } from "@/components/ssh-terminal-modal";
 
-import { deleteServerAction, toggleServerAction, type ServerActionState } from "./actions";
+import { deleteServerAction, toggleDirectGatewayAction, toggleServerAction, type ServerActionState } from "./actions";
 
 const initialState: ServerActionState = { error: undefined, success: undefined, relatedStorageCount: undefined };
 
@@ -19,11 +19,13 @@ type ServerCardActionsProps = {
  canManageServers?: boolean;
  canUseSshTerminal?: boolean;
  onSshConnect?: () => void;
+ directGateway?: { enabled: boolean; statusLabel: string; publicUrl: string | null; port: number };
 };
 
-export function ServerCardActions({ serverId, serverName, host, port, enabled, sessionToken, canManageServers = true, canUseSshTerminal = false, onSshConnect }: ServerCardActionsProps) {
+export function ServerCardActions({ serverId, serverName, host, port, enabled, sessionToken, canManageServers = true, canUseSshTerminal = false, onSshConnect, directGateway }: ServerCardActionsProps) {
   const [toggleState, toggleAction] = useActionState(toggleServerAction, initialState);
   const [deleteState, deleteAction] = useActionState(deleteServerAction, initialState);
+  const [directState, directAction] = useActionState(toggleDirectGatewayAction, initialState);
   const [showTerminal, setShowTerminal] = useState(false);
 
   const isConfirming = deleteState.relatedStorageCount !== undefined && !deleteState.success && !deleteState.error;
@@ -48,6 +50,22 @@ export function ServerCardActions({ serverId, serverName, host, port, enabled, s
           <span>SSH 终端</span>
         </button>
       )}
+
+
+      {canManageServers && directGateway ? <form action={directAction} className="space-y-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-3">
+        <input type="hidden" name="serverId" value={serverId} />
+        <input type="hidden" name="enabledDirectGateway" value={directGateway.enabled ? "false" : "true"} />
+        <div className="text-xs text-slate-300">直连状态：{directGateway.statusLabel}</div>
+        {directGateway.publicUrl ? <div className="break-all text-[11px] text-slate-500">{directGateway.publicUrl}</div> : <div className="text-[11px] text-slate-500">当前上传、下载、在线浏览默认走网站中转。</div>}
+        <SubmitButton
+          pendingLabel={directGateway.enabled ? "删除服务中..." : "安装服务中..."}
+          className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+        >
+          {directGateway.enabled ? "切回网站中转并删除直连服务" : "启用目标直连"}
+        </SubmitButton>
+        {directState.error ? <div className="text-xs text-rose-200">{directState.error}</div> : null}
+        {directState.success ? <div className="text-xs text-emerald-200">{directState.success}</div> : null}
+      </form> : null}
 
       {canManageServers ? <form action={toggleAction} className="space-y-2">
         <input type="hidden" name="serverId" value={serverId} />

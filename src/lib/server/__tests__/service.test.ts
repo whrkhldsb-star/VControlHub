@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createServerProfile, createSshKey, listServerProfiles } from "@/lib/server/service";
+import { createServerProfile, createSshKey, deleteServerProfile, listServerProfiles, setServerDirectGatewayEnabled } from "@/lib/server/service";
 import { prisma } from "@/lib/db";
 
-const { parseFromStringMock } = vi.hoisted(() => ({
+const { parseFromStringMock, execRemoteCommandMock } = vi.hoisted(() => ({
  parseFromStringMock: vi.fn(),
+ execRemoteCommandMock: vi.fn(),
 }));
 
 vi.mock("ppk-to-openssh", () => ({
@@ -24,6 +25,18 @@ vi.mock("next/cache", () => ({
  revalidatePath: vi.fn(),
 }));
 
+vi.mock("@/lib/ssh/client", () => ({
+ buildSshParamsFromServer: vi.fn(async (server: any, sshKey: any) => ({
+  host: server.host,
+  port: server.port,
+  username: server.username,
+  privateKey: sshKey?.privateKey ?? undefined,
+  password: server.password ?? undefined,
+ })),
+ execRemoteCommand: execRemoteCommandMock,
+}));
+
+
 vi.mock("@/lib/db", () => ({
  prisma: {
  sshKey: {
@@ -35,11 +48,14 @@ vi.mock("@/lib/db", () => ({
  create: vi.fn(),
  findMany: vi.fn(),
  findUnique: vi.fn(),
+ update: vi.fn(),
+ delete: vi.fn(),
  },
  storageNode: {
  findFirst: vi.fn(),
  create: vi.fn(),
  count: vi.fn(),
+ updateMany: vi.fn(),
  },
  },
 }));
@@ -319,6 +335,75 @@ describe("server service", () => {
 	}),
 	);
  expect(result.connectionSummary).toContain("使用密码连接");
+ });
+
+
+ it("creates a server with global direct gateway enabled during onboarding", async () => {
+ execRemoteCommandMock.mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 });
+ vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" } as any);
+ vi.mocked(prisma.server.create).mockResolvedValueOnce({
+ id: "srv_direct", name: "direct-node", host: "203.0.113.10", port: 22, username: "root", description: null, tags: [], enabled: true,
+ connectionType: "SSH_KEY", sshKeyId: "key_1", password: null, publicUrl: null, fileProxyPort: 0,
+ sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" }, storageNode: null, commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
+ } as any);
+ vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce(null);
+ vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(0);
+ vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({ id: "sn_direct", name: "direct-node 存储", driver: "SFTP", basePath: "/root", isDefault: true, serverId: "srv_direct" } as any);
+ vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
+ vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_direct", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 0, publicUrl: null, sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root", driver: "SFTP" } } as any);
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+ id: "srv_direct", name: "direct-node", host: "203.0.113.10", port: 22, username: "root", description: null, tags: [], enabled: true,
+ connectionType: "SSH_KEY", sshKeyId: "key_1", password: null, publicUrl: "http://203.0.113.10:31888", fileProxyPort: 31888,
+ sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" },
+ storageNode: { id: "sn_direct", name: "direct-node 存储", driver: "SFTP", isDefault: true, basePath: "/root", directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.10:31888" },
+ commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
+ } as any);
+
+ await createServerProfile({ name: "direct-node", host: "203.0.113.10", port: 22, username: "root", connectionType: "SSH_KEY", sshKeyId: "key_1", tags: [], enableDirectGateway: true });
+
+ expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: expect.stringContaining("vcontrolhub-direct.service") }));
+ expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "srv_direct" }, data: expect.objectContaining({ fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888" }) }));
+ expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { serverId: "srv_direct", driver: "SFTP" }, data: expect.objectContaining({ directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.10:31888" }) }));
+ });
+
+ it("switches global direct gateway off by uninstalling the service and returning storage to proxy", async () => {
+ execRemoteCommandMock.mockResolvedValueOnce({ stdout: "removed", stderr: "", exitCode: 0 });
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_1", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888", sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root" } } as any);
+ vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
+ vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+
+ await setServerDirectGatewayEnabled("srv_1", false);
+
+ expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: expect.stringContaining("systemctl disable --now vcontrolhub-direct.service") }));
+ expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "srv_1" }, data: { fileProxyPort: 0, publicUrl: null } }));
+ expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { serverId: "srv_1" }, data: expect.objectContaining({ directAccessMode: "PROXY", publicBaseUrl: null }) }));
+ });
+
+ it("deletes a server after best-effort gateway cleanup when the host is online", async () => {
+ execRemoteCommandMock.mockResolvedValueOnce({ stdout: "removed", stderr: "", exitCode: 0 });
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_1", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888", sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root" } } as any);
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_1", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888", sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root" } } as any);
+ vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
+ vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+ vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
+
+ await deleteServerProfile("srv_1");
+
+ expect(execRemoteCommandMock).toHaveBeenCalled();
+ expect(prisma.server.delete).toHaveBeenCalledWith({ where: { id: "srv_1" } });
+ });
+
+ it("still deletes a server when offline gateway cleanup fails", async () => {
+ execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_1", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888", sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root" } } as any);
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_1", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888", sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root" } } as any);
+ vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
+ vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
+ vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
+
+ await expect(deleteServerProfile("srv_1")).resolves.toEqual({ deleted: true, cleanupSkipped: true });
+ expect(prisma.server.delete).toHaveBeenCalledWith({ where: { id: "srv_1" } });
  });
 
  it("lists onboarded servers with ssh-key summaries", async () => {

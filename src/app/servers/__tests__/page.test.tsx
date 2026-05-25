@@ -59,6 +59,7 @@ vi.mock("../actions", () => ({
 	}),
 	createSshKeyAction: vi.fn(),
 	toggleServerAction: vi.fn(),
+	toggleDirectGatewayAction: vi.fn(),
 	batchToggleServerAction: vi.fn(),
 	deleteServerAction: vi.fn(),
 }));

@@ -22,6 +22,7 @@ export const createServerSchema = z
    .optional()
    .transform((value) => value || undefined),
   tags: z.array(serverTagSchema).max(20, "标签最多 20 个").default([]),
+  enableDirectGateway: z.boolean().optional().default(false),
  })
  .refine(
   (data) => {
@@ -32,4 +33,4 @@ export const createServerSchema = z
   { message: "SSH 密钥连接方式需选择密钥，密码连接方式需填写密码" },
  );
 
-export type CreateServerInput = z.infer<typeof createServerSchema>;
+export type CreateServerInput = z.input<typeof createServerSchema>;

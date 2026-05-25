@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requirePermission } from "@/lib/auth/authorization";
-import { createServerProfile, createSshKey, deleteServerProfile, toggleServerEnabled } from "@/lib/server/service";
+import { createServerProfile, createSshKey, deleteServerProfile, setServerDirectGatewayEnabled, toggleServerEnabled } from "@/lib/server/service";
 
 export type ServerActionState = {
  error?: string;
@@ -31,6 +31,7 @@ export async function createServerAction(_prevState: ServerActionState | null, f
   const password = String(formData.get("password") ?? "") || undefined;
   const description = String(formData.get("description") ?? "");
   const tags = parseTags(String(formData.get("tags") ?? ""));
+  const enableDirectGateway = formData.get("enableDirectGateway") === "on";
 
   await createServerProfile({
    name,
@@ -42,6 +43,7 @@ export async function createServerAction(_prevState: ServerActionState | null, f
    password,
    description,
    tags,
+   enableDirectGateway,
   });
 
  revalidatePath("/");
@@ -102,6 +104,23 @@ export async function toggleServerAction(_prevState: ServerActionState | null, f
  return { success: "节点状态已更新。" } as ServerActionState;
  } catch (error) {
  return { error: error instanceof Error ? error.message : "更新节点状态失败" } as ServerActionState;
+ }
+}
+
+export async function toggleDirectGatewayAction(_prevState: ServerActionState | null, formData: FormData) {
+ await requirePermission("server:write");
+
+ try {
+  const serverId = String(formData.get("serverId") ?? "");
+  const enabled = formData.get("enabledDirectGateway") === "true";
+  await setServerDirectGatewayEnabled(serverId, enabled);
+  revalidatePath("/");
+  revalidatePath("/servers");
+  revalidatePath("/storage");
+  revalidatePath("/files");
+  return { success: enabled ? "目标直连已启用，上传、下载和在线浏览将优先直连。" : "已切回网站中转，并已删除目标服务器直连服务。" } as ServerActionState;
+ } catch (error) {
+  return { error: error instanceof Error ? error.message : "切换目标直连失败" } as ServerActionState;
  }
 }
 

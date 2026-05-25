@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 import { PPKError, parseFromString } from "ppk-to-openssh";
@@ -6,8 +6,10 @@ import { PPKError, parseFromString } from "ppk-to-openssh";
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db";
+import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { encryptServerPasswordIfPlain, encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { getServerConnectionSummary, normalizeServerInput } from "./config";
+import { buildDirectGatewayPublicBaseUrl, buildInstallDirectGatewayCommand, buildUninstallDirectGatewayCommand, DIRECT_GATEWAY_DEFAULT_PORT, getDirectGatewayStatusLabel } from "./direct-gateway";
 import { createServerSchema, type CreateServerInput } from "./schema";
 
 type ServerCommandTarget = {
@@ -37,8 +39,10 @@ type ServerWithRelations = {
   createdAt: Date | string;
   updatedAt: Date | string;
   sshKey?: { id: string; name: string; fingerprint?: string | null; publicKey?: string | null; privateKey?: string | null; createdAt?: Date | string } | null;
-  storageNode?: { id: string; name: string; driver: string; isDefault: boolean; basePath: string } | null;
+  storageNode?: { id: string; name: string; driver: string; isDefault: boolean; basePath: string; directAccessMode?: string; publicBaseUrl?: string | null } | null;
   commandTargets?: ServerCommandTarget[];
+  publicUrl?: string | null;
+  fileProxyPort?: number | null;
 };
 
 function serializeDate(value: Date | string) {
@@ -77,6 +81,12 @@ function enrichServer(server: ServerWithRelations) {
  createdAt: server.sshKey.createdAt,
  } : null,
 		storageNode: server.storageNode,
+		directGateway: {
+			enabled: !!(server.fileProxyPort && server.fileProxyPort > 0 && server.publicUrl),
+			publicUrl: server.publicUrl ?? null,
+			port: server.fileProxyPort ?? 0,
+			statusLabel: getDirectGatewayStatusLabel({ fileProxyPort: server.fileProxyPort, publicUrl: server.publicUrl }),
+		},
 		statusLabel: buildServerStatusLabel(server.enabled),
 		connectionTypeLabel: buildServerConnectionTypeLabel(server.connectionType),
 		connectionSummary: getServerConnectionSummary({
@@ -236,6 +246,60 @@ export async function createSshKey(input: {
   });
 }
 
+
+async function loadServerForDirectGateway(serverId: string) {
+ return prisma.server.findUnique({
+  where: { id: serverId },
+  include: {
+   sshKey: { select: { privateKey: true } },
+   storageNode: { select: { basePath: true, driver: true } },
+  },
+ });
+}
+
+async function applyServerDirectGatewayState(input: { serverId: string; enabled: boolean; bestEffort?: boolean }) {
+ const server = await loadServerForDirectGateway(input.serverId);
+ if (!server) {
+  if (input.bestEffort) return { enabled: input.enabled, publicBaseUrl: null, cleanupSkipped: true };
+  throw new Error("VPS 节点不存在或已删除");
+ }
+ const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(server.host.trim());
+ const basePath = server.storageNode?.basePath || "/root";
+ const publicBaseUrl = buildDirectGatewayPublicBaseUrl({ host: server.host, port: DIRECT_GATEWAY_DEFAULT_PORT });
+ const ssh = await buildSshParamsFromServer(server, server.sshKey);
+ const command = input.enabled
+  ? buildInstallDirectGatewayCommand({ rootPath: basePath, secret: process.env.STORAGE_DIRECT_ACCESS_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || randomBytes(32).toString("hex"), port: DIRECT_GATEWAY_DEFAULT_PORT })
+  : buildUninstallDirectGatewayCommand();
+ let cleanupSkipped = false;
+ if (!isLocalHost) {
+  try {
+   const result = await execRemoteCommand({ ...ssh, command, timeout: 180_000 });
+   if (result.exitCode && result.exitCode !== 0) throw new Error(result.stderr || result.stdout || "目标服务器直连服务操作失败");
+  } catch (error) {
+   if (!input.bestEffort) throw error;
+   cleanupSkipped = true;
+  }
+ }
+ await prisma.server.update({
+  where: { id: input.serverId },
+  data: input.enabled ? { fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT, publicUrl: publicBaseUrl } : { fileProxyPort: 0, publicUrl: null },
+ });
+ await prisma.storageNode.updateMany({
+  where: { serverId: input.serverId, ...(input.enabled ? { driver: "SFTP" as const } : {}) },
+  data: input.enabled
+   ? { directAccessMode: "AUTO", publicBaseUrl, directAccessExpiresSeconds: 300 }
+   : { directAccessMode: "PROXY", publicBaseUrl: null },
+ });
+ revalidatePath("/servers");
+ revalidatePath("/storage");
+ revalidatePath("/files");
+ return { enabled: input.enabled, publicBaseUrl: input.enabled ? publicBaseUrl : null, cleanupSkipped };
+}
+
+export async function setServerDirectGatewayEnabled(serverId: string, enabled: boolean) {
+ return applyServerDirectGatewayState({ serverId, enabled });
+}
+
 export async function createServerProfile(input: CreateServerInput) {
  const payload = createServerSchema.parse(input);
  const normalized = normalizeServerInput(payload);
@@ -259,14 +323,14 @@ export async function createServerProfile(input: CreateServerInput) {
    password: normalized.connectionType === "PASSWORD" && normalized.password ? encryptServerPasswordIfPlain(normalized.password) : null,
    enabled: true,
   },
-  include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
+  include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true, directAccessMode: true, publicBaseUrl: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
  });
 
  // Auto-create associated storage node
  const storageNodeName = `${server.name} 存储`;
+ const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(normalized.host.trim());
  const existingNode = await prisma.storageNode.findFirst({ where: { name: storageNodeName } });
  if (!existingNode) {
- const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(normalized.host.trim());
  const defaultCount = await prisma.storageNode.count({ where: { isDefault: true } });
  await prisma.storageNode.create({
  data: {
@@ -288,10 +352,14 @@ export async function createServerProfile(input: CreateServerInput) {
  }
  }
 
+ if (payload.enableDirectGateway && !isLocalHost) {
+  await applyServerDirectGatewayState({ serverId: server.id, enabled: true });
+ }
+
  // Re-fetch to include the newly created storageNode relation
  const refreshed = await prisma.server.findUnique({
  where: { id: server.id },
- include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
+ include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true, directAccessMode: true, publicBaseUrl: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
  });
 
  revalidatePath("/storage");
@@ -301,14 +369,14 @@ export async function createServerProfile(input: CreateServerInput) {
 }
 
 export async function updateServerProfile(serverId: string, input: Partial<CreateServerInput> & { enabled?: boolean }) {
- const current = await prisma.server.findUnique({ where: { id: serverId }, include: { sshKey: { select: { name: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } } } });
+ const current = await prisma.server.findUnique({ where: { id: serverId }, include: { sshKey: { select: { name: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true, directAccessMode: true, publicBaseUrl: true } } } });
  if (!current) throw new Error("VPS 节点不存在或已删除");
 
  const connectionType = input.connectionType ?? current.connectionType;
  const normalized = normalizeServerInput({
   name: input.name ?? current.name,
   host: input.host ?? current.host,
-  port: input.port ?? current.port,
+  port: input.port ? Number(input.port) : current.port,
   username: input.username ?? current.username,
   connectionType,
   sshKeyId: input.sshKeyId ?? current.sshKeyId ?? undefined,
@@ -336,7 +404,7 @@ export async function updateServerProfile(serverId: string, input: Partial<Creat
    tags: normalized.tags,
    enabled: typeof input.enabled === "boolean" ? input.enabled : current.enabled,
   },
-  include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
+  include: { sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } }, storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true, directAccessMode: true, publicBaseUrl: true } }, commandTargets: { select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } }, orderBy: { commandRequest: { createdAt: "desc" } }, take: 3 } },
  });
 
  return enrichServer(updated);
@@ -349,10 +417,15 @@ export async function toggleServerEnabled(serverId: string) {
 }
 
 export async function deleteServerProfile(serverId: string) {
-  const current = await prisma.server.findUnique({ where: { id: serverId }, select: { id: true } });
+  const current = await prisma.server.findUnique({ where: { id: serverId }, include: { sshKey: { select: { privateKey: true } }, storageNode: { select: { basePath: true, driver: true } } } });
   if (!current) throw new Error("VPS 节点不存在或已删除");
+  let cleanupSkipped = false;
+  if (current.fileProxyPort && current.fileProxyPort > 0) {
+    const result = await applyServerDirectGatewayState({ serverId, enabled: false, bestEffort: true });
+    cleanupSkipped = result.cleanupSkipped;
+  }
   await prisma.server.delete({ where: { id: serverId } });
-  return { deleted: true };
+  return cleanupSkipped ? { deleted: true, cleanupSkipped: true } : { deleted: true };
 }
 
 export async function listServerProfiles() {
@@ -360,7 +433,7 @@ export async function listServerProfiles() {
    orderBy: { createdAt: "desc" },
    include: {
     sshKey: { select: { id: true, name: true, fingerprint: true, publicKey: true, privateKey: true, createdAt: true } },
-    storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true } },
+    storageNode: { select: { id: true, name: true, driver: true, isDefault: true, basePath: true, directAccessMode: true, publicBaseUrl: true } },
     commandTargets: {
      select: { id: true, status: true, commandRequest: { select: { id: true, title: true, initiatedByType: true, status: true, createdAt: true } } },
      orderBy: { commandRequest: { createdAt: "desc" } },

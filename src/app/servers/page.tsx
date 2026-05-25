@@ -142,8 +142,9 @@ export default async function ServersPage() {
 												<h3 className="text-sm font-medium text-white/80 mb-3">节点操作</h3>
 												<div className="space-y-2 text-sm">
 													<InfoRow label="关联存储" value={server.storageNode ? `${server.storageNode.name} · ${server.storageNode.basePath}` : "未绑定"} />
+									<InfoRow label="直连模式" value={server.directGateway?.statusLabel ?? "网站中转"} />
 													<InfoRow label="累计命令目标" value={String(server.targetCount)} />
-													{(canManageServers || canUseSshTerminal) && <ServerCardActions serverId={server.id} serverName={server.name} host={server.host} port={server.port} enabled={server.enabled} sessionToken={sessionToken} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />}
+													{(canManageServers || canUseSshTerminal) && <ServerCardActions serverId={server.id} serverName={server.name} host={server.host} port={server.port} enabled={server.enabled} sessionToken={sessionToken} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} directGateway={server.directGateway} />}
 												</div>
 											</section>
 
