@@ -11,6 +11,7 @@ export function NotificationBell() {
 	const [notifications, setNotifications] = useState<Array<{
 		id: string; type: string; title: string; message: string; isRead: boolean; actionUrl: string | null; createdAt: string;
 	}>>([]);
+	const [feedback, setFeedback] = useState<{ type: "error" | "info"; message: string } | null>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
 
 	// WebSocket real-time updates
@@ -29,11 +30,15 @@ export function NotificationBell() {
 	}, [wsConnected]);
 
 	const fetchList = useCallback(async () => {
+		setFeedback(null);
 		try {
 			const data = await csrfFetch("/api/notifications");
 			setNotifications(data.notifications ?? []);
 			if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
-		} catch { /* ignore */ }
+		} catch (err) {
+			setNotifications([]);
+			setFeedback({ type: "error", message: err instanceof Error ? err.message : "通知列表加载失败" });
+		}
 	}, [wsConnected]);
 
 	// Poll fallback when WS not connected
@@ -93,10 +98,15 @@ export function NotificationBell() {
 	};
 
 	const markAllRead = async () => {
-		await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
-		if (wsConnected) { /* WS will update count */ }
-		else { setPolledUnread(0); }
-		setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+		setFeedback(null);
+		try {
+			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
+			if (wsConnected) { /* WS will update count */ }
+			else { setPolledUnread(0); }
+			setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+		} catch (err) {
+			setFeedback({ type: "error", message: err instanceof Error ? err.message : "通知标记已读失败" });
+		}
 	};
 
 	return (
@@ -133,9 +143,14 @@ export function NotificationBell() {
 							)}
 						</div>
 					</div>
-					{notifications.length === 0 ? (
+					{feedback && (
+						<div role="alert" className="border-b border-rose-400/10 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+							{feedback.message}
+						</div>
+					)}
+					{notifications.length === 0 && !feedback ? (
 						<div className="p-6 text-center text-xs text-slate-500">暂无通知</div>
-					) : (
+					) : notifications.length > 0 ? (
 						<div className="divide-y divide-white/[0.04]">
 							{notifications.slice(0, 10).map((n) => (
 								<a
@@ -151,7 +166,7 @@ export function NotificationBell() {
 								</a>
 							))}
 						</div>
-					)}
+					) : null}
 					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/90">
 						<a href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition">
 							查看全部通知 →
