@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useId } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Props = {
 	settings: Record<string, string>;
@@ -26,6 +27,11 @@ export function SettingsClient({ settings: initialSettings, canManage }: Props) 
 			for (const k of keys) {
 				payload[k] = settings[k] ?? "";
 			}
+			await csrfFetch("/api/settings", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
 			setSaved(true);
 			setTimeout(() => setSaved(false), 3000);
 		} catch (err) {
@@ -92,10 +98,12 @@ export function SettingsClient({ settings: initialSettings, canManage }: Props) 
 function Field({ label, value, onChange, placeholder, type = "text" }: {
 	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
 }) {
+	const inputId = useId();
 	return (
 		<div className="space-y-1.5">
-			<label className="text-xs font-medium text-white/50 tracking-wide">{label}</label>
+			<label htmlFor={inputId} className="text-xs font-medium text-white/50 tracking-wide">{label}</label>
 			<input
+				id={inputId}
 				type={type}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
