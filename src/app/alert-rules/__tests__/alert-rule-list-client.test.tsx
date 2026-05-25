@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "@/components/toast-provider";
 import { AlertRuleListClient } from "../alert-rule-list-client";
 
@@ -8,6 +9,9 @@ vi.mock("@/lib/auth/require-session", () => ({
 }));
 vi.mock("@/lib/auth/authorization", () => ({
 	sessionHasPermission: vi.fn(() => true),
+}));
+vi.mock("@/lib/auth/csrf-client", () => ({
+	csrfFetch: vi.fn(),
 }));
 vi.mock("@/lib/alert/service", () => ({
 	listAlertRules: vi.fn(async () => [{
@@ -31,12 +35,42 @@ vi.mock("@/lib/server/service", () => ({
 }));
 
 import AlertRulesPage from "../page";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 function wrap(ui: React.ReactElement) {
 	return <ToastProvider>{ui}</ToastProvider>;
 }
 
 describe("alert rules client", () => {
+	it("submits new alert rules to the API instead of only closing the form", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ rules: [] });
+
+		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "+ 创建告警规则" }));
+		await user.type(screen.getByLabelText("规则名称"), "CPU 过载告警");
+		await user.clear(screen.getByLabelText("阈值"));
+		await user.type(screen.getByLabelText("阈值"), "91");
+		await user.click(screen.getByRole("button", { name: "创建规则" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
+			"/api/alert-rules",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({
+					name: "CPU 过载告警",
+					metric: "cpu_usage",
+					operator: "gte",
+					threshold: 91,
+					notifyChannels: ["in_app"],
+					cooldownMinutes: 30,
+					webhookUrl: undefined,
+				}),
+			}),
+		));
+	});
+
 	it("does not render full webhook URLs from serialized rule metadata", () => {
 		render(wrap(<AlertRuleListClient
 			rules={[{

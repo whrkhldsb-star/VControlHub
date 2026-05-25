@@ -37,8 +37,8 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const [showCreate, setShowCreate] = useState(false);
 
 	const refresh = useCallback(async () => {
-			const data = await csrfFetch("/api/alert-rules");
-			setRules(data.rules ?? []);
+		const data = await csrfFetch("/api/alert-rules");
+		setRules(data?.rules ?? []);
 	}, []);
 
 	const toggleRule = useCallback(async (id: string) => {
@@ -169,6 +169,19 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 		setSubmitting(true);
 		setError(null);
 		try {
+			await csrfFetch("/api/alert-rules", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name,
+					metric,
+					operator,
+					threshold,
+					notifyChannels: channels,
+					cooldownMinutes: cooldown,
+					webhookUrl: channels.includes("webhook") && webhookUrl.trim() ? webhookUrl.trim() : undefined,
+				}),
+			});
 			onClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "创建失败");
@@ -183,8 +196,8 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">规则名称</label>
-				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：CPU 过载告警" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleName">规则名称</label>
+				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：CPU 过载告警" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-3">
@@ -207,8 +220,8 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 					</select>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">阈值</label>
-					<input type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertThreshold">阈值</label>
+					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
 				</div>
 			</div>
 

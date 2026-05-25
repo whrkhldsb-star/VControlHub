@@ -23,4 +23,11 @@ describe("SshKeyCreateForm", () => {
 		// After upload, the label text changes to the filename
 		expect(screen.getByText("prod-root-key.ppk")).toBeInTheDocument();
 	});
+
+	it("allows importing a PPK file without requiring a pasted private key", () => {
+		render(<SshKeyCreateForm />);
+
+		expect(screen.getByLabelText("私钥")).not.toBeRequired();
+		expect(screen.getByText("PuTTY .ppk 上传")).toBeInTheDocument();
+	});
 });
