@@ -69,7 +69,9 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 
 export default function PreferencesPage() {
 	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
+	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(defaultPrefs);
 	const [saved, setSaved] = useState(false);
+	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -83,8 +85,10 @@ export default function PreferencesPage() {
 			
 			.then((data) => {
 				if (!data.error) {
-					setPrefs({ ...defaultPrefs, ...data });
-					localStorage.setItem("vps-preferences", JSON.stringify(data));
+					const nextPrefs = { ...defaultPrefs, ...data };
+					setPrefs(nextPrefs);
+					setLastSavedPrefs(nextPrefs);
+					localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
 				}
 			})
 			.catch(() => {})
@@ -95,15 +99,23 @@ export default function PreferencesPage() {
 		setPrefs(newPrefs);
 		localStorage.setItem("vps-preferences", JSON.stringify(newPrefs));
 		window.dispatchEvent(new Event("vps-preferences-updated"));
+		setError("");
+		setSaved(false);
 		try {
 			await csrfFetch("/api/preferences", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(newPrefs),
 			});
+			setLastSavedPrefs(newPrefs);
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
-		} catch {}
+		} catch (err) {
+			setPrefs(lastSavedPrefs);
+			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
+			window.dispatchEvent(new Event("vps-preferences-updated"));
+			setError(err instanceof Error ? err.message : "偏好设置保存失败");
+		}
 	};
 
 	const toggleWidget = (widget: string) => {
@@ -122,6 +134,9 @@ export default function PreferencesPage() {
 			<p className="text-slate-400 mb-6">自定义你的工作环境</p>
 			{saved && (
 				<div className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>
+			)}
+			{error && (
+				<div className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>
 			)}
 
 			<div className="space-y-4 max-w-2xl">
