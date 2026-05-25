@@ -22,7 +22,7 @@ vi.mock("child_process", () => ({
 	exec: execMock,
 }));
 
-import { checkPort, installService, startService } from "../service";
+import { checkPort, installService, startService, uninstallService } from "../service";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -100,6 +100,38 @@ describe("quick service docker lifecycle", () => {
 		expect(dockerRun).toContain("-p 18080:8080");
 		expect(dockerRun).toContain("-p 19090:9090");
 		expect(dockerRun).toContain("example/demo:latest serve --safe");
+	});
+
+	it("preflights extra host ports before installing a template", async () => {
+		execSyncMock.mockImplementation((cmd: string) => {
+			if (cmd.includes("listen(19090")) {
+				throw new Error("port busy");
+			}
+			return "";
+		});
+
+		await expect(
+			installService({
+				template: { ...template, extraPorts: [{ host: 19090, container: 9090 }] },
+				customPort: 12345,
+			}),
+		).rejects.toThrow("额外端口 19090 已被占用");
+		expect(prismaMock.quickService.upsert).not.toHaveBeenCalled();
+	});
+
+	it("keeps the DB record and marks uninstall errors when docker removal fails", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-3", slug: "demo" });
+		execSyncMock.mockImplementationOnce(() => {
+			throw new Error("docker daemon unavailable");
+		});
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await expect(uninstallService("demo")).rejects.toThrow("卸载失败");
+		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
+			where: { slug: "demo" },
+			data: expect.objectContaining({ status: "error" }),
+		});
 	});
 
 	it("returns invalid for out-of-range port checks without shelling out", () => {

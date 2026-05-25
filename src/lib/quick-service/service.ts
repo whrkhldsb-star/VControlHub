@@ -75,6 +75,22 @@ import type { ServiceTemplate } from "./types";
 export type { ServiceTemplate } from "./types";
 
 
+function assertPortAvailable(port: number, label = "端口") {
+	if (!Number.isInteger(port) || port < 1 || port > 65535) {
+		throw new Error(`${label} ${port} 无效，请使用 1-65535 范围内的端口。`);
+	}
+	if (!isPortAvailableSync(port)) {
+		throw new Error(`${label} ${port} 已被占用，请更换端口后重试。`);
+	}
+}
+
+function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
+	assertPortAvailable(hostPort, "端口");
+	for (const ep of template.extraPorts ?? []) {
+		assertPortAvailable(ep.host, "额外端口");
+	}
+}
+
 /* ── CRUD ──────────────────────────────────────────────────────── */
 
 export async function listQuickServices() {
@@ -107,9 +123,7 @@ export async function installService(opts: InstallOptions) {
 	const hostPort = customPort ?? allocatePort(template.defaultPort);
 
 	// ── Step 2: Real-time port availability check ──
-	if (!isPortAvailableSync(hostPort)) {
-		throw new Error(`端口 ${hostPort} 已被占用，无法部署。请更换端口后重试。`);
-	}
+	assertTemplatePortsAvailable(template, hostPort);
 
 	// ── Step 3: Create volume dirs ──
 	for (const vol of template.volumesJson) {
@@ -215,8 +229,10 @@ export async function uninstallService(slug: string) {
 	const containerName = safeContainerName(svc.slug);
 	try {
 		execSync(`docker rm -f ${shellQuote(containerName)} 2>/dev/null`, { timeout: 15000 });
-	} catch {
-		// container may not exist
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err);
+		await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
+		throw new Error(`卸载失败: ${msg}`);
 	}
 
 	await prisma.quickService.delete({ where: { slug } });
