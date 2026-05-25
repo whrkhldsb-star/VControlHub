@@ -41,8 +41,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	const [showCreate, setShowCreate] = useState(false);
 
 	const refresh = useCallback(async () => {
-			const data = await csrfFetch("/api/scheduled-tasks");
-			setTasks(data.tasks ?? []);
+		const data = await csrfFetch("/api/scheduled-tasks");
+		setTasks(data.tasks ?? []);
 	}, []);
 
 	const toggleTask = useCallback(async (id: string) => {
@@ -51,13 +51,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ toggleId: id }),
 		});
-		refresh();
+		void refresh();
 	}, [refresh]);
 
 	const deleteTask = useCallback(async (id: string) => {
 		if (!confirm("确认删除该定时任务？")) return;
 		await csrfFetch(`/api/scheduled-tasks?id=${id}`, { method: "DELETE" });
-		refresh();
+		void refresh();
 	}, [refresh]);
 
 	return (
@@ -160,6 +160,17 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 		setSubmitting(true);
 		setError(null);
 		try {
+			await csrfFetch("/api/scheduled-tasks", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name,
+					cronExpression,
+					command,
+					reason,
+					serverIds: Array.from(selectedServerIds),
+				}),
+			});
 			onClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "创建失败");
@@ -182,7 +193,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	return (
 		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 			<h3 className="text-lg font-semibold text-white">创建定时任务</h3>
-			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide">任务名称</label>
