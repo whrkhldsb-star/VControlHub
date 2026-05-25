@@ -6,14 +6,12 @@ import { createShareLink, listShareLinks, revokeShareLink } from "@/lib/share-li
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const shareLinkPostSchema = z.object({
- resourceType: z.enum(["command", "snippet", "server"]),
- resourceId: z.string().min(1),
- expiresIn: z.number().optional(),
  storageNodeId: z.string().min(1),
  path: z.string().min(1),
  entryType: z.enum(["FILE", "DIRECTORY"]).optional(),
  name: z.string().optional(),
- expiresInHours: z.number().optional(),
+ expiresInHours: z.number().positive().optional(),
+ expiresIn: z.number().positive().optional(),
 });
 
 export const dynamic = "force-dynamic";
