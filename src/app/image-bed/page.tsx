@@ -80,9 +80,13 @@ export default function ImageBedPage() {
 
 	const fetchStorageNodes = async () => {
 		try {
-			const data = await csrfFetch("/api/storage/nodes");
-			setStorageNodes((data.nodes || data || []).map((n: { id: string; name: string }) => ({ id: n.id, name: n.name })));
-		} catch { /* non-fatal */ }
+			const data = await csrfFetch("/api/storage/nodes?driver=LOCAL");
+			const nodes = (data.nodes || data || []).map((n: { id: string; name: string }) => ({ id: n.id, name: n.name }));
+			setStorageNodes(nodes);
+			if (nodes.length === 0) showToast("暂无可发布的本地存储节点");
+		} catch (err) {
+			showToast(err instanceof Error ? err.message : "获取存储节点失败");
+		}
 	};
 
 	useEffect(() => { fetchImages(1); }, [fetchImages]);
