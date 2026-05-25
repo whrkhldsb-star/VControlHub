@@ -122,22 +122,40 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
 	const [autoRefresh, setAutoRefresh] = useState(true);
 	const [lastRefresh, setLastRefresh] = useState<string>("");
+	const [loadError, setLoadError] = useState<string | null>(null);
+	const [historyErrors, setHistoryErrors] = useState<Record<string, string>>({});
+	const [isRefreshing, setIsRefreshing] = useState(false);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+	const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
+
 	const fetchHealth = useCallback(async () => {
+		setIsRefreshing(true);
 		try {
 			const data = await csrfFetch("/api/health") as HealthOverview;
 			setOverview(data);
+			setLoadError(null);
 			setLastRefresh(new Date().toLocaleTimeString("zh-CN"));
-		} catch { /* ignore */ }
-		setLoading(false);
+		} catch (error) {
+			setLoadError(getErrorMessage(error, "加载健康状态失败"));
+		} finally {
+			setLoading(false);
+			setIsRefreshing(false);
+		}
 	}, []);
 
 	const fetchHistory = useCallback(async (serverId: string) => {
 		try {
 			const data = await csrfFetch(`/api/health?historyFor=${serverId}&hours=24`);
 			setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
-		} catch { /* ignore */ }
+			setHistoryErrors((prev) => {
+				const next = { ...prev };
+				delete next[serverId];
+				return next;
+			});
+		} catch (error) {
+			setHistoryErrors((prev) => ({ ...prev, [serverId]: getErrorMessage(error, "加载历史指标失败") }));
+		}
 	}, []);
 
 	useEffect(() => {
@@ -173,12 +191,31 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 		);
 	}
 
-	if (!overview) return null;
+	if (!overview) {
+		return (
+			<div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">
+				<div>{loadError ?? "健康状态暂不可用"}</div>
+				<button
+					type="button"
+					onClick={fetchHealth}
+					disabled={isRefreshing}
+					className="mt-3 rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{isRefreshing ? "正在重试..." : "重试加载健康状态"}
+				</button>
+			</div>
+		);
+	}
 
 	const { total, online, warning, critical, offline } = overview;
 
 	return (
 		<div className="space-y-6">
+			{loadError && (
+				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+					{loadError}
+				</div>
+			)}
 			{systemHealthSummary && (
 				<>
 					<section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -225,10 +262,13 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 				</div>
 				<div className="flex items-center gap-3">
 					<button
+						type="button"
 						onClick={fetchHealth}
-						className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition"
+						disabled={isRefreshing}
+						aria-label="刷新健康状态"
+						className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						🔄 刷新
+						{isRefreshing ? "正在刷新..." : "🔄 刷新"}
 					</button>
 					<label className="flex items-center gap-2 text-xs text-slate-400">
 						<span>自动刷新</span>
@@ -305,12 +345,18 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 			</section>
 
 			{/* Expanded trend section */}
-			{expandedServer && history[expandedServer] && (
+			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
 				<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 					<h3 className="text-sm font-medium text-white/80 mb-4">
 						{overview.servers.find((s) => s.serverId === expandedServer)?.serverName} — 过去 24h 趋势
 					</h3>
-					<SparklineChart data={history[expandedServer]} />
+					{historyErrors[expandedServer] ? (
+						<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+							{historyErrors[expandedServer]}
+						</div>
+					) : (
+						<SparklineChart data={history[expandedServer] ?? []} />
+					)}
 				</section>
 			)}
 		</div>
