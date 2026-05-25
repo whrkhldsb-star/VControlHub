@@ -55,12 +55,20 @@ export function UserManagementClient() {
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+	const [loadFailed, setLoadFailed] = useState(false);
+
+	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 	const fetchUsers = useCallback(async () => {
+		setLoadFailed(false);
 		try {
 			const data = await csrfFetch("/api/users") as { users: UserInfo[] };
 			setUsers(data.users);
-		} catch { /* ignore */ }
+		} catch (err) {
+			setUsers([]);
+			setLoadFailed(true);
+			setMessage({ type: "error", text: messageFromError(err, "用户列表加载失败") });
+		}
 		finally { setLoading(false); }
 	}, []);
 
@@ -93,15 +101,21 @@ export function UserManagementClient() {
 
   const handleToggleStatus = async (userId: string, currentStatus: string, username: string) => {
     const action = currentStatus === "DISABLED" ? "enable" : "disable";
-try {
- await csrfFetch("/api/users", {
- method: "PATCH",
- headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ userId, action }),
- });
- setMessage({ type: "success", text: `已${action === "enable" ? "启用" : "禁用"} ${username}` });
- fetchUsers();
- } catch { /* ignore */ }
+    setMessage(null);
+    try {
+      await csrfFetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action }),
+      });
+      setMessage({ type: "success", text: `已${action === "enable" ? "启用" : "禁用"} ${username}` });
+      await fetchUsers();
+    } catch (err) {
+      setMessage({
+        type: "error",
+        text: messageFromError(err, `${action === "enable" ? "启用" : "禁用"} ${username} 失败`),
+      });
+    }
   };
 
   const toggleRole = (roleKey: string) => {
@@ -117,7 +131,9 @@ try {
     <div>
       {/* Message */}
       {message && (
-        <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
+        <div
+          role={message.type === "error" ? "alert" : "status"}
+          className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
           message.type === "success"
             ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-200"
             : "border-rose-400/30 bg-rose-400/5 text-rose-200"
@@ -209,6 +225,8 @@ try {
         <div className="divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
             <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+          ) : loadFailed ? (
+            <div className="px-4 py-10 text-sm text-slate-400">用户列表加载失败，请稍后重试。</div>
           ) : users.length === 0 ? (
             <div className="px-4 py-10 text-sm text-slate-400">暂无用户。</div>
           ) : (
