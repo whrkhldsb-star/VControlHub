@@ -19,7 +19,7 @@ describe("deployment service", () => {
     mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"] });
     mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
-    mockPrisma.deploymentRun.update.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
+    mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }));
   });
 
   it("renders template variables and submits through command approval pipeline", async () => {
@@ -90,5 +90,67 @@ describe("deployment service", () => {
       status: "REJECTED",
       errorMessage: "关联命令请求已被拒绝，部署不会执行。",
     });
+  });
+
+  it("persists terminal deployment status derived from the linked command request", async () => {
+    const createdAt = new Date("2026-05-25T00:00:00Z");
+    const updatedAt = new Date("2026-05-25T00:01:00Z");
+    mockPrisma.deploymentRun.findMany.mockResolvedValue([
+      {
+        id: "dep_failed",
+        templateId: "tmpl1",
+        commandRequestId: "cmd_failed",
+        status: "RUNNING",
+        variables: {},
+        renderedCommand: "systemctl restart nginx",
+        serverIds: ["srv1", "srv2"],
+        createdBy: "u1",
+        createdAt,
+        updatedAt,
+        completedAt: null,
+        errorMessage: null,
+        template: { id: "tmpl1", name: "Nginx" },
+        creator: { username: "admin", displayName: "Admin" },
+        commandRequest: { status: "FAILED" },
+      },
+    ]);
+    mockPrisma.deploymentRun.update.mockImplementationOnce(async ({ data }: any) => ({
+      id: "dep_failed",
+      templateId: "tmpl1",
+      commandRequestId: "cmd_failed",
+      variables: {},
+      renderedCommand: "systemctl restart nginx",
+      serverIds: ["srv1", "srv2"],
+      createdBy: "u1",
+      createdAt,
+      updatedAt,
+      completedAt: data.completedAt,
+      template: { id: "tmpl1", name: "Nginx" },
+      creator: { username: "admin", displayName: "Admin" },
+      commandRequest: { status: "FAILED" },
+      ...data,
+    }));
+
+    const runs = await listDeploymentRuns();
+
+    expect(mockPrisma.deploymentRun.update).toHaveBeenCalledWith({
+      where: { id: "dep_failed" },
+      data: {
+        status: "FAILED",
+        errorMessage: "关联命令请求已失败。",
+        completedAt: expect.any(Date),
+      },
+      include: {
+        template: true,
+        creator: { select: { username: true, displayName: true } },
+        commandRequest: { select: { status: true } },
+      },
+    });
+    expect(runs[0]).toMatchObject({
+      id: "dep_failed",
+      status: "FAILED",
+      errorMessage: "关联命令请求已失败。",
+    });
+    expect(runs[0].completedAt).toBeInstanceOf(Date);
   });
 });

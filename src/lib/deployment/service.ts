@@ -53,10 +53,20 @@ export async function createDeploymentRunFromTemplate(input: { templateId: strin
 }
 
 type DeploymentRunWithCommand = {
+  id: string;
   status: string;
   errorMessage?: string | null;
+  completedAt?: Date | null;
   commandRequest?: { status: string } | null;
 };
+
+const DEPLOYMENT_RUN_INCLUDE = {
+  template: true,
+  creator: { select: { username: true, displayName: true } },
+  commandRequest: { select: { status: true } },
+} as const;
+
+const TERMINAL_DEPLOYMENT_STATUSES = new Set(["COMPLETED", "FAILED", "CANCELLED", "REJECTED"]);
 
 function resolveDeploymentRunStatus(run: DeploymentRunWithCommand) {
   const commandStatus = run.commandRequest?.status;
@@ -74,14 +84,31 @@ function resolveDeploymentRunStatus(run: DeploymentRunWithCommand) {
   return { status: run.status, errorMessage: run.errorMessage ?? null };
 }
 
+async function persistResolvedDeploymentRunStatus<T extends DeploymentRunWithCommand>(run: T) {
+  const resolved = resolveDeploymentRunStatus(run);
+  const shouldPersist =
+    run.commandRequest?.status &&
+    TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) &&
+    (run.status !== resolved.status || (resolved.errorMessage && run.errorMessage !== resolved.errorMessage) || !run.completedAt);
+
+  if (!shouldPersist) return { ...run, ...resolved };
+
+  const updated = await prisma.deploymentRun.update({
+    where: { id: run.id },
+    data: {
+      status: resolved.status,
+      errorMessage: resolved.errorMessage,
+      completedAt: run.completedAt ?? new Date(),
+    },
+    include: DEPLOYMENT_RUN_INCLUDE,
+  });
+  return { ...updated, ...resolveDeploymentRunStatus(updated) };
+}
+
 export async function listDeploymentRuns() {
   const runs = await prisma.deploymentRun.findMany({
     orderBy: { createdAt: "desc" },
-    include: {
-      template: true,
-      creator: { select: { username: true, displayName: true } },
-      commandRequest: { select: { status: true } },
-    },
+    include: DEPLOYMENT_RUN_INCLUDE,
   });
-  return runs.map((run) => ({ ...run, ...resolveDeploymentRunStatus(run) }));
+  return Promise.all(runs.map((run) => persistResolvedDeploymentRunStatus(run)));
 }
