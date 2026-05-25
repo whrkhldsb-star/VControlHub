@@ -45,6 +45,36 @@ export async function createDeploymentRunFromTemplate(input: { templateId: strin
   return prisma.deploymentRun.update({ where: { id: run.id }, data: { commandRequestId: command.id, status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING" } });
 }
 
+type DeploymentRunWithCommand = {
+  status: string;
+  errorMessage?: string | null;
+  commandRequest?: { status: string } | null;
+};
+
+function resolveDeploymentRunStatus(run: DeploymentRunWithCommand) {
+  const commandStatus = run.commandRequest?.status;
+  if (!commandStatus) return { status: run.status, errorMessage: run.errorMessage ?? null };
+
+  if (commandStatus === "REJECTED") {
+    return { status: "REJECTED", errorMessage: run.errorMessage ?? "关联命令请求已被拒绝，部署不会执行。" };
+  }
+  if (commandStatus === "FAILED" || commandStatus === "CANCELLED") {
+    return { status: commandStatus, errorMessage: run.errorMessage ?? `关联命令请求已${commandStatus === "FAILED" ? "失败" : "取消"}。` };
+  }
+  if (["RUNNING", "COMPLETED", "APPROVED"].includes(commandStatus)) {
+    return { status: commandStatus === "APPROVED" ? "RUNNING" : commandStatus, errorMessage: run.errorMessage ?? null };
+  }
+  return { status: run.status, errorMessage: run.errorMessage ?? null };
+}
+
 export async function listDeploymentRuns() {
-  return prisma.deploymentRun.findMany({ orderBy: { createdAt: "desc" }, include: { template: true, creator: { select: { username: true, displayName: true } } } });
+  const runs = await prisma.deploymentRun.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      template: true,
+      creator: { select: { username: true, displayName: true } },
+      commandRequest: { select: { status: true } },
+    },
+  });
+  return runs.map((run) => ({ ...run, ...resolveDeploymentRunStatus(run) }));
 }

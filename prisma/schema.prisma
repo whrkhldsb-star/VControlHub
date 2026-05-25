@@ -203,7 +203,8 @@ model CommandRequest {
  requester User @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
  approvals CommandApproval[]
  targets CommandTarget[]
- executionLogs ExecutionLog[]
+  executionLogs ExecutionLog[]
+  deploymentRuns DeploymentRun[]
 
  @@index([status, createdAt])
  @@index([requesterId, createdAt])
@@ -588,6 +589,7 @@ model DeploymentRun {
   errorMessage     String?
 
   template CommandTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  commandRequest CommandRequest? @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
   creator  User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])

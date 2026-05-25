@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/command/service", () => ({ createCommandRequest: vi.fn(async () => ({ id: "cmd1", status: "PENDING_APPROVAL" })) }));
 const commandService = await import("@/lib/command/service");
 
-const { createDeploymentRunFromTemplate, listDeploymentTemplates } = await import("../service");
+const { createDeploymentRunFromTemplate, listDeploymentRuns, listDeploymentTemplates } = await import("../service");
 
 describe("deployment service", () => {
   beforeEach(() => {
@@ -44,5 +44,35 @@ describe("deployment service", () => {
     const templates = await listDeploymentTemplates();
     expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: { createdAt: "desc" } });
+  });
+
+  it("marks deployment run as rejected when its approval request is rejected", async () => {
+    mockPrisma.deploymentRun.findMany.mockResolvedValue([
+      {
+        id: "dep_rejected",
+        templateId: "tmpl1",
+        commandRequestId: "cmd_rejected",
+        status: "PENDING",
+        variables: {},
+        renderedCommand: "systemctl restart nginx",
+        serverIds: ["srv1"],
+        createdBy: "u1",
+        createdAt: new Date("2026-05-25T00:00:00Z"),
+        updatedAt: new Date("2026-05-25T00:01:00Z"),
+        completedAt: null,
+        errorMessage: null,
+        template: { id: "tmpl1", name: "Nginx" },
+        creator: { username: "admin", displayName: "Admin" },
+        commandRequest: { status: "REJECTED" },
+      },
+    ]);
+
+    const runs = await listDeploymentRuns();
+
+    expect(runs[0]).toMatchObject({
+      id: "dep_rejected",
+      status: "REJECTED",
+      errorMessage: "关联命令请求已被拒绝，部署不会执行。",
+    });
   });
 });
