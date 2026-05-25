@@ -33,17 +33,27 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 		: templates;
 
 	const refresh = useCallback(async () => {
-			const data = await csrfFetch("/api/command-templates");
-			setTemplates(data.templates ?? []);
+		const data = await csrfFetch("/api/command-templates");
+		setTemplates(data.templates ?? []);
 	}, []);
 
 	const handleDelete = useCallback(async (id: string) => {
 		if (!confirm("确认删除该模板？")) return;
-		await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
-		refresh();
-	}, [refresh]);
+		try {
+			await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
+			await refresh();
+			addToast("success", "模板已删除");
+		} catch (err) {
+			addToast("error", err instanceof Error ? err.message : "删除失败");
+		}
+	}, [addToast, refresh]);
 
 	const handleDeploy = useCallback(async (template: Template, serverIds: string[], vars: Record<string, string>) => {
+		const missingVariable = template.variables.find((name) => !vars[name]?.trim());
+		if (missingVariable) {
+			addToast("error", `请填写变量 ${missingVariable} 后再提交审批`);
+			return;
+		}
 		setDeploying(template.id);
 		try {
 			let command = template.command;
