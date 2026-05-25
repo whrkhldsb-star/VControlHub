@@ -7,6 +7,7 @@ const logger = createLogger("api:command-templates");
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/lib/command-template/service";
+import { auditUserAction } from "@/lib/audit/service";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,16 @@ const patchSchema = z.object({
 	variables: z.array(z.string()).optional(),
 	tags: z.array(z.string()).optional(),
 });
+
+function auditTemplateDetail(template: { id: string; name?: string | null; isBuiltin?: boolean | null; tags?: string[] | null; variables?: string[] | null }) {
+	return {
+		templateId: template.id,
+		name: template.name ?? null,
+		isBuiltin: Boolean(template.isBuiltin),
+		tagCount: template.tags?.length ?? 0,
+		variableCount: template.variables?.length ?? 0,
+	};
+}
 
 export async function GET() {
 	try {
@@ -67,6 +78,7 @@ export async function POST(request: Request) {
 			name: body.name, description: body.description, command: body.command,
 			tags: body.tags, createdById: session.userId,
 		});
+		auditUserAction(session.userId, "command_template.create", auditTemplateDetail(template));
 		return NextResponse.json({ template });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "创建失败";
@@ -89,6 +101,7 @@ export async function PATCH(request: Request) {
 		}
 		const { id, ...updates } = parsed.data;
 		const result = await updateTemplate(id, updates);
+		auditUserAction(session.userId, "command_template.update", auditTemplateDetail(result));
 		return NextResponse.json({ template: result });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "更新失败";
@@ -107,7 +120,8 @@ export async function DELETE(request: Request) {
 		const { searchParams } = new URL(request.url);
 		const id = searchParams.get("id");
 		if (!id) return NextResponse.json({ error: "缺少模板 ID" }, { status: 400 });
-		await deleteTemplate(id);
+		const deleted = await deleteTemplate(id);
+		auditUserAction(session.userId, "command_template.delete", auditTemplateDetail(deleted));
 		return NextResponse.json({ success: true });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "删除失败";
