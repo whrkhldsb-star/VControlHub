@@ -13,10 +13,12 @@ function deploymentStatusTone(status: string) {
 	return "border-amber-400/30 bg-amber-400/10 text-amber-100";
 }
 
-export default async function DeploymentsPage() {
+export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
 	const session = await requireSession("/deployments");
 	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text="你没有应用部署查看权限。" /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
+	const params = await searchParams;
+	const formError = params?.error;
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(),
 		listDeploymentTemplates(),
@@ -31,6 +33,11 @@ export default async function DeploymentsPage() {
 				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">应用部署模板</h1>
 				<p className="mt-1.5 text-sm text-slate-500">复用命令模板变量渲染和审批链路，形成可审计的应用/服务部署运行记录。</p>
 			</header>
+			{formError && (
+				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200">
+					部署提交失败：{formError}
+				</div>
+			)}
 			{canRun && (
 				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 					<h2 className="text-sm font-semibold text-white">发起模板部署</h2>

@@ -66,4 +66,23 @@ describe("/api/deployments", () => {
     expect(mocks.createDeploymentRunFromTemplate).toHaveBeenCalledWith({ templateId: "tmpl1", serverIds: ["srv1", "srv2"], variables: {}, requesterId: "u1", reason: "deploy" });
   });
 
+  it("returns a deployment error page for browser form failures instead of raw JSON", async () => {
+    mocks.createDeploymentRunFromTemplate.mockRejectedValueOnce(new Error("模板变量 version 缺失"));
+    const req = new Request("http://local/api/deployments", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", accept: "text/html" },
+      body: new URLSearchParams([
+        ["templateId", "tmpl1"],
+        ["serverIds", "srv1"],
+        ["reason", "deploy"],
+      ]),
+    });
+
+    const res = await route.POST(req);
+
+    const location = res.headers.get("location");
+    expect(location).toContain("http://local/deployments?error=");
+    expect(new URL(location ?? "").searchParams.get("error")).toBe("模板变量 version 缺失");
+  });
+
 });

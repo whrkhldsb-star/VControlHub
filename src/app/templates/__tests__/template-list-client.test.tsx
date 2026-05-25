@@ -65,4 +65,21 @@ describe("TemplateListClient", () => {
 		expect(await screen.findByText("请填写变量 project_dir 后再提交审批")).toBeInTheDocument();
 		expect(csrfFetch).not.toHaveBeenCalled();
 	});
+
+	it("keeps the deploy panel open and re-enables submit when command submission fails", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("审批服务不可用"));
+
+		renderClient();
+
+		await user.click(screen.getByRole("button", { name: "一键下发" }));
+		await user.type(screen.getByPlaceholderText("project_dir"), "/srv/app");
+		await user.click(screen.getByLabelText("生产 VPS"));
+		await user.click(screen.getByRole("button", { name: "提交审批" }));
+
+		expect(await screen.findByText("审批服务不可用")).toBeInTheDocument();
+		expect(screen.getByPlaceholderText("project_dir")).toHaveValue("/srv/app");
+		expect(screen.getByLabelText("生产 VPS")).toBeChecked();
+		await waitFor(() => expect(screen.getByRole("button", { name: "提交审批" })).toBeEnabled());
+	});
 });

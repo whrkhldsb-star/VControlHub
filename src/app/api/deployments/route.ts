@@ -21,6 +21,16 @@ export async function GET() {
 	return NextResponse.json({ deployments, templates });
 }
 
+function wantsHtmlResponse(request: Request) {
+	return (request.headers.get("accept") || "").includes("text/html");
+}
+
+function redirectToDeploymentsWithError(request: Request, message?: string) {
+	const url = new URL("/deployments", request.url);
+	if (message) url.searchParams.set("error", message);
+	return NextResponse.redirect(url, { status: 303 });
+}
+
 async function readRequestBody(request: Request) {
 	const contentType = request.headers.get("content-type") || "";
 	if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
@@ -51,14 +61,19 @@ export async function POST(request: Request) {
 	try {
 		const body = await readRequestBody(request);
 		const parsed = createDeploymentSchema.safeParse(body);
-		if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "部署参数无效" }, { status: 400 });
+		if (!parsed.success) {
+			const message = parsed.error.issues[0]?.message ?? "部署参数无效";
+			if (wantsHtmlResponse(request)) return redirectToDeploymentsWithError(request, message);
+			return NextResponse.json({ error: message }, { status: 400 });
+		}
 		const deployment = await createDeploymentRunFromTemplate({ ...parsed.data, requesterId: guard.userId });
-		if ((request.headers.get("accept") || "").includes("text/html")) {
-			return NextResponse.redirect(new URL("/deployments", request.url), { status: 303 });
+		if (wantsHtmlResponse(request)) {
+			return redirectToDeploymentsWithError(request);
 		}
 		return NextResponse.json({ deployment }, { status: 201 });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "操作失败";
+		if (wantsHtmlResponse(request)) return redirectToDeploymentsWithError(request, message);
 		return NextResponse.json({ error: message }, { status: 500 });
 	}
 }
