@@ -15,6 +15,8 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	const [error, setError] = useState("");
 	// QR code rendered via Google Charts API (replaces canvas placeholder)
 
+	const messageFromError = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback;
+
 	const handleSetup = async () => {
 		setLoading(true);
 		setError("");
@@ -24,7 +26,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			setSecret(data.secret);
 			setOtpauthUrl(data.otpauthUrl);
 			setStep("setup");
-		} catch { setError("请求失败"); }
+		} catch (err) { setError(messageFromError(err, "请求失败")); }
 		finally { setLoading(false); }
 	};
 
@@ -50,7 +52,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			if (enableData.error) { setError(enableData.error); return; }
 			setStep("idle");
 			window.location.reload();
-		} catch { setError("请求失败"); }
+		} catch (err) { setError(messageFromError(err, "请求失败")); }
 		finally { setLoading(false); }
 	};
 
@@ -67,7 +69,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			if (data.error) { setError(data.error); return; }
 			setStep("idle");
 			window.location.reload();
-		} catch { setError("请求失败"); }
+		} catch (err) { setError(messageFromError(err, "请求失败")); }
 		finally { setLoading(false); }
 	};
 
@@ -81,7 +83,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			</div>
 
 			{error && (
-				<div className="mb-3 text-xs text-rose-400 bg-rose-500/10 rounded-lg px-3 py-2">{error}</div>
+				<div role="alert" className="mb-3 text-xs text-rose-400 bg-rose-500/10 rounded-lg px-3 py-2">{error}</div>
 			)}
 
 			{step === "idle" && !enabled && (
