@@ -46,26 +46,44 @@ function timeAgo(dateStr: string): string {
 export function NotificationListClient({ initialNotifications, initialUnreadCount }: Props) {
 	const [notifications, setNotifications] = useState(initialNotifications);
 	const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+	const [error, setError] = useState<string | null>(null);
+
+	const messageFromError = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
 	const markAllRead = useCallback(async () => {
-		await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
-		setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-		setUnreadCount(0);
+		setError(null);
+		try {
+			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
+			setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+			setUnreadCount(0);
+		} catch (err) {
+			setError(messageFromError(err, "全部标记已读失败"));
+		}
 	}, []);
 
 	const markOneRead = useCallback(async (id: string) => {
-		await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
-		setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-		setUnreadCount((c) => Math.max(0, c - 1));
+		setError(null);
+		try {
+			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
+			setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+			setUnreadCount((c) => Math.max(0, c - 1));
+		} catch (err) {
+			setError(messageFromError(err, "标记通知已读失败"));
+		}
 	}, []);
 
 	const deleteOne = useCallback(async (id: string) => {
-		await csrfFetch(`/api/notifications?id=${id}`, { method: "DELETE" });
-		setNotifications((prev) => {
-			const deleted = prev.find((n) => n.id === id);
-			if (deleted && !deleted.isRead) setUnreadCount((c) => Math.max(0, c - 1));
-			return prev.filter((n) => n.id !== id);
-		});
+		setError(null);
+		try {
+			await csrfFetch(`/api/notifications?id=${id}`, { method: "DELETE" });
+			setNotifications((prev) => {
+				const deleted = prev.find((n) => n.id === id);
+				if (deleted && !deleted.isRead) setUnreadCount((c) => Math.max(0, c - 1));
+				return prev.filter((n) => n.id !== id);
+			});
+		} catch (err) {
+			setError(messageFromError(err, "删除通知失败"));
+		}
 	}, []);
 
 	if (notifications.length === 0) {
@@ -79,6 +97,11 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 
 	return (
 		<div className="space-y-3">
+			{error && (
+				<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+					{error}
+				</div>
+			)}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
 					<button onClick={markAllRead} className="text-xs text-cyan-400/80 hover:text-cyan-300 transition">
