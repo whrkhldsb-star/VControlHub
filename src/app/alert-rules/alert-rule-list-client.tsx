@@ -35,6 +35,10 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const { addToast } = useToast();
 	const [rules, setRules] = useState(initialRules);
 	const [showCreate, setShowCreate] = useState(false);
+	const [actionError, setActionError] = useState<string | null>(null);
+	const [busyAction, setBusyAction] = useState<string | null>(null);
+
+	const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 
 	const refresh = useCallback(async () => {
 		const data = await csrfFetch("/api/alert-rules");
@@ -42,23 +46,47 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	}, []);
 
 	const toggleRule = useCallback(async (id: string) => {
-		await csrfFetch("/api/alert-rules", {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ toggleId: id }),
-		});
-		refresh();
+		setActionError(null);
+		setBusyAction(`toggle:${id}`);
+		try {
+			await csrfFetch("/api/alert-rules", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ toggleId: id }),
+			});
+			await refresh();
+		} catch (error) {
+			setActionError(getErrorMessage(error, "更新告警规则失败"));
+		} finally {
+			setBusyAction(null);
+		}
 	}, [refresh]);
 
 	const deleteRule = useCallback(async (id: string) => {
 		if (!confirm("确认删除该告警规则？")) return;
-		await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
-		refresh();
+		setActionError(null);
+		setBusyAction(`delete:${id}`);
+		try {
+			await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
+			await refresh();
+		} catch (error) {
+			setActionError(getErrorMessage(error, "删除告警规则失败"));
+		} finally {
+			setBusyAction(null);
+		}
 	}, [refresh]);
 
 	const triggerNow = useCallback(async () => {
-		await csrfFetch("/api/alert-rules", { method: "PUT" });
-		addToast("error", "告警检测已触发");
+		setActionError(null);
+		setBusyAction("trigger");
+		try {
+			await csrfFetch("/api/alert-rules", { method: "PUT" });
+			addToast("success", "告警检测已触发");
+		} catch (error) {
+			setActionError(getErrorMessage(error, "告警检测启动失败"));
+		} finally {
+			setBusyAction(null);
+		}
 	}, [addToast]);
 
 	return (
@@ -69,10 +97,21 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						+ 创建告警规则
 					</button>
 				)}
-				<button onClick={triggerNow} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] transition">
-					🔍 立即检测
+				<button
+					type="button"
+					onClick={triggerNow}
+					disabled={busyAction === "trigger"}
+					className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					{busyAction === "trigger" ? "正在检测…" : "🔍 立即检测"}
 				</button>
 			</div>
+
+			{actionError && (
+				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+					{actionError}
+				</div>
+			)}
 
 			{showCreate && (
 				<CreateRuleForm servers={servers} onClose={() => { setShowCreate(false); refresh(); }} />
@@ -120,22 +159,24 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 								</div>
 								{canManage && (
 									<div className="flex flex-col gap-2 shrink-0">
-										<button
-											onClick={() => toggleRule(rule.id)}
-											className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
-												rule.enabled
-													? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
-													: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
-											}`}
-										>
-											{rule.enabled ? "暂停" : "启用"}
-										</button>
-										<button
-											onClick={() => deleteRule(rule.id)}
-											className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition"
-										>
-											删除
-										</button>
+						<button
+							onClick={() => toggleRule(rule.id)}
+							disabled={busyAction === `toggle:${rule.id}`}
+							className={`rounded-2xl border px-4 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+								rule.enabled
+									? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
+									: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
+							}`}
+						>
+							{busyAction === `toggle:${rule.id}` ? "处理中…" : rule.enabled ? "暂停" : "启用"}
+						</button>
+						<button
+							onClick={() => deleteRule(rule.id)}
+							disabled={busyAction === `delete:${rule.id}`}
+							className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							{busyAction === `delete:${rule.id}` ? "删除中…" : "删除"}
+						</button>
 									</div>
 								)}
 							</div>

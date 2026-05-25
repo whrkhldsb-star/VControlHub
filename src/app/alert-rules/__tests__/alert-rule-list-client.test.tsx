@@ -105,4 +105,71 @@ describe("alert rules client", () => {
 		expect(screen.getByText("Webhook 已配置")).toBeInTheDocument();
 		expect(screen.queryByText(/secret-token/)).not.toBeInTheDocument();
 	});
+
+	it("surfaces alert rule toggle failures and keeps the rule unchanged", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("告警规则更新失败"));
+
+		render(wrap(<AlertRuleListClient rules={[{
+			id: "rule1",
+			name: "CPU overload",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["in_app"],
+			webhookConfigured: false,
+			cooldownMinutes: 10,
+			enabled: true,
+			lastTriggeredAt: null,
+			createdAt: "2026-01-01T00:00:00.000Z",
+		}]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "暂停" }));
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("告警规则更新失败");
+		expect(screen.getByText("CPU overload")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "暂停" })).toBeEnabled();
+	});
+
+	it("surfaces alert rule delete failures and keeps the rule visible", async () => {
+		const user = userEvent.setup();
+		vi.spyOn(window, "confirm").mockReturnValue(true);
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("告警规则删除失败"));
+
+		render(wrap(<AlertRuleListClient rules={[{
+			id: "rule1",
+			name: "Disk full",
+			metric: "disk_usage",
+			operator: "gte",
+			threshold: 95,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["in_app"],
+			webhookConfigured: false,
+			cooldownMinutes: 10,
+			enabled: true,
+			lastTriggeredAt: null,
+			createdAt: "2026-01-01T00:00:00.000Z",
+		}]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "删除" }));
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("告警规则删除失败");
+		expect(screen.getByText("Disk full")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "删除" })).toBeEnabled();
+	});
+
+	it("surfaces immediate alert check failures", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("检测任务启动失败"));
+
+		render(wrap(<AlertRuleListClient rules={[]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "🔍 立即检测" }));
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("检测任务启动失败");
+		expect(screen.getByRole("button", { name: "🔍 立即检测" })).toBeEnabled();
+	});
 });
