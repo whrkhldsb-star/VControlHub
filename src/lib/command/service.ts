@@ -290,7 +290,7 @@ async function runApprovedCommand(commandRequestId: string) {
 
   await markTargetsRunning(commandRequestId);
   const { totalCount, completedCount } = await executeTargets(commandRequestId);
-  const nextStatus = totalCount > 0 && completedCount === totalCount ? "COMPLETED" : completedCount > 0 ? "COMPLETED" : "FAILED";
+  const nextStatus = totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
 
   return prisma.commandRequest.update({ where: { id: commandRequestId }, data: { status: nextStatus } });
 }
@@ -381,7 +381,7 @@ export async function createCommandRequest(input: CreateCommandInput) {
  await markTargetsRunning(commandRequest.id);
  const { totalCount, completedCount } = await executeTargets(commandRequest.id);
 
- const finalStatus = totalCount > 0 && completedCount > 0 ? "COMPLETED" : "FAILED";
+  const finalStatus = totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
  await prisma.commandRequest.update({ where: { id: commandRequest.id }, data: { status: finalStatus } });
 
  await prisma.executionLog.create({
@@ -389,8 +389,10 @@ export async function createCommandRequest(input: CreateCommandInput) {
  commandRequestId: commandRequest.id,
  serverId: null,
  summary:
- completedCount > 0
+ completedCount === totalCount && totalCount > 0
  ? `站内用户操作已直接进入真实 SSH 执行流程，成功完成 ${completedCount}/${totalCount} 个目标。`
+ : completedCount > 0
+ ? `站内用户操作已进入真实 SSH 执行流程，但仅完成 ${completedCount}/${totalCount} 个目标，请查看失败节点日志。`
  : totalCount > 0
  ? `站内用户操作已进入真实 SSH 执行流程，但 ${totalCount} 个目标均执行失败。`
  : "站内用户操作已进入执行流程，但未找到可执行目标。",

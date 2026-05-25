@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     createDeploymentRunFromTemplate: vi.fn(),
     listDeploymentRuns: vi.fn(),
     listDeploymentTemplates: vi.fn(),
+    auditUserAction: vi.fn(),
   },
 }));
 
@@ -17,6 +18,7 @@ vi.mock("@/lib/deployment/service", () => ({
   listDeploymentRuns: mocks.listDeploymentRuns,
   listDeploymentTemplates: mocks.listDeploymentTemplates,
 }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 
 const route = await import("../route");
 
@@ -83,6 +85,23 @@ describe("/api/deployments", () => {
     const location = res.headers.get("location");
     expect(location).toContain("http://local/deployments?error=");
     expect(new URL(location ?? "").searchParams.get("error")).toBe("模板变量 version 缺失");
+  });
+
+  it("audits successful deployment creation", async () => {
+    const req = new Request("http://local/api/deployments", {
+      method: "POST",
+      body: JSON.stringify({ templateId: "tmpl1", serverIds: ["srv1"], variables: { version: "v1" }, reason: "upgrade" }),
+    });
+
+    const res = await route.POST(req);
+
+    expect(res.status).toBe(201);
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "deployment.create", {
+      deploymentId: "dep1",
+      templateId: "tmpl1",
+      serverIds: ["srv1"],
+      reason: "upgrade",
+    });
   });
 
 });

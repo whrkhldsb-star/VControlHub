@@ -158,6 +158,88 @@ describe("command service execution flow", () => {
     );
   });
 
+  it("marks command request as failed when only some targets complete", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_partial_1",
+      status: "APPROVED",
+      targets: [{ id: "target_ok" }, { id: "target_fail" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_ok",
+        server: {
+          id: "srv_ok",
+          name: "ok-node",
+          host: "203.0.113.11",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "deploy" },
+      },
+      {
+        id: "target_fail",
+        server: {
+          id: "srv_fail",
+          name: "bad-node",
+          host: "203.0.113.12",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "deploy" },
+      },
+    ]);
+    spawnMock
+      .mockImplementationOnce(() => {
+        const child = new EventEmitter() as MockChildProcess;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        queueMicrotask(() => {
+          child.stdout.emit("data", Buffer.from("ok\n"));
+          child.emit("close", 0);
+        });
+        return child;
+      })
+      .mockImplementationOnce(() => {
+        const child = new EventEmitter() as MockChildProcess;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        queueMicrotask(() => {
+          child.stderr.emit("data", Buffer.from("failed\n"));
+          child.emit("close", 1);
+        });
+        return child;
+      });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_partial_1", status: "FAILED" });
+
+    await createCommandRequest({
+      title: "Deploy",
+      command: "deploy",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_ok", "srv_fail"],
+    });
+
+    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_partial_1" },
+      data: { status: "FAILED" },
+    });
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_partial_1",
+          serverId: null,
+          summary: expect.stringContaining("仅完成 1/2 个目标"),
+        }),
+      }),
+    );
+  });
+
   it("approves assistant request and advances execution flow", async () => {
     mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_assistant_1", status: "PENDING_APPROVAL" });
     mockPrisma.commandRequest.update

@@ -40,6 +40,22 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
+  it("preserves deployment run failure when command request creation fails", async () => {
+    vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("审批链路不可用"));
+
+    await expect(
+      createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }),
+    ).rejects.toThrow("审批链路不可用");
+
+    expect(mockPrisma.deploymentRun.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "PENDING" }),
+    }));
+    expect(mockPrisma.deploymentRun.update).toHaveBeenCalledWith({
+      where: { id: "dep1" },
+      data: { status: "FAILED", errorMessage: "审批链路不可用" },
+    });
+  });
+
   it("lists templates for the deployment page without rendering secrets", async () => {
     const templates = await listDeploymentTemplates();
     expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);

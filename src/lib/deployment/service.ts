@@ -34,15 +34,22 @@ export async function createDeploymentRunFromTemplate(input: { templateId: strin
   const run = await prisma.deploymentRun.create({
     data: { templateId: template.id, variables: normalized.variables, renderedCommand, serverIds: normalized.serverIds, createdBy: normalized.requesterId, status: "PENDING" },
   });
-  const command = await createCommandRequest({
-    title: `部署：${template.name}`,
-    command: renderedCommand,
-    reason: normalized.reason || "应用部署模板触发",
-    submissionMode: "assistant",
-    requesterId: normalized.requesterId,
-    serverIds: normalized.serverIds,
-  });
-  return prisma.deploymentRun.update({ where: { id: run.id }, data: { commandRequestId: command.id, status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING" } });
+
+  try {
+    const command = await createCommandRequest({
+      title: `部署：${template.name}`,
+      command: renderedCommand,
+      reason: normalized.reason || "应用部署模板触发",
+      submissionMode: "assistant",
+      requesterId: normalized.requesterId,
+      serverIds: normalized.serverIds,
+    });
+    return prisma.deploymentRun.update({ where: { id: run.id }, data: { commandRequestId: command.id, status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING" } });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "命令审批链路创建失败";
+    await prisma.deploymentRun.update({ where: { id: run.id }, data: { status: "FAILED", errorMessage: message } });
+    throw error;
+  }
 }
 
 type DeploymentRunWithCommand = {

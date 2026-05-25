@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auditUserAction } from "@/lib/audit/service";
 import { createDeploymentRunFromTemplate, listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { enforceApiGuard } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -67,6 +68,12 @@ export async function POST(request: Request) {
 			return NextResponse.json({ error: message }, { status: 400 });
 		}
 		const deployment = await createDeploymentRunFromTemplate({ ...parsed.data, requesterId: guard.userId });
+		auditUserAction(guard.userId, "deployment.create", {
+			deploymentId: deployment.id,
+			templateId: parsed.data.templateId,
+			serverIds: parsed.data.serverIds,
+			reason: parsed.data.reason ?? null,
+		});
 		if (wantsHtmlResponse(request)) {
 			return redirectToDeploymentsWithError(request);
 		}
