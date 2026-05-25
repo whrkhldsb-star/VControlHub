@@ -3,11 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-interface SearchItem {
+export interface SearchItem {
 	label: string;
 	href: string;
 	icon: string;
 	category: string;
+	keywords?: string[];
 }
 
 const searchItems: SearchItem[] = [
@@ -21,13 +22,17 @@ const searchItems: SearchItem[] = [
 	{ label: "AI 助手", href: "/ai", icon: "🤖", category: "页面" },
 	{ label: "代码片段", href: "/snippets", icon: "💻", category: "页面" },
 	{ label: "图床", href: "/image-bed", icon: "🖼️", category: "页面" },
-	{ label: "快服务", href: "/quickservice", icon: "⚡", category: "页面" },
+	{ label: "快捷服务", href: "/quick-services", icon: "⚡", category: "页面", keywords: ["快服务", "quick service", "quick-services"] },
 	{ label: "监控状态", href: "/monitoring", icon: "📡", category: "页面" },
-	{ label: "备份恢复", href: "/backup", icon: "💾", category: "页面" },
-	{ label: "SSH 终端", href: "/ssh", icon: "🔑", category: "工具" },
+	{ label: "备份恢复", href: "/backups", icon: "💾", category: "页面", keywords: ["backup", "备份迁移"] },
+	{ label: "VPS 管理", href: "/servers", icon: "🔑", category: "工具", keywords: ["SSH 终端", "ssh", "服务器管理"] },
 	{ label: "修改密码", href: "#password", icon: "🔐", category: "操作" },
 	{ label: "两步验证", href: "#2fa", icon: "🛡️", category: "操作" },
 ];
+
+export function getSearchItems(): SearchItem[] {
+	return searchItems;
+}
 
 export function GlobalSearch() {
 	const [open, setOpen] = useState(false);
@@ -38,9 +43,14 @@ export function GlobalSearch() {
 
 	const filtered = query
 		? searchItems.filter(
-				(item) =>
-					item.label.toLowerCase().includes(query.toLowerCase()) ||
-					item.category.toLowerCase().includes(query.toLowerCase())
+				(item) => {
+					const normalizedQuery = query.toLowerCase();
+					return (
+						item.label.toLowerCase().includes(normalizedQuery) ||
+						item.category.toLowerCase().includes(normalizedQuery) ||
+						(item.keywords ?? []).some((keyword) => keyword.toLowerCase().includes(normalizedQuery))
+					);
+				}
 			)
 		: searchItems;
 
