@@ -40,12 +40,27 @@ function buildSearchHref(path: string, extra?: Record<string, string>) {
 	return qs ? `/files?${qs}` : "/files";
 }
 
-function buildDownloadHref(entry: StorageEntry) {
+function buildProxyDownloadHref(entry: StorageEntry) {
 	if (entry.storageNode.driver === "SFTP") {
 		const params = new URLSearchParams({ nodeId: entry.storageNode.id, path: entry.relativePath });
 		return `/api/storage/sftp-download?${params.toString()}`;
 	}
 	return `/api/storage/local?path=${encodeURIComponent(entry.relativePath)}`;
+}
+
+function buildDirectDownloadHref(entry: StorageEntry) {
+	if (entry.storageNode.driver === "SFTP" && entry.directAccess.mode === "direct-url" && entry.directAccess.href) {
+		return entry.directAccess.href;
+	}
+	return null;
+}
+
+function appendDownloadFlag(href: string) {
+	return `${href}${href.includes("?") ? "&" : "?"}download=1`;
+}
+
+function buildDownloadHref(entry: StorageEntry) {
+	return buildDirectDownloadHref(entry) ?? buildProxyDownloadHref(entry);
 }
 
 /* ── EXTENDED_PREVIEW_MIMES: superset for preview eligibility ── */
@@ -417,7 +432,52 @@ export function FileListClient({
 		: "当前目录暂无内容。";
 
 	/* helper to render file actions for any view */
-	function renderFileActions(entry: StorageEntry, downloadUrl: string, previewHref: string, _compact = false) {
+	function renderDownloadActions(entry: StorageEntry, proxyDownloadUrl: string, directDownloadUrl: string | null, compact = false) {
+		if (!directDownloadUrl || directDownloadUrl === proxyDownloadUrl) {
+			return (
+				<Link
+					href={proxyDownloadUrl}
+					title="经网站服务器下载"
+					aria-label={`经网站服务器下载 ${entry.name}`}
+					download
+					className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
+				>
+					<DownloadIcon />
+				</Link>
+			);
+		}
+
+		const buttonClass = compact
+			? "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[10px] transition"
+			: "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition";
+		return (
+			<div className="flex flex-wrap items-center gap-1" aria-label={`下载流量选择 ${entry.name}`}>
+				<span className="text-[10px] text-slate-500">下载流量</span>
+				<Link
+					href={proxyDownloadUrl}
+					title="经网站服务器下载"
+					aria-label={`经网站服务器下载 ${entry.name}`}
+					download
+					className={`${buttonClass} border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white`}
+				>
+					网站
+				</Link>
+				<Link
+					href={directDownloadUrl}
+					title="直连目标服务器下载"
+					aria-label={`直连目标服务器下载 ${entry.name}`}
+					target="_blank"
+					rel="noopener noreferrer"
+					className={`${buttonClass} border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20`}
+				>
+					直连
+				</Link>
+			</div>
+		);
+	}
+
+	/* helper to render file actions for any view */
+	function renderFileActions(entry: StorageEntry, proxyDownloadUrl: string, directDownloadUrl: string | null, previewHref: string, compact = false) {
 		return (
 			<div className="flex items-center gap-1 flex-wrap">
 				{entry.previewable ? (
@@ -429,15 +489,7 @@ export function FileListClient({
 						<PreviewIcon />
 					</Link>
 				) : null}
-				<Link
-					href={downloadUrl}
-					title="下载"
-					aria-label={`下载 ${entry.name}`}
-					download
-					className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-				>
-					<DownloadIcon />
-				</Link>
+				{renderDownloadActions(entry, proxyDownloadUrl, directDownloadUrl, compact)}
 				{canEditLocalFiles ? (
 					<RenameInlineForm
 						fileEntryId={entry.id}
@@ -507,8 +559,9 @@ export function FileListClient({
 				{sortedFiles.map((fileProp) => {
 					const entry = toStorageEntry(fileProp);
 					const thumbUrl = getThumbnailUrl(entry);
-					const downloadHref = buildDownloadHref(entry);
-					const downloadUrl = `${downloadHref}${downloadHref.includes("?") ? "&" : "?"}download=1`;
+					const proxyDownloadHref = buildProxyDownloadHref(entry);
+					const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
+					const directDownloadUrl = buildDirectDownloadHref(entry);
 					const previewHref = getPreviewHref(entry);
 					const isChecked = selectedIds.has(fileProp.id);
 
@@ -569,15 +622,7 @@ export function FileListClient({
 										<PreviewIcon />
 									</Link>
 								) : null}
-								<Link
-									href={downloadUrl}
-									title="下载"
-									aria-label={`下载 ${entry.name}`}
-									download
-									className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-								>
-									<DownloadIcon />
-								</Link>
+								{renderDownloadActions(entry, proxyDownloadUrl, directDownloadUrl, true)}
 								{canEditLocalFiles ? (
 									<RenameInlineForm
 										fileEntryId={entry.id}
@@ -682,8 +727,9 @@ export function FileListClient({
 				{/* Details file rows */}
 				{sortedFiles.map((fileProp) => {
 					const entry = toStorageEntry(fileProp);
-					const downloadHref = buildDownloadHref(entry);
-					const downloadUrl = `${downloadHref}${downloadHref.includes("?") ? "&" : "?"}download=1`;
+					const proxyDownloadHref = buildProxyDownloadHref(entry);
+					const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
+					const directDownloadUrl = buildDirectDownloadHref(entry);
 					const previewHref = getPreviewHref(entry);
 					const thumbUrl = getThumbnailUrl(entry);
 					const isChecked = selectedIds.has(fileProp.id);
@@ -732,7 +778,7 @@ export function FileListClient({
 
 							{/* Actions — prominent buttons */}
 							<div className="shrink-0">
-								{renderFileActions(entry, downloadUrl, previewHref)}
+								{renderFileActions(entry, proxyDownloadUrl, directDownloadUrl, previewHref)}
 							</div>
 						</div>
 					);
@@ -833,8 +879,9 @@ export function FileListClient({
 
 					{sortedFiles.map((fileProp) => {
 						const entry = toStorageEntry(fileProp);
-						const downloadHref = buildDownloadHref(entry);
-						const downloadUrl = `${downloadHref}${downloadHref.includes("?") ? "&" : "?"}download=1`;
+						const proxyDownloadHref = buildProxyDownloadHref(entry);
+						const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
+						const directDownloadUrl = buildDirectDownloadHref(entry);
 						const previewHref = getPreviewHref(entry);
 						const isChecked = selectedIds.has(fileProp.id);
 
@@ -881,15 +928,7 @@ export function FileListClient({
 										<PreviewIcon />
 									</Link>
 								) : null}
-								<Link
-									href={downloadUrl}
-									title="下载"
-									aria-label={`下载 ${entry.name}`}
-									download
-									className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-								>
-									<DownloadIcon />
-								</Link>
+								{renderDownloadActions(entry, proxyDownloadUrl, directDownloadUrl, true)}
 									{canEditLocalFiles ? (
 										<RenameInlineForm
 											fileEntryId={entry.id}
@@ -980,8 +1019,9 @@ export function FileListClient({
 
 				{sortedFiles.map((fileProp) => {
 					const entry = toStorageEntry(fileProp);
-					const downloadHref = buildDownloadHref(entry);
-					const downloadUrl = `${downloadHref}${downloadHref.includes("?") ? "&" : "?"}download=1`;
+					const proxyDownloadHref = buildProxyDownloadHref(entry);
+					const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
+					const directDownloadUrl = buildDirectDownloadHref(entry);
 					const previewHref = getPreviewHref(entry);
 					const isChecked = selectedIds.has(fileProp.id);
 
@@ -1022,15 +1062,7 @@ export function FileListClient({
 										<PreviewIcon />
 									</Link>
 								) : null}
-								<Link
-									href={downloadUrl}
-									title="下载"
-									aria-label={`下载 ${entry.name}`}
-									download
-									className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-								>
-									<DownloadIcon />
-								</Link>
+								{renderDownloadActions(entry, proxyDownloadUrl, directDownloadUrl, true)}
 								{canEditLocalFiles ? (
 									<RenameInlineForm
 										fileEntryId={entry.id}

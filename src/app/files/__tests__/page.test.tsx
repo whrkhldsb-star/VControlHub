@@ -207,7 +207,7 @@ describe("FilesPage", () => {
  expect(screen.getByRole("heading", { name: "文件与存储管理" })).toBeInTheDocument();
  expect(screen.getAllByRole("button", { name: "全部文件" }).length).toBeGreaterThan(0);
  expect(screen.getByRole("button", { name: "docs" })).toBeInTheDocument();
- expect(screen.getAllByRole("link", { name: "下载 notes.txt" })[0]).toHaveAttribute(
+ expect(screen.getAllByRole("link", { name: "经网站服务器下载 notes.txt" })[0]).toHaveAttribute(
  "href",
  "/api/storage/local?path=docs%2Fnotes.txt&download=1",
  );
@@ -228,7 +228,7 @@ describe("FilesPage", () => {
  it("renders delete and rename buttons for files when user has permissions", async () => {
  render(await FilesPage({ searchParams: Promise.resolve({ path: "docs", nodeId: "node_1" }) }));
 
-	expect(screen.getAllByRole("link", { name: "下载 notes.txt" }).length).toBeGreaterThan(0);
+	expect(screen.getAllByRole("link", { name: "经网站服务器下载 notes.txt" }).length).toBeGreaterThan(0);
  const deleteButtons = screen.queryAllByTestId("delete-btn");
  const renameButtons = screen.queryAllByTestId("rename-btn");
 	if (deleteButtons.length === 0) {

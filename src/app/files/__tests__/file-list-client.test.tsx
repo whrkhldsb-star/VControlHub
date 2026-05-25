@@ -81,6 +81,20 @@ const archiveFile: FileProp = {
   updatedAt: "2026-05-05T00:00:00.000Z",
 };
 
+const sftpDirectFile: FileProp = {
+  ...imageFile,
+  id: "file_sftp_direct",
+  name: "movie.mp4",
+  mimeType: "video/mp4",
+  relativePath: "media/movie.mp4",
+  directAccessMode: "direct-url",
+  directAccessHref: "https://cdn.example.com/media/movie.mp4?signature=abc",
+  directAccessDescription: "目标服务器直连",
+  storageNodeId: "node_sftp",
+  storageNodeName: "远端媒体库",
+  storageNodeDriver: "SFTP",
+};
+
 const docFile: FileProp = {
   ...imageFile,
   id: "file_3",
@@ -139,6 +153,20 @@ describe("FileListClient", () => {
 
     renderFileList();
     expect(screen.getAllByRole("button", { name: "图标视图" })[1]).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("lets users choose website proxy or target-server direct traffic for downloads", () => {
+    renderFileList({ files: [sftpDirectFile] });
+
+    expect(screen.getAllByText(/下载流量/).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "经网站服务器下载 movie.mp4" })[0]).toHaveAttribute(
+      "href",
+      "/api/storage/sftp-download?nodeId=node_sftp&path=media%2Fmovie.mp4&download=1",
+    );
+    expect(screen.getAllByRole("link", { name: "直连目标服务器下载 movie.mp4" })[0]).toHaveAttribute(
+      "href",
+      "https://cdn.example.com/media/movie.mp4?signature=abc",
+    );
   });
 
   it("keeps batch delete selection open and reports per-file failures", async () => {

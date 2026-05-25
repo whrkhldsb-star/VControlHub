@@ -48,6 +48,52 @@ describe("FileUploadDropzone", () => {
     expect(screen.getByText(/上传完成：docs\/report\.txt/)).toBeInTheDocument();
   });
 
+  it("enables folder selection and preserves browser-provided relative paths", async () => {
+    const onUploadComplete = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const formData = init?.body as FormData;
+      const relativePath = String(formData.get("relativePath"));
+      const file = formData.get("file") as File;
+      return {
+        ok: true,
+        json: async () => ({ relativePath, size: file.size }),
+      } as Response;
+    });
+
+    render(
+      <FileUploadDropzone
+        nodes={[localNode]}
+        initialNodeId="node_local"
+        initialRelativeDir="uploads"
+        title="上传"
+        description="上传文件"
+        submitLabel="选择文件"
+        pathLabel="上传目录路径"
+        onUploadComplete={onUploadComplete}
+      />,
+    );
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const directoryInput = screen.getByLabelText("选择整个文件夹") as HTMLInputElement;
+    expect(directoryInput).toHaveAttribute("webkitdirectory");
+    expect(directoryInput).toHaveAttribute("directory");
+    expect(fileInput).not.toBe(directoryInput);
+
+    const readme = new File(["readme"], "README.md", { type: "text/markdown" });
+    Object.defineProperty(readme, "webkitRelativePath", { value: "project/README.md" });
+    const nested = new File(["nested"], "app.ts", { type: "text/typescript" });
+    Object.defineProperty(nested, "webkitRelativePath", { value: "project/src/app.ts" });
+
+    fireEvent.change(directoryInput, { target: { files: [readme, nested] } });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const uploadedPaths = fetchMock.mock.calls.map((call) => String((call[1]?.body as FormData).get("relativePath")));
+    expect(uploadedPaths).toEqual(["uploads/project/README.md", "uploads/project/src/app.ts"]);
+    expect(onUploadComplete).toHaveBeenNthCalledWith(1, { relativePath: "uploads/project/README.md", size: readme.size });
+    expect(onUploadComplete).toHaveBeenNthCalledWith(2, { relativePath: "uploads/project/src/app.ts", size: nested.size });
+    expect(screen.getByText("上传完成 2/2 个文件")).toBeInTheDocument();
+  });
+
   it("uploads multiple selected files and reports per-file queue status", async () => {
     const onUploadComplete = vi.fn();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {

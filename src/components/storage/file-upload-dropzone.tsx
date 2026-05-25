@@ -8,6 +8,7 @@ type StorageUploadNode = { id: string; name: string; driver: string };
 
 type UploadMessage = { type: "success" | "error"; text: string } | null;
 type UploadQueueItem = { name: string; status: "pending" | "uploading" | "success" | "error"; message: string };
+type BrowserFileWithRelativePath = File & { webkitRelativePath?: string };
 
 type PathResult = { ok: true; path: string } | { ok: false; reason: string };
 
@@ -52,6 +53,16 @@ function normalizeRelativePath(input: string): PathResult {
   return { ok: true, path };
 }
 
+
+function getBrowserRelativePath(file: File) {
+  const browserFile = file as BrowserFileWithRelativePath;
+  return browserFile.webkitRelativePath?.trim() || file.name;
+}
+
+function getUploadDisplayPath(file: File) {
+  return getBrowserRelativePath(file);
+}
+
 export function FileUploadDropzone({
   nodes,
   initialNodeId,
@@ -77,6 +88,7 @@ export function FileUploadDropzone({
 }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const directoryInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState(initialNodeId ?? nodes.find((node) => node.driver === "LOCAL")?.id ?? DEFAULT_NODE);
   const [relativeDir, setRelativeDir] = useState(initialRelativeDir);
   const effectiveRelativeDir = uploadDir ?? relativeDir;
@@ -107,14 +119,20 @@ export function FileUploadDropzone({
 	const baseDir = baseDirResult.path;
     setSubmitting(true);
     setMessage(null);
-    setQueue(uploadItems.map((file) => ({ name: file.name, status: "pending", message: "等待上传" })));
+    setQueue(uploadItems.map((file) => ({ name: getUploadDisplayPath(file), status: "pending", message: "等待上传" })));
 
     let successCount = 0;
     let failureCount = 0;
 
     for (let index = 0; index < uploadItems.length; index++) {
       const file = uploadItems[index];
-      const relativePath = [baseDir, file.name].filter(Boolean).join("/");
+      const itemPathResult = normalizeRelativePath(getBrowserRelativePath(file));
+      if (!itemPathResult.ok) {
+        failureCount++;
+        setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "error", message: `失败：${itemPathResult.reason}` } : item)));
+        continue;
+      }
+      const relativePath = [baseDir, itemPathResult.path].filter(Boolean).join("/");
       const formData = new FormData();
       formData.set("storageNodeId", selectedNodeId);
       formData.set("relativePath", relativePath);
@@ -153,6 +171,9 @@ export function FileUploadDropzone({
     setSubmitting(false);
     if (inputRef.current) {
       inputRef.current.value = "";
+    }
+    if (directoryInputRef.current) {
+      directoryInputRef.current.value = "";
     }
   }
 
@@ -211,6 +232,15 @@ export function FileUploadDropzone({
       </div>
 
       <input ref={inputRef} type="file" multiple className="hidden" onChange={handleInputChange} />
+      <input
+        ref={directoryInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        aria-label="选择整个文件夹"
+        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+        onChange={handleInputChange}
+      />
 
       <button
         type="button"
@@ -241,6 +271,18 @@ export function FileUploadDropzone({
           {localEnabled ? (submitting ? "上传中，请稍候…" : "上传后会自动生成/更新文件条目。") : "请选择 LOCAL 节点后再上传。"}
         </span>
       </button>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+        <button
+          type="button"
+          onClick={() => directoryInputRef.current?.click()}
+          disabled={!localEnabled || submitting}
+          className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          选择整个文件夹
+        </button>
+        <span>支持保留浏览器提供的子目录结构上传。</span>
+      </div>
 
       {message ? (
         <div
