@@ -18,15 +18,20 @@ const statusClass: Record<string, string> = {
 export function OperationTaskListClient({ initialTasks }: { initialTasks: OperationTask[] }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const refresh = async () => {
     setRefreshing(true);
+    setError(null);
     try {
       const data = await csrfFetch("/api/operation-tasks");
       setTasks(data.tasks ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "刷新任务中心失败");
     } finally { setRefreshing(false); }
   };
   const counts = tasks.reduce<Record<string, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {});
   return <div className="space-y-5">
+    {error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-100">{error}</div>}
     <div className="grid gap-3 sm:grid-cols-4">
       {[["running","运行中"],["pending","待处理"],["failed","失败"],["completed","已完成"]].map(([key,label]) => <div key={key} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key] ?? 0}</div></div>)}
     </div>
