@@ -37,18 +37,19 @@ export function useLocale() {
 
 	useEffect(() => {
 		const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
-		if (saved === "zh" || saved === "en") {
-
-			setLocaleState(saved);
-		} else if (navigator.language.startsWith("en")) {
-			setLocaleState("en");
-		}
+		const initialLocale = saved === "zh" || saved === "en"
+			? saved
+			: navigator.language.startsWith("en")
+				? "en"
+				: "zh";
+		setLocaleState(initialLocale);
+		document.documentElement.lang = initialLocale === "zh" ? "zh-CN" : "en";
 	}, []);
 
 	const setLocale = useCallback((l: Locale) => {
 		setLocaleState(l);
 		localStorage.setItem(STORAGE_KEY, l);
-		document.documentElement.lang = l;
+		document.documentElement.lang = l === "zh" ? "zh-CN" : "en";
 	}, []);
 
 	const translate = useCallback(

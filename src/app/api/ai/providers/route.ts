@@ -17,10 +17,13 @@ export const dynamic = "force-dynamic";
 
 const createProviderSchema = z.object({
   name: z.string().min(1),
+  type: z.string().optional(),
   apiKey: z.string().min(1),
   baseUrl: z.string().url(),
-  models: z.string(),
+  models: z.string().optional(),
+  availableModels: z.array(z.string()).optional(),
   defaultModel: z.string().optional(),
+  isDefault: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -48,7 +51,8 @@ export async function POST(request: Request) {
  if (!parsed.success) {
 	return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
  }
- const provider = await createProvider({ ...body, createdBy: session.userId });
+ const models = parsed.data.availableModels ?? parsed.data.models?.split(",").map((m) => m.trim()).filter(Boolean) ?? [];
+ const provider = await createProvider({ ...parsed.data, availableModels: models, createdBy: session.userId });
  return NextResponse.json({ provider: serializeProvider(provider) }, { status: 201 });
  } catch (e: unknown) {
  const msg = e instanceof Error ? e.message : "创建失败";

@@ -530,6 +530,7 @@ if (data.conversation) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...provForm,
+          models: models.join(","),
           availableModels: models,
         }),
       });

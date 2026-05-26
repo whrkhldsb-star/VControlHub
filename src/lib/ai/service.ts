@@ -277,6 +277,44 @@ interface ModelCapabilities {
   audio: boolean;
 }
 
+export async function fetchModelsFromCredentials(input: {
+  apiKey: string;
+  baseUrl?: string;
+  defaultModel?: string;
+}): Promise<AiModelInfo[]> {
+  if (!input.apiKey.trim()) throw new Error("API Key 不能为空");
+  const baseUrl = (input.baseUrl?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const fallbackModel = input.defaultModel?.trim() || "gpt-4o";
+
+  const response = await fetch(`${baseUrl}/models`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
+  });
+
+  if (!response.ok) throw new Error("模型清单获取失败，请检查 API Key 和 Base URL");
+
+  const data = await response.json();
+  const rawModels: Array<{ id: string; name?: string; owned_by?: string; context_length?: number }> = data.data || data.models || [];
+  const models = rawModels
+    .filter((m) => typeof m.id === "string" && m.id.trim())
+    .map((m) => {
+      const caps = detectModelCapabilities(m.id);
+      return {
+        id: m.id,
+        name: m.name || m.id,
+        owned_by: m.owned_by,
+        vision: caps.vision,
+        context_length: m.context_length,
+        capabilities: caps,
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  if (models.length > 0) return models;
+  const fallbackCaps = detectModelCapabilities(fallbackModel);
+  return [{ id: fallbackModel, name: fallbackModel, vision: fallbackCaps.vision, capabilities: fallbackCaps }];
+}
+
 export async function fetchModelsFromProvider(providerId: string, userId: string): Promise<AiModelInfo[]> {
   const provider = await prisma.aiProvider.findFirst({
     where: { id: providerId, createdBy: userId, enabled: true },

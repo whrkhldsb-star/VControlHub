@@ -16,7 +16,10 @@ const updateProviderSchema = z.object({
 	apiKey: z.string().min(1).optional(),
 	baseUrl: z.string().url().optional(),
 	models: z.string().optional(),
+	availableModels: z.array(z.string()).optional(),
 	defaultModel: z.string().optional(),
+	isDefault: z.boolean().optional(),
+	enabled: z.boolean().optional(),
 });
 
 export async function GET(
@@ -60,7 +63,15 @@ export async function PATCH(
 		if (!parsed.success) {
 			return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
 		}
-		const provider = await updateProvider(id, session.userId, body);
+		const updateBody = {
+			...parsed.data,
+			...(parsed.data.availableModels !== undefined
+				? { availableModels: parsed.data.availableModels }
+				: parsed.data.models !== undefined
+					? { availableModels: parsed.data.models.split(",").map((m) => m.trim()).filter(Boolean) }
+					: {}),
+		};
+		const provider = await updateProvider(id, session.userId, updateBody);
 		return NextResponse.json({
 			provider: {
 				...provider,

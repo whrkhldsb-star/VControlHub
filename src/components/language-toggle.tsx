@@ -4,11 +4,13 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 export function LanguageToggle() {
 	const { locale, setLocale } = useI18n();
+	const nextLocale = locale === "zh" ? "en" : "zh";
 
 	return (
 		<button
-			onClick={() => setLocale(locale === "zh" ? "en" : "zh")}
+			onClick={() => setLocale(nextLocale)}
 			className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition"
+			aria-label={locale === "zh" ? "切换到英文" : "Switch to Chinese"}
 			title={locale === "zh" ? "Switch to English" : "切换到中文"}
 		>
 			<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

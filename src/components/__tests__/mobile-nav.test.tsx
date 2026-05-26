@@ -21,4 +21,15 @@ describe("MobileNav", () => {
 		const settingsLink = screen.getByRole("link", { name: /设置/ });
 		expect(settingsLink).toHaveAttribute("href", "/settings");
 	});
+
+	it("keeps the mobile bar compact and safe-area aware on phones", () => {
+		render(<MobileNav />);
+
+		const nav = screen.getByRole("navigation", { name: "移动端底部导航" });
+		expect(nav).toHaveClass("md:hidden");
+		expect(nav).toHaveClass("overflow-x-auto");
+		expect(nav).toHaveClass("pb-[env(safe-area-inset-bottom)]");
+		expect(nav).toHaveClass("max-[360px]:px-1");
+		expect(screen.getAllByRole("link")).toHaveLength(5);
+	});
 });
