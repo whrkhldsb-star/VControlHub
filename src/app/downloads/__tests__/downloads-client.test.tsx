@@ -67,4 +67,21 @@ describe("DownloadsClient", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("取消下载失败");
     expect(screen.getByText("https://example.com/a.iso")).toBeInTheDocument();
   });
+
+  it("surfaces download create failures with backend details and keeps the form open", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ tasks: [], globalStat: null })
+      .mockRejectedValueOnce(new Error("目标路径不可写"));
+
+    render(<DownloadsClient servers={servers} canManage />);
+
+    await actor.click(await screen.findByRole("button", { name: "+ 新建下载" }));
+    await actor.type(screen.getByPlaceholderText("https://example.com/file.zip 或 magnet:?xt=urn:btih:..."), "https://example.com/a.iso");
+    await actor.click(screen.getByRole("button", { name: "开始下载" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");
+    expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
+  });
 });

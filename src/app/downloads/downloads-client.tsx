@@ -153,7 +153,7 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 			setMessage({ type: "success", text: isBatch ? `批量下载已创建 (${batchUrls?.length ?? 0} 个链接)` : "下载任务已创建" });
 			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
 			setShowForm(false); fetchTasks();
-		} catch { setMessage({ type: "error", text: "网络错误" }); }
+		} catch (error) { setMessage({ type: "error", text: getErrorMessage(error, "下载任务创建失败") }); }
 		finally { setSubmitting(false); }
 	};
 
