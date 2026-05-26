@@ -42,32 +42,36 @@ export default async function Home() {
 					<p className="mt-1.5 text-sm text-slate-500">当前用户：{session.username}</p>
 				</header>
 
-				{/* Stats Cards - 2-row grid */}
-				<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-					<StatCard label="VPS 节点" value={String(servers.length)} accent={false} />
-					<StatCard label="启用节点" value={String(servers.filter((s) => s.enabled).length)} accent={false} />
-					<StatCard label="存储节点" value={String(storage.stats.totalNodes)} accent={false} />
-					<StatCard label="文件条目" value={String(storage.stats.totalEntries)} accent={false} />
-					<StatCard label="待审批" value={String(pendingCount)} accent={pendingCount > 0} accentColor="amber" />
-					<StatCard
-						label="下载任务"
-						value={dlRunning > 0 ? `${dlRunning} 运行中` : String(dlRunning + dlCompleted + dlFailed)}
-						accent={dlRunning > 0}
-						accentColor="cyan"
-						detail={dlRunning > 0 ? `${dlRunning} 运行 / ${dlCompleted} 完成 / ${dlFailed} 失败` : undefined}
-					/>
-					<StatCard
-						label="未读通知"
-						value={String(unreadNotif)}
-						accent={unreadNotif > 0}
-						accentColor="amber"
-					/>
-					<StatCard
-						label="活跃定时任务"
-						value={String(activeScheduled)}
-						accent={activeScheduled > 0}
-						accentColor="cyan"
-					/>
+				{/* Stats Cards - grouped overview */}
+				<section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+						<h2 className="text-sm font-medium text-white/80">核心资源</h2>
+						<div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
+							<StatCard label="VPS 节点" value={String(servers.length)} accent={false} />
+							<StatCard label="启用节点" value={String(servers.filter((s) => s.enabled).length)} accent={false} />
+							<StatCard label="存储节点" value={String(storage.stats.totalNodes)} accent={false} />
+							<StatCard label="文件条目" value={String(storage.stats.totalEntries)} accent={false} />
+						</div>
+					</div>
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+						<h2 className="text-sm font-medium text-white/80">运维队列</h2>
+						<div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+							<StatCard label="待审批" value={String(pendingCount)} accent={pendingCount > 0} accentColor="amber" />
+							<StatCard
+								label="下载任务"
+								value={dlRunning > 0 ? `${dlRunning} 运行中` : String(dlRunning + dlCompleted + dlFailed)}
+								accent={dlRunning > 0}
+								accentColor="cyan"
+								detail={dlRunning > 0 ? `${dlRunning} 运行 / ${dlCompleted} 完成 / ${dlFailed} 失败` : undefined}
+							/>
+							<StatCard
+								label="通知/定时"
+								value={`${unreadNotif} 未读 / ${activeScheduled} 活跃`}
+								accent={unreadNotif > 0 || activeScheduled > 0}
+								accentColor={unreadNotif > 0 ? "amber" : "cyan"}
+							/>
+						</div>
+					</div>
 				</section>
 
 				{/* Quick Links */}

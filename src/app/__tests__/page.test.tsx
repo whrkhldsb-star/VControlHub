@@ -110,7 +110,10 @@ describe("Home", () => {
 
     expect(screen.getByText("仪表盘")).toBeInTheDocument();
     expect(screen.getByText("VPS 节点")).toBeInTheDocument();
-    expect(screen.getByText("存储节点")).toBeInTheDocument();
+    expect(screen.getByText("核心资源")).toBeInTheDocument();
+    expect(screen.getByText("运维队列")).toBeInTheDocument();
+    expect(screen.queryByText("未读通知")).not.toBeInTheDocument();
+    expect(screen.queryByText("活跃定时任务")).not.toBeInTheDocument();
     expect(screen.getByText("文件管理")).toBeInTheDocument();
     expect(screen.getByText("远程下载")).toBeInTheDocument();
     expect(screen.getByText("审批中心")).toBeInTheDocument();

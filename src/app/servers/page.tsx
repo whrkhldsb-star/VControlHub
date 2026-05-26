@@ -99,15 +99,18 @@ export default async function ServersPage() {
 										</div>
 									</div>
 
-									<div className="mt-4 grid gap-3 lg:grid-cols-2">
+									<div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
 										<div className="space-y-3">
 											<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-												<h3 className="text-sm font-medium text-white/80 mb-3">节点概览</h3>
+												<h3 className="text-sm font-medium text-white/80 mb-3">连接与状态</h3>
 												<div className="grid gap-2 text-sm">
 													<InfoRow label="连接方式" value={server.connectionTypeLabel} />
 													<InfoRow label="登录账号" value={server.username} />
 													<InfoRow label="地址" value={`${server.host}:${server.port}`} />
+													<InfoRow label="节点状态" value={server.statusLabel} />
+													<InfoRow label="SSH 密钥" value={server.sshKey ? server.sshKey.name : "未配置"} />
 												</div>
+												{server.sshKey && <p className="mt-2 truncate text-[11px] text-slate-600">指纹：{server.sshKey.fingerprint}</p>}
 												{(server.tags ?? []).length > 0 && (
 													<div className="mt-3 flex flex-wrap gap-1.5">
 														{(server.tags ?? []).map((tag: string) => (
@@ -139,24 +142,16 @@ export default async function ServersPage() {
 
 										<div className="space-y-3">
 											<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-												<h3 className="text-sm font-medium text-white/80 mb-3">节点操作</h3>
+												<h3 className="text-sm font-medium text-white/80 mb-3">操作与资源</h3>
 												<div className="space-y-2 text-sm">
 													<InfoRow label="关联存储" value={server.storageNode ? `${server.storageNode.name} · ${server.storageNode.basePath}` : "未绑定"} />
-									<InfoRow label="直连模式" value={server.directGateway?.statusLabel ?? "网站中转"} />
+													<InfoRow label="直连模式" value={server.directGateway?.statusLabel ?? "网站中转"} />
 													<InfoRow label="累计命令目标" value={String(server.targetCount)} />
+													<InfoRow label="连接摘要" value={server.connectionSummary} />
 													{(canManageServers || canUseSshTerminal) && <ServerCardActions serverId={server.id} serverName={server.name} host={server.host} port={server.port} enabled={server.enabled} sessionToken={sessionToken} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} directGateway={server.directGateway} />}
 												</div>
 											</section>
 
-											<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-												<h3 className="text-sm font-medium text-white/80 mb-3">关联资源</h3>
-												<div className="space-y-2 text-sm">
-													<InfoRow label="SSH 密钥" value={server.sshKey ? server.sshKey.name : "未配置"} />
-													{server.sshKey && <p className="text-[11px] text-slate-600 pl-[120px]">{server.sshKey.fingerprint}</p>}
-													<InfoRow label="节点状态" value={server.statusLabel} />
-													<InfoRow label="连接摘要" value={server.connectionSummary} />
-												</div>
-											</section>
 
 											{server.enabled && (
 												<ServerMonitorCard serverId={server.id} serverName={server.name} />

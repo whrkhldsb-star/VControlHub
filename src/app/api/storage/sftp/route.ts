@@ -107,7 +107,7 @@ const password = (connectionType === "PASSWORD" ? node.server?.password : undefi
     return NextResponse.json({
       nodeId: node.id,
       nodeName: node.name,
-      remotePath: normalizedRemotePath,
+      remotePath: remotePath.startsWith("/") ? remotePath : `/${remotePath}`,
       entries,
     });
   } catch (error) {

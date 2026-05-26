@@ -49,4 +49,15 @@ describe("NotificationListClient", () => {
     expect(screen.getByText("需要处理的通知")).toBeInTheDocument();
     expect(screen.queryByText("暂无通知")).not.toBeInTheDocument();
   });
+
+  it("falls back to the notification center for unsafe action URLs", () => {
+    render(
+      <NotificationListClient
+        initialNotifications={[{ ...unreadNotification, actionUrl: "javascript:alert(1)" }]}
+        initialUnreadCount={1}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "查看详情 →" })).toHaveAttribute("href", "/notifications");
+  });
 });

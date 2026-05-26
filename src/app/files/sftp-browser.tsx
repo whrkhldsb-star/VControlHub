@@ -12,6 +12,8 @@ type SftpNode = {
   id: string;
   name: string;
   driver: string;
+  serverId?: string | null;
+  serverName?: string | null;
 };
 
 type SftpListEntry = {
@@ -396,6 +398,8 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  const [proxyError, setProxyError] = useState<string | null>(null);
 
  const router = useRouter();
+ const selectedNode = sftpNodes.find((node) => node.id === selectedNodeId) ?? null;
+ const selectedServerId = selectedNode?.serverId ?? null;
 
  const fetchDirectory = useCallback(
  async (nodeId: string, path: string) => {
@@ -404,7 +408,7 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  setError(null);
  try {
   const params = new URLSearchParams({ nodeId, path });
- const data = await csrfFetch(`/api/files/sftp-list?${params.toString()}`) as SftpListResponse;
+ const data = await csrfFetch(`/api/storage/sftp?${params.toString()}`) as SftpListResponse;
  setEntries(data.entries);
  setNodeName(data.nodeName);
  setRemotePath(data.remotePath);
@@ -419,9 +423,9 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  );
 
  /* ── Direct connect proxy management ──────────────────────── */
- const checkProxyStatus = useCallback(async (nodeId: string) => {
+ const checkProxyStatus = useCallback(async (serverId: string) => {
  try {
- const data = await csrfFetch(`/api/servers/${nodeId}/file-proxy`) as { status: string; proxy?: { port: number; accessToken: string; publicUrl?: string } };
+ const data = await csrfFetch(`/api/servers/${serverId}/file-proxy`) as { status: string; proxy?: { port: number; accessToken: string; publicUrl?: string } };
  if (data.status === "running" && data.proxy) {
  setProxyInfo({ port: data.proxy.port, accessToken: data.proxy.accessToken, publicUrl: data.proxy.publicUrl || "" });
  } else {
@@ -432,33 +436,39 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  }
  }, []);
 
- const startProxy = useCallback(async (nodeId: string) => {
+ const startProxy = useCallback(async (serverId: string) => {
  setProxyLoading(true);
  setProxyError(null);
  try {
- const data = await csrfFetch(`/api/servers/${nodeId}/file-proxy`, {
+ const data = await csrfFetch(`/api/servers/${serverId}/file-proxy`, {
  method: "POST",
  headers: { "Content-Type": "application/json" },
  }) as { status: string; proxy?: { port: number; accessToken: string; publicUrl?: string }; error?: string };
  if (data.error) {
  setProxyError(data.error);
  setProxyInfo(null);
+ return false;
  } else if (data.proxy) {
  setProxyInfo({ port: data.proxy.port, accessToken: data.proxy.accessToken, publicUrl: data.proxy.publicUrl || "" });
  setProxyError(null);
+ return true;
  }
+ setProxyError("启动代理失败：服务未返回代理信息");
+ setProxyInfo(null);
+ return false;
  } catch (err) {
  setProxyError(err instanceof Error ? err.message : "启动代理失败");
  setProxyInfo(null);
+ return false;
  } finally {
  setProxyLoading(false);
  }
  }, []);
 
- const stopProxy = useCallback(async (nodeId: string) => {
+ const stopProxy = useCallback(async (serverId: string) => {
  setProxyLoading(true);
  try {
- await csrfFetch(`/api/servers/${nodeId}/file-proxy`, { method: "DELETE" });
+ await csrfFetch(`/api/servers/${serverId}/file-proxy`, { method: "DELETE" });
  setProxyInfo(null);
  } catch {
  // ignore
@@ -468,15 +478,18 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  }, []);
 
  const toggleDirectConnect = useCallback(async () => {
- if (!selectedNodeId) return;
+ if (!selectedServerId) {
+ setProxyError("该 SFTP 节点未绑定 VPS，无法启用目标直连；请先在存储节点中绑定服务器。");
+ return;
+ }
  if (directConnect) {
- await stopProxy(selectedNodeId);
+ await stopProxy(selectedServerId);
  setDirectConnect(false);
  } else {
- await startProxy(selectedNodeId);
- setDirectConnect(true);
+ const started = await startProxy(selectedServerId);
+ setDirectConnect(started);
  }
- }, [selectedNodeId, directConnect, startProxy, stopProxy]);
+ }, [selectedServerId, directConnect, startProxy, stopProxy]);
 
  /* eslint-disable react-hooks/set-state-in-effect */
  useEffect(() => {
@@ -497,7 +510,10 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  setProxyInfo(null);
  setProxyError(null);
  if (e.target.value) {
- checkProxyStatus(e.target.value);
+ const nextNode = sftpNodes.find((node) => node.id === e.target.value);
+ if (nextNode?.serverId) {
+ checkProxyStatus(nextNode.serverId);
+ }
  }
  };
 

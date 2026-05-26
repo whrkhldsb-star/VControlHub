@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 
 type NotificationItem = {
 	id: string;
@@ -129,7 +130,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 							<div className="mt-2 flex items-center gap-3 text-[11px]">
 								<span className="text-slate-600">{timeAgo(n.createdAt)}</span>
 								{n.actionUrl && (
-									<Link href={n.actionUrl} className="text-cyan-400/70 hover:text-cyan-300 transition">
+									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="text-cyan-400/70 hover:text-cyan-300 transition">
 										查看详情 →
 									</Link>
 								)}

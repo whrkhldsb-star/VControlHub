@@ -87,7 +87,10 @@ describe("ServersPage", () => {
 		// "待审批：" and count are in separate spans; check the parent div contains both
 		expect(screen.getByText("待审批：")).toBeInTheDocument();
 		expect(screen.getByText("1", { selector: "span" })).toBeInTheDocument();
-		expect(screen.getByText("prod-root-key")).toBeInTheDocument();
+		expect(screen.getByText("连接与状态")).toBeInTheDocument();
+		expect(screen.getByText("操作与资源")).toBeInTheDocument();
+		expect(screen.queryByText("节点操作")).not.toBeInTheDocument();
+		expect(screen.queryByText("关联资源")).not.toBeInTheDocument();
 		expect(screen.getByTestId("server-create-form")).toHaveTextContent("表单密钥数：1");
 	});
 

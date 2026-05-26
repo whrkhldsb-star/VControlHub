@@ -280,6 +280,9 @@ async function applyServerDirectGatewayState(input: { serverId: string; enabled:
    cleanupSkipped = true;
   }
  }
+ if (input.enabled && cleanupSkipped) {
+  return { enabled: false, publicBaseUrl: null, cleanupSkipped };
+ }
  await prisma.server.update({
   where: { id: input.serverId },
   data: input.enabled ? { fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT, publicUrl: publicBaseUrl } : { fileProxyPort: 0, publicUrl: null },
@@ -353,7 +356,7 @@ export async function createServerProfile(input: CreateServerInput) {
  }
 
  if (payload.enableDirectGateway && !isLocalHost) {
-  await applyServerDirectGatewayState({ serverId: server.id, enabled: true });
+  await applyServerDirectGatewayState({ serverId: server.id, enabled: true, bestEffort: true });
  }
 
  // Re-fetch to include the newly created storageNode relation

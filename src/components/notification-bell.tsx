@@ -3,21 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
-
-const NOTIFICATIONS_FALLBACK_PATH = "/notifications";
-
-function getSafeNotificationActionUrl(actionUrl: string | null | undefined) {
-	if (!actionUrl) return NOTIFICATIONS_FALLBACK_PATH;
-
-	const trimmed = actionUrl.trim();
-	if (!trimmed || !trimmed.startsWith("/") || trimmed.startsWith("//")) {
-		return NOTIFICATIONS_FALLBACK_PATH;
-	}
-
-	return trimmed;
-}
 
 export function NotificationBell() {
 	const [isOpen, setIsOpen] = useState(false);

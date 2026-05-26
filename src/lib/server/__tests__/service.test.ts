@@ -406,6 +406,31 @@ describe("server service", () => {
  expect(prisma.server.delete).toHaveBeenCalledWith({ where: { id: "srv_1" } });
  });
 
+ it("does not mark direct gateway enabled when best-effort install fails", async () => {
+ execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+ vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" } as any);
+ vi.mocked(prisma.server.create).mockResolvedValueOnce({
+ id: "srv_direct_fail", name: "direct-fail", host: "203.0.113.10", port: 22, username: "root", description: null, tags: [], enabled: true,
+ connectionType: "SSH_KEY", sshKeyId: "key_1", password: null, publicUrl: null, fileProxyPort: 0,
+ sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" }, storageNode: null, commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
+ } as any);
+ vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce(null);
+ vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(0);
+ vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({ id: "sn_direct_fail", name: "direct-fail 存储", driver: "SFTP", basePath: "/root", isDefault: true, serverId: "srv_direct_fail" } as any);
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv_direct_fail", host: "203.0.113.10", port: 22, username: "root", password: null, connectionType: "SSH_KEY", sshKeyId: "key_1", fileProxyPort: 0, publicUrl: null, sshKey: { privateKey: "plain-key" }, storageNode: { basePath: "/root", driver: "SFTP" } } as any);
+ vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+ id: "srv_direct_fail", name: "direct-fail", host: "203.0.113.10", port: 22, username: "root", description: null, tags: [], enabled: true,
+ connectionType: "SSH_KEY", sshKeyId: "key_1", password: null, publicUrl: null, fileProxyPort: 0,
+ sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" },
+ storageNode: { id: "sn_direct_fail", name: "direct-fail 存储", driver: "SFTP", isDefault: true, basePath: "/root", directAccessMode: "PROXY", publicBaseUrl: null },
+ commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
+ } as any);
+
+ await createServerProfile({ name: "direct-fail", host: "203.0.113.10", port: 22, username: "root", connectionType: "SSH_KEY", sshKeyId: "key_1", tags: [], enableDirectGateway: true });
+ expect(prisma.server.update).not.toHaveBeenCalled();
+ expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+ });
+
  it("lists onboarded servers with ssh-key summaries", async () => {
  vi.mocked(prisma.server.findMany).mockResolvedValueOnce([
  {
