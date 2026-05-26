@@ -5,7 +5,9 @@
 set -euo pipefail
 
 TARGET="${1:-}"
-APP_SLUG="${2:-whrkhldsb}"
+APP_SLUG="${2:-${SERVICE_PREFIX:-whrkhldsb}}"
+NEXT_PORT="${NEXT_PORT:-3000}"
+SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 [ -z "${TARGET}" ] && TARGET="$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)" || true
 [ -z "${TARGET}" ] && TARGET="localhost"
@@ -18,6 +20,16 @@ if [ -z "${APP_DIR:-}" ]; then
 else
 	SMOKE_APP_DIR="${APP_DIR}"
 fi
+ENV_FILE="${ENV_FILE:-${SMOKE_APP_DIR}/.env.local}"
+if [ -f "${ENV_FILE}" ]; then
+    # Load install-time port overrides so smoke tests match customized fresh installs.
+    set -a
+    # shellcheck disable=SC1090
+    source "${ENV_FILE}"
+    set +a
+fi
+NEXT_PORT="${NEXT_PORT:-3000}"
+SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 PASS=0
 FAIL=0
@@ -55,13 +67,13 @@ check "PostgreSQL service"         "systemctl is-active postgresql" 0
 
 echo ""
 echo "── 2. Port Binding ──"
-check "Next.js on 127.0.0.1:3000"  "ss -tlnp | grep '127.0.0.1:3000'" 0
-check "SSH-WS on 127.0.0.1:3001"   "ss -tlnp | grep '127.0.0.1:3001'" 0
+check "Next.js on 127.0.0.1:${NEXT_PORT}"  "ss -tlnp | grep '127.0.0.1:${NEXT_PORT}'" 0
+check "SSH-WS on 127.0.0.1:${SSH_WS_PORT}"   "ss -tlnp | grep '127.0.0.1:${SSH_WS_PORT}'" 0
 check "Apache on *:80"             "ss -tlnp | grep ':80 '" 0
 
 echo ""
 echo "── 3. HTTP Response ──"
-check "Login page (localhost)"     "curl -sS -o /dev/null -w '%{http_code}' http://localhost:3000/login | grep 200" 0
+check "Login page (localhost)"     "curl -sS -o /dev/null -w '%{http_code}' http://localhost:${NEXT_PORT}/login | grep 200" 0
 check "Login page (via Apache)"    "curl -sS -o /dev/null -w '%{http_code}' http://${TARGET}/login | grep 200" 0
 check "API /api/status"            "curl -sS http://${TARGET}/api/status | grep healthy" 0
 check "API auth blocks unauth"     "curl -sS http://${TARGET}/api/users | grep '未登录'" 0
@@ -78,13 +90,13 @@ fi
 
 echo ""
 echo "── 5. Security ──"
-check "No direct 3000 access"      "ss -tlnp | grep '0.0.0.0:3000' ; echo missing" 0
+check "No direct public Next.js access"      "ss -tlnp | grep '0.0.0.0:${NEXT_PORT}' ; echo missing" 0
 check "Security headers present"   "curl -sS -D- http://${TARGET}/login | grep X-Content-Type-Options" 0
 
 echo ""
 echo "── 6. SSH-WS Proxy ──"
 check "SSH-WS service running"     "systemctl is-active ${APP_SLUG}-ssh-ws" 0
-check "SSH-WS on 127.0.0.1:3001"   "ss -tlnp | grep '127.0.0.1:3001'" 0
+check "SSH-WS on 127.0.0.1:${SSH_WS_PORT}"   "ss -tlnp | grep '127.0.0.1:${SSH_WS_PORT}'" 0
 check "SSH_WS_SECRET configured"   "grep -q 'SSH_WS_SECRET=..' \"${SMOKE_APP_DIR}/.env.local\"" 0
 check "SSH_WS_ALLOWED_ORIGINS has target" "grep SSH_WS_ALLOWED_ORIGINS \"${SMOKE_APP_DIR}/.env.local\" | grep -q \"${TARGET}\"" 0
 

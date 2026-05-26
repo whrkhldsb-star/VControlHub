@@ -594,6 +594,20 @@ describe("deploy/install.sh", () => {
     expect(script).not.toContain('generated_url="postgresql://${PG_DB_USER}:***@127.0.0.1:5432/${PG_DB_NAME}"');
   });
 
+  it("uses configured service ports in post-deploy smoke tests", async () => {
+    const script = await readFile(path.resolve(__dirname, "../smoke-test.sh"), "utf8");
+    expect(script).toContain('ENV_FILE="${ENV_FILE:-${SMOKE_APP_DIR}/.env.local}"');
+    expect(script).toContain('source "${ENV_FILE}"');
+    expect(script).toContain('NEXT_PORT="${NEXT_PORT:-3000}"');
+    expect(script).toContain('SSH_WS_PORT="${SSH_WS_PORT:-3001}"');
+    expect(script).toContain('127.0.0.1:${NEXT_PORT}');
+    expect(script).toContain('127.0.0.1:${SSH_WS_PORT}');
+    expect(script).toContain('http://localhost:${NEXT_PORT}/login');
+    expect(script).not.toContain("127.0.0.1:3000");
+    expect(script).not.toContain("127.0.0.1:3001");
+    expect(script).not.toContain("localhost:3000/login");
+  });
+
   it("can print saved first-install credentials without running the installer", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
