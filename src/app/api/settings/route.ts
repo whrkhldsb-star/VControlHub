@@ -13,6 +13,7 @@ import {
 } from "@/lib/settings/service";
 import { SettingKey, MASKED_VALUE } from "@/lib/settings/schema";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,10 @@ export async function PATCH(request: Request) {
 		}
 
 		await setManySettings(entries);
+		auditUserAction(session.userId, "settings.update", {
+			keys: entries.map((entry) => entry.key),
+			count: entries.length,
+		});
 		return NextResponse.json({ success: true });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "保存失败";
