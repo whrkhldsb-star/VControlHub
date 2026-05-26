@@ -74,6 +74,8 @@ export default function PreferencesPage() {
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 
+	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
+
 	useEffect(() => {
 		// Try localStorage first for instant load, then sync from server
 		const local = localStorage.getItem("vps-preferences");
@@ -89,9 +91,12 @@ export default function PreferencesPage() {
 					setPrefs(nextPrefs);
 					setLastSavedPrefs(nextPrefs);
 					localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
+					setError("");
+				} else {
+					setError(typeof data.error === "string" ? data.error : "偏好设置加载失败");
 				}
 			})
-			.catch(() => {})
+			.catch((err) => setError(messageFromError(err, "偏好设置加载失败")))
 			.finally(() => setLoading(false));
 	}, []);
 
@@ -114,7 +119,7 @@ export default function PreferencesPage() {
 			setPrefs(lastSavedPrefs);
 			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
 			window.dispatchEvent(new Event("vps-preferences-updated"));
-			setError(err instanceof Error ? err.message : "偏好设置保存失败");
+			setError(messageFromError(err, "偏好设置保存失败"));
 		}
 	};
 
@@ -136,7 +141,7 @@ export default function PreferencesPage() {
 				<div className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>
 			)}
 			{error && (
-				<div className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>
+				<div role="alert" className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>
 			)}
 
 			<div className="space-y-4 max-w-2xl">

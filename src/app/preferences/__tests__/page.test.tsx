@@ -31,6 +31,15 @@ describe("PreferencesPage", () => {
 		vi.mocked(csrfFetch).mockResolvedValue(serverPrefs);
 	});
 
+	it("surfaces preference load failures instead of silently showing defaults", async () => {
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("偏好接口不可用"));
+
+		render(<PreferencesPage />);
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("偏好接口不可用");
+		expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
+	});
+
 	it("shows an error and keeps the previous default page when saving preferences fails", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce(serverPrefs).mockRejectedValueOnce(new Error("偏好设置保存失败"));
