@@ -61,9 +61,14 @@ function formatAction(action: string): string {
   return labels[action] ?? action;
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
   const [data, setData] = useState<AuditListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [severityFilter, setSeverityFilter] = useState("");
   const [actionFilter, setActionFilter] = useState(initialActionFilter);
@@ -78,8 +83,9 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       if (searchQuery.trim()) params.set("search", searchQuery.trim());
       const json = await csrfFetch(`/api/audit?${params}`);
       setData(json as AuditListResponse);
-    } catch {
-      // ignore
+      setError(null);
+    } catch (error) {
+      setError(getErrorMessage(error, "审计日志加载失败"));
     } finally {
       setLoading(false);
     }
@@ -181,6 +187,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+          {error}
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-white/10">
         {/* Desktop */}
@@ -196,6 +208,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           <div className="divide-y divide-white/5 bg-slate-950/40">
             {loading ? (
               <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+            ) : error && !data ? (
+              <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
             ) : !data || data.logs.length === 0 ? (
               <div className="px-4 py-10 text-sm text-slate-400">暂无审计日志。</div>
             ) : (
@@ -227,6 +241,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         <div className="md:hidden divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
             <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+          ) : error && !data ? (
+            <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
           ) : !data || data.logs.length === 0 ? (
             <div className="px-4 py-10 text-sm text-slate-400">暂无审计日志。</div>
           ) : (
