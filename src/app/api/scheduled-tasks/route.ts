@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createLogger } from "@/lib/logging";
+import { auditUserAction } from "@/lib/audit/service";
 
 const logger = createLogger("api:scheduled-tasks");
 
@@ -33,6 +34,24 @@ const scheduledTaskPatchSchema = z.object({
 });
 
 export const dynamic = "force-dynamic";
+
+type ScheduledTaskAuditPayload = {
+	id?: string;
+	name?: string;
+	cronExpression?: string;
+	serverIds?: string[];
+	status?: string;
+};
+
+function auditScheduledTaskDetail(task: ScheduledTaskAuditPayload) {
+	return {
+		taskId: task.id ?? null,
+		name: task.name ?? null,
+		cronExpression: task.cronExpression ?? null,
+		serverCount: task.serverIds?.length ?? 0,
+		status: task.status ?? null,
+	};
+}
 
 export async function GET() {
 	try {
@@ -83,6 +102,7 @@ export async function POST(request: Request) {
 			serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
 			createdById: session.userId,
 		});
+		auditUserAction(session.userId, "scheduled_task.create", auditScheduledTaskDetail(task));
 		return NextResponse.json({ task });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "创建失败";
@@ -104,10 +124,12 @@ export async function PATCH(request: Request) {
 		const data = parsed.data;
 		if (data.toggleId) {
 			const result = await toggleScheduledTask(data.toggleId);
+			auditUserAction(session.userId, "scheduled_task.toggle", auditScheduledTaskDetail(result));
 			return NextResponse.json({ task: result });
 		}
 		if (!data.id) return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
 		const result = await updateScheduledTask(data.id, data);
+		auditUserAction(session.userId, "scheduled_task.update", auditScheduledTaskDetail(result));
 		return NextResponse.json({ task: result });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "更新失败";
@@ -126,7 +148,8 @@ export async function DELETE(request: Request) {
 		const { searchParams } = new URL(request.url);
 		const id = searchParams.get("id");
 		if (!id) return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
-		await deleteScheduledTask(id);
+		const deleted = await deleteScheduledTask(id);
+		auditUserAction(session.userId, "scheduled_task.delete", auditScheduledTaskDetail(deleted), "WARNING");
 		return NextResponse.json({ success: true });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "删除失败";

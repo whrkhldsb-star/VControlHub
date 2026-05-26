@@ -13,6 +13,7 @@ import { z } from "zod";
 import http from "node:http";
 import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
 import { createLogger } from "@/lib/logging";
+import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withRateLimit, rateLimitResponse, COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseDockerStats } from "@/lib/docker/stats";
@@ -158,6 +159,11 @@ export async function POST(req: NextRequest) {
 		const target = actionMap[action];
 
 		const result = await dockerRequest(target.path, target.method);
+		auditUserAction(session.userId, `docker.container.${action}`, {
+			containerId: id,
+			status: result.status,
+			ok: result.ok,
+		}, action === "remove" ? "WARNING" : "INFO");
 		return NextResponse.json(result);
 	} catch (error) {
 		logger.error("POST请求失败", error);
