@@ -6,6 +6,19 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
+const NOTIFICATIONS_FALLBACK_PATH = "/notifications";
+
+function getSafeNotificationActionUrl(actionUrl: string | null | undefined) {
+	if (!actionUrl) return NOTIFICATIONS_FALLBACK_PATH;
+
+	const trimmed = actionUrl.trim();
+	if (!trimmed || !trimmed.startsWith("/") || trimmed.startsWith("//")) {
+		return NOTIFICATIONS_FALLBACK_PATH;
+	}
+
+	return trimmed;
+}
+
 export function NotificationBell() {
 	const [isOpen, setIsOpen] = useState(false);
 	const [notifications, setNotifications] = useState<Array<{
@@ -155,7 +168,7 @@ export function NotificationBell() {
 							{notifications.slice(0, 10).map((n) => (
 								<a
 									key={n.id}
-									href={n.actionUrl ?? "/notifications"}
+									href={getSafeNotificationActionUrl(n.actionUrl)}
 									className={`block px-4 py-3 hover:bg-white/[0.04] transition ${n.isRead ? "opacity-60" : ""}`}
 								>
 									<div className="flex items-center gap-2">

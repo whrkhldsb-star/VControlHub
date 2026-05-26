@@ -49,16 +49,16 @@ describe("NotificationBell", () => {
       .mockResolvedValueOnce({
         unreadCount: 1,
         notifications: [{
-          id: "n_1",
+          id: "n_unread",
           type: "system",
           title: "待处理通知",
-          message: "需要确认",
+          message: "接口失败时仍应保持未读状态",
           isRead: false,
-          actionUrl: null,
+          actionUrl: "/notifications",
           createdAt: "2026-05-25T00:00:00.000Z",
         }],
       })
-      .mockRejectedValueOnce(new Error("标记失败"));
+      .mockRejectedValueOnce(new Error("全部已读接口失败"));
 
     render(<NotificationBell />);
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/notifications"));
@@ -67,8 +67,32 @@ describe("NotificationBell", () => {
 
     await user.click(screen.getByRole("button", { name: "全部已读" }));
 
-    expect(await screen.findByText("标记失败")).toBeInTheDocument();
-    expect(screen.getByText("待处理通知")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "全部已读" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("全部已读接口失败");
+    expect(screen.getByText("待处理通知").closest("a")).not.toHaveClass("opacity-60");
+  });
+
+  it("falls back to notifications page for unsafe notification action URLs", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ unreadCount: 1 })
+      .mockResolvedValueOnce({
+        unreadCount: 1,
+        notifications: [{
+          id: "n_unsafe",
+          type: "system",
+          title: "危险通知入口",
+          message: "不应打开脚本链接",
+          isRead: false,
+          actionUrl: "javascript:alert(1)",
+          createdAt: "2026-05-25T00:00:00.000Z",
+        }],
+      });
+
+    render(<NotificationBell />);
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/notifications"));
+    await user.click(screen.getByRole("button", { name: "通知" }));
+
+    const notificationLink = (await screen.findByText("危险通知入口")).closest("a");
+    expect(notificationLink).toHaveAttribute("href", "/notifications");
   });
 });
