@@ -57,16 +57,21 @@ describe("DockerPage", () => {
 		expect(await screen.findByText("Docker 权限不足")).toBeInTheDocument();
 	});
 
-	it("requires confirmation before removing a compose-managed container", async () => {
+	it("uses an in-app confirmation panel before removing a compose-managed container", async () => {
 		const user = userEvent.setup();
-		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+		const confirmSpy = vi.spyOn(window, "confirm");
 
 		render(<DockerPage />);
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
-		expect(confirmSpy).toHaveBeenCalledWith("确定删除容器 web？此操作不可恢复。");
+		expect(confirmSpy).not.toHaveBeenCalled();
+		expect(screen.getByRole("dialog", { name: "确认删除容器" })).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: "确认删除容器" })).toHaveTextContent("即将删除容器 web");
+		await user.click(screen.getByRole("button", { name: "取消" }));
+
+		expect(screen.queryByRole("dialog", { name: "确认删除容器" })).not.toBeInTheDocument();
 		expect(csrfFetch).not.toHaveBeenCalledWith(
 			"/api/docker/containers",
 			expect.objectContaining({
@@ -74,5 +79,23 @@ describe("DockerPage", () => {
 				body: JSON.stringify({ id: "container_1234567890", action: "remove" }),
 			}),
 		);
+	});
+
+	it("submits the remove action only after the in-app confirmation", async () => {
+		const user = userEvent.setup();
+
+		render(<DockerPage />);
+
+		expect(await screen.findByText("web")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		await user.click(screen.getByRole("button", { name: "确认删除" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
+			"/api/docker/containers",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ id: "container_1234567890", action: "remove" }),
+			}),
+		));
 	});
 });

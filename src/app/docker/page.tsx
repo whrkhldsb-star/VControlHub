@@ -58,6 +58,7 @@ export default function DockerPage() {
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
 	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
 	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
+	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
 	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
 		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
 	);
@@ -105,7 +106,6 @@ export default function DockerPage() {
 	};
 
 	const handleAction = async (container: Container, action: "start" | "stop" | "restart" | "remove") => {
-		if (action === "remove" && !confirm(`确定删除容器 ${getContainerName(container)}？此操作不可恢复。`)) return;
 		const id = container.Id;
 		setActionLoading(id);
 		setError("");
@@ -121,6 +121,18 @@ export default function DockerPage() {
 		} finally {
 			setActionLoading(null);
 		}
+	};
+
+	const requestRemoval = (container: Container) => {
+		setPendingRemoval(container);
+		setError("");
+	};
+
+	const confirmRemoval = async () => {
+		if (!pendingRemoval) return;
+		const container = pendingRemoval;
+		setPendingRemoval(null);
+		await handleAction(container, "remove");
 	};
 
 	const fetchLogs = async (id: string) => {
@@ -278,7 +290,7 @@ export default function DockerPage() {
 													</>
 												)}
 												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
-												<button onClick={() => handleAction(c, "remove")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
+												<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 											</div>
 										</div>
 									);
@@ -315,6 +327,40 @@ export default function DockerPage() {
 							</div>
 						</section>
 					)}
+				</div>
+			)}
+
+			{pendingRemoval && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="presentation" onClick={() => setPendingRemoval(null)}>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="docker-remove-confirm-title"
+						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 p-5 shadow-2xl"
+						onClick={(event) => event.stopPropagation()}
+					>
+						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
+						<p className="mt-3 text-sm text-slate-300">
+							即将删除容器 <span className="font-mono text-rose-200">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
+						</p>
+						<div className="mt-5 flex justify-end gap-2">
+							<button
+								type="button"
+								onClick={() => setPendingRemoval(null)}
+								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.06]"
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								onClick={() => void confirmRemoval()}
+								disabled={actionLoading === pendingRemoval.Id}
+								className="rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								确认删除
+							</button>
+						</div>
+					</div>
 				</div>
 			)}
 
