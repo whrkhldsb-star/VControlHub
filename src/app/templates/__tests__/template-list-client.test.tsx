@@ -39,18 +39,41 @@ describe("TemplateListClient", () => {
 		vi.mocked(csrfFetch).mockReset();
 	});
 
-	it("shows an API error toast and keeps the template visible when deletion fails", async () => {
+	it("uses an in-app confirmation before deleting a template", async () => {
 		const user = userEvent.setup();
-		vi.spyOn(window, "confirm").mockReturnValue(true);
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("无权删除模板"));
+		const nativeConfirm = vi.spyOn(window, "confirm");
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ templates: [] });
 
 		renderClient();
 
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
+		expect(nativeConfirm).not.toHaveBeenCalled();
+		expect(screen.getByRole("dialog", { name: "删除命令模板" })).toHaveTextContent("Docker Compose 更新");
+		expect(csrfFetch).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole("button", { name: "取消" }));
+		expect(screen.queryByRole("dialog", { name: "删除命令模板" })).not.toBeInTheDocument();
+		expect(csrfFetch).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		await user.click(screen.getByRole("button", { name: "确认删除" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/command-templates?id=tmpl_1", { method: "DELETE" }));
+	});
+
+	it("shows an API error toast and keeps the template visible when deletion fails", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("无权删除模板"));
+
+		renderClient();
+
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		await user.click(screen.getByRole("button", { name: "确认删除" }));
+
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/command-templates?id=tmpl_1", { method: "DELETE" }));
 		expect(await screen.findByText("无权删除模板")).toBeInTheDocument();
-		expect(screen.getByText("Docker Compose 更新")).toBeInTheDocument();
+		expect(screen.getAllByText("Docker Compose 更新").length).toBeGreaterThan(0);
 	});
 
 	it("requires all template variables before submitting a command for approval", async () => {

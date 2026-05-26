@@ -25,6 +25,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	const [showCreate, setShowCreate] = useState(false);
 	const [filterTag, setFilterTag] = useState<string | null>(null);
 	const [deploying, setDeploying] = useState<string | null>(null);
+	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
 
 	const allTags = [...new Set(templates.flatMap((t) => t.tags))].sort();
 
@@ -38,9 +39,9 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	}, []);
 
 	const handleDelete = useCallback(async (id: string) => {
-		if (!confirm("确认删除该模板？")) return;
 		try {
 			await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
+			setTemplatePendingDelete(null);
 			await refresh();
 			addToast("success", "模板已删除");
 		} catch (err) {
@@ -78,6 +79,30 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 
 	return (
 		<div className="space-y-6">
+			{templatePendingDelete && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
+						<h3 id="delete-template-title" className="text-base font-semibold text-white">删除命令模板</h3>
+						<p className="mt-2 text-sm text-slate-400">确认删除模板 <span className="font-medium text-slate-100">{templatePendingDelete.name}</span>？此操作不可恢复。</p>
+						<div className="mt-5 flex justify-end gap-2">
+							<button
+								type="button"
+								onClick={() => setTemplatePendingDelete(null)}
+								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								onClick={() => handleDelete(templatePendingDelete.id)}
+								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
+							>
+								确认删除
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 			{/* Controls */}
 			<div className="flex items-center justify-between flex-wrap gap-3">
 				{/* Tag filter */}
@@ -160,10 +185,10 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									loading={deploying === tmpl.id}
 								/>
 								{!tmpl.isBuiltin && (
-									<button
-										onClick={() => handleDelete(tmpl.id)}
-										className="text-[11px] text-rose-400/60 hover:text-rose-300 transition"
-									>
+					<button
+						onClick={() => setTemplatePendingDelete(tmpl)}
+						className="text-[11px] text-rose-400/60 hover:text-rose-300 transition"
+					>
 										删除
 									</button>
 								)}
