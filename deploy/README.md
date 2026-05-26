@@ -6,7 +6,7 @@
 
 ### 方式 A：fresh server 一行命令安装（推荐）
 
-适合全新 Debian/Ubuntu systemd 主机。默认从公开 GitHub 仓库拉取 `main` 分支到 `/opt/vcontrolhub`，随后调用 `deploy/install.sh` 完成依赖安装、环境变量生成、PostgreSQL 初始化、Prisma 迁移/种子、Next.js/runtime 构建、systemd unit、反向代理和服务启动。
+适合全新 Debian/Ubuntu systemd 主机。默认从公开 GitHub 仓库拉取 `main` 分支到 `/opt/vcontrolhub`，随后调用 `deploy/install.sh` 完成依赖安装、环境变量生成、PostgreSQL 初始化、Prisma 迁移/种子、Next.js/runtime 构建、systemd unit、反向代理和服务启动。该命令会先进入交互式配置：依次询问域名、应用名/slug、安装目录、systemd 服务前缀、Next.js 服务端口、SSH WebSocket 服务端口、仓库地址和分支；一路回车会采用默认值，适合快速 fresh install。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
@@ -30,6 +30,13 @@ curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/dep
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
   sudo REPO_URL=https://github.com/your-org/your-repo.git BRANCH=main APP_DIR=/opt/my-console DOMAIN=your.example.com bash
+```
+
+非交互/自动化环境可显式跳过提示并只使用默认值或环境变量覆盖：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo VCONTROLHUB_ASSUME_DEFAULTS=1 DOMAIN=your.example.com bash
 ```
 
 安装成功后查看首次登录密码：

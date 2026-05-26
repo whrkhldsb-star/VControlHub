@@ -670,6 +670,12 @@ describe("compressed archive deployment entrypoints", () => {
     expect(installer).toContain("SOURCE_DIR");
     expect(installer).toContain("deploy/install.sh");
     expect(bootstrap).toContain("REPO_URL=\"${REPO_URL:-https://github.com/whrkhldsb-star/VControlHub.git}\"");
+    expect(bootstrap).toContain("prompt_with_default");
+    expect(bootstrap).toContain("VCONTROLHUB_ASSUME_DEFAULTS");
+    expect(bootstrap).toContain("Domain / public hostname");
+    expect(bootstrap).toContain("Next.js service port");
+    expect(bootstrap).toContain("SSH WebSocket service port");
+    expect(bootstrap).toContain("Install directory");
     expect(bootstrap).toContain("git clone");
     expect(bootstrap).toContain("deploy/install.sh");
     expect(packager).toContain(".env.local");
