@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { createCommandRequest, listCommandRequests } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 import { withRateLimit, rateLimitResponse, COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
+import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,14 @@ export async function POST(request: Request) {
     const parsed = createCommandSchema.safeParse({ ...json, requesterId: session.userId, submissionMode: json?.submissionMode ?? "user" });
     if (!parsed.success) return NextResponse.json({ error: "请求参数无效", issues: parsed.error.flatten() }, { status: 400 });
     const command = await createCommandRequest(parsed.data);
+    auditUserAction(session.userId, "command.submit", {
+      commandRequestId: command.id,
+      title: command.title,
+      status: command.status,
+      targetCount: parsed.data.serverIds.length,
+      requiresApproval: Boolean(command.requiresApproval),
+      submissionMode: parsed.data.submissionMode,
+    });
     return NextResponse.json({ command }, { status: 201 });
   } catch (error) {
   	const message = error instanceof Error ? error.message : "操作失败";
