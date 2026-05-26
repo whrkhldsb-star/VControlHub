@@ -39,6 +39,8 @@ function formatTime(iso: string | null): string {
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate }: Props) {
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
+	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
+	const [actionError, setActionError] = useState<string | null>(null);
 
 	const refresh = useCallback(async () => {
 		const data = await csrfFetch("/api/scheduled-tasks");
@@ -54,14 +56,20 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 		void refresh();
 	}, [refresh]);
 
-	const deleteTask = useCallback(async (id: string) => {
-		if (!confirm("确认删除该定时任务？")) return;
-		await csrfFetch(`/api/scheduled-tasks?id=${id}`, { method: "DELETE" });
-		void refresh();
+	const deleteTask = useCallback(async (task: Task) => {
+		setTaskPendingDelete(null);
+		setActionError(null);
+		try {
+			await csrfFetch(`/api/scheduled-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" });
+			void refresh();
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : "删除定时任务失败");
+		}
 	}, [refresh]);
 
 	return (
 		<div className="space-y-6">
+			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{actionError}</div>}
 			{canCreate && !showCreate && (
 				<button
 					onClick={() => setShowCreate(true)}
@@ -121,7 +129,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										{task.status === "ACTIVE" ? "暂停" : "恢复"}
 									</button>
 									<button
-										onClick={() => deleteTask(task.id)}
+										onClick={() => setTaskPendingDelete(task)}
 										className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition"
 									>
 										删除
@@ -130,6 +138,24 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							</div>
 						</article>
 					))}
+				</div>
+			)}
+			{taskPendingDelete && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
+					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">确认删除定时任务</h2>
+						<p className="mt-3 text-sm leading-6 text-slate-300">
+							即将删除定时任务 <span className="font-semibold text-rose-100">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。
+						</p>
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setTaskPendingDelete(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+								取消
+							</button>
+							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
+								确认删除
+							</button>
+						</div>
+					</section>
 				</div>
 			)}
 		</div>
