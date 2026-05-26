@@ -113,14 +113,26 @@ describe("FilesBrowserSpa", () => {
     );
   });
 
-  it("refreshes the SPA file list after upload completes", async () => {
-    render(<FilesBrowserSpa initialData={baseData} deletedEntries={[]} sftpNodes={[]} />);
+	it("refreshes the SPA file list after upload completes", async () => {
+		render(<FilesBrowserSpa initialData={baseData} deletedEntries={[]} sftpNodes={[]} />);
 
-    expect(screen.getByText("before.jpg")).toBeInTheDocument();
+		expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
+		fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
 
-    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&nodeId=node_1", expect.any(Object)));
-    await waitFor(() => expect(screen.getByText("after.jpg")).toBeInTheDocument());
-  });
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&nodeId=node_1", expect.any(Object)));
+		await waitFor(() => expect(screen.getByText("after.jpg")).toBeInTheDocument());
+	});
+
+	it("surfaces list refresh failures inline and keeps the previous file list visible", async () => {
+		vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error("文件列表刷新失败"));
+
+		render(<FilesBrowserSpa initialData={baseData} deletedEntries={[]} sftpNodes={[]} />);
+		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
+
+		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"));
+		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+	});
 });

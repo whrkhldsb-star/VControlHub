@@ -216,6 +216,7 @@ export function FilesBrowserSpa({
 }) {
 	const [data, setData] = useState<FilesApiResponse>(initialData);
 	const [loading, setLoading] = useState(false);
+	const [listError, setListError] = useState<string | null>(null);
 	const abortRef = useRef<AbortController | null>(null);
 
 	// Fetch files for a given path — SPA navigation, no page reload
@@ -229,6 +230,7 @@ export function FilesBrowserSpa({
 			abortRef.current = controller;
 
 			setLoading(true);
+			setListError(null);
 			try {
 				const params = new URLSearchParams();
 				if (path) params.set("path", path);
@@ -253,6 +255,7 @@ export function FilesBrowserSpa({
 			} catch (err) {
 				if (err instanceof Error && err.name === "AbortError") return;
 				logError("Failed to fetch files:", err);
+				setListError(err instanceof Error ? err.message : "文件列表刷新失败，请稍后重试。");
 			} finally {
 				setLoading(false);
 			}
@@ -490,6 +493,11 @@ export function FilesBrowserSpa({
 					</div>
 
 					{/* File list with batch operations */}
+					{listError ? (
+						<div role="alert" className="mt-4 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+							文件列表刷新失败：{listError}
+						</div>
+					) : null}
 <FileListClient
  folders={data.folders}
  files={data.files}
