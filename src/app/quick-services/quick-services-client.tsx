@@ -96,6 +96,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [sourcePreset, setSourcePreset] = useState<(typeof SOURCE_PRESETS)[number]["key"] | null>(null);
 	// Install dialog state
 	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
+	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<{ available: boolean; usedBy: string | null; checking: boolean } | null>(null);
 	// Sync state
@@ -232,11 +233,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		}
 	};
 
-	const doUninstall = async (slug: string) => {
-		if (!confirm(`确定要卸载吗？容器将被删除，数据卷保留。`)) return;
-		setActionSlug(slug);
+	const requestUninstall = (item: CatalogItem) => {
+		setPendingUninstall({ slug: item.slug, name: item.name });
+	};
+
+	const doUninstall = async () => {
+		if (!pendingUninstall) return;
+		const target = pendingUninstall;
+		setPendingUninstall(null);
+		setActionSlug(target.slug);
 		try {
-			await csrfFetch(`/api/quick-services/${slug}`, { method: "DELETE" });
+			await csrfFetch(`/api/quick-services/${target.slug}`, { method: "DELETE" });
 			setMessage({ type: "ok", text: `已卸载` });
 			fetchCatalog();
 		} catch (err) {
@@ -493,7 +500,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								onStart={() => doAction(item.slug, "start")}
 								onStop={() => doAction(item.slug, "stop")}
 								onSync={() => doAction(item.slug, "sync")}
-								onUninstall={() => doUninstall(item.slug)}
+								onUninstall={() => requestUninstall(item)}
 							/>
 						))}
 					</div>
@@ -658,7 +665,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									onStart={() => doAction(item.slug, "start")}
 									onStop={() => doAction(item.slug, "stop")}
 									onSync={() => doAction(item.slug, "sync")}
-									onUninstall={() => doUninstall(item.slug)}
+									onUninstall={() => requestUninstall(item)}
 								/>
 							))}
 						</div>
@@ -761,6 +768,31 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
 							>
 								确认安装
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{pendingUninstall && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPendingUninstall(null)}>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-label="确认卸载快捷服务"
+						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h3 className="text-lg font-semibold text-white mb-2">确认卸载快捷服务</h3>
+						<p className="text-sm leading-6 text-slate-300">
+							将卸载 <span className="font-semibold text-white">{pendingUninstall.name}</span>，容器将被删除，数据卷会保留。
+						</p>
+						<div className="mt-6 flex items-center justify-end gap-3">
+							<button type="button" onClick={() => setPendingUninstall(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+								取消
+							</button>
+							<button type="button" onClick={doUninstall} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
+								确认卸载
 							</button>
 						</div>
 					</div>
