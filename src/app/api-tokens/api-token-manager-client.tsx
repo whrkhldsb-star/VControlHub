@@ -53,6 +53,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createdPlaintext, setCreatedPlaintext] = useState<string | null>(null);
+  const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
 
   const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
 
@@ -87,7 +88,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   };
 
   const revokeToken = async (token: SafeApiToken) => {
-    if (!confirm(`确认撤销 Token「${token.name}」？撤销后不可恢复。`)) return;
+    setTokenPendingRevoke(null);
     setRevokingId(token.id);
     setError(null);
 try {
@@ -191,7 +192,7 @@ try {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <button type="button" aria-label={`撤销 ${token.name}`} disabled={revokingId === token.id} onClick={() => revokeToken(token)} className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60">
+                      <button type="button" aria-label={`撤销 ${token.name}`} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60">
                         {revokingId === token.id ? "撤销中…" : "撤销"}
                       </button>
                     )}
@@ -202,6 +203,24 @@ try {
           </div>
         )}
       </section>
+      {tokenPendingRevoke && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
+          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+            <h2 id="revoke-api-token-title" className="text-lg font-semibold text-white">确认撤销 API Token</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              即将撤销 Token <span className="font-semibold text-rose-100">{tokenPendingRevoke.name}</span>。撤销后脚本、CLI 或外部集成将立即失去访问权限，且无法恢复。
+            </p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setTokenPendingRevoke(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+                取消
+              </button>
+              <button type="button" onClick={() => revokeToken(tokenPendingRevoke)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
+                确认撤销
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

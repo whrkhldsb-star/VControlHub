@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiTokenManagerClient } from "../api-token-manager-client";
@@ -46,8 +46,8 @@ describe("ApiTokenManagerClient", () => {
 		expect(screen.getByText("mobile")).toBeInTheDocument();
 	});
 
-	it("revokes an API token after confirmation and updates the list", async () => {
-		vi.spyOn(window, "confirm").mockReturnValue(true);
+	it("opens an in-app confirmation dialog before revoking a token", async () => {
+		const confirmSpy = vi.spyOn(window, "confirm");
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
 			json: async () => ({ token: { ...token, revokedAt: "2026-01-02T00:00:00Z" } }),
@@ -56,6 +56,28 @@ describe("ApiTokenManagerClient", () => {
 
 		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />);
 		fireEvent.click(screen.getByRole("button", { name: "撤销 CLI" }));
+
+		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
+		expect(confirmSpy).not.toHaveBeenCalled();
+		expect(within(dialog).getByText("CLI")).toBeInTheDocument();
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+		expect(screen.queryByRole("dialog", { name: "确认撤销 API Token" })).not.toBeInTheDocument();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it("revokes an API token after in-app confirmation and updates the list", async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ token: { ...token, revokedAt: "2026-01-02T00:00:00Z" } }),
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />);
+		fireEvent.click(screen.getByRole("button", { name: "撤销 CLI" }));
+		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "确认撤销" }));
 
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens?id=tok_1", expect.objectContaining({
 			method: "DELETE",
