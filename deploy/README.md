@@ -4,21 +4,51 @@
 
 ## 快速部署
 
-### 方式 A：从私有 Git 仓库一键拉取部署
+### 方式 A：fresh server 一行命令安装（推荐）
 
-适合把代码放在 GitHub/GitLab/Gitea 私有仓库后，在新服务器直接拉取。仓库里不要提交 `.env.local`、私钥、数据库备份、上传/下载文件或日志。
+适合全新 Debian/Ubuntu systemd 主机。默认从公开 GitHub 仓库拉取 `main` 分支到 `/opt/vcontrolhub`，随后调用 `deploy/install.sh` 完成依赖安装、环境变量生成、PostgreSQL 初始化、Prisma 迁移/种子、Next.js/runtime 构建、systemd unit、反向代理和服务启动。
 
 ```bash
-sudo APP_NAME="my-console" APP_SLUG=my-console SITE_NAME="我的控制台" \
-  APP_DIR=/opt/my-console DOMAIN=your.example.com \
-  REPO_URL=git@github.com:your-org/my-console.git \
-  bash -c 'mkdir -p "$APP_DIR" && git clone "$REPO_URL" "$APP_DIR" && "$APP_DIR/deploy/install.sh"'
-# 首次运行会生成 /opt/my-console/.env.local 并停止；编辑后重新运行同一命令。
-sudoedit /opt/my-console/.env.local
-sudo APP_NAME="my-console" APP_SLUG=my-console SITE_NAME="我的控制台" APP_DIR=/opt/my-console DOMAIN=your.example.com REPO_URL=git@github.com:your-org/my-console.git /opt/my-console/deploy/install.sh
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
 ```
 
-### 方式 B：压缩包部署，解压后直接运行一键脚本
+IP 直连/无域名：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo bash
+```
+
+常用覆盖项：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo APP_DIR=/opt/vcontrolhub APP_SLUG=vcontrolhub SERVICE_PREFIX=vcontrolhub DOMAIN=your.example.com bash
+```
+
+如需私有仓库或 fork：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo REPO_URL=https://github.com/your-org/your-repo.git BRANCH=main APP_DIR=/opt/my-console DOMAIN=your.example.com bash
+```
+
+安装成功后查看首次登录密码：
+
+```bash
+sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
+```
+
+> 该入口不会要求先手动 clone，也不会把 token/密码写入文档或 Git remote。私有仓库请优先使用机器上已有 SSH deploy key 或临时 HTTPS 凭据。
+
+### 方式 B：已有 Git 仓库目录部署
+
+适合已经把代码放在服务器上的情况。仓库里不要提交 `.env.local`、私钥、数据库备份、上传/下载文件或日志。
+
+```bash
+sudo APP_NAME="my-console" APP_SLUG=my-console SITE_NAME="我的控制台" APP_DIR=/opt/my-console DOMAIN=your.example.com /opt/my-console/deploy/install.sh
+```
+
+### 方式 C：压缩包部署，解压后直接运行一键脚本
 
 适合离线交付、面板上传、对象存储下载、U 盘拷贝等场景。先在当前服务器生成不含敏感数据和运行数据的发布包：
 
@@ -43,7 +73,7 @@ sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" 
 
 `deploy/package.sh` 默认排除 `.env.local`、`.env.*.local`、私钥、数据库/备份、`node_modules`、`.next`、上传/下载/日志/临时文件和运行态云盘数据。
 
-### 方式 C：不上公网仓库，从旧服务器/本地目录同步部署
+### 方式 D：不上公网仓库，从旧服务器/本地目录同步部署
 
 适合代码只保留在当前服务器或内网机器。先把源码传到新服务器，再用 `SOURCE_DIR` 同步到最终安装目录。
 
@@ -61,7 +91,7 @@ sudoedit /opt/whrkhldsb/.env.local
 sudo SOURCE_DIR=/root/whrkhldsb-src APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
 ```
 
-### 方式 D：已有源码目录时
+### 方式 E：已有源码目录时
 
 ```bash
 cd /path/to/whrkhldsb

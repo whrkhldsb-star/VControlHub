@@ -646,15 +646,17 @@ describe("deploy/install.sh", () => {
 
 
 describe("compressed archive deployment entrypoints", () => {
-  it("includes a root one-click installer and archive packaging script", async () => {
+  it("includes a root one-click installer, bootstrap installer, and archive packaging script", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const rootInstaller = path.join(repoRoot, "install.sh");
+    const bootstrapInstaller = path.join(repoRoot, "deploy/bootstrap.sh");
     const archiveScript = path.join(repoRoot, "deploy/package.sh");
 
     await expect(access(rootInstaller)).resolves.toBeUndefined();
+    await expect(access(bootstrapInstaller)).resolves.toBeUndefined();
     await expect(access(archiveScript)).resolves.toBeUndefined();
 
-    for (const script of [rootInstaller, archiveScript]) {
+    for (const script of [rootInstaller, bootstrapInstaller, archiveScript]) {
       const result = await runScript(script, {
         cwd: repoRoot,
         env: { ...process.env, CHECK_SYNTAX_ONLY: "1" },
@@ -663,9 +665,13 @@ describe("compressed archive deployment entrypoints", () => {
     }
 
     const installer = await readFile(rootInstaller, "utf8");
+    const bootstrap = await readFile(bootstrapInstaller, "utf8");
     const packager = await readFile(archiveScript, "utf8");
     expect(installer).toContain("SOURCE_DIR");
     expect(installer).toContain("deploy/install.sh");
+    expect(bootstrap).toContain("REPO_URL=\"${REPO_URL:-https://github.com/whrkhldsb-star/VControlHub.git}\"");
+    expect(bootstrap).toContain("git clone");
+    expect(bootstrap).toContain("deploy/install.sh");
     expect(packager).toContain(".env.local");
     expect(packager).toContain("node_modules");
     expect(packager).toContain("${APP_SLUG}-release");

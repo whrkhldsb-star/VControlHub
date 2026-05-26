@@ -119,7 +119,34 @@
 - **域名** — 可选（无域名时自动配置 Apache/IP 直连模式）
 - **端口** — 80/443（Web）+ 3001（SSH-WS）
 
-### 一键安装（3 步）
+### 真正一行 fresh server 安装（推荐）
+
+在干净 Debian/Ubuntu systemd 服务器上，直接执行一行命令即可拉取仓库、安装依赖、生成生产环境变量、初始化 PostgreSQL、构建产物、写入 systemd/反向代理并启动服务：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
+```
+
+无域名时也可以省略 `DOMAIN`，脚本会走 IP 直连/本地代理模式：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo bash
+```
+
+可选自定义安装目录/品牌：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | \
+  sudo APP_NAME="VControlHub" APP_SLUG=vcontrolhub APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com bash
+```
+
+安装完成后如需查看自动生成的首次登录密码：
+
+```bash
+sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
+```
+
+### 传统手动安装（保留）
 
 ```bash
 # 1. 克隆代码
