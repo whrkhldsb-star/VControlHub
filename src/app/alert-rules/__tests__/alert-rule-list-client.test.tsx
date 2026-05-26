@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToastProvider } from "@/components/toast-provider";
@@ -42,6 +42,11 @@ function wrap(ui: React.ReactElement) {
 }
 
 describe("alert rules client", () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+		vi.mocked(csrfFetch).mockReset();
+	});
+
 	it("submits new alert rules to the API instead of only closing the form", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ rules: [] });
@@ -133,10 +138,10 @@ describe("alert rules client", () => {
 		expect(screen.getByRole("button", { name: "暂停" })).toBeEnabled();
 	});
 
-	it("surfaces alert rule delete failures and keeps the rule visible", async () => {
+	it("uses an in-app confirmation before deleting an alert rule", async () => {
 		const user = userEvent.setup();
-		vi.spyOn(window, "confirm").mockReturnValue(true);
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("告警规则删除失败"));
+		const nativeConfirm = vi.spyOn(window, "confirm");
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ rules: [] });
 
 		render(wrap(<AlertRuleListClient rules={[{
 			id: "rule1",
@@ -156,8 +161,45 @@ describe("alert rules client", () => {
 
 		await user.click(screen.getByRole("button", { name: "删除" }));
 
+		expect(nativeConfirm).not.toHaveBeenCalled();
+		expect(screen.getByRole("dialog", { name: "删除告警规则" })).toHaveTextContent("Disk full");
+		expect(csrfFetch).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole("button", { name: "取消" }));
+		expect(screen.queryByRole("dialog", { name: "删除告警规则" })).not.toBeInTheDocument();
+		expect(csrfFetch).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		await user.click(screen.getByRole("button", { name: "确认删除" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/alert-rules?id=rule1", { method: "DELETE" }));
+	});
+
+	it("surfaces alert rule delete failures and keeps the rule visible", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("告警规则删除失败"));
+
+		render(wrap(<AlertRuleListClient rules={[{
+			id: "rule1",
+			name: "Disk full",
+			metric: "disk_usage",
+			operator: "gte",
+			threshold: 95,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["in_app"],
+			webhookConfigured: false,
+			cooldownMinutes: 10,
+			enabled: true,
+			lastTriggeredAt: null,
+			createdAt: "2026-01-01T00:00:00.000Z",
+		}]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		await user.click(screen.getByRole("button", { name: "确认删除" }));
+
 		expect(await screen.findByRole("alert")).toHaveTextContent("告警规则删除失败");
-		expect(screen.getByText("Disk full")).toBeInTheDocument();
+		expect(screen.getAllByText("Disk full").length).toBeGreaterThan(0);
 		expect(screen.getByRole("button", { name: "删除" })).toBeEnabled();
 	});
 

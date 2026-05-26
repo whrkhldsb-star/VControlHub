@@ -37,6 +37,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const [showCreate, setShowCreate] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
+	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
 
 	const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 
@@ -63,11 +64,11 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	}, [refresh]);
 
 	const deleteRule = useCallback(async (id: string) => {
-		if (!confirm("确认删除该告警规则？")) return;
 		setActionError(null);
 		setBusyAction(`delete:${id}`);
 		try {
 			await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
+			setRulePendingDelete(null);
 			await refresh();
 		} catch (error) {
 			setActionError(getErrorMessage(error, "删除告警规则失败"));
@@ -91,6 +92,31 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 	return (
 		<div className="space-y-6">
+			{rulePendingDelete && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
+					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
+						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-white">删除告警规则</h3>
+						<p className="mt-2 text-sm text-slate-400">确认删除告警规则 <span className="font-medium text-slate-100">{rulePendingDelete.name}</span>？此操作不可恢复。</p>
+						<div className="mt-5 flex justify-end gap-2">
+							<button
+								type="button"
+								onClick={() => setRulePendingDelete(null)}
+								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
+							>
+								取消
+							</button>
+							<button
+								type="button"
+								onClick={() => deleteRule(rulePendingDelete.id)}
+								disabled={busyAction === `delete:${rulePendingDelete.id}`}
+								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								{busyAction === `delete:${rulePendingDelete.id}` ? "删除中…" : "确认删除"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 			<div className="flex items-center gap-3 flex-wrap">
 				{canManage && !showCreate && (
 					<button onClick={() => setShowCreate(true)} className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition">
@@ -171,7 +197,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							{busyAction === `toggle:${rule.id}` ? "处理中…" : rule.enabled ? "暂停" : "启用"}
 						</button>
 						<button
-							onClick={() => deleteRule(rule.id)}
+							onClick={() => setRulePendingDelete(rule)}
 							disabled={busyAction === `delete:${rule.id}`}
 							className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
