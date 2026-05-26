@@ -33,6 +33,14 @@ SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 PASS=0
 FAIL=0
+PROXY_SERVICE="apache2"
+PROXY_LABEL="Apache"
+PROXY_PUBLIC_URL="http://${TARGET}"
+if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
+    PROXY_SERVICE="caddy"
+    PROXY_LABEL="Caddy"
+    PROXY_PUBLIC_URL="https://${TARGET}"
+fi
 
 check() {
     local label="$1" cmd="$2" expect="${3:-0}"
@@ -58,32 +66,28 @@ echo ""
 echo "── 1. System Services ──"
 check "${APP_SLUG}-next service"   "systemctl is-active ${APP_SLUG}-next" 0
 check "${APP_SLUG}-ssh-ws service" "systemctl is-active ${APP_SLUG}-ssh-ws" 0
-if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
-    check "Caddy service"          "systemctl is-active caddy" 0
-else
-    check "Apache service"         "systemctl is-active apache2" 0
-fi
+check "${PROXY_LABEL} service"      "systemctl is-active ${PROXY_SERVICE}" 0
 check "PostgreSQL service"         "systemctl is-active postgresql" 0
 
 echo ""
 echo "── 2. Port Binding ──"
 check "Next.js on 127.0.0.1:${NEXT_PORT}"  "ss -tlnp | grep '127.0.0.1:${NEXT_PORT}'" 0
 check "SSH-WS on 127.0.0.1:${SSH_WS_PORT}"   "ss -tlnp | grep '127.0.0.1:${SSH_WS_PORT}'" 0
-check "Apache on *:80"             "ss -tlnp | grep ':80 '" 0
+check "${PROXY_LABEL} on *:80"       "ss -tlnp | grep ':80 '" 0
 
 echo ""
 echo "── 3. HTTP Response ──"
 check "Login page (localhost)"     "curl -sS -o /dev/null -w '%{http_code}' http://localhost:${NEXT_PORT}/login | grep 200" 0
-check "Login page (via Apache)"    "curl -sS -o /dev/null -w '%{http_code}' http://${TARGET}/login | grep 200" 0
-check "API /api/status"            "curl -sS http://${TARGET}/api/status | grep healthy" 0
-check "API auth blocks unauth"     "curl -sS http://${TARGET}/api/users | grep '未登录'" 0
-check "Root redirects to login"    "curl -sS -o /dev/null -w '%{http_code}' http://${TARGET}/ | grep 307" 0
+check "Login page (via ${PROXY_LABEL})" "curl -sS -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/login | grep 200" 0
+check "API /api/status"            "curl -sS ${PROXY_PUBLIC_URL}/api/status | grep healthy" 0
+check "API auth blocks unauth"     "curl -sS ${PROXY_PUBLIC_URL}/api/users | grep '未登录'" 0
+check "Root redirects to login"    "curl -sS -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/ | grep 307" 0
 
 echo ""
 echo "── 4. Static Assets ──"
-FIRST_JS="$(curl -sS http://${TARGET}/login | grep -oP '"/_next/static/chunks/[^"]*\.js"' | head -1 | tr -d '"')"
+FIRST_JS="$(curl -sS ${PROXY_PUBLIC_URL}/login | grep -oP '"/_next/static/chunks/[^"]*\.js"' | head -1 | tr -d '"')"
 if [ -n "${FIRST_JS}" ]; then
-    check "JS chunk ${FIRST_JS:0:40}..." "curl -sS -o /dev/null -w '%{http_code}' http://${TARGET}${FIRST_JS} | grep 200" 0
+    check "JS chunk ${FIRST_JS:0:40}..." "curl -sS -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}${FIRST_JS} | grep 200" 0
 else
     printf "  ⚠️  No JS chunks found in HTML\n"
 fi
@@ -91,7 +95,7 @@ fi
 echo ""
 echo "── 5. Security ──"
 check "No direct public Next.js access"      "ss -tlnp | grep '0.0.0.0:${NEXT_PORT}' ; echo missing" 0
-check "Security headers present"   "curl -sS -D- http://${TARGET}/login | grep X-Content-Type-Options" 0
+check "Security headers present"   "curl -sS -D- ${PROXY_PUBLIC_URL}/login | grep -i X-Content-Type-Options" 0
 
 echo ""
 echo "── 6. SSH-WS Proxy ──"

@@ -608,6 +608,37 @@ describe("deploy/install.sh", () => {
     expect(script).not.toContain("localhost:3000/login");
   });
 
+  it("labels reverse proxy smoke checks according to the active proxy service", async () => {
+    const script = await readFile(path.resolve(__dirname, "../smoke-test.sh"), "utf8");
+    expect(script).toContain('PROXY_SERVICE="caddy"');
+    expect(script).toContain('PROXY_LABEL="Caddy"');
+    expect(script).toContain('PROXY_PUBLIC_URL="https://${TARGET}"');
+    expect(script).toContain('PROXY_PUBLIC_URL="http://${TARGET}"');
+    expect(script).toContain('check "${PROXY_LABEL} on *:80"');
+    expect(script).toContain('check "Login page (via ${PROXY_LABEL})"');
+    expect(script).toContain('grep -i X-Content-Type-Options');
+    expect(script).not.toContain('Apache on *:80');
+    expect(script).not.toContain('Login page (via Apache)');
+  });
+
+  it("keeps fresh-install migrations aligned with mapped Prisma tables used by runtime pages", async () => {
+    const migration = await readFile(
+      path.resolve(__dirname, "../../prisma/migrations/20260526143000_align_fresh_install_schema/migration.sql"),
+      "utf8",
+    );
+
+    expect(migration).toContain('ALTER TABLE IF EXISTS "Server" RENAME TO "servers"');
+    expect(migration).toContain('ALTER TABLE IF EXISTS "DownloadTask" RENAME TO "download_tasks"');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS "quick_services"');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS "image_uploads"');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS "ai_hosted_actions"');
+    expect(migration).toContain('CREATE TABLE IF NOT EXISTS "server_file_proxies"');
+    expect(migration).toContain('"hostingEnabled" BOOLEAN NOT NULL DEFAULT false');
+    expect(migration).toContain('"toolCalls" TEXT NOT NULL DEFAULT');
+    expect(migration).toContain('ALTER TABLE IF EXISTS "app_sources" RENAME COLUMN "displayName" TO "display_name"');
+    expect(migration).toContain('ALTER TABLE IF EXISTS "app_source_apps" RENAME COLUMN "sourceId" TO "source_id"');
+  });
+
   it("can print saved first-install credentials without running the installer", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
