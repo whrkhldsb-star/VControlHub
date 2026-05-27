@@ -62,8 +62,8 @@ export function UserManagementClient() {
 	const fetchUsers = useCallback(async () => {
 		setLoadFailed(false);
 		try {
-			const data = await csrfFetch("/api/users") as { users: UserInfo[] };
-			setUsers(data.users);
+			const data = await csrfFetch("/api/users") as { users?: UserInfo[] } | UserInfo[];
+			setUsers(Array.isArray(data) ? data : (data.users ?? []));
 		} catch (err) {
 			setUsers([]);
 			setLoadFailed(true);

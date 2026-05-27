@@ -37,6 +37,16 @@ describe("UserManagementClient", () => {
     expect(screen.queryByText("暂无用户。")).not.toBeInTheDocument();
   });
 
+  it("accepts the public API array response shape without crashing", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue([user]);
+
+    render(<UserManagementClient />);
+
+    expect(await screen.findByText("Alice")).toBeInTheDocument();
+    expect(screen.getByText("@alice")).toBeInTheDocument();
+    expect(screen.queryByText("用户列表加载失败，请稍后重试。")).not.toBeInTheDocument();
+  });
+
   it("shows an error when disabling a user fails and keeps the user visible", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch)
