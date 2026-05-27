@@ -88,12 +88,15 @@ describe("ServersPage", () => {
 		expect(screen.getByRole("link", { name: "命令下发" })).toHaveAttribute("href", "/requests");
 		expect(screen.getAllByText("hk-prod-1").length).toBeGreaterThan(0);
 		expect(screen.getByRole("region", { name: "VPS 状态总览" })).toBeInTheDocument();
-		expect(screen.getAllByText("root@203.0.113.10:22，使用 SSH 密钥 prod-root-key 连接").length).toBeGreaterThan(0);
-		// "待审批：" and count are in separate spans; check the parent div contains both
-		expect(screen.getByText("待审批：")).toBeInTheDocument();
-		expect(screen.getByText("1", { selector: "span" })).toBeInTheDocument();
-		expect(screen.getByText("连接与状态")).toBeInTheDocument();
-		expect(screen.getByText("操作与资源")).toBeInTheDocument();
+		expect(screen.getByText("root@203.0.113.10:22")).toBeInTheDocument();
+		expect(screen.getByText("SSH 密钥")).toBeInTheDocument();
+		expect(screen.getByText("prod-root-key")).toBeInTheDocument();
+		expect(screen.getByText("待审批")).toBeInTheDocument();
+		expect(screen.getByText("1 条")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /查看详情/ })).toBeInTheDocument();
+		expect(screen.queryByText("连接与状态")).not.toBeInTheDocument();
+		expect(screen.queryByText("最近命令投递")).not.toBeInTheDocument();
+		expect(screen.queryByText("操作与资源")).not.toBeInTheDocument();
 		expect(screen.queryByText("节点操作")).not.toBeInTheDocument();
 		expect(screen.queryByText("关联资源")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("server-create-form")).not.toBeInTheDocument();
@@ -124,7 +127,8 @@ describe("ServersPage", () => {
 		render(await ServersPage());
 
 		expect(screen.getAllByText("local-node").length).toBeGreaterThan(0);
-		expect(screen.getByText("未绑定")).toBeInTheDocument();
+		expect(screen.queryByText("未绑定")).not.toBeInTheDocument();
 		expect(screen.getAllByText("未配置").length).toBeGreaterThan(0);
+		expect(screen.getByRole("button", { name: /查看详情/ })).toBeInTheDocument();
 	});
 });

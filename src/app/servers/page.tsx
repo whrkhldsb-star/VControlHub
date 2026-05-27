@@ -9,11 +9,10 @@ import { logError } from "@/lib/logging";
 
 import { getServerFormOptions } from "./actions";
 import { BatchServerActionPanel } from "./batch-server-action-panel";
-import { ServerCardActions } from "./server-card-actions";
 import { ServerCreateForm } from "./server-create-form";
 import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
-import { ServerMonitorCard } from "./server-monitor-card";
+import { ServerOverviewCard } from "./server-overview-card";
 
 export const dynamic = "force-dynamic";
 
@@ -80,106 +79,16 @@ export default async function ServersPage() {
 								<EmptyState text="暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。" />
 							) : (
 								servers.map((server) => (
-									<article key={server.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
-										<div className="flex items-start justify-between gap-3">
-											<div className="min-w-0">
-												<h2 className="truncate text-base font-semibold text-white">{server.name}</h2>
-												<p className="mt-1 truncate text-xs text-slate-500">{server.host}:{server.port} · {server.username}</p>
-											</div>
-											<StatusBadge enabled={server.enabled} />
-										</div>
-										<div className="mt-4 grid gap-2 text-xs text-slate-400">
-											<InfoRow label="连接" value={server.connectionTypeLabel} />
-											<InfoRow label="密钥" value={server.sshKey ? server.sshKey.name : "未配置"} />
-											<InfoRow label="直连" value={server.directGateway?.statusLabel ?? "网站中转"} />
-											<InfoRow label="待审批" value={`${server.pendingCommandCount} 条`} />
-										</div>
-										<p className="mt-3 truncate text-[11px] text-slate-600">{server.connectionSummary}</p>
-									</article>
+									<ServerOverviewCard
+										key={server.id}
+										server={server}
+										sessionToken={sessionToken}
+										canManageServers={canManageServers}
+										canUseSshTerminal={canUseSshTerminal}
+									/>
 								))
 							)}
 						</section>
-
-						{servers.length === 0 ? null : (
-							servers.map((server) => (
-								<article key={server.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors duration-150">
-									<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-										<div>
-											<div className="flex flex-wrap items-center gap-2.5">
-												<h2 className="text-lg font-semibold text-white">{server.name}</h2>
-												<StatusBadge enabled={server.enabled} />
-											</div>
-											<p className="mt-1.5 text-sm text-slate-400">{server.connectionSummary}</p>
-											{server.description && <p className="mt-0.5 text-xs text-slate-500">{server.description}</p>}
-										</div>
-										<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 text-sm">
-											<div className="text-slate-300">待审批：<span className="font-medium text-white">{server.pendingCommandCount}</span></div>
-											<div className="mt-0.5 text-xs text-slate-500">{server.connectionTypeLabel} · {server.statusLabel}</div>
-										</div>
-									</div>
-
-									<div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-										<div className="space-y-3">
-											<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-												<h3 className="text-sm font-medium text-white/80 mb-3">连接与状态</h3>
-												<div className="grid gap-2 text-sm">
-													<InfoRow label="连接方式" value={server.connectionTypeLabel} />
-													<InfoRow label="登录账号" value={server.username} />
-													<InfoRow label="地址" value={`${server.host}:${server.port}`} />
-													<InfoRow label="节点状态" value={server.statusLabel} />
-													<InfoRow label="SSH 密钥" value={server.sshKey ? server.sshKey.name : "未配置"} />
-												</div>
-												{server.sshKey && <p className="mt-2 truncate text-[11px] text-slate-600">指纹：{server.sshKey.fingerprint}</p>}
-												{(server.tags ?? []).length > 0 && (
-													<div className="mt-3 flex flex-wrap gap-1.5">
-														{(server.tags ?? []).map((tag: string) => (
-															<span key={tag} className="rounded-md bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 text-[11px] text-slate-400">#{tag}</span>
-														))}
-													</div>
-												)}
-											</section>
-
-											<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-												<h3 className="text-sm font-medium text-white/80 mb-3">最近命令投递</h3>
-												{server.latestCommands.length === 0 ? (
-													<p className="text-xs text-slate-500">暂无命令投递记录。</p>
-												) : (
-													<div className="space-y-2">
-														{server.latestCommands.map((command: { id: string; title: string; initiatedByType: string; requestStatus: string; targetStatus: string }) => (
-															<div key={command.id} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3">
-																<div className="flex items-center justify-between gap-2">
-																	<span className="text-sm font-medium text-white truncate">{command.title}</span>
-																	<span className="text-[11px] text-slate-500 shrink-0">{command.initiatedByType === "ASSISTANT" ? "助手" : "用户"}</span>
-																</div>
-																<div className="mt-1 text-[11px] text-slate-500">{command.requestStatus} · {command.targetStatus}</div>
-															</div>
-														))}
-													</div>
-												)}
-											</section>
-										</div>
-
-										<div className="space-y-3">
-											<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-												<h3 className="text-sm font-medium text-white/80 mb-3">操作与资源</h3>
-												<div className="space-y-2 text-sm">
-													<InfoRow label="关联存储" value={server.storageNode ? `${server.storageNode.name} · ${server.storageNode.basePath}` : "未绑定"} />
-													<InfoRow label="直连模式" value={server.directGateway?.statusLabel ?? "网站中转"} />
-													<InfoRow label="累计命令目标" value={String(server.targetCount)} />
-													<InfoRow label="连接摘要" value={server.connectionSummary} />
-													{(canManageServers || canUseSshTerminal) && <ServerCardActions serverId={server.id} serverName={server.name} host={server.host} port={server.port} enabled={server.enabled} sessionToken={sessionToken} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} directGateway={server.directGateway} />}
-												</div>
-											</section>
-
-
-											{server.enabled && (
-												<ServerMonitorCard serverId={server.id} serverName={server.name} />
-											)}
-										</div>
-									</div>
-								</article>
-							))
-						)}
 					</div>
 				}
 				createPanel={
@@ -202,24 +111,4 @@ export default async function ServersPage() {
 	);
 }
 
-function StatusBadge({ enabled }: { enabled: boolean }) {
-	return (
-		<span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
-			enabled
-				? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-				: "border-slate-400/20 bg-slate-400/10 text-slate-400"
-		}`}>
-			<div className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-emerald-400" : "bg-slate-500"}`} />
-			{enabled ? "已启用" : "已停用"}
-		</span>
-	);
-}
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="flex items-baseline gap-3">
-			<span className="w-[108px] shrink-0 text-xs text-slate-500">{label}</span>
-			<span className="text-sm text-white truncate">{value}</span>
-		</div>
-	);
-}
