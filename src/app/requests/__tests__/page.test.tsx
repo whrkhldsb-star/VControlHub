@@ -41,20 +41,63 @@ vi.mock("@/lib/command/service", () => ({
       latestApproval: null,
       latestLog: { id: "log_1", summary: "命令审批已通过，任务正在进入执行器队列。" },
     },
+    {
+      id: "cmd_2",
+      title: "Deploy app",
+      command: "deploy --prod",
+      reason: "Operator triggered release",
+      status: "PENDING_APPROVAL",
+      approvalStateLabel: "待审批",
+      isAssistantInitiated: false,
+      requester: { id: "u_2", username: "operator", displayName: "运维同事" },
+      targets: [
+        {
+          id: "target_2",
+          status: "PENDING_APPROVAL",
+          server: { id: "srv_2", name: "sg-app-1", host: "198.51.100.20", port: 22 },
+        },
+      ],
+      latestApproval: null,
+      latestLog: null,
+    },
+  ]),
+}));
+
+vi.mock("@/lib/ai/hosted-service", () => ({
+  getPendingActions: vi.fn().mockResolvedValue([
+    {
+      id: "ai_action_1",
+      actionName: "重启服务",
+      actionType: "restart_service",
+      riskLevel: "high",
+      status: "PENDING_APPROVAL",
+      params: { serviceName: "nginx" },
+      createdAt: new Date("2026-05-27T07:00:00Z"),
+      server: { id: "srv_1", name: "hk-prod-1", host: "203.0.113.10" },
+    },
   ]),
 }));
 
 import RequestsPage from "../page";
 
 describe("RequestsPage", () => {
-  it("renders command requests and approval form", async () => {
+  it("renders separate assistant authorization and user command approval flows", async () => {
     render(await RequestsPage());
 
-    expect(screen.getByText("命令请求与审批链路")).toBeInTheDocument();
+    expect(screen.getByText("AI 助手授权与用户命令审批")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AI 助手授权" })).toBeInTheDocument();
+    expect(screen.getByText("重启服务")).toBeInTheDocument();
+    expect(screen.getByText("需要你确认 AI 是否可以执行该高风险操作；只处理当前账号的 AI 托管请求。")).toBeInTheDocument();
+    expect(screen.getByText("restart_service")).toBeInTheDocument();
+
+    expect(screen.getByRole("heading", { name: "用户命令审批" })).toBeInTheDocument();
     expect(screen.getByText("Restart nginx")).toBeInTheDocument();
-    expect(screen.getAllByText("待审批")).toHaveLength(2);
+    expect(screen.getByText("Deploy app")).toBeInTheDocument();
+    expect(screen.getByText(/运维同事/)).toBeInTheDocument();
+    expect(screen.getByText("助手授权")).toBeInTheDocument();
+    expect(screen.getByText("用户审批")).toBeInTheDocument();
     expect(screen.getByText("hk-prod-1")).toBeInTheDocument();
     expect(screen.getByText("命令审批已通过，任务正在进入执行器队列。")).toBeInTheDocument();
-    expect(screen.getByTestId("review-command-form")).toHaveTextContent("审批表单：cmd_1");
+    expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
   });
 });
