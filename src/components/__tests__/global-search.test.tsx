@@ -2,7 +2,7 @@ import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { GlobalSearch } from "../global-search";
+import { GlobalSearch, getSearchItems } from "../global-search";
 
 const pushMock = vi.fn();
 
@@ -23,5 +23,20 @@ describe("GlobalSearch", () => {
 		await user.click(await screen.findByRole("button", { name: /快捷服务/ }));
 
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
+	});
+
+	it("routes health search results to the real health dashboard page", () => {
+		const healthItem = getSearchItems().find((item) => item.label === "健康看板");
+
+		expect(healthItem?.href).toBe("/health");
+	});
+
+	it("does not expose legacy or missing routes in the search catalog", () => {
+		const hrefs = getSearchItems().map((item) => item.href);
+
+		expect(hrefs).not.toContain("/system-health");
+		expect(hrefs).not.toContain("/quickservice");
+		expect(hrefs).not.toContain("/backup");
+		expect(hrefs).not.toContain("/ssh");
 	});
 });

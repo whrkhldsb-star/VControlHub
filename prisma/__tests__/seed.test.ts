@@ -138,10 +138,17 @@ describe("prisma seed", () => {
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith({
       where: { id: "node_local_default" },
       update: expect.objectContaining({
+        name: "本机默认存储",
         driver: "LOCAL",
         isDefault: true,
         basePath: "storage",
         serverId: null,
+        host: null,
+        port: null,
+        username: null,
+        publicBaseUrl: null,
+        directAccessMode: "PROXY",
+        directAccessExpiresSeconds: 300,
       }),
       create: expect.objectContaining({
         id: "node_local_default",
@@ -150,6 +157,12 @@ describe("prisma seed", () => {
         isDefault: true,
         basePath: "storage",
         serverId: null,
+        host: null,
+        port: null,
+        username: null,
+        publicBaseUrl: null,
+        directAccessMode: "PROXY",
+        directAccessExpiresSeconds: 300,
       }),
     });
     expect(mockPrisma.commandRequest.upsert).not.toHaveBeenCalled();

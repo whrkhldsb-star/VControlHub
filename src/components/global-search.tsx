@@ -14,8 +14,9 @@ export interface SearchItem {
 const searchItems: SearchItem[] = [
 	{ label: "仪表盘", href: "/", icon: "📊", category: "页面" },
 	{ label: "服务器管理", href: "/servers", icon: "🖥️", category: "页面" },
-	{ label: "文件管理", href: "/storage", icon: "📁", category: "页面" },
+	{ label: "文件管理", href: "/files", icon: "📁", category: "页面", keywords: ["storage", "存储", "云盘"] },
 	{ label: "下载站", href: "/downloads", icon: "📥", category: "页面" },
+	{ label: "健康看板", href: "/health", icon: "💚", category: "页面", keywords: ["系统自检", "系统健康", "health", "system health"] },
 	{ label: "用户管理", href: "/users", icon: "👥", category: "页面" },
 	{ label: "审计日志", href: "/audit", icon: "📋", category: "页面" },
 	{ label: "Docker 容器", href: "/docker", icon: "🐳", category: "页面" },
