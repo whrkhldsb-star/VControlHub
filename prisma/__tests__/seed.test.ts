@@ -28,6 +28,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
     },
     storageNode: {
+      findFirst: vi.fn(),
       upsert: vi.fn(),
     },
     commandRequest: {
@@ -114,6 +115,7 @@ beforeEach(() => {
   mockPrisma.user.upsert.mockResolvedValue({ id: "user_admin" });
   mockPrisma.userRole.upsert.mockResolvedValue({});
   mockPrisma.server.upsert.mockResolvedValue({ id: "srv_demo" });
+  mockPrisma.storageNode.findFirst.mockResolvedValue(null);
   mockPrisma.storageNode.upsert.mockResolvedValue({ id: "node_demo" });
   mockPrisma.commandRequest.upsert.mockResolvedValue({ id: "cmd_demo" });
 });
@@ -133,7 +135,23 @@ describe("prisma seed", () => {
     expect(mockPrisma.rolePermission.createMany).toHaveBeenCalled();
     expect(mockPrisma.user.upsert).toHaveBeenCalled();
     expect(mockPrisma.server.upsert).not.toHaveBeenCalled();
-    expect(mockPrisma.storageNode.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith({
+      where: { id: "node_local_default" },
+      update: expect.objectContaining({
+        driver: "LOCAL",
+        isDefault: true,
+        basePath: "storage",
+        serverId: null,
+      }),
+      create: expect.objectContaining({
+        id: "node_local_default",
+        name: "本机默认存储",
+        driver: "LOCAL",
+        isDefault: true,
+        basePath: "storage",
+        serverId: null,
+      }),
+    });
     expect(mockPrisma.commandRequest.upsert).not.toHaveBeenCalled();
   });
 
@@ -146,5 +164,19 @@ describe("prisma seed", () => {
     expect(mockPrisma.server.upsert).toHaveBeenCalled();
     expect(mockPrisma.storageNode.upsert).toHaveBeenCalled();
     expect(mockPrisma.commandRequest.upsert).toHaveBeenCalled();
+  });
+
+  it("does not take over the default flag from an existing storage node", async () => {
+    mockPrisma.storageNode.findFirst.mockResolvedValue({ id: "node_existing_default" });
+    const { seedDatabase } = await loadSeedModule();
+
+    await seedDatabase();
+
+    expect(mockPrisma.storageNode.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ isDefault: false }),
+        create: expect.objectContaining({ isDefault: false }),
+      }),
+    );
   });
 });

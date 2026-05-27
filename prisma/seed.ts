@@ -181,6 +181,47 @@ async function seedAdmin() {
   seedLog("seedAdmin:done");
 }
 
+async function seedDefaultLocalStorageNode() {
+  const basePath = process.env.STORAGE_ROOT?.trim() || "storage";
+  const existingDefaultNode = await prisma.storageNode.findFirst({
+    where: { isDefault: true },
+    select: { id: true },
+  });
+  const shouldBecomeDefault = !existingDefaultNode || existingDefaultNode.id === "node_local_default";
+  seedLog("seedDefaultLocalStorageNode:start");
+  await prisma.storageNode.upsert({
+    where: { id: "node_local_default" },
+    update: {
+      name: "本机默认存储",
+      driver: "LOCAL",
+      isDefault: shouldBecomeDefault,
+      basePath,
+      serverId: null,
+      host: null,
+      port: null,
+      username: null,
+      directAccessMode: "PROXY",
+      publicBaseUrl: null,
+      directAccessExpiresSeconds: 300,
+    },
+    create: {
+      id: "node_local_default",
+      name: "本机默认存储",
+      driver: "LOCAL",
+      isDefault: shouldBecomeDefault,
+      basePath,
+      serverId: null,
+      host: null,
+      port: null,
+      username: null,
+      directAccessMode: "PROXY",
+      publicBaseUrl: null,
+      directAccessExpiresSeconds: 300,
+    },
+  });
+  seedLog("seedDefaultLocalStorageNode:done");
+}
+
 function shouldSeedDemoData() {
   return process.env.SEED_DEMO_DATA === "true" || process.env.DEMO_MODE === "true";
 }
@@ -271,6 +312,7 @@ export async function seedDatabase() {
 	await seedPermissions();
   await seedRoles();
   await seedAdmin();
+  await seedDefaultLocalStorageNode();
   if (shouldSeedDemoData()) {
     seedLog("seedDemoData:start");
     await seedDemoData();
