@@ -28,6 +28,12 @@ export async function GET(request: Request) {
       name: node.name,
       driver: node.driver,
       basePath: node.basePath,
+      ...(node.driver === "SFTP"
+        ? {
+            serverId: node.serverId ?? null,
+            serverName: node.server?.name ?? null,
+          }
+        : {}),
     }));
 
   return NextResponse.json({ nodes });
