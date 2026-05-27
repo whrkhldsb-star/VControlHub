@@ -85,8 +85,8 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest): NextR
 			"Content-Security-Policy",
 			[
 				"default-src 'self'",
-				"script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js needs unsafe-inline/eval
-				"style-src 'self' 'unsafe-inline'", // Tailwind needs unsafe-inline
+				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net", // Next.js needs unsafe-inline/eval; API docs embed Scalar from jsDelivr
+				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net", // Tailwind needs unsafe-inline; Scalar docs CSS is loaded from jsDelivr
 				"img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
 				"font-src 'self' data:",
 				"connect-src 'self' ws: wss:", // WebSocket for SSH terminal

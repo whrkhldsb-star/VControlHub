@@ -1,5 +1,13 @@
 import { AuditSeverity, ActorType, Prisma } from "@prisma/client";
 
+const ACTOR_TYPE_VALUES = new Set<ActorType>(["USER", "ASSISTANT", "SYSTEM"]);
+
+function normalizeActorTypeSearch(search: string): ActorType | null {
+	const normalized = search.trim().toUpperCase();
+	return ACTOR_TYPE_VALUES.has(normalized as ActorType) ? (normalized as ActorType) : null;
+}
+
+
 import { prisma } from "@/lib/db";
 
 // Prisma 7 Json type compatibility — must be JSON-serializable values only
@@ -68,9 +76,8 @@ export async function listAuditLogs(
 	if (input.severity) where.severity = input.severity;
 	if (input.actorId) where.actorId = input.actorId;
 	if (input.search) {
-		where.OR = [
+		const searchClauses: Record<string, unknown>[] = [
 			{ action: { contains: input.search, mode: "insensitive" } },
-			{ actorType: { contains: input.search, mode: "insensitive" } },
 			{
 				actor: {
 					is: {
@@ -82,6 +89,13 @@ export async function listAuditLogs(
 				},
 			},
 		];
+
+		const actorType = normalizeActorTypeSearch(input.search);
+		if (actorType) {
+			searchClauses.push({ actorType });
+		}
+
+		where.OR = searchClauses;
 	}
 
  const [logs, total] = await Promise.all([

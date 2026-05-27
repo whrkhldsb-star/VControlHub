@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
@@ -10,6 +10,24 @@ function makeRequest(pathname: string, init: NextRequestInit = {}) {
 }
 
 describe("proxy auth guard", () => {
+  it("allows the Scalar CDN required by the API docs page", () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    vi.stubEnv("NODE_ENV", "production");
+
+    const response = proxy(
+      makeRequest("/api-docs", {
+        headers: { cookie: "whrkhldsb_session=header.payload.signature-value" },
+      }),
+    );
+
+    const csp = response.headers.get("Content-Security-Policy");
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net");
+
+    if (originalNodeEnv === undefined) vi.unstubAllEnvs();
+    else vi.stubEnv("NODE_ENV", originalNodeEnv);
+  });
+
   it("redirects anonymous page requests to login with the original path", () => {
     const response = proxy(makeRequest("/servers"));
 
