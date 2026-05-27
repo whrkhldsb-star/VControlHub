@@ -69,6 +69,7 @@ export function AiSidebar({
                     e.stopPropagation();
                     onDeleteConv(conv.id);
                   }}
+                  aria-label={`删除对话 ${conv.title}`}
                   className="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 transition"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -181,7 +181,13 @@ export function AiProviderPanel({
                     >
                       编辑
                     </button>
-                    <button onClick={() => onDeleteProvider(p.id)} className="text-xs text-red-400/60 hover:text-red-400 transition">删除</button>
+                    <button
+                      onClick={() => onDeleteProvider(p.id)}
+                      className="text-xs text-red-400/60 hover:text-red-400 transition"
+                      aria-label={`删除提供商 ${p.name}`}
+                    >
+                      删除
+                    </button>
                   </div>
                 </div>
               ))}

@@ -10,6 +10,7 @@ import { AiSidebar } from "./ai-sidebar";
 import { AiChatHeader } from "./ai-chat-header";
 import { AiSettingsPanel } from "./ai-settings-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
+import { AiConfirmDialog } from "./ai-confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -44,6 +45,14 @@ export function AiClient({
  const [pendingApprovals, setPendingApprovals] = useState<ToolApprovalNeeded[]>([]);
  const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+ const [confirmAction, setConfirmAction] = useState<
+   | { type: "delete-conversation"; id: string; title: string }
+   | { type: "delete-provider"; id: string; name: string }
+   | { type: "clear-messages" }
+   | null
+ >(null);
+ const [confirmError, setConfirmError] = useState<string | null>(null);
+ const [confirmBusy, setConfirmBusy] = useState(false);
  const messagesEndRef = useRef<HTMLDivElement | null>(null);
  const fileInputRef = useRef<HTMLInputElement | null>(null);
  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -505,11 +514,10 @@ if (data.conversation) {
   }, [refreshConversations]);
 
   /* ── Delete Conversation ──────────────────────────────────── */
-  const handleDeleteConv = async (id: string) => {
-    if (!confirm("确定删除此对话？")) return;
-    await csrfFetch(`/api/ai/conversations/${id}`, { method: "DELETE" });
-    if (activeConvId === id) setActiveConvId(null);
-    refreshConversations();
+  const handleDeleteConv = (id: string) => {
+    const target = conversations.find((conv) => conv.id === id);
+    setConfirmError(null);
+    setConfirmAction({ type: "delete-conversation", id, title: target?.title ?? "该对话" });
   };
 
   /* ── Provider Form State ────────────────────────────────────── */
@@ -549,12 +557,78 @@ if (data.conversation) {
     }
   };
 
-  const handleDeleteProvider = async (id: string) => {
-    if (!confirm("确定删除此提供商？关联的对话也会被删除。")) return;
-    await csrfFetch(`/api/ai/providers/${id}`, { method: "DELETE" });
-    if (activeConv?.providerId === id) setActiveConvId(null);
-    refreshProviders();
-    refreshConversations();
+  const handleDeleteProvider = (id: string) => {
+    const target = providers.find((provider) => provider.id === id);
+    setConfirmError(null);
+    setConfirmAction({ type: "delete-provider", id, name: target?.name ?? "该提供商" });
+  };
+
+  const confirmDialogCopy = (() => {
+    if (!confirmAction) return null;
+    if (confirmAction.type === "delete-conversation") {
+      return {
+        title: "删除对话",
+        confirmLabel: "确认删除",
+        description: (
+          <>
+            确定删除对话 <span className="font-medium text-white">{confirmAction.title}</span> 吗？此操作不可恢复。
+          </>
+        ),
+      };
+    }
+    if (confirmAction.type === "delete-provider") {
+      return {
+        title: "删除提供商",
+        confirmLabel: "确认删除",
+        description: (
+          <>
+            确定删除提供商 <span className="font-medium text-white">{confirmAction.name}</span> 吗？关联的对话也会被删除。
+          </>
+        ),
+      };
+    }
+    return {
+      title: "清空对话消息",
+      confirmLabel: "确认清空",
+      description: "确定清空此对话的所有消息吗？此操作不可恢复。",
+    };
+  })();
+
+  const closeConfirmDialog = () => {
+    if (confirmBusy) return;
+    setConfirmAction(null);
+    setConfirmError(null);
+  };
+
+  const runConfirmedAction = async () => {
+    if (!confirmAction) return;
+    setConfirmBusy(true);
+    setConfirmError(null);
+    try {
+      if (confirmAction.type === "delete-conversation") {
+        await csrfFetch(`/api/ai/conversations/${confirmAction.id}`, { method: "DELETE" });
+        if (activeConvId === confirmAction.id) setActiveConvId(null);
+        await refreshConversations();
+      } else if (confirmAction.type === "delete-provider") {
+        await csrfFetch(`/api/ai/providers/${confirmAction.id}`, { method: "DELETE" });
+        if (activeConv?.providerId === confirmAction.id) setActiveConvId(null);
+        await refreshProviders();
+        await refreshConversations();
+      } else if (activeConvId) {
+        await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clearMessages: true }),
+        });
+        setMessages([]);
+      }
+      setConfirmAction(null);
+    } catch (e: unknown) {
+      const fallback = confirmAction.type === "clear-messages" ? "清空失败" : "删除失败";
+      setConfirmError(e instanceof Error ? e.message : fallback);
+    } finally {
+      setConfirmBusy(false);
+    }
   };
 
   /* ── Settings Update ───────────────────────────────────────── */
@@ -594,7 +668,18 @@ if (data.conversation) {
 
 	return (
     <div className="flex h-[calc(100vh-0px)] overflow-hidden">
-      {/* ── Left Sidebar: Conversation List ───────────────────── */}
+      {confirmDialogCopy && (
+        <AiConfirmDialog
+          open
+          title={confirmDialogCopy.title}
+          description={confirmDialogCopy.description}
+          confirmLabel={confirmDialogCopy.confirmLabel}
+          error={confirmError}
+          busy={confirmBusy}
+          onCancel={closeConfirmDialog}
+          onConfirm={runConfirmedAction}
+        />
+      )}
       <AiSidebar
         showSidebar={showSidebar}
         conversations={conversations}
@@ -616,16 +701,9 @@ if (data.conversation) {
           currentModelCaps={currentModelCaps}
           onToggleSidebar={() => setShowSidebar(true)}
           onToggleSettings={() => setShowSettings(!showSettings)}
-          onClearMessages={async () => {
-            if (!confirm("确定清空此对话的所有消息？此操作不可恢复。")) return;
-            try {
-              await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ clearMessages: true }),
-              });
-              setMessages([]);
-            } catch { /* ignore */ }
+          onClearMessages={() => {
+            setConfirmError(null);
+            setConfirmAction({ type: "clear-messages" });
           }}
           onRenameConv={() => {
             const title = prompt("修改对话标题", activeConv.title);
