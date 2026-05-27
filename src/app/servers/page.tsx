@@ -67,27 +67,40 @@ export default async function ServersPage() {
 				<StatCard label="启用节点" value={String(enabledCount)} accent={enabledCount > 0} />
 				<StatCard label="已绑定存储" value={String(storageCount)} accent={storageCount > 0} />
 			</section>
-
-			{canManageServers && servers.length > 0 && (
-				<BatchServerActionPanel servers={servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }))} enabledCount={enabledServers.length} />
-			)}
-
 			<section className="mb-4 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4">
-				<h2 className="text-sm font-medium text-cyan-100">VPS 与 SSH 密钥</h2>
-				<p className="mt-1 text-xs text-slate-400">本页只保留节点增删改、SSH 密钥录入、直连网关和实时状态；命令下发请走审批中心。</p>
+				<h2 className="text-sm font-medium text-cyan-100">VPS 状态优先</h2>
+				<p className="mt-1 text-xs text-slate-400">默认先展示各 VPS 的启用状态、连接方式、密钥绑定、直连模式和待审批命令；添加 VPS、添加密钥、批量操作已收入口到快捷操作区。</p>
 			</section>
 
 			<ServerTabLayout
 				nodesPanel={
 					<div className="space-y-4">
-						{canManageServers && (
-							<div className="mb-6">
-								<ServerCreateForm sshKeys={formOptions.sshKeys} />
-							</div>
-						)}
-						{servers.length === 0 ? (
-							<EmptyState text="暂无已纳管 VPS。点击上方表单录入 SSH 密钥、IP 与端口完成纳管。" />
-						) : (
+						<section aria-label="VPS 状态总览" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+							{servers.length === 0 ? (
+								<EmptyState text="暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。" />
+							) : (
+								servers.map((server) => (
+									<article key={server.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+										<div className="flex items-start justify-between gap-3">
+											<div className="min-w-0">
+												<h2 className="truncate text-base font-semibold text-white">{server.name}</h2>
+												<p className="mt-1 truncate text-xs text-slate-500">{server.host}:{server.port} · {server.username}</p>
+											</div>
+											<StatusBadge enabled={server.enabled} />
+										</div>
+										<div className="mt-4 grid gap-2 text-xs text-slate-400">
+											<InfoRow label="连接" value={server.connectionTypeLabel} />
+											<InfoRow label="密钥" value={server.sshKey ? server.sshKey.name : "未配置"} />
+											<InfoRow label="直连" value={server.directGateway?.statusLabel ?? "网站中转"} />
+											<InfoRow label="待审批" value={`${server.pendingCommandCount} 条`} />
+										</div>
+										<p className="mt-3 truncate text-[11px] text-slate-600">{server.connectionSummary}</p>
+									</article>
+								))
+							)}
+						</section>
+
+						{servers.length === 0 ? null : (
 							servers.map((server) => (
 								<article key={server.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors duration-150">
 									<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -169,10 +182,20 @@ export default async function ServersPage() {
 						)}
 					</div>
 				}
+				createPanel={
+					canManageServers ? <ServerCreateForm sshKeys={formOptions.sshKeys} /> : <EmptyState text="当前角色无节点纳管权限。" />
+				}
 				sshKeysPanel={
 					<div>
 						{canManageServers ? <SshKeyCreateForm /> : <EmptyState text="当前角色无节点纳管权限。" />}
 					</div>
+				}
+				batchPanel={
+					canManageServers && servers.length > 0 ? (
+						<BatchServerActionPanel servers={servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }))} enabledCount={enabledServers.length} />
+					) : (
+						<EmptyState text="暂无可批量操作的 VPS。" />
+					)
 				}
 			/>
 		</PageShell>
