@@ -83,6 +83,9 @@ describe("ServersPage", () => {
 		render(await ServersPage());
 
 		expect(screen.getByRole("heading", { name: "VPS 管理" })).toBeInTheDocument();
+		expect(screen.getByText("VPS 与 SSH 密钥")).toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: "命令下发" })).not.toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "命令下发" })).toHaveAttribute("href", "/requests");
 		expect(screen.getAllByText("hk-prod-1").length).toBeGreaterThan(0);
 		// "待审批：" and count are in separate spans; check the parent div contains both
 		expect(screen.getByText("待审批：")).toBeInTheDocument();

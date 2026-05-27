@@ -9,7 +9,6 @@ import { ChangePasswordModal } from "./change-password-modal";
 import { NotificationBell } from "./notification-bell";
 import { ThemeToggle } from "./theme-toggle";
 import { LanguageToggle } from "./language-toggle";
-import { TwoFactorSettings } from "./two-factor-settings";
 
 /* ── SVG Icons ──────────────────────────────────────────────── */
 const IconDashboard = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z" /></svg>;
@@ -85,11 +84,10 @@ interface QuickServiceLink {
 	path: string;
 }
 
-export function AppSidebar({ username, quickServices = [], twoFactorEnabled = false }: { username?: string; quickServices?: QuickServiceLink[]; twoFactorEnabled?: boolean }) {
+export function AppSidebar({ username, quickServices = [] }: { username?: string; quickServices?: QuickServiceLink[] }) {
 	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-	const [twoFactorOpen, setTwoFactorOpen] = useState(false);
 
 	// 登录页不显示侧栏
 	if (pathname === "/login") return null;
@@ -201,16 +199,14 @@ export function AppSidebar({ username, quickServices = [], twoFactorEnabled = fa
 					<IconKey />
 					<span>修改密码</span>
 				</button>
-				<button
-					onClick={() => {
-						setTwoFactorOpen(true);
-						setMobileOpen(false);
-					}}
+				<Link
+					href="/settings"
+					onClick={() => setMobileOpen(false)}
 					className="w-full flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 transition-all duration-150"
 				>
 					<IconShield />
 					<span>两步验证</span>
-				</button>
+				</Link>
 				<div className="px-2 py-1">
 					<SignOutButton />
 				</div>
@@ -258,21 +254,6 @@ export function AppSidebar({ username, quickServices = [], twoFactorEnabled = fa
 				open={passwordModalOpen}
 				onClose={() => setPasswordModalOpen(false)}
 			/>
-
-			{/* Two-Factor Auth Modal */}
-			{twoFactorOpen && (
-				<div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setTwoFactorOpen(false)}>
-					<div className="w-full max-w-md mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-						<div className="flex items-center justify-between mb-4">
-							<h2 className="text-base font-semibold text-white">安全设置</h2>
-							<button onClick={() => setTwoFactorOpen(false)} className="text-slate-500 hover:text-slate-300 transition">
-								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-							</button>
-						</div>
-						<TwoFactorSettings enabled={twoFactorEnabled} />
-					</div>
-				</div>
-			)}
 		</>
 	);
 }

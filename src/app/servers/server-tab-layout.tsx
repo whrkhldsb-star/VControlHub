@@ -2,29 +2,25 @@
 
 import { useState } from "react";
 
-type TabKey = "nodes" | "sshkeys" | "commands";
+type TabKey = "nodes" | "sshkeys";
 
 const tabs: { key: TabKey; label: string }[] = [
-	{ key: "nodes", label: "节点列表" },
+	{ key: "nodes", label: "VPS 节点" },
 	{ key: "sshkeys", label: "SSH 密钥" },
-	{ key: "commands", label: "命令下发" },
 ];
 
 export function ServerTabLayout({
 	nodesPanel,
 	sshKeysPanel,
-	commandsPanel,
 }: {
 	nodesPanel: React.ReactNode;
 	sshKeysPanel: React.ReactNode;
-	commandsPanel: React.ReactNode;
 }) {
 	const [activeTab, setActiveTab] = useState<TabKey>("nodes");
 
 	const panels: Record<TabKey, React.ReactNode> = {
 		nodes: nodesPanel,
 		sshkeys: sshKeysPanel,
-		commands: commandsPanel,
 	};
 
 	return (

@@ -2,13 +2,15 @@
 
 import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { TwoFactorSettings } from "@/components/two-factor-settings";
 
 type Props = {
 	settings: Record<string, string>;
 	canManage: boolean;
+	twoFactorEnabled?: boolean;
 };
 
-export function SettingsClient({ settings: initialSettings, canManage }: Props) {
+export function SettingsClient({ settings: initialSettings, canManage, twoFactorEnabled = false }: Props) {
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
@@ -58,6 +60,15 @@ export function SettingsClient({ settings: initialSettings, canManage }: Props) 
 			{saved && (
 				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">✓ 设置已保存</div>
 			)}
+
+			{/* Account security */}
+			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+				<div>
+					<h2 className="text-lg font-semibold text-white flex items-center gap-2">🛡️ 账户安全</h2>
+					<p className="mt-1 text-xs text-slate-500">当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。</p>
+				</div>
+				<TwoFactorSettings enabled={twoFactorEnabled} />
+			</section>
 
 			{/* Platform */}
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">

@@ -41,4 +41,12 @@ describe("SettingsClient", () => {
 		expect(await screen.findByText("权限不足")).toBeInTheDocument();
 		expect(screen.queryByText("✓ 设置已保存")).not.toBeInTheDocument();
 	});
+
+	it("hosts account two-factor controls in system settings", () => {
+		render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
+
+		expect(screen.getByRole("heading", { name: /账户安全/ })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /两步验证 \(2FA\)/ })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeInTheDocument();
+	});
 });

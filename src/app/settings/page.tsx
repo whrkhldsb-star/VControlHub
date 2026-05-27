@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getAllSettings } from "@/lib/settings/service";
+import { prisma } from "@/lib/db";
 
 import { SettingsClient } from "./settings-client";
 import { PageShell } from "@/components/page-shell";
@@ -12,6 +13,11 @@ export default async function SettingsPage() {
 	const canManage = sessionHasPermission(session, "user:manage");
 
 	const settings = canManage ? await getAllSettings() : {};
+	const userSecurity = await prisma.user.findUnique({
+		where: { id: session.userId },
+		select: { twoFactorEnabled: true },
+	});
+	const twoFactorEnabled = userSecurity?.twoFactorEnabled ?? false;
 
 	return (
 		<PageShell maxW="max-w-7xl">
@@ -21,7 +27,7 @@ export default async function SettingsPage() {
 						配置平台名称、安全策略、邮件通知等全局参数
 					</p>
 				</header>
-				<SettingsClient settings={settings} canManage={canManage} />
+				<SettingsClient settings={settings} canManage={canManage} twoFactorEnabled={twoFactorEnabled} />
 		</PageShell>
 	);
 }

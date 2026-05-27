@@ -9,7 +9,6 @@ import { logError } from "@/lib/logging";
 
 import { getServerFormOptions } from "./actions";
 import { BatchServerActionPanel } from "./batch-server-action-panel";
-import { CommandCreateForm } from "./command-create-form";
 import { ServerCardActions } from "./server-card-actions";
 import { ServerCreateForm } from "./server-create-form";
 import { SshKeyCreateForm } from "./ssh-key-create-form";
@@ -22,7 +21,6 @@ export default async function ServersPage() {
 	const session = await requireSession("/servers");
 	const canManageServers = sessionHasPermission(session, "server:write");
 	const canUseSshTerminal = sessionHasPermission(session, "server:ssh");
-	const canCreateCommand = sessionHasPermission(session, "command:create");
 	const cookieStore = await cookies();
 	const sessionToken = cookieStore.get(getSessionCookieName())?.value ?? "";
 	let servers, formOptions;
@@ -47,10 +45,13 @@ export default async function ServersPage() {
 					<div>
 						<h1 className="text-3xl font-semibold tracking-tight text-white">VPS 管理</h1>
 						<p className="mt-1.5 text-sm text-slate-500">
-							通过 SSH 密钥 + IP + 端口纳管节点，支持命令分发、SFTP 存储绑定与审计追踪。
+							聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。
 						</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2">
+						<Link href="/requests" className="rounded-lg border border-cyan-400/20 bg-cyan-400/10 px-3.5 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/15">
+							命令下发
+						</Link>
 						<Link href="/audit" className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-slate-200 transition hover:bg-white/[0.06]">
 							查看审计日志
 						</Link>
@@ -70,6 +71,11 @@ export default async function ServersPage() {
 			{canManageServers && servers.length > 0 && (
 				<BatchServerActionPanel servers={servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }))} enabledCount={enabledServers.length} />
 			)}
+
+			<section className="mb-4 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4">
+				<h2 className="text-sm font-medium text-cyan-100">VPS 与 SSH 密钥</h2>
+				<p className="mt-1 text-xs text-slate-400">本页只保留节点增删改、SSH 密钥录入、直连网关和实时状态；命令下发请走审批中心。</p>
+			</section>
 
 			<ServerTabLayout
 				nodesPanel={
@@ -166,15 +172,6 @@ export default async function ServersPage() {
 				sshKeysPanel={
 					<div>
 						{canManageServers ? <SshKeyCreateForm /> : <EmptyState text="当前角色无节点纳管权限。" />}
-					</div>
-				}
-				commandsPanel={
-					<div>
-						{canCreateCommand ? (
-							<CommandCreateForm servers={servers.map((server) => ({ id: server.id, name: server.name, host: server.host, enabled: server.enabled }))} />
-						) : (
-							<EmptyState text="当前角色无命令下发权限。" />
-						)}
 					</div>
 				}
 			/>

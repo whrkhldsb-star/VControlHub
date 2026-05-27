@@ -29,6 +29,10 @@ export default async function Home() {
 
 	const pendingCount = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
 	const recentRequests = requests.slice(0, 5);
+	const enabledServers = servers.filter((s) => s.enabled);
+	const disabledServers = servers.filter((s) => !s.enabled);
+	const sshKeyServers = servers.filter((s) => s.sshKey);
+	const directGatewayCount = servers.filter((s) => s.directGateway?.enabled).length;
 
 	const dlRunning = downloadStats.find((d) => d.status === "RUNNING")?._count ?? 0;
 	const dlCompleted = downloadStats.find((d) => d.status === "COMPLETED")?._count ?? 0;
@@ -41,6 +45,28 @@ export default async function Home() {
 					<h1 className="text-3xl font-semibold tracking-tight text-white">仪表盘</h1>
 					<p className="mt-1.5 text-sm text-slate-500">当前用户：{session.username}</p>
 				</header>
+
+				{/* VPS hero */}
+				<section className="mb-8 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-5">
+					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+						<div>
+							<p className="text-xs uppercase tracking-[0.22em] text-cyan-300/70">VPS 状态总览</p>
+							<h2 className="mt-2 text-2xl font-semibold text-white">{enabledServers.length} 台在线 VPS</h2>
+							<p className="mt-1 text-sm text-slate-400">
+								共 {servers.length} 台纳管节点，{sshKeyServers.length} 台绑定 SSH 密钥，{directGatewayCount} 台直连网关在线。
+							</p>
+						</div>
+						<Link href="/servers" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15">
+							管理 VPS 与密钥 →
+						</Link>
+					</div>
+					<div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+						<StatCard label="在线 VPS" value={String(enabledServers.length)} accent={enabledServers.length > 0} accentColor="cyan" />
+						<StatCard label="离线/停用" value={String(disabledServers.length)} accent={disabledServers.length > 0} accentColor="amber" />
+						<StatCard label="SSH 密钥绑定" value={`${sshKeyServers.length}/${servers.length}`} accent={sshKeyServers.length > 0} />
+						<StatCard label="Direct Gateway" value={String(directGatewayCount)} accent={directGatewayCount > 0} accentColor="cyan" />
+					</div>
+				</section>
 
 				{/* Stats Cards - grouped overview */}
 				<section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">

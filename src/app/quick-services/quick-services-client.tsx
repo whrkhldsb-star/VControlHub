@@ -97,6 +97,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	// Install dialog state
 	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
 	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string } | null>(null);
+	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<{ available: boolean; usedBy: string | null; checking: boolean } | null>(null);
 	// Sync state
@@ -285,10 +286,15 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		}
 	};
 
-	const doDeleteSource = async (sourceId: string) => {
-		if (!confirm("确定要删除此源？其所有应用数据将一并删除。")) return;
+	const requestDeleteSource = (source: AppSource) => {
+		setPendingSourceDelete({ id: source.id, displayName: source.displayName });
+	};
+
+	const doDeleteSource = async () => {
+		if (!pendingSourceDelete) return;
 		try {
-			await csrfFetch(`/api/app-sources?sourceId=${sourceId}`, { method: "DELETE" });
+			await csrfFetch(`/api/app-sources?sourceId=${pendingSourceDelete.id}`, { method: "DELETE" });
+			setPendingSourceDelete(null);
 			setMessage({ type: "ok", text: "源已删除" });
 			fetchSources();
 			fetchCatalog();
@@ -636,7 +642,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									{src.enabled ? "禁用" : "启用"}
 								</button>
 								<button
-									onClick={() => doDeleteSource(src.id)}
+									onClick={() => requestDeleteSource(src)}
 									className="ml-auto rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/[0.08] transition"
 								>
 									删除
@@ -793,6 +799,31 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							</button>
 							<button type="button" onClick={doUninstall} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
 								确认卸载
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{pendingSourceDelete && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPendingSourceDelete(null)}>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-label="确认删除应用源"
+						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h3 className="text-lg font-semibold text-white mb-2">确认删除应用源</h3>
+						<p className="text-sm leading-6 text-slate-300">
+							将删除 <span className="font-semibold text-white">{pendingSourceDelete.displayName}</span>，其同步来的所有应用数据也会一并移除。
+						</p>
+						<div className="mt-6 flex items-center justify-end gap-3">
+							<button type="button" onClick={() => setPendingSourceDelete(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+								取消
+							</button>
+							<button type="button" onClick={doDeleteSource} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
+								确认删除
 							</button>
 						</div>
 					</div>
