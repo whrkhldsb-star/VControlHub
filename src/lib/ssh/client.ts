@@ -196,21 +196,21 @@ readStream.on("error", (readErr: Error) => {
 }
 
 export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer }): Promise<void> {
- const config = createSshConfig(input);
- const client = await connectSsh(config);
- try {
- await new Promise<void>((resolve, reject) => {
- client.sftp((err, sftp) => {
- if (err) return reject(err);
- const writeStream = sftp.createWriteStream(input.remotePath);
- writeStream.on("close", () => resolve());
- writeStream.on("error", (writeErr: Error) => reject(writeErr));
- writeStream.end(input.content);
- });
- });
- } finally {
- client.end();
- }
+  const config = createSshConfig(input);
+  const client = await connectSsh(config);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      client.sftp((err, sftp) => {
+        if (err) return reject(err);
+        const writeStream = sftp.createWriteStream(input.remotePath);
+        writeStream.on("close", () => resolve());
+        writeStream.on("error", (writeErr: Error) => reject(writeErr));
+        writeStream.end(input.content);
+      });
+    });
+  } finally {
+    client.end();
+  }
 }
 
 /** Execute a command on a remote server via SSH and return stdout/stderr/exit code */

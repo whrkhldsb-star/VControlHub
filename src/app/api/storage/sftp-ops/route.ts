@@ -7,11 +7,13 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import {
+ createRemoteDirectory,
  deleteRemoteFile,
  renameRemoteFile,
  readRemoteFile,
  writeRemoteFile,
 } from "@/lib/ssh/client";
+import path from "node:path";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -217,6 +219,10 @@ const password = (connectionType === "PASSWORD" ? node.server?.password : undefi
             { error: "缺少 content 参数" },
             { status: 400 },
           );
+        }
+        const parentDirectory = path.posix.dirname(normalizedRemotePath);
+        if (parentDirectory && parentDirectory !== "." && parentDirectory !== "/") {
+          await createRemoteDirectory({ ...connParams, remotePath: parentDirectory });
         }
         await writeRemoteFile({
           ...connParams,

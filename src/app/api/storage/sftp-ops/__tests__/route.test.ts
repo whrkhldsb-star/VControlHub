@@ -5,7 +5,9 @@ const {
   sessionHasPermissionMock,
   assertStorageAccessMock,
   prismaMock,
+  createRemoteDirectoryMock,
   renameRemoteFileMock,
+  writeRemoteFileMock,
 } = vi.hoisted(() => ({
   requireSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
@@ -15,7 +17,9 @@ const {
       findUnique: vi.fn(),
     },
   },
+  createRemoteDirectoryMock: vi.fn(),
   renameRemoteFileMock: vi.fn(),
+  writeRemoteFileMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-session", () => ({
@@ -35,10 +39,11 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
+  createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: vi.fn(),
   renameRemoteFile: renameRemoteFileMock,
   readRemoteFile: vi.fn(),
-  writeRemoteFile: vi.fn(),
+  writeRemoteFile: writeRemoteFileMock,
 }));
 
 import { POST } from "../route";
@@ -73,6 +78,27 @@ function mockSftpNode() {
 }
 
 describe("/api/storage/sftp-ops", () => {
+  it("allows writing a new file under a nested directory so users can create files from the file manager", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    mockSftpNode();
+
+    const response = await POST(
+      request({ action: "write", nodeId: "node_1", path: "new-folder/hello.txt", content: "hello" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(
+      expect.objectContaining({ storageNodeId: "node_1", relativePath: "new-folder/hello.txt", operation: "write", writeBytes: 5 }),
+    );
+    expect(writeRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt", content: "hello" }),
+    );
+    expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/files/new-folder" }),
+    );
+  });
+
   it("checks storage access for both source and destination before rename", async () => {
     vi.clearAllMocks();
     requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
