@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -93,5 +93,82 @@ describe("ImageBedPage", () => {
     expect(screen.getByText(/ok\.png/)).toHaveTextContent("上传完成");
     expect(screen.getByText(/bad\.png/)).toHaveTextContent("失败：图片解码失败");
     expect(screen.getByRole("alert")).toHaveTextContent("上传完成 1/2 张，1 张失败");
+  });
+
+  it("uses an in-app confirmation before deleting a single image", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) {
+        return {
+          images: [{ id: "img_1", filename: "cat.png", mimeType: "image/png", sizeBytes: 1024, album: null, isPublic: true, createdAt: "2026-01-01T00:00:00.000Z", publicUrl: "/api/images/img_1/file" }],
+          total: 1,
+          totalPages: 1,
+        };
+      }
+      if (url === "/api/images/img_1" && init?.method === "DELETE") return {};
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPage />);
+
+    await screen.findByText("cat.png");
+    await user.click(screen.getByTitle("删除"));
+
+    const dialog = await screen.findByRole("dialog", { name: "确认删除图片" });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(dialog).toHaveTextContent("cat.png");
+    expect(csrfFetch).not.toHaveBeenCalledWith("/api/images/img_1", expect.anything());
+
+    await user.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog", { name: "确认删除图片" })).not.toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalledWith("/api/images/img_1", expect.anything());
+
+    await user.click(screen.getByTitle("删除"));
+    await user.click(within(await screen.findByRole("dialog", { name: "确认删除图片" })).getByRole("button", { name: "确认删除" }));
+
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/images/img_1", { method: "DELETE" }));
+  });
+
+  it("uses an in-app confirmation before batch deleting selected images", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) {
+        return {
+          images: [
+            { id: "img_1", filename: "cat.png", mimeType: "image/png", sizeBytes: 1024, album: null, isPublic: true, createdAt: "2026-01-01T00:00:00.000Z", publicUrl: "/api/images/img_1/file" },
+            { id: "img_2", filename: "dog.png", mimeType: "image/png", sizeBytes: 2048, album: null, isPublic: true, createdAt: "2026-01-02T00:00:00.000Z", publicUrl: "/api/images/img_2/file" },
+          ],
+          total: 2,
+          totalPages: 1,
+        };
+      }
+      if (url === "/api/images/batch" && init?.method === "POST") return { deleted: 2 };
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPage />);
+
+    await screen.findByText("cat.png");
+    await user.click(screen.getByRole("button", { name: "☐ 批量模式" }));
+    await user.click(screen.getByText("全选"));
+    await user.click(screen.getByRole("button", { name: "🗑 批量删除" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "确认批量删除图片" });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(dialog).toHaveTextContent("2 张图片");
+
+    await user.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(csrfFetch).not.toHaveBeenCalledWith("/api/images/batch", expect.anything());
+
+    await user.click(screen.getByRole("button", { name: "🗑 批量删除" }));
+    await user.click(within(await screen.findByRole("dialog", { name: "确认批量删除图片" })).getByRole("button", { name: "确认删除" }));
+
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/images/batch", expect.objectContaining({ method: "POST" })));
+    const batchCall = vi.mocked(csrfFetch).mock.calls.find(([url]) => url === "/api/images/batch");
+    expect(JSON.parse(String(batchCall?.[1]?.body))).toEqual({ action: "delete", ids: ["img_1", "img_2"] });
   });
 });

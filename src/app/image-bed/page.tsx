@@ -35,6 +35,10 @@ type UploadProgress = {
 	queue: UploadQueueItem[];
 } | null;
 
+type PendingDelete =
+	| { type: "single"; id: string; filename: string }
+	| { type: "batch"; count: number };
+
 function getErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -59,6 +63,7 @@ export default function ImageBedPage() {
 	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
 	const [publishForm, setPublishForm] = useState({ storageNodeId: "", relativePath: "", filename: "", album: "" });
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
+	const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const showToast = (msg: string) => {
@@ -181,18 +186,33 @@ export default function ImageBedPage() {
 		}
 	};
 
-	const handleDelete = async (id: string) => {
-		if (!confirm("确定删除此图片？外链将失效。")) return;
-		try {
-			await csrfFetch(`/api/images/${id}`, { method: "DELETE" });
-			showToast("✅ 已删除"); fetchImages(page);
-		} catch { showToast("删除出错"); }
+	const requestDelete = (img: ImageItem) => {
+		setPendingDelete({ type: "single", id: img.id, filename: img.filename });
 	};
 
-	const handleBatchAction = async (action: "delete" | "moveAlbum" | "togglePublic") => {
+	const requestBatchDelete = () => {
 		if (selectedIds.size === 0) { showToast("请先选择图片"); return; }
-		if (action === "delete" && !confirm(`确定删除 ${selectedIds.size} 张图片？`)) return;
+		setPendingDelete({ type: "batch", count: selectedIds.size });
+	};
 
+	const confirmDelete = async () => {
+		if (!pendingDelete) return;
+		const target = pendingDelete;
+		setPendingDelete(null);
+		if (target.type === "single") {
+			try {
+				await csrfFetch(`/api/images/${target.id}`, { method: "DELETE" });
+				showToast("✅ 已删除");
+				setPreviewImage(null);
+				fetchImages(page);
+			} catch { showToast("删除出错"); }
+			return;
+		}
+		await runBatchAction("delete");
+	};
+
+	const runBatchAction = async (action: "delete" | "moveAlbum" | "togglePublic") => {
+		if (selectedIds.size === 0) { showToast("请先选择图片"); return; }
 		try {
 			const body: Record<string, unknown> = { action, ids: Array.from(selectedIds) };
 			if (action === "moveAlbum") body.album = batchAlbum;
@@ -288,12 +308,12 @@ export default function ImageBedPage() {
 					<button onClick={selectAll} className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600 transition">
 						{selectedIds.size === images.length ? "取消全选" : "全选"}
 					</button>
-					<button onClick={() => handleBatchAction("delete")} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
+					<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
-						<button onClick={() => handleBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
+						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
 					</div>
-					<button onClick={() => handleBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 transition disabled:opacity-30">🔄 切换公开</button>
+					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 transition disabled:opacity-30">🔄 切换公开</button>
 				</div>
 			)}
 
@@ -444,7 +464,7 @@ export default function ImageBedPage() {
 										<button onClick={() => copyLink(img.publicUrl)} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30" title="复制外链">🔗</button>
 										<button onClick={() => copyMarkdown(img)} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30" title="复制 Markdown">M↓</button>
 										<button onClick={() => copyHTML(img)} className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30" title="复制 HTML">H</button>
-										<button onClick={() => handleDelete(img.id)} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30" title="删除">🗑</button>
+										<button onClick={() => requestDelete(img)} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30" title="删除">🗑</button>
 									</div>
 								)}
 							</div>
@@ -486,7 +506,7 @@ export default function ImageBedPage() {
 								<button onClick={() => copyLink(previewImage.publicUrl)} className="px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30">复制外链</button>
 								<button onClick={() => copyMarkdown(previewImage)} className="px-3 py-1.5 text-xs bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30">Markdown</button>
 								<button onClick={() => copyHTML(previewImage)} className="px-3 py-1.5 text-xs bg-orange-500/20 text-orange-300 rounded-lg hover:bg-orange-500/30">HTML</button>
-								<button onClick={() => handleDelete(previewImage.id)} className="px-3 py-1.5 text-xs bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30">删除</button>
+								<button onClick={() => requestDelete(previewImage)} className="px-3 py-1.5 text-xs bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30">删除</button>
 							</div>
 						</div>
 						<button onClick={() => setPreviewImage(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 text-slate-300 rounded-full flex items-center justify-center hover:bg-slate-700 text-lg">✕</button>
@@ -523,6 +543,31 @@ export default function ImageBedPage() {
 						<div className="mt-5 flex items-center justify-end gap-2">
 							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition">取消</button>
 							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">发布</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{pendingDelete && (
+				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPendingDelete(null)}>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-label={pendingDelete.type === "single" ? "确认删除图片" : "确认批量删除图片"}
+						className="bg-slate-900 border border-red-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? "确认删除图片" : "确认批量删除图片"}</h3>
+						<p className="text-sm leading-6 text-slate-300">
+							{pendingDelete.type === "single" ? (
+								<>将删除 <span className="font-semibold text-white">{pendingDelete.filename}</span>，图片外链将失效。</>
+							) : (
+								<>将删除 <span className="font-semibold text-white">{pendingDelete.count} 张图片</span>，对应外链将失效。</>
+							)}
+						</p>
+						<div className="mt-6 flex items-center justify-end gap-2">
+							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 transition">取消</button>
+							<button type="button" onClick={confirmDelete} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-500 transition">确认删除</button>
 						</div>
 					</div>
 				</div>
