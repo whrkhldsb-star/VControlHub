@@ -285,6 +285,7 @@ describe("deploy/install.sh", () => {
       'AUTH_SESSION_SECRET="REPLACE_WITH_AUTH_SESSION_SECRET"',
       'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_ADMIN_INITIAL_PASSWORD"',
       'SSH_WS_SECRET="REPLACE_WITH_SSH_WS_SECRET"',
+      'ARIA2_RPC_SECRET="REPLACE_WITH_ARIA2_RPC_SECRET"',
       'ENCRYPTION_KEY="REPLACE_WITH_ENCRYPTION_KEY"',
       'SSH_WS_ALLOWED_ORIGINS="REPLACE_WITH_ORIGINS"',
       '',
@@ -337,6 +338,7 @@ describe("deploy/install.sh", () => {
       expect(envContent).toContain('NEXT_PORT="3100"');
       expect(envContent).toContain('PORT="3100"');
       expect(envContent).toContain('SSH_WS_PORT="3101"');
+      expect(envContent).toContain('ARIA2_RPC_SECRET="0123456789abcdef0123456789abcdef0123456789abcdef"');
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }

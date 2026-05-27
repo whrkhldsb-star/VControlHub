@@ -202,7 +202,7 @@ install_packages() {
 
 	# Core tools that come from apt. iproute2 provides `ss` and interface
 	# inspection utilities used by the installer and traffic dashboard checks.
-	for pkg_cmd in "ca-certificates:ca-certificates" "curl:curl" "gnupg:gnupg" "git:git" "openssh-client:ssh" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "build-essential:make"; do
+	for pkg_cmd in "ca-certificates:ca-certificates" "curl:curl" "gnupg:gnupg" "git:git" "openssh-client:ssh" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "aria2c:aria2" "build-essential:make"; do
 		local cmd="${pkg_cmd%%:*}"
 		local pkg="${pkg_cmd##*:}"
 		if have_cmd "${cmd}"; then
@@ -469,6 +469,16 @@ auto_generate_env_secrets() {
  set_env_var SSH_WS_SECRET "${ws_secret}"
  SSH_WS_SECRET="${ws_secret}"
  log "Auto-generated SSH_WS_SECRET"
+ changed=1
+ fi
+
+ # ── ARIA2_RPC_SECRET ─────────────────────────────────────────────
+ if is_placeholder_value "${ARIA2_RPC_SECRET:-}" || [ -z "${ARIA2_RPC_SECRET:-}" ]; then
+ local aria2_secret
+ aria2_secret="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 48)"
+ set_env_var ARIA2_RPC_SECRET "${aria2_secret}"
+ ARIA2_RPC_SECRET="${aria2_secret}"
+ log "Auto-generated ARIA2_RPC_SECRET"
  changed=1
  fi
 

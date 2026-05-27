@@ -1,4 +1,5 @@
 import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
+import { access, constants } from "fs/promises";
 import path from "path";
 import { getAppSlug } from "@/lib/branding";
 
@@ -73,6 +74,19 @@ export function buildAria2SpawnArgs(confPath: string): string[] {
 	return [`--conf-path=${confPath}`];
 }
 
+
+export function getPublicAria2Error(error: unknown): string {
+	if (error instanceof Error) {
+		const code = (error as { code?: string }).code;
+		if (code === "ENOENT" || error.message.includes("spawn aria2c ENOENT")) {
+			return "aria2c 未安装，无法执行磁力/BT 中转下载，请在服务器安装 aria2";
+		}
+		if (error.message.includes("ARIA2_RPC_SECRET")) {
+			return "aria2 RPC 密钥未配置，无法启动中转下载服务";
+		}
+	}
+	return "aria2 中转下载服务启动失败，请查看服务日志";
+}
 
 /* ── Aria2 RPC Types ──────────────────────────────────────── */
 
@@ -163,6 +177,16 @@ export async function ensureAria2Daemon(): Promise<void> {
 	const launchConf = path.join(config.rpcDir, `.aria2.launch.${process.pid}.${Date.now()}.conf`);
 	await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
 	await chmod(launchConf, 0o600).catch(() => undefined);
+
+	try {
+		await access("/usr/bin/aria2c", constants.X_OK);
+	} catch (error) {
+		try {
+			await access("/usr/local/bin/aria2c", constants.X_OK);
+		} catch {
+			throw Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT", cause: error });
+		}
+	}
 
 	try {
 		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.

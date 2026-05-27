@@ -11,6 +11,7 @@ import {
  addUri,
  removeDownload,
  tellStatus,
+ getPublicAria2Error,
 } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
@@ -163,8 +164,8 @@ export async function executeAria2RelayDownload(
  } catch (error) {
   logError("[DownloadAPI] Relay download execution failed:", error);
   try {
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicDownloadError(error) } });
-   if (userId) notifyDownloadResult(userId, urls[0], "failed", getPublicDownloadError(error)).catch(() => {});
+   await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
+   if (userId) notifyDownloadResult(userId, urls[0], "failed", getPublicAria2Error(error)).catch(() => {});
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }

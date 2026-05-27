@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAria2Config, buildAria2LaunchConfig, buildAria2SpawnArgs, getAria2RuntimeConfig } from "../service";
+import {
+  buildAria2Config,
+  buildAria2LaunchConfig,
+  buildAria2SpawnArgs,
+  getAria2RuntimeConfig,
+  getPublicAria2Error,
+} from "../service";
 
 describe("aria2 runtime config", () => {
   it("defaults to portable app-scoped paths and loopback RPC", () => {
@@ -54,5 +60,11 @@ describe("aria2 runtime config", () => {
       "--conf-path=/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf",
     ]);
     expect(buildAria2SpawnArgs("/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf").join(" ")).not.toContain("custom-token");
+  });
+
+  it("surfaces missing aria2c as an actionable dependency error", () => {
+    expect(getPublicAria2Error(Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT" }))).toBe(
+      "aria2c 未安装，无法执行磁力/BT 中转下载，请在服务器安装 aria2",
+    );
   });
 });
