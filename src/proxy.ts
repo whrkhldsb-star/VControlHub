@@ -85,7 +85,7 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest): NextR
 				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com", // Next.js needs unsafe-inline/eval; API docs embed Scalar from jsDelivr; Cloudflare may inject Web Analytics at the edge
 				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net", // Tailwind needs unsafe-inline; Scalar docs CSS is loaded from jsDelivr
 				"img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
-				"font-src 'self' data:",
+				"font-src 'self' data: https://fonts.scalar.com", // Scalar API docs load Inter/mono fonts from its CDN
 				"connect-src 'self' ws: wss:", // WebSocket for SSH terminal
 				"frame-ancestors 'self'", // equivalent to X-Frame-Options SAMEORIGIN
 				"base-uri 'self'",
