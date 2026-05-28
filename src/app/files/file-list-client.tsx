@@ -252,7 +252,7 @@ export function FileListClient({
 	}, []);
 
 	// Sort state
-	type SortKey = "name" | "type" | "size" | "source" | "updated";
+	type SortKey = "name" | "size" | "source" | "updated";
 	type SortDir = "asc" | "desc";
 	const [sortKey, setSortKey] = useState<SortKey>("name");
 	const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -282,7 +282,6 @@ export function FileListClient({
 		const cmp = (a: FileProp, b: FileProp) => {
 			switch (sortKey) {
 				case "name": return a.name.localeCompare(b.name, "zh-CN");
-				case "type": return (a.mimeType ?? "").localeCompare(b.mimeType ?? "");
 				case "size": return (a.sizeLabel ?? "").localeCompare(b.sizeLabel ?? "");
 				case "source": return a.storageNodeName.localeCompare(b.storageNodeName, "zh-CN");
 				case "updated": return (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "");
@@ -772,7 +771,6 @@ export function FileListClient({
 									)}
 								</div>
 								<div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-									<span>{entry.mimeType ?? "未知类型"}</span>
 									<span>{entry.sizeLabel}</span>
 									<span>{entry.storageNode.name}</span>
 									{entry.updatedAt ? <span>{formatDate(entry.updatedAt)}</span> : null}
@@ -799,7 +797,7 @@ export function FileListClient({
 			<>
 			{/* Desktop table view (md+) */}
 			<div className="hidden md:block">
-				<div className="grid grid-cols-[40px_40px_minmax(0,2fr)_100px_100px_120px_140px_auto] bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 font-medium">
+				<div className="grid grid-cols-[40px_40px_minmax(0,2.4fr)_110px_150px_150px_minmax(220px,auto)] items-center gap-4 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 font-medium">
 					<div>
 						<input
 							type="checkbox"
@@ -813,7 +811,6 @@ export function FileListClient({
 					</div>
 					<div />
 					<div>名称 <SortIcon col="name" /></div>
-					<div>类型 <SortIcon col="type" /></div>
 					<div>大小 <SortIcon col="size" /></div>
 					<div>来源 <SortIcon col="source" /></div>
 					<div>修改时间 <SortIcon col="updated" /></div>
@@ -828,7 +825,7 @@ export function FileListClient({
 					{sortedFolders.map((folder) => (
 						<div
 							key={folder.path}
-							className="grid grid-cols-[40px_40px_minmax(0,2fr)_100px_100px_120px_140px_auto] items-center gap-4 px-5 py-3 text-sm hover:bg-white/[0.02] transition"
+							className="grid grid-cols-[40px_40px_minmax(0,2.4fr)_110px_150px_150px_minmax(220px,auto)] items-center gap-4 px-5 py-3 text-sm hover:bg-white/[0.02] transition"
 						>
 							<div>
 								<input type="checkbox" disabled className="rounded h-4 w-4 accent-cyan-400 opacity-30" />
@@ -845,10 +842,9 @@ export function FileListClient({
 									{folder.displayName ?? folder.name}
 								</button>
 							</div>
-							<div className="text-slate-400">目录</div>
 							<div className="text-slate-500">{folder.fileCount + folder.folderCount} 项</div>
-							<div className="text-slate-500">—</div>
-							<div className="text-slate-500">—</div>
+							<div className="truncate text-xs text-slate-400">{folder.sourceValues[0] ?? "—"}</div>
+							<div className="text-xs text-slate-500">—</div>
 							<div className="flex flex-wrap gap-1">
 								<button
 									type="button"
@@ -892,7 +888,7 @@ export function FileListClient({
 						return (
 							<div
 								key={entry.id}
-								className={`grid grid-cols-[40px_40px_minmax(0,2fr)_100px_100px_120px_140px_auto] items-center gap-4 px-5 py-3 text-sm hover:bg-white/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
+								className={`grid grid-cols-[40px_40px_minmax(0,2.4fr)_110px_150px_150px_minmax(220px,auto)] items-center gap-4 px-5 py-3 text-sm hover:bg-white/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
 							>
 								<div>
 									<input
@@ -916,7 +912,6 @@ export function FileListClient({
 									)}
 									<p className="mt-0.5 truncate text-xs text-slate-600">{entry.relativePath}</p>
 								</div>
-								<div className="text-slate-400 text-xs">{entry.mimeType?.split("/").pop() ?? "文件"}</div>
 								<div className="text-slate-300">{entry.sizeLabel}</div>
 								<div className="text-slate-400 truncate text-xs">{entry.storageNode.name}</div>
 								<div className="text-slate-500 text-xs">

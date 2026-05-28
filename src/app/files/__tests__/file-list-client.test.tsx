@@ -192,6 +192,17 @@ describe("FileListClient", () => {
     expect(screen.getAllByRole("button", { name: "图标视图" })[1]).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("renders the table view without the type column so headers match row cells", () => {
+    renderFileList();
+
+    expect(screen.getByText("名称")).toBeInTheDocument();
+    expect(screen.getByText("大小")).toBeInTheDocument();
+    expect(screen.getByText("来源")).toBeInTheDocument();
+    expect(screen.getByText("修改时间")).toBeInTheDocument();
+    expect(screen.queryByText("类型")).not.toBeInTheDocument();
+    expect(screen.queryByText("image/jpeg")).not.toBeInTheDocument();
+  });
+
   it("lets users choose website proxy or target-server direct traffic for downloads", () => {
     renderFileList({ files: [sftpDirectFile] });
 
