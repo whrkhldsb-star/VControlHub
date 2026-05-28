@@ -106,7 +106,9 @@ describe("SftpBrowser", () => {
     render(<SftpBrowser sftpNodes={[{ id: "node_1", name: "香港媒体库", driver: "SFTP" }]} />);
 
     await user.selectOptions(screen.getByLabelText("节点"), "node_1");
-    await user.click(await screen.findByRole("button", { name: /logs/ }));
+    const logButtons = await screen.findAllByRole("button", { name: /logs/ });
+    expect(logButtons.length).toBeGreaterThan(0);
+    await user.click(logButtons[0]);
     await screen.findByText(/远端路径：\/logs/);
     await user.click(screen.getByLabelText("递归子目录"));
     await user.click(screen.getByRole("button", { name: "扫描同步" }));

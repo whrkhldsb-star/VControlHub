@@ -63,6 +63,7 @@ beforeEach(() => {
   process.env = { ...OLD_ENV };
   delete process.env.SEED_DEMO_DATA;
   delete process.env.DEMO_MODE;
+  delete process.env.STORAGE_ROOT;
 
   mockPrisma.permission.upsert.mockResolvedValue({ id: "perm_1" });
   mockPrisma.permission.findUniqueOrThrow.mockImplementation(async ({ where }: any) => ({ id: `perm_${where.key}` }));

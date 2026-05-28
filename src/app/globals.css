@@ -20,6 +20,7 @@
 	--focus-ring: rgba(34,211,238,0.5);
 	--selection-bg: rgba(34,211,238,0.25);
 	--selection-fg: white;
+	--page-bg: radial-gradient(circle at top,#1e293b,transparent 40%),linear-gradient(180deg,#0f172a 0%,#020617 100%);
 }
 
 html.light {
@@ -41,6 +42,7 @@ html.light {
 	--focus-ring: rgba(8,145,178,0.4);
 	--selection-bg: rgba(8,145,178,0.2);
 	--selection-fg: #0f172a;
+	--page-bg: radial-gradient(circle at top,#e0f2fe,transparent 42%),linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);
 }
 
 @theme inline {

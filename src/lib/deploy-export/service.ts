@@ -28,8 +28,8 @@ function sanitizeDomain(value?: string) {
 }
 
 export function buildPortableDeploymentPackage(options: { domain?: string; appName?: string } = {}) {
-	const appName = sanitizeAppName(options.appName);
 	const domain = sanitizeDomain(options.domain);
+	const appName = sanitizeAppName(options.appName);
 	const envTemplate = [
 		`APP_NAME="${appName}"`,
 		`APP_SLUG="${appName}"`,

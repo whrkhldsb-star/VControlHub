@@ -7,8 +7,11 @@ import { ToastProvider } from "@/components/toast-provider";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ThemeProvider } from "@/lib/theme/provider";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
 import { getSessionCookieName } from "@/lib/auth/session";
+import { type Locale } from "@/lib/i18n/translations";
+import { type Theme } from "@/lib/theme/use-theme";
 import { cookies } from "next/headers";
 
 const geistSans = Geist({
@@ -33,26 +36,33 @@ export default async function RootLayout({
 }>) {
 	const cookieStore = await cookies();
 	const hasSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
+	const localeCookie = cookieStore.get("vps-locale")?.value;
+	const themeCookie = cookieStore.get("vps-theme")?.value;
+	const initialLocale: Locale = localeCookie === "en" ? "en" : "zh";
+	const initialTheme: Theme = themeCookie === "light" ? "light" : "dark";
 
 	return (
 		<html
-			lang="zh-CN"
-			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+			lang={initialLocale === "zh" ? "zh-CN" : "en"}
+			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${initialTheme === "light" ? "light" : ""}`}
+			suppressHydrationWarning
 		>
 			<head>
 				<meta name="session-cookie-name" content={getSessionCookieName()} />
 			</head>
 			<body className="min-h-full flex flex-row">
-				<I18nProvider>
-					<ToastProvider>
-						<SidebarLoader />
-						<main className="flex-1 min-h-screen overflow-x-hidden pb-14 md:pb-0">
-							{children}
-						</main>
-						{hasSessionCookie && <MobileNav />}
-						{hasSessionCookie && <GlobalSearch />}
-					</ToastProvider>
-				</I18nProvider>
+				<ThemeProvider initialTheme={initialTheme}>
+					<I18nProvider initialLocale={initialLocale}>
+						<ToastProvider>
+							<SidebarLoader />
+							<main className="flex-1 min-w-0 min-h-screen overflow-x-hidden pb-24 md:pb-0">
+								{children}
+							</main>
+							{hasSessionCookie && <MobileNav />}
+							{hasSessionCookie && <GlobalSearch />}
+						</ToastProvider>
+					</I18nProvider>
+				</ThemeProvider>
 			</body>
 		</html>
 	);

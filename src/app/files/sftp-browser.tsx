@@ -692,9 +692,9 @@ const newFullPath = joinSftpPath(remotePath, newName);
           )}
 
           {/* Entry list */}
-          <div className="mt-4 overflow-x-auto overflow-hidden rounded-2xl border border-white/10">
-            {/* Table header */}
-            <div className={`grid ${TABLE_COLS} bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400`}>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+            {/* Desktop table header */}
+            <div className={`hidden md:grid ${TABLE_COLS} bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400`}>
               <div>名称</div>
               <div>类型</div>
               <div>大小</div>
@@ -710,6 +710,23 @@ const newFullPath = joinSftpPath(remotePath, newName);
                 </div>
               ) : null}
 
+              {remotePath !== "/" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const parentSegments = segments.slice(0, -1);
+                    const parentPath = parentSegments.length > 0
+                      ? `/${parentSegments.join("/")}`
+                      : "/";
+                    handleBreadcrumb(parentPath);
+                  }}
+                  className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-slate-400 transition hover:bg-white/5 md:hidden"
+                >
+                  <span>📁</span>
+                  <span className="font-medium">返回上级</span>
+                </button>
+              )}
+
               {/* Parent directory shortcut */}
               {remotePath !== "/" && (
                 <button
@@ -721,7 +738,7 @@ const newFullPath = joinSftpPath(remotePath, newName);
                       : "/";
                     handleBreadcrumb(parentPath);
                   }}
-                  className={`grid w-full ${TABLE_COLS} items-center gap-4 px-4 py-3 text-sm text-left hover:bg-white/5 transition`}
+                  className={`hidden w-full md:grid ${TABLE_COLS} items-center gap-4 px-4 py-3 text-sm text-left hover:bg-white/5 transition`}
                 >
                   <div className="min-w-0 truncate font-medium text-slate-400">📁 ..</div>
                   <div className="text-slate-500">上级</div>
@@ -748,10 +765,10 @@ const newFullPath = joinSftpPath(remotePath, newName);
                   const canView = isFile && isViewableSftpTextFile(entry.name);
 
                   return (
-                    <div
-                      key={entryKey}
-                      className={`grid ${TABLE_COLS} items-center gap-4 px-4 py-3 text-sm`}
-                    >
+                    <div key={entryKey}>
+                      <div
+                        className={`hidden md:grid ${TABLE_COLS} items-center gap-4 px-4 py-3 text-sm`}
+                      >
                       {/* Name */}
                       <div className="min-w-0">
                         {isRenaming ? (
@@ -844,6 +861,82 @@ const newFullPath = joinSftpPath(remotePath, newName);
                             </button>
                           </>
                         )}
+                      </div>
+                      </div>
+                      <div className="px-4 py-3 md:hidden">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            {isRenaming ? (
+                              <InlineRenameForm
+                                currentName={entry.name}
+                                onConfirm={(newName) => handleRename(entry, newName)}
+                                onCancel={() => setRenamingEntry(null)}
+                                loading={renameLoading}
+                              />
+                            ) : isDir ? (
+                              <button
+                                type="button"
+                                onClick={() => handleNavigate(entry)}
+                                className="block max-w-full truncate text-left font-medium text-cyan-100 hover:text-cyan-50"
+                              >
+                                {getSftpEntryIcon(entry.type)} {entry.name}
+                              </button>
+                            ) : (
+                              <span className="block truncate font-medium text-white">
+                                {guessSftpFileIcon(entry.name)} {entry.name}
+                              </span>
+                            )}
+                            {entry.longname && !isRenaming && (
+                              <p className="mt-0.5 line-clamp-2 break-all text-xs text-slate-500">{entry.longname}</p>
+                            )}
+                          </div>
+                          <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400">
+                            {isDir ? "目录" : isFile ? formatSftpFileSize(entry.size) : "其他"}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-500">修改时间：{formatSftpTimestamp(entry.modifyTime)}</p>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {isDeleting ? (
+                            <InlineDeleteConfirm
+                              entryName={entry.name}
+                              isDirectory={isDir}
+                              onConfirm={() => handleDelete(entry)}
+                              onCancel={() => setDeletingEntry(null)}
+                              loading={deleteLoading}
+                            />
+                          ) : (
+                            <>
+                              {isFile && (
+                                <a
+                                  href={directConnect && proxyInfo
+                                    ? `${proxyInfo.publicUrl}:${proxyInfo.port}${fullPath}?token=${proxyInfo.accessToken}`
+                                    : buildSftpDownloadUrl(selectedNodeId, fullPath)
+                                  }
+                                  target={directConnect && proxyInfo ? "_blank" : undefined}
+                                  rel={directConnect ? "noopener noreferrer" : undefined}
+                                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
+                                >下载</a>
+                              )}
+                              {canView && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingFile({ path: fullPath, name: entry.name })}
+                                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
+                                >查看</button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setRenamingEntry(entryKey)}
+                                className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] text-amber-100 hover:bg-amber-400/20"
+                              >重命名</button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingEntry(entryKey)}
+                                className="rounded-full border border-rose-400/30 bg-rose-400/10 px-2.5 py-1 text-[10px] text-rose-100 hover:bg-rose-400/20"
+                              >删除</button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

@@ -20,8 +20,8 @@ export function PageShell({
 	maxW?: string;
 }) {
 	return (
-		<div className="min-h-screen bg-[radial-gradient(circle_at_top,#1e293b,transparent_40%),linear-gradient(180deg,#0f172a_0%,#020617_100%)] text-slate-100">
-			<div className={`mx-auto ${maxW} px-6 py-10 lg:px-10`}>{children}</div>
+		<div className="min-h-screen bg-[var(--page-bg)] text-[var(--text-primary)]">
+			<div className={`mx-auto ${maxW} px-4 py-8 sm:px-6 sm:py-10 lg:px-10`}>{children}</div>
 		</div>
 	);
 }
