@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getStorageOverview } from "@/lib/storage/service";
+import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import {
 	buildFileTree,
 	findFileTreeNode,
@@ -27,7 +28,19 @@ export async function GET(request: NextRequest) {
 		const searchScope = searchParams.get("scope") === "all" ? "all" : "current";
 		const nodeIdFilter = searchParams.get("nodeId") ?? "";
 
-		const storage = await getStorageOverview();
+		let storage = await getStorageOverview();
+
+		if (nodeIdFilter) {
+			const selectedNode = storage.nodes.find((node) => node.id === nodeIdFilter);
+			const selectedEntries = storage.entries.filter((entry) => entry.storageNode.id === nodeIdFilter);
+			if (selectedNode?.driver === "SFTP" && selectedEntries.length === 0 && canEditLocalFiles) {
+				const syncNode = await getSftpSyncNode(nodeIdFilter);
+				if (syncNode?.driver === "SFTP") {
+					await syncSftpDirectoryEntries({ node: syncNode, recursive: false, maxDepth: 1 });
+					storage = await getStorageOverview();
+				}
+			}
+		}
 
 		// Filter entries by nodeId if specified
 		const filteredEntries = nodeIdFilter

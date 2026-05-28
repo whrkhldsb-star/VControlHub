@@ -37,6 +37,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+  decryptServerPassword: (value: string) => `decrypted-password:${value}`,
   decryptSshPrivateKey: (value: string) => `decrypted:${value}`,
 }));
 
@@ -116,6 +117,36 @@ describe("/api/storage/sftp", () => {
     expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({ remotePath: "/data/files/logs" }));
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ storageNodeId: "node_1", relativePath: "/logs", operation: "read" }),
+    );
+  });
+
+  it("decrypts password-based VPS credentials before listing a remote directory", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    mockSftpNode({
+      server: {
+        id: "srv_1",
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "ENCRYPTED PASSWORD",
+        sshKey: null,
+      },
+    });
+    listRemoteDirectoryMock.mockResolvedValueOnce([]);
+
+    const response = await GET(request("/"));
+
+    expect(response.status).toBe(200);
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        password: "decrypted-password:ENCRYPTED PASSWORD",
+        privateKey: undefined,
+      }),
     );
   });
 });

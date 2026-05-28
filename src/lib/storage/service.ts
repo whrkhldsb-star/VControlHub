@@ -6,8 +6,8 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { listRemoteDirectory } from "@/lib/ssh/client";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import {
 	createFileEntrySchema,
@@ -268,25 +268,14 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
       }
       await access(node.basePath, fsConstants.R_OK | fsConstants.W_OK);
     } else if (node.driver === "SFTP") {
-      const host = node.host ?? node.server?.host;
-      const port = node.port ?? node.server?.port ?? 22;
-      const username = node.username ?? node.server?.username ?? "root";
-      const privateKey = node.server?.sshKey?.privateKey ? decryptSshPrivateKey(node.server.sshKey.privateKey) : undefined;
-      const password = node.server?.password ? decryptServerPassword(node.server.password) : undefined;
-
-      if (!host) {
-        throw new Error("SFTP 节点缺少主机地址");
-      }
-      if (!privateKey && !password) {
-        throw new Error("SFTP 节点缺少 SSH 凭据");
-      }
+      const credentials = resolveStorageSshCredentials(node);
 
       await listRemoteDirectory({
-        host,
-        port,
-        username,
-        privateKey,
-        password,
+        host: credentials.host,
+        port: credentials.port,
+        username: credentials.username,
+        privateKey: credentials.privateKey,
+        password: credentials.password,
         remotePath: normalizeRemotePath(node.basePath, ""),
       });
     }

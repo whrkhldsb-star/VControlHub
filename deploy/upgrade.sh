@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Portable upgrade helper for whrkhldsb.
+# Portable upgrade helper for VControlHub.
 # Performs a pre-upgrade backup, delegates to install.sh, then runs health checks.
 
 set -euo pipefail
@@ -13,10 +13,8 @@ SKIP_PRE_BACKUP="${SKIP_PRE_BACKUP:-0}"
 SKIP_POST_CHECK="${SKIP_POST_CHECK:-0}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 
-log() { printf '[1;32m[upgrade][0m %s
-' "$*"; }
-warn() { printf '[1;33m[upgrade][0m %s
-' "$*" >&2; }
+log() { printf '\033[1;32m[upgrade]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[upgrade]\033[0m %s\n' "$*" >&2; }
 
 run_pre_upgrade_backup() {
   [ "${SKIP_PRE_BACKUP}" = "1" ] && { warn "Skipping pre-upgrade backup"; return; }

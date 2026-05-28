@@ -5,9 +5,9 @@ slugify() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
-APP_NAME="${APP_NAME:-whrkhldsb}"
+APP_NAME="${APP_NAME:-VControlHub}"
 APP_SLUG="${APP_SLUG:-$(slugify "${APP_NAME}")}"
-[ -n "${APP_SLUG}" ] || APP_SLUG="whrkhldsb"
+[ -n "${APP_SLUG}" ] || APP_SLUG="vcontrolhub"
 PACKAGE_ROOT_NAME="${PACKAGE_ROOT_NAME:-${APP_SLUG}-release}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/dist}"

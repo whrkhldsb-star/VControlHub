@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 
 const logger = createLogger("api:storage:sftp-download");
@@ -132,31 +132,16 @@ export async function GET(request: Request) {
  return NextResponse.json({ error: "该节点不是 SFTP 类型" }, { status: 400 });
  }
 
- // 确定连接参数：优先使用节点自身的 host/port/username，否则从绑定的 server 继承
- const host = node.host ?? node.server?.host;
- const port = node.port ?? node.server?.port ?? 22;
- const username = node.username ?? node.server?.username ?? "root";
- const connectionType = node.server?.connectionType ?? "SSH_KEY";
- const privateKey = node.server?.sshKey?.privateKey ? decryptSshPrivateKey(node.server.sshKey.privateKey) : undefined;
- const password = node.server?.password ?? undefined;
-
- if (!host) {
- return NextResponse.json(
- { error: "缺少远端主机地址，无法连接" },
- { status: 400 },
- );
+ const connectionCredentials = (() => {
+ try {
+ return resolveStorageSshCredentials(node);
+ } catch (error) {
+ return error instanceof Error ? error : new Error("缺少远端主机地址或连接凭据，无法连接");
  }
-
- if (connectionType === "SSH_KEY" && !privateKey) {
+ })();
+ if (connectionCredentials instanceof Error) {
  return NextResponse.json(
- { error: "缺少 SSH 私钥，无法连接" },
- { status: 400 },
- );
- }
-
- if (connectionType === "PASSWORD" && !password) {
- return NextResponse.json(
- { error: "缺少登录密码，无法连接" },
+ { error: connectionCredentials.message },
  { status: 400 },
  );
  }
@@ -185,10 +170,11 @@ export async function GET(request: Request) {
 
  try {
  const config: ConnectConfig = {
- host,
- port,
- username,
- ...(connectionType === "PASSWORD" ? { password } : { privateKey }),
+ host: connectionCredentials.host,
+ port: connectionCredentials.port,
+ username: connectionCredentials.username,
+ privateKey: connectionCredentials.privateKey,
+ password: connectionCredentials.password,
  readyTimeout: 15000,
  timeout: 10000,
  };

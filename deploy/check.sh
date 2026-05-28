@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deployment health/check script for whrkhldsb.
+# Deployment health/check script for VControlHub.
 # Safe to run on production hosts. It does not print secret values.
 
 set -euo pipefail

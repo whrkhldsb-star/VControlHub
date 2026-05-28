@@ -5,7 +5,6 @@ import { requireSession } from "@/lib/auth/require-session";
 
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import {
  createRemoteDirectory,
  deleteRemoteFile,
@@ -13,6 +12,7 @@ import {
  readRemoteFile,
  writeRemoteFile,
 } from "@/lib/ssh/client";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import path from "node:path";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
@@ -100,16 +100,16 @@ export async function POST(request: Request) {
   return NextResponse.json({ error: "该节点不是 SFTP 类型" }, { status: 400 });
  }
 
- const host = node.host ?? node.server?.host;
- const port = node.port ?? node.server?.port ?? 22;
- const username = node.username ?? node.server?.username ?? "root";
- const connectionType = node.server?.connectionType ?? "SSH_KEY";
-const privateKey = (connectionType === "SSH_KEY" && node.server?.sshKey?.privateKey ? decryptSshPrivateKey(node.server.sshKey.privateKey) : undefined) ?? undefined;
-const password = (connectionType === "PASSWORD" ? node.server?.password : undefined) ?? undefined;
-
- if (!host || (connectionType === "SSH_KEY" && !privateKey) || (connectionType === "PASSWORD" && !password)) {
+ const connectionCredentials = (() => {
+  try {
+   return resolveStorageSshCredentials(node);
+  } catch (error) {
+   return error instanceof Error ? error : new Error("缺少远端主机地址或连接凭据，无法连接");
+  }
+ })();
+ if (connectionCredentials instanceof Error) {
   return NextResponse.json(
-  { error: "缺少远端主机地址或连接凭据，无法连接" },
+  { error: connectionCredentials.message },
   { status: 400 },
   );
  }
@@ -137,7 +137,13 @@ const password = (connectionType === "PASSWORD" ? node.server?.password : undefi
     return NextResponse.json({ error: accessDecision.reason ?? "缺少存储访问授权" }, { status: 403 });
   }
 
- const connParams = { host, port, username, privateKey, password };
+ const connParams = {
+  host: connectionCredentials.host,
+  port: connectionCredentials.port,
+  username: connectionCredentials.username,
+  privateKey: connectionCredentials.privateKey,
+  password: connectionCredentials.password,
+ };
 
   try {
     switch (action) {

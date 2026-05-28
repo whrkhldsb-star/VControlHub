@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Production preflight checks for whrkhldsb.
+# Production preflight checks for VControlHub.
 # This script validates deploy prerequisites without printing secret values.
 
 set -euo pipefail

@@ -38,6 +38,11 @@ vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
 }));
 
+vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+  decryptServerPassword: (value: string) => `decrypted-password:${value}`,
+  decryptSshPrivateKey: (value: string) => `decrypted:${value}`,
+}));
+
 vi.mock("@/lib/ssh/client", () => ({
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: vi.fn(),

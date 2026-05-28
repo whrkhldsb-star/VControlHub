@@ -4,8 +4,8 @@ import { requireSession } from "@/lib/auth/require-session";
 
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { listRemoteDirectory } from "@/lib/ssh/client";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemotePath, toClientStorageError } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
 
@@ -63,18 +63,17 @@ export async function GET(request: Request) {
   return NextResponse.json({ error: "该节点不是 SFTP 类型" }, { status: 400 });
  }
 
- // 确定连接参数：优先使用节点自身的 host/port/username，否则从绑定的 server 继承
- const host = node.host ?? node.server?.host;
- const port = node.port ?? node.server?.port ?? 22;
- const username = node.username ?? node.server?.username ?? "root";
- const connectionType = node.server?.connectionType ?? "SSH_KEY";
-const privateKey = (connectionType === "SSH_KEY" && node.server?.sshKey?.privateKey ? decryptSshPrivateKey(node.server.sshKey.privateKey) : undefined) ?? undefined;
-const password = (connectionType === "PASSWORD" ? node.server?.password : undefined) ?? undefined;
-
- if (!host || (connectionType === "SSH_KEY" && !privateKey) || (connectionType === "PASSWORD" && !password)) {
+ const connectionCredentials = (() => {
+  try {
+   return resolveStorageSshCredentials(node);
+  } catch (error) {
+   return error instanceof Error ? error : new Error("缺少远端主机地址或连接凭据，无法连接");
+  }
+ })();
+ if (connectionCredentials instanceof Error) {
   return NextResponse.json(
-  { error: "缺少远端主机地址或连接凭据，无法连接" },
-  { status: 400 },
+   { error: connectionCredentials.message },
+   { status: 400 },
   );
  }
 
@@ -97,11 +96,11 @@ const password = (connectionType === "PASSWORD" ? node.server?.password : undefi
 
  try {
  const entries = await listRemoteDirectory({
-  host,
-  port,
-  username,
-  privateKey,
-  password,
+  host: connectionCredentials.host,
+  port: connectionCredentials.port,
+  username: connectionCredentials.username,
+  privateKey: connectionCredentials.privateKey,
+  password: connectionCredentials.password,
   remotePath: normalizedRemotePath,
  });
     return NextResponse.json({

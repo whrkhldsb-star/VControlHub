@@ -5,7 +5,7 @@
 set -euo pipefail
 
 TARGET="${1:-}"
-APP_SLUG="${2:-${SERVICE_PREFIX:-whrkhldsb}}"
+APP_SLUG="${2:-${SERVICE_PREFIX:-vcontrolhub}}"
 NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 

@@ -8,9 +8,9 @@ slugify() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
-APP_NAME="${APP_NAME:-whrkhldsb}"
+APP_NAME="${APP_NAME:-VControlHub}"
 APP_SLUG="${APP_SLUG:-$(slugify "${APP_NAME}")}"
-[ -n "${APP_SLUG}" ] || APP_SLUG="whrkhldsb"
+[ -n "${APP_SLUG}" ] || APP_SLUG="vcontrolhub"
 SITE_NAME="${SITE_NAME:-${APP_NAME}}"
 SERVICE_PREFIX="${SERVICE_PREFIX:-${APP_SLUG}}"
 APP_DIR="${APP_DIR:-/opt/${APP_SLUG}}"
@@ -342,7 +342,7 @@ write_env_if_missing() {
 sync_installer_env_overrides() {
  [ -f "${ENV_FILE}" ] || return 0
  # Values supplied to the installer are authoritative for this install. The
- # checked-in env template contains whrkhldsb defaults for the hosted instance;
+ # checked-in env template contains default values for the hosted instance;
  # without syncing these back, sourcing .env.local later can silently override a
  # custom APP_SLUG/PG_DB_NAME/port and make fresh installs target the wrong app.
  set_env_var APP_NAME "${APP_NAME}"
