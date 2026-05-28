@@ -193,7 +193,7 @@ describe("FileListClient", () => {
   });
 
   it("renders the table view without the type column so headers match row cells", () => {
-    renderFileList();
+    const { container } = renderFileList();
 
     expect(screen.getByText("名称")).toBeInTheDocument();
     expect(screen.getByText("大小")).toBeInTheDocument();
@@ -201,6 +201,8 @@ describe("FileListClient", () => {
     expect(screen.getByText("修改时间")).toBeInTheDocument();
     expect(screen.queryByText("类型")).not.toBeInTheDocument();
     expect(screen.queryByText("image/jpeg")).not.toBeInTheDocument();
+    expect(container.querySelector('[data-testid="file-table-scroll"]')).toHaveClass("overflow-x-auto");
+    expect(container.querySelector('[data-testid="file-table-inner"]')).toHaveClass("min-w-[1180px]");
   });
 
   it("lets users choose website proxy or target-server direct traffic for downloads", () => {

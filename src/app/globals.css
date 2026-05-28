@@ -24,25 +24,26 @@
 }
 
 html.light {
-	--background: #f8fafc;
-	--foreground: #0f172a;
-	--accent: #0891b2;
-	--accent-dim: #0e7490;
+	--background: #f6f8fb;
+	--foreground: #111827;
+	--accent: #0e7490;
+	--accent-dim: #155e75;
 	--card-bg: #ffffff;
-	--card-border: #e2e8f0;
+	--card-subtle: #f8fafc;
+	--card-border: #dbe5ef;
 	--sidebar-bg: #ffffff;
-	--sidebar-hover: #f1f5f9;
-	--text-primary: #0f172a;
+	--sidebar-hover: #eef6fb;
+	--text-primary: #111827;
 	--text-secondary: #475569;
-	--text-muted: #94a3b8;
-	--input-bg: #f1f5f9;
-	--input-border: #e2e8f0;
-	--scrollbar-thumb: rgba(0,0,0,0.15);
-	--scrollbar-thumb-hover: rgba(0,0,0,0.25);
+	--text-muted: #64748b;
+	--input-bg: #ffffff;
+	--input-border: #cbd5e1;
+	--scrollbar-thumb: rgba(15,23,42,0.18);
+	--scrollbar-thumb-hover: rgba(15,23,42,0.3);
 	--focus-ring: rgba(8,145,178,0.4);
-	--selection-bg: rgba(8,145,178,0.2);
+	--selection-bg: rgba(8,145,178,0.18);
 	--selection-fg: #0f172a;
-	--page-bg: radial-gradient(circle at top,#e0f2fe,transparent 42%),linear-gradient(180deg,#f8fafc 0%,#eef2ff 100%);
+	--page-bg: linear-gradient(180deg,#fbfdff 0%,#eef5fb 100%);
 }
 
 @theme inline {
@@ -84,8 +85,7 @@ html.light .text-cyan-100 {
 
 html.light .text-slate-300,
 html.light .text-slate-400,
-html.light .text-cyan-200,
-html.light .text-cyan-300 {
+html.light .text-cyan-200 {
 	color: var(--text-secondary);
 }
 
@@ -95,22 +95,46 @@ html.light .text-cyan-200\/70 {
 }
 
 html.light .bg-slate-950,
+html.light .bg-slate-950\/40,
 html.light .bg-slate-950\/50,
+html.light .bg-slate-950\/70,
+html.light .bg-slate-950\/80,
 html.light .bg-slate-950\/90,
 html.light .bg-slate-900,
+html.light .bg-slate-900\/40,
+html.light .bg-slate-900\/50,
 html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/70,
 html.light .bg-slate-900\/80,
+html.light .bg-slate-900\/95,
 html.light .bg-slate-800,
 html.light .bg-slate-800\/50,
+html.light .bg-slate-700\/60,
+html.light .bg-black\/20,
+html.light .bg-black\/30,
+html.light .bg-black\/40,
 html.light .bg-\[\#0a0e1a\],
+html.light .bg-\[\#0c0f1a\],
 html.light .bg-white\/5,
+html.light .bg-white\/\[0\.02\],
 html.light .bg-white\/\[0\.03\] {
 	background-color: var(--card-bg);
 }
 
+html.light .bg-white\/\[0\.04\],
+html.light .bg-white\/\[0\.05\],
+html.light .bg-white\/\[0\.06\],
+html.light .bg-white\/10,
+html.light .bg-white\/\[0\.08\] {
+	background-color: var(--card-subtle);
+}
+
 html.light .border-white\/10,
 html.light .border-white\/\[0\.04\],
-html.light .border-white\/\[0\.06\] {
+html.light .border-white\/\[0\.06\],
+html.light .border-white\/\[0\.08\],
+html.light .border-white\/\[0\.1\],
+html.light .border-white\/\[0\.12\] {
 	border-color: var(--card-border);
 }
 
@@ -136,7 +160,43 @@ html.light .shadow-lg {
 html.light input,
 html.light select,
 html.light textarea {
+	background-color: var(--input-bg);
+	border-color: var(--input-border);
 	color: var(--text-primary);
+}
+
+html.light .bg-slate-950 input,
+html.light .bg-slate-900 input,
+html.light .bg-slate-950 select,
+html.light .bg-slate-900 select,
+html.light .bg-slate-950 textarea,
+html.light .bg-slate-900 textarea {
+	background-color: var(--input-bg);
+}
+
+html.light .text-amber-100,
+html.light .text-amber-100\/80,
+html.light .text-amber-200,
+html.light .text-amber-300 {
+	color: #92400e;
+}
+
+html.light .text-rose-100,
+html.light .text-rose-100\/80,
+html.light .text-rose-200,
+html.light .text-rose-300 {
+	color: #be123c;
+}
+
+html.light .text-emerald-100,
+html.light .text-emerald-200,
+html.light .text-emerald-300 {
+	color: #047857;
+}
+
+html.light .text-cyan-300,
+html.light .text-cyan-400 {
+	color: #0e7490;
 }
 
 html.light input::placeholder,

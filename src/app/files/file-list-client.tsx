@@ -796,8 +796,9 @@ export function FileListClient({
 		return (
 			<>
 			{/* Desktop table view (md+) */}
-			<div className="hidden md:block">
-				<div className="grid grid-cols-[40px_40px_minmax(0,2.4fr)_110px_150px_150px_minmax(220px,auto)] items-center gap-4 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 font-medium">
+			<div className="hidden overflow-x-auto md:block" data-testid="file-table-scroll">
+				<div className="min-w-[1180px]" data-testid="file-table-inner">
+					<div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 font-medium">
 					<div>
 						<input
 							type="checkbox"
@@ -816,7 +817,6 @@ export function FileListClient({
 					<div>修改时间 <SortIcon col="updated" /></div>
 					<div>操作</div>
 				</div>
-
 				<div className="divide-y divide-white/[0.04]">
 					{sortedFolders.length === 0 && sortedFiles.length === 0 ? (
 						<div className="px-6 py-16 text-center text-sm text-slate-400">{emptyMessage}</div>
@@ -825,7 +825,7 @@ export function FileListClient({
 					{sortedFolders.map((folder) => (
 						<div
 							key={folder.path}
-							className="grid grid-cols-[40px_40px_minmax(0,2.4fr)_110px_150px_150px_minmax(220px,auto)] items-center gap-4 px-5 py-3 text-sm hover:bg-white/[0.02] transition"
+							className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-white/[0.02] transition"
 						>
 							<div>
 								<input type="checkbox" disabled className="rounded h-4 w-4 accent-cyan-400 opacity-30" />
@@ -888,7 +888,7 @@ export function FileListClient({
 						return (
 							<div
 								key={entry.id}
-								className={`grid grid-cols-[40px_40px_minmax(0,2.4fr)_110px_150px_150px_minmax(220px,auto)] items-center gap-4 px-5 py-3 text-sm hover:bg-white/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
+								className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-white/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
 							>
 								<div>
 									<input
@@ -960,6 +960,7 @@ export function FileListClient({
 						);
 					})}
 				</div>
+			</div>
 			</div>
 
 			{/* Mobile card view (below md) */}
