@@ -117,7 +117,7 @@ vi.mock("fs/promises", () => ({
   stat: statMock,
 }));
 
-import { DELETE, POST } from "../route";
+import { DELETE, GET, POST } from "../route";
 
 const session = { userId: "u_1", username: "alice", roles: ["admin"] };
 
@@ -183,7 +183,7 @@ describe("/api/downloads", () => {
     await vi.waitFor(() => expect(prismaMock.fileEntry.create).toHaveBeenCalled());
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_direct" },
-      data: expect.objectContaining({ pid: 12345, progress: "下载中..." }),
+      data: expect.objectContaining({ pid: 12345, status: "RUNNING", progress: "下载中..." }),
     }));
     expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
@@ -194,6 +194,54 @@ describe("/api/downloads", () => {
         size: null,
       }),
     }));
+  });
+
+  it("rejects batch downloads instead of silently dropping URLs", async () => {
+    const response = await POST(request({
+      url: "https://example.com/one.iso",
+      serverId: "srv_1",
+      targetPath: "downloads",
+      isBatch: true,
+      batchUrls: ["https://example.com/one.iso", "https://example.com/two.iso"],
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("批量下载暂不支持") });
+    expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("does not start or query aria2 when listing direct-only tasks", async () => {
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+      { id: "task_direct", status: "RUNNING", aria2Gid: null, pid: 12345, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
+    ]);
+
+    const response = await GET(new Request("https://example.com/api/downloads"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ globalStat: null });
+    expect(ensureAria2DaemonMock).not.toHaveBeenCalled();
+    expect(tellStatusMock).not.toHaveBeenCalled();
+    expect(getGlobalStatMock).not.toHaveBeenCalled();
+  });
+
+  it("reconciles terminal aria2 tasks from tellStatus", async () => {
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+      { id: "task_relay", status: "RUNNING", aria2Gid: "gid_1", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
+    ]);
+    tellStatusMock.mockResolvedValueOnce({ gid: "gid_1", status: "complete", completedLength: "100", totalLength: "100", downloadSpeed: "0" });
+    getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
+
+    const response = await GET(new Request("https://example.com/api/downloads"));
+
+    expect(response.status).toBe(200);
+    expect(ensureAria2DaemonMock).toHaveBeenCalledOnce();
+    expect(tellStatusMock).toHaveBeenCalledWith("gid_1");
+    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay" },
+      data: expect.objectContaining({ status: "COMPLETED", progress: "下载完成" }),
+    }));
+    expect(getGlobalStatMock).toHaveBeenCalledOnce();
   });
 
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {

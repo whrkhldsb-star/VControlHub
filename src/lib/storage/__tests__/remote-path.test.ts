@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   normalizeRemotePath,
+  normalizeRemoteRelativePath,
   normalizeRemoteTargetPath,
 } from "@/lib/storage/remote-path";
 
@@ -23,6 +24,12 @@ describe("remote path normalization", () => {
   it("rejects parent traversal outside the storage base", () => {
     expect(() => normalizeRemotePath("/data/file", "../etc/passwd")).toThrow();
     expect(() => normalizeRemotePath("/data/file", "/../etc/passwd")).toThrow();
+  });
+
+  it("returns the canonical relative path used for authorization", () => {
+    expect(normalizeRemoteRelativePath("/team-a//nested/../file.txt")).toBe("team-a/file.txt");
+    expect(normalizeRemoteRelativePath("/")).toBe("");
+    expect(() => normalizeRemoteRelativePath("team-a/../../secret.txt")).toThrow();
   });
 
   it("requires target operations to address an item under the base", () => {

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
-import { normalizeRemotePath, toClientStorageError } from "@/lib/storage/remote-path";
+import { normalizeRemotePath, normalizeRemoteRelativePath, toClientStorageError } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("api:storage:sftp");
@@ -78,8 +78,10 @@ export async function GET(request: Request) {
  }
 
   let normalizedRemotePath: string;
+  let normalizedRelativePath: string;
   try {
     normalizedRemotePath = normalizeRemotePath(node.basePath, remotePath);
+    normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(toClientStorageError("请求路径超出存储节点根目录"), { status: 400 });
   }
@@ -87,7 +89,7 @@ export async function GET(request: Request) {
   const accessDecision = await assertStorageAccess({
     session,
     storageNodeId: node.id,
-    relativePath: remotePath,
+    relativePath: normalizedRelativePath,
     operation: "read",
   });
   if (!accessDecision.allowed) {

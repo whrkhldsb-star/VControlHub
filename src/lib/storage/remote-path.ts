@@ -11,10 +11,27 @@ export function normalizeRemotePath(
   requestedPath?: string | null,
 ): string {
   const base = normalizeAbsoluteBasePath(basePath);
+  const normalizedRelative = normalizeRemoteRelativePath(requestedPath);
+
+  if (!normalizedRelative) {
+    return base;
+  }
+
+  const absolutePath = path.posix.normalize(
+    path.posix.join(base, normalizedRelative),
+  );
+  if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
+    throw new Error("请求路径超出存储节点根目录");
+  }
+
+  return absolutePath;
+}
+
+export function normalizeRemoteRelativePath(requestedPath?: string | null): string {
   const requested = (requestedPath ?? "").trim();
 
   if (!requested || requested === "/") {
-    return base;
+    return "";
   }
 
   const relativeRequest = requested.replace(/^\/+/, "");
@@ -29,14 +46,7 @@ export function normalizeRemotePath(
     throw new Error("请求路径超出存储节点根目录");
   }
 
-  const absolutePath = path.posix.normalize(
-    path.posix.join(base, normalizedRelative),
-  );
-  if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
-    throw new Error("请求路径超出存储节点根目录");
-  }
-
-  return absolutePath;
+  return normalizedRelative;
 }
 
 export function normalizeRemoteTargetPath(

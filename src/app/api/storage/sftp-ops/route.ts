@@ -14,7 +14,7 @@ import {
 } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import path from "node:path";
-import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
+import { normalizeRemoteTargetPath, normalizeRemoteRelativePath, toClientStorageError } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -115,8 +115,10 @@ export async function POST(request: Request) {
  }
 
   let normalizedRemotePath: string;
+  let normalizedRelativePath: string;
   try {
     normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, remotePath);
+    normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
     return NextResponse.json(toClientStorageError("请求路径超出存储节点根目录"), { status: 400 });
   }
@@ -129,7 +131,7 @@ export async function POST(request: Request) {
   const accessDecision = await assertStorageAccess({
     session,
     storageNodeId: node.id,
-    relativePath: remotePath,
+    relativePath: normalizedRelativePath,
     operation,
     writeBytes: action === "write" && typeof body.content === "string" ? Buffer.byteLength(body.content) : null,
   });
@@ -164,15 +166,17 @@ export async function POST(request: Request) {
           );
         }
         let normalizedNewPath: string;
+        let normalizedNewRelativePath: string;
         try {
           normalizedNewPath = normalizeRemoteTargetPath(node.basePath, body.newPath);
+          normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
         } catch {
           return NextResponse.json(toClientStorageError("新路径超出存储节点根目录"), { status: 400 });
         }
         const destinationAccessDecision = await assertStorageAccess({
           session,
           storageNodeId: node.id,
-          relativePath: body.newPath,
+          relativePath: normalizedNewRelativePath,
           operation: "write",
           writeBytes: null,
         });

@@ -110,13 +110,13 @@ describe("/api/storage/sftp", () => {
     mockSftpNode();
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
 
-    const response = await GET(request("/logs"));
+    const response = await GET(request("/logs/../reports"));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ remotePath: "/logs" });
-    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({ remotePath: "/data/files/logs" }));
+    await expect(response.json()).resolves.toMatchObject({ remotePath: "/logs/../reports" });
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({ remotePath: "/data/files/reports" }));
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ storageNodeId: "node_1", relativePath: "/logs", operation: "read" }),
+      expect.objectContaining({ storageNodeId: "node_1", relativePath: "reports", operation: "read" }),
     );
   });
 

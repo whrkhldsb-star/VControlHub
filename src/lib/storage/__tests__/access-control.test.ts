@@ -51,7 +51,7 @@ describe("storage access control", () => {
     await expect(assertStorageAccess({
       session: baseSession,
       storageNodeId: "node-1",
-      relativePath: "team-b/a.txt",
+      relativePath: "team-a/../secret.txt",
       operation: "read",
     })).resolves.toMatchObject({ allowed: false });
   });

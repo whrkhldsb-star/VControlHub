@@ -191,7 +191,7 @@ export async function executeDirectDownload(
 
   if (exitCode === 0 && pid > 0) {
    await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
-   await prisma.downloadTask.update({ where: { id: taskId }, data: { pid, progress: "下载中..." } });
+   await prisma.downloadTask.update({ where: { id: taskId }, data: { pid, status: "RUNNING", progress: "下载中..." } });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    const errMsg = logContent.trim() || "无法启动下载进程";

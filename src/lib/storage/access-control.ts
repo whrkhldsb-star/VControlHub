@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -16,17 +18,30 @@ type FileEntrySizeRow = Prisma.FileEntryGetPayload<{ select: { size: true } }>;
 type StorageAccessGrantRow = Prisma.UserStorageAccessGetPayload<Record<string, never>>;
 
 function normalizeAccessPath(value: string | null | undefined) {
-  return (value ?? "")
+  const cleaned = (value ?? "")
     .replace(/\\/g, "/")
     .split("/")
     .map((segment) => segment.trim())
     .filter(Boolean)
     .join("/");
+
+  if (!cleaned) return "";
+
+  const normalized = path.posix.normalize(cleaned);
+  if (normalized === ".") return "";
+  if (normalized === ".." || normalized.startsWith("../") || path.posix.isAbsolute(normalized)) {
+    return null;
+  }
+  return normalized;
 }
 
 function pathMatchesGrant(targetPath: string, pathPrefix: string) {
   const normalizedTarget = normalizeAccessPath(targetPath);
   const normalizedPrefix = normalizeAccessPath(pathPrefix);
+
+  if (normalizedTarget === null || normalizedPrefix === null) {
+    return false;
+  }
 
   if (!normalizedPrefix) {
     return true;
@@ -59,6 +74,7 @@ export function parseNullableBigIntInput(value: unknown): bigint | null {
 
 async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: string }) {
   const normalizedPrefix = normalizeAccessPath(input.pathPrefix);
+  if (normalizedPrefix === null) return BigInt(0);
   const rows = await prisma.fileEntry.findMany({
     where: {
       storageNodeId: input.storageNodeId,
@@ -107,6 +123,9 @@ export async function assertStorageAccess(input: {
   }
 
   const targetPath = normalizeAccessPath(input.relativePath);
+  if (targetPath === null) {
+    return { allowed: false, reason: "请求路径无效" };
+  }
   const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix));
   const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 

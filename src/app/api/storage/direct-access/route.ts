@@ -7,7 +7,7 @@ import { requireSession } from "@/lib/auth/require-session";
 
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { normalizeRemoteTargetPath, normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 import { withRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
@@ -56,14 +56,16 @@ async function resolveDirectAccessPayload(input: { nodeId: string; relativePath:
 		return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
 	}
 
+	let normalizedRelativePath: string;
 	try {
 		normalizeRemoteTargetPath(node.basePath, relativePath);
+		normalizedRelativePath = normalizeRemoteRelativePath(relativePath);
 	} catch {
 		return NextResponse.json({ error: "请求路径超出存储节点根目录" }, { status: 400 });
 	}
 
-	const fallback = fallbackUrl(nodeId, relativePath);
-	const access = await assertStorageAccess({ session, storageNodeId: nodeId, relativePath, operation: "read" });
+	const fallback = fallbackUrl(nodeId, normalizedRelativePath);
+	const access = await assertStorageAccess({ session, storageNodeId: nodeId, relativePath: normalizedRelativePath, operation: "read" });
 	if (!access.allowed) {
 		return NextResponse.json({ error: access.reason }, { status: 403 });
 	}
@@ -79,7 +81,7 @@ async function resolveDirectAccessPayload(input: { nodeId: string; relativePath:
 					mode: "direct-url",
 					url: buildSignedDirectUrl({
 						publicBaseUrl: node.publicBaseUrl,
-						relativePath,
+						relativePath: normalizedRelativePath,
 						expiresSeconds: node.directAccessExpiresSeconds ?? 300,
 					}),
 					fallbackUrl: fallback,

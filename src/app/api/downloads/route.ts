@@ -10,8 +10,6 @@ import {
  removeDownload,
  pauseDownload,
  unpauseDownload,
- tellActive,
- tellWaiting,
  tellStatus,
  getGlobalStat,
  changeOption,
@@ -71,6 +69,12 @@ export async function POST(request: Request) {
   const { url, serverId, targetPath, fileName, category, maxSpeedKb, isBatch, batchUrls } = parsed.data;
 
   const allUrls = isBatch && batchUrls?.length ? batchUrls : [url];
+  if (isBatch && allUrls.length > 1 && allUrls.every((candidate) => !isMagnetLink(candidate))) {
+   return NextResponse.json({ error: "HTTP/HTTPS 批量下载暂不支持，请拆分为单个任务创建，避免只下载第一项" }, { status: 400 });
+  }
+  if (isBatch && allUrls.length > 1 && allUrls.some(isMagnetLink)) {
+   return NextResponse.json({ error: "磁力/BT 批量下载暂不支持，请每次创建一个任务" }, { status: 400 });
+  }
   for (const u of allUrls) {
    const validation = validateDownloadSourceUrl(u);
    if (!validation.ok) {
@@ -191,34 +195,35 @@ export async function GET(request: Request) {
   take: 200,
  });
 
- try {
-  await ensureAria2Daemon();
-  const activeGids = new Map<string, string>();
-  for (const t of tasks) {
-   if (t.aria2Gid && t.status === "RUNNING") {
-    activeGids.set(t.aria2Gid, t.id);
-   }
+ const activeGids = new Map<string, string>();
+ for (const t of tasks) {
+  if (t.aria2Gid && ["PENDING", "RUNNING"].includes(t.status)) {
+   activeGids.set(t.aria2Gid, t.id);
   }
-  if (activeGids.size > 0) {
-   const [activeList, waitingList] = await Promise.all([tellActive(), tellWaiting()]);
-   const allAria2 = [...activeList, ...waitingList];
+ }
+ let aria2Available = false;
+ if (activeGids.size > 0) {
+  try {
+   await ensureAria2Daemon();
+   aria2Available = true;
    const updates: Promise<unknown>[] = [];
-   for (const a of allAria2) {
-    const taskId = activeGids.get(a.gid);
-    if (taskId) {
-     const progress = buildProgressText(a);
-     updates.push(
-      prisma.downloadTask.update({
-       where: { id: taskId },
-       data: { progress, completedBytes: a.completedLength, totalBytes: a.totalLength, downloadSpeed: a.downloadSpeed },
-      }),
-     );
-    }
+   for (const [gid, taskId] of activeGids) {
+    updates.push(
+     tellStatus(gid).then((a) => {
+      const progress = buildProgressText(a);
+      const terminalUpdate = a.status === "complete"
+       ? { status: "COMPLETED" as const, progress: "下载完成", completedBytes: a.completedLength, totalBytes: a.totalLength, downloadSpeed: a.downloadSpeed }
+       : a.status === "error" || a.status === "removed"
+        ? { status: "FAILED" as const, progress, errorMessage: `aria2 下载失败: ${a.status}`, completedBytes: a.completedLength, totalBytes: a.totalLength, downloadSpeed: a.downloadSpeed }
+        : { progress, completedBytes: a.completedLength, totalBytes: a.totalLength, downloadSpeed: a.downloadSpeed };
+      return prisma.downloadTask.update({ where: { id: taskId }, data: terminalUpdate });
+     }),
+    );
    }
    await Promise.all(updates);
+  } catch (err) {
+   logError("[DownloadAPI] aria2 refresh skipped:", err);
   }
- } catch (err) {
-  logError("[DownloadAPI] aria2 refresh skipped:", err);
  }
 
  const safe = tasks.map((t) => ({
@@ -236,10 +241,12 @@ export async function GET(request: Request) {
  }));
 
  let globalStat = null;
- try {
-  globalStat = await getGlobalStat();
- } catch (err) {
-  logError("[DownloadAPI] globalStat fetch failed:", err);
+ if (aria2Available) {
+  try {
+   globalStat = await getGlobalStat();
+  } catch (err) {
+   logError("[DownloadAPI] globalStat fetch failed:", err);
+  }
  }
 
  return NextResponse.json({ tasks: safe, globalStat });
