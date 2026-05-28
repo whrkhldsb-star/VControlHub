@@ -26,6 +26,8 @@ if [ -z "${ENV_FILE}" ]; then
 fi
 NEXT_HOST="${NEXT_HOST:-127.0.0.1}"
 NEXT_PORT="${NEXT_PORT:-3000}"
+SSH_WS_HOST="${SSH_WS_HOST:-127.0.0.1}"
+SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-0}"
 
@@ -69,6 +71,9 @@ for d in storage tmp uploads downloads backups logs; do
   [ -d "${APP_DIR}/${d}" ] || fail "Missing runtime directory: ${APP_DIR}/${d}"
 done
 
+[ -f "${APP_DIR}/dist/server.js" ] || fail "Missing runtime bundle: ${APP_DIR}/dist/server.js"
+[ -f "${APP_DIR}/dist/ssh-ws-proxy.js" ] || fail "Missing SSH-WS runtime bundle: ${APP_DIR}/dist/ssh-ws-proxy.js"
+
 if have_cmd systemctl; then
   for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
     if systemctl list-unit-files "$svc" >/dev/null 2>&1; then
@@ -83,6 +88,19 @@ if have_cmd curl; then
   code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://${NEXT_HOST}:${NEXT_PORT}/login" || true)"
   [ "$code" = "200" ] || fail "Local /login returned HTTP ${code:-000}"
   log "Local /login HTTP 200"
+
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "${SSH_WS_HOST}" "${SSH_WS_PORT}" <<'PY'
+import socket
+import sys
+host, port = sys.argv[1], int(sys.argv[2])
+with socket.create_connection((host, port), timeout=5):
+    pass
+PY
+    log "SSH-WS port ${SSH_WS_HOST}:${SSH_WS_PORT} accepts TCP connections"
+  else
+    warn "python3 not found; skipping SSH-WS TCP check"
+  fi
 
   if [ -n "${CHECK_PUBLIC_URL}" ]; then
     code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 15 "${CHECK_PUBLIC_URL%/}/login" || true)"

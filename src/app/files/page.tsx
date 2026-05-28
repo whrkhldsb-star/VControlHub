@@ -6,6 +6,7 @@ import { getStorageOverview } from "@/lib/storage/service";
 import {
 	buildFileTree,
 	findFileTreeNode,
+	isDirectoryEntry,
 	normalizeFilePath,
 	searchFileTree,
 	serializeFileTreeFolder,
@@ -53,7 +54,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 	const tree = buildFileTree(filteredEntries, filteredDirectories, groupByNode);
 	const currentNode = findFileTreeNode(tree, currentPath) ?? tree;
 	let folders = [...currentNode.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-	let files = [...currentNode.files].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+	let files = [...currentNode.files].filter((entry) => !isDirectoryEntry(entry)).sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
 
 	if (searchQuery) {
 		const lowerQuery = searchQuery.toLowerCase();

@@ -116,6 +116,13 @@ const directoryFile: FileProp = {
   sizeLabel: "-",
 };
 
+const directoryMimeFile: FileProp = {
+  ...directoryFile,
+  id: "dir_mime_duplicate",
+  entryType: "FILE",
+  mimeType: "inode/directory",
+};
+
 function renderFileList(overrides: Partial<React.ComponentProps<typeof FileListClient>> = {}) {
   return render(
     <FileListClient
@@ -156,7 +163,7 @@ describe("FileListClient", () => {
   it("renders folder entries only once when directory entries also arrive in the files payload", () => {
     window.localStorage.setItem("app-file-view-mode", "grid");
 
-    renderFileList({ files: [directoryFile, imageFile] });
+    renderFileList({ files: [directoryFile, directoryMimeFile, imageFile] });
 
     expect(screen.getAllByTestId("folder-card")).toHaveLength(1);
     expect(screen.queryByText("-")).not.toBeInTheDocument();
@@ -164,7 +171,7 @@ describe("FileListClient", () => {
   });
 
   it("excludes hidden directory payload entries from batch selection", () => {
-    renderFileList({ files: [directoryFile, imageFile] });
+    renderFileList({ files: [directoryFile, directoryMimeFile, imageFile] });
 
     fireEvent.click(screen.getByLabelText("全选文件"));
 

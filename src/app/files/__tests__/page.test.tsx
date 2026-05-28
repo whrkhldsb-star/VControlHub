@@ -278,6 +278,41 @@ describe("FilesPage", () => {
  expect(screen.getAllByRole("button", { name: "打开" }).length).toBeGreaterThan(0);
  });
 
+ it("does not render directory-shaped file entries in the file grid", async () => {
+ getStorageOverviewMock.mockResolvedValue({
+ ...structuredClone(baseStorageOverview),
+ entries: [
+ {
+ id: "dir_bad",
+ name: "archives",
+ mimeType: "inode/directory",
+ relativePath: "archives",
+ sizeLabel: "-",
+ previewable: false,
+ localEditable: false,
+ directAccess: { mode: "managed-download" as const, description: "远端文件经管理端 SFTP 代理中转下载（来自 203.0.113.11:22）。", href: "/api/storage/sftp-download?nodeId=node_2&path=" },
+ storageNode: { id: "node_2", name: "香港媒体库", driver: "SFTP" },
+ entryType: "FILE" as const,
+ },
+ ],
+ remoteDirectories: [
+ { storageNodeId: "node_2", storageNodeName: "香港媒体库", storageNodeDriver: "SFTP", path: "archives", name: "archives", itemCount: 1 },
+ ],
+ stats: {
+ ...baseStorageOverview.stats,
+ totalEntries: 1,
+ previewableEntries: 0,
+ remoteDirectoryCount: 1,
+ },
+ });
+
+ render(await FilesPage({ searchParams: Promise.resolve({}) }));
+
+ expect(screen.getByRole("button", { name: "archives" })).toBeInTheDocument();
+ expect(screen.queryByText("-")).not.toBeInTheDocument();
+ expect(screen.queryByRole("link", { name: /archives/ })).not.toBeInTheDocument();
+ });
+
  it("shows remote directory source summary in the toolbar", async () => {
  getStorageOverviewMock.mockResolvedValue({
  ...structuredClone(baseStorageOverview),
@@ -342,11 +377,11 @@ describe("FilesPage", () => {
 	const permanentDeleteBtns = screen.queryAllByTestId("permanent-delete-btn");
 	if (restoreBtns.length === 0) {
 		const allButtons = screen.getAllByRole("button");
-		expect(allButtons.some((btn) => btn.textContent?.includes("恢复"))).toBe(true);
-		expect(allButtons.some((btn) => btn.textContent?.includes("永久删除"))).toBe(true);
+		expect(allButtons.some((btn: HTMLElement) => btn.textContent?.includes("恢复"))).toBe(true);
+		expect(allButtons.some((btn: HTMLElement) => btn.textContent?.includes("永久删除"))).toBe(true);
 	} else {
-		expect(restoreBtns.some((btn) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
-		expect(permanentDeleteBtns.some((btn) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
+		expect(restoreBtns.some((btn: HTMLElement) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
+		expect(permanentDeleteBtns.some((btn: HTMLElement) => btn.getAttribute("data-entry-name") === "old-file.txt")).toBe(true);
 	}
 });
 });

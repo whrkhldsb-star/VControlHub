@@ -7,6 +7,7 @@ import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sy
 import {
 	buildFileTree,
 	findFileTreeNode,
+	isDirectoryEntry,
 	normalizeFilePath,
 	searchFileTree,
 	serializeFileTreeFolder,
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
 		const currentNode = findFileTreeNode(tree, currentPath) ?? tree;
 
 		let folders = [...currentNode.folders.values()].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
-		let files = [...currentNode.files].sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+		let files = [...currentNode.files].filter((entry) => !isDirectoryEntry(entry)).sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
 
 		// Apply search filter
 		if (searchQuery) {

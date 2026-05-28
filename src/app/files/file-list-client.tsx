@@ -275,7 +275,7 @@ export function FileListClient({
 		return arr;
 	}, [folders, sortKey, sortDir]);
 
-	const visibleFiles = useMemo(() => files.filter((file) => file.entryType !== "DIRECTORY"), [files]);
+	const visibleFiles = useMemo(() => files.filter((file) => file.entryType !== "DIRECTORY" && file.mimeType !== "inode/directory"), [files]);
 
 	const sortedFiles = useMemo(() => {
 		const arr = [...visibleFiles];

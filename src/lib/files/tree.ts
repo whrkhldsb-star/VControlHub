@@ -3,6 +3,10 @@ import type { getStorageOverview } from "@/lib/storage/service";
 export type StorageEntryForTree = Awaited<ReturnType<typeof getStorageOverview>>["entries"][number];
 export type StorageDirectoryForTree = Awaited<ReturnType<typeof getStorageOverview>>["remoteDirectories"][number];
 
+export function isDirectoryEntry(entry: { entryType?: string | null; mimeType?: string | null }) {
+	return entry.entryType === "DIRECTORY" || entry.mimeType === "inode/directory";
+}
+
 export type FileTreeNode = {
 	name: string;
 	path: string;
@@ -123,7 +127,7 @@ export function buildFileTree(
 				cursor.sources.set(source.id, source.label);
 			}
 
-			if (entry.mimeType === "inode/directory" || entry.entryType === "DIRECTORY") {
+			if (isDirectoryEntry(entry)) {
 				const directoryNode = ensureFolder([group.groupKey, ...segments].join("/"), source);
 				directoryNode.sources.set(source.id, source.label);
 				directoryNode.entryId = entry.id;
@@ -157,7 +161,7 @@ export function buildFileTree(
 				cursor.sources.set(source.id, source.label);
 			}
 
-			if (entry.mimeType === "inode/directory" || entry.entryType === "DIRECTORY") {
+			if (isDirectoryEntry(entry)) {
 				const directoryNode = ensureFolder(segments.join("/"), source);
 				directoryNode.sources.set(source.id, source.label);
 				directoryNode.entryId = entry.id;
