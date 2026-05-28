@@ -20,9 +20,8 @@ import { createLogger } from "@/lib/logging";
 const logger = createLogger("server");
 
 const dev = process.env.NODE_ENV !== "production";
-// Bind to loopback only — Apache reverse proxy handles external traffic.
-// Binding 0.0.0.0 would expose the app directly, bypassing auth middleware.
-const hostname = dev ? "0.0.0.0" : "127.0.0.1";
+// Bind to loopback by default in production; containers can set NEXT_HOST=0.0.0.0.
+const hostname = process.env.NEXT_HOST?.trim() || (dev ? "0.0.0.0" : "127.0.0.1");
 const port = parseInt(process.env.PORT || "3000", 10);
 
 async function main() {

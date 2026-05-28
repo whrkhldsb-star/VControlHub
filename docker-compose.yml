@@ -1,42 +1,60 @@
 version: "3.9"
 
 services:
-  app:
-    build: .
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-      - "3001:3001"
-    env_file: .env.local
-    volumes:
-      - app-storage:/app/storage
-      - app-uploads:/app/uploads
-      - app-downloads:/app/downloads
-      - app-logs:/app/logs
-      - app-backups:/app/backups
-    depends_on:
-      db:
-        condition: service_healthy
-
-  db:
+  postgres:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${PG_DB_NAME:-whrkhldsb}
-      POSTGRES_USER: ${PG_DB_USER:-whrkhldsb}
-      POSTGRES_PASSWORD: ${PG_DB_PASSWORD:-changeme}
+      POSTGRES_USER: ${POSTGRES_USER:-vcontrolhub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-vcontrolhub}
     volumes:
-      - pg-data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_DB_USER:-whrkhldsb}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_HOST: 0.0.0.0
+      PORT: 3000
+      SSH_WS_HOST: 0.0.0.0
+      SSH_WS_PORT: 3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-vcontrolhub}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-vcontrolhub}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:?set AUTH_SESSION_SECRET in .env}
+      SSH_WS_SECRET: ${SSH_WS_SECRET:?set SSH_WS_SECRET in .env}
+      SSH_WS_ALLOWED_ORIGINS: ${SSH_WS_ALLOWED_ORIGINS:-http://localhost:3000}
+      NEXT_PUBLIC_APP_PUBLIC_LABEL: ${NEXT_PUBLIC_APP_PUBLIC_LABEL:-VControlHub}
+      RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+      - "${SSH_WS_PORT:-3001}:3001"
+    volumes:
+      - app_storage:/app/storage
+      - app_uploads:/app/uploads
+      - app_downloads:/app/downloads
+      - app_backups:/app/backups
+      - app_logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/status >/dev/null"]
+      interval: 30s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
 volumes:
-  pg-data:
-  app-storage:
-  app-uploads:
-  app-downloads:
-  app-logs:
-  app-backups:
+  postgres_data:
+  app_storage:
+  app_uploads:
+  app_downloads:
+  app_backups:
+  app_logs:
