@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
+import { Prisma } from "@prisma/client";
 import { PPKError, parseFromString } from "ppk-to-openssh";
 
 import { revalidatePath } from "next/cache";
@@ -44,6 +45,14 @@ type ServerWithRelations = {
   publicUrl?: string | null;
   fileProxyPort?: number | null;
 };
+
+type ServerProfileRow = Prisma.ServerGetPayload<{
+  include: {
+    sshKey: { select: { id: true; name: true; fingerprint: true; publicKey: true; privateKey: true; createdAt: true } };
+    storageNode: { select: { id: true; name: true; driver: true; isDefault: true; basePath: true; directAccessMode: true; publicBaseUrl: true } };
+    commandTargets: { select: { id: true; status: true; commandRequest: { select: { id: true; title: true; initiatedByType: true; status: true; createdAt: true } } } };
+  };
+}>;
 
 function serializeDate(value: Date | string) {
   return value instanceof Date ? value.toISOString() : value;
@@ -458,5 +467,5 @@ export async function listServerProfiles() {
    },
   });
 
- return servers.map((server) => enrichServer(server));
+ return servers.map((server: ServerProfileRow) => enrichServer(server));
 }

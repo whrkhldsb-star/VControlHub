@@ -223,14 +223,23 @@ install_packages() {
 	fi
 
 	# ── Phase 2: Node.js ─────────────────────────────────────────────
-	local node_major=0
+	local node_major=0 node_path="" node_needs_system_install=0
 	if have_cmd node; then
+		node_path="$(command -v node 2>/dev/null || true)"
 		node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+		if [ "${APP_USER}" != "root" ]; then
+			case "${node_path}" in
+				/root/*)
+					node_needs_system_install=1
+					warn "Node.js resolved to ${node_path}, which APP_USER=${APP_USER} cannot execute; installing system-wide Node.js"
+					;;
+			esac
+		fi
 	fi
-	if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] 2>/dev/null; then
+	if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] 2>/dev/null && [ "${node_needs_system_install}" -eq 0 ]; then
 		log "  ✓ Node.js ${node_major} already installed (≥ ${NODE_VERSION_MAJOR})"
 	else
-		log "  ✗ Node.js missing or too old (found v${node_major}, need ≥ v${NODE_VERSION_MAJOR}) — installing"
+		log "  ✗ Node.js missing, too old, or not service-accessible (found v${node_major:-0}) — installing"
 		curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION_MAJOR}.x" | bash -
 		apt-get install -y nodejs
 		log "  ✓ Node.js $(node -v) installed"

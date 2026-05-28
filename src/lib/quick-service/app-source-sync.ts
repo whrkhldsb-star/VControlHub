@@ -7,11 +7,16 @@
  * - Updates AppSource metadata (last sync time, status, etc.)
  */
 
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db";
 import { fetchSourceApps, type NormalizedApp } from "./adapters";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("app-source:sync");
+
+type AppSourceAppSlugRow = Prisma.AppSourceAppGetPayload<{ select: { id: true; slug: true } }>;
+type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select: { name: true } } } }>;
 
 /**
  * Sync a single source by ID.
@@ -79,10 +84,10 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 			where: { sourceId: source.id },
 			select: { id: true, slug: true },
 		});
-		const toRemove = existing.filter((e) => !remoteSlugs.has(e.slug));
+		const toRemove = existing.filter((entry: AppSourceAppSlugRow) => !remoteSlugs.has(entry.slug));
 		if (toRemove.length > 0) {
 			await prisma.appSourceApp.deleteMany({
-				where: { id: { in: toRemove.map((r) => r.id) } },
+				where: { id: { in: toRemove.map((entry: AppSourceAppSlugRow) => entry.id) } },
 			});
 		}
 
@@ -143,7 +148,7 @@ export async function getRemoteApps(): Promise<NormalizedApp[]> {
 		include: { source: { select: { name: true } } },
 	});
 
-	return apps.map((app): NormalizedApp => ({
+	return apps.map((app: RemoteAppRow): NormalizedApp => ({
 		slug: app.slug,
 		name: app.name,
 		category: app.category,

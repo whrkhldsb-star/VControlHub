@@ -2,6 +2,8 @@ import { constants as fsConstants } from "node:fs";
 import { access, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/db";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
@@ -26,6 +28,37 @@ import {
 	MAX_EDITABLE_FILE_SIZE_BYTES,
 	isPreviewableMime,
 } from "./mime-constants";
+
+type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
+  include: {
+    server: { select: { id: true; name: true; host: true; port: true; username: true } };
+    fileEntries: { select: { id: true } };
+  };
+}>;
+type FileEntryListRow = Prisma.FileEntryGetPayload<{
+  include: {
+    storageNode: {
+      select: {
+        id: true;
+        name: true;
+        driver: true;
+        basePath: true;
+        host: true;
+        port: true;
+        username: true;
+        directAccessMode: true;
+        publicBaseUrl: true;
+        directAccessExpiresSeconds: true;
+        server: { select: { id: true; name: true; host: true; port: true } };
+      };
+    };
+  };
+}>;
+type DeletedFileEntryRow = Prisma.FileEntryGetPayload<{
+  include: {
+    storageNode: { select: { id: true; name: true; driver: true; host: true; port: true; server: { select: { host: true; port: true } } } };
+  };
+}>;
 
 function buildStorageConnectionSummary(input: {
   driver: "LOCAL" | "SFTP";
@@ -380,7 +413,7 @@ export async function deleteStorageNode(storageNodeId: string) {
     throw new Error("存储节点不存在或已删除");
   }
 
-  const activeEntryCount = node.fileEntries.filter((entry) => !entry.isDeleted).length;
+  const activeEntryCount = node.fileEntries.filter((entry: { isDeleted: boolean }) => !entry.isDeleted).length;
   if (activeEntryCount > 0) {
     throw new Error("该存储节点下仍有文件条目，请先删除或迁移文件后再移除节点");
   }
@@ -398,7 +431,7 @@ export async function listStorageNodes() {
       },
     });
 
-	return nodes.map((node) => ({
+	return nodes.map((node: StorageNodeListRow) => ({
 		id: node.id,
 		name: node.name,
 		driver: node.driver,
@@ -544,7 +577,7 @@ export async function listFileEntries(storageNodeId?: string) {
       },
     });
 
-	return entries.map((entry) => {
+	return entries.map((entry: FileEntryListRow) => {
 			const directAccess = buildDirectAccessStrategy({
 				driver: entry.storageNode.driver,
 				nodeId: entry.storageNode.id,
@@ -592,7 +625,7 @@ export async function listDeletedFileEntries(storageNodeId?: string) {
     },
   });
 
-	return entries.map((entry) => ({
+	return entries.map((entry: DeletedFileEntryRow) => ({
 		id: entry.id,
 		storageNodeId: entry.storageNodeId,
 		name: entry.name,
@@ -676,11 +709,11 @@ export async function getStorageOverview() {
       remoteDirectories,
       stats: {
         totalNodes: nodes.length,
-        defaultNodeName: nodes.find((node) => node.isDefault)?.name ?? "未配置",
-        localNodeCount: nodes.filter((node) => node.driver === "LOCAL").length,
-        sftpNodeCount: nodes.filter((node) => node.driver === "SFTP").length,
+        defaultNodeName: nodes.find((node: ReturnType<typeof listStorageNodes> extends Promise<Array<infer Row>> ? Row : never) => node.isDefault)?.name ?? "未配置",
+        localNodeCount: nodes.filter((node: ReturnType<typeof listStorageNodes> extends Promise<Array<infer Row>> ? Row : never) => node.driver === "LOCAL").length,
+        sftpNodeCount: nodes.filter((node: ReturnType<typeof listStorageNodes> extends Promise<Array<infer Row>> ? Row : never) => node.driver === "SFTP").length,
         totalEntries: entries.length,
-        previewableEntries: entries.filter((entry) => entry.previewable).length,
+        previewableEntries: entries.filter((entry: ReturnType<typeof listFileEntries> extends Promise<Array<infer Row>> ? Row : never) => entry.previewable).length,
         deletedEntries: deletedEntries.length,
         remoteDirectoryCount: remoteDirectories.length,
       },

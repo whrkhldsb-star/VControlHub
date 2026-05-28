@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
@@ -9,6 +11,9 @@ export type StorageAccessDecision = {
   reason?: string;
   matchedGrantId?: string;
 };
+
+type FileEntrySizeRow = Prisma.FileEntryGetPayload<{ select: { size: true } }>;
+type StorageAccessGrantRow = Prisma.UserStorageAccessGetPayload<Record<string, never>>;
 
 function normalizeAccessPath(value: string | null | undefined) {
   return (value ?? "")
@@ -71,7 +76,7 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
     select: { size: true },
   });
 
-  return rows.reduce((total, row) => total + (row.size ?? BigInt(0)), BigInt(0));
+  return rows.reduce((total: bigint, row: FileEntrySizeRow) => total + (row.size ?? BigInt(0)), BigInt(0));
 }
 
 export async function assertStorageAccess(input: {
@@ -102,8 +107,8 @@ export async function assertStorageAccess(input: {
   }
 
   const targetPath = normalizeAccessPath(input.relativePath);
-  const matchingGrants = grants.filter((grant) => pathMatchesGrant(targetPath, grant.pathPrefix));
-  const operationGrant = matchingGrants.find((grant) => grantAllowsOperation(grant, input.operation));
+  const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix));
+  const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 
   if (!operationGrant) {
     return { allowed: false, reason: "没有该存储节点或路径的访问授权" };

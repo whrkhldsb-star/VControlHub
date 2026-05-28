@@ -4,9 +4,26 @@
 
 set -euo pipefail
 
-APP_NAME="${APP_NAME:-${APP_SLUG:-app}}"
-APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
+APP_DIR="${APP_DIR:-}"
+if [ -z "${APP_DIR}" ]; then
+  APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+DEFAULT_APP_NAME="$(basename "${APP_DIR}" | tr '[:upper:]' '[:lower:]')"
+APP_NAME="${APP_NAME:-${APP_SLUG:-${DEFAULT_APP_NAME}}}"
+APP_SLUG="${APP_SLUG:-${APP_NAME}}"
+SERVICE_PREFIX="${SERVICE_PREFIX:-${APP_SLUG}}"
+if command -v systemctl >/dev/null 2>&1; then
+  DETECTED_APP_DIR="$(systemctl show "${SERVICE_PREFIX}-next.service" -p WorkingDirectory --value 2>/dev/null || true)"
+  [ -n "${DETECTED_APP_DIR}" ] && APP_DIR="${DETECTED_APP_DIR}"
+fi
+ENV_FILE="${ENV_FILE:-}"
+if [ -z "${ENV_FILE}" ]; then
+  if [ -f "${APP_DIR}/.env.runtime" ]; then
+    ENV_FILE="${APP_DIR}/.env.runtime"
+  else
+    ENV_FILE="${APP_DIR}/.env.local"
+  fi
+fi
 NEXT_HOST="${NEXT_HOST:-127.0.0.1}"
 NEXT_PORT="${NEXT_PORT:-3000}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
@@ -53,7 +70,7 @@ for d in storage tmp uploads downloads backups logs; do
 done
 
 if have_cmd systemctl; then
-  for svc in "${APP_NAME}-next.service" "${APP_NAME}-ssh-ws.service"; do
+  for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
     if systemctl list-unit-files "$svc" >/dev/null 2>&1; then
       systemctl is-active --quiet "$svc" && log "$svc active" || warn "$svc is not active"
     else
