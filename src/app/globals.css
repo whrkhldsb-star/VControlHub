@@ -96,16 +96,41 @@ html.light .text-cyan-200\/70 {
 
 html.light .bg-slate-950,
 html.light .bg-slate-950\/50,
+html.light .bg-slate-950\/90,
 html.light .bg-slate-900,
 html.light .bg-slate-900\/60,
+html.light .bg-slate-900\/80,
+html.light .bg-slate-800,
+html.light .bg-slate-800\/50,
+html.light .bg-\[\#0a0e1a\],
 html.light .bg-white\/5,
 html.light .bg-white\/\[0\.03\] {
 	background-color: var(--card-bg);
 }
 
 html.light .border-white\/10,
+html.light .border-white\/\[0\.04\],
 html.light .border-white\/\[0\.06\] {
 	border-color: var(--card-border);
+}
+
+html.light aside.bg-slate-950,
+html.light aside.bg-\[\#0a0e1a\],
+html.light .bg-slate-950\/90 {
+	background-color: var(--sidebar-bg);
+}
+
+html.light .hover\:bg-white\/\[0\.02\]:hover,
+html.light .hover\:bg-white\/\[0\.03\]:hover,
+html.light .hover\:bg-white\/\[0\.04\]:hover,
+html.light .hover\:bg-white\/\[0\.06\]:hover,
+html.light .hover\:bg-white\/10:hover {
+	background-color: var(--sidebar-hover);
+}
+
+html.light .shadow-2xl,
+html.light .shadow-lg {
+	box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
 html.light input,

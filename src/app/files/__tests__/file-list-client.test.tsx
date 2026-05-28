@@ -105,6 +105,17 @@ const docFile: FileProp = {
   updatedAt: "2026-05-06T00:00:00.000Z",
 };
 
+const directoryFile: FileProp = {
+  ...imageFile,
+  id: "dir_duplicate",
+  name: "photos",
+  entryType: "DIRECTORY",
+  mimeType: null,
+  relativePath: "photos",
+  previewable: false,
+  sizeLabel: "-",
+};
+
 function renderFileList(overrides: Partial<React.ComponentProps<typeof FileListClient>> = {}) {
   return render(
     <FileListClient
@@ -140,6 +151,25 @@ describe("FileListClient", () => {
       "src",
       "/api/storage/local?path=photos%2Fcover.jpg",
     );
+  });
+
+  it("renders folder entries only once when directory entries also arrive in the files payload", () => {
+    window.localStorage.setItem("app-file-view-mode", "grid");
+
+    renderFileList({ files: [directoryFile, imageFile] });
+
+    expect(screen.getAllByTestId("folder-card")).toHaveLength(1);
+    expect(screen.queryByText("-")).not.toBeInTheDocument();
+    expect(screen.getByText("cover.jpg")).toBeInTheDocument();
+  });
+
+  it("excludes hidden directory payload entries from batch selection", () => {
+    renderFileList({ files: [directoryFile, imageFile] });
+
+    fireEvent.click(screen.getByLabelText("全选文件"));
+
+    expect(screen.getByText("已选 1 个文件")).toBeInTheDocument();
+    expect(screen.getByLabelText("选择 cover.jpg")).toBeChecked();
   });
 
   it("persists the selected file view mode and restores it on next render", () => {

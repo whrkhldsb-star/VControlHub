@@ -275,8 +275,10 @@ export function FileListClient({
 		return arr;
 	}, [folders, sortKey, sortDir]);
 
+	const visibleFiles = useMemo(() => files.filter((file) => file.entryType !== "DIRECTORY"), [files]);
+
 	const sortedFiles = useMemo(() => {
-		const arr = [...files];
+		const arr = [...visibleFiles];
 		const cmp = (a: FileProp, b: FileProp) => {
 			switch (sortKey) {
 				case "name": return a.name.localeCompare(b.name, "zh-CN");
@@ -290,7 +292,7 @@ export function FileListClient({
 		arr.sort(cmp);
 		if (sortDir === "desc") arr.reverse();
 		return arr;
-	}, [files, sortKey, sortDir]);
+	}, [visibleFiles, sortKey, sortDir]);
 
 	function SortIcon({ col }: { col: SortKey }) {
 		const active = sortKey === col;
@@ -309,8 +311,8 @@ export function FileListClient({
 	const [moveProgress, setMoveProgress] = useState<BatchProgress>({ done: 0, total: 0, errors: [] });
 	const [isPending, startTransition] = useTransition();
 
-	const allFileIds = files.map((f) => f.id);
-	const allSelected = files.length > 0 && allFileIds.every((id) => selectedIds.has(id));
+	const allFileIds = visibleFiles.map((f) => f.id);
+	const allSelected = visibleFiles.length > 0 && allFileIds.every((id) => selectedIds.has(id));
 	const someSelected = selectedIds.size > 0 && !allSelected;
 
 	const toggleAll = useCallback(() => {
@@ -541,9 +543,10 @@ export function FileListClient({
 						key={folder.path}
 						type="button"
 						onClick={() => navigateToFolder(folder.path)}
-						className="group flex flex-col items-center gap-3 rounded-2xl border border-white/[0.06] bg-slate-900/80 p-5 text-center transition-all duration-200 hover:border-amber-400/30 hover:bg-amber-400/[0.04] hover:shadow-lg hover:shadow-amber-400/5"
+						data-testid="folder-card"
+						className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900/80 p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
 					>
-						<div className="rounded-xl bg-amber-400/10 p-3 transition-colors group-hover:bg-amber-400/20">
+						<div className="rounded-xl bg-amber-400/10 p-3 transition-colors group-hover:bg-amber-400/20" aria-hidden="true">
 							<FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
 						</div>
 						<span className="w-full truncate text-sm font-medium text-cyan-100 group-hover:text-white transition">
@@ -803,7 +806,8 @@ export function FileListClient({
 							checked={allSelected}
 							ref={(el) => { if (el) el.indeterminate = someSelected; }}
 							onChange={toggleAll}
-							disabled={files.length === 0}
+							disabled={visibleFiles.length === 0}
+							aria-label="全选文件"
 							className="rounded h-4 w-4 accent-cyan-400"
 						/>
 					</div>
