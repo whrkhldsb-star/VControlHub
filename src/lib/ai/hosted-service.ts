@@ -157,17 +157,45 @@ export async function executeSafeAction(
 
 // ── 根据操作类型构建 shell 命令 ─────────────────────────────
 
-function buildCommand(actionType: string, params: Record<string, unknown>): string | null {
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function normalizeTail(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value ?? 50);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1000) return null;
+  return parsed;
+}
+
+function normalizeLogPath(value: unknown): string | null {
+  const path = typeof value === "string" && value.trim() ? value.trim() : "/var/log/syslog";
+  if (!path.startsWith("/")) return null;
+  if (path.includes("\0") || path.includes("\n") || path.includes("\r")) return null;
+  if (path.split("/").some((segment) => segment === "..")) return null;
+  if (!/^[/A-Za-z0-9._+@:-]+$/.test(path)) return null;
+  return path;
+}
+
+function normalizeFilter(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string") return null;
+  const filter = value.trim();
+  if (filter.length > 120 || filter.includes("\0") || filter.includes("\n") || filter.includes("\r")) return null;
+  return filter;
+}
+
+export function buildCommand(actionType: string, params: Record<string, unknown>): string | null {
   switch (actionType) {
     case "get_status":
       return "echo '=== UPTIME ===' && uptime && echo '=== MEMORY ===' && free -h && echo '=== DISK ===' && df -h / && echo '=== CPU ===' && top -bn1 | head -5";
 
     case "read_logs": {
-      const logPath = params.logPath as string || "/var/log/syslog";
-      const tail = params.tail as number || 50;
-      const filter = params.filter as string;
-      let cmd = `tail -n ${tail} ${logPath}`;
-      if (filter) cmd += ` | grep -i '${filter.replace(/'/g, "'\\''")}'`;
+      const logPath = normalizeLogPath(params.logPath);
+      const tail = normalizeTail(params.tail);
+      const filter = normalizeFilter(params.filter);
+      if (!logPath || !tail || filter === null) return null;
+      let cmd = `tail -n ${tail} -- ${shellQuote(logPath)}`;
+      if (filter) cmd += ` | grep -F -i -- ${shellQuote(filter)}`;
       return cmd;
     }
 
@@ -211,8 +239,8 @@ function buildCommand(actionType: string, params: Record<string, unknown>): stri
 // ── 审批操作 ──────────────────────────────────────────────
 
 export async function approveHostedAction(actionId: string, approverId: string) {
-  const action = await prisma.aiHostedAction.findUnique({ where: { id: actionId } });
-  if (!action) throw new Error("操作不存在");
+  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: approverId } });
+  if (!action) throw new Error("操作不存在或无权审批");
   if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
 
   // 更新状态为已批准
@@ -226,8 +254,8 @@ export async function approveHostedAction(actionId: string, approverId: string) 
 }
 
 export async function rejectHostedAction(actionId: string, approverId: string, reason?: string) {
-  const action = await prisma.aiHostedAction.findUnique({ where: { id: actionId } });
-  if (!action) throw new Error("操作不存在");
+  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: approverId } });
+  if (!action) throw new Error("操作不存在或无权审批");
   if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
 
   return prisma.aiHostedAction.update({

@@ -78,10 +78,11 @@ export async function POST(request: NextRequest) {
 		return NextResponse.json({ error: "文件不存在" }, { status: 404 });
 	}
 
-	const ext = path.extname(name).toLowerCase();
+	const lowerName = name.toLowerCase();
+	const ext = path.extname(lowerName);
 
 	try {
-		if (ext === ".gz" && !name.endsWith(".tar.gz")) {
+		if (ext === ".gz" && !lowerName.endsWith(".tar.gz")) {
 			const outputName = name.replace(/\.gz$/, "");
 			const outputPath = resolveStoragePathWithinBase(node.basePath, path.posix.join(path.posix.dirname(relativePath.replace(/^\/+/, "")), outputName));
 			if (!outputPath.ok) {
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
 				{ error: "为避免符号链接/硬链接穿越风险，暂不支持在线解压 zip/jar，请先在可信环境中解压" },
 				{ status: 400 },
 			);
-		} else if (ext === ".tar.gz" || ext === ".tgz") {
+		} else if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
 			return NextResponse.json(
 				{ error: "为避免符号链接/硬链接穿越风险，暂不支持在线解压 tar/tgz，请先在可信环境中解压" },
 				{ status: 400 },

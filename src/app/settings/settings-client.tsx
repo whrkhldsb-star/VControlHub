@@ -90,24 +90,24 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 			</section>
 
 			{/* SMTP */}
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<form className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4" onSubmit={(event) => event.preventDefault()}>
 				<h2 className="text-lg font-semibold text-white flex items-center gap-2">📧 邮件通知（SMTP）</h2>
 				<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
 				<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" />
 				<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" />
 				<Field label="用户名" value={settings["smtp.user"] ?? ""} onChange={(v) => updateField("smtp.user", v)} placeholder="user@example.com" />
-				<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" />
+				<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" autoComplete="new-password" />
 				<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" />
 				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from"])} saving={saving} />
-			</section>
+			</form>
 		</div>
 	);
 }
 
 /* ── Sub-components ───────────────────────────────────────── */
 
-function Field({ label, value, onChange, placeholder, type = "text" }: {
-	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
+function Field({ label, value, onChange, placeholder, type = "text", autoComplete }: {
+	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string;
 }) {
 	const inputId = useId();
 	return (
@@ -119,6 +119,7 @@ function Field({ label, value, onChange, placeholder, type = "text" }: {
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
+				autoComplete={autoComplete}
 				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30"
 			/>
 		</div>
@@ -130,6 +131,7 @@ function SwitchField({ label, value, onChange }: { label: string; value: boolean
 		<div className="flex items-center justify-between">
 			<span className="text-sm text-slate-300">{label}</span>
 			<button
+				type="button"
 				onClick={() => onChange(!value)}
 				className={`relative w-10 h-5 rounded-full transition-colors ${value ? "bg-cyan-500" : "bg-slate-700"}`}
 			>

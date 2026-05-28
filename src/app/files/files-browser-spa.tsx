@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { logError } from "@/lib/logging";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -92,6 +92,74 @@ function getCurrentPathLabel(path: string) {
 	if (!path) return "/";
 	const segments = splitPath(path);
 	return "/" + segments.map((s) => (s.includes("__") ? s.split("__")[0] : s)).join("/");
+}
+
+type NodeOption = { id: string; name: string; driver: string };
+
+function getNodeIcon(driver: string) {
+	return driver === "SFTP" ? "🖥" : "💾";
+}
+
+function getNodeLabel(node?: NodeOption) {
+	if (!node) return "全部节点";
+	return `${node.name}（${node.driver}）`;
+}
+
+function NodeFilterSelect({
+	nodes,
+	value,
+	onChange,
+	compact = false,
+}: {
+	nodes: NodeOption[];
+	value: string;
+	onChange: (nodeId: string) => void;
+	compact?: boolean;
+}) {
+	const [query, setQuery] = useState("");
+	const selectedNode = nodes.find((node) => node.id === value);
+	const normalizedQuery = query.trim().toLowerCase();
+	const filteredNodes = useMemo(() => {
+		if (!normalizedQuery) return nodes;
+		return nodes.filter((node) => {
+			const haystack = `${node.name} ${node.driver} ${node.id}`.toLowerCase();
+			return haystack.includes(normalizedQuery);
+		});
+	}, [nodes, normalizedQuery]);
+
+	return (
+		<div className={compact ? "space-y-2" : "w-full max-w-xl space-y-2"}>
+			<div className="flex items-center justify-between gap-3 text-xs text-slate-400 light:text-slate-600">
+				<span>当前：{getNodeIcon(selectedNode?.driver ?? "")}{" "}{getNodeLabel(selectedNode)}</span>
+				{value ? (
+					<button type="button" onClick={() => onChange("")} className="text-cyan-300 hover:text-cyan-100 light:text-cyan-700 light:hover:text-cyan-900">
+						清除
+					</button>
+				) : null}
+			</div>
+			<input
+				type="search"
+				value={query}
+				onChange={(event) => setQuery(event.currentTarget.value)}
+				placeholder="搜索节点名称、类型或 ID"
+				className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400"
+			/>
+			<select
+				aria-label="选择存储节点"
+				value={value}
+				onChange={(event) => onChange(event.currentTarget.value)}
+				className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40 light:bg-white light:text-slate-900"
+			>
+				<option value="">🌐 全部节点</option>
+				{filteredNodes.map((node) => (
+					<option key={node.id} value={node.id}>
+						{getNodeIcon(node.driver)} {node.name}（{node.driver}）
+					</option>
+				))}
+			</select>
+			{filteredNodes.length === 0 ? <p className="text-xs text-amber-300 light:text-amber-700">没有匹配的节点</p> : null}
+		</div>
+	);
 }
 
 /* ── Navigation hook ────────────────────────────────────────────── */
@@ -290,8 +358,7 @@ export function FilesBrowserSpa({
 
 	// Node filter handler
 	const handleNodeFilterChange = useCallback(
-		(e: React.ChangeEvent<HTMLSelectElement>) => {
-			const newNodeId = e.target.value;
+		(newNodeId: string) => {
 			// Reset to root path when switching nodes
 			fetchFiles("", data.searchQuery, data.searchScope, newNodeId);
 		},
@@ -314,22 +381,15 @@ export function FilesBrowserSpa({
 			{/* Node filter in sidebar - compact for sidebar */}
 			{data.nodes.length > 1 ? (
 				<div className="mt-4 flex flex-col gap-1.5">
-					<label htmlFor="node-filter-select" className="text-xs text-slate-400">
-						📂 按节点筛选
+					<label className="text-xs text-slate-400 light:text-slate-600">
+						按节点筛选
 					</label>
-					<select
-						id="node-filter-select"
+					<NodeFilterSelect
+						nodes={data.nodes}
 						value={data.nodeIdFilter}
 						onChange={handleNodeFilterChange}
-						className="rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-					>
-						<option value="">🌐 全部节点</option>
-						{data.nodes.map((n) => (
-							<option key={n.id} value={n.id}>
-								{n.driver === "SFTP" ? "🖥" : "💾"} {n.name}（{n.driver}）
-							</option>
-						))}
-					</select>
+						compact
+					/>
 				</div>
 			) : null}
 
@@ -354,43 +414,17 @@ export function FilesBrowserSpa({
 
 			{/* Main content area */}
 			<section className="space-y-8">
-				{/* VPS Node Selector - prominent card */}
+				{/* VPS Node Selector - searchable */}
 				{data.nodes.length > 1 ? (
-					<article className="rounded-3xl border border-cyan-400/20 bg-gradient-to-r from-cyan-400/5 to-slate-900/60 p-5">
-						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<article className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5 light:border-cyan-500/20 light:bg-cyan-50">
+						<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 							<div>
-								<h3 className="text-lg font-semibold text-white">🖥 切换存储节点</h3>
-								<p className="mt-1 text-sm text-slate-400">
-									选择VPS节点查看对应文件，或浏览全部节点
+								<h3 className="text-lg font-semibold text-white light:text-slate-950">切换存储节点</h3>
+								<p className="mt-1 text-sm text-slate-400 light:text-slate-600">
+									节点变多后可以先搜索，再从下拉框切换到目标节点。
 								</p>
 							</div>
-							<div className="flex flex-wrap gap-2">
-								<button
-									type="button"
-									onClick={() => fetchFiles("", data.searchQuery, data.searchScope, "")}
-									className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-										data.nodeIdFilter === ""
-											? "border border-cyan-400/50 bg-cyan-400/20 text-cyan-100"
-											: "border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
-									}`}
-								>
-									🌐 全部节点
-								</button>
-								{data.nodes.map((n) => (
-									<button
-										key={n.id}
-										type="button"
-										onClick={() => fetchFiles("", data.searchQuery, data.searchScope, n.id)}
-										className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-											data.nodeIdFilter === n.id
-												? "border border-cyan-400/50 bg-cyan-400/20 text-cyan-100"
-												: "border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white"
-										}`}
-									>
-										{n.driver === "SFTP" ? "🖥" : "💾"} {n.name}
-									</button>
-								))}
-							</div>
+							<NodeFilterSelect nodes={data.nodes} value={data.nodeIdFilter} onChange={handleNodeFilterChange} />
 						</div>
 					</article>
 				) : null}

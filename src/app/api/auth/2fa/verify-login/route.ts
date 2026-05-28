@@ -75,15 +75,28 @@ export async function POST(request: Request) {
 
 		auditUserAction(sessionPayload.userId, "auth.login_2fa_ok", { username: sessionPayload.username, ip: clientIp });
 
-		return NextResponse.json({ success: true }, {
-			status: 200,
-			headers: {
-				"Set-Cookie": [
-					`${getSessionCookieName()}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`,
-					`${getCsrfCookieName()}=${csrfToken}; SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`,
-				].join(", "),
-			},
+		const response = NextResponse.json({ success: true });
+		response.cookies.set(getSessionCookieName(), token, {
+			httpOnly: true,
+			sameSite: "lax",
+			path: "/",
+			maxAge: 7 * 24 * 60 * 60,
+			secure: request.url.startsWith("https://") || request.headers.get("x-forwarded-proto") === "https",
 		});
+		response.cookies.set(getCsrfCookieName(), csrfToken, {
+			sameSite: "lax",
+			path: "/",
+			maxAge: 7 * 24 * 60 * 60,
+			secure: request.url.startsWith("https://") || request.headers.get("x-forwarded-proto") === "https",
+		});
+		response.cookies.set(getPending2faCookieName(), "", {
+			httpOnly: true,
+			sameSite: "lax",
+			path: "/",
+			maxAge: 0,
+			secure: request.url.startsWith("https://") || request.headers.get("x-forwarded-proto") === "https",
+		});
+		return response;
 	} catch (error) {
 		logger.error("[2fa/verify-login]", error);
 		return NextResponse.json({ error: "验证失败，请重试" }, { status: 500 });

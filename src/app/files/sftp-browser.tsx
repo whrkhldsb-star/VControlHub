@@ -526,7 +526,7 @@ const newFullPath = joinSftpPath(remotePath, newName);
   if (sftpNodes.length === 0) return null;
 
   const segments = splitSftpPath(remotePath);
-  const TABLE_COLS = "grid-cols-[minmax(0,2fr)_100px_100px_140px_minmax(180px,1fr)]";
+  const TABLE_COLS = "grid-cols-[minmax(280px,2fr)_100px_110px_150px_minmax(220px,1fr)]";
 
   return (
     <article className="rounded-3xl border border-white/10 bg-slate-900/60 p-6">
@@ -692,7 +692,8 @@ const newFullPath = joinSftpPath(remotePath, newName);
           )}
 
           {/* Entry list */}
-          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+            <div className="min-w-[860px]">
             {/* Desktop table header */}
             <div className={`hidden md:grid ${TABLE_COLS} bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400`}>
               <div>名称</div>
@@ -941,6 +942,7 @@ const newFullPath = joinSftpPath(remotePath, newName);
                     </div>
                   );
                 })}
+            </div>
             </div>
           </div>
         </>

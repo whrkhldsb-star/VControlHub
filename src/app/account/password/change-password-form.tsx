@@ -13,6 +13,7 @@ export function ChangePasswordForm() {
 
   return (
     <form action={formAction} className="grid gap-4 rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+      <input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
       <div>
         <h2 className="text-xl font-semibold text-white">修改登录密码</h2>
         <p className="mt-2 text-sm text-slate-400">

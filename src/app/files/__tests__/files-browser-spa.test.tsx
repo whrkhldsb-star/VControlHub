@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilesBrowserSpa } from "../files-browser-spa";
@@ -137,22 +137,45 @@ describe("FilesBrowserSpa", () => {
 		expect(screen.getByText("before.jpg")).toBeInTheDocument();
 	});
 
-	it("passes SFTP nodes into the current-directory upload picker", async () => {
+	it("filters storage nodes before switching the file browser node", async () => {
+		const fetchMock = vi.mocked(globalThis.fetch);
+		fetchMock.mockResolvedValueOnce({
+			ok: true,
+			json: async () => ({
+				...baseData,
+				nodeIdFilter: "node_sftp_2",
+				currentPath: "",
+				files: [],
+				nodes: [
+					{ id: "node_1", name: "本机存储", driver: "LOCAL" },
+					{ id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+					{ id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
+				],
+			}),
+		} as Response);
 		render(
 			<FilesBrowserSpa
 				initialData={{
 					...baseData,
-					nodeIdFilter: "node_sftp",
-					nodes: [{ id: "node_sftp", name: "远端存储", driver: "SFTP" }],
-					stats: { ...baseData.stats, localNodeCount: 0, sftpNodeCount: 1 },
+					nodes: [
+						{ id: "node_1", name: "本机存储", driver: "LOCAL" },
+						{ id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+						{ id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
+					],
 				}}
 				deletedEntries={[]}
-				sftpNodes={[{ id: "node_sftp", name: "远端存储", driver: "SFTP", serverId: null, serverName: null }]}
+				sftpNodes={[]}
 			/>,
 		);
 
-		const uploadButton = screen.getByRole("button", { name: "模拟上传完成" });
-		expect(uploadButton).toHaveAttribute("data-upload-node-count", "1");
-		expect(uploadButton).toHaveAttribute("data-initial-node-id", "node_sftp");
+		const sidebarSearch = screen.getAllByPlaceholderText("搜索节点名称、类型或 ID")[0];
+		const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0];
+		fireEvent.change(sidebarSearch, { target: { value: "东京" } });
+		expect(within(sidebarSelect).getByRole("option", { name: /东京归档/ })).toBeInTheDocument();
+		expect(within(sidebarSelect).queryByRole("option", { name: /香港 VPS/ })).not.toBeInTheDocument();
+
+		fireEvent.change(sidebarSelect, { target: { value: "node_sftp_2" } });
+
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/files/list?nodeId=node_sftp_2", expect.any(Object)));
 	});
 });

@@ -52,25 +52,22 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	const handleDeploy = useCallback(async (template: Template, serverIds: string[], vars: Record<string, string>) => {
 		const missingVariable = template.variables.find((name) => !vars[name]?.trim());
 		if (missingVariable) {
-			addToast("error", `请填写变量 ${missingVariable} 后再提交审批`);
+			addToast("error", `请填写变量 ${missingVariable} 后再提交部署`);
 			return;
 		}
 		setDeploying(template.id);
 		try {
-			let command = template.command;
-			for (const [k, v] of Object.entries(vars)) {
-				command = command.replaceAll(`{{${k}}}`, v);
-			}
-			await csrfFetch("/api/commands", {
+			await csrfFetch("/api/deployments", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					title: `模板: ${template.name}`,
-					command,
-					targetServerIds: serverIds,
+					templateId: template.id,
+					serverIds,
+					variables: vars,
+					reason: `从模板中心下发：${template.name}`,
 				}),
 			});
-			addToast("success", "命令已提交审批");
+			addToast("success", "部署已提交，可在部署记录中查看进度");
 		} catch (err) {
 			addToast("error", err instanceof Error ? err.message : "提交失败");
 		}
@@ -254,7 +251,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 					disabled={loading || selectedIds.size === 0}
 					className="rounded-lg bg-cyan-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60 transition"
 				>
-					{loading ? "提交中…" : "提交审批"}
+					{loading ? "提交中…" : "提交部署"}
 				</button>
 				<button onClick={() => setOpen(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition">
 					取消

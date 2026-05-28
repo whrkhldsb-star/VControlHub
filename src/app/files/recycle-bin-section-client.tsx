@@ -50,10 +50,11 @@ export function RecycleBinSectionClient({
 				</div>
 			</div>
 
-			<div className="mt-6 overflow-hidden rounded-2xl border border-white/10">
+			<div className="mt-6 overflow-x-auto rounded-2xl border border-white/10">
+				<div className="min-w-[860px]">
 				{/* Desktop table view (md+) */}
 				<div className="hidden md:block">
-					<div className="grid grid-cols-[minmax(0,2fr)_120px_120px_minmax(0,1fr)_200px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
+					<div className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
 						<div>名称</div>
 						<div>类型</div>
 						<div>大小</div>
@@ -65,7 +66,7 @@ export function RecycleBinSectionClient({
 						{deletedEntries.map((entry) => (
 							<div
 								key={entry.id}
-								className="grid grid-cols-[minmax(0,2fr)_120px_120px_minmax(0,1fr)_200px] items-center gap-4 px-4 py-3 text-sm"
+								className="grid grid-cols-[minmax(260px,2fr)_120px_120px_minmax(220px,1fr)_200px] items-center gap-4 px-4 py-3 text-sm"
 							>
 								<div className="min-w-0 truncate font-medium text-white">{entry.name}</div>
 								<div className="text-slate-300">
@@ -110,6 +111,7 @@ export function RecycleBinSectionClient({
 							)}
 						</div>
 					))}
+				</div>
 				</div>
 			</div>
 		</article>

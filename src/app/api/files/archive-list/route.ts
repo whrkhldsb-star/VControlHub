@@ -66,18 +66,19 @@ export async function GET(request: NextRequest) {
 }
 
 async function listArchiveContents(name: string, fullPath: string): Promise<ArchiveEntry[]> {
-	const ext = path.extname(name).toLowerCase();
+	const lowerName = name.toLowerCase();
+	const ext = path.extname(lowerName);
 
 	if (ext === ".zip" || ext === ".jar") {
 		return listZip(fullPath);
 	}
-	if (ext === ".tar.gz" || ext === ".tgz") {
+	if (lowerName.endsWith(".tar.gz") || lowerName.endsWith(".tgz")) {
 		return listTarGz(fullPath);
 	}
 	if (ext === ".tar") {
 		return listTar(fullPath);
 	}
-	if (ext === ".gz" && !name.endsWith(".tar.gz")) {
+	if (ext === ".gz") {
 		return listGz(fullPath, name);
 	}
 	if (ext === ".7z") {
@@ -142,11 +143,8 @@ async function listTar(filePath: string): Promise<ArchiveEntry[]> {
 function parseTarOutput(output: string): ArchiveEntry[] {
 	const lines = output.split("\n");
 	const entries: ArchiveEntry[] = [];
-	// tar -tvf format:
-	// drwxr-xr-x  0 user group    0 Jan  1 12:00 dirname/
-	// -rw-r--r--  0 user group 1234 Jan  1 12:00 filename
 	for (const line of lines) {
-		const match = line.match(/^([dlcbps-])(.{9})\s+\d+\s+\S+\s+\S+\s+(\d+)\s+(\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2})\s+(.+)$/);
+		const match = line.match(/^([dlcbps-])(.{9})\s+\S+\s+(\d+)\s+((?:\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2})|(?:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}))\s+(.+)$/);
 		if (match) {
 			const typeChar = match[1];
 			const size = parseInt(match[3], 10);
