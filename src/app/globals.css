@@ -73,3 +73,48 @@ body {
 
 /* Selection */
 ::selection { background: var(--selection-bg); color: var(--selection-fg); }
+
+/* Light-theme compatibility for legacy hard-coded dark Tailwind classes. */
+html.light .text-white,
+html.light .text-slate-100,
+html.light .text-slate-200,
+html.light .text-cyan-100 {
+	color: var(--text-primary);
+}
+
+html.light .text-slate-300,
+html.light .text-slate-400,
+html.light .text-cyan-200,
+html.light .text-cyan-300 {
+	color: var(--text-secondary);
+}
+
+html.light .text-slate-500,
+html.light .text-cyan-200\/70 {
+	color: var(--text-muted);
+}
+
+html.light .bg-slate-950,
+html.light .bg-slate-950\/50,
+html.light .bg-slate-900,
+html.light .bg-slate-900\/60,
+html.light .bg-white\/5,
+html.light .bg-white\/\[0\.03\] {
+	background-color: var(--card-bg);
+}
+
+html.light .border-white\/10,
+html.light .border-white\/\[0\.06\] {
+	border-color: var(--card-border);
+}
+
+html.light input,
+html.light select,
+html.light textarea {
+	color: var(--text-primary);
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+	color: var(--text-muted);
+}

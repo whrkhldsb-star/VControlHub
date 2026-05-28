@@ -6,7 +6,6 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { FileListClient, type FolderProp, type FileProp } from "./file-list-client";
 import { SearchScopeToggle } from "./search-scope-toggle";
-import { SftpBrowser } from "./sftp-browser";
 import { FileUploadDropzone } from "@/components/storage/file-upload-dropzone";
 import { CreateFolderForm } from "./create-folder-form";
 import { RecycleBinSectionClient } from "./recycle-bin-section-client";
@@ -208,11 +207,10 @@ function BreadcrumbsClient({
 export function FilesBrowserSpa({
 	initialData,
 	deletedEntries,
-	sftpNodes,
 }: {
 	initialData: FilesApiResponse;
 	deletedEntries: DeletedEntryProp[];
-	sftpNodes: { id: string; name: string; driver: string; serverId: string | null; serverName: string | null }[];
+	sftpNodes?: { id: string; name: string; driver: string; serverId: string | null; serverName: string | null }[];
 }) {
 	const [data, setData] = useState<FilesApiResponse>(initialData);
 	const [loading, setLoading] = useState(false);
@@ -509,9 +507,6 @@ export function FilesBrowserSpa({
  onRefresh={() => fetchFiles(data.currentPath)}
  />
 				</article>
-
-				{/* SFTP remote browser */}
-				{sftpNodes.length > 0 ? <SftpBrowser sftpNodes={sftpNodes} /> : null}
 
 				{/* Upload section */}
 				{data.permissions.canEditLocalFiles ? (

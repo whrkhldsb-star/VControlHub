@@ -25,10 +25,6 @@ vi.mock("../search-scope-toggle", () => ({
   SearchScopeToggle: () => React.createElement("span", null, "搜索范围"),
 }));
 
-vi.mock("../sftp-browser", () => ({
-  SftpBrowser: () => React.createElement("div", null, "SFTP 浏览器"),
-}));
-
 vi.mock("../create-folder-form", () => ({
   CreateFolderForm: () => React.createElement("button", { type: "button" }, "新建文件夹"),
 }));
@@ -134,5 +130,25 @@ describe("FilesBrowserSpa", () => {
 
 		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"));
 		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+	});
+
+	it("uses the storage node switcher instead of rendering a separate SFTP browser", async () => {
+		render(
+			<FilesBrowserSpa
+				initialData={{
+					...baseData,
+					nodes: [
+						...baseData.nodes,
+						{ id: "node_sftp", name: "远端存储", driver: "SFTP" },
+					],
+				}}
+				deletedEntries={[]}
+				sftpNodes={[{ id: "node_sftp", name: "远端存储", driver: "SFTP", serverId: null, serverName: null }]}
+			/>,
+		);
+
+		expect(screen.queryByText("SFTP 浏览器")).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: /远端存储/ }));
+		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?nodeId=node_sftp", expect.any(Object)));
 	});
 });

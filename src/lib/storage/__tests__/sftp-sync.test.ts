@@ -16,7 +16,12 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
-  decryptServerPassword: (value: string) => `decrypted-password:${value}`,
+  decryptServerPassword: (value: string) => {
+    if (value === "BROKEN CIPHER") {
+      throw new Error("Unsupported state or unable to authenticate data");
+    }
+    return `decrypted-password:${value}`;
+  },
   decryptSshPrivateKey: (value: string) => `decrypted:${value}`,
 }));
 
@@ -88,5 +93,37 @@ describe("sftp sync service", () => {
         relativePath: "demo.mp4",
       },
     });
+  });
+
+  it("returns a sync error instead of throwing when stored credentials cannot be decrypted", async () => {
+    vi.clearAllMocks();
+    const node = {
+      id: "node_1",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/data/files",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        id: "srv_1",
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "BROKEN CIPHER",
+        sshKey: null,
+      },
+    } as const;
+
+    const result = await syncSftpDirectoryEntries({ node });
+
+    expect(result).toEqual({
+      synced: 0,
+      created: 0,
+      updated: 0,
+      errors: ["连接凭据不可用：Unsupported state or unable to authenticate data"],
+    });
+    expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
   });
 });

@@ -111,17 +111,16 @@ export function parseMonitorScriptOutput(stdout: string): ServerMetrics {
 }
 
 export async function collectServerMetrics(serverId: string): Promise<ServerMetrics | MonitorError> {
-	const server = await prisma.server.findUnique({
-		where: { id: serverId },
-		include: { sshKey: { select: { privateKey: true } } },
-	});
-
-	if (!server) return { error: "服务器不存在", serverId };
-	if (!server.enabled) return { error: "服务器已停用", serverId };
-
-	const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-
 	try {
+		const server = await prisma.server.findUnique({
+			where: { id: serverId },
+			include: { sshKey: { select: { privateKey: true } } },
+		});
+
+		if (!server) return { error: "服务器不存在", serverId };
+		if (!server.enabled) return { error: "服务器已停用", serverId };
+
+		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000 });
 
 		if (exitCode !== 0 && !stdout) {

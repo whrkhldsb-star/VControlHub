@@ -99,7 +99,13 @@ export async function syncSftpDirectoryEntries(input: {
     throw new Error("该节点不是 SFTP 类型");
   }
 
-  const credentials = resolveStorageSshCredentials(node);
+  let credentials: ReturnType<typeof resolveStorageSshCredentials>;
+  try {
+    credentials = resolveStorageSshCredentials(node);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "未知错误";
+    return { synced: 0, created: 0, updated: 0, errors: [`连接凭据不可用：${msg}`] };
+  }
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
   const result: SftpSyncResult = { synced: 0, created: 0, updated: 0, errors: [] };

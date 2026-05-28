@@ -32,11 +32,18 @@ export async function GET(request: NextRequest) {
 
 		if (nodeIdFilter) {
 			const selectedNode = storage.nodes.find((node) => node.id === nodeIdFilter);
-			const selectedEntries = storage.entries.filter((entry) => entry.storageNode.id === nodeIdFilter);
-			if (selectedNode?.driver === "SFTP" && selectedEntries.length === 0 && canEditLocalFiles) {
+			if (selectedNode?.driver === "SFTP" && canEditLocalFiles) {
 				const syncNode = await getSftpSyncNode(nodeIdFilter);
 				if (syncNode?.driver === "SFTP") {
-					await syncSftpDirectoryEntries({ node: syncNode, recursive: false, maxDepth: 1 });
+					const syncResult = await syncSftpDirectoryEntries({
+						node: syncNode,
+						remotePath: currentPath,
+						recursive: false,
+						maxDepth: 1,
+					});
+					if (syncResult.errors.length > 0) {
+						return NextResponse.json({ error: syncResult.errors[0] }, { status: 502 });
+					}
 					storage = await getStorageOverview();
 				}
 			}

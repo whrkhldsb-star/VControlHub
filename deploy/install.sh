@@ -682,7 +682,20 @@ import sys
 source = Path(sys.argv[1])
 dest = Path(sys.argv[2])
 skip = {"PORT", "NEXT_PORT", "SSH_WS_PORT", "HOSTNAME"}
+preserve = {"DATABASE_URL", "AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "SSH_WS_SECRET", "ADMIN_INITIAL_PASSWORD"}
+existing = {}
+if dest.exists():
+    for line in dest.read_text().splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key in preserve and value and "CHANGE_ME" not in value and "replace-me" not in value and "your-" not in value.lower():
+            existing[key] = value
 lines = []
+seen = set()
 for line in source.read_text().splitlines():
     stripped = line.strip()
     if not stripped or stripped.startswith("#") or "=" not in line:
@@ -691,7 +704,14 @@ for line in source.read_text().splitlines():
     key = line.split("=", 1)[0].strip()
     if key in skip:
         continue
-    lines.append(line)
+    if key in existing:
+        lines.append(f"{key}={existing[key]}")
+    else:
+        lines.append(line)
+    seen.add(key)
+for key, value in existing.items():
+    if key not in seen:
+        lines.append(f"{key}={value}")
 dest.write_text("\n".join(lines).rstrip() + "\n")
 PY
 	chmod 600 "${RUNTIME_ENV_FILE}"
