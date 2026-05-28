@@ -55,7 +55,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  }
 
  const passwordMatches = await verifyPassword(payload.password, user.passwordHash);
- if (!passwordMatches) {
+ if (!passwordMatches || user.status === "DISABLED") {
  return null;
  }
 

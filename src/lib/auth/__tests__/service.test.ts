@@ -51,6 +51,23 @@ describe("authenticateUser", () => {
  expect(result?.permissions).toContain("command:execute");
  expect(result?.mustChangePassword).toBe(true);
  });
+
+ it("rejects disabled users even when the password is valid", async () => {
+ const passwordHash = await hashPassword("19970103");
+ vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+ id: "u_2",
+ username: "disabled",
+ displayName: null,
+ mustChangePassword: false,
+ status: "DISABLED",
+ passwordHash,
+ createdAt: new Date(),
+ updatedAt: new Date(),
+ roles: [{ role: { key: "admin" } }],
+ } as any);
+
+ await expect(authenticateUser({ username: "disabled", password: "19970103" })).resolves.toBeNull();
+ });
 });
 
 describe("changePassword", () => {

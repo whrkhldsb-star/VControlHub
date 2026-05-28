@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { permanentDeleteFileEntryAction, type StorageActionState } from "../storage/actions";
@@ -24,9 +24,10 @@ export function PermanentDeleteButton({
  setConfirming(false);
  }
 
- if (state.success) {
+ useEffect(() => {
+ if (!state.success) return;
  if (onRefresh) { onRefresh(); } else { router.refresh(); }
- }
+ }, [onRefresh, router, state.success]);
 
   if (!confirming) {
     return (

@@ -22,7 +22,6 @@ const PUBLIC_PATHS_EXACT = new Set(["/login", "/login/verify-2fa", "/api/login",
 const PUBLIC_PATH_PREFIXES = [
 	"/_next", // static assets
 	"/api/public", // public API endpoints
-	"/api/images/", // public image hosting links (auth checked per-record)
 	"/favicon.ico",
 	"/share/", // share token pages (validated server-side)
 ];
@@ -109,6 +108,7 @@ function requestUrlIsHttps(request: NextRequest): boolean {
 // ── Main middleware ───────────────────────────────────────────────
 export function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl;
+	const hasBearerToken = request.headers.get("authorization")?.trim().toLowerCase().startsWith("bearer ") ?? false;
 
 	// 1) Allow public paths through
 	if (isPublicPath(pathname)) {
@@ -116,7 +116,7 @@ export function proxy(request: NextRequest) {
 	}
 
 	// 2) Check session cookie for protected paths
-	if (!hasValidSessionCookie(request)) {
+	if (!hasValidSessionCookie(request) && !hasBearerToken) {
 		// API routes get 401, pages get redirected to login
 		if (pathname.startsWith("/api/")) {
 			return NextResponse.json(
@@ -135,7 +135,7 @@ export function proxy(request: NextRequest) {
 		const csrfCookie = request.cookies.get("csrf_token")?.value;
 		const csrfHeader = request.headers.get("x-csrf-token");
 		// Skip CSRF for login endpoint (no session yet)
-		if (pathname !== "/api/login" && pathname !== "/api/auth/signout" && pathname !== "/api/auth/2fa/verify-login") {
+		if (pathname !== "/api/login" && pathname !== "/api/auth/signout" && pathname !== "/api/auth/2fa/verify-login" && !hasBearerToken) {
 			if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
 				return NextResponse.json(
 					{ error: "CSRF token 验证失败" },

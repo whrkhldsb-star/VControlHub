@@ -75,8 +75,12 @@ export async function revokeApiToken(input: { userId: string; id: string }) {
 
 export async function verifyApiToken(token: string) {
   const tokenHash = hashApiToken(token);
-  const record = await prisma.apiToken.findUnique({ where: { tokenHash } });
+  const record = await prisma.apiToken.findUnique({
+    where: { tokenHash },
+    include: { creator: { select: { id: true, status: true } } },
+  });
   if (!record || record.revokedAt) return null;
+  if (!record.creator || record.creator.status === "DISABLED") return null;
   if (record.expiresAt && record.expiresAt.getTime() <= Date.now()) return null;
   await prisma.apiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
   return { userId: record.createdBy, scopes: record.scopes, tokenId: record.id };

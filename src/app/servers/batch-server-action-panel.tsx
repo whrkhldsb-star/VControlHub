@@ -15,7 +15,8 @@ type BatchServerActionPanelProps = {
 
 export function BatchServerActionPanel({ servers, enabledCount }: BatchServerActionPanelProps) {
 	const [state, formAction] = useActionState(batchToggleServerAction, initialState);
-	const [selectedIds, setSelectedIds] = useState<string[]>(servers.map((server) => server.id));
+	const [selectedIds, setSelectedIds] = useState<string[]>([]);
+	const [disableConfirming, setDisableConfirming] = useState(false);
 	const selectedServers = useMemo(
 		() => servers.filter((server) => selectedIds.includes(server.id)),
 		[servers, selectedIds],
@@ -27,12 +28,14 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 
 	const toggleAll = () => {
 		setSelectedIds(allSelected ? [] : servers.map((server) => server.id));
+		setDisableConfirming(false);
 	};
 
 	const updateSelection = (serverId: string, checked: boolean) => {
 		setSelectedIds((current) =>
 			checked ? Array.from(new Set([...current, serverId])) : current.filter((id) => id !== serverId),
 		);
+		setDisableConfirming(false);
 	};
 
 	return (
@@ -81,9 +84,25 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 					{selectedServers.map((server) => (
 						<input key={server.id} type="hidden" name="serverIds" value={server.id} />
 					))}
-					<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3.5 py-2 text-sm text-amber-100 transition hover:bg-amber-400/20">
-						批量停用所选节点
-					</SubmitButton>
+					{disableConfirming ? (
+						<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3.5 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20">
+							确认停用 {enabledSelectedCount} 台节点
+						</SubmitButton>
+					) : (
+						<button
+							type="button"
+							disabled={enabledSelectedCount === 0}
+							onClick={() => setDisableConfirming(true)}
+							className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3.5 py-2 text-sm text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							批量停用所选节点
+						</button>
+					)}
+					{disableConfirming ? (
+						<button type="button" onClick={() => setDisableConfirming(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]">
+							取消
+						</button>
+					) : null}
 				</form>
 				<form action={formAction} className="flex flex-wrap items-center gap-3">
 					<input type="hidden" name="enabled" value="true" />

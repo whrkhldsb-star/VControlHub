@@ -2,7 +2,9 @@ import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
 import { createLogger } from "@/lib/logging";
 import { getAppSlug } from "@/lib/branding";
+import { prisma } from "@/lib/db";
 import type { RoleKey } from "./rbac";
+import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 
 const logger = createLogger("auth:session");
 
@@ -109,11 +111,30 @@ export async function verifySessionToken(token: string) {
     throw new Error("Session token expired");
   }
 
+ const user = await prisma.user.findUnique({
+   where: { id: payload.userId },
+   select: {
+     id: true,
+     username: true,
+     status: true,
+     mustChangePassword: true,
+     roles: { select: { role: { select: { key: true } } } },
+   },
+ });
+
+ if (!user || user.status === "DISABLED") {
+   throw new Error("Session user is disabled or no longer exists");
+ }
+
+ const roles = user.roles
+   .map((entry) => entry.role.key)
+   .filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
+
  return {
- userId: payload.userId,
- username: payload.username,
- roles: payload.roles,
- mustChangePassword: payload.mustChangePassword,
+ userId: user.id,
+ username: user.username,
+ roles,
+ mustChangePassword: user.mustChangePassword,
  } satisfies SessionPayload;
 }
 

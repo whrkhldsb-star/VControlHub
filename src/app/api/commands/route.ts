@@ -23,6 +23,9 @@ export async function POST(request: Request) {
     const json = await request.json().catch(() => null);
     const parsed = createCommandSchema.safeParse({ ...json, requesterId: session.userId, submissionMode: json?.submissionMode ?? "user" });
     if (!parsed.success) return NextResponse.json({ error: "请求参数无效", issues: parsed.error.flatten() }, { status: 400 });
+    if (parsed.data.submissionMode === "user" && !sessionHasPermission(session, "command:execute")) {
+      parsed.data.submissionMode = "assistant";
+    }
     const command = await createCommandRequest(parsed.data);
     auditUserAction(session.userId, "command.submit", {
       commandRequestId: command.id,

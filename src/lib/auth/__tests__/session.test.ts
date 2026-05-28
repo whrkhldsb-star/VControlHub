@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { shouldBypassAuth, verifySessionToken, createSessionToken } from "@/lib/auth/session";
+import { prisma } from "@/lib/db";
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    user: {
+      findUnique: vi.fn(),
+    },
+  },
+}));
 
 describe("session auth helpers", () => {
   afterEach(() => {
@@ -38,6 +47,13 @@ describe("session auth helpers", () => {
   });
 
   it("round-trips a signed session token", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "u_1",
+      username: "admin",
+      status: "ACTIVE",
+      mustChangePassword: false,
+      roles: [{ role: { key: "viewer" } }],
+    } as any);
     const token = await createSessionToken({
       userId: "u_1",
       username: "admin",
@@ -48,8 +64,21 @@ describe("session auth helpers", () => {
     await expect(verifySessionToken(token)).resolves.toMatchObject({
       userId: "u_1",
       username: "admin",
-      roles: ["admin"],
-      mustChangePassword: true,
+      roles: ["viewer"],
+      mustChangePassword: false,
     });
+  });
+
+  it("rejects signed sessions for disabled users", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
+      id: "u_1",
+      username: "admin",
+      status: "DISABLED",
+      mustChangePassword: false,
+      roles: [{ role: { key: "admin" } }],
+    } as any);
+    const token = await createSessionToken({ userId: "u_1", username: "admin", roles: ["admin"], mustChangePassword: false });
+
+    await expect(verifySessionToken(token)).rejects.toThrow("disabled");
   });
 });

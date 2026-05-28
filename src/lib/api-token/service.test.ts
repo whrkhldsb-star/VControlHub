@@ -17,10 +17,13 @@ describe("api token service", () => {
     expect(result.apiToken).not.toHaveProperty("tokenHash");
     expect(JSON.stringify(result.apiToken)).not.toContain(data.tokenHash);
   });
-  it("rejects expired or revoked tokens", async () => {
-    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t1", createdBy: "u1", scopes: ["read"], revokedAt: new Date(), expiresAt: null });
+  it("rejects expired, revoked, or owner-disabled tokens", async () => {
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t1", createdBy: "u1", scopes: ["read"], revokedAt: new Date(), expiresAt: null, creator: { id: "u1", status: "ACTIVE" } });
     await expect(verifyApiToken("whr_bad")).resolves.toBeNull();
-    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t2", createdBy: "u1", scopes: ["read"], revokedAt: null, expiresAt: new Date("2020-01-01") });
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t2", createdBy: "u1", scopes: ["read"], revokedAt: null, expiresAt: new Date("2020-01-01"), creator: { id: "u1", status: "ACTIVE" } });
     await expect(verifyApiToken("whr_bad2")).resolves.toBeNull();
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t3", createdBy: "u1", scopes: ["read"], revokedAt: null, expiresAt: null, creator: { id: "u1", status: "DISABLED" } });
+    await expect(verifyApiToken("whr_disabled")).resolves.toBeNull();
+    expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
   });
 });

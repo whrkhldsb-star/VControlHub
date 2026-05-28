@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { restoreFileEntryAction, type StorageActionState } from "../storage/actions";
@@ -18,9 +18,10 @@ export function RestoreButton({
  const router = useRouter();
  const [state, formAction] = useActionState(restoreFileEntryAction, initialState);
 
- if (state.success) {
+ useEffect(() => {
+ if (!state.success) return;
  if (onRefresh) { onRefresh(); } else { router.refresh(); }
- }
+ }, [onRefresh, router, state.success]);
 
   return (
     <form action={formAction} className="inline-flex items-center gap-3">

@@ -62,6 +62,23 @@ describe("/api/commands audit coverage", () => {
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("/etc/shadow");
   });
 
+  it("forces command submissions without execute permission into approval flow", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
+    await route.POST(new Request("http://local/api/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Restart nginx",
+        command: "systemctl restart nginx",
+        reason: "routine maintenance",
+        serverIds: ["srv1"],
+        submissionMode: "user",
+      }),
+    }));
+
+    expect(mocks.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
+  });
+
   it("does not audit invalid command submissions", async () => {
     const response = await route.POST(new Request("http://local/api/commands", {
       method: "POST",

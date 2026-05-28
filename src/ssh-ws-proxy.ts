@@ -260,7 +260,15 @@ wss.on("connection", async (ws, req) => {
     }
   }
 
-  const connParams = await resolveServerConnection(serverId);
+  let connParams;
+  try {
+    connParams = await resolveServerConnection(serverId);
+  } catch (error) {
+    logger.error("failed to resolve SSH connection", error, { serverId, userId: session.userId });
+    ws.send(JSON.stringify({ type: "error", data: "无法解密或读取 VPS 连接信息，请检查节点凭据配置" }));
+    ws.close();
+    return;
+  }
   if (!connParams) {
     ws.send(JSON.stringify({ type: "error", data: "无法获取 VPS 连接信息，请检查节点配置" }));
     ws.close();

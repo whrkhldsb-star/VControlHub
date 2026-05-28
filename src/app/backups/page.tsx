@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildRestoreCommand, listBackupRecords } from "@/lib/backup/service";
 import { PageShell, EmptyState } from "@/components/page-shell";
+import { CreateBackupForm } from "./create-backup-form";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +26,7 @@ export default async function BackupsPage() {
 				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 					<h2 className="text-sm font-semibold text-white">一键创建备份记录</h2>
 					<p className="mt-1 text-xs text-slate-500">创建可审计记录后，可在服务器上运行生成的 deploy/backup.sh 命令完成导出。</p>
-					<form action="/api/backups" method="post" className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto]">
-						<select name="type" defaultValue="DATABASE" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
-							<option value="DATABASE">数据库备份</option>
-							<option value="FILES">文件备份</option>
-							<option value="FULL">完整备份</option>
-						</select>
-						<input name="note" maxLength={500} placeholder="备注：例如升级前备份" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
-						<button className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">创建记录</button>
-					</form>
+					<CreateBackupForm />
 			</section>
 			)}
 

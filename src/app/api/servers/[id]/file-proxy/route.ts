@@ -16,6 +16,7 @@ import { withRateLimit, rateLimitResponse, UPLOAD_LIMIT } from "@/lib/http/rate-
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 export const dynamic = "force-dynamic";
+const FILE_PROXY_TTL_MS = 2 * 60 * 60 * 1000;
 
 // 在目标服务器上执行 SSH 命令的辅助函数
 async function sshExec(
@@ -102,9 +103,17 @@ export async function GET(
   `ps -p ${proxy.pid} -o pid= 2>/dev/null || echo "not_running"`,
  );
 
- const isRunning = checkResult.stdout.trim() !== "not_running" && checkResult.exitCode === 0;
+ const expired = !proxy.expiresAt || proxy.expiresAt.getTime() <= Date.now();
+ const isRunning = !expired && checkResult.stdout.trim() !== "not_running" && checkResult.exitCode === 0;
 
- if (!isRunning && proxy.status === "running") {
+ if (expired && proxy.pid) {
+  await sshExec(
+   server as { host: string; port: number; username: string; password: string | null; sshKey: { privateKey: string } | null },
+   `kill ${proxy.pid} 2>/dev/null; rm -f /tmp/.vps_file_proxy_*.py /tmp/.vps_proxy_out`,
+  );
+ }
+
+ if ((!isRunning || expired) && proxy.status === "running") {
   // 更新状态为已停止
   await prisma.serverFileProxy.update({
    where: { id: proxy.id },
@@ -182,7 +191,8 @@ export async function POST(
  // 选择一个可用端口（从 fileProxyPort 或随机）
  const desiredPort = server.fileProxyPort || 0;
  const accessToken = randomUUID();
- const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2小时后过期
+ const expiresAt = new Date(Date.now() + FILE_PROXY_TTL_MS);
+ const expiresAtMs = expiresAt.getTime();
 
  // 生成启动脚本：Python HTTP 服务器 + 简单 token 验证
  const proxyScript = `
@@ -190,13 +200,18 @@ import http.server
 import os
 import sys
 import json
+import time
 import urllib.parse
 
 TOKEN = "${accessToken}"
+EXPIRES_AT_MS = ${expiresAtMs}
 SERVE_DIR = "/"
 
 class AuthHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
+        if int(time.time() * 1000) > EXPIRES_AT_MS:
+            self.send_error(410, "Gone: token expired")
+            return
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         if query.get("token", [""])[0] != TOKEN:
             self.send_error(403, "Forbidden: invalid token")
