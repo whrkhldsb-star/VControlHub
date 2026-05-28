@@ -512,10 +512,10 @@ export async function updateStorageNodeAction(_prev: StorageActionState | null, 
 			publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim(),
 			directAccessExpiresSeconds: Number(String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300),
 			isDefault: isDefaultRaw === "on" ? true : isDefaultRaw === "off" ? false : undefined,
-			serverId: serverIdRaw || undefined,
-			host: hostRaw || undefined,
+			serverId: serverIdRaw || null,
+			host: hostRaw || null,
 			port: portRaw ? Number(portRaw) : undefined,
-			username: usernameRaw || undefined,
+			username: usernameRaw || null,
 		});
 
 		revalidatePath("/");

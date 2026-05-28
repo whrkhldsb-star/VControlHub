@@ -6,7 +6,9 @@
  */
 
 import { createServer } from "http";
+import { existsSync, readFileSync } from "node:fs";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { resolve } from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
 import { prisma } from "@/lib/db";
@@ -18,6 +20,25 @@ import { createLogger } from "./lib/logging";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
 
 const logger = createLogger("ssh-ws-proxy");
+
+export function loadSshWsRuntimeEnv(cwd = process.cwd()) {
+	for (const filename of [".env.runtime", ".env.local", ".env"]) {
+		const filePath = resolve(cwd, filename);
+		if (!existsSync(filePath)) continue;
+
+		for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
+			const trimmed = line.trim();
+			if (!trimmed || trimmed.startsWith("#")) continue;
+			const match = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(trimmed);
+			if (!match) continue;
+			const [, key, rawValue] = match;
+			if (!key || process.env[key] !== undefined) continue;
+			process.env[key] = rawValue.trim().replace(/^['\"]|['\"]$/g, "");
+		}
+	}
+}
+
+loadSshWsRuntimeEnv();
 
 // ── Config ──────────────────────────────────────────────────────────
 

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 		const searchQuery = (searchParams.get("q") ?? "").trim();
 		const searchScope = searchParams.get("scope") === "all" ? "all" : "current";
 		const nodeIdFilter = searchParams.get("nodeId") ?? "";
+		let syncWarning: string | null = null;
 
 		let storage = await getStorageOverview();
 
@@ -42,9 +43,10 @@ export async function GET(request: NextRequest) {
 						maxDepth: 1,
 					});
 					if (syncResult.errors.length > 0) {
-						return NextResponse.json({ error: syncResult.errors[0] }, { status: 502 });
+						syncWarning = syncResult.errors[0] ?? "远端目录同步失败，已显示本地索引";
+					} else {
+						storage = await getStorageOverview();
 					}
-					storage = await getStorageOverview();
 				}
 			}
 		}
@@ -115,6 +117,7 @@ export async function GET(request: NextRequest) {
 			sourceSummary,
 			searchQuery,
 			searchScope,
+			syncWarning,
 			permissions: {
 				canEditLocalFiles,
 				canDelete,

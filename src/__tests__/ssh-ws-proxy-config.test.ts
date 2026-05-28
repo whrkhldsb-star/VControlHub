@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { resolveSshWsListenConfig } from "../ssh-ws-proxy";
+import { loadSshWsRuntimeEnv, resolveSshWsListenConfig } from "../ssh-ws-proxy";
 
 describe("resolveSshWsListenConfig", () => {
   it("defaults to loopback host and port 3001", () => {
@@ -26,5 +26,25 @@ describe("resolveSshWsListenConfig", () => {
     expect(source).toContain('url.searchParams.get("handshake")');
     expect(source).toContain("verifySshWsHandshakeToken");
     expect(source).not.toContain('url.searchParams.get("secret")');
+  });
+
+  it("loads SSH runtime env files when the process starts with a minimal environment", () => {
+    const previousSecret = process.env.SSH_WS_SECRET;
+    const previousOrigins = process.env.SSH_WS_ALLOWED_ORIGINS;
+
+    delete process.env.SSH_WS_SECRET;
+    delete process.env.SSH_WS_ALLOWED_ORIGINS;
+
+    try {
+      loadSshWsRuntimeEnv(path.resolve(__dirname, "../.."));
+
+      expect(process.env.SSH_WS_SECRET).toBeTruthy();
+      expect(process.env.SSH_WS_ALLOWED_ORIGINS).toContain("whrkhldsb.qzz.io");
+    } finally {
+      if (previousSecret === undefined) delete process.env.SSH_WS_SECRET;
+      else process.env.SSH_WS_SECRET = previousSecret;
+      if (previousOrigins === undefined) delete process.env.SSH_WS_ALLOWED_ORIGINS;
+      else process.env.SSH_WS_ALLOWED_ORIGINS = previousOrigins;
+    }
   });
 });

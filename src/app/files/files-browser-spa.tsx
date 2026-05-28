@@ -54,6 +54,7 @@ type FilesApiResponse = {
 	sourceSummary: string[];
 	searchQuery: string;
 	searchScope: "current" | "all";
+	syncWarning?: string | null;
 	permissions: {
 		canEditLocalFiles: boolean;
 		canDelete: boolean;
@@ -239,7 +240,11 @@ export function FilesBrowserSpa({
 
 				const url = `/api/files/list${params.toString() ? `?${params.toString()}` : ""}`;
 				const json = await csrfFetch(url, { signal: controller.signal });
-				setData(json as FilesApiResponse);
+				const nextData = json as FilesApiResponse;
+				setData(nextData);
+				if (nextData.syncWarning) {
+					setListError(nextData.syncWarning);
+				}
 
 				// Update URL without page reload
 				const urlParams = new URLSearchParams();
@@ -492,8 +497,8 @@ export function FilesBrowserSpa({
 
 					{/* File list with batch operations */}
 					{listError ? (
-						<div role="alert" className="mt-4 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-							文件列表刷新失败：{listError}
+						<div role="alert" className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:text-amber-800">
+							{data.syncWarning === listError ? "远端同步提醒" : "文件列表刷新失败"}：{listError}
 						</div>
 					) : null}
 <FileListClient

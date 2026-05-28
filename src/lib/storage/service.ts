@@ -365,8 +365,8 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
   }
 
   const nextDriver = payload.driver ?? current.driver;
-  const nextServerId = payload.serverId ?? current.serverId ?? undefined;
-  const nextHost = payload.host ?? current.host ?? undefined;
+  const nextServerId = payload.serverId === undefined ? current.serverId ?? undefined : payload.serverId ?? undefined;
+  const nextHost = payload.host === undefined ? current.host ?? undefined : payload.host ?? undefined;
 
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
     throw new Error("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
@@ -381,10 +381,10 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
       driver: nextDriver,
       basePath: payload.basePath ?? current.basePath,
       isDefault: payload.isDefault ?? current.isDefault,
-      host: payload.host ?? current.host,
+      host: payload.host === undefined ? current.host : payload.host,
       port: payload.port ?? current.port,
-      username: payload.username ?? current.username,
-      serverId: payload.serverId ?? current.serverId,
+      username: payload.username === undefined ? current.username : payload.username,
+      serverId: payload.serverId === undefined ? current.serverId : payload.serverId,
       directAccessMode: payload.directAccessMode ?? current.directAccessMode,
       publicBaseUrl: payload.publicBaseUrl === undefined ? current.publicBaseUrl : (payload.publicBaseUrl || null),
       directAccessExpiresSeconds: payload.directAccessExpiresSeconds ?? current.directAccessExpiresSeconds,

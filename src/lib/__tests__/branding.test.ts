@@ -4,8 +4,8 @@ import { getAppMetadataTitle, getAppName, getAppSlug, getPublicLabel, getSiteNam
 
 describe("branding helpers", () => {
   it("uses stable defaults when env is empty", () => {
-    expect(getAppName({} as NodeJS.ProcessEnv)).toBe("whrkhldsb");
-    expect(getAppSlug({} as NodeJS.ProcessEnv)).toBe("whrkhldsb");
+    expect(getAppName({} as NodeJS.ProcessEnv)).toBe("VControlHub");
+    expect(getAppSlug({} as NodeJS.ProcessEnv)).toBe("vcontrolhub");
     expect(getSiteName({} as NodeJS.ProcessEnv)).toBe("VPS 统一管控平台");
     expect(getPublicLabel({} as NodeJS.ProcessEnv)).toBe("VPS 管理与分布式云盘");
     expect(getAppMetadataTitle({} as NodeJS.ProcessEnv)).toBe("VPS 统一管控平台 | 统一 VPS 管理、审批执行、分布式云盘与媒体浏览平台");

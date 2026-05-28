@@ -31,7 +31,7 @@ export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.
 	if (env.NODE_ENV === "production" && !env.ARIA2_RPC_SECRET?.trim()) {
 		throw new Error("ARIA2_RPC_SECRET is required in production");
 	}
-	if (env.NODE_ENV === "production" && rpcSecret === defaultRpcSecret) {
+	if (env.NODE_ENV === "production" && /(^|_)default_token$/.test(rpcSecret)) {
 		throw new Error("ARIA2_RPC_SECRET must not use the default token in production");
 	}
 

@@ -9,6 +9,7 @@ const { mockPrisma } = vi.hoisted(() => ({
  updateMany: vi.fn(),
  create: vi.fn(),
  findMany: vi.fn(),
+ findUnique: vi.fn(),
  update: vi.fn(),
  },
  fileEntry: {
@@ -31,6 +32,7 @@ import {
 	getLocalEditableFileDraft,
 	getStorageOverview,
 	listFileEntries,
+	updateStorageNode,
 } from "@/lib/storage/service";
 import { prisma } from "@/lib/db";
 
@@ -237,6 +239,48 @@ server: null,
  expect(result.stats.previewableEntries).toBe(1);
  expect(result.remoteDirectories.map((directory: any) => directory.path)).toEqual(["archives", "archives/2026"]);
  expect(result.stats.remoteDirectoryCount).toBe(2);
+ });
+
+ it("updates nullable SFTP connection fields when they are cleared in the edit form", async () => {
+ vi.clearAllMocks();
+ vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+ id: "node_2",
+ name: "远端存储",
+ driver: "SFTP",
+ isDefault: false,
+ basePath: "/data/media",
+ host: "203.0.113.10",
+ port: 22,
+ username: "root",
+ serverId: "srv_1",
+ directAccessMode: "DIRECT",
+ publicBaseUrl: "https://cdn.example.com/media",
+ directAccessExpiresSeconds: 600,
+ server: { id: "srv_1", name: "old", host: "203.0.113.10", port: 22, username: "root" },
+ } as any);
+ vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({ id: "node_2" } as any);
+
+ await updateStorageNode({
+ storageNodeId: "node_2",
+ driver: "LOCAL",
+ serverId: null,
+ host: null,
+ username: null,
+ directAccessMode: "PROXY",
+ publicBaseUrl: "",
+ });
+
+ expect(prisma.storageNode.update).toHaveBeenCalledWith(expect.objectContaining({
+ where: { id: "node_2" },
+ data: expect.objectContaining({
+ driver: "LOCAL",
+ serverId: null,
+ host: null,
+ username: null,
+ directAccessMode: "PROXY",
+ publicBaseUrl: null,
+ }),
+ }));
  });
 
  it("creates file metadata entries", async () => {

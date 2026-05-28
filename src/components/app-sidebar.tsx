@@ -52,13 +52,13 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				key={item.href}
 				href={item.href}
 				onClick={() => setMobileOpen(false)}
-				className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all duration-150 ${
+				className={`flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm transition-all duration-150 ${
 					active
-						? "bg-cyan-400/[0.08] text-cyan-100 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.12)] font-medium"
-						: "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+						? "bg-cyan-400/[0.10] text-cyan-100 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16)] font-medium light:bg-cyan-50 light:text-cyan-800 light:shadow-[inset_0_0_0_1px_rgba(14,116,144,0.16)]"
+						: "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 				}`}
 			>
-				<span className={active ? "text-cyan-400" : ""}>{item.icon}</span>
+				<span className={active ? "text-cyan-400 light:text-cyan-700" : "text-slate-500 light:text-slate-500"}>{item.icon}</span>
 				<span>{t(item.labelKey) === item.labelKey ? item.fallbackLabel : t(item.labelKey)}</span>
 			</Link>
 		);
@@ -66,14 +66,14 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 
 	const nav = (
 		<nav className="flex h-full flex-col">
-			<div className="border-b border-white/[0.06] px-6 py-6">
+			<div className="border-b border-white/[0.06] px-5 py-5 light:border-slate-200">
 				<div className="flex items-center gap-2.5">
-					<div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500">
-						<svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" /></svg>
+					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/15 text-cyan-300 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.20)] light:bg-cyan-50 light:text-cyan-700 light:shadow-[inset_0_0_0_1px_rgba(14,116,144,0.14)]">
+						<svg className="h-4.5 w-4.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.05 4.646 12.2a1 1 0 00.476 1.006l4.5 2.706a1 1 0 001.056 0l4.5-2.706a1 1 0 00.476-1.006L14.95 8.05l2.644-1.228a1 1 0 000-1.84l-7-3zM10 4.08l5.106 2.19L10 8.49 4.894 6.27 10 4.08z" /></svg>
 					</div>
-					<div>
-						<div className="text-base font-semibold tracking-tight text-white">{getAppName()}</div>
-						<p className="text-[10px] leading-none text-slate-500">{getPublicLabel()}</p>
+					<div className="min-w-0">
+						<div className="truncate text-base font-semibold tracking-tight text-white light:text-slate-950">{getAppName()}</div>
+						<p className="mt-0.5 truncate text-[11px] leading-none text-slate-500 light:text-slate-500">{getPublicLabel()}</p>
 					</div>
 				</div>
 			</div>
@@ -81,14 +81,14 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 			<div className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
 				{mainNavItems.map(renderNavLink)}
 
-				<div className="px-3.5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
+				<div className="px-3.5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600 light:text-slate-400">
 					{t("nav.system") === "nav.system" ? "系统管理" : t("nav.system")}
 				</div>
 				{systemNavItems.map(renderNavLink)}
 
 				{quickServices.length > 0 && (
 					<>
-						<div className="px-3.5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
+						<div className="px-3.5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600 light:text-slate-400">
 							{t("nav.quickservice") === "nav.quickservice" ? "快捷服务" : t("nav.quickservice")}
 						</div>
 						{quickServices.map((item) => (
@@ -98,7 +98,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 								target="_blank"
 								rel="noopener noreferrer"
 								onClick={() => setMobileOpen(false)}
-								className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200"
+								className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 							>
 								<span className="text-[18px] leading-none">{item.icon}</span>
 								<span>{item.name}</span>
@@ -109,9 +109,9 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				)}
 			</div>
 
-			<div className="space-y-0.5 border-t border-white/[0.06] px-3 py-3">
-				<div className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-400">
-					<div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold uppercase text-cyan-400">
+			<div className="space-y-0.5 border-t border-white/[0.06] px-3 py-3 light:border-slate-200">
+				<div className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-400 light:text-slate-600">
+					<div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold uppercase text-cyan-400 light:bg-cyan-50 light:text-cyan-700">
 						{iconInitial}
 					</div>
 					<span className="min-w-0 truncate">{username}</span>
@@ -122,7 +122,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 						setPasswordModalOpen(true);
 						setMobileOpen(false);
 					}}
-					className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200"
+					className="flex w-full items-center gap-3 rounded-lg px-3.5 py-2 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 				>
 					<IconKey />
 					<span>{t("auth.change-password") === "auth.change-password" ? "修改密码" : t("auth.change-password")}</span>
@@ -138,7 +138,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 		<>
 			<button
 				onClick={() => setMobileOpen(true)}
-				className="fixed left-4 top-4 z-50 rounded-xl border border-white/10 bg-slate-950/90 p-2.5 text-slate-200 backdrop-blur transition hover:bg-white/10 lg:hidden"
+				className="fixed left-4 top-4 z-50 rounded-lg border border-white/10 bg-slate-950/90 p-2.5 text-slate-200 backdrop-blur transition hover:bg-white/10 light:border-slate-200 light:bg-white/95 light:text-slate-800 light:hover:bg-slate-100 lg:hidden"
 				aria-label="打开导航菜单"
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -154,14 +154,14 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 			)}
 
 			<aside
-				className={`fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] transform border-r border-white/[0.06] bg-slate-950 transition-transform duration-200 lg:hidden ${
+				className={`fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] transform border-r border-white/[0.06] bg-slate-950 transition-transform duration-200 light:border-slate-200 light:bg-white lg:hidden ${
 					mobileOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>
 				{nav}
 			</aside>
 
-			<aside className="hidden h-screen w-64 shrink-0 border-r border-white/[0.06] bg-[#0a0e1a] lg:sticky lg:top-0 lg:flex">
+			<aside className="hidden h-screen w-64 shrink-0 border-r border-white/[0.06] bg-[#0a0e1a] light:border-slate-200 light:bg-white lg:sticky lg:top-0 lg:flex">
 				{nav}
 			</aside>
 

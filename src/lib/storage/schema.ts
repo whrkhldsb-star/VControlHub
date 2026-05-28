@@ -25,10 +25,10 @@ export const updateStorageNodeSchema = z.object({
   publicBaseUrl: z.string().trim().url("直连基础 URL 格式不正确").max(2048, "直连基础 URL 过长").optional().or(z.literal("")),
   directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional(),
   isDefault: z.boolean().optional(),
-  host: z.string().trim().max(255, "主机名过长").optional(),
-  port: z.coerce.number().int().min(1, "端口最小为 1").max(65535, "端口最大为 65535").optional(),
-  username: z.string().trim().max(64, "用户名过长").optional(),
-  serverId: z.string().trim().optional(),
+  host: z.string().trim().max(255, "主机名过长").optional().nullable(),
+  port: z.coerce.number().int().min(1, "端口最小为 1").max(65535, "端口最大为 65535").optional().nullable(),
+  username: z.string().trim().max(64, "用户名过长").optional().nullable(),
+  serverId: z.string().trim().optional().nullable(),
 });
 
 export const createFileEntrySchema = z.object({
