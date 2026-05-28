@@ -45,18 +45,29 @@ export async function GET(request: Request) {
 	const hours = parseHistoryHours(searchParams.get("hours"));
 
 	if (historyFor) {
-		const history = await getMetricHistory(historyFor, hours);
-		const serialized = history.map((h) => ({
-			cpu: h.cpuUsage,
-			mem: h.memUsage,
-			disk: h.diskUsage,
-			online: h.isOnline,
-			t: h.createdAt.toISOString(),
-		}));
-		return NextResponse.json({ history: serialized });
+		try {
+			const history = await getMetricHistory(historyFor, hours);
+			const serialized = history.map((h) => ({
+				cpu: h.cpuUsage,
+				mem: h.memUsage,
+				disk: h.diskUsage,
+				online: h.isOnline,
+				t: h.createdAt.toISOString(),
+			}));
+			return NextResponse.json({ history: serialized });
+		} catch (err) {
+			const message = err instanceof Error ? err.message : "未知错误";
+			return NextResponse.json({ error: `健康历史获取失败: ${message}` }, { status: 500 });
+		}
 	}
 
-	const overview = await collectAllHealth();
+	let overview;
+	try {
+		overview = await collectAllHealth();
+	} catch (err) {
+		const message = err instanceof Error ? err.message : "未知错误";
+		return NextResponse.json({ error: `健康数据采集失败: ${message}` }, { status: 500 });
+	}
 
 	// Snapshot metrics for history (best-effort, don't block response)
 	for (const s of overview.servers) {

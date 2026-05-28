@@ -22,8 +22,8 @@ import { GET } from "../route";
 
 describe("/api/health", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    requireSessionMock.mockResolvedValue({ userId: "user_1", username: "viewer", roles: ["viewer"] });
+  	vi.resetAllMocks();
+  	requireSessionMock.mockResolvedValue({ userId: "user_1", username: "viewer", roles: ["viewer"] });
     verifyApiTokenMock.mockResolvedValue(null);
     sessionHasPermissionMock.mockReturnValue(true);
     collectAllHealthMock.mockResolvedValue({
@@ -127,13 +127,37 @@ describe("/api/health", () => {
   });
 
   it("allows a valid health read Bearer token even when the ambient session lacks health permission", async () => {
-    sessionHasPermissionMock.mockReturnValueOnce(false);
-    verifyApiTokenMock.mockResolvedValueOnce({ userId: "user_1", tokenId: "tok_1", scopes: ["health:read"] });
+  	sessionHasPermissionMock.mockReturnValueOnce(false);
+  	verifyApiTokenMock.mockResolvedValueOnce({ userId: "user_1", tokenId: "tok_1", scopes: ["health:read"] });
 
-    const response = await GET(new Request("https://example.com/api/health", { headers: { authorization: "Bearer whr_fake_health" } }));
+  	const response = await GET(new Request("https://example.com/api/health", { headers: { authorization: "Bearer whr_fake_health" } }));
 
-    expect(response.status).toBe(200);
-    expect(verifyApiTokenMock).toHaveBeenCalledWith("whr_fake_health");
-    expect(collectAllHealthMock).toHaveBeenCalledOnce();
+  	expect(response.status).toBe(200);
+  	expect(verifyApiTokenMock).toHaveBeenCalledWith("whr_fake_health");
+  	expect(collectAllHealthMock).toHaveBeenCalledOnce();
   });
-});
+
+  it("returns 500 with error message when collectAllHealth throws", async () => {
+  	requireSessionMock.mockResolvedValue({ userId: "user_1", username: "viewer", roles: ["viewer"] });
+  	sessionHasPermissionMock.mockReturnValue(true);
+  	collectAllHealthMock.mockRejectedValueOnce(new Error("Unsupported state or unable to authenticate data"));
+
+  	const response = await GET(new Request("https://example.com/api/health"));
+
+  	expect(response.status).toBe(500);
+  	const body = await response.json();
+  	expect(body.error).toContain("健康数据采集失败");
+  	expect(body.error).toContain("Unsupported state or unable to authenticate data");
+  });
+
+  it("returns 500 with error message when getMetricHistory throws", async () => {
+  	getMetricHistoryMock.mockRejectedValueOnce(new Error("database connection lost"));
+
+  	const response = await GET(new Request("https://example.com/api/health?historyFor=srv_1"));
+
+  	expect(response.status).toBe(500);
+  	const body = await response.json();
+  	expect(body.error).toContain("健康历史获取失败");
+  	expect(body.error).toContain("database connection lost");
+  });
+  });

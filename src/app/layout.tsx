@@ -55,7 +55,7 @@ export default async function RootLayout({
 					<I18nProvider initialLocale={initialLocale}>
 						<ToastProvider>
 							<SidebarLoader />
-							<main className="flex-1 min-w-0 min-h-screen overflow-x-hidden pb-24 md:pb-0">
+							<main className="flex-1 min-w-0 min-h-screen overflow-x-clip pb-24 md:pb-0">
 								{children}
 							</main>
 							{hasSessionCookie && <MobileNav />}

@@ -1105,7 +1105,7 @@ export function FileListClient({
 
 	return (
 		<>
-			<div className="mt-6 overflow-hidden rounded-2xl border border-white/[0.08]">
+			<div className="mt-6 overflow-x-auto rounded-2xl border border-white/[0.08]">
 				{/* View mode toggle header bar */}
 				<div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-white/[0.06]">
 					<div className="flex items-center gap-2 text-sm text-slate-400">

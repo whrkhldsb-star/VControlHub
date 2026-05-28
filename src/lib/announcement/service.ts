@@ -10,7 +10,7 @@ export async function listActiveAnnouncements(now = new Date()) {
 		where: { published: true, startsAt: { lte: now }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
 		orderBy: [{ pinned: "desc" }, { startsAt: "desc" }],
 		take: 50,
-		select: { id: true, title: true, body: true, level: true, pinned: true, createdAt: true },
+		select: { id: true, title: true, body: true, level: true, pinned: true, createdAt: true, startsAt: true, expiresAt: true },
 	});
 }
 
@@ -18,6 +18,6 @@ export async function listAnnouncements() {
 	return prisma.announcement.findMany({
 		orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
 		take: 200,
-		select: { id: true, title: true, body: true, level: true, pinned: true, createdAt: true },
+		select: { id: true, title: true, body: true, level: true, pinned: true, createdAt: true, startsAt: true, expiresAt: true },
 	});
 }

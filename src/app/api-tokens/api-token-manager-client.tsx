@@ -27,6 +27,8 @@ const scopeLabels: Record<string, string> = {
   "storage:read": "云盘读取",
   "health:read": "健康监控",
   "status:read": "公开状态",
+  "image:read": "图床读取",
+  "image:write": "图床写入",
 };
 
 function formatDate(value: Date | string | null) {
@@ -148,7 +150,7 @@ try {
                 <label key={scope} aria-label={scope} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${selectedScopes.includes(scope) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.06] bg-white/[0.03] text-slate-400 hover:bg-white/[0.05]"}`}>
                   <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} className="h-4 w-4 accent-cyan-400" />
                   <span className="font-mono text-xs">{scope}</span>
-                  <span className="text-xs text-slate-500">{scopeLabels[scope]}</span>
+                  <span className="text-xs text-slate-500">{scopeLabels[scope] ?? scope}</span>
                 </label>
               ))}
             </div>
