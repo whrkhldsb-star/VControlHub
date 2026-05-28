@@ -1,4 +1,4 @@
-# whrkhldsb 新 VPS 部署指南
+# VControlHub 新 VPS 部署指南
 
 本文档用于把 VPS 管理 + 分布式云盘平台部署到任意干净 VPS。所有敏感值请只写入目标机器的 `.env.local`，不要提交到仓库。
 
@@ -23,8 +23,8 @@ npm -v
 ## 2. 获取代码与安装依赖
 
 ```bash
-git clone <YOUR_REPO_URL> /opt/whrkhldsb
-cd /opt/whrkhldsb
+git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/vcontrolhub
+cd /opt/vcontrolhub
 npm ci
 ```
 
@@ -33,9 +33,9 @@ npm ci
 示例命令（请替换密码）：
 
 ```bash
-sudo -u postgres createuser whrkhldsb || true
-sudo -u postgres createdb whrkhldsb -O whrkhldsb || true
-sudo -u postgres psql -c "ALTER USER whrkhldsb WITH PASSWORD '<CHANGE_ME_DB_PASSWORD>';"
+sudo -u postgres createuser vcontrolhub || true
+sudo -u postgres createdb vcontrolhub -O vcontrolhub || true
+sudo -u postgres psql -c "ALTER USER vcontrolhub WITH PASSWORD '<CHANGE_ME_DB_PASSWORD>';"
 ```
 
 ## 4. 配置环境变量

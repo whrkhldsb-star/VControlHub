@@ -1,6 +1,6 @@
-# whrkhldsb 部署与迁移说明
+# VControlHub 部署与迁移说明
 
-本目录提供把 VPS 统一管理 + 云盘系统部署到新机器的脚本和模板。默认应用标识仍兼容当前 `whrkhldsb`，但安装脚本和打包脚本均支持通过 `APP_NAME`、`APP_SLUG`、`SITE_NAME`、`SERVICE_PREFIX`、`PACKAGE_ROOT_NAME` 和 `DOMAIN` 改成任意新品牌/新域名。目标是：在一台干净的 Debian/Ubuntu systemd 主机上，复制项目后可以通过一个脚本完成依赖安装、构建、数据库迁移、systemd 服务安装和 Caddy 反代配置。
+本目录提供把 VControlHub 部署到新机器的脚本和模板。默认应用标识为 `VControlHub` / `vcontrolhub`，安装脚本和打包脚本均支持通过 `APP_NAME`、`APP_SLUG`、`SITE_NAME`、`SERVICE_PREFIX`、`PACKAGE_ROOT_NAME` 和 `DOMAIN` 改成任意新品牌/新域名。目标是：在一台干净的 Debian/Ubuntu systemd 主机上，复制项目后可以通过一个脚本完成依赖安装、构建、数据库迁移、systemd 服务安装和 Caddy 反代配置。
 
 ## 快速部署
 
@@ -60,9 +60,9 @@ sudo APP_NAME="my-console" APP_SLUG=my-console SITE_NAME="我的控制台" APP_D
 适合离线交付、面板上传、对象存储下载、U 盘拷贝等场景。先在当前服务器生成不含敏感数据和运行数据的发布包：
 
 ```bash
-cd /root/whrkhldsb
+cd /opt/VControlHub
 ./deploy/package.sh
-# 默认输出示例：/root/whrkhldsb/dist/whrkhldsb-release-YYYYMMDD-HHMMSS.tar.gz
+# 默认输出示例：/opt/VControlHub/dist/vcontrolhub-release-YYYYMMDD-HHMMSS.tar.gz
 # 自定义包名/根目录：APP_NAME="我的 控制台" APP_SLUG=my-console PACKAGE_ROOT_NAME=my-console-bundle ./deploy/package.sh
 ```
 
@@ -70,7 +70,7 @@ cd /root/whrkhldsb
 
 ```bash
 tar -xzf my-console-release-YYYYMMDD-HHMMSS.tar.gz
-cd my-console-bundle   # 默认包则是 whrkhldsb-release
+cd my-console-bundle   # 默认包则是 vcontrolhub-release
 sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" \
   SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
 # 首次运行会生成 /opt/my-console/.env.local 并停止；编辑后重新运行。
@@ -89,31 +89,31 @@ sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" 
 rsync -a --delete \
   --exclude .git --exclude node_modules --exclude .next --exclude .env.local \
   --exclude storage --exclude tmp --exclude uploads --exclude downloads --exclude backups --exclude logs \
-  /root/whrkhldsb/ root@new-server:/root/whrkhldsb-src/
+  /opt/VControlHub/ root@new-server:/root/vcontrolhub-src/
 
 # 在新服务器执行。
-cd /root/whrkhldsb-src
-sudo SOURCE_DIR=/root/whrkhldsb-src APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
-sudoedit /opt/whrkhldsb/.env.local
-sudo SOURCE_DIR=/root/whrkhldsb-src APP_DIR=/opt/whrkhldsb DOMAIN=your.example.com deploy/install.sh
+cd /root/vcontrolhub-src
+sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
+sudoedit /opt/vcontrolhub/.env.local
+sudo SOURCE_DIR=/root/vcontrolhub-src APP_DIR=/opt/vcontrolhub DOMAIN=your.example.com deploy/install.sh
 ```
 
 ### 方式 E：已有源码目录时
 
 ```bash
-cd /path/to/whrkhldsb
-sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
-# 首次运行会生成 /opt/whrkhldsb/.env.local 并停止；编辑后重新运行同一命令。
-sudoedit /opt/whrkhldsb/.env.local
-sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
+cd /path/to/VControlHub
+sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
+# 首次运行会生成 /opt/vcontrolhub/.env.local 并停止；编辑后重新运行同一命令。
+sudoedit /opt/vcontrolhub/.env.local
+sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
 ```
 
 常用变量：
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `APP_NAME` | `whrkhldsb` | 应用/品牌名；可为中文，默认兼容当前站点 |
-| `APP_SLUG` | 从 `APP_NAME` 自动生成，空时 `whrkhldsb` | 安全短标识，用于默认安装目录、运行目录和 cookie/session issuer |
+| `APP_NAME` | `VControlHub` | 应用/品牌名；可为中文 |
+| `APP_SLUG` | 从 `APP_NAME` 自动生成，空时 `vcontrolhub` | 安全短标识，用于默认安装目录、运行目录和 cookie/session issuer |
 | `SITE_NAME` | `$APP_NAME` | systemd 描述、部署展示名 |
 | `SERVICE_PREFIX` | `$APP_SLUG` | systemd 服务名前缀，生成 `$SERVICE_PREFIX-next.service` 与 `$SERVICE_PREFIX-ssh-ws.service` |
 | `APP_DIR` | `/opt/$APP_SLUG` | 应用安装目录 |
@@ -155,20 +155,20 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/whrkhldsb deploy/install.sh
 | --- | --- | --- |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
 | `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
-| `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/whrkhldsb CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
-| `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb deploy/backup.sh` |
-| `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/whrkhldsb scripts/restore-db.sh /var/backups/whrkhldsb/xxx.sql.gz` |
+| `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/vcontrolhub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
+| `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/vcontrolhub BACKUP_DIR=/var/backups/vcontrolhub deploy/backup.sh` |
+| `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/vcontrolhub scripts/restore-db.sh /var/backups/vcontrolhub/xxx.sql.gz` |
 
 `deploy/check.sh` 默认只做轻量运行检查；如需在目标机器上执行完整质量门禁，可加：
 
 ```bash
-RUN_NPM_CHECKS=1 APP_DIR=/opt/whrkhldsb deploy/check.sh
+RUN_NPM_CHECKS=1 APP_DIR=/opt/vcontrolhub deploy/check.sh
 ```
 
 ## 升级部署
 
 ```bash
-cd /path/to/whrkhldsb
+cd /path/to/VControlHub
 sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh
 ```
 
@@ -186,8 +186,8 @@ sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE USER whrkhldsb WITH PASSWORD 'REPLACE_WITH_DB_PASSWORD';
-CREATE DATABASE whrkhldsb OWNER whrkhldsb;
+CREATE USER vcontrolhub WITH PASSWORD 'REPLACE_WITH_DB_PASSWORD';
+CREATE DATABASE vcontrolhub OWNER vcontrolhub;
 SQL
 ```
 
@@ -238,13 +238,13 @@ systemctl status ${SERVICE_PREFIX:-my-console}-next.service ${SERVICE_PREFIX:-my
 `scripts/backup-db.sh` 已支持可移植变量：
 
 ```bash
-APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb /opt/whrkhldsb/scripts/backup-db.sh
+APP_DIR=/opt/vcontrolhub BACKUP_DIR=/var/backups/vcontrolhub /opt/vcontrolhub/scripts/backup-db.sh
 ```
 
 Cron 示例：
 
 ```cron
-0 3 * * * APP_DIR=/opt/whrkhldsb BACKUP_DIR=/var/backups/whrkhldsb /opt/whrkhldsb/scripts/backup-db.sh >> /var/log/whrkhldsb-backup.log 2>&1
+0 3 * * * APP_DIR=/opt/vcontrolhub BACKUP_DIR=/var/backups/vcontrolhub /opt/vcontrolhub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
 ```
 
 ## 服务结构

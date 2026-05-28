@@ -29,6 +29,7 @@ cd "${REPO_ROOT}"
 tar --create --gzip --file "${ARCHIVE_PATH}" \
   --transform "s#^#${PACKAGE_ROOT_NAME}/#" \
   --exclude './.git' \
+  --exclude './.github' \
   --exclude './node_modules' \
   --exclude './.next' \
   --exclude './.env.local' \
@@ -39,6 +40,7 @@ tar --create --gzip --file "${ARCHIVE_PATH}" \
   --exclude './downloads/*' \
   --exclude './backups/*' \
   --exclude './logs/*' \
+  --exclude './dist' \
   --exclude './dist/*' \
   --exclude './_test_*.js' \
   --exclude './_test_*.ts' \

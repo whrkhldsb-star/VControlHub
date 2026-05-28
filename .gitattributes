@@ -1,0 +1,16 @@
+# Keep GitHub source archives focused on source/install inputs.
+# Runtime placeholders are useful in git clones, but not in Download ZIP/tarball deliveries.
+.github/ export-ignore
+.hermes/ export-ignore
+backups/ export-ignore
+downloads/ export-ignore
+logs/ export-ignore
+storage/ export-ignore
+tmp/ export-ignore
+uploads/ export-ignore
+coverage/ export-ignore
+.next/ export-ignore
+node_modules/ export-ignore
+dist/ export-ignore
+*.tsbuildinfo export-ignore
+*.log export-ignore

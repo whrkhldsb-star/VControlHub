@@ -150,14 +150,14 @@ sudo /opt/vcontrolhub/deploy/install.sh --show-credentials
 
 ```bash
 # 1. 克隆代码
-git clone https://github.com/whrkhldsb-star/firstproject.git /opt/vps-console
+git clone https://github.com/whrkhldsb-star/VControlHub.git /opt/vcontrolhub
 
 # 2. 首次运行（自动安装 Node.js 22、PostgreSQL 15、Apache 等依赖）
-sudo APP_DIR=/opt/vps-console /opt/vps-console/deploy/install.sh
+sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
 
 # 3. 编辑环境变量后再次运行
-sudoedit /opt/vps-console/.env.local
-sudo APP_DIR=/opt/vps-console /opt/vps-console/deploy/install.sh
+sudoedit /opt/vcontrolhub/.env.local
+sudo APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/deploy/install.sh
 ```
 
 > 首次运行会自动生成 `.env.local` 模板并暂停，填写数据库密码、密钥等后重新运行即可。
