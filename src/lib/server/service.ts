@@ -335,12 +335,14 @@ export async function createServerProfile(input: CreateServerInput) {
 			host: normalized.host,
 			port: normalized.port,
 			username: normalized.username,
-			enabled: true,
 		},
-		select: { id: true, name: true },
+		select: { id: true, name: true, enabled: true },
 	});
 	if (duplicate) {
-		throw new Error(`已存在相同主机、端口和用户名的 VPS 节点：${duplicate.name}`);
+		if (duplicate.enabled) {
+			throw new Error(`已存在相同主机、端口和用户名的 VPS 节点：${duplicate.name}`);
+		}
+		throw new Error(`已存在相同主机、端口和用户名的已禁用节点：${duplicate.name}。请先在 VPS 管理页面启用该节点，或删除后重新添加。`);
 	}
 
 	const server = await prisma.server.create({

@@ -217,6 +217,14 @@ export interface InstallOptions {
 
 export async function installService(opts: InstallOptions) {
 	const { template, userId, customPort } = opts;
+
+	// Pre-flight: ensure Docker is available
+	try {
+		execFileSync("docker", ["info"], { timeout: 10_000, stdio: "pipe" });
+	} catch {
+		throw new Error("Docker 未安装或未运行。快捷服务依赖 Docker 容器，请先在服务器上安装并启动 Docker 后重试。安装命令: curl -fsSL https://get.docker.com | sh");
+	}
+
 	validateTemplate(template);
 	const hostPort = customPort ?? allocatePort(template.defaultPort);
 	assertTemplatePortsAvailable(template, hostPort);

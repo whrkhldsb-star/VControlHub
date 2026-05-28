@@ -30,9 +30,42 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		<PageShell>
 			<header className="mb-8">
 				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Deploy</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">应用部署模板</h1>
-				<p className="mt-1.5 text-sm text-slate-500">复用命令模板变量渲染和审批链路，形成可审计的应用/服务部署运行记录。</p>
+				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">应用部署</h1>
+				<p className="mt-1.5 text-sm text-slate-500">选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。</p>
 			</header>
+
+			{/* How it works */}
+			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
+				<h2 className="text-sm font-semibold text-white mb-3">💡 使用流程</h2>
+				<div className="grid gap-2 text-xs text-slate-400 md:grid-cols-5">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+						<div className="text-lg mb-1">📝</div>
+						<div className="font-medium text-white">1. 创建模板</div>
+						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300">{"{{变量名}}"}</code> 的部署脚本</div>
+					</div>
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+						<div className="text-lg mb-1">🎯</div>
+						<div className="font-medium text-white">2. 选择模板</div>
+						<div className="mt-1">在下方选择你要部署的模板</div>
+					</div>
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+						<div className="text-lg mb-1">⚙️</div>
+						<div className="font-medium text-white">3. 填写变量</div>
+						<div className="mt-1">填写模板所需的变量值（如版本号、端口等）</div>
+					</div>
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+						<div className="text-lg mb-1">🖥️</div>
+						<div className="font-medium text-white">4. 选择 VPS</div>
+						<div className="mt-1">勾选要部署到的目标服务器</div>
+					</div>
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+						<div className="text-lg mb-1">🚀</div>
+						<div className="font-medium text-white">5. 提交审批</div>
+						<div className="mt-1">进入审批链路，审批通过后自动执行并记录日志</div>
+					</div>
+				</div>
+				<p className="mt-3 text-xs text-slate-500">每次部署都会生成唯一的运行记录，支持一键重发回退。所有操作经过审批链路，确保可审计。</p>
+			</section>
 			{formError && (
 				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200">
 					部署提交失败：{formError}
