@@ -63,6 +63,7 @@ vi.mock("@/lib/db", () => ({
 
 describe("server service", () => {
  beforeEach(() => {
+ process.env.STORAGE_DIRECT_ACCESS_SECRET = "test-direct-secret";
  vi.clearAllMocks();
  });
 
@@ -367,6 +368,7 @@ describe("server service", () => {
  await createServerProfile({ name: "direct-node", host: "203.0.113.10", port: 22, username: "root", connectionType: "SSH_KEY", sshKeyId: "key_1", tags: [], enableDirectGateway: true });
 
  expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: expect.stringContaining("vcontrolhub-direct.service") }));
+ expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: expect.stringContaining("DIRECT_SECRET=test-direct-secret") }));
  expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "srv_direct" }, data: expect.objectContaining({ fileProxyPort: 31888, publicUrl: "http://203.0.113.10:31888" }) }));
  expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { serverId: "srv_direct", driver: "SFTP" }, data: expect.objectContaining({ directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.10:31888" }) }));
  });

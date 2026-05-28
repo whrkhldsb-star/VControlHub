@@ -27,7 +27,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
 }));
 
-import { DELETE, POST } from "../route";
+import { DELETE, GET, POST } from "../route";
 
 function directNode(overrides: Record<string, unknown> = {}) {
   return {
@@ -178,6 +178,36 @@ describe("/api/storage/direct-access", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ mode: "managed-download" });
+  });
+
+  it("redirects GET requests to the generated storage-server URL for file-list links", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
+    sessionHasPermissionMock.mockReturnValueOnce(true);
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(directNode({
+      directAccessMode: "AUTO",
+      publicBaseUrl: "https://cdn.example.com/media",
+      directAccessExpiresSeconds: 600,
+    }));
+
+    const response = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=movies%2Fdemo%20file.mp4"));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toMatch(/^https:\/\/cdn\.example\.com\/media\/movies\/demo%20file\.mp4\?expires=\d+&signature=[a-f0-9]{64}$/);
+  });
+
+  it("redirects GET requests to the managed SFTP fallback when direct access is unavailable", async () => {
+    vi.clearAllMocks();
+    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "admin" });
+    sessionHasPermissionMock.mockReturnValueOnce(true);
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(directNode({ directAccessMode: "PROXY" }));
+
+    const response = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=movies%2Fdemo.mp4"));
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("https://app.example.com/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4");
   });
 
   it("keeps DELETE as an authenticated no-op for old clients", async () => {

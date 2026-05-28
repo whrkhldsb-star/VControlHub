@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 import { Prisma } from "@prisma/client";
@@ -256,6 +256,14 @@ export async function createSshKey(input: {
 }
 
 
+function getConfiguredDirectAccessSecret() {
+	const secret = process.env.STORAGE_DIRECT_ACCESS_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || "";
+	if (!secret) {
+		throw new Error("未配置 STORAGE_DIRECT_ACCESS_SECRET，无法启用目标服务器直连。请先在运行环境中配置同一个直连签名密钥。");
+	}
+	return secret;
+}
+
 async function loadServerForDirectGateway(serverId: string) {
  return prisma.server.findUnique({
   where: { id: serverId },
@@ -277,7 +285,7 @@ async function applyServerDirectGatewayState(input: { serverId: string; enabled:
  const publicBaseUrl = buildDirectGatewayPublicBaseUrl({ host: server.host, port: DIRECT_GATEWAY_DEFAULT_PORT });
  const ssh = await buildSshParamsFromServer(server, server.sshKey);
  const command = input.enabled
-  ? buildInstallDirectGatewayCommand({ rootPath: basePath, secret: process.env.STORAGE_DIRECT_ACCESS_SECRET || process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || randomBytes(32).toString("hex"), port: DIRECT_GATEWAY_DEFAULT_PORT })
+  ? buildInstallDirectGatewayCommand({ rootPath: basePath, secret: getConfiguredDirectAccessSecret(), port: DIRECT_GATEWAY_DEFAULT_PORT })
   : buildUninstallDirectGatewayCommand();
  let cleanupSkipped = false;
  if (!isLocalHost) {
