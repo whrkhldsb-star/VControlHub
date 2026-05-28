@@ -307,13 +307,26 @@ export async function createServerProfile(input: CreateServerInput) {
  const payload = createServerSchema.parse(input);
  const normalized = normalizeServerInput(payload);
 
- if (normalized.connectionType === "SSH_KEY") {
-  if (!normalized.sshKeyId) throw new Error("SSH 密钥连接方式需选择密钥");
-  const sshKey = await prisma.sshKey.findUnique({ where: { id: normalized.sshKeyId }, select: { id: true, name: true, fingerprint: true } });
-  if (!sshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
- }
+	if (normalized.connectionType === "SSH_KEY") {
+		if (!normalized.sshKeyId) throw new Error("SSH 密钥连接方式需选择密钥");
+		const sshKey = await prisma.sshKey.findUnique({ where: { id: normalized.sshKeyId }, select: { id: true, name: true, fingerprint: true } });
+		if (!sshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
+	}
 
- const server = await prisma.server.create({
+	const duplicate = await prisma.server.findFirst({
+		where: {
+			host: normalized.host,
+			port: normalized.port,
+			username: normalized.username,
+			enabled: true,
+		},
+		select: { id: true, name: true },
+	});
+	if (duplicate) {
+		throw new Error(`已存在相同主机、端口和用户名的 VPS 节点：${duplicate.name}`);
+	}
+
+	const server = await prisma.server.create({
   data: {
    name: normalized.name,
    host: normalized.host,

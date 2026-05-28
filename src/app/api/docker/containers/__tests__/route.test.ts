@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mocks, httpRequestMock } = vi.hoisted(() => ({
+const { mocks, httpRequestMock, loggerMock } = vi.hoisted(() => ({
   mocks: {
     requireApiSession: vi.fn(),
     isSessionPayload: vi.fn(),
@@ -9,6 +9,12 @@ const { mocks, httpRequestMock } = vi.hoisted(() => ({
     auditUserAction: vi.fn(),
   },
   httpRequestMock: vi.fn(),
+  loggerMock: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -17,6 +23,7 @@ vi.mock("@/lib/auth/api-session", () => ({
 }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMock }));
 vi.mock("node:http", () => ({ default: { request: httpRequestMock } }));
 
 const route = await import("../route");
@@ -27,6 +34,33 @@ describe("/api/docker/containers audit coverage", () => {
     mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", permissions: ["docker:manage"] });
     mocks.isSessionPayload.mockReturnValue(true);
     mocks.sessionHasPermission.mockReturnValue(true);
+  });
+
+  it("returns an empty unavailable list without error logging when the Docker socket is missing", async () => {
+    httpRequestMock.mockImplementationOnce((_options, _callback) => {
+      const requestHandlers: Record<string, (error?: Error) => void> = {};
+      const req = {
+        on: vi.fn((event: string, handler: (error?: Error) => void) => {
+          requestHandlers[event] = handler;
+          return req;
+        }),
+        write: vi.fn(),
+        end: vi.fn(() => {
+          const error = Object.assign(new Error("connect ENOENT /var/run/docker.sock"), { code: "ENOENT" });
+          requestHandlers.error?.(error);
+        }),
+        destroy: vi.fn(),
+      };
+      return req;
+    });
+
+    const response = await route.GET(new NextRequest("http://local/api/docker/containers"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true, status: 200, data: [], dockerAvailable: false, message: "Docker 未安装或 Docker socket 不可用" });
+    expect(loggerMock.error).not.toHaveBeenCalled();
+    expect(loggerMock.warn).toHaveBeenCalledWith("Docker socket unavailable", expect.any(Error), expect.objectContaining({ apiPath: "/containers/json?all=true", method: "GET" }));
   });
 
   it("audits container lifecycle actions without leaking logs or commands", async () => {

@@ -24,6 +24,13 @@ const containerActionSchema = z.object({ id: z.string().min(1), action: z.enum([
 
 const DOCKER_SOCKET = "/var/run/docker.sock";
 const DOCKER_API_HOST = "localhost";
+const DOCKER_UNAVAILABLE_CODES = new Set(["ENOENT", "ECONNREFUSED", "EACCES"]);
+const dockerUnavailableResponse = { ok: true, status: 200, data: [], dockerAvailable: false, message: "Docker 未安装或 Docker socket 不可用" };
+
+function isDockerSocketUnavailable(error: unknown) {
+	const code = (error as NodeJS.ErrnoException | undefined)?.code;
+	return typeof code === "string" && DOCKER_UNAVAILABLE_CODES.has(code);
+}
 
 /** Validate Docker container ID: only allow hex chars and names (alphanumeric + _.-) */
 function isValidDockerId(value: string): boolean {
@@ -64,6 +71,11 @@ function dockerRequest(apiPath: string, method = "GET", body?: string): Promise<
 		});
 
 		req.on("error", (err) => {
+			if (isDockerSocketUnavailable(err)) {
+				logger.warn("Docker socket unavailable", err, { apiPath, method });
+				resolve(dockerUnavailableResponse);
+				return;
+			}
 			logger.error("Docker socket request failed", err, { apiPath, method });
 			resolve({ ok: false, status: 502, data: { message: "Docker daemon unreachable" } });
 		});

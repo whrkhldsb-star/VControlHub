@@ -44,13 +44,14 @@ vi.mock("@/lib/db", () => ({
  findMany: vi.fn(),
  create: vi.fn(),
  },
- server: {
- create: vi.fn(),
- findMany: vi.fn(),
- findUnique: vi.fn(),
- update: vi.fn(),
- delete: vi.fn(),
- },
+	server: {
+	create: vi.fn(),
+	findMany: vi.fn(),
+	findFirst: vi.fn(),
+	findUnique: vi.fn(),
+	update: vi.fn(),
+	delete: vi.fn(),
+	},
  storageNode: {
  findFirst: vi.fn(),
  create: vi.fn(),
@@ -163,13 +164,14 @@ describe("server service", () => {
  });
 
  it("creates a server profile bound to an ssh key", async () => {
- vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
- id: "key_1",
- name: "prod-root-key",
- fingerprint: "SHA256:abc",
- } as any);
+	vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
+	id: "key_1",
+	name: "prod-root-key",
+	fingerprint: "SHA256:abc",
+	} as any);
+	vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
 
- vi.mocked(prisma.server.create).mockResolvedValueOnce({
+	vi.mocked(prisma.server.create).mockResolvedValueOnce({
  id: "srv_1",
  name: "hk-prod-1",
  host: "203.0.113.10",
@@ -257,8 +259,9 @@ describe("server service", () => {
  expect(result.connectionSummary).toContain("SSH 密钥 prod-root-key");
  });
 
- it("creates a server profile with password authentication", async () => {
- vi.mocked(prisma.server.create).mockResolvedValueOnce({
+	it("creates a server profile with password authentication", async () => {
+	vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+	vi.mocked(prisma.server.create).mockResolvedValueOnce({
  id: "srv_2",
  name: "pw-server",
  host: "10.0.0.1",
@@ -339,9 +342,10 @@ describe("server service", () => {
 
 
  it("creates a server with global direct gateway enabled during onboarding", async () => {
- execRemoteCommandMock.mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 });
- vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" } as any);
- vi.mocked(prisma.server.create).mockResolvedValueOnce({
+	execRemoteCommandMock.mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 });
+	vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" } as any);
+	vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+	vi.mocked(prisma.server.create).mockResolvedValueOnce({
  id: "srv_direct", name: "direct-node", host: "203.0.113.10", port: 22, username: "root", description: null, tags: [], enabled: true,
  connectionType: "SSH_KEY", sshKeyId: "key_1", password: null, publicUrl: null, fileProxyPort: 0,
  sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" }, storageNode: null, commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
@@ -407,9 +411,10 @@ describe("server service", () => {
  });
 
  it("does not mark direct gateway enabled when best-effort install fails", async () => {
- execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
- vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" } as any);
- vi.mocked(prisma.server.create).mockResolvedValueOnce({
+	execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+	vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({ id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" } as any);
+	vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+	vi.mocked(prisma.server.create).mockResolvedValueOnce({
  id: "srv_direct_fail", name: "direct-fail", host: "203.0.113.10", port: 22, username: "root", description: null, tags: [], enabled: true,
  connectionType: "SSH_KEY", sshKeyId: "key_1", password: null, publicUrl: null, fileProxyPort: 0,
  sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc", privateKey: "plain-key" }, storageNode: null, commandTargets: [], createdAt: new Date(), updatedAt: new Date(),
@@ -431,7 +436,30 @@ describe("server service", () => {
  expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
  });
 
- it("lists onboarded servers with ssh-key summaries", async () => {
+	it("rejects duplicate enabled server endpoints before creating storage nodes", async () => {
+	vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
+	id: "srv_existing",
+	name: "existing-node",
+	host: "203.0.113.10",
+	port: 22,
+	username: "root",
+	} as any);
+
+	await expect(createServerProfile({
+	name: "duplicate-node",
+	host: "203.0.113.10",
+	port: 22,
+	username: "root",
+	connectionType: "PASSWORD",
+	password: "secret123",
+	tags: [],
+	})).rejects.toThrow("已存在相同主机、端口和用户名的 VPS 节点");
+
+	expect(prisma.server.create).not.toHaveBeenCalled();
+	expect(prisma.storageNode.create).not.toHaveBeenCalled();
+	});
+
+	it("lists onboarded servers with ssh-key summaries", async () => {
  vi.mocked(prisma.server.findMany).mockResolvedValueOnce([
  {
  id: "srv_1",
