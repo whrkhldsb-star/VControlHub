@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import {
+  buildSftpDownloadUrl,
+  formatSftpFileSize,
+  formatSftpTimestamp,
+  getSftpEntryIcon,
+  guessSftpFileIcon,
+  isViewableSftpTextFile,
+  joinSftpPath,
+  splitSftpPath,
+} from "@/lib/files/sftp";
 
 /* ------------------------------------------------------------------ */
 /* Types */
@@ -42,92 +52,6 @@ type SyncResult = {
 type SftpBrowserProps = {
   sftpNodes: SftpNode[];
 };
-
-/* ------------------------------------------------------------------ */
-/* Helpers */
-/* ------------------------------------------------------------------ */
-
-function formatFileSize(bytes: number | null | undefined): string {
-  if (bytes == null) return "-";
-  const size = typeof bytes === "bigint" ? Number(bytes) : bytes;
-  if (!Number.isFinite(size) || size < 0) return "-";
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatDate(timestamp: number | null | undefined): string {
-  if (!timestamp) return "-";
-  const d = new Date(timestamp);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function joinPath(base: string, segment: string): string {
-  if (!base || base === "/") return `/${segment}`;
-  const cleanBase = base.replace(/\/+$/, "");
-  return `${cleanBase}/${segment}`;
-}
-
-function splitPathSegments(path: string) {
-  return path
-    .split("/")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function getEntryIcon(type: SftpListEntry["type"]): string {
-  switch (type) {
-    case "directory":
-      return "📁";
-    case "file":
-      return "📄";
-    default:
-      return "📎";
-  }
-}
-
-function buildSftpDownloadHref(nodeId: string, remotePath: string): string {
-  const params = new URLSearchParams({ nodeId, path: remotePath });
-  return `/api/storage/sftp-download?${params.toString()}`;
-}
-
-function buildSftpDownloadUrl(nodeId: string, remotePath: string): string {
-  return `${buildSftpDownloadHref(nodeId, remotePath)}&download=1`;
-}
-
-function guessFileIcon(name: string): string {
-  const ext = name.includes(".") ? name.split(".").pop()?.toLowerCase() : "";
-  if (!ext) return "📄";
-  if (["jpg", "jpeg", "png", "webp", "gif", "svg", "bmp", "ico"].includes(ext)) return "🖼️";
-  if (["mp4", "webm", "mkv", "avi", "mov"].includes(ext)) return "🎬";
-  if (["mp3", "wav", "ogg", "flac", "aac"].includes(ext)) return "🎵";
-  if (ext === "pdf") return "📄";
-  if (["zip", "tar", "gz", "7z", "rar"].includes(ext)) return "📦";
-  return "📄";
-}
-
-const VIEWABLE_EXTENSIONS = new Set([
-  "txt", "md", "json", "js", "jsx", "ts", "tsx", "css", "scss", "html", "htm",
-  "xml", "yaml", "yml", "toml", "ini", "conf", "cfg", "env", "sh", "bash",
-  "py", "rb", "go", "rs", "java", "c", "cpp", "h", "hpp", "php", "pl",
-  "sql", "log", "csv", "vue", "svelte", "dockerfile", "gitignore",
-  "makefile", "cmake", "gradle", "properties", "bat", "ps1",
-]);
-
-function isViewableTextFile(name: string): boolean {
-  const lower = name.toLowerCase();
-  if (VIEWABLE_EXTENSIONS.has(lower)) return true;
-  const ext = lower.includes(".") ? lower.split(".").pop() : "";
-  return ext ? VIEWABLE_EXTENSIONS.has(ext) : false;
-}
 
 /* ------------------------------------------------------------------ */
 /* File Editor Modal */
@@ -519,7 +443,7 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
 
   const handleNavigate = (entry: SftpListEntry) => {
     if (entry.type !== "directory") return;
-    const nextPath = joinPath(remotePath, entry.name);
+    const nextPath = joinSftpPath(remotePath, entry.name);
     fetchDirectory(selectedNodeId, nextPath);
   };
 
@@ -535,7 +459,7 @@ const handleSync = async () => {
  const data = await csrfFetch("/api/storage/sftp-sync", {
  method: "POST",
  headers: { "Content-Type": "application/json" },
- body: JSON.stringify({ nodeId: selectedNodeId }),
+ body: JSON.stringify({ nodeId: selectedNodeId, remotePath, recursive: syncRecursive, maxDepth: syncRecursive ? 5 : 1 }),
  }) as SyncResult;
  setSyncResult(data);
  router.refresh();
@@ -552,7 +476,7 @@ const handleSync = async () => {
     setDeleteLoading(true);
     setError(null);
     try {
-const fullPath = joinPath(remotePath, entry.name);
+const fullPath = joinSftpPath(remotePath, entry.name);
 		const _data = await csrfFetch("/api/storage/sftp-ops", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -577,8 +501,8 @@ const fullPath = joinPath(remotePath, entry.name);
     setRenameLoading(true);
     setError(null);
     try {
-      const oldFullPath = joinPath(remotePath, entry.name);
-const newFullPath = joinPath(remotePath, newName);
+      const oldFullPath = joinSftpPath(remotePath, entry.name);
+const newFullPath = joinSftpPath(remotePath, newName);
 		const _data = await csrfFetch("/api/storage/sftp-ops", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -601,7 +525,7 @@ const newFullPath = joinPath(remotePath, newName);
   // No SFTP nodes — render nothing
   if (sftpNodes.length === 0) return null;
 
-  const segments = splitPathSegments(remotePath);
+  const segments = splitSftpPath(remotePath);
   const TABLE_COLS = "grid-cols-[minmax(0,2fr)_100px_100px_140px_minmax(180px,1fr)]";
 
   return (
@@ -818,10 +742,10 @@ const newFullPath = joinPath(remotePath, newName);
                   const entryKey = `${remotePath}/${entry.name}`;
                   const isRenaming = renamingEntry === entryKey;
                   const isDeleting = deletingEntry === entryKey;
-                  const fullPath = joinPath(remotePath, entry.name);
+                  const fullPath = joinSftpPath(remotePath, entry.name);
                   const isFile = entry.type === "file";
                   const isDir = entry.type === "directory";
-                  const canView = isFile && isViewableTextFile(entry.name);
+                  const canView = isFile && isViewableSftpTextFile(entry.name);
 
                   return (
                     <div
@@ -843,11 +767,11 @@ const newFullPath = joinPath(remotePath, newName);
                             onClick={() => handleNavigate(entry)}
                             className="block truncate font-medium text-cyan-100 hover:text-cyan-50 text-left"
                           >
-                            {getEntryIcon(entry.type)} {entry.name}
+                            {getSftpEntryIcon(entry.type)} {entry.name}
                           </button>
                         ) : (
                           <span className="block truncate font-medium text-white">
-                            {guessFileIcon(entry.name)} {entry.name}
+                            {guessSftpFileIcon(entry.name)} {entry.name}
                           </span>
                         )}
                         {entry.longname && !isRenaming && (
@@ -862,12 +786,12 @@ const newFullPath = joinPath(remotePath, newName);
 
                       {/* Size */}
                       <div className="text-slate-300">
-                        {isDir ? "-" : formatFileSize(entry.size)}
+                        {isDir ? "-" : formatSftpFileSize(entry.size)}
                       </div>
 
                       {/* Modified */}
                       <div className="text-slate-400 text-xs">
-                        {formatDate(entry.modifyTime)}
+                        {formatSftpTimestamp(entry.modifyTime)}
                       </div>
 
                       {/* Actions */}
