@@ -1,34 +1,149 @@
-import { prisma } from "@/lib/db";
-import { execFileSync, execSync, exec } from "child_process";
+import { mkdirSync } from "node:fs";
+import { execFile, execFileSync, execSync } from "child_process";
 import { promisify } from "util";
 
-const run = promisify(exec);
+import { prisma } from "@/lib/db";
+import type { ServiceTemplate } from "./types";
 
-/* ── 安全辅助函数 ─────────────────────────────────────────────── */
+const runFile = promisify(execFile);
 
-/** Shell 参数安全引用（单引号版本） */
-function shellQuote(s: string): string {
-	return `'${s.replace(/'/g, "'\\''")}'`;
-}
+// Re-export for backward compatibility
+export type { ServiceTemplate } from "./types";
 
-/** 容器名安全验证：只允许字母、数字、下划线、点、连字符 */
+/* -- Safety helpers ------------------------------------------------------ */
+
 const SAFE_CONTAINER_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+const SAFE_ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const SAFE_IMAGE_RE = /^(?:[a-z0-9]+(?:(?:[._-]|__|[-]*)[a-z0-9]+)*(?::[0-9]+)?\/)?[a-z0-9]+(?:(?:[._-]|__|[-]*)[a-z0-9]+)*(?:\/[a-z0-9]+(?:(?:[._-]|__|[-]*)[a-z0-9]+)*)*(?::[A-Za-z0-9_.-]{1,128}|@[A-Za-z0-9_+.-]+:[A-Fa-f0-9=:]+)?$/;
+const SAFE_VOLUME_OPTION_RE = /^(?:ro|rw|z|Z|cached|delegated|consistent|rshared|rslave|rprivate|shared|slave|private)$/;
+const HOST_VOLUME_ROOTS = ["/opt/", "/srv/"];
+const TRUSTED_HOST_MOUNTS = new Set(["/etc/timezone", "/etc/localtime"]);
+const DOCKER_SOCKET = "/var/run/docker.sock";
+
 function safeContainerName(slug: string): string {
-	if (!SAFE_CONTAINER_RE.test(slug)) throw new Error('Invalid slug');
+	if (!SAFE_CONTAINER_RE.test(slug)) throw new Error("服务标识无效");
 	return `qs-${slug}`;
 }
 
-/* ── Port allocation & detection ──────────────────────────────── */
+function assertTcpPort(port: number, label = "端口") {
+	if (!Number.isInteger(port) || port < 1 || port > 65535) {
+		throw new Error(`${label} ${port} 无效，请使用 1-65535 范围内的端口。`);
+	}
+}
+
+function assertImage(image: string) {
+	if (!SAFE_IMAGE_RE.test(image)) throw new Error("镜像名称无效");
+}
+
+function normalizeVolumeEndpoint(value: string, label: string) {
+	const trimmed = value.trim();
+	if (!trimmed.startsWith("/") || trimmed.includes("\0") || trimmed.includes("..")) {
+		throw new Error(`${label} 路径无效`);
+	}
+	return trimmed.replace(/\/+$/, "") || "/";
+}
+
+function splitContainerPathAndOptions(raw: string) {
+	const [containerPath, ...options] = raw.split(":");
+	const normalizedPath = normalizeVolumeEndpoint(containerPath, "容器挂载");
+	for (const option of options) {
+		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new Error(`挂载选项 ${option} 无效`);
+	}
+	return [normalizedPath, ...options].join(":");
+}
+
+function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
+	if (hostPath === DOCKER_SOCKET) {
+		if (template.allowDockerSocket === true) return;
+		throw new Error("远程应用不允许挂载 Docker socket");
+	}
+	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
+	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
+	throw new Error(`宿主机挂载路径 ${hostPath} 不在允许范围内`);
+}
+
+function validateTemplate(template: ServiceTemplate) {
+	safeContainerName(template.slug);
+	assertImage(template.image);
+	assertTcpPort(template.defaultPort, "默认端口");
+	if (template.internalPort !== undefined) assertTcpPort(template.internalPort, "容器端口");
+	for (const ep of template.extraPorts ?? []) {
+		assertTcpPort(ep.host, "额外端口");
+		assertTcpPort(ep.container, "额外容器端口");
+	}
+	for (const key of Object.keys(template.envJson)) {
+		if (!SAFE_ENV_KEY_RE.test(key)) throw new Error(`环境变量名 ${key} 无效`);
+	}
+	for (const vol of template.volumesJson) {
+		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
+		assertHostVolumeAllowed(host, template);
+		splitContainerPathAndOptions(vol.container);
+	}
+}
+
+function parseCommandArgs(command?: string): string[] {
+	if (!command?.trim()) return [];
+	const args: string[] = [];
+	let current = "";
+	let quote: "'" | '"' | null = null;
+	let escaping = false;
+	for (const ch of command) {
+		if (escaping) {
+			current += ch;
+			escaping = false;
+			continue;
+		}
+		if (ch === "\\") {
+			escaping = true;
+			continue;
+		}
+		if (quote) {
+			if (ch === quote) quote = null;
+			else current += ch;
+			continue;
+		}
+		if (ch === "'" || ch === '"') {
+			quote = ch;
+			continue;
+		}
+		if (/\s/.test(ch)) {
+			if (current) {
+				args.push(current);
+				current = "";
+			}
+			continue;
+		}
+		current += ch;
+	}
+	if (escaping || quote) throw new Error("启动命令格式无效");
+	if (current) args.push(current);
+	return args;
+}
+
+function resolveEnvValue(value: string) {
+	return value === "127.0.0.1" || value === "localhost" ? "host.docker.internal" : value;
+}
+
+function dockerExecSync(args: string[], timeout = 30_000) {
+	return execFileSync("docker", args, { timeout, encoding: "utf8" });
+}
+
+/* -- Port allocation & detection --------------------------------------- */
 
 const PORT_RANGE_MIN = 10000;
 const PORT_RANGE_MAX = 65535;
 const PORT_MAX_ATTEMPTS = 50;
 
-/** Actually do a synchronous bind check (the reliable one) */
 export function isPortAvailableSync(port: number): boolean {
+	assertTcpPort(port);
 	try {
-		execSync(
-			`node -e "const n=require('net');const s=n.createServer();s.on('error',()=>{process.exit(1)});s.listen(${port},'0.0.0.0',()=>{s.close();process.exit(0)})"`,
+		execFileSync(
+			"node",
+			[
+				"-e",
+				"const n=require('net');const p=Number(process.argv[1]);const s=n.createServer();s.on('error',()=>process.exit(1));s.listen(p,'0.0.0.0',()=>s.close(()=>process.exit(0)))",
+				String(port),
+			],
 			{ timeout: 5000 },
 		);
 		return true;
@@ -37,14 +152,11 @@ export function isPortAvailableSync(port: number): boolean {
 	}
 }
 
-/** Allocate a random free port in the high range */
 export function allocatePort(preferredPort?: number): number {
-	// If caller wants a specific port, try it first
 	if (preferredPort) {
+		assertTcpPort(preferredPort);
 		if (isPortAvailableSync(preferredPort)) return preferredPort;
-		// preferred port taken → fall through to random
 	}
-
 	const tried = new Set<number>();
 	for (let i = 0; i < PORT_MAX_ATTEMPTS; i++) {
 		const port = PORT_RANGE_MIN + Math.floor(Math.random() * (PORT_RANGE_MAX - PORT_RANGE_MIN + 1));
@@ -55,7 +167,6 @@ export function allocatePort(preferredPort?: number): number {
 	throw new Error("无法分配可用端口，请手动指定端口后重试");
 }
 
-/** Get list of all currently used listening ports (for UI hints) */
 export function getUsedPorts(): number[] {
 	try {
 		const out = execSync(`ss -tlnpH 2>/dev/null | grep -oP 'LISTEN.*?:\\K\\d+' || ss -tlnp 2>/dev/null | grep -oP ':\\K\\d+' | sort -un`, {
@@ -68,17 +179,8 @@ export function getUsedPorts(): number[] {
 	}
 }
 
-
-import type { ServiceTemplate } from "./types";
-
-// Re-export for backward compatibility
-export type { ServiceTemplate } from "./types";
-
-
 function assertPortAvailable(port: number, label = "端口") {
-	if (!Number.isInteger(port) || port < 1 || port > 65535) {
-		throw new Error(`${label} ${port} 无效，请使用 1-65535 范围内的端口。`);
-	}
+	assertTcpPort(port, label);
 	if (!isPortAvailableSync(port)) {
 		throw new Error(`${label} ${port} 已被占用，请更换端口后重试。`);
 	}
@@ -91,7 +193,7 @@ function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: numbe
 	}
 }
 
-/* ── CRUD ──────────────────────────────────────────────────────── */
+/* -- CRUD --------------------------------------------------------------- */
 
 export async function listQuickServices() {
 	return prisma.quickService.findMany({
@@ -107,34 +209,25 @@ export async function getQuickService(slug: string) {
 	});
 }
 
-/* ── Install: create DB record + run docker ────────────────────── */
-
 export interface InstallOptions {
 	template: ServiceTemplate;
 	userId?: string;
-	/** User-specified port; if omitted, auto-allocate from high range */
 	customPort?: number;
 }
 
 export async function installService(opts: InstallOptions) {
 	const { template, userId, customPort } = opts;
-
-	// ── Step 1: Resolve the actual host port ──
+	validateTemplate(template);
 	const hostPort = customPort ?? allocatePort(template.defaultPort);
-
-	// ── Step 2: Real-time port availability check ──
 	assertTemplatePortsAvailable(template, hostPort);
 
-	// ── Step 3: Create volume dirs ──
 	for (const vol of template.volumesJson) {
-		try {
-			execSync(`mkdir -p ${shellQuote(vol.host)}`, { timeout: 10000 });
-		} catch {
-			// best effort
+		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
+		if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
+			mkdirSync(host, { recursive: true });
 		}
 	}
 
-	// ── Step 4: Create DB record (installing state) ──
 	const envStr = JSON.stringify(template.envJson);
 	const volStr = JSON.stringify(template.volumesJson);
 	const extraPortsStr = JSON.stringify(template.extraPorts ?? []);
@@ -171,7 +264,6 @@ export async function installService(opts: InstallOptions) {
 		},
 	});
 
-	// ── Step 5: Run docker in background ──
 	startDockerContainer(svc.id, template, hostPort).catch(async (err) => {
 		const msg = err instanceof Error ? err.message : String(err);
 		await prisma.quickService.update({ where: { id: svc.id }, data: { status: "error", error: msg } });
@@ -181,37 +273,35 @@ export async function installService(opts: InstallOptions) {
 }
 
 async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, hostPort: number) {
+	validateTemplate(tmpl);
 	const containerName = safeContainerName(tmpl.slug);
 
-	// Stop & remove old container if exists
 	try {
-		execSync(`docker rm -f ${shellQuote(containerName)} 2>/dev/null`, { timeout: 15000 });
+		dockerExecSync(["rm", "-f", containerName], 15_000);
 	} catch {
-		// doesn't exist, fine
+		// Container does not exist; continue.
 	}
 
-	// Build docker run command
 	const internalPort = tmpl.internalPort ?? tmpl.defaultPort;
-	const portMapping = `-p ${hostPort}:${internalPort}`;
-	const extraPortMappings = (tmpl.extraPorts ?? [])
-		.map((ep) => `-p ${ep.host}:${ep.container}`)
-		.join(" ");
-	const volArgs = tmpl.volumesJson.map((v) => `-v ${shellQuote(v.host)}:${shellQuote(v.container)}`).join(" ");
-	const envArgs = Object.entries(tmpl.envJson)
-		.filter(([, v]) => v !== "")
-		.map(([k, v]) => {
-			// Replace localhost/127.0.0.1 with host.docker.internal so containers can reach host services
-			const resolved = String(v) === "127.0.0.1" || String(v) === "localhost"
-				? "host.docker.internal"
-				: String(v);
-			return `-e ${k}=${shellQuote(resolved)}`;
-		})
-		.join(" ");
-	const cmdSuffix = tmpl.command ? ` ${tmpl.command}` : "";
+	const args = [
+		"run",
+		"-d",
+		"--name",
+		containerName,
+		"--restart",
+		"unless-stopped",
+		"--add-host=host.docker.internal:host-gateway",
+		"-p",
+		`${hostPort}:${internalPort}`,
+	];
+	for (const ep of tmpl.extraPorts ?? []) args.push("-p", `${ep.host}:${ep.container}`);
+	for (const vol of tmpl.volumesJson) args.push("-v", `${normalizeVolumeEndpoint(vol.host, "宿主机挂载")}:${splitContainerPathAndOptions(vol.container)}`);
+	for (const [key, value] of Object.entries(tmpl.envJson)) {
+		if (value !== "") args.push("-e", `${key}=${resolveEnvValue(String(value))}`);
+	}
+	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
 
-	const cmd = `docker run -d --name ${shellQuote(containerName)} --restart unless-stopped --add-host=host.docker.internal:host-gateway ${portMapping} ${extraPortMappings} ${volArgs} ${envArgs} ${tmpl.image}${cmdSuffix}`;
-
-	const { stdout } = await run(cmd, { timeout: 300_000 }); // 5min for image pull
+	const { stdout } = await runFile("docker", args, { timeout: 300_000 });
 	const containerId = stdout.trim().substring(0, 12);
 
 	await prisma.quickService.update({
@@ -220,15 +310,13 @@ async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, ho
 	});
 }
 
-/* ── Uninstall: stop + remove container + delete DB ─────────────── */
-
 export async function uninstallService(slug: string) {
 	const svc = await prisma.quickService.findUnique({ where: { slug } });
 	if (!svc) throw new Error("服务不存在");
 
 	const containerName = safeContainerName(svc.slug);
 	try {
-		execSync(`docker rm -f ${shellQuote(containerName)} 2>/dev/null`, { timeout: 15000 });
+		dockerExecSync(["rm", "-f", containerName], 15_000);
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
@@ -238,18 +326,15 @@ export async function uninstallService(slug: string) {
 	await prisma.quickService.delete({ where: { slug } });
 }
 
-/* ── Start / Stop ──────────────────────────────────────────────── */
-
 export async function startService(slug: string) {
 	const svc = await prisma.quickService.findUnique({ where: { slug } });
 	if (!svc) throw new Error("服务不存在");
 
 	const containerName = safeContainerName(svc.slug);
 	try {
-		execSync(`docker start ${shellQuote(containerName)}`, { timeout: 30000 });
+		dockerExecSync(["start", containerName], 30_000);
 		await prisma.quickService.update({ where: { slug }, data: { status: "running" } });
 	} catch {
-		// Container may have been removed; try to re-create from DB info
 		const tmpl: ServiceTemplate = {
 			slug: svc.slug,
 			name: svc.name,
@@ -275,7 +360,7 @@ export async function stopService(slug: string) {
 
 	const containerName = safeContainerName(svc.slug);
 	try {
-		execSync(`docker stop ${shellQuote(containerName)}`, { timeout: 30000 });
+		dockerExecSync(["stop", containerName], 30_000);
 		await prisma.quickService.update({ where: { slug }, data: { status: "stopped" } });
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
@@ -284,16 +369,14 @@ export async function stopService(slug: string) {
 	}
 }
 
-/* ── Sync container status from Docker ──────────────────────────── */
-
 export async function syncServiceStatus(slug: string) {
 	const svc = await prisma.quickService.findUnique({ where: { slug } });
 	if (!svc) throw new Error("服务不存在");
 
 	const containerName = safeContainerName(svc.slug);
 	try {
-		const state = execSync(`docker inspect --format='{{.State.Status}}' ${shellQuote(containerName)} 2>/dev/null`, { timeout: 10000 }).toString().trim();
-		const status = state === "running" ? "running" : state === "paused" ? "stopped" : "stopped";
+		const state = dockerExecSync(["inspect", "--format={{.State.Status}}", containerName], 10_000).trim();
+		const status = state === "running" ? "running" : "stopped";
 		await prisma.quickService.update({ where: { slug }, data: { status, error: null } });
 		return status;
 	} catch {
@@ -302,11 +385,7 @@ export async function syncServiceStatus(slug: string) {
 	}
 }
 
-/* ── Port check API helper ─────────────────────────────────────── */
-
-/** Check if a specific port is available; returns { available, usedBy } */
 export function checkPort(port: number): { available: boolean; usedBy: string | null } {
-	// 确保 port 是安全整数，防止注入
 	if (!Number.isInteger(port) || port < 1 || port > 65535) {
 		return { available: false, usedBy: null };
 	}
@@ -316,12 +395,11 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 			{ timeout: 5000, encoding: "utf8" },
 		);
 		if (out.trim()) {
-			// Try to extract process name
 			const pidMatch = out.match(/pid=(\d+)/);
 			let usedBy = "未知进程";
 			if (pidMatch) {
 				const pid = pidMatch[1];
-				if (!/^\d+$/.test(pid)) throw new Error('Invalid PID');
+				if (!/^\d+$/.test(pid)) throw new Error("Invalid PID");
 				try {
 					const cmdLine = execFileSync("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
 						timeout: 3000,

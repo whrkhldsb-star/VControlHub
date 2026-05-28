@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execSyncMock, execMock } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, execSyncMock, mkdirSyncMock } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -10,16 +10,22 @@ const { prismaMock, execSyncMock, execMock } = vi.hoisted(() => ({
 			delete: vi.fn(),
 		},
 	},
+	execFileSyncMock: vi.fn(),
+	execFileMock: vi.fn(),
 	execSyncMock: vi.fn(),
-	execMock: vi.fn(),
+	mkdirSyncMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("node:fs", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("node:fs")>();
+	return { ...actual, default: { ...actual, mkdirSync: mkdirSyncMock }, mkdirSync: mkdirSyncMock };
+});
 vi.mock("child_process", () => ({
-	default: { execFileSync: vi.fn(), execSync: execSyncMock, exec: execMock },
-	execFileSync: vi.fn(),
+	default: { execFileSync: execFileSyncMock, execSync: execSyncMock, execFile: execFileMock },
+	execFileSync: execFileSyncMock,
+	execFile: execFileMock,
 	execSync: execSyncMock,
-	exec: execMock,
 }));
 
 import { checkPort, installService, startService, uninstallService } from "../service";
@@ -29,7 +35,7 @@ const template: ServiceTemplate = {
 	slug: "demo",
 	name: "Demo",
 	category: "other",
-	icon: "📦",
+	icon: "pkg",
 	description: "Demo service",
 	image: "example/demo:latest",
 	defaultPort: 12345,
@@ -41,31 +47,31 @@ const template: ServiceTemplate = {
 describe("quick service docker lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		execFileSyncMock.mockReturnValue("");
 		execSyncMock.mockReturnValue("");
-		execMock.mockImplementation((_cmd: string, _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
 			return {};
 		});
 	});
 
-	it("quotes docker arguments and stores running container id after install", async () => {
+	it("runs docker with argv arguments and stores running container id after install", async () => {
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-1", slug: "demo", port: 12345 });
 		prismaMock.quickService.update.mockResolvedValueOnce({});
 
 		const svc = await installService({ template, userId: "user-1", customPort: 12345 });
 
 		expect(svc.port).toBe(12345);
-		expect(execSyncMock).toHaveBeenCalledWith(expect.stringContaining("mkdir -p '/opt/demo/data'"), expect.any(Object));
-		expect(execMock).toHaveBeenCalledWith(
-			expect.stringContaining("docker run -d --name 'qs-demo'"),
+		expect(mkdirSyncMock).toHaveBeenCalledWith("/opt/demo/data", { recursive: true });
+		expect(execFileMock).toHaveBeenCalledWith(
+			"docker",
+			expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "12345:12345", "-v", "/opt/demo/data:/data", "-e", "DEMO_HOST=host.docker.internal", "example/demo:latest"]),
 			expect.objectContaining({ timeout: 300_000 }),
 			expect.any(Function),
 		);
-		const dockerRun = execMock.mock.calls[0][0] as string;
-		expect(dockerRun).toContain("-p 12345:12345");
-		expect(dockerRun).toContain("-v '/opt/demo/data':'/data'");
-		expect(dockerRun).toContain("-e DEMO_HOST='host.docker.internal'");
-		expect(dockerRun).not.toContain("EMPTY");
+		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		expect(dockerArgs).not.toContain("EMPTY=");
+		expect(dockerArgs.join(" ")).not.toContain("'qs-demo'");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { id: "svc-1" },
 			data: { status: "running", containerId: "abcdef123456", error: null },
@@ -78,7 +84,7 @@ describe("quick service docker lifecycle", () => {
 			slug: "demo",
 			name: "Demo",
 			category: "other",
-			icon: "📦",
+			icon: "pkg",
 			description: "Demo service",
 			image: "example/demo:latest",
 			port: 18080,
@@ -89,24 +95,21 @@ describe("quick service docker lifecycle", () => {
 			extraPortsJson: JSON.stringify([{ host: 19090, container: 9090 }]),
 			command: "serve --safe",
 		});
-		execSyncMock.mockImplementationOnce(() => {
+		execFileSyncMock.mockImplementationOnce(() => {
 			throw new Error("missing container");
 		});
 		prismaMock.quickService.update.mockResolvedValue({});
 
 		await startService("demo");
 
-		const dockerRun = execMock.mock.calls[0][0] as string;
-		expect(dockerRun).toContain("-p 18080:8080");
-		expect(dockerRun).toContain("-p 19090:9090");
-		expect(dockerRun).toContain("example/demo:latest serve --safe");
+		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		expect(dockerArgs).toEqual(expect.arrayContaining(["-p", "18080:8080", "-p", "19090:9090"]));
+		expect(dockerArgs.slice(-3)).toEqual(["example/demo:latest", "serve", "--safe"]);
 	});
 
 	it("preflights extra host ports before installing a template", async () => {
-		execSyncMock.mockImplementation((cmd: string) => {
-			if (cmd.includes("listen(19090")) {
-				throw new Error("port busy");
-			}
+		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
+			if (file === "node" && args.includes("19090")) throw new Error("port busy");
 			return "";
 		});
 
@@ -119,9 +122,43 @@ describe("quick service docker lifecycle", () => {
 		expect(prismaMock.quickService.upsert).not.toHaveBeenCalled();
 	});
 
+	it("rejects unsafe remote templates before docker execution", async () => {
+		await expect(
+			installService({
+				template: {
+					...template,
+					envJson: { "BAD;KEY": "value" },
+					volumesJson: [{ host: "/var/run/docker.sock", container: "/var/run/docker.sock" }],
+				},
+				customPort: 12345,
+			}),
+		).rejects.toThrow(/环境变量名|Docker socket/);
+		expect(execFileMock).not.toHaveBeenCalled();
+		expect(prismaMock.quickService.upsert).not.toHaveBeenCalled();
+	});
+
+	it("allows Docker socket only for trusted built-in templates", async () => {
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-4", slug: "portainer", port: 9443 });
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await installService({
+			template: {
+				...template,
+				slug: "portainer",
+				image: "portainer/portainer-ce:latest",
+				volumesJson: [{ host: "/var/run/docker.sock", container: "/var/run/docker.sock" }],
+				allowDockerSocket: true,
+			},
+			customPort: 9443,
+		});
+
+		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		expect(dockerArgs).toContain("/var/run/docker.sock:/var/run/docker.sock");
+	});
+
 	it("keeps the DB record and marks uninstall errors when docker removal fails", async () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-3", slug: "demo" });
-		execSyncMock.mockImplementationOnce(() => {
+		execFileSyncMock.mockImplementationOnce(() => {
 			throw new Error("docker daemon unavailable");
 		});
 		prismaMock.quickService.update.mockResolvedValueOnce({});

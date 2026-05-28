@@ -235,6 +235,7 @@ export const SERVICE_CATALOG: ServiceTemplate[] = [
 			{ host: "/opt/portainer/data", container: "/data" },
 			{ host: "/var/run/docker.sock", container: "/var/run/docker.sock" },
 		],
+		allowDockerSocket: true,
 		command: "--http-enabled",
 	},
 	{

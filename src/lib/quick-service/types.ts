@@ -16,4 +16,6 @@ export interface ServiceTemplate {
 	command?: string;
 	/** Additional port mappings beyond the primary port (e.g. MinIO API:9000) */
 	extraPorts?: Array<{ host: number; container: number }>;
+	/** Explicitly allow mounting /var/run/docker.sock for trusted built-in templates. */
+	allowDockerSocket?: boolean;
 }
