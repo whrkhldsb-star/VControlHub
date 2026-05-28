@@ -59,13 +59,15 @@ describe("/api/deployments", () => {
         ["templateId", "tmpl1"],
         ["serverIds", "srv1"],
         ["serverIds", "srv2"],
+        ["variables.version", "v2.1.0"],
+        ["variables.service", "api"],
         ["reason", " deploy "],
       ]),
     });
     const res = await route.POST(req);
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("http://local/deployments");
-    expect(mocks.createDeploymentRunFromTemplate).toHaveBeenCalledWith({ templateId: "tmpl1", serverIds: ["srv1", "srv2"], variables: {}, requesterId: "u1", reason: "deploy" });
+    expect(mocks.createDeploymentRunFromTemplate).toHaveBeenCalledWith({ templateId: "tmpl1", serverIds: ["srv1", "srv2"], variables: { version: "v2.1.0", service: "api" }, requesterId: "u1", reason: "deploy" });
   });
 
   it("returns a deployment error page for browser form failures instead of raw JSON", async () => {

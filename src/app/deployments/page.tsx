@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState } from "@/components/page-shell";
+import { DeploymentLaunchForm } from "./deployment-launch-form";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,6 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		listDeploymentTemplates(),
 		prisma.server.findMany({ where: { enabled: true }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, host: true, username: true } }),
 	]);
-	const firstTemplate = templates[0];
 	const latestRun = runs[0];
 	return (
 		<PageShell>
@@ -39,27 +39,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				</div>
 			)}
 			{canRun && (
-				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-					<h2 className="text-sm font-semibold text-white">发起模板部署</h2>
-					<p className="mt-1 text-xs text-slate-500">提交后进入命令审批/执行链路，不会绕过平台审计。</p>
-					<form action="/api/deployments" method="post" className="mt-4 grid gap-3">
-						<div className="grid gap-3 md:grid-cols-2">
-							<select name="templateId" defaultValue={firstTemplate?.id} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
-								{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-							</select>
-							<input name="reason" maxLength={500} placeholder="部署原因" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
-						</div>
-						<div className="grid gap-2 md:grid-cols-2">
-							{servers.map((s) => (
-								<label key={s.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 text-xs text-slate-300">
-									<input type="checkbox" name="serverIds" value={s.id} />
-									<span>{s.name} · {s.username}@{s.host}</span>
-								</label>
-							))}
-						</div>
-						<p className="text-xs text-slate-500">模板变量可通过 API 的 variables 字段提交；页面表单先覆盖模板、目标 VPS 与原因，适合常用无变量模板。</p>
-						<button className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950">提交部署审批</button>
-					</form>
+				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 light:border-slate-200 light:bg-white">
+					<h2 className="text-sm font-semibold text-white light:text-slate-900">发起模板部署</h2>
+					<p className="mt-1 text-xs text-slate-500 light:text-slate-600">选择模板后填写变量和目标 VPS。提交后进入命令审批/执行链路，不会绕过平台审计。</p>
+					<DeploymentLaunchForm templates={templates} servers={servers} />
 				</section>
 			)}
 			{canRun && latestRun && (

@@ -45,6 +45,11 @@ async function readRequestBody(request: Request) {
 				variables = {};
 			}
 		}
+		for (const [key, value] of formData.entries()) {
+			if (!key.startsWith("variables.") || typeof value !== "string") continue;
+			const name = key.slice("variables.".length).trim();
+			if (name) variables[name] = value;
+		}
 		return {
 			templateId: formData.get("templateId"),
 			serverIds: formData.getAll("serverIds"),

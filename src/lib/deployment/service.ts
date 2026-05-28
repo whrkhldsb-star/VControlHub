@@ -14,8 +14,9 @@ function normalizeDeploymentInput(input: { templateId: string; serverIds: string
   return { ...input, templateId, requesterId, serverIds, reason };
 }
 
-function assertTemplateVariables(command: string, variables: Record<string, string>) {
-  const required = Array.from(command.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g)).map((match) => match[1]);
+function assertTemplateVariables(command: string, templateVariables: string[] | null | undefined, variables: Record<string, string>) {
+  const placeholders = Array.from(command.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g)).map((match) => match[1]);
+  const required = Array.from(new Set([...(Array.isArray(templateVariables) ? templateVariables : []), ...placeholders])).filter(Boolean);
   const missing = required.filter((name) => !variables[name]?.trim());
   if (missing.length > 0) throw new Error(`部署模板变量未填写完整：${missing.join(", ")}`);
 }
@@ -28,7 +29,7 @@ export async function createDeploymentRunFromTemplate(input: { templateId: strin
   const normalized = normalizeDeploymentInput(input);
   const template = await prisma.commandTemplate.findUnique({ where: { id: normalized.templateId } });
   if (!template) throw new Error("部署模板不存在");
-  assertTemplateVariables(template.command, normalized.variables);
+  assertTemplateVariables(template.command, template.variables, normalized.variables);
   const renderedCommand = renderCommand(template.command, normalized.variables);
 
   const run = await prisma.deploymentRun.create({

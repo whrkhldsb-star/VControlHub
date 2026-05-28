@@ -98,6 +98,21 @@ Usage: sudo ./install.sh [--show-credentials]
 Options:
   --show-credentials   Print credentials saved during the first install and exit.
   -h, --help           Show this help.
+
+Common fresh install:
+  curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
+
+Important variables:
+  APP_DIR=/opt/vcontrolhub        Installation directory
+  APP_SLUG=vcontrolhub            App slug, systemd/cookie/storage identifier
+  SERVICE_PREFIX=vcontrolhub      systemd service prefix
+  DOMAIN=your.example.com         Public domain for reverse proxy/allowed origins
+  REPO_URL=https://...            Optional custom Git repository
+
+After install/upgrade:
+  deploy/check.sh
+  deploy/smoke-test.sh your.example.com vcontrolhub
+  make help                       Shows build/restart/smoke maintenance targets
 EOF
 }
 

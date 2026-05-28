@@ -82,21 +82,21 @@
 | 仪表盘 | `/` | 系统概览 + 统计卡片 + 趋势图 |
 | VPS 管理 | `/servers` | 节点纳管、SSH 密钥、命令分发 |
 | SSH 终端 | 弹窗 | 浏览器内 WebSocket 实时终端 |
-| 文件管理 | `/files` | 多节点文件浏览/上传/下载/解压 |
-| 云盘存储 | `/storage` | 分布式存储节点管理 |
+| 文件管理 | `/files` | 多节点文件浏览/上传/下载/解压，支持可搜索节点下拉切换 |
+| 云盘存储 | `/storage` | 本地/SFTP 存储节点管理与同步 |
 | 应用商店 | `/quick-services` | 精选商店 / 社区推荐 / 已安装 / 应用源 |
 | Docker | `/docker` | 容器管理（通过应用商店安装） |
 | 监控 | `/monitoring` | 系统资源实时图表 |
 | 告警规则 | `/alert-rules` | 自定义监控告警 |
 | 通知 | `/notifications` | 站内消息中心 |
-| AI 助手 | `/ai` | 多模型 AI 对话 + 工具调用 |
-| 命令模板 | `/templates` | 可复用 SSH 命令模板 |
+| AI 助手 | `/ai` | 多模型 AI 对话 + 工具调用，高风险操作需确认 |
+| 命令模板 | `/templates` | 可复用 SSH/部署模板，提交后进入部署/审批记录 |
 | 定时任务 | `/scheduled-tasks` | Cron 调度 + 执行日志 |
 | 备份 | `/backups` | 数据库备份/恢复 |
-| 部署 | `/deployments` | 版本管理与导出 |
-| 下载中心 | `/downloads` — Aria2 任务管理 |
+| 部署 | `/deployments` | 应用部署运行记录、版本导出与回滚支持 |
+| 下载中心 | `/downloads` | Aria2 任务管理 |
 | 图床 | `/image-bed` | 图片上传 + 外链 |
-| 媒体 | `/media` — 在线媒体浏览 |
+| 媒体 | `/media` | 在线媒体浏览 |
 | 工单 | `/tickets` | 内部工单系统 |
 | 公告 | `/announcements` | 站内公告管理 |
 | 分享 | `/shares` | 文件分享链接 |
@@ -239,7 +239,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 
 ---
 
-## 🔧 开发
+## 🔧 开发与维护
 
 ```bash
 # 安装依赖
@@ -248,18 +248,46 @@ npm ci
 # 开发模式 (http://localhost:3000)
 npm run dev
 
-# 类型检查
+# 类型检查 / 代码检查 / 测试
 npm run typecheck
-
-# 代码检查
 npm run lint
-
-# 运行测试
 npm test
 
-# 生产构建
+# 生产构建：Next.js + systemd 运行所需 runtime bundle
 npm run build
+npm run build:runtime
+
+# 一次性完整质量门禁
+npm run verify
 ```
+
+生产服务器上推荐使用仓库自带 Makefile，避免忘记 runtime bundle 或 smoke：
+
+```bash
+# 查看可用入口
+make help
+
+# 构建、重启、检查、冒烟
+make verify
+sudo make restart
+make deploy-check
+make smoke DOMAIN=whrkhldsb.qzz.io SERVICE_PREFIX=vcontrolhub
+
+# 查看服务状态和日志
+make status SERVICE_PREFIX=vcontrolhub
+make logs SERVICE_PREFIX=vcontrolhub
+```
+
+常用脚本用途：
+
+| 文件 | 用途 |
+|------|------|
+| `deploy/bootstrap.sh` | fresh server 一行安装入口，负责拉取仓库并调用安装脚本 |
+| `deploy/install.sh` | 一键安装/重装/升级核心脚本，生成环境变量、构建、写 systemd 和反代 |
+| `deploy/upgrade.sh` | 升级入口，默认升级前备份并在完成后自检 |
+| `deploy/check.sh` | 不泄密的部署健康检查，可选 `RUN_NPM_CHECKS=1` 执行完整 npm 门禁 |
+| `deploy/smoke-test.sh` | 线上冒烟测试，覆盖 systemd、端口、Caddy、登录页、静态资源和 SSH-WS |
+| `deploy/package.sh` | 生成不含运行数据/密钥的发布压缩包 |
 
 ---
 

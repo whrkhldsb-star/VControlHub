@@ -40,6 +40,13 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
   });
 
+  it("rejects missing variables declared on the template even when they are not placeholders", async () => {
+    mockPrisma.commandTemplate.findUnique.mockResolvedValueOnce({ id: "tmpl_explicit", name: "Explicit", command: "deploy static", variables: ["version"] });
+
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl_explicit", serverIds: ["srv1"], variables: {}, requesterId: "u1" })).rejects.toThrow("部署模板变量未填写完整：version");
+    expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
+  });
+
   it("preserves deployment run failure when command request creation fails", async () => {
     vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("审批链路不可用"));
 
