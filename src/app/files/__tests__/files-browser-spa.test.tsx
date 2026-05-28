@@ -13,10 +13,15 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/storage/file-upload-dropzone", () => ({
-  FileUploadDropzone: (props: { onUploadComplete?: () => void }) =>
+  FileUploadDropzone: (props: { nodes?: Array<{ id: string; driver: string }>; initialNodeId?: string; onUploadComplete?: () => void }) =>
     React.createElement(
       "button",
-      { type: "button", onClick: () => props.onUploadComplete?.() },
+      {
+        type: "button",
+        onClick: () => props.onUploadComplete?.(),
+        "data-upload-node-count": props.nodes?.length ?? 0,
+        "data-initial-node-id": props.initialNodeId ?? "",
+      },
       "模拟上传完成",
     ),
 }));
@@ -132,23 +137,22 @@ describe("FilesBrowserSpa", () => {
 		expect(screen.getByText("before.jpg")).toBeInTheDocument();
 	});
 
-	it("uses the storage node switcher instead of rendering a separate SFTP browser", async () => {
+	it("passes SFTP nodes into the current-directory upload picker", async () => {
 		render(
 			<FilesBrowserSpa
 				initialData={{
 					...baseData,
-					nodes: [
-						...baseData.nodes,
-						{ id: "node_sftp", name: "远端存储", driver: "SFTP" },
-					],
+					nodeIdFilter: "node_sftp",
+					nodes: [{ id: "node_sftp", name: "远端存储", driver: "SFTP" }],
+					stats: { ...baseData.stats, localNodeCount: 0, sftpNodeCount: 1 },
 				}}
 				deletedEntries={[]}
 				sftpNodes={[{ id: "node_sftp", name: "远端存储", driver: "SFTP", serverId: null, serverName: null }]}
 			/>,
 		);
 
-		expect(screen.queryByText("SFTP 浏览器")).not.toBeInTheDocument();
-		fireEvent.click(screen.getByRole("button", { name: /远端存储/ }));
-		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?nodeId=node_sftp", expect.any(Object)));
+		const uploadButton = screen.getByRole("button", { name: "模拟上传完成" });
+		expect(uploadButton).toHaveAttribute("data-upload-node-count", "1");
+		expect(uploadButton).toHaveAttribute("data-initial-node-id", "node_sftp");
 	});
 });

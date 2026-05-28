@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 const localNode = { id: "node_local", name: "本机存储", driver: "LOCAL" };
+const sftpNode = { id: "node_sftp", name: "远端媒体库", driver: "SFTP" };
 
 describe("FileUploadDropzone", () => {
   beforeEach(() => {
@@ -170,6 +171,43 @@ describe("FileUploadDropzone", () => {
     expect(onUploadComplete).toHaveBeenCalledTimes(2);
     expect(screen.getByText(/bad\.txt/)).toHaveTextContent("失败：磁盘空间不足");
     expect(refreshMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows uploading to SFTP nodes instead of disabling the picker", async () => {
+    const onUploadComplete = vi.fn();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      const formData = init?.body as FormData;
+      return {
+        ok: true,
+        json: async () => ({ relativePath: formData.get("relativePath"), size: 5 }),
+      } as Response;
+    });
+
+    render(
+      <FileUploadDropzone
+        nodes={[localNode, sftpNode]}
+        initialNodeId="node_sftp"
+        initialRelativeDir="remote/uploads"
+        title="上传"
+        description="上传文件"
+        submitLabel="选择文件"
+        pathLabel="上传目录路径"
+        onUploadComplete={onUploadComplete}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "选择文件" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "选择文件夹" })).toBeEnabled();
+
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [new File(["hello"], "remote.txt", { type: "text/plain" })] },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const formData = fetchMock.mock.calls[0]?.[1]?.body as FormData;
+    expect(formData.get("storageNodeId")).toBe("node_sftp");
+    expect(formData.get("relativePath")).toBe("remote/uploads/remote.txt");
+    expect(onUploadComplete).toHaveBeenCalledWith({ relativePath: "remote/uploads/remote.txt", size: 5 });
   });
 
   it("uses a controlled upload directory when SPA navigation changes the current folder", async () => {

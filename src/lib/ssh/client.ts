@@ -1,4 +1,5 @@
 import { Client, type ConnectConfig } from "ssh2";
+import type { SFTPWrapper } from "ssh2";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {
@@ -81,26 +82,51 @@ export async function listRemoteDirectory(input: SshConnectionParams & { remoteP
   }
 }
 
-export async function createRemoteDirectory(input: SshConnectionParams & { remotePath: string }): Promise<void> {
+function sftpMkdir(sftp: SFTPWrapper, remotePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    sftp.mkdir(remotePath, (mkdirErr) => {
+      if (mkdirErr) {
+        const sshErr = mkdirErr as { code?: number };
+        if (sshErr.code === 4) {
+          resolve();
+        } else {
+          reject(mkdirErr);
+        }
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+function buildRemoteDirectoryChain(remotePath: string) {
+  const normalized = remotePath.replace(/\/+$/, "") || "/";
+  if (normalized === "/") return ["/"];
+
+  const segments = normalized.split("/").filter(Boolean);
+  const isAbsolute = normalized.startsWith("/");
+  const paths: string[] = [];
+  let current = isAbsolute ? "" : ".";
+
+  for (const segment of segments) {
+    current = current === "" ? `/${segment}` : `${current}/${segment}`;
+    paths.push(current);
+  }
+
+  return paths;
+}
+
+export async function createRemoteDirectory(input: SshConnectionParams & { remotePath: string; recursive?: boolean }): Promise<void> {
   const config = createSshConfig(input);
   const client = await connectSsh(config);
   try {
     await new Promise<void>((resolve, reject) => {
       client.sftp((err, sftp) => {
         if (err) return reject(err);
-        sftp.mkdir(input.remotePath, (mkdirErr) => {
-          // SSH_FX_FAILURE (code 4) is returned when directory already exists — ignore
-          if (mkdirErr) {
-            const sshErr = mkdirErr as { code?: number };
-            if (sshErr.code === 4) {
-              resolve();
-            } else {
-              reject(mkdirErr);
-            }
-          } else {
-            resolve();
-          }
-        });
+        const paths = input.recursive ? buildRemoteDirectoryChain(input.remotePath) : [input.remotePath];
+        paths
+          .reduce<Promise<void>>((promise, remotePath) => promise.then(() => sftpMkdir(sftp, remotePath)), Promise.resolve())
+          .then(resolve, reject);
       });
     });
   } finally {

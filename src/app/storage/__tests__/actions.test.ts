@@ -99,7 +99,11 @@ describe("createFolderAction", () => {
       port: 22,
       username: "deployer",
       serverId: "srv-1",
-      server: { sshKey: { privateKey: "PRIVATE KEY" } },
+      server: {
+        connectionType: "SSH_KEY",
+        password: null,
+        sshKey: { privateKey: "PRIVATE KEY" },
+      },
     });
     createFileEntryMock.mockResolvedValueOnce({ id: "folder-1" });
 
@@ -115,10 +119,50 @@ describe("createFolderAction", () => {
     }));
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({
       remotePath: "/data/root/team/alpha/docs",
+      recursive: true,
     }));
     expect(createFileEntryMock).toHaveBeenCalledWith(expect.objectContaining({
       name: "docs",
       relativePath: "team/alpha/docs",
+    }));
+  });
+
+  it("creates SFTP folders for password-based nodes", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node-password",
+      name: "remote-password",
+      driver: "SFTP",
+      basePath: "/data/root",
+      host: null,
+      port: null,
+      username: null,
+      serverId: "srv-password",
+      server: {
+        host: "203.0.113.11",
+        port: 2022,
+        username: "ops",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    });
+    createFileEntryMock.mockResolvedValueOnce({ id: "folder-password" });
+
+    const result = await createFolderAction(null, folderForm({
+      storageNodeId: "node-password",
+      currentPath: "uploads",
+      folderName: "batch",
+    }));
+
+    expect(result).toEqual({ success: "文件夹 /uploads/batch 已创建" });
+    expect(createRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({
+      host: "203.0.113.11",
+      port: 2022,
+      username: "ops",
+      password: "secret",
+      remotePath: "/data/root/uploads/batch",
+      recursive: true,
     }));
   });
 });

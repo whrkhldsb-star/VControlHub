@@ -98,7 +98,7 @@ export function FileUploadDropzone({
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
 
   const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) ?? null, [nodes, selectedNodeId]);
-  const localEnabled = selectedNode?.driver === "LOCAL";
+  const uploadEnabled = selectedNode ? ["LOCAL", "SFTP"].includes(selectedNode.driver) : false;
 
   async function uploadFiles(files: File[]) {
     if (!selectedNodeId) {
@@ -106,8 +106,8 @@ export function FileUploadDropzone({
       return;
     }
 
-    if (!localEnabled) {
-      setMessage({ type: "error", text: "当前仅支持上传到本机 LOCAL 节点。" });
+    if (!uploadEnabled) {
+      setMessage({ type: "error", text: "请选择 LOCAL 或 SFTP 存储节点后再上传。" });
       return;
     }
 
@@ -248,7 +248,7 @@ export function FileUploadDropzone({
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) => {
           event.preventDefault();
-          if (localEnabled && !submitting) {
+          if (uploadEnabled && !submitting) {
             setDragActive(true);
           }
         }}
@@ -257,9 +257,9 @@ export function FileUploadDropzone({
           setDragActive(false);
         }}
         onDrop={handleDrop}
-        disabled={!localEnabled || submitting}
+        disabled={!uploadEnabled || submitting}
         className={`mt-5 flex min-h-40 w-full flex-col items-center justify-center rounded-3xl border border-dashed px-6 py-8 text-center transition ${
-          localEnabled
+          uploadEnabled
             ? dragActive
               ? "border-cyan-300 bg-cyan-400/10 text-cyan-100"
               : "border-white/15 bg-white/5 text-slate-100 hover:border-cyan-400/50"
@@ -268,7 +268,7 @@ export function FileUploadDropzone({
       >
         <span className="text-base font-medium">{submitLabel}</span>
         <span className="mt-2 text-sm text-slate-400">
-          {localEnabled ? (submitting ? "上传中，请稍候…" : "上传后会自动生成/更新文件条目。") : "请选择 LOCAL 节点后再上传。"}
+          {uploadEnabled ? (submitting ? "上传中，请稍候..." : "可拖拽或选择多个文件上传，文件夹请切换下方模式。") : "请选择 LOCAL 或 SFTP 节点后再上传。"}
         </span>
       </button>
 
@@ -276,12 +276,12 @@ export function FileUploadDropzone({
         <button
           type="button"
           onClick={() => directoryInputRef.current?.click()}
-          disabled={!localEnabled || submitting}
+          disabled={!uploadEnabled || submitting}
           className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          选择整个文件夹
+          选择文件夹
         </button>
-        <span>支持保留浏览器提供的子目录结构上传。</span>
+        <span>主按钮可多选文件；文件夹模式会保留浏览器提供的子目录结构。</span>
       </div>
 
       {message ? (

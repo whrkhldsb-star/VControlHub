@@ -9,6 +9,8 @@ const {
   writeFileMock,
   accessMock,
   statMock,
+  createRemoteDirectoryMock,
+  writeRemoteFileMock,
 } = vi.hoisted(() => ({
   requireSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
@@ -27,6 +29,8 @@ const {
   writeFileMock: vi.fn(),
   accessMock: vi.fn(),
   statMock: vi.fn(),
+  createRemoteDirectoryMock: vi.fn(),
+  writeRemoteFileMock: vi.fn(),
 }));
 
 vi.mock("node:fs", () => ({
@@ -63,6 +67,16 @@ vi.mock("@/lib/storage/access-control", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
+}));
+
+vi.mock("@/lib/ssh/client", () => ({
+  createRemoteDirectory: createRemoteDirectoryMock,
+  writeRemoteFile: writeRemoteFileMock,
+}));
+
+vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+  decryptServerPassword: (value: string) => value,
+  decryptSshPrivateKey: (value: string) => value,
 }));
 
 import { GET, POST } from "../route";
@@ -147,6 +161,61 @@ describe("/api/storage/local", () => {
     });
     expect(payload.size).toEqual(expect.any(Number));
     expect(payload.size).toBeGreaterThan(0);
+  });
+
+  it("uploads files to SFTP nodes through the same endpoint", async () => {
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node_1",
+      name: "远端媒体库",
+      driver: "SFTP",
+      basePath: "/data/storage",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.fileEntry.create.mockResolvedValueOnce({ id: "file_1" });
+
+    const response = await POST(new Request("https://example.com/api/storage/local", {
+      method: "POST",
+      body: uploadForm("nested/docs/notes.txt"),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
+      storageNodeId: "node_1",
+      relativePath: "nested/docs/notes.txt",
+      operation: "write",
+    }));
+    expect(createRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({
+      host: "203.0.113.20",
+      port: 2222,
+      username: "deploy",
+      password: "secret",
+      remotePath: "/data/storage/nested/docs",
+      recursive: true,
+    }));
+    expect(writeRemoteFileMock).toHaveBeenCalledWith(expect.objectContaining({
+      remotePath: "/data/storage/nested/docs/notes.txt",
+      content: expect.any(Buffer),
+    }));
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        storageNodeId: "node_1",
+        name: "notes.txt",
+        relativePath: "nested/docs/notes.txt",
+      }),
+    }));
   });
 
  it("rejects unsafe upload relativePath before storage node lookup or writes", async () => {

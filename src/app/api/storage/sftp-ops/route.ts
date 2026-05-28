@@ -232,7 +232,7 @@ export async function POST(request: Request) {
         }
         const parentDirectory = path.posix.dirname(normalizedRemotePath);
         if (parentDirectory && parentDirectory !== "." && parentDirectory !== "/") {
-          await createRemoteDirectory({ ...connParams, remotePath: parentDirectory });
+          await createRemoteDirectory({ ...connParams, remotePath: parentDirectory, recursive: true });
         }
         await writeRemoteFile({
           ...connParams,

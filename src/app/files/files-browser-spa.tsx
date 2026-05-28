@@ -285,7 +285,7 @@ export function FilesBrowserSpa({
 		[fetchFiles, data.currentPath, data.searchQuery, data.nodeIdFilter],
 	);
 
-	const localNodes = data.nodes.filter((n) => n.driver === "LOCAL");
+	const uploadNodes = data.nodes.filter((n) => n.driver === "LOCAL" || n.driver === "SFTP");
 	const currentPathLabel = getCurrentPathLabel(data.currentPath);
 
 	// Node filter handler
@@ -518,7 +518,7 @@ export function FilesBrowserSpa({
 					<div id="upload-section">
 						<FileUploadDropzone
 							nodes={data.nodes}
-							initialNodeId={localNodes[0]?.id ?? data.nodes[0]?.id}
+							initialNodeId={uploadNodes[0]?.id ?? data.nodes[0]?.id}
 							initialRelativeDir={data.currentPath}
 							uploadDir={data.currentPath}
 							title={`上传到当前目录 ${currentPathLabel}`}

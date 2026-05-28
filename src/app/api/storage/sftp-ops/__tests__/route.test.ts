@@ -100,7 +100,7 @@ describe("/api/storage/sftp-ops", () => {
       expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt", content: "hello" }),
     );
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
-      expect.objectContaining({ remotePath: "/data/files/new-folder" }),
+      expect.objectContaining({ remotePath: "/data/files/new-folder", recursive: true }),
     );
   });
 

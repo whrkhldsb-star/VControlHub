@@ -12,6 +12,9 @@ import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
+import { createRemoteDirectory, writeRemoteFile } from "@/lib/ssh/client";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 type UploadLike = {
@@ -195,18 +198,37 @@ export async function POST(request: Request) {
       name: true,
       driver: true,
       basePath: true,
+      host: true,
+      port: true,
+      username: true,
+      server: {
+        select: {
+          host: true,
+          port: true,
+          username: true,
+          connectionType: true,
+          password: true,
+          sshKey: { select: { privateKey: true } },
+        },
+      },
     },
   });
 
-  if (!storageNode || storageNode.driver !== "LOCAL") {
-    return NextResponse.json({ error: "仅支持上传到本机 LOCAL 存储节点" }, { status: 400 });
+  if (!storageNode || !["LOCAL", "SFTP"].includes(storageNode.driver)) {
+    return NextResponse.json({ error: "仅支持上传到 LOCAL 或 SFTP 存储节点" }, { status: 400 });
   }
 
   let normalizedRelativePath: string;
-  let absolutePath: string;
+  let absolutePath: string | null = null;
+  let remotePath: string | null = null;
 
   try {
-    ({ normalizedRelativePath, absolutePath } = resolveManagedLocalPath(storageNode.basePath, normalizedUploadPath.path));
+    if (storageNode.driver === "LOCAL") {
+      ({ normalizedRelativePath, absolutePath } = resolveManagedLocalPath(storageNode.basePath, normalizedUploadPath.path));
+    } else {
+      normalizedRelativePath = normalizedUploadPath.path;
+      remotePath = normalizeRemoteTargetPath(storageNode.basePath, normalizedRelativePath);
+    }
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "非法路径" }, { status: 400 });
   }
@@ -224,11 +246,34 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: accessDecision.reason ?? "缺少存储写入授权" }, { status: 403 });
   }
   const mimeType = file.type || null;
-  const fileName = path.basename(normalizedRelativePath);
-  const parentDir = path.dirname(absolutePath);
+  const fileName = path.posix.basename(normalizedRelativePath);
 
-  await mkdir(parentDir, { recursive: true });
-  await writeFile(absolutePath, fileBuffer);
+  if (storageNode.driver === "LOCAL") {
+    if (!absolutePath) {
+      return NextResponse.json({ error: "本机存储路径解析失败" }, { status: 400 });
+    }
+    const parentDir = path.dirname(absolutePath);
+    await mkdir(parentDir, { recursive: true });
+    await writeFile(absolutePath, fileBuffer);
+  } else {
+    if (!remotePath) {
+      return NextResponse.json({ error: "远端存储路径解析失败" }, { status: 400 });
+    }
+    let credentials: ReturnType<typeof resolveStorageSshCredentials>;
+    try {
+      credentials = resolveStorageSshCredentials(storageNode);
+    } catch (error) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : "连接凭据不可用" }, { status: 400 });
+    }
+    const remoteParent = path.posix.dirname(remotePath);
+    try {
+      await createRemoteDirectory({ ...credentials, remotePath: remoteParent, recursive: true });
+      await writeRemoteFile({ ...credentials, remotePath, content: fileBuffer });
+    } catch (error) {
+      logError("[/api/storage/local] sftp upload error:", error);
+      return NextResponse.json({ error: error instanceof Error ? error.message : "远端上传失败" }, { status: 502 });
+    }
+  }
 
   const existingEntry = await prisma.fileEntry.findFirst({
     where: {

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { checkStorageNodeHealth, createFileEntry, createStorageNode, listStorageNodes, updateStorageNode, deleteStorageNode } from "@/lib/storage/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import {
   joinStoragePath,
   normalizeStorageEntryName,
@@ -135,7 +136,17 @@ export async function createFolderAction(_prev: StorageActionState | null, formD
       port: true,
       username: true,
       serverId: true,
-      server: { select: { id: true, host: true, port: true, username: true, sshKeyId: true, sshKey: { select: { privateKey: true } } } },
+      server: {
+        select: {
+          id: true,
+          host: true,
+          port: true,
+          username: true,
+          connectionType: true,
+          password: true,
+          sshKey: { select: { privateKey: true } },
+        },
+      },
     },
   });
 
@@ -158,19 +169,6 @@ export async function createFolderAction(_prev: StorageActionState | null, formD
   } else if (storageNode.driver === "SFTP") {
     const { createRemoteDirectory } = await import("@/lib/ssh/client");
 
-    const host = storageNode.host ?? storageNode.server?.host;
-    const port = storageNode.port ?? storageNode.server?.port ?? 22;
-    const username = storageNode.username ?? storageNode.server?.username;
-
-    if (!host) {
-      return { error: "SFTP 节点缺少主机地址" } satisfies StorageActionState;
-    }
-
-    const privateKey = storageNode.server?.sshKey?.privateKey;
-    if (!privateKey) {
-      return { error: "SFTP 节点缺少 SSH 私钥（关联的 VPS 节点未配置私钥）" } satisfies StorageActionState;
-    }
-
     let remotePath: string;
     try {
       remotePath = normalizeRemoteTargetPath(storageNode.basePath, relativePath);
@@ -178,12 +176,17 @@ export async function createFolderAction(_prev: StorageActionState | null, formD
       return { error: error instanceof Error ? error.message : "非法路径" } satisfies StorageActionState;
     }
 
+    let credentials: ReturnType<typeof resolveStorageSshCredentials>;
+    try {
+      credentials = resolveStorageSshCredentials(storageNode);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "连接凭据不可用" } satisfies StorageActionState;
+    }
+
     await createRemoteDirectory({
-      host,
-      port,
-      username: username ?? "root",
-      privateKey,
+      ...credentials,
       remotePath,
+      recursive: true,
     });
   }
 
