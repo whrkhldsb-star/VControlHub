@@ -1,3 +1,4 @@
+import { getSessionCookieName as getRuntimeSessionCookieName } from "@/lib/auth/session";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -32,12 +33,8 @@ function isPublicPath(pathname: string): boolean {
 }
 
 // ── Session cookie check ─────────────────────────────────────────
-const APP_SLUG = process.env.AUTH_SESSION_COOKIE_NAME?.trim()
-	? "" // if custom name is set, we'll read it directly
-	: (process.env.NEXT_PUBLIC_APP_SLUG?.trim() || "whrkhldsb");
-
 function getSessionCookieName(): string {
-	return process.env.AUTH_SESSION_COOKIE_NAME?.trim() || `${APP_SLUG}_session`;
+	return getRuntimeSessionCookieName();
 }
 
 function hasValidSessionCookie(request: NextRequest): boolean {
@@ -85,7 +82,7 @@ function addSecurityHeaders(response: NextResponse, request: NextRequest): NextR
 			"Content-Security-Policy",
 			[
 				"default-src 'self'",
-				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net", // Next.js needs unsafe-inline/eval; API docs embed Scalar from jsDelivr
+				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com", // Next.js needs unsafe-inline/eval; API docs embed Scalar from jsDelivr; Cloudflare may inject Web Analytics at the edge
 				"style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net", // Tailwind needs unsafe-inline; Scalar docs CSS is loaded from jsDelivr
 				"img-src 'self' data: blob: https://chart.googleapis.com https://api.qrserver.com",
 				"font-src 'self' data:",

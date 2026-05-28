@@ -7,9 +7,25 @@ import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
 import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
-import { DashboardCharts } from "@/components/dashboard-charts";
 
 export const dynamic = "force-dynamic";
+
+const dashboardAuditDateFormatter = new Intl.DateTimeFormat("zh-CN", {
+	timeZone: "Asia/Shanghai",
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+	hour12: false,
+});
+
+function formatDashboardAuditDate(value: Date | string | number) {
+	const date = value instanceof Date ? value : new Date(value);
+	if (Number.isNaN(date.getTime())) return "—";
+	return dashboardAuditDateFormatter.format(date);
+}
 
 export default async function Home() {
 	const session = await requireSession("/");
@@ -160,12 +176,6 @@ export default async function Home() {
 					/>
 			</section>
 
-			{/* Dashboard Charts */}
-			<section className="mt-8">
-				<h2 className="text-lg font-semibold text-white mb-4">数据趋势</h2>
-				<DashboardCharts />
-			</section>
-
 			{/* Two columns: Recent activity + Audit log */}
 				<section className="mt-8 grid gap-6 lg:grid-cols-2">
 					{/* Recent Approval Activity */}
@@ -220,9 +230,9 @@ export default async function Home() {
 											<span className="text-slate-500 truncate">
 												{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}
 											</span>
-											<span className="ml-auto text-slate-600 shrink-0">
-												{new Date(log.createdAt).toLocaleString("zh-CN")}
-											</span>
+											<time className="ml-auto text-slate-600 shrink-0" dateTime={log.createdAt.toISOString()} suppressHydrationWarning>
+												{formatDashboardAuditDate(log.createdAt)}
+											</time>
 										</div>
 									</div>
 								))}

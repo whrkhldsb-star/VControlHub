@@ -5,6 +5,10 @@ type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 
 import { proxy } from "../proxy";
 
+vi.mock("@/lib/auth/session", () => ({
+  getSessionCookieName: () => process.env.AUTH_SESSION_COOKIE_NAME?.trim() || `${process.env.APP_SLUG || "whrkhldsb"}_session`,
+}));
+
 function makeRequest(pathname: string, init: NextRequestInit = {}) {
   return new NextRequest(new URL(pathname, "https://example.test"), init);
 }
@@ -21,7 +25,7 @@ describe("proxy auth guard", () => {
     );
 
     const csp = response.headers.get("Content-Security-Policy");
-    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net");
+    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com");
     expect(csp).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net");
 
     if (originalNodeEnv === undefined) vi.unstubAllEnvs();
@@ -34,6 +38,22 @@ describe("proxy auth guard", () => {
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("https://example.test/login?next=%2Fservers");
     expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
+  });
+
+  it("uses the same app slug session cookie name as login and server components", () => {
+    vi.stubEnv("APP_SLUG", "my-console");
+    vi.stubEnv("AUTH_SESSION_COOKIE_NAME", "");
+
+    const response = proxy(
+      makeRequest("/servers", {
+        headers: { cookie: "my-console_session=header.payload.signature-value" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+
+    vi.unstubAllEnvs();
   });
 
   it("returns 401 for anonymous protected API requests", async () => {

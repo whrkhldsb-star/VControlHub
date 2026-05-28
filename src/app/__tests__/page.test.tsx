@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
@@ -91,7 +91,16 @@ vi.mock("@/lib/notification/service", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     auditLog: {
-      findMany: vi.fn().mockResolvedValue([]),
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "audit_1",
+          action: "server.updated",
+          severity: "INFO",
+          actorType: "USER",
+          createdAt: new Date("2026-05-27T08:30:00.000Z"),
+          actor: { username: "admin", displayName: "Admin" },
+        },
+      ]),
     },
     downloadTask: {
       groupBy: vi.fn().mockResolvedValue([{ status: "COMPLETED", _count: 1 }]),
@@ -122,11 +131,9 @@ describe("Home", () => {
     expect(screen.getByText("审批中心")).toBeInTheDocument();
     expect(screen.getByText("最近审批活动")).toBeInTheDocument();
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();
+    expect(screen.getByText("server.updated")).toBeInTheDocument();
+    expect(screen.getByText("2026/05/27 16:30:00")).toBeInTheDocument();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /查看全部/ })).toHaveAttribute("href", "/audit");
-
-    await waitFor(() => {
-      expect(screen.getByRole("img", { name: "📈 服务器资源趋势（24h）" })).toBeInTheDocument();
-    });
   });
 });

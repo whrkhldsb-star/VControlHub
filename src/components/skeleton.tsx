@@ -30,7 +30,7 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
 
 export function PageSkeleton() {
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6" data-testid="page-skeleton">
 			<div className="space-y-2">
 				<div className="animate-pulse h-8 w-48 rounded bg-white/[0.06]" />
 				<div className="animate-pulse h-4 w-72 rounded bg-white/[0.04]" />

@@ -202,7 +202,7 @@ export function DashboardCharts() {
 
 	if (loading) {
 		return (
-			<div className="grid gap-4 lg:grid-cols-2">
+			<div className="grid gap-4 lg:grid-cols-2" data-testid="dashboard-charts-loading" suppressHydrationWarning>
 				{[1, 2, 3, 4].map((i) => (
 					<div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 animate-pulse">
 						<div className="h-4 w-32 bg-slate-800 rounded mb-4" />

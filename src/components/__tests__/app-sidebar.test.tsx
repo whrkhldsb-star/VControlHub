@@ -34,4 +34,11 @@ describe("AppSidebar", () => {
 		expect(screen.getAllByRole("link", { name: /系统设置/ }).length).toBeGreaterThan(0);
 		expect(screen.queryByRole("link", { name: /两步验证/ })).not.toBeInTheDocument();
 	});
+
+	it("does not render without an authenticated username", () => {
+		render(<AppSidebar />);
+
+		expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /仪表盘/ })).not.toBeInTheDocument();
+	});
 });

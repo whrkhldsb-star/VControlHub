@@ -13,9 +13,9 @@ describe("language and theme toggles", () => {
     document.documentElement.lang = "zh-CN";
   });
 
-  it("switches html lang immediately and persists the language choice", async () => {
+  it("starts with the server-rendered language, then loads and persists saved language changes", async () => {
     const user = userEvent.setup();
-    Object.defineProperty(navigator, "language", { value: "zh-CN", configurable: true });
+    localStorage.setItem("vps-locale", "en");
 
     render(
       <I18nProvider>
@@ -23,13 +23,12 @@ describe("language and theme toggles", () => {
       </I18nProvider>,
     );
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "切换到英文" })).toBeInTheDocument();
-    });
-    await user.click(screen.getByRole("button", { name: "切换到英文" }));
+    expect(screen.getByRole("button", { name: "Switch to Chinese" })).toBeInTheDocument();
 
-    expect(document.documentElement.lang).toBe("en");
-    expect(localStorage.getItem("vps-locale")).toBe("en");
+    await user.click(screen.getByRole("button", { name: "Switch to Chinese" }));
+
+    expect(document.documentElement.lang).toBe("zh-CN");
+    expect(localStorage.getItem("vps-locale")).toBe("zh");
   });
 
   it("toggles light mode class and persists the theme choice", async () => {

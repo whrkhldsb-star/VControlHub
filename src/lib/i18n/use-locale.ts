@@ -36,15 +36,24 @@ export function useLocale() {
 	const [locale, setLocaleState] = useState<Locale>("zh");
 
 	useEffect(() => {
-		const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
-		const initialLocale = saved === "zh" || saved === "en"
-			? saved
-			: navigator.language.startsWith("en")
-				? "en"
-				: "zh";
+		let initialLocale: Locale = "zh";
+		try {
+			const saved = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
+			if (saved === "zh" || saved === "en") {
+				initialLocale = saved;
+			} else if (window.navigator.language.startsWith("en")) {
+				initialLocale = "en";
+			}
+		} catch {
+			// Ignore storage errors and keep the server-rendered default.
+		}
 		setLocaleState(initialLocale);
 		document.documentElement.lang = initialLocale === "zh" ? "zh-CN" : "en";
 	}, []);
+
+	useEffect(() => {
+		document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+	}, [locale]);
 
 	const setLocale = useCallback((l: Locale) => {
 		setLocaleState(l);

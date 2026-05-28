@@ -9,6 +9,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
 import { getSessionCookieName } from "@/lib/auth/session";
+import { cookies } from "next/headers";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -25,11 +26,14 @@ export const metadata: Metadata = {
 	description: getAppDescription(),
 };
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const cookieStore = await cookies();
+	const hasSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
+
 	return (
 		<html
 			lang="zh-CN"
@@ -45,8 +49,8 @@ export default function RootLayout({
 						<main className="flex-1 min-h-screen overflow-x-hidden pb-14 md:pb-0">
 							{children}
 						</main>
-						<MobileNav />
-						<GlobalSearch />
+						{hasSessionCookie && <MobileNav />}
+						{hasSessionCookie && <GlobalSearch />}
 					</ToastProvider>
 				</I18nProvider>
 			</body>

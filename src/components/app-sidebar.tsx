@@ -87,9 +87,13 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 	const pathname = usePathname();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+	const shouldRenderSidebar = Boolean(username);
+	const iconInitial = username?.trim().charAt(0).toUpperCase() ?? "";
 
-	// 登录页不显示侧栏
-	if (pathname === "/login") return null;
+	// 未认证页面不显示侧栏。不要依赖 usePathname() 隐藏登录页：服务端
+	// App Router 可能先流式输出登录页 HTML，再由客户端导航到受保护页面，
+	// pathname 的首屏值与服务端 HTML 不一致会触发 React #418 文本水合错误。
+	if (!shouldRenderSidebar) return null;
 
 	const isActive = (href: string) => {
 		if (href === "/") return pathname === "/";
@@ -178,7 +182,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 			{username && (
 					<div className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-400">
 						<div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold text-cyan-400 uppercase">
-							{username[0]}
+							{iconInitial}
 						</div>
 						<span>{username}</span>
 						<div className="ml-auto flex items-center gap-1">

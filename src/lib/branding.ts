@@ -21,6 +21,12 @@ function normalizeToken(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "");
 }
 
+function isInstallDomainLabel(value: string, env: NodeJS.ProcessEnv) {
+  const slug = getAppSlug(env).toLowerCase();
+  const host = value.trim().toLowerCase();
+  return host === slug || host.startsWith(`${slug}.`);
+}
+
 export function getAppName(env: NodeJS.ProcessEnv = process.env) {
   return readTrimmed(env.APP_NAME) || DEFAULT_APP_NAME;
 }
@@ -42,7 +48,7 @@ export function getPublicLabel(env: NodeJS.ProcessEnv = process.env) {
   const normalized = normalizeToken(trimmed);
   const appNameNormalized = normalizeToken(getAppName(env));
   const appSlugNormalized = normalizeToken(getAppSlug(env));
-  if (normalized === appNameNormalized || normalized === appSlugNormalized) {
+  if (normalized === appNameNormalized || normalized === appSlugNormalized || isInstallDomainLabel(trimmed, env)) {
     return DEFAULT_PUBLIC_LABEL;
   }
 
