@@ -747,6 +747,54 @@ describe("server service", () => {
     expect(result.storageNode?.basePath).toBe("/data/vch-files");
   });
 
+  it("refuses to enable direct gateway for local-only storage nodes without remote side effects", async () => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_local",
+      host: "127.0.0.1",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: null,
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: null,
+      storageNode: { basePath: "/srv/vcontrolhub/storage", driver: "LOCAL" },
+    } as any);
+
+    await expect(setServerDirectGatewayEnabled("srv_local", true)).rejects.toThrow(
+      "本机节点不需要目标服务器直连",
+    );
+
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses to mark direct gateway enabled when the VPS has no SFTP storage node", async () => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_orphan",
+      host: "203.0.113.50",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: null,
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: null,
+      storageNode: null,
+    } as any);
+
+    await expect(setServerDirectGatewayEnabled("srv_orphan", true)).rejects.toThrow(
+      "目标服务器直连只能启用于已绑定 SFTP 存储节点",
+    );
+
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+  });
+
   it("switches global direct gateway off by uninstalling the service and returning storage to proxy", async () => {
     execRemoteCommandMock.mockResolvedValueOnce({
       stdout: "removed",

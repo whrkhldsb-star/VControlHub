@@ -386,6 +386,35 @@ async function applyServerDirectGatewayState(input: {
   const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
     server.host.trim(),
   );
+  if (input.enabled && isLocalHost) {
+    const errorMessage =
+      "本机节点不需要目标服务器直连，请继续使用网站中转或本机存储访问。";
+    if (input.bestEffort) {
+      return {
+        enabled: false,
+        publicBaseUrl: null,
+        cleanupSkipped: true,
+        errorMessage,
+      };
+    }
+    throw new Error(errorMessage);
+  }
+  if (
+    input.enabled &&
+    (!server.storageNode || server.storageNode.driver !== "SFTP")
+  ) {
+    const errorMessage =
+      "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。请先创建或修复该 VPS 的远程存储节点。";
+    if (input.bestEffort) {
+      return {
+        enabled: false,
+        publicBaseUrl: null,
+        cleanupSkipped: true,
+        errorMessage,
+      };
+    }
+    throw new Error(errorMessage);
+  }
   const basePath = server.storageNode?.basePath || "/root";
   const publicBaseUrl = buildDirectGatewayPublicBaseUrl({
     host: server.host,
