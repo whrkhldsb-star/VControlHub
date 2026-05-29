@@ -375,7 +375,13 @@ export async function startService(slug: string) {
 			extraPorts: JSON.parse(svc.extraPortsJson || "[]"),
 			command: svc.command ?? undefined,
 		};
-		await startDockerContainer(svc.id, tmpl, svc.port);
+		try {
+			await startDockerContainer(svc.id, tmpl, svc.port);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
+			throw new Error(`启动失败: ${msg}`);
+		}
 	}
 }
 

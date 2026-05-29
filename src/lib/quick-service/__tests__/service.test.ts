@@ -171,6 +171,39 @@ describe("quick service docker lifecycle", () => {
 		});
 	});
 
+	it("marks the service error when recreating a missing container fails", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({
+			id: "svc-5",
+			slug: "demo",
+			name: "Demo",
+			category: "other",
+			icon: "pkg",
+			description: "Demo service",
+			image: "example/demo:latest",
+			port: 18080,
+			path: "/demo/",
+			envJson: JSON.stringify({}),
+			volumesJson: JSON.stringify([]),
+			internalPort: null,
+			extraPortsJson: JSON.stringify([]),
+			command: null,
+		});
+		execFileSyncMock.mockImplementationOnce(() => {
+			throw new Error("missing container");
+		});
+		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+			cb(new Error("docker daemon unavailable"));
+			return {};
+		});
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		await expect(startService("demo")).rejects.toThrow("启动失败");
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
+			where: { slug: "demo" },
+			data: { status: "error", error: expect.stringContaining("docker daemon unavailable") },
+		});
+	});
+
 	it("reports actionable Docker environment guidance before install attempts", () => {
 		execFileSyncMock.mockImplementationOnce(() => {
 			throw Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" });

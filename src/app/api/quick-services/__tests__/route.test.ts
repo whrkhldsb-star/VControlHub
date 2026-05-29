@@ -12,6 +12,7 @@ const { mocks } = vi.hoisted(() => ({
     stopService: vi.fn(),
     uninstallService: vi.fn(),
     syncServiceStatus: vi.fn(),
+    getDockerEnvironmentStatus: vi.fn(),
     getRemoteApps: vi.fn(),
   },
 }));
@@ -30,6 +31,7 @@ vi.mock("@/lib/quick-service/service", () => ({
   stopService: mocks.stopService,
   uninstallService: mocks.uninstallService,
   syncServiceStatus: mocks.syncServiceStatus,
+  getDockerEnvironmentStatus: mocks.getDockerEnvironmentStatus,
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
   getRemoteApps: mocks.getRemoteApps,
@@ -58,6 +60,7 @@ describe("/api/quick-services routes", () => {
     mocks.installService.mockResolvedValue({ id: "svc1", slug: "alist", status: "installing", port: 5244 });
     mocks.checkPort.mockReturnValue({ available: true });
     mocks.getUsedPorts.mockReturnValue([{ port: 3000, usedBy: "vcontrolhub" }]);
+    mocks.getDockerEnvironmentStatus.mockReturnValue({ available: true, running: true, version: "Docker 26", message: null, installHint: null });
     mocks.allocatePort.mockReturnValue(5244);
     mocks.startService.mockResolvedValue(undefined);
     mocks.stopService.mockResolvedValue(undefined);
