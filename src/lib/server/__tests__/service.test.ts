@@ -520,6 +520,233 @@ describe("server service", () => {
     );
   });
 
+  it("creates a server-bound storage node even when another node already has the same display name", async () => {
+    vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
+      id: "key_same_name",
+      name: "same-name-key",
+      fingerprint: "SHA256:same",
+    } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.create).mockResolvedValueOnce({
+      id: "srv_same_name",
+      name: "shared-name",
+      host: "203.0.113.30",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_same_name",
+      password: null,
+      sshKey: {
+        id: "key_same_name",
+        name: "same-name-key",
+        fingerprint: "SHA256:same",
+      },
+      storageNode: null,
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
+      id: "orphan_same_name",
+      name: "shared-name 存储",
+      driver: "SFTP",
+      basePath: "/root",
+      serverId: null,
+    } as any);
+    vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(1);
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "sn_same_name",
+      name: "shared-name 存储",
+      driver: "SFTP",
+      basePath: "/data/custom",
+      isDefault: false,
+      serverId: "srv_same_name",
+    } as any);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_same_name",
+      name: "shared-name",
+      host: "203.0.113.30",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_same_name",
+      password: null,
+      sshKey: {
+        id: "key_same_name",
+        name: "same-name-key",
+        fingerprint: "SHA256:same",
+      },
+      storageNode: {
+        id: "sn_same_name",
+        name: "shared-name 存储",
+        driver: "SFTP",
+        isDefault: false,
+        basePath: "/data/custom",
+      },
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    const result = await createServerProfile({
+      name: "shared-name",
+      host: "203.0.113.30",
+      port: 22,
+      username: "root",
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_same_name",
+      storagePath: "/data/custom",
+      tags: [],
+    });
+
+    expect(prisma.storageNode.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "shared-name 存储",
+          basePath: "/data/custom",
+          serverId: "srv_same_name",
+        }),
+      }),
+    );
+    expect(result.storageNode?.basePath).toBe("/data/custom");
+  });
+
+  it("preserves custom storage path for node creation, remote directory setup, and direct gateway root", async () => {
+    execRemoteCommandMock.mockResolvedValueOnce({
+      stdout: "ok",
+      stderr: "",
+      exitCode: 0,
+    });
+    vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
+      id: "key_custom",
+      name: "custom-key",
+      fingerprint: "SHA256:custom",
+      privateKey: "plain-key",
+    } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.create).mockResolvedValueOnce({
+      id: "srv_custom_path",
+      name: "custom-path-node",
+      host: "203.0.113.20",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_custom",
+      password: null,
+      publicUrl: null,
+      fileProxyPort: 0,
+      sshKey: {
+        id: "key_custom",
+        name: "custom-key",
+        fingerprint: "SHA256:custom",
+        privateKey: "plain-key",
+      },
+      storageNode: null,
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "sn_custom_path",
+      name: "custom-path-node 存储",
+      driver: "SFTP",
+      basePath: "/data/vch-files",
+      isDefault: true,
+      serverId: "srv_custom_path",
+    } as any);
+    vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
+    vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
+      count: 1,
+    } as any);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_custom_path",
+      host: "203.0.113.20",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_custom",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: { basePath: "/data/vch-files", driver: "SFTP" },
+    } as any);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_custom_path",
+      name: "custom-path-node",
+      host: "203.0.113.20",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_custom",
+      password: null,
+      publicUrl: "http://203.0.113.20:31888",
+      fileProxyPort: 31888,
+      sshKey: {
+        id: "key_custom",
+        name: "custom-key",
+        fingerprint: "SHA256:custom",
+        privateKey: "plain-key",
+      },
+      storageNode: {
+        id: "sn_custom_path",
+        name: "custom-path-node 存储",
+        driver: "SFTP",
+        isDefault: true,
+        basePath: "/data/vch-files",
+        directAccessMode: "AUTO",
+        publicBaseUrl: "http://203.0.113.20:31888",
+      },
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    const result = await createServerProfile({
+      name: "custom-path-node",
+      host: "203.0.113.20",
+      port: 22,
+      username: "root",
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_custom",
+      storagePath: " /data/vch-files ",
+      enableDirectGateway: true,
+      tags: [],
+    });
+
+    expect(prisma.storageNode.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ basePath: "/data/vch-files" }),
+      }),
+    );
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/vch-files",
+        recursive: true,
+      }),
+    );
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: expect.stringContaining("DIRECT_ROOT='/data/vch-files'"),
+      }),
+    );
+    expect(result.storageNode?.basePath).toBe("/data/vch-files");
+  });
+
   it("switches global direct gateway off by uninstalling the service and returning storage to proxy", async () => {
     execRemoteCommandMock.mockResolvedValueOnce({
       stdout: "removed",

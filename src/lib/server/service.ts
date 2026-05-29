@@ -572,44 +572,39 @@ export async function createServerProfile(input: CreateServerInput) {
   const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
     normalized.host.trim(),
   );
-  const existingNode = await prisma.storageNode.findFirst({
-    where: { name: storageNodeName },
+  const defaultCount = await prisma.storageNode.count({
+    where: { isDefault: true },
   });
-  if (!existingNode) {
-    const defaultCount = await prisma.storageNode.count({
-      where: { isDefault: true },
-    });
-    const configuredPath =
-      normalized.storagePath ||
-      (isLocalHost ? `/srv/storage/${server.name}` : "/root/drive");
-    await prisma.storageNode.create({
-      data: {
-        name: storageNodeName,
-        driver: isLocalHost ? "LOCAL" : "SFTP",
-        basePath: configuredPath,
-        isDefault: defaultCount === 0,
-        serverId: isLocalHost ? null : server.id,
-      },
-    });
+  const configuredPath =
+    normalized.storagePath ||
+    (isLocalHost ? `/srv/storage/${server.name}` : "/root/drive");
+  await prisma.storageNode.create({
+    data: {
+      name: storageNodeName,
+      driver: isLocalHost ? "LOCAL" : "SFTP",
+      basePath: configuredPath,
+      isDefault: defaultCount === 0,
+      serverId: isLocalHost ? null : server.id,
+    },
+  });
 
-    if (isLocalHost) {
-      try {
-        await mkdir(configuredPath, { recursive: true });
-      } catch {
-        // Directory may already exist or FS unavailable — DB record proceeds regardless
-      }
-    } else {
-      try {
-        await createRemoteDirectory({
-          ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
-          remotePath: configuredPath,
-          recursive: true,
-        });
-      } catch (error) {
-        onboardingWarnings.push(
-          `远端存储目录自动创建失败：${getErrorMessage(error)}。VPS 节点和存储节点已创建，请确认 SSH 可连接后在目标服务器手动创建 ${configuredPath}，或重新保存/重试相关操作。`,
-        );
-      }
+  if (isLocalHost) {
+    try {
+      await mkdir(configuredPath, { recursive: true });
+    } catch {
+      // Directory may already exist or FS unavailable — DB record proceeds regardless
+    }
+  } else {
+    try {
+      await createRemoteDirectory({
+        ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+        remotePath: configuredPath,
+        recursive: true,
+      });
+    } catch (error) {
+      onboardingWarnings.push(
+        `远端存储目录自动创建失败：${getErrorMessage(error)}。VPS 节点和存储节点已创建，请确认 SSH 可连接后在目标服务器手动创建 ${configuredPath}，或重新保存/重试相关操作。`,
+      );
     }
   }
 

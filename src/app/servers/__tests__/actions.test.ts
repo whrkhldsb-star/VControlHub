@@ -44,7 +44,7 @@ describe("server actions", () => {
     formData.set("connectionType", "SSH_KEY");
     formData.set("sshKeyId", "key_1");
     formData.set("enableDirectGateway", "on");
-    formData.set("storagePath", "/root/drive");
+    formData.set("storagePath", "/data/vch-files");
 
     const result = await createServerAction(null, formData);
 
@@ -55,7 +55,7 @@ describe("server actions", () => {
     expect(createServerProfileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         enableDirectGateway: true,
-        storagePath: "/root/drive",
+        storagePath: "/data/vch-files",
       }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
