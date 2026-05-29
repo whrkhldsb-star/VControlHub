@@ -438,6 +438,10 @@ export async function PATCH(request: Request) {
           await pauseDownload(task.aria2Gid);
         } catch (err) {
           logError("[DownloadAPI] Failed to pause aria2 download:", err);
+          return NextResponse.json(
+            { error: "暂停下载失败，远端任务状态未改变" },
+            { status: 502 },
+          );
         }
         await prisma.downloadTask.update({
           where: { id: taskId },
@@ -451,6 +455,10 @@ export async function PATCH(request: Request) {
           await unpauseDownload(task.aria2Gid);
         } catch (err) {
           logError("[DownloadAPI] Failed to unpause aria2 download:", err);
+          return NextResponse.json(
+            { error: "恢复下载失败，远端任务状态未改变" },
+            { status: 502 },
+          );
         }
         await prisma.downloadTask.update({
           where: { id: taskId },
@@ -534,6 +542,10 @@ export async function DELETE(request: Request) {
           await removeDownload(task.aria2Gid, true);
         } catch (err) {
           logError("[DownloadAPI] Failed to remove aria2 download:", err);
+          return NextResponse.json(
+            { error: "取消 aria2 下载失败，任务状态未改变" },
+            { status: 502 },
+          );
         }
       }
 
@@ -544,6 +556,10 @@ export async function DELETE(request: Request) {
               process.kill(task.pid, "SIGTERM");
             } catch (err) {
               logError("[DownloadAPI] Failed to kill process:", err);
+              return NextResponse.json(
+                { error: "取消本地中转下载进程失败，任务状态未改变" },
+                { status: 502 },
+              );
             }
           }
           await cleanupTemp(`/tmp/app-relay-${taskId}`);
@@ -560,6 +576,10 @@ export async function DELETE(request: Request) {
             });
           } catch (err) {
             logError("[DownloadAPI] Failed to kill remote process:", err);
+            return NextResponse.json(
+              { error: "取消远程下载进程失败，任务状态未改变" },
+              { status: 502 },
+            );
           }
         }
       }

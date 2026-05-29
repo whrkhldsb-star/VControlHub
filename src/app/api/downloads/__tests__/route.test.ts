@@ -121,7 +121,7 @@ vi.mock("fs/promises", () => ({
   stat: statMock,
 }));
 
-import { DELETE, GET, POST } from "../route";
+import { DELETE, GET, PATCH, POST } from "../route";
 
 const session = { userId: "u_1", username: "alice", roles: ["admin"] };
 
@@ -268,6 +268,97 @@ describe("/api/downloads", () => {
       data: expect.objectContaining({ status: "COMPLETED", progress: "下载完成" }),
     }));
     expect(getGlobalStatMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not mark an aria2 task paused when the real pause operation fails", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_relay",
+      status: "RUNNING",
+      aria2Gid: "gid_1",
+      progress: "下载中",
+    });
+    pauseDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_relay", action: "pause" }),
+    }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({ error: "暂停下载失败，远端任务状态未改变" });
+    expect(pauseDownloadMock).toHaveBeenCalledWith("gid_1");
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay" },
+      data: expect.objectContaining({ status: "PENDING" }),
+    }));
+  });
+
+  it("does not mark an aria2 task resumed when the real resume operation fails", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_relay",
+      status: "PENDING",
+      aria2Gid: "gid_1",
+      progress: "已暂停",
+    });
+    unpauseDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_relay", action: "resume" }),
+    }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({ error: "恢复下载失败，远端任务状态未改变" });
+    expect(unpauseDownloadMock).toHaveBeenCalledWith("gid_1");
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay" },
+      data: expect.objectContaining({ status: "RUNNING" }),
+    }));
+  });
+
+  it("does not mark a direct task cancelled when remote process termination fails", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_direct",
+      url: "https://example.com/file.iso",
+      status: "RUNNING",
+      pid: 12345,
+      aria2Gid: null,
+      relayMode: false,
+      server: serverFixture(),
+    });
+    execRemoteCommandMock.mockRejectedValueOnce(new Error("ssh unavailable"));
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_direct", { method: "DELETE" }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({ error: "取消远程下载进程失败，任务状态未改变" });
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_direct" },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    }));
+  });
+
+  it("does not mark an aria2 task cancelled when removeDownload fails", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_relay",
+      url: "magnet:?xt=urn:btih:abcdef",
+      status: "RUNNING",
+      pid: null,
+      aria2Gid: "gid_1",
+      relayMode: true,
+      server: serverFixture(),
+    });
+    removeDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({ error: "取消 aria2 下载失败，任务状态未改变" });
+    expect(rmMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay" },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    }));
   });
 
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {
