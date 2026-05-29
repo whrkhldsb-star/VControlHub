@@ -78,16 +78,16 @@ check "${PROXY_LABEL} on *:80"       "ss -tlnp | grep ':80 '" 0
 echo ""
 echo "── 3. HTTP Response ──"
 check "Login page (localhost)"     "curl -sS -o /dev/null -w '%{http_code}' http://localhost:${NEXT_PORT}/login | grep 200" 0
-check "Login page (via ${PROXY_LABEL})" "curl -sS -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/login | grep 200" 0
-check "API /api/status"            "curl -sS ${PROXY_PUBLIC_URL}/api/status | grep healthy" 0
-check "API auth blocks unauth"     "curl -sS ${PROXY_PUBLIC_URL}/api/users | grep '未登录'" 0
-check "Root redirects to login"    "curl -sS -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/ | grep 307" 0
+check "Login page (via ${PROXY_LABEL})" "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/login | grep 200" 0
+check "API /api/status"            "curl -sSk ${PROXY_PUBLIC_URL}/api/status | grep healthy" 0
+check "API auth blocks unauth"     "curl -sSk ${PROXY_PUBLIC_URL}/api/users | grep '未登录'" 0
+check "Root redirects to login"    "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/ | grep 307" 0
 
 echo ""
 echo "── 4. Static Assets ──"
-FIRST_JS="$(curl -sS ${PROXY_PUBLIC_URL}/login | grep -oP '"/_next/static/chunks/[^"]*\.js"' | head -1 | tr -d '"')"
+FIRST_JS="$(curl -sSk ${PROXY_PUBLIC_URL}/login | grep -oP '"/_next/static/chunks/[^"]*\.js"' | head -1 | tr -d '"')"
 if [ -n "${FIRST_JS}" ]; then
-    check "JS chunk ${FIRST_JS:0:40}..." "curl -sS -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}${FIRST_JS} | grep 200" 0
+    check "JS chunk ${FIRST_JS:0:40}..." "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}${FIRST_JS} | grep 200" 0
 else
     printf "  ⚠️  No JS chunks found in HTML\n"
 fi
@@ -95,7 +95,7 @@ fi
 echo ""
 echo "── 5. Security ──"
 check "No direct public Next.js access"      "ss -tlnp | grep '0.0.0.0:${NEXT_PORT}' ; echo missing" 0
-check "Security headers present"   "curl -sS -D- ${PROXY_PUBLIC_URL}/login | grep -i X-Content-Type-Options" 0
+check "Security headers present"   "curl -sSk -D- ${PROXY_PUBLIC_URL}/login | grep -i X-Content-Type-Options" 0
 
 echo ""
 echo "── 6. SSH-WS Proxy ──"

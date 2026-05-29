@@ -367,11 +367,12 @@ export async function createServerProfile(input: CreateServerInput) {
  const existingNode = await prisma.storageNode.findFirst({ where: { name: storageNodeName } });
  if (!existingNode) {
  const defaultCount = await prisma.storageNode.count({ where: { isDefault: true } });
+ const configuredPath = normalized.storagePath || (isLocalHost ? `/srv/storage/${server.name}` : "/root/drive");
  await prisma.storageNode.create({
  data: {
  name: storageNodeName,
  driver: isLocalHost ? "LOCAL" : "SFTP",
- basePath: isLocalHost ? `/srv/storage/${server.name}` : "/root",
+ basePath: configuredPath,
  isDefault: defaultCount === 0,
  serverId: isLocalHost ? null : server.id,
  },
@@ -380,7 +381,7 @@ export async function createServerProfile(input: CreateServerInput) {
  // Ensure basePath exists on disk for LOCAL nodes
  if (isLocalHost) {
  try {
- await mkdir(`/srv/storage/${server.name}`, { recursive: true });
+ await mkdir(configuredPath, { recursive: true });
  } catch {
  // Directory may already exist or FS unavailable — DB record proceeds regardless
  }

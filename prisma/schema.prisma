@@ -272,6 +272,7 @@ model StorageNode {
  accessGrants UserStorageAccess[]
  shareLinks ShareLink[]
  imageUploads ImageUpload[]
+ mediaItems MediaItem[]
 }
 
 model UserStorageAccess {
@@ -665,6 +666,7 @@ model MediaItem {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   creator       User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  storageNode   StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: Restrict)
 
   @@index([storageNodeId, mediaType])
   @@index([favorite, updatedAt])

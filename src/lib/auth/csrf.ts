@@ -65,8 +65,7 @@ export function setCsrfCookie(response: Response, token: string): void {
 		[
 			`${CSRF_COOKIE_NAME}=${encodeURIComponent(token)}`,
 			"Path=/",
-			"SameSite=Lax",
-			"HttpOnly",
+			"SameSite=Strict",
 			process.env.NODE_ENV === "production" ? "Secure" : "",
 		]
 			.filter(Boolean)

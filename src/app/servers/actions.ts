@@ -32,6 +32,7 @@ export async function createServerAction(_prevState: ServerActionState | null, f
   const description = String(formData.get("description") ?? "");
   const tags = parseTags(String(formData.get("tags") ?? ""));
   const enableDirectGateway = formData.get("enableDirectGateway") === "on";
+  const storagePath = String(formData.get("storagePath") ?? "/root/drive");
 
   await createServerProfile({
    name,
@@ -44,6 +45,7 @@ export async function createServerAction(_prevState: ServerActionState | null, f
    description,
    tags,
    enableDirectGateway,
+   storagePath,
   });
 
  revalidatePath("/");

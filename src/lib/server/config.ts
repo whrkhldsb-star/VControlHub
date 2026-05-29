@@ -8,7 +8,8 @@ export type ServerInput = {
  password?: string;
  tags?: string[];
  description?: string | null;
-};
+ storagePath?: string;
+ };
 
 export type NormalizedServerInput = {
  name: string;
@@ -20,7 +21,8 @@ export type NormalizedServerInput = {
  password: string | null;
  tags: string[];
  description: string | null;
-};
+ storagePath: string;
+ };
 
 export function normalizeServerInput(input: ServerInput): NormalizedServerInput {
  return {
@@ -33,6 +35,7 @@ export function normalizeServerInput(input: ServerInput): NormalizedServerInput 
   password: input.password?.trim() || null,
   tags: Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean))),
   description: input.description?.trim() || null,
+  storagePath: input.storagePath?.trim() || "/root/drive",
  };
 }
 

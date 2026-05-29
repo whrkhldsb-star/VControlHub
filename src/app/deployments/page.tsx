@@ -4,6 +4,7 @@ import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/se
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
+import { ResendDeployButton } from "./resend-deploy-button";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ function deploymentStatusTone(status: string) {
 }
 
 export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
+
 	const session = await requireSession("/deployments");
 	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text="你没有应用部署查看权限。" /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
@@ -89,14 +91,16 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
 					<code className="mt-4 block max-h-24 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{latestRun.renderedCommand}</code>
-					<form action="/api/deployments" method="post" className="mt-4 flex flex-wrap items-center gap-2">
-						<input type="hidden" name="templateId" value={latestRun.templateId} />
-						<input type="hidden" name="variablesJson" value={JSON.stringify(latestRun.variables)} />
-						<input type="hidden" name="reason" value={`快速回退重发：${latestRun.template.name}`} />
-						{latestRun.serverIds.map((id) => <input key={id} type="hidden" name="serverIds" value={id} />)}
-						<button className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300">重发最近部署</button>
-						<span className="text-xs text-slate-500">会重新进入审批链路并保留审计记录。</span>
-					</form>
+					<div className="mt-4">
+						<ResendDeployButton
+							templateId={latestRun.templateId}
+							variables={latestRun.variables as Record<string, string> | null}
+							serverIds={latestRun.serverIds}
+							reason={`快速回退重发：${latestRun.template.name}`}
+							label="重发最近部署"
+						/>
+						<span className="mt-2 block text-xs text-slate-500">会重新进入审批链路并保留审计记录。</span>
+					</div>
 				</section>
 			)}
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
@@ -114,13 +118,15 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							<code className="mt-3 block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{r.renderedCommand}</code>
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
 							{canRun && (
-								<form action="/api/deployments" method="post" className="mt-3 flex flex-wrap items-center gap-2">
-									<input type="hidden" name="templateId" value={r.templateId} />
-									<input type="hidden" name="variablesJson" value={JSON.stringify(r.variables)} />
-									<input type="hidden" name="reason" value={`回退重发：${r.template.name}`} />
-									{r.serverIds.map((id) => <input key={id} type="hidden" name="serverIds" value={id} />)}
-									<button className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-400/15">按此记录重发</button>
-								</form>
+								<div className="mt-3">
+									<ResendDeployButton
+										templateId={r.templateId}
+										variables={r.variables as Record<string, string> | null}
+										serverIds={r.serverIds}
+										reason={`回退重发：${r.template.name}`}
+										label="按此记录重发"
+									/>
+								</div>
 							)}
 						</div>
 					))}

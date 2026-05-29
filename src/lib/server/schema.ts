@@ -23,8 +23,9 @@ export const createServerSchema = z
    .transform((value) => value || undefined),
   tags: z.array(serverTagSchema).max(20, "标签最多 20 个").default([]),
   enableDirectGateway: z.boolean().optional().default(false),
- })
- .refine(
+  storagePath: z.string().trim().min(1, "存储路径不能为空").max(500, "路径过长").default("/root/drive"),
+})
+.refine(
   (data) => {
    if (data.connectionType === "SSH_KEY" && !data.sshKeyId) return false;
    if (data.connectionType === "PASSWORD" && !data.password) return false;

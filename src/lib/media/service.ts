@@ -9,16 +9,82 @@ export function classifyMedia(mimeType?: string | null) {
 
 export async function listMediaItems(input: { mediaType?: "image" | "video"; q?: string; favorite?: boolean } = {}) {
  const q = input.q?.trim();
- return prisma.mediaItem.findMany({ where: { mediaType: input.mediaType, favorite: input.favorite, ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { relativePath: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}) }, orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }], select: { id: true, name: true, mediaType: true, relativePath: true, size: true, favorite: true, createdAt: true } });
+ return prisma.mediaItem.findMany({
+   where: {
+     mediaType: input.mediaType,
+     favorite: input.favorite,
+     ...(q ? {
+       OR: [
+         { name: { contains: q, mode: "insensitive" } },
+         { relativePath: { contains: q, mode: "insensitive" } },
+         { tags: { has: q } },
+       ],
+     } : {}),
+   },
+   orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }],
+   select: {
+     id: true,
+     name: true,
+     mediaType: true,
+     relativePath: true,
+     size: true,
+     favorite: true,
+     createdAt: true,
+     storageNode: {
+       select: {
+         id: true,
+         name: true,
+         basePath: true,
+         driver: true,
+         serverId: true,
+         server: {
+           select: { id: true, name: true, host: true },
+         },
+       },
+     },
+   },
+ });
 }
 
 export async function scanMediaFromFileEntries(userId?: string) {
-  const entries = await prisma.fileEntry.findMany({ where: { entryType: "FILE", isDeleted: false, OR: [{ mimeType: { startsWith: "image/" } }, { mimeType: { startsWith: "video/" } }] } });
+  // Fetch all media-capable file entries, joined with storage node info
+  const entries = await prisma.fileEntry.findMany({
+    where: {
+      entryType: "FILE",
+      isDeleted: false,
+      OR: [{ mimeType: { startsWith: "image/" } }, { mimeType: { startsWith: "video/" } }],
+    },
+    include: {
+      storageNode: {
+        select: { id: true, name: true, basePath: true, server: { select: { name: true } } },
+      },
+    },
+  });
   let upserted = 0;
   for (const entry of entries) {
     const mediaType = classifyMedia(entry.mimeType);
     if (!mediaType) continue;
-    await prisma.mediaItem.upsert({ where: { fileEntryId: entry.id }, update: { name: entry.name, relativePath: entry.relativePath, mimeType: entry.mimeType ?? "application/octet-stream", mediaType, size: entry.size ?? null }, create: { fileEntryId: entry.id, storageNodeId: entry.storageNodeId, name: entry.name, relativePath: entry.relativePath, mimeType: entry.mimeType ?? "application/octet-stream", mediaType, size: entry.size ?? null, tags: [], createdBy: userId ?? null } });
+    await prisma.mediaItem.upsert({
+      where: { fileEntryId: entry.id },
+      update: {
+        name: entry.name,
+        relativePath: entry.relativePath,
+        mimeType: entry.mimeType ?? "application/octet-stream",
+        mediaType,
+        size: entry.size ?? null,
+      },
+      create: {
+        fileEntryId: entry.id,
+        storageNodeId: entry.storageNodeId,
+        name: entry.name,
+        relativePath: entry.relativePath,
+        mimeType: entry.mimeType ?? "application/octet-stream",
+        mediaType,
+        size: entry.size ?? null,
+        tags: [],
+        createdBy: userId ?? null,
+      },
+    });
     upserted += 1;
   }
   return { scanned: entries.length, upserted };

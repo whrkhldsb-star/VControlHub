@@ -9,7 +9,7 @@ const ticketCreateSchema = z.object({
   subject: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
   description: z.string().min(1),
-  priority: z.enum(["low", "medium", "high", "critical", "LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  priority: z.enum(["low", "medium", "high", "critical", "normal", "urgent", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL", "URGENT"]).optional(),
   category: z.string().optional(),
   serverId: z.string().optional(),
 }).refine((data) => Boolean(data.subject || data.title), {
@@ -26,13 +26,14 @@ const ticketPatchSchema = z.object({
  id: z.string().min(1),
  status: z.enum(["open", "in_progress", "resolved", "closed", "OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]),
  assigneeId: z.string().optional(),
- priority: z.enum(["low", "medium", "high", "critical", "LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+ priority: z.enum(["low", "medium", "high", "critical", "normal", "LOW", "MEDIUM", "HIGH", "CRITICAL", "NORMAL"]).optional(),
 });
 
 function normalizePriority(priority?: string) {
   if (!priority) return undefined;
-  if (priority.toUpperCase() === "MEDIUM") return "NORMAL";
-  return priority.toUpperCase();
+  const upper = priority.toUpperCase();
+  if (upper === "MEDIUM" || upper === "NORMAL") return "NORMAL";
+  return upper;
 }
 
 function normalizeStatus(status: string) {

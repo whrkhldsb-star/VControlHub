@@ -121,6 +121,12 @@ export function ServerCreateForm({
 
 			<ConnectionTypeFields sshKeys={sshKeys} />
 
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="serverStoragePath">存储路径</label>
+				<input id="serverStoragePath" name="storagePath" type="text" defaultValue="/root/drive" placeholder="/root/drive" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+				<p className="mt-1 text-xs text-slate-500">VPS 上的文件存储目录，用于云盘和媒体库。默认 <code className="text-cyan-300/70">/root/drive</code>，可按需修改。</p>
+			</div>
+
 			<label className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-sm text-slate-200">
 				<div className="flex items-start gap-3">
 					<input name="enableDirectGateway" type="checkbox" className="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950" />

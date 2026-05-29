@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type DeploymentTemplateOption = {
 	id: string;
@@ -30,14 +32,17 @@ function previewCommand(template: DeploymentTemplateOption | undefined, variable
 }
 
 export function DeploymentLaunchForm({ templates, servers }: { templates: DeploymentTemplateOption[]; servers: DeploymentServerOption[] }) {
+	const router = useRouter();
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
+	const [pending, setPending] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const selectedTemplate = templates.find((template) => template.id === templateId) ?? templates[0];
 	const variables = useMemo(() => uniqueVariables(selectedTemplate), [selectedTemplate]);
 
 	if (templates.length === 0) {
 		return (
 			<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:bg-amber-50 light:text-amber-800">
-				请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。
+				请先到"命令模板"创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。
 			</div>
 		);
 	}
@@ -52,8 +57,44 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		);
 	}
 
+	async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+		e.preventDefault();
+		setError(null);
+		setPending(true);
+		try {
+			const form = e.currentTarget;
+			const fd = new FormData(form);
+			const vars: Record<string, string> = {};
+			for (const name of variables) {
+				const val = String(fd.get(`variables.${name}`) || "").trim();
+				vars[name] = val;
+			}
+			const serverIds = fd.getAll("serverIds").map(String).filter(Boolean);
+			if (serverIds.length === 0) {
+				setError("请至少选择一台目标 VPS");
+				setPending(false);
+				return;
+			}
+			const reason = String(fd.get("reason") || "").trim();
+			await csrfFetch("/api/deployments", {
+				method: "POST",
+				body: JSON.stringify({
+					templateId: fd.get("templateId"),
+					serverIds,
+					variables: vars,
+					reason: reason || undefined,
+				}),
+			});
+			router.refresh();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "提交失败");
+		} finally {
+			setPending(false);
+		}
+	}
+
 	return (
-		<form action="/api/deployments" method="post" className="mt-4 grid gap-4">
+		<form onSubmit={handleSubmit} className="mt-4 grid gap-4">
 			<div className="grid gap-3 md:grid-cols-2">
 				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
 					部署模板
@@ -113,7 +154,8 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap text-xs text-slate-300 light:text-slate-700">{previewCommand(selectedTemplate, variables)}</code>
 			</details>
 
-			<button className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300">提交部署审批</button>
+			{error && <p className="text-xs text-rose-300">{error}</p>}
+			<button disabled={pending} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">{pending ? "提交中..." : "提交部署审批"}</button>
 		</form>
 	);
 }
