@@ -18,6 +18,18 @@ describe("createServerSchema", () => {
     expect(result.port).toBe(22);
   });
 
+  it("defaults missing usernames to root", () => {
+    const result = createServerSchema.parse({
+      name: "hk-prod-1",
+      host: "203.0.113.10",
+      port: 22,
+      connectionType: "PASSWORD",
+      password: "secret123",
+    });
+
+    expect(result.username).toBe("root");
+  });
+
   it("rejects onboarding without an ssh key", () => {
     expect(() =>
       createServerSchema.parse({

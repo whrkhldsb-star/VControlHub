@@ -1,21 +1,29 @@
 export const DIRECT_GATEWAY_DEFAULT_PORT = 31888;
 export const DIRECT_GATEWAY_SERVICE_NAME = "vcontrolhub-direct.service";
 
-export function buildDirectGatewayPublicBaseUrl(input: { host: string; port?: number }) {
-	const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
-	return `http://${input.host}:${port}`;
+export function buildDirectGatewayPublicBaseUrl(input: {
+  host: string;
+  port?: number;
+}) {
+  const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
+  return `http://${input.host}:${port}`;
 }
 
-export function getDirectGatewayStatusLabel(input: { fileProxyPort?: number | null; publicUrl?: string | null }) {
-	return input.fileProxyPort && input.fileProxyPort > 0 && input.publicUrl ? "目标直连" : "网站中转";
+export function getDirectGatewayStatusLabel(input: {
+  fileProxyPort?: number | null;
+  publicUrl?: string | null;
+}) {
+  return input.fileProxyPort && input.fileProxyPort > 0 && input.publicUrl
+    ? "目标直连"
+    : "网站中转";
 }
 
 function shellQuote(value: string | number) {
-	return `'${String(value).replace(/'/g, `'"'"'`)}'`;
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
 }
 
 function pythonGatewaySource() {
-	return String.raw`#!/usr/bin/env python3
+  return String.raw`#!/usr/bin/env python3
 import hmac
 import hashlib
 import mimetypes
@@ -95,10 +103,14 @@ if __name__ == "__main__":
 `;
 }
 
-export function buildInstallDirectGatewayCommand(input: { rootPath: string; secret: string; port?: number }) {
-	const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
-	const source = pythonGatewaySource();
-	return `set -eu
+export function buildInstallDirectGatewayCommand(input: {
+  rootPath: string;
+  secret: string;
+  port?: number;
+}) {
+  const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
+  const source = pythonGatewaySource();
+  return `set -eu
 install -d -m 0755 /opt/vcontrolhub-direct
 install -d -m 0755 ${shellQuote(input.rootPath)}
 cat > /opt/vcontrolhub-direct/server.py <<'VCH_DIRECT_PY'
@@ -106,8 +118,8 @@ ${source}
 VCH_DIRECT_PY
 chmod 0755 /opt/vcontrolhub-direct/server.py
 cat > /etc/vcontrolhub-direct.env <<VCH_DIRECT_ENV
-DIRECT_ROOT=${input.rootPath}
-DIRECT_SECRET=${input.secret}
+DIRECT_ROOT=${shellQuote(input.rootPath)}
+DIRECT_SECRET=${shellQuote(input.secret)}
 DIRECT_PORT=${port}
 VCH_DIRECT_ENV
 chmod 0600 /etc/vcontrolhub-direct.env
@@ -126,7 +138,7 @@ RestartSec=3
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
-ReadWritePaths=/opt/vcontrolhub-direct
+ReadWritePaths=/opt/vcontrolhub-direct ${input.rootPath}
 
 [Install]
 WantedBy=multi-user.target
@@ -138,7 +150,7 @@ echo vcontrolhub-direct-ready`;
 }
 
 export function buildUninstallDirectGatewayCommand() {
-	return `set -eu
+  return `set -eu
 systemctl disable --now ${DIRECT_GATEWAY_SERVICE_NAME} >/dev/null 2>&1 || true
 rm -f /etc/systemd/system/${DIRECT_GATEWAY_SERVICE_NAME}
 rm -f /etc/vcontrolhub-direct.env

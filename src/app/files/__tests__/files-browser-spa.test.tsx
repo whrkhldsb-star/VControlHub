@@ -1,5 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilesBrowserSpa } from "../files-browser-spa";
@@ -13,7 +19,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/storage/file-upload-dropzone", () => ({
-  FileUploadDropzone: (props: { nodes?: Array<{ id: string; driver: string }>; initialNodeId?: string; onUploadComplete?: () => void }) =>
+  FileUploadDropzone: (props: {
+    nodes?: Array<{ id: string; driver: string }>;
+    initialNodeId?: string;
+    onUploadComplete?: () => void;
+  }) =>
     React.createElement(
       "button",
       {
@@ -31,7 +41,8 @@ vi.mock("../search-scope-toggle", () => ({
 }));
 
 vi.mock("../create-folder-form", () => ({
-  CreateFolderForm: () => React.createElement("button", { type: "button" }, "新建文件夹"),
+  CreateFolderForm: () =>
+    React.createElement("button", { type: "button" }, "新建文件夹"),
 }));
 
 vi.mock("../recycle-bin-section-client", () => ({
@@ -43,7 +54,9 @@ vi.mock("../file-list-client", () => ({
     React.createElement(
       "div",
       { "data-testid": "file-list" },
-      props.files.map((file) => React.createElement("span", { key: file.name }, file.name)),
+      props.files.map((file) =>
+        React.createElement("span", { key: file.name }, file.name),
+      ),
     ),
 }));
 
@@ -69,7 +82,31 @@ const baseData = {
       updatedAt: "2026-05-04T00:00:00.000Z",
     },
   ],
-  tree: { name: "root", path: "", children: [] },
+  tree: {
+    name: "root",
+    path: "",
+    children: [
+      {
+        name: "photos",
+        path: "photos",
+        fileCount: 1,
+        folderCount: 1,
+        sourceKeys: [],
+        sourceValues: [],
+        children: [
+          {
+            name: "raw",
+            path: "photos/raw",
+            fileCount: 2,
+            folderCount: 0,
+            sourceKeys: [],
+            sourceValues: [],
+            children: [],
+          },
+        ],
+      },
+    ],
+  },
   stats: {
     totalNodes: 1,
     defaultNodeName: "本机存储",
@@ -114,68 +151,120 @@ describe("FilesBrowserSpa", () => {
     );
   });
 
-	it("refreshes the SPA file list after upload completes", async () => {
-		render(<FilesBrowserSpa initialData={baseData} deletedEntries={[]} sftpNodes={[]} />);
+  it("refreshes the SPA file list after upload completes", async () => {
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+        sftpNodes={[]}
+      />,
+    );
 
-		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+    expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
 
-		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/files/list?path=photos&nodeId=node_1", expect.any(Object)));
-		await waitFor(() => expect(screen.getByText("after.jpg")).toBeInTheDocument());
-	});
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/files/list?path=photos&nodeId=node_1",
+        expect.any(Object),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("after.jpg")).toBeInTheDocument(),
+    );
+  });
 
-	it("surfaces list refresh failures inline and keeps the previous file list visible", async () => {
-		vi.mocked(globalThis.fetch).mockRejectedValueOnce(new Error("文件列表刷新失败"));
+  it("surfaces list refresh failures inline and keeps the previous file list visible", async () => {
+    vi.mocked(globalThis.fetch).mockRejectedValueOnce(
+      new Error("文件列表刷新失败"),
+    );
 
-		render(<FilesBrowserSpa initialData={baseData} deletedEntries={[]} sftpNodes={[]} />);
-		expect(screen.getByText("before.jpg")).toBeInTheDocument();
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+        sftpNodes={[]}
+      />,
+    );
+    expect(screen.getByText("before.jpg")).toBeInTheDocument();
 
-		fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "模拟上传完成" }));
 
-		await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"));
-		expect(screen.getByText("before.jpg")).toBeInTheDocument();
-	});
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"),
+    );
+    expect(screen.getByText("before.jpg")).toBeInTheDocument();
+  });
 
-	it("filters storage nodes before switching the file browser node", async () => {
-		const fetchMock = vi.mocked(globalThis.fetch);
-		fetchMock.mockResolvedValueOnce({
-			ok: true,
-			json: async () => ({
-				...baseData,
-				nodeIdFilter: "node_sftp_2",
-				currentPath: "",
-				files: [],
-				nodes: [
-					{ id: "node_1", name: "本机存储", driver: "LOCAL" },
-					{ id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-					{ id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
-				],
-			}),
-		} as Response);
-		render(
-			<FilesBrowserSpa
-				initialData={{
-					...baseData,
-					nodes: [
-						{ id: "node_1", name: "本机存储", driver: "LOCAL" },
-						{ id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
-						{ id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
-					],
-				}}
-				deletedEntries={[]}
-				sftpNodes={[]}
-			/>,
-		);
+  it("filters storage nodes before switching the file browser node", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...baseData,
+        nodeIdFilter: "node_sftp_2",
+        currentPath: "",
+        files: [],
+        nodes: [
+          { id: "node_1", name: "本机存储", driver: "LOCAL" },
+          { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+          { id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
+        ],
+      }),
+    } as Response);
+    render(
+      <FilesBrowserSpa
+        initialData={{
+          ...baseData,
+          nodes: [
+            { id: "node_1", name: "本机存储", driver: "LOCAL" },
+            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+            { id: "node_sftp_2", name: "东京归档", driver: "SFTP" },
+          ],
+        }}
+        deletedEntries={[]}
+        sftpNodes={[]}
+      />,
+    );
 
-		const sidebarSearch = screen.getAllByPlaceholderText("搜索节点名称、类型或 ID")[0];
-		const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0];
-		fireEvent.change(sidebarSearch, { target: { value: "东京" } });
-		expect(within(sidebarSelect).getByRole("option", { name: /东京归档/ })).toBeInTheDocument();
-		expect(within(sidebarSelect).queryByRole("option", { name: /香港 VPS/ })).not.toBeInTheDocument();
+    const sidebarSearch =
+      screen.getAllByPlaceholderText("搜索节点名称、类型或 ID")[0];
+    const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0];
+    fireEvent.change(sidebarSearch, { target: { value: "东京" } });
+    expect(
+      within(sidebarSelect).getByRole("option", { name: /东京归档/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(sidebarSelect).queryByRole("option", { name: /香港 VPS/ }),
+    ).not.toBeInTheDocument();
 
-		fireEvent.change(sidebarSelect, { target: { value: "node_sftp_2" } });
+    fireEvent.change(sidebarSelect, { target: { value: "node_sftp_2" } });
 
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/files/list?nodeId=node_sftp_2", expect.any(Object)));
-	});
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/files/list?nodeId=node_sftp_2",
+        expect.any(Object),
+      ),
+    );
+  });
+
+  it("keeps nested directory tree collapsed until a folder is expanded", () => {
+    render(
+      <FilesBrowserSpa
+        initialData={{ ...baseData, currentPath: "" }}
+        deletedEntries={[]}
+        sftpNodes={[]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "photos" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "raw" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "展开 photos" }));
+
+    expect(screen.getByRole("button", { name: "raw" })).toBeInTheDocument();
+  });
 });

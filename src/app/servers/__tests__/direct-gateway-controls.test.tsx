@@ -30,7 +30,7 @@ describe("server direct gateway controls", () => {
 		expect(checkbox).not.toBeChecked();
 		expect(checkbox).toHaveAttribute("name", "enableDirectGateway");
 		expect(screen.getByText(/默认使用网站服务器中转/)).toBeInTheDocument();
-		expect(screen.getByText(/上传、下载、在线浏览\/播放全局生效/)).toBeInTheDocument();
+		expect(screen.getByLabelText("用户名")).toHaveValue("root");
 	});
 
 	it("shows a precise switch to install the direct gateway when currently using website relay", () => {
