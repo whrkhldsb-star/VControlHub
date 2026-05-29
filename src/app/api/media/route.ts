@@ -1,19 +1,41 @@
 import { NextResponse } from "next/server";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+
 export const dynamic = "force-dynamic";
-export async function GET(request:Request){ const session=await requireSession(); if(!sessionHasPermission(session,"storage:read")) return NextResponse.json({error:"缺少权限"},{status:403}); const sp=new URL(request.url).searchParams; const type=sp.get("type"); return NextResponse.json({ media: await listMediaItems({ mediaType: type === "image" || type === "video" ? type : undefined, q: sp.get("q") ?? undefined }) }); }
+
+export async function GET(request: Request) {
+  return withApiRoute(
+    request,
+    { permission: "storage:read", errorMessage: "获取媒体列表失败" },
+    async () => {
+      const searchParams = new URL(request.url).searchParams;
+      const type = searchParams.get("type");
+
+      return NextResponse.json({
+        media: await listMediaItems({
+          mediaType: type === "image" || type === "video" ? type : undefined,
+          q: searchParams.get("q") ?? undefined,
+        }),
+      });
+    },
+  );
+}
+
 export async function POST(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "media:manage")) return NextResponse.json({ error: "缺少权限" }, { status: 403 });
-		return NextResponse.json(await scanMediaFromFileEntries(session.userId));
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "操作失败";
-		return NextResponse.json({ error: message }, { status: 500 });
-	}
+  return withApiRoute(
+    request,
+    {
+      permission: "media:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "操作失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      return NextResponse.json(await scanMediaFromFileEntries(session.userId));
+    },
+  );
 }

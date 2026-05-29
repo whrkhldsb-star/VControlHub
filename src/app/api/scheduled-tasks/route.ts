@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createLogger } from "@/lib/logging";
+
 import { auditUserAction } from "@/lib/audit/service";
-
-const logger = createLogger("api:scheduled-tasks");
-
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
-import { createScheduledTask, listScheduledTasks, updateScheduledTask, deleteScheduledTask, toggleScheduledTask } from "@/lib/scheduled-task/service";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import {
+  createScheduledTask,
+  deleteScheduledTask,
+  listScheduledTasks,
+  toggleScheduledTask,
+  updateScheduledTask,
+} from "@/lib/scheduled-task/service";
 
 const scheduledTaskPostSchema = z.object({
   name: z.string().min(1),
@@ -36,123 +38,159 @@ const scheduledTaskPatchSchema = z.object({
 export const dynamic = "force-dynamic";
 
 type ScheduledTaskAuditPayload = {
-	id?: string;
-	name?: string;
-	cronExpression?: string;
-	serverIds?: string[];
-	status?: string;
+  id?: string;
+  name?: string;
+  cronExpression?: string;
+  serverIds?: string[];
+  status?: string;
 };
 
 function auditScheduledTaskDetail(task: ScheduledTaskAuditPayload) {
-	return {
-		taskId: task.id ?? null,
-		name: task.name ?? null,
-		cronExpression: task.cronExpression ?? null,
-		serverCount: task.serverIds?.length ?? 0,
-		status: task.status ?? null,
-	};
+  return {
+    taskId: task.id ?? null,
+    name: task.name ?? null,
+    cronExpression: task.cronExpression ?? null,
+    serverCount: task.serverIds?.length ?? 0,
+    status: task.status ?? null,
+  };
 }
 
-export async function GET() {
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "command:create")) {
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-		}
-		const tasks = await listScheduledTasks();
-		const serialized = tasks.map((t) => ({
-			id: t.id,
-			name: t.name,
-			cronExpression: t.cronExpression,
-			command: t.command,
-			reason: t.reason,
-			status: t.status,
-			serverIds: t.serverIds,
-			lastRunAt: t.lastRunAt?.toISOString() ?? null,
-			nextRunAt: t.nextRunAt?.toISOString() ?? null,
-			lastResult: t.lastResult,
-			runCount: t.runCount,
-			createdAt: t.createdAt.toISOString(),
-			creator: t.creator,
-		}));
-		return NextResponse.json({ tasks: serialized });
-	} catch (error) {
-		logger.error("获取计划任务列表失败", error);
-		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
-	}
+export async function GET(request: Request) {
+  return withApiRoute(
+    request,
+    { permission: "command:create", errorMessage: "服务器错误" },
+    async () => {
+      const tasks = await listScheduledTasks();
+      const serialized = tasks.map((task) => ({
+        id: task.id,
+        name: task.name,
+        cronExpression: task.cronExpression,
+        command: task.command,
+        reason: task.reason,
+        status: task.status,
+        serverIds: task.serverIds,
+        lastRunAt: task.lastRunAt?.toISOString() ?? null,
+        nextRunAt: task.nextRunAt?.toISOString() ?? null,
+        lastResult: task.lastResult,
+        runCount: task.runCount,
+        createdAt: task.createdAt.toISOString(),
+        creator: task.creator,
+      }));
+      return NextResponse.json({ tasks: serialized });
+    },
+  );
 }
 
 export async function POST(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "command:create")) {
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-		}
-		const body = await request.json();
-		const parsed = scheduledTaskPostSchema.safeParse(body);
-		if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
-		const data = parsed.data;
-		const task = await createScheduledTask({
-			name: data.name,
-			cronExpression: data.cronExpression ?? data.cron,
-			command: data.command,
-			reason: data.reason ?? data.description,
-			serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
-			createdById: session.userId,
-		});
-		auditUserAction(session.userId, "scheduled_task.create", auditScheduledTaskDetail(task));
-		return NextResponse.json({ task });
-	} catch (err) {
-		const message = err instanceof Error ? err.message : "创建失败";
-		return NextResponse.json({ error: message }, { status: 400 });
-	}
+  return withApiRoute(
+    request,
+    {
+      permission: "command:create",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
+      errorMessage: "创建失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const body = await request.json().catch(() => null);
+      const parsed = scheduledTaskPostSchema.safeParse(body);
+      if (!parsed.success)
+        return NextResponse.json(
+          {
+            error: "输入校验失败",
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 },
+        );
+      const data = parsed.data;
+      const task = await createScheduledTask({
+        name: data.name,
+        cronExpression: data.cronExpression ?? data.cron,
+        command: data.command,
+        reason: data.reason ?? data.description,
+        serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
+        createdById: session.userId,
+      });
+      auditUserAction(
+        session.userId,
+        "scheduled_task.create",
+        auditScheduledTaskDetail(task),
+      );
+      return NextResponse.json({ task });
+    },
+  );
 }
 
 export async function PATCH(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "command:create")) {
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-		}
-		const body = await request.json();
-		const parsed = scheduledTaskPatchSchema.safeParse(body);
-		if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
-		const data = parsed.data;
-		if (data.toggleId) {
-			const result = await toggleScheduledTask(data.toggleId);
-			auditUserAction(session.userId, "scheduled_task.toggle", auditScheduledTaskDetail(result));
-			return NextResponse.json({ task: result });
-		}
-		if (!data.id) return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
-		const result = await updateScheduledTask(data.id, data);
-		auditUserAction(session.userId, "scheduled_task.update", auditScheduledTaskDetail(result));
-		return NextResponse.json({ task: result });
-	} catch (err) {
-		const message = err instanceof Error ? err.message : "更新失败";
-		return NextResponse.json({ error: message }, { status: 400 });
-	}
+  return withApiRoute(
+    request,
+    {
+      permission: "command:create",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
+      errorMessage: "更新失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const body = await request.json().catch(() => null);
+      const parsed = scheduledTaskPatchSchema.safeParse(body);
+      if (!parsed.success)
+        return NextResponse.json(
+          {
+            error: "输入校验失败",
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 },
+        );
+      const data = parsed.data;
+      if (data.toggleId) {
+        const result = await toggleScheduledTask(data.toggleId);
+        auditUserAction(
+          session.userId,
+          "scheduled_task.toggle",
+          auditScheduledTaskDetail(result),
+        );
+        return NextResponse.json({ task: result });
+      }
+      if (!data.id)
+        return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
+      const result = await updateScheduledTask(data.id, data);
+      auditUserAction(
+        session.userId,
+        "scheduled_task.update",
+        auditScheduledTaskDetail(result),
+      );
+      return NextResponse.json({ task: result });
+    },
+  );
 }
 
 export async function DELETE(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "command:create")) {
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-		}
-		const { searchParams } = new URL(request.url);
-		const id = searchParams.get("id");
-		if (!id) return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
-		const deleted = await deleteScheduledTask(id);
-		auditUserAction(session.userId, "scheduled_task.delete", auditScheduledTaskDetail(deleted), "WARNING");
-		return NextResponse.json({ success: true });
-	} catch (err) {
-		const message = err instanceof Error ? err.message : "删除失败";
-		return NextResponse.json({ error: message }, { status: 400 });
-	}
+  return withApiRoute(
+    request,
+    {
+      permission: "command:create",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
+      errorMessage: "删除失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const { searchParams } = new URL(request.url);
+      const id = searchParams.get("id");
+      if (!id)
+        return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
+      const deleted = await deleteScheduledTask(id);
+      auditUserAction(
+        session.userId,
+        "scheduled_task.delete",
+        auditScheduledTaskDetail(deleted),
+        "WARNING",
+      );
+      return NextResponse.json({ success: true });
+    },
+  );
 }

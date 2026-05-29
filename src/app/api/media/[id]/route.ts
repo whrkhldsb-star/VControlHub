@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+
 import { prisma } from "@/lib/db";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
+import { withApiRoute } from "@/lib/http/api-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -13,37 +13,39 @@ const patchSchema = z.object({
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  try {
-    const session = await requireSession();
-    if (!sessionHasPermission(session, "media:manage"))
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+  return withApiRoute(
+    request,
+    { permission: "media:manage", errorMessage: "操作失败" },
+    async () => {
+      const { id } = await params;
+      const body = await request.json().catch(() => null);
+      const parsed = patchSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: "输入校验失败",
+            details: parsed.error.flatten().fieldErrors,
+          },
+          { status: 400 },
+        );
+      }
 
-    const { id } = await params;
-    const body = await request.json();
-    const parsed = patchSchema.safeParse(body);
-    if (!parsed.success)
-      return NextResponse.json(
-        { error: "输入校验失败", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+      const existing = await prisma.mediaItem.findUnique({ where: { id } });
+      if (!existing)
+        return NextResponse.json({ error: "媒体不存在" }, { status: 404 });
 
-    const existing = await prisma.mediaItem.findUnique({ where: { id } });
-    if (!existing)
-      return NextResponse.json({ error: "媒体不存在" }, { status: 404 });
+      const data: Record<string, unknown> = {};
+      if (parsed.data.favorite !== undefined)
+        data.favorite = parsed.data.favorite;
+      if (parsed.data.tags !== undefined) data.tags = parsed.data.tags;
 
-    const data: Record<string, unknown> = {};
-    if (parsed.data.favorite !== undefined) data.favorite = parsed.data.favorite;
-    if (parsed.data.tags !== undefined) data.tags = parsed.data.tags;
+      if (Object.keys(data).length === 0)
+        return NextResponse.json({ item: existing });
 
-    if (Object.keys(data).length === 0)
-      return NextResponse.json({ item: existing });
-
-    const updated = await prisma.mediaItem.update({ where: { id }, data });
-    return NextResponse.json({ item: updated });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "操作失败";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+      const updated = await prisma.mediaItem.update({ where: { id }, data });
+      return NextResponse.json({ item: updated });
+    },
+  );
 }

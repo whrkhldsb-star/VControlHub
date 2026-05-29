@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listUserNotifications, getUnreadCount, markAsRead, markAllAsRead, deleteNotification } from "@/lib/notification/service";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import {
+  deleteNotification,
+  getUnreadCount,
+  listUserNotifications,
+  markAllAsRead,
+  markAsRead,
+} from "@/lib/notification/service";
 
 export const dynamic = "force-dynamic";
 
@@ -13,131 +19,134 @@ const postSchema = z.object({
 
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("markAllAsRead") }),
-  z.object({ action: z.literal("markAsRead"), notificationId: z.string().min(1) }),
+  z.object({
+    action: z.literal("markAsRead"),
+    notificationId: z.string().min(1),
+  }),
   z.object({ action: z.literal("delete"), notificationId: z.string().min(1) }),
 ]);
 
-export async function GET() {
-  try {
-    const session = await requireSession();
-    const [notifications, unreadCount] = await Promise.all([
-      listUserNotifications(session.userId, { limit: 50 }),
-      getUnreadCount(session.userId),
-    ]);
-    return NextResponse.json({ notifications, unreadCount });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("认证") || msg.includes("session") || msg.includes("redirect")) {
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
-    }
-    console.error("[Notifications] GET error:", error);
-    return NextResponse.json({ error: "获取通知失败" }, { status: 500 });
-  }
+export async function GET(request: Request) {
+  return withApiRoute(
+    request,
+    { requireAuth: true, errorMessage: "获取通知失败" },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const [notifications, unreadCount] = await Promise.all([
+        listUserNotifications(session.userId, { limit: 50 }),
+        getUnreadCount(session.userId),
+      ]);
+      return NextResponse.json({ notifications, unreadCount });
+    },
+  );
 }
 
 export async function PATCH(request: Request) {
-  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-  try {
-    const session = await requireSession();
-    const body = await request.json();
+  return withApiRoute(
+    request,
+    {
+      requireAuth: true,
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "操作失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const body = await request.json().catch(() => null);
 
-    // Legacy format support
-    if (body.markAllAsRead) {
-      await markAllAsRead(session.userId);
-      return NextResponse.json({ success: true });
-    }
-    if (body.notificationId) {
-      await markAsRead(body.notificationId, session.userId);
-      return NextResponse.json({ success: true });
-    }
-
-    // New discriminated union format
-    const parsed = patchSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json({ error: "无效请求", details: parsed.error.flatten() }, { status: 400 });
-    }
-
-    switch (parsed.data.action) {
-      case "markAllAsRead":
+      // Legacy format support
+      if (body?.markAllAsRead) {
         await markAllAsRead(session.userId);
-        break;
-      case "markAsRead":
-        await markAsRead(parsed.data.notificationId, session.userId);
-        break;
-      case "delete":
-        await deleteNotification(parsed.data.notificationId, session.userId);
-        break;
-    }
+        return NextResponse.json({ success: true });
+      }
+      if (body?.notificationId) {
+        await markAsRead(body.notificationId, session.userId);
+        return NextResponse.json({ success: true });
+      }
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("认证") || msg.includes("session") || msg.includes("redirect")) {
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
-    }
-    console.error("[Notifications] PATCH error:", error);
-    return NextResponse.json({ error: "操作失败" }, { status: 500 });
-  }
+      // New discriminated union format
+      const parsed = patchSchema.safeParse(body);
+      if (!parsed.success)
+        return NextResponse.json(
+          { error: "无效请求", details: parsed.error.flatten() },
+          { status: 400 },
+        );
+
+      switch (parsed.data.action) {
+        case "markAllAsRead":
+          await markAllAsRead(session.userId);
+          break;
+        case "markAsRead":
+          await markAsRead(parsed.data.notificationId, session.userId);
+          break;
+        case "delete":
+          await deleteNotification(parsed.data.notificationId, session.userId);
+          break;
+      }
+
+      return NextResponse.json({ success: true });
+    },
+  );
 }
 
 export async function POST(request: Request) {
-  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-  try {
-    const session = await requireSession();
+  return withApiRoute(
+    request,
+    {
+      permission: "notification:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "批量操作失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const rawBody = await request.json().catch(() => null);
+      const parsed = postSchema.safeParse(rawBody);
+      if (!parsed.success)
+        return NextResponse.json(
+          { error: "输入参数无效", details: parsed.error.flatten() },
+          { status: 400 },
+        );
 
-    if (!sessionHasPermission(session, "notification:manage")) {
-      return NextResponse.json({ error: "权限不足" }, { status: 403 });
-    }
+      // Batch mark multiple notifications as read
+      const results = await Promise.allSettled(
+        parsed.data.ids.map((id) => markAsRead(id, session.userId)),
+      );
+      const succeeded = results.filter(
+        (result) => result.status === "fulfilled",
+      ).length;
+      const failed = results.filter(
+        (result) => result.status === "rejected",
+      ).length;
 
-    const rawBody = await request.json();
-    const parsed = postSchema.safeParse(rawBody);
-    if (!parsed.success) {
-      return NextResponse.json({ error: "输入参数无效", details: parsed.error.flatten() }, { status: 400 });
-    }
-
-    // Batch mark multiple notifications as read
-    const results = await Promise.allSettled(
-      parsed.data.ids.map((id) => markAsRead(id, session.userId))
-    );
-    const succeeded = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.filter((r) => r.status === "rejected").length;
-
-    return NextResponse.json({
-      success: true,
-      marked: succeeded,
-      failed,
-      total: parsed.data.ids.length,
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("认证") || msg.includes("session") || msg.includes("redirect")) {
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
-    }
-    console.error("[Notifications] POST error:", error);
-    return NextResponse.json({ error: "批量操作失败" }, { status: 500 });
-  }
+      return NextResponse.json({
+        success: true,
+        marked: succeeded,
+        failed,
+        total: parsed.data.ids.length,
+      });
+    },
+  );
 }
 
 export async function DELETE(request: Request) {
-  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-  try {
-    const session = await requireSession();
-    const { searchParams } = new URL(request.url);
-    const notificationId = searchParams.get("id");
-    if (!notificationId) {
-      return NextResponse.json({ error: "缺少通知 ID" }, { status: 400 });
-    }
-    await deleteNotification(notificationId, session.userId);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "";
-    if (msg.includes("认证") || msg.includes("session") || msg.includes("redirect")) {
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
-    }
-    console.error("[Notifications] DELETE error:", error);
-    return NextResponse.json({ error: "删除通知失败" }, { status: 500 });
-  }
+  return withApiRoute(
+    request,
+    {
+      requireAuth: true,
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "删除通知失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      const { searchParams } = new URL(request.url);
+      const notificationId = searchParams.get("id");
+      if (!notificationId)
+        return NextResponse.json({ error: "缺少通知 ID" }, { status: 400 });
+      await deleteNotification(notificationId, session.userId);
+      return NextResponse.json({ success: true });
+    },
+  );
 }
