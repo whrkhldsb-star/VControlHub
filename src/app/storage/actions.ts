@@ -60,6 +60,43 @@ async function runSftpRemoteDelete(input: {
   });
 }
 
+async function rollbackCreatedFolder(input: {
+  storageNode: {
+    driver: string;
+    basePath: string;
+    host?: string | null;
+    port?: number | null;
+    username?: string | null;
+    server?: {
+      host?: string | null;
+      port?: number | null;
+      username?: string | null;
+      connectionType?: string | null;
+      password?: string | null;
+      sshKey?: { privateKey?: string | null } | null;
+    } | null;
+  };
+  relativePath: string;
+}) {
+  if (input.storageNode.driver === "LOCAL") {
+    const { rm } = await import("node:fs/promises");
+    const { absolutePath } = await resolveManagedLocalEntryPath({
+      basePath: input.storageNode.basePath,
+      relativePath: input.relativePath,
+    });
+    await rm(absolutePath, { recursive: true, force: false });
+    return;
+  }
+
+  if (input.storageNode.driver === "SFTP") {
+    await runSftpRemoteDelete({
+      storageNode: input.storageNode,
+      relativePath: input.relativePath,
+      isDirectory: true,
+    });
+  }
+}
+
 async function runSftpRemoteRename(input: {
   storageNode: {
     driver: string;
@@ -322,6 +359,7 @@ export async function createFolderAction(
       return { error: "存储节点不存在" } satisfies StorageActionState;
     }
 
+    let folderCreated = false;
     if (storageNode.driver === "LOCAL") {
       const { mkdir } = await import("node:fs/promises");
       const path = await import("node:path");
@@ -333,7 +371,8 @@ export async function createFolderAction(
         return { error: "非法路径" } satisfies StorageActionState;
       }
 
-      await mkdir(absolutePath, { recursive: true });
+      await mkdir(absolutePath, { recursive: false });
+      folderCreated = true;
     } else if (storageNode.driver === "SFTP") {
       const { createRemoteDirectory } = await import("@/lib/ssh/client");
 
@@ -361,17 +400,29 @@ export async function createFolderAction(
       await createRemoteDirectory({
         ...credentials,
         remotePath,
-        recursive: true,
+        recursive: false,
       });
+      folderCreated = true;
     }
 
-    await createFileEntry({
-      storageNodeId,
-      name: folderName,
-      entryType: "DIRECTORY",
-      mimeType: "inode/directory",
-      relativePath,
-    });
+    try {
+      await createFileEntry({
+        storageNodeId,
+        name: folderName,
+        entryType: "DIRECTORY",
+        mimeType: "inode/directory",
+        relativePath,
+      });
+    } catch (error) {
+      if (folderCreated) {
+        try {
+          await rollbackCreatedFolder({ storageNode, relativePath });
+        } catch {
+          // Best-effort compensation: preserve the original indexing failure for the UI.
+        }
+      }
+      throw error;
+    }
 
     revalidatePath("/");
     revalidatePath("/storage");

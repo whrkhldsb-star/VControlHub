@@ -10,28 +10,30 @@ import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import {
-	createFileEntrySchema,
-	createStorageNodeSchema,
-	fileEntryMutationSchema,
-	updateFileEntrySchema,
-	updateStorageNodeSchema,
-	type CreateFileEntryInput,
-	type CreateStorageNodeInput,
-	type FileEntryMutationInput,
-	type UpdateFileEntryInput,
-	type UpdateStorageNodeInput,
+  createFileEntrySchema,
+  createStorageNodeSchema,
+  fileEntryMutationSchema,
+  updateFileEntrySchema,
+  updateStorageNodeSchema,
+  type CreateFileEntryInput,
+  type CreateStorageNodeInput,
+  type FileEntryMutationInput,
+  type UpdateFileEntryInput,
+  type UpdateStorageNodeInput,
 } from "./schema";
 import {
-	EDITABLE_TEXT_MIME_PREFIXES,
-	EDITABLE_TEXT_MIME_TYPES,
-	EDITABLE_TEXT_EXTENSIONS,
-	MAX_EDITABLE_FILE_SIZE_BYTES,
-	isPreviewableMime,
+  EDITABLE_TEXT_MIME_PREFIXES,
+  EDITABLE_TEXT_MIME_TYPES,
+  EDITABLE_TEXT_EXTENSIONS,
+  MAX_EDITABLE_FILE_SIZE_BYTES,
+  isPreviewableMime,
 } from "./mime-constants";
 
 type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
   include: {
-    server: { select: { id: true; name: true; host: true; port: true; username: true } };
+    server: {
+      select: { id: true; name: true; host: true; port: true; username: true };
+    };
     fileEntries: { select: { id: true } };
   };
 }>;
@@ -56,7 +58,16 @@ type FileEntryListRow = Prisma.FileEntryGetPayload<{
 }>;
 type DeletedFileEntryRow = Prisma.FileEntryGetPayload<{
   include: {
-    storageNode: { select: { id: true; name: true; driver: true; host: true; port: true; server: { select: { host: true; port: true } } } };
+    storageNode: {
+      select: {
+        id: true;
+        name: true;
+        driver: true;
+        host: true;
+        port: true;
+        server: { select: { host: true; port: true } };
+      };
+    };
   };
 }>;
 
@@ -91,15 +102,23 @@ function buildDirectAccessStrategy(input: {
     return {
       mode: "managed-download" as const,
       description: "本机文件由管理端直接提供受控下载与预览。",
-      href: input.relativePath ? `/api/storage/local?path=${encodeURIComponent(input.relativePath)}` : null,
+      href: input.relativePath
+        ? `/api/storage/local?path=${encodeURIComponent(input.relativePath)}`
+        : null,
     };
   }
 
   const host = input.host ?? "unknown";
   const port = input.port ?? 22;
-  const params = new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath ?? "" });
+  const params = new URLSearchParams({
+    nodeId: input.nodeId,
+    path: input.relativePath ?? "",
+  });
   const fallbackHref = `/api/storage/sftp-download?${params.toString()}`;
-  const directParams = new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath ?? "" });
+  const directParams = new URLSearchParams({
+    nodeId: input.nodeId,
+    path: input.relativePath ?? "",
+  });
   const directHref = `/api/storage/direct-access?${directParams.toString()}`;
   const mode = input.directAccessMode ?? "PROXY";
 
@@ -134,14 +153,22 @@ function resolveLocalAbsolutePath(basePath: string, relativePath: string) {
   return absolutePath;
 }
 
-function isEditableTextFile(input: { entryType: "FILE" | "DIRECTORY"; name: string; mimeType?: string | null }) {
+function isEditableTextFile(input: {
+  entryType: "FILE" | "DIRECTORY";
+  name: string;
+  mimeType?: string | null;
+}) {
   if (input.entryType !== "FILE") {
     return false;
   }
 
   if (input.mimeType) {
     const normalizedMimeType = input.mimeType.toLowerCase();
-    if (EDITABLE_TEXT_MIME_PREFIXES.some((prefix) => normalizedMimeType.startsWith(prefix))) {
+    if (
+      EDITABLE_TEXT_MIME_PREFIXES.some((prefix) =>
+        normalizedMimeType.startsWith(prefix),
+      )
+    ) {
       return true;
     }
 
@@ -176,11 +203,20 @@ async function resolveLocalEditableFileEntry(fileEntryId: string) {
     throw new Error("仅支持编辑已上传到当前服务器本机存储节点的文件");
   }
 
-  if (!isEditableTextFile({ entryType: entry.entryType, name: entry.name, mimeType: entry.mimeType })) {
+  if (
+    !isEditableTextFile({
+      entryType: entry.entryType,
+      name: entry.name,
+      mimeType: entry.mimeType,
+    })
+  ) {
     throw new Error("当前仅支持编辑文本类文件");
   }
 
-  const absolutePath = resolveLocalAbsolutePath(entry.storageNode.basePath, entry.relativePath);
+  const absolutePath = resolveLocalAbsolutePath(
+    entry.storageNode.basePath,
+    entry.relativePath,
+  );
   await access(absolutePath);
   const fileStat = await stat(absolutePath);
 
@@ -197,7 +233,10 @@ async function resolveLocalEditableFileEntry(fileEntryId: string) {
 
 async function ensureDefaultNodeState(isDefault?: boolean) {
   if (isDefault) {
-    await prisma.storageNode.updateMany({ where: {}, data: { isDefault: false } });
+    await prisma.storageNode.updateMany({
+      where: {},
+      data: { isDefault: false },
+    });
   }
 }
 
@@ -205,14 +244,16 @@ function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return "-";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 export type StorageNodeHealthStatus = "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
 
 function sanitizeHealthError(error: unknown) {
-  const rawMessage = error instanceof Error ? error.message : String(error || "健康检查失败");
+  const rawMessage =
+    error instanceof Error ? error.message : String(error || "健康检查失败");
   return rawMessage
     .replace(/-----BEGIN[\s\S]*?-----END[^\n]+-----/g, "[REDACTED]")
     .replace(/SECRET/gi, "[REDACTED]")
@@ -228,7 +269,9 @@ function serializeHealthFields(node: {
   return {
     healthStatus: (node.healthStatus ?? "UNKNOWN") as StorageNodeHealthStatus,
     lastHealthCheckAt: node.lastHealthCheckAt
-      ? (typeof node.lastHealthCheckAt === "string" ? node.lastHealthCheckAt : node.lastHealthCheckAt.toISOString())
+      ? typeof node.lastHealthCheckAt === "string"
+        ? node.lastHealthCheckAt
+        : node.lastHealthCheckAt.toISOString()
       : null,
     lastHealthError: node.lastHealthError ?? null,
     lastHealthLatencyMs: node.lastHealthLatencyMs ?? null,
@@ -326,7 +369,13 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
     },
     include: {
       server: {
-        select: { id: true, name: true, host: true, port: true, username: true },
+        select: {
+          id: true,
+          name: true,
+          host: true,
+          port: true,
+          username: true,
+        },
       },
     },
   });
@@ -341,15 +390,15 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
       username: storageNode.username ?? storageNode.server?.username,
       serverName: storageNode.server?.name,
     }),
- directAccess: buildDirectAccessStrategy({
- driver: storageNode.driver,
- nodeId: storageNode.id,
- host: storageNode.host ?? storageNode.server?.host,
- port: storageNode.port ?? storageNode.server?.port,
- directAccessMode: storageNode.directAccessMode,
- publicBaseUrl: storageNode.publicBaseUrl,
- directAccessExpiresSeconds: storageNode.directAccessExpiresSeconds,
- }),
+    directAccess: buildDirectAccessStrategy({
+      driver: storageNode.driver,
+      nodeId: storageNode.id,
+      host: storageNode.host ?? storageNode.server?.host,
+      port: storageNode.port ?? storageNode.server?.port,
+      directAccessMode: storageNode.directAccessMode,
+      publicBaseUrl: storageNode.publicBaseUrl,
+      directAccessExpiresSeconds: storageNode.directAccessExpiresSeconds,
+    }),
   };
 }
 
@@ -357,7 +406,17 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
   const payload = updateStorageNodeSchema.parse(input);
   const current = await prisma.storageNode.findUnique({
     where: { id: payload.storageNodeId },
-    include: { server: { select: { id: true, name: true, host: true, port: true, username: true } } },
+    include: {
+      server: {
+        select: {
+          id: true,
+          name: true,
+          host: true,
+          port: true,
+          username: true,
+        },
+      },
+    },
   });
 
   if (!current) {
@@ -365,10 +424,17 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
   }
 
   const nextDriver = payload.driver ?? current.driver;
-  const nextServerId = payload.serverId === undefined ? current.serverId ?? undefined : payload.serverId ?? undefined;
-  const nextHost = payload.host === undefined ? current.host ?? undefined : payload.host ?? undefined;
+  const nextServerId =
+    payload.serverId === undefined
+      ? (current.serverId ?? undefined)
+      : (payload.serverId ?? undefined);
+  const nextHost =
+    payload.host === undefined
+      ? (current.host ?? undefined)
+      : (payload.host ?? undefined);
   const nextPort = payload.port === undefined ? current.port : payload.port;
-  const nextUsername = payload.username === undefined ? current.username : payload.username;
+  const nextUsername =
+    payload.username === undefined ? current.username : payload.username;
 
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
     throw new Error("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
@@ -386,10 +452,16 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
       host: payload.host === undefined ? current.host : payload.host,
       port: nextPort,
       username: nextUsername,
-      serverId: payload.serverId === undefined ? current.serverId : payload.serverId,
+      serverId:
+        payload.serverId === undefined ? current.serverId : payload.serverId,
       directAccessMode: payload.directAccessMode ?? current.directAccessMode,
-      publicBaseUrl: payload.publicBaseUrl === undefined ? current.publicBaseUrl : (payload.publicBaseUrl || null),
-      directAccessExpiresSeconds: payload.directAccessExpiresSeconds ?? current.directAccessExpiresSeconds,
+      publicBaseUrl:
+        payload.publicBaseUrl === undefined
+          ? current.publicBaseUrl
+          : payload.publicBaseUrl || null,
+      directAccessExpiresSeconds:
+        payload.directAccessExpiresSeconds ??
+        current.directAccessExpiresSeconds,
     },
   });
 }
@@ -404,7 +476,9 @@ export async function deleteStorageNode(storageNodeId: string) {
     throw new Error("存储节点不存在或已删除");
   }
 
-  const activeEntryCount = node.fileEntries.filter((entry: { isDeleted: boolean }) => !entry.isDeleted).length;
+  const activeEntryCount = node.fileEntries.filter(
+    (entry: { isDeleted: boolean }) => !entry.isDeleted,
+  ).length;
   if (activeEntryCount > 0) {
     throw new Error("该存储节点下仍有文件条目，请先删除或迁移文件后再移除节点");
   }
@@ -414,85 +488,112 @@ export async function deleteStorageNode(storageNodeId: string) {
 }
 
 export async function listStorageNodes() {
- const nodes = await prisma.storageNode.findMany({
-      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-      include: {
-        server: { select: { id: true, name: true, host: true, port: true, username: true } },
-        fileEntries: { where: { isDeleted: false }, select: { id: true } },
+  const nodes = await prisma.storageNode.findMany({
+    orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    include: {
+      server: {
+        select: {
+          id: true,
+          name: true,
+          host: true,
+          port: true,
+          username: true,
+        },
       },
-    });
+      fileEntries: { where: { isDeleted: false }, select: { id: true } },
+    },
+  });
 
-	return nodes.map((node: StorageNodeListRow) => ({
-		id: node.id,
-		name: node.name,
-		driver: node.driver,
-		isDefault: node.isDefault,
-		basePath: node.basePath,
-		host: node.host,
-		port: node.port,
-		username: node.username,
-		serverId: node.serverId,
-		directAccessMode: node.directAccessMode,
-		publicBaseUrl: node.publicBaseUrl,
-		directAccessExpiresSeconds: node.directAccessExpiresSeconds,
-		createdAt: node.createdAt?.toISOString?.() ?? node.createdAt,
-		updatedAt: node.updatedAt?.toISOString?.() ?? node.updatedAt,
-		...serializeHealthFields(node),
-		server: node.server,
-		fileCount: node.fileEntries.length,
-      connectionSummary: buildStorageConnectionSummary({
-        driver: node.driver,
-        basePath: node.basePath,
-        host: node.host ?? node.server?.host,
-        port: node.port ?? node.server?.port,
-        username: node.username ?? node.server?.username,
-        serverName: node.server?.name,
-      }),
- directAccess: buildDirectAccessStrategy({
- driver: node.driver,
- nodeId: node.id,
- host: node.host ?? node.server?.host,
- port: node.port ?? node.server?.port,
- directAccessMode: node.directAccessMode,
- publicBaseUrl: node.publicBaseUrl,
- directAccessExpiresSeconds: node.directAccessExpiresSeconds,
- }),
- }));
+  return nodes.map((node: StorageNodeListRow) => ({
+    id: node.id,
+    name: node.name,
+    driver: node.driver,
+    isDefault: node.isDefault,
+    basePath: node.basePath,
+    host: node.host,
+    port: node.port,
+    username: node.username,
+    serverId: node.serverId,
+    directAccessMode: node.directAccessMode,
+    publicBaseUrl: node.publicBaseUrl,
+    directAccessExpiresSeconds: node.directAccessExpiresSeconds,
+    createdAt: node.createdAt?.toISOString?.() ?? node.createdAt,
+    updatedAt: node.updatedAt?.toISOString?.() ?? node.updatedAt,
+    ...serializeHealthFields(node),
+    server: node.server,
+    fileCount: node.fileEntries.length,
+    connectionSummary: buildStorageConnectionSummary({
+      driver: node.driver,
+      basePath: node.basePath,
+      host: node.host ?? node.server?.host,
+      port: node.port ?? node.server?.port,
+      username: node.username ?? node.server?.username,
+      serverName: node.server?.name,
+    }),
+    directAccess: buildDirectAccessStrategy({
+      driver: node.driver,
+      nodeId: node.id,
+      host: node.host ?? node.server?.host,
+      port: node.port ?? node.server?.port,
+      directAccessMode: node.directAccessMode,
+      publicBaseUrl: node.publicBaseUrl,
+      directAccessExpiresSeconds: node.directAccessExpiresSeconds,
+    }),
+  }));
 }
 
 export async function createFileEntry(input: CreateFileEntryInput) {
- const payload = createFileEntrySchema.parse(input);
+  const payload = createFileEntrySchema.parse(input);
 
- // Check for duplicate entry (same node + same relativePath)
- const existing = await prisma.fileEntry.findFirst({
- where: {
- storageNodeId: payload.storageNodeId,
- relativePath: payload.relativePath,
- isDeleted: false,
- },
- select: { id: true },
- });
- if (existing) {
- throw new Error(`路径已存在: ${payload.relativePath}`);
- }
+  // Check for duplicate entry (same node + same relativePath). The database enforces
+  // uniqueness across both active and soft-deleted rows, so resurrect a deleted row
+  // instead of attempting a create that would fail after the backing folder/file has
+  // already been created.
+  const existing = await prisma.fileEntry.findFirst({
+    where: {
+      storageNodeId: payload.storageNodeId,
+      relativePath: payload.relativePath,
+    },
+    select: { id: true, isDeleted: true },
+  });
+  if (existing && !existing.isDeleted) {
+    throw new Error(`路径已存在: ${payload.relativePath}`);
+  }
+  if (existing?.isDeleted) {
+    return prisma.fileEntry.update({
+      where: { id: existing.id },
+      data: {
+        name: payload.name,
+        entryType: payload.entryType,
+        mimeType: payload.mimeType,
+        size: payload.size == null ? null : BigInt(payload.size),
+        checksumSha256: payload.checksumSha256,
+        relativePath: payload.relativePath,
+        parentId: payload.parentId,
+        isDeleted: false,
+      },
+    });
+  }
 
- return prisma.fileEntry.create({
- data: {
- storageNodeId: payload.storageNodeId,
- name: payload.name,
- entryType: payload.entryType,
- mimeType: payload.mimeType,
- size: payload.size == null ? undefined : BigInt(payload.size),
- checksumSha256: payload.checksumSha256,
- relativePath: payload.relativePath,
- parentId: payload.parentId,
- },
- });
+  return prisma.fileEntry.create({
+    data: {
+      storageNodeId: payload.storageNodeId,
+      name: payload.name,
+      entryType: payload.entryType,
+      mimeType: payload.mimeType,
+      size: payload.size == null ? undefined : BigInt(payload.size),
+      checksumSha256: payload.checksumSha256,
+      relativePath: payload.relativePath,
+      parentId: payload.parentId,
+    },
+  });
 }
 
 export async function updateFileEntry(input: UpdateFileEntryInput) {
   const payload = updateFileEntrySchema.parse(input);
-  const current = await prisma.fileEntry.findUnique({ where: { id: payload.fileEntryId } });
+  const current = await prisma.fileEntry.findUnique({
+    where: { id: payload.fileEntryId },
+  });
 
   if (!current) {
     throw new Error("文件条目不存在或已删除");
@@ -514,7 +615,9 @@ export async function updateFileEntry(input: UpdateFileEntryInput) {
 
 export async function softDeleteFileEntry(input: FileEntryMutationInput) {
   const payload = fileEntryMutationSchema.parse(input);
-  const current = await prisma.fileEntry.findUnique({ where: { id: payload.fileEntryId } });
+  const current = await prisma.fileEntry.findUnique({
+    where: { id: payload.fileEntryId },
+  });
 
   if (!current) {
     throw new Error("文件条目不存在或已删除");
@@ -553,7 +656,10 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
 
 async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
   if (entry.storageNode.driver === "LOCAL") {
-    const absolutePath = resolveLocalAbsolutePath(entry.storageNode.basePath, entry.relativePath);
+    const absolutePath = resolveLocalAbsolutePath(
+      entry.storageNode.basePath,
+      entry.relativePath,
+    );
     let fileStat;
     try {
       fileStat = await stat(absolutePath);
@@ -574,7 +680,10 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
   const normalizedParent = parentRelativePath === "." ? "" : parentRelativePath;
   let remoteParentPath: string;
   try {
-    remoteParentPath = normalizeRemotePath(entry.storageNode.basePath, normalizedParent);
+    remoteParentPath = normalizeRemotePath(
+      entry.storageNode.basePath,
+      normalizedParent,
+    );
   } catch {
     throw new Error("原始远端路径非法，无法恢复索引");
   }
@@ -582,13 +691,18 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
   const credentials = resolveStorageSshCredentials(entry.storageNode);
   let entries;
   try {
-    entries = await listRemoteDirectory({ ...credentials, remotePath: remoteParentPath });
+    entries = await listRemoteDirectory({
+      ...credentials,
+      remotePath: remoteParentPath,
+    });
   } catch {
     throw new Error("无法确认远端文件仍然存在，恢复已取消");
   }
 
   const expectedName = path.posix.basename(entry.relativePath);
-  const remoteEntry = entries.find((candidate) => candidate.name === expectedName);
+  const remoteEntry = entries.find(
+    (candidate) => candidate.name === expectedName,
+  );
   if (!remoteEntry) {
     throw new Error("原始远端文件已不存在，无法恢复索引");
   }
@@ -646,65 +760,71 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
 }
 
 export async function listFileEntries(storageNodeId?: string) {
- const where = {
-      isDeleted: false,
-      ...(storageNodeId ? { storageNodeId } : {}),
-    };
+  const where = {
+    isDeleted: false,
+    ...(storageNodeId ? { storageNodeId } : {}),
+  };
 
-    const entries = await prisma.fileEntry.findMany({
-      where,
-      orderBy: [{ entryType: "asc" }, { relativePath: "asc" }],
-      include: {
-        storageNode: {
-          select: {
-            id: true,
-            name: true,
-            driver: true,
-            basePath: true,
-            host: true,
-            port: true,
-            username: true,
-            directAccessMode: true,
-            publicBaseUrl: true,
-            directAccessExpiresSeconds: true,
-            server: { select: { id: true, name: true, host: true, port: true } },
-          },
+  const entries = await prisma.fileEntry.findMany({
+    where,
+    orderBy: [{ entryType: "asc" }, { relativePath: "asc" }],
+    include: {
+      storageNode: {
+        select: {
+          id: true,
+          name: true,
+          driver: true,
+          basePath: true,
+          host: true,
+          port: true,
+          username: true,
+          directAccessMode: true,
+          publicBaseUrl: true,
+          directAccessExpiresSeconds: true,
+          server: { select: { id: true, name: true, host: true, port: true } },
         },
       },
+    },
+  });
+
+  return entries.map((entry: FileEntryListRow) => {
+    const directAccess = buildDirectAccessStrategy({
+      driver: entry.storageNode.driver,
+      nodeId: entry.storageNode.id,
+      host: entry.storageNode.host ?? entry.storageNode.server?.host,
+      port: entry.storageNode.port ?? entry.storageNode.server?.port,
+      relativePath: entry.relativePath,
+      directAccessMode: entry.storageNode.directAccessMode,
+      publicBaseUrl: entry.storageNode.publicBaseUrl,
+      directAccessExpiresSeconds: entry.storageNode.directAccessExpiresSeconds,
     });
 
-	return entries.map((entry: FileEntryListRow) => {
-			const directAccess = buildDirectAccessStrategy({
-				driver: entry.storageNode.driver,
-				nodeId: entry.storageNode.id,
-				host: entry.storageNode.host ?? entry.storageNode.server?.host,
-				port: entry.storageNode.port ?? entry.storageNode.server?.port,
-				relativePath: entry.relativePath,
-				directAccessMode: entry.storageNode.directAccessMode,
-				publicBaseUrl: entry.storageNode.publicBaseUrl,
-				directAccessExpiresSeconds: entry.storageNode.directAccessExpiresSeconds,
-			});
-
-			return {
-				id: entry.id,
-				storageNodeId: entry.storageNodeId,
-				name: entry.name,
-				entryType: entry.entryType,
-				mimeType: entry.mimeType,
-				size: entry.size,
-				checksumSha256: entry.checksumSha256,
-				relativePath: entry.relativePath,
-				parentId: entry.parentId,
-				isDeleted: entry.isDeleted,
-				createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
-				updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
-				storageNode: entry.storageNode,
-				sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
-				directAccess,
-				localEditable: entry.storageNode.driver === "LOCAL" && isEditableTextFile({ entryType: entry.entryType, name: entry.name, mimeType: entry.mimeType }),
-				previewable: isPreviewableMime(entry.mimeType),
-			};
- });
+    return {
+      id: entry.id,
+      storageNodeId: entry.storageNodeId,
+      name: entry.name,
+      entryType: entry.entryType,
+      mimeType: entry.mimeType,
+      size: entry.size,
+      checksumSha256: entry.checksumSha256,
+      relativePath: entry.relativePath,
+      parentId: entry.parentId,
+      isDeleted: entry.isDeleted,
+      createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+      updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+      storageNode: entry.storageNode,
+      sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
+      directAccess,
+      localEditable:
+        entry.storageNode.driver === "LOCAL" &&
+        isEditableTextFile({
+          entryType: entry.entryType,
+          name: entry.name,
+          mimeType: entry.mimeType,
+        }),
+      previewable: isPreviewableMime(entry.mimeType),
+    };
+  });
 }
 
 export async function listDeletedFileEntries(storageNodeId?: string) {
@@ -717,26 +837,35 @@ export async function listDeletedFileEntries(storageNodeId?: string) {
     where,
     orderBy: [{ updatedAt: "desc" }],
     include: {
-      storageNode: { select: { id: true, name: true, driver: true, host: true, port: true, server: { select: { host: true, port: true } } } },
+      storageNode: {
+        select: {
+          id: true,
+          name: true,
+          driver: true,
+          host: true,
+          port: true,
+          server: { select: { host: true, port: true } },
+        },
+      },
     },
   });
 
-	return entries.map((entry: DeletedFileEntryRow) => ({
-		id: entry.id,
-		storageNodeId: entry.storageNodeId,
-		name: entry.name,
-		entryType: entry.entryType,
-		mimeType: entry.mimeType,
-		size: entry.size,
-		checksumSha256: entry.checksumSha256,
-		relativePath: entry.relativePath,
-		parentId: entry.parentId,
-		isDeleted: entry.isDeleted,
-		createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
-		updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
-		storageNode: entry.storageNode,
-		sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
-	}));
+  return entries.map((entry: DeletedFileEntryRow) => ({
+    id: entry.id,
+    storageNodeId: entry.storageNodeId,
+    name: entry.name,
+    entryType: entry.entryType,
+    mimeType: entry.mimeType,
+    size: entry.size,
+    checksumSha256: entry.checksumSha256,
+    relativePath: entry.relativePath,
+    parentId: entry.parentId,
+    isDeleted: entry.isDeleted,
+    createdAt: entry.createdAt?.toISOString?.() ?? entry.createdAt,
+    updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+    storageNode: entry.storageNode,
+    sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
+  }));
 }
 
 type DirectorySummary = {
@@ -748,10 +877,17 @@ type DirectorySummary = {
   itemCount: number;
 };
 
-function buildDirectorySummaries(entries: Awaited<ReturnType<typeof listFileEntries>>) {
+function buildDirectorySummaries(
+  entries: Awaited<ReturnType<typeof listFileEntries>>,
+) {
   const directories = new Map<string, DirectorySummary>();
 
-  const registerDirectory = (input: { storageNodeId: string; storageNodeName: string; storageNodeDriver: "LOCAL" | "SFTP"; path: string }) => {
+  const registerDirectory = (input: {
+    storageNodeId: string;
+    storageNodeName: string;
+    storageNodeDriver: "LOCAL" | "SFTP";
+    path: string;
+  }) => {
     const normalizedPath = input.path.replace(/^\/+|\/+$/g, "");
     if (!normalizedPath) {
       return;
@@ -780,7 +916,8 @@ function buildDirectorySummaries(entries: Awaited<ReturnType<typeof listFileEntr
       continue;
     }
 
-    const limit = entry.entryType === "DIRECTORY" ? segments.length : segments.length - 1;
+    const limit =
+      entry.entryType === "DIRECTORY" ? segments.length : segments.length - 1;
     for (let index = 0; index < limit; index += 1) {
       registerDirectory({
         storageNodeId: entry.storageNode.id,
@@ -791,33 +928,73 @@ function buildDirectorySummaries(entries: Awaited<ReturnType<typeof listFileEntr
     }
   }
 
-  return [...directories.values()].sort((left, right) => left.path.localeCompare(right.path, "zh-CN"));
+  return [...directories.values()].sort((left, right) =>
+    left.path.localeCompare(right.path, "zh-CN"),
+  );
 }
 
 export async function getStorageOverview() {
- const [nodes, entries, deletedEntries] = await Promise.all([listStorageNodes(), listFileEntries(), listDeletedFileEntries()]);
-    const remoteDirectories = buildDirectorySummaries(entries);
+  const [nodes, entries, deletedEntries] = await Promise.all([
+    listStorageNodes(),
+    listFileEntries(),
+    listDeletedFileEntries(),
+  ]);
+  const remoteDirectories = buildDirectorySummaries(entries);
 
-    return {
-      nodes,
-      entries,
-      deletedEntries,
-      remoteDirectories,
-      stats: {
-        totalNodes: nodes.length,
-        defaultNodeName: nodes.find((node: ReturnType<typeof listStorageNodes> extends Promise<Array<infer Row>> ? Row : never) => node.isDefault)?.name ?? "未配置",
-        localNodeCount: nodes.filter((node: ReturnType<typeof listStorageNodes> extends Promise<Array<infer Row>> ? Row : never) => node.driver === "LOCAL").length,
-        sftpNodeCount: nodes.filter((node: ReturnType<typeof listStorageNodes> extends Promise<Array<infer Row>> ? Row : never) => node.driver === "SFTP").length,
-        totalEntries: entries.length,
-        previewableEntries: entries.filter((entry: ReturnType<typeof listFileEntries> extends Promise<Array<infer Row>> ? Row : never) => entry.previewable).length,
-        deletedEntries: deletedEntries.length,
-        remoteDirectoryCount: remoteDirectories.length,
-      },
- };
+  return {
+    nodes,
+    entries,
+    deletedEntries,
+    remoteDirectories,
+    stats: {
+      totalNodes: nodes.length,
+      defaultNodeName:
+        nodes.find(
+          (
+            node: ReturnType<typeof listStorageNodes> extends Promise<
+              Array<infer Row>
+            >
+              ? Row
+              : never,
+          ) => node.isDefault,
+        )?.name ?? "未配置",
+      localNodeCount: nodes.filter(
+        (
+          node: ReturnType<typeof listStorageNodes> extends Promise<
+            Array<infer Row>
+          >
+            ? Row
+            : never,
+        ) => node.driver === "LOCAL",
+      ).length,
+      sftpNodeCount: nodes.filter(
+        (
+          node: ReturnType<typeof listStorageNodes> extends Promise<
+            Array<infer Row>
+          >
+            ? Row
+            : never,
+        ) => node.driver === "SFTP",
+      ).length,
+      totalEntries: entries.length,
+      previewableEntries: entries.filter(
+        (
+          entry: ReturnType<typeof listFileEntries> extends Promise<
+            Array<infer Row>
+          >
+            ? Row
+            : never,
+        ) => entry.previewable,
+      ).length,
+      deletedEntries: deletedEntries.length,
+      remoteDirectoryCount: remoteDirectories.length,
+    },
+  };
 }
 
 export async function getLocalEditableFileDraft(fileEntryId: string) {
-  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(fileEntryId);
+  const { entry, fileStat, absolutePath } =
+    await resolveLocalEditableFileEntry(fileEntryId);
   const content = await readFile(absolutePath, "utf8");
 
   return {
@@ -826,6 +1003,6 @@ export async function getLocalEditableFileDraft(fileEntryId: string) {
     relativePath: entry.relativePath,
     content,
     byteSize: fileStat.size,
-	updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+    updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
   };
 }

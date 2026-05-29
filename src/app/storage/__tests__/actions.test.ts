@@ -166,7 +166,7 @@ describe("createFolderAction", () => {
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         remotePath: "/data/root/team/alpha/docs",
-        recursive: true,
+        recursive: false,
       }),
     );
     expect(createFileEntryMock).toHaveBeenCalledWith(
@@ -177,46 +177,83 @@ describe("createFolderAction", () => {
     );
   });
 
-  it("creates SFTP folders for password-based nodes", async () => {
+  it("rolls back a newly-created local folder when indexing fails", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
-      id: "node-password",
-      name: "remote-password",
+      id: "node-local",
+      name: "local",
+      driver: "LOCAL",
+      basePath: "/srv/storage",
+      host: null,
+      port: null,
+      username: null,
+      server: null,
+    });
+    mkdirMock.mockResolvedValueOnce(undefined);
+    createFileEntryMock.mockRejectedValueOnce(new Error("索引写入失败"));
+
+    const result = await createFolderAction(
+      null,
+      folderForm({
+        storageNodeId: "node-local",
+        currentPath: "docs",
+        folderName: "drafts",
+      }),
+    );
+
+    expect(result).toEqual({ error: "索引写入失败" });
+    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
+      recursive: false,
+    });
+    expect(rmMock).toHaveBeenCalledWith("/srv/storage/docs/drafts", {
+      recursive: true,
+      force: false,
+    });
+  });
+
+  it("rolls back a newly-created SFTP folder when indexing fails", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node-sftp",
+      name: "remote",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,
       port: null,
       username: null,
-      serverId: "srv-password",
+      serverId: "srv-1",
       server: {
-        host: "203.0.113.11",
-        port: 2022,
-        username: "ops",
-        connectionType: "PASSWORD",
-        password: "secret",
-        sshKey: null,
+        host: "203.0.113.10",
+        port: 22,
+        username: "root",
+        connectionType: "SSH_KEY",
+        password: null,
+        sshKey: { privateKey: "PRIVATE KEY" },
       },
     });
-    createFileEntryMock.mockResolvedValueOnce({ id: "folder-password" });
+    createRemoteDirectoryMock.mockResolvedValueOnce(undefined);
+    createFileEntryMock.mockRejectedValueOnce(new Error("索引写入失败"));
 
     const result = await createFolderAction(
       null,
       folderForm({
-        storageNodeId: "node-password",
-        currentPath: "uploads",
-        folderName: "batch",
+        storageNodeId: "node-sftp",
+        currentPath: "team",
+        folderName: "drafts",
       }),
     );
 
-    expect(result).toEqual({ success: "文件夹 /uploads/batch 已创建" });
+    expect(result).toEqual({ error: "索引写入失败" });
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        host: "203.0.113.11",
-        port: 2022,
-        username: "ops",
-        password: "secret",
-        remotePath: "/data/root/uploads/batch",
-        recursive: true,
+        remotePath: "/data/root/team/drafts",
+        recursive: false,
+      }),
+    );
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/root/team/drafts",
+        isDirectory: true,
       }),
     );
   });
@@ -394,7 +431,9 @@ describe("SFTP file entry actions", () => {
     );
 
     expect(result).toEqual({ success: "已重命名为 new.txt" });
-    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs", { recursive: true });
+    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs", {
+      recursive: true,
+    });
     expect(renameFsMock).toHaveBeenCalledWith(
       "/srv/storage/docs/old.txt",
       "/srv/storage/docs/new.txt",
