@@ -14,25 +14,35 @@ import {
 
 const scheduledTaskPostSchema = z.object({
   name: z.string().min(1),
-  cron: z.string().min(1),
+  cron: z.string().min(1).optional(),
   command: z.string().min(1),
-  serverId: z.string().min(1),
+  serverId: z.string().min(1).optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
-  cronExpression: z.string().optional(),
+  cronExpression: z.string().min(1).optional(),
   reason: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
+}).refine((data) => Boolean(data.cronExpression ?? data.cron), {
+  message: "Cron 表达式不能为空",
+  path: ["cronExpression"],
+}).refine((data) => (data.serverIds?.length ?? 0) > 0 || Boolean(data.serverId), {
+  message: "请至少选择一台目标 VPS",
+  path: ["serverIds"],
 });
 
 const scheduledTaskPatchSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().optional(),
   toggleId: z.string().optional(),
   name: z.string().optional(),
   cron: z.string().optional(),
+  cronExpression: z.string().optional(),
   command: z.string().optional(),
   serverId: z.string().optional(),
+  serverIds: z.array(z.string()).optional(),
+  reason: z.string().optional(),
   description: z.string().optional(),
   enabled: z.boolean().optional(),
+  status: z.enum(["ACTIVE", "PAUSED", "DISABLED"]).optional(),
 });
 
 export const dynamic = "force-dynamic";
@@ -104,9 +114,12 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       const data = parsed.data;
+      const cronExpression = data.cronExpression ?? data.cron;
+      if (!cronExpression)
+        return NextResponse.json({ error: "Cron 表达式不能为空" }, { status: 400 });
       const task = await createScheduledTask({
         name: data.name,
-        cronExpression: data.cronExpression ?? data.cron,
+        cronExpression,
         command: data.command,
         reason: data.reason ?? data.description,
         serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : []),
@@ -156,7 +169,14 @@ export async function PATCH(request: Request) {
       }
       if (!data.id)
         return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
-      const result = await updateScheduledTask(data.id, data);
+      const result = await updateScheduledTask(data.id, {
+        name: data.name,
+        cronExpression: data.cronExpression ?? data.cron,
+        command: data.command,
+        reason: data.reason ?? data.description,
+        serverIds: data.serverIds ?? (data.serverId ? [data.serverId] : undefined),
+        status: data.status,
+      });
       auditUserAction(
         session.userId,
         "scheduled_task.update",

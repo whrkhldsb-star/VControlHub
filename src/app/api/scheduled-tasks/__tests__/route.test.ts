@@ -72,6 +72,57 @@ describe("/api/scheduled-tasks audit coverage", () => {
     });
   });
 
+  it("accepts create payloads from the current client without legacy cron/serverId fields", async () => {
+    const res = await route.POST(
+      new Request("http://local/api/scheduled-tasks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Clean logs",
+          cronExpression: "0 2 * * *",
+          command: "journalctl --vacuum-time=7d",
+          serverIds: ["srv1", "srv2"],
+          reason: "maintenance",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.createScheduledTask).toHaveBeenCalledWith({
+      name: "Clean logs",
+      cronExpression: "0 2 * * *",
+      command: "journalctl --vacuum-time=7d",
+      reason: "maintenance",
+      serverIds: ["srv1", "srv2"],
+      createdById: "u1",
+    });
+  });
+
+  it("maps update aliases to scheduled task service fields", async () => {
+    const res = await route.PATCH(
+      new Request("http://local/api/scheduled-tasks", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "task1",
+          cron: "0 2 * * 1",
+          description: "weekly maintenance",
+          serverId: "srv1",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateScheduledTask).toHaveBeenCalledWith("task1", {
+      name: undefined,
+      cronExpression: "0 2 * * 1",
+      command: undefined,
+      reason: "weekly maintenance",
+      serverIds: ["srv1"],
+      status: undefined,
+    });
+  });
+
   it("audits scheduled task lifecycle changes without leaking command text", async () => {
     await route.POST(
       new Request("http://local/api/scheduled-tasks", {

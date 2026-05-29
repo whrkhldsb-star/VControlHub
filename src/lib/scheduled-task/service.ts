@@ -45,6 +45,12 @@ export function computeNextRun(cronExpression: string): Date {
 	}
 }
 
+/* ── Helpers ──────────────────────────────────────────────── */
+
+function normalizeServerIds(serverIds: string[]) {
+	return Array.from(new Set(serverIds.map((id) => id.trim()).filter(Boolean)));
+}
+
 /* ── CRUD ─────────────────────────────────────────────────── */
 
 export async function createScheduledTask(input: CreateScheduledTaskInput) {
@@ -55,7 +61,7 @@ export async function createScheduledTask(input: CreateScheduledTaskInput) {
 			cronExpression: input.cronExpression,
 			command: input.command,
 			reason: input.reason ?? null,
-			serverIds: input.serverIds,
+			serverIds: normalizeServerIds(input.serverIds),
 			createdById: input.createdById ?? null,
 			nextRunAt: nextRun,
 		},
@@ -78,7 +84,7 @@ export async function updateScheduledTask(id: string, input: UpdateScheduledTask
 	}
 	if (input.command !== undefined) data.command = input.command;
 	if (input.reason !== undefined) data.reason = input.reason;
-	if (input.serverIds !== undefined) data.serverIds = input.serverIds;
+	if (input.serverIds !== undefined) data.serverIds = normalizeServerIds(input.serverIds);
 	if (input.status !== undefined) data.status = input.status;
 	return prisma.scheduledTask.update({ where: { id }, data });
 }
