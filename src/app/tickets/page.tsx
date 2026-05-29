@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listTickets } from "@/lib/ticket/service";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -43,10 +44,10 @@ export default async function Page() {
 			{canCreate && <div className="mb-6"><CreateTicketForm /></div>}
 
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">工单列表</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">工单列表 ({tickets.length})</div>
 				<div className="divide-y divide-white/[0.06]">
 					{tickets.length === 0 ? <EmptyState text="暂无工单" /> : tickets.map((t) => (
-						<div key={t.id} className="px-5 py-4">
+						<Link key={t.id} href={`/tickets/${t.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]">
 							<div className="flex items-center justify-between gap-3">
 								<h3 className="text-sm font-medium text-white">{t.title}</h3>
 								<div className="flex items-center gap-2">
@@ -61,15 +62,8 @@ export default async function Page() {
 								{t.creator && <span>提交人: {t.creator.displayName || t.creator.username}</span>}
 								{t.assignee && <span>处理人: {t.assignee.displayName || t.assignee.username}</span>}
 								<span>创建: {new Date(t.createdAt).toLocaleString("zh-CN")}</span>
-								<span>更新: {new Date(t.updatedAt).toLocaleString("zh-CN")}</span>
 							</div>
-							{t.comments && t.comments.length > 0 && (
-								<div className="mt-3 rounded-lg border border-white/[0.04] bg-black/20 p-3">
-									<p className="text-xs text-slate-500 mb-1">最新评论 ({t.comments.length})</p>
-									<p className="text-xs text-slate-300 line-clamp-2">{t.comments[t.comments.length - 1].body}</p>
-								</div>
-							)}
-						</div>
+						</Link>
 					))}
 				</div>
 			</section>

@@ -4,12 +4,17 @@ import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import Link from "next/link";
 
-interface TicketUser { id: string; username: string; displayName: string | null; }
-interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
-interface Ticket {
+export interface TicketUser { id: string; username: string; displayName: string | null; }
+export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
+export interface Ticket {
   id: string; title: string; description: string; status: string; priority: string;
   createdBy: string; assigneeId: string | null; createdAt: string; updatedAt: string; closedAt: string | null;
   creator: TicketUser; assignee: TicketUser | null; comments: TicketComment[];
+}
+
+interface TicketDetailClientProps {
+  initial: Ticket;
+  canManage: boolean;
 }
 
 const STATUS_LABELS: Record<string, string> = { OPEN: "待处理", IN_PROGRESS: "处理中", RESOLVED: "已解决", CLOSED: "已关闭" };
@@ -32,7 +37,7 @@ const TRANSITIONS: Record<string, string[]> = {
   CLOSED: ["OPEN"],
 };
 
-export function TicketDetailClient({ initial }: { initial: Ticket }) {
+export function TicketDetailClient({ initial, canManage }: TicketDetailClientProps) {
   const [ticket, setTicket] = useState(initial);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
@@ -42,14 +47,12 @@ export function TicketDetailClient({ initial }: { initial: Ticket }) {
     setSaving(true);
     setError("");
     try {
-      const res = await csrfFetch(`/api/tickets/${ticket.id}`, {
+      const data = await csrfFetch<{ ticket: Ticket }>(`/api/tickets/${ticket.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setTicket((prev) => ({ ...prev, status: newStatus, closedAt: newStatus === "CLOSED" ? new Date().toISOString() : prev.closedAt }));
+      setTicket((prev) => ({ ...prev, ...data.ticket }));
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "操作失败"); }
     finally { setSaving(false); }
   };
@@ -59,13 +62,11 @@ export function TicketDetailClient({ initial }: { initial: Ticket }) {
     setSaving(true);
     setError("");
     try {
-      const res = await csrfFetch(`/api/tickets/${ticket.id}`, {
+      const data = await csrfFetch<{ comment: TicketComment }>(`/api/tickets/${ticket.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: comment.trim() }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setTicket((prev) => ({ ...prev, comments: [...prev.comments, data.comment], updatedAt: new Date().toISOString() }));
       setComment("");
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "回复失败"); }
@@ -110,7 +111,7 @@ export function TicketDetailClient({ initial }: { initial: Ticket }) {
       </div>
 
       {/* Status transitions */}
-      {TRANSITIONS[ticket.status]?.length > 0 && (
+      {canManage && TRANSITIONS[ticket.status]?.length > 0 && (
         <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
           <h3 className="text-sm font-medium text-white mb-3">状态流转</h3>
           <div className="flex flex-wrap gap-2">

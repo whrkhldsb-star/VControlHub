@@ -63,7 +63,7 @@ run_pre_upgrade_backup() {
   mkdir -p "${BACKUP_DIR}"
   local stamp output
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-  output="${BACKUP_DIR}/pre-upgrade-${stamp}.dump"
+  output="${BACKUP_DIR}/pre-upgrade-${stamp}.sql.gz"
   log "Creating pre-upgrade database backup at ${output}"
   APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" BACKUP_DIR="${BACKUP_DIR}" "${SCRIPT_DIR}/backup.sh" "${output}"
 }

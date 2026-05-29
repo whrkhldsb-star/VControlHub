@@ -41,8 +41,8 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const handleDelete = async (id: string) => {
     if (!confirm("确定要删除这个代码片段吗？")) return;
     try {
-      const res = await csrfFetch(`/api/snippets?id=${id}`, { method: "DELETE" });
-      if (res.ok) setItems((prev) => prev.filter((s) => s.id !== id));
+      await csrfFetch(`/api/snippets?id=${id}`, { method: "DELETE" });
+      setItems((prev) => prev.filter((s) => s.id !== id));
     } catch {
       // silent
     }

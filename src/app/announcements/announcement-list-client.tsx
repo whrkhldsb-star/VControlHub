@@ -63,8 +63,8 @@ export function AnnouncementList({
   const handleDelete = async (id: string) => {
     if (!confirm("确定要删除这条公告吗？")) return;
     try {
-      const res = await csrfFetch(`/api/announcements?id=${id}`, { method: "DELETE" });
-      if (res.ok) setItems((prev) => prev.filter((a) => a.id !== id));
+      await csrfFetch(`/api/announcements?id=${id}`, { method: "DELETE" });
+      setItems((prev) => prev.filter((a) => a.id !== id));
     } catch {
       // silent
     }

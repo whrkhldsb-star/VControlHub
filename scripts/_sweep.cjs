@@ -61,7 +61,7 @@ function fetchPage(pagePath, cookie) {
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => {
         // Check for JS errors in the HTML
-        const hasError = body.includes('error') || body.includes('Error');
+        const _hasError = body.includes('error') || body.includes('Error');
         // Extract page title
         const titleMatch = body.match(/<title[^>]*>([^<]+)<\/title>/i);
         const title = titleMatch ? titleMatch[1] : 'No title';

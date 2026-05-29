@@ -43,7 +43,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	if (templates.length === 0) {
 		return (
 			<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:bg-amber-50 light:text-amber-800">
-				请先到"命令模板"创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。
+				请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。
 			</div>
 		);
 	}

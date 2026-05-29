@@ -33,13 +33,11 @@ export function SnippetEditModal({
     setSaving(true);
     setError("");
     try {
-      const res = await csrfFetch("/api/snippets", {
+      const data = await csrfFetch<{ snippet: Snippet }>("/api/snippets", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: snippet.id, title, content, language, isPrivate }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "保存失败");
       onSaved(data.snippet);
       onClose();
     } catch (e: unknown) {

@@ -33,13 +33,11 @@ export function AnnouncementEditModal({
     setSaving(true);
     setError("");
     try {
-      const res = await csrfFetch("/api/announcements", {
+      const data = await csrfFetch<{ announcement: Announcement }>("/api/announcements", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: announcement.id, title, content, type: level, pinned }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "保存失败");
       onSaved(data.announcement);
       onClose();
     } catch (e: unknown) {

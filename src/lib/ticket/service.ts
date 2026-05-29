@@ -31,6 +31,14 @@ export async function getTicketById(id: string) {
   });
 }
 
+export async function canViewTicket(id: string, userId: string) {
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { createdBy: true, assigneeId: true },
+  });
+  return ticket?.createdBy === userId || ticket?.assigneeId === userId;
+}
+
 export async function updateTicketStatus(input: { id: string; status: string; assigneeId?: string | null }) {
   if (!STATUSES.has(input.status)) throw new Error("工单状态无效");
   return prisma.ticket.update({ where: { id: input.id }, data: { status: input.status, assigneeId: input.assigneeId, closedAt: input.status === "CLOSED" ? new Date() : null } });
@@ -38,5 +46,8 @@ export async function updateTicketStatus(input: { id: string; status: string; as
 
 export async function addTicketComment(input: { ticketId: string; authorId: string; body: string }) {
   if (!input.body.trim()) throw new Error("回复内容不能为空");
-  return prisma.ticketComment.create({ data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() } });
+  return prisma.ticketComment.create({
+    data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() },
+    include: { author: { select: { id: true, username: true, displayName: true } } },
+  });
 }

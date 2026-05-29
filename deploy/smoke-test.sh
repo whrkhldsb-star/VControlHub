@@ -94,7 +94,7 @@ fi
 
 echo ""
 echo "── 5. Security ──"
-check "No direct public Next.js access"      "ss -tlnp | grep '0.0.0.0:${NEXT_PORT}' ; echo missing" 0
+check "No direct public Next.js access"      "! ss -tlnp | grep -q '0.0.0.0:${NEXT_PORT}'" 0
 check "Security headers present"   "curl -sSk -D- ${PROXY_PUBLIC_URL}/login | grep -i X-Content-Type-Options" 0
 
 echo ""

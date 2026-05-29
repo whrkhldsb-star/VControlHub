@@ -26,13 +26,11 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       const body: Record<string, unknown> = { storageNodeId: nodeId, path };
       if (name.trim()) body.name = name.trim();
       if (expiresIn) body.expiresInHours = Number(expiresIn);
-      const res = await csrfFetch("/api/share-links", {
+      const data = await csrfFetch<{ token: string }>("/api/share-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "创建失败");
       setResult({ token: data.token });
       setPath("");
       setName("");
