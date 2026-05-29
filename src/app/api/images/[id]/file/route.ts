@@ -1,58 +1,87 @@
-import { stat, createReadStream } from "node:fs";
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
+
 import { prisma } from "@/lib/db";
-import { requireApiSession, isSessionPayload } from "@/lib/auth/api-session";
+import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-	const session = await requireApiSession();
-	if (!isSessionPayload(session)) return session; // 401 response
+function resolveUploadPath(storageKey: string) {
+  const uploadRoot = path.resolve(UPLOAD_DIR);
+  const filePath = path.resolve(uploadRoot, storageKey);
+  if (
+    filePath !== uploadRoot &&
+    filePath.startsWith(`${uploadRoot}${path.sep}`)
+  ) {
+    return filePath;
+  }
+  return null;
+}
 
-	try {
-		const { id } = await params;
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  return withApiRoute(
+    request,
+    { requireAuth: true, errorMessage: "获取图片失败" },
+    async () => {
+      const { id } = await params;
 
-		const image = await prisma.imageUpload.findUnique({
-			where: { id },
-			select: { id: true, storageKey: true, mimeType: true, filename: true, isPublic: true },
-		});
+      const image = await prisma.imageUpload.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          storageKey: true,
+          mimeType: true,
+          filename: true,
+          isPublic: true,
+        },
+      });
 
-		if (!image || !image.isPublic) {
-			return NextResponse.json({ error: "图片不存在或不可公开访问" }, { status: 404 });
-		}
+      if (!image || !image.isPublic) {
+        return NextResponse.json(
+          { error: "图片不存在或不可公开访问" },
+          { status: 404 },
+        );
+      }
 
-		const filePath = path.join(UPLOAD_DIR, image.storageKey);
+      const filePath = resolveUploadPath(image.storageKey);
+      if (!filePath) {
+        return NextResponse.json({ error: "文件路径无效" }, { status: 400 });
+      }
 
-		const fileStat = await new Promise<import("node:fs").Stats | null>((resolve) => {
-			stat(filePath, (err, stats) => (err ? resolve(null) : resolve(stats)));
-		});
+      let fileStat;
+      try {
+        fileStat = await stat(filePath);
+      } catch {
+        return NextResponse.json({ error: "文件已丢失" }, { status: 404 });
+      }
 
-		if (!fileStat) {
-			return NextResponse.json({ error: "文件已丢失" }, { status: 404 });
-		}
+      const stream = createReadStream(filePath);
+      const webStream = new ReadableStream({
+        start(controller) {
+          stream.on("data", (chunk) =>
+            controller.enqueue(new Uint8Array(chunk as Buffer)),
+          );
+          stream.on("end", () => controller.close());
+          stream.on("error", (err) => controller.error(err));
+        },
+      });
 
-		const stream = createReadStream(filePath);
-		const webStream = new ReadableStream({
-			start(controller) {
-				stream.on("data", (chunk) => controller.enqueue(new Uint8Array(chunk as Buffer)));
-				stream.on("end", () => controller.close());
-				stream.on("error", (err) => controller.error(err));
-			},
-		});
-
-		return new NextResponse(webStream, {
-			status: 200,
-			headers: {
-				"Content-Type": image.mimeType,
-				"Content-Length": String(fileStat.size),
-				"Cache-Control": "public, max-age=31536000, immutable",
-				"Content-Disposition": `inline; filename="${image.filename}"`,
-			},
-		});
-	} catch (_error) {
-		return NextResponse.json({ error: "获取图片失败" }, { status: 500 });
-	}
+      return new NextResponse(webStream, {
+        status: 200,
+        headers: {
+          "Content-Type": image.mimeType,
+          "Content-Length": String(fileStat.size),
+          "Cache-Control": "public, max-age=31536000, immutable",
+          "Content-Disposition": `inline; filename="${image.filename.replace(/["\r\n]/g, "_")}"`,
+        },
+      });
+    },
+  );
 }
