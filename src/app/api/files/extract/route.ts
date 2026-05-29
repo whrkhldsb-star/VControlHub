@@ -9,6 +9,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
+import { createFileEntry } from "@/lib/storage/service";
 
 const execFileAsync = promisify(execFile);
 
@@ -92,11 +93,29 @@ export async function POST(request: NextRequest) {
         session,
         storageNodeId: node.id,
         relativePath,
-        operation: "write",
+        operation: "read",
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
           { error: accessDecision.reason ?? "没有该存储节点或路径的访问授权" },
+          { status: 403 },
+        );
+      }
+
+      const writeAccessDecision = await assertStorageAccess({
+        session,
+        storageNodeId: node.id,
+        relativePath:
+          body.targetDir?.trim() || path.posix.dirname(relativePath),
+        operation: "write",
+      });
+      if (!writeAccessDecision.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              writeAccessDecision.reason ??
+              "没有该存储节点或目标目录的写入授权",
+          },
           { status: 403 },
         );
       }
@@ -114,10 +133,14 @@ export async function POST(request: NextRequest) {
 
       try {
         if (ext === ".gz" && !lowerName.endsWith(".tar.gz")) {
-          const outputName = name.replace(/\.gz$/, "");
+          const outputName = name.replace(/\.gz$/i, "");
+          const outputRelativePath = path.posix.join(
+            path.posix.dirname(relativePath),
+            outputName,
+          );
           const outputPath = resolveStoragePathWithinBase(
             node.basePath,
-            path.posix.join(path.posix.dirname(relativePath), outputName),
+            outputRelativePath,
           );
           if (!outputPath.ok) {
             return NextResponse.json(
@@ -125,10 +148,64 @@ export async function POST(request: NextRequest) {
               { status: 400 },
             );
           }
-          await execFileAsync("gunzip", ["-k", "-f", fullPath], {
+
+          const existingOutput = await prisma.fileEntry.findFirst({
+            where: {
+              storageNodeId: node.id,
+              relativePath: outputRelativePath,
+              isDeleted: false,
+            },
+            select: { id: true },
+          });
+          if (existingOutput) {
+            return NextResponse.json(
+              { error: `目标文件 /${outputRelativePath} 已存在` },
+              { status: 409 },
+            );
+          }
+
+          try {
+            await fs.access(outputPath.path);
+            return NextResponse.json(
+              { error: `目标文件 /${outputRelativePath} 已存在` },
+              { status: 409 },
+            );
+          } catch {
+            // Expected: gunzip should create this file.
+          }
+
+          await execFileAsync("gunzip", ["-k", fullPath], {
             maxBuffer: 10 * 1024 * 1024,
             timeout: 60000,
           });
+
+          let outputStat;
+          try {
+            outputStat = await fs.stat(outputPath.path);
+          } catch {
+            return NextResponse.json(
+              { error: "解压命令完成但未找到输出文件" },
+              { status: 500 },
+            );
+          }
+
+          try {
+            await createFileEntry({
+              storageNodeId: node.id,
+              name: outputName,
+              entryType: "FILE",
+              mimeType: "application/octet-stream",
+              size: outputStat.size,
+              relativePath: outputRelativePath,
+            });
+          } catch (error) {
+            try {
+              await fs.unlink(outputPath.path);
+            } catch {
+              // Best-effort cleanup: keep the original indexing error visible.
+            }
+            throw error;
+          }
         } else if (ext === ".zip" || ext === ".jar") {
           return NextResponse.json(
             {
