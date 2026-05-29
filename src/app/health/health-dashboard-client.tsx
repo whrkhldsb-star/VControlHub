@@ -60,7 +60,7 @@ const repairSuggestions = (summary?: SystemHealthSummary | null): RepairSuggesti
 			id: "services",
 			label: "核对核心服务",
 			description: summary.critical > 0 ? "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。" : "核心服务在线，可继续检查业务功能。",
-			action: "验证 whrkhldsb-next.service / whrkhldsb-ssh-ws.service / caddy.service",
+			action: "验证 vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{

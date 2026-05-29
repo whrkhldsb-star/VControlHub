@@ -77,4 +77,18 @@ describe("HealthDashboardClient", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent("历史指标读取失败");
 		expect(screen.getByRole("button", { name: "收起 ▲" })).toBeInTheDocument();
 	});
+
+	it("shows current VControlHub service units in repair guidance", async () => {
+		render(
+			<HealthDashboardClient
+				serverCount={1}
+				systemHealthSummary={{ total: 4, healthy: 3, warning: 0, critical: 0, overall: "healthy" }}
+			/>,
+		);
+
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect(screen.getByText(/vcontrolhub-next\.service \/ vcontrolhub-ssh-ws\.service \/ caddy\.service/)).toBeInTheDocument();
+		expect(screen.queryByText(/whrkhldsb-next\.service/)).not.toBeInTheDocument();
+		expect(screen.queryByText(/whrkhldsb-ssh-ws\.service/)).not.toBeInTheDocument();
+	});
 });
