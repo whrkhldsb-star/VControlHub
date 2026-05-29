@@ -34,38 +34,42 @@ export const dynamic = "force-dynamic";
 
 /** GET: List all users with their roles */
 export async function GET() {
-  const session = await requireSession();
+  try {
+    const session = await requireSession();
 
-  if (!sessionHasPermission(session, "user:read")) {
-    return NextResponse.json({ error: "缺少权限" }, { status: 403 });
-  }
+    if (!sessionHasPermission(session, "user:read")) {
+      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    }
 
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      username: true,
-      displayName: true,
-      status: true,
-      mustChangePassword: true,
-      createdAt: true,
-      updatedAt: true,
-      roles: {
-        include: {
-          role: { select: { key: true, name: true } },
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        displayName: true,
+        status: true,
+        mustChangePassword: true,
+        createdAt: true,
+        updatedAt: true,
+        roles: {
+          include: {
+            role: { select: { key: true, name: true } },
+          },
         },
       },
-    },
-orderBy: { createdAt: "desc" },
-take: 500,
-});
+      orderBy: { createdAt: "desc" },
+      take: 500,
+    });
 
-// Strip passwordHash from response
-  const safeUsers = users.map((u) => ({
-    ...u,
-    roles: u.roles.map((r) => r.role),
-  }));
+    const safeUsers = users.map((u) => ({
+      ...u,
+      roles: u.roles.map((r) => r.role),
+    }));
 
-  return NextResponse.json(safeUsers);
+    return NextResponse.json(safeUsers);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "操作失败";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 /** POST: Create a new user */

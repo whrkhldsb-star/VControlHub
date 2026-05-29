@@ -78,10 +78,11 @@ async function serializeStorageAccessGrants(grants: Array<{
 }
 
 export async function GET(request: Request) {
-  const session = await requireSession();
-  if (!sessionHasPermission(session, "user:read")) {
-    return NextResponse.json({ error: "缺少权限" }, { status: 403 });
-  }
+  try {
+    const session = await requireSession();
+    if (!sessionHasPermission(session, "user:read")) {
+      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    }
 
   const url = new URL(request.url);
   const userId = url.searchParams.get("userId");
@@ -129,6 +130,10 @@ export async function GET(request: Request) {
     permissions: permissions.map((permission) => ({ id: permission.id, key: permission.key, name: permission.name, description: permission.description })),
     storageNodes,
   });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "操作失败";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: Request) {
