@@ -35,7 +35,9 @@ export const PERMISSIONS = [
 	"storage:read",
 	"storage:write",
 	"task:read",
+	"ticket:create",
 	"ticket:manage",
+	"ticket:read",
 	"user:manage",
 	"user:read",
 ] as const;
@@ -81,7 +83,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 		"storage:read",
 		"storage:write",
 		"task:read",
+		"ticket:create",
 		"ticket:manage",
+		"ticket:read",
 		"user:read",
 	],
 	viewer: [
@@ -95,6 +99,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 		"share:read",
 		"storage:read",
 		"task:read",
+		"ticket:create",
+		"ticket:read",
 		"user:read",
 	],
 	storage_manager: [
@@ -114,7 +120,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 		"storage:read",
 		"storage:write",
 		"task:read",
+		"ticket:create",
 		"ticket:manage",
+		"ticket:read",
 		"user:read",
 	],
 };

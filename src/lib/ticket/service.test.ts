@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { ticket: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() }, ticketComment: { create: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-const { createTicket, updateTicketStatus, addTicketComment, canViewTicket } = await import("./service");
+const { createTicket, updateTicketStatus, addTicketComment, canViewTicket, listTickets } = await import("./service");
 describe("ticket service", () => {
   beforeEach(() => vi.clearAllMocks());
   it("creates tickets and validates status transitions", async () => {
@@ -61,5 +61,19 @@ describe("ticket service", () => {
     await expect(canViewTicket("tk1", "u1")).resolves.toBe(true);
     await expect(canViewTicket("tk2", "u1")).resolves.toBe(true);
     await expect(canViewTicket("tk3", "u1")).resolves.toBe(false);
+  });
+
+  it("lists all tickets only when includeAll is explicit", async () => {
+    mockPrisma.ticket.findMany.mockResolvedValue([]);
+
+    await listTickets({ userId: "u1", includeAll: false });
+    await listTickets({ userId: "u1", includeAll: true });
+
+    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      where: { OR: [{ createdBy: "u1" }, { assigneeId: "u1" }] },
+    }));
+    expect(mockPrisma.ticket.findMany).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      where: {},
+    }));
   });
 });

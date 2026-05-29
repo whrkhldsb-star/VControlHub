@@ -30,11 +30,11 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## P1 — Ticket permission model
 
-- [ ] Split or normalize ticket permissions so normal authenticated users can create tickets without broad `ticket:manage`.
-- [ ] Make manager/admin ticket list return all tickets; normal users should only see created/assigned tickets.
-- [ ] Keep ticket detail/comment access consistent for creator, assignee, and manager/admin.
-- [ ] Update RBAC seed/tests if adding permissions such as `ticket:create`, `ticket:read`, `ticket:manage`.
-- [ ] Add regression tests for create/list/comment/update paths.
+- [x] 2026-05-29 — Split ticket permissions so normal authenticated users can create tickets without broad `ticket:manage`; added `ticket:create` and `ticket:read` alongside manager-only `ticket:manage`. Verification: targeted ticket/RBAC/seed Vitest 26/26, typecheck, lint, build, runtime build, seed, restart, production smoke 19/19 passed. Commit pending in current run.
+- [x] 2026-05-29 — Make manager/admin ticket list return all tickets; normal users only see created/assigned tickets via service-layer `includeAll`. Verification: route/service regressions passed.
+- [x] 2026-05-29 — Keep ticket detail/comment access consistent for creator, assignee, and manager/admin; comments still require ticket participant or `ticket:manage`, not broad read-only access. Verification: id-route and list-route regressions passed.
+- [x] 2026-05-29 — Update RBAC seed/tests for `ticket:create`, `ticket:read`, `ticket:manage`. Verification: `prisma/__tests__/seed.test.ts` and RBAC tests passed, `npx prisma db seed` ran successfully.
+- [x] 2026-05-29 — Add regression tests for create/list/comment/update paths. Verification: `src/app/api/tickets/__tests__/route.test.ts`, `id-route.test.ts`, and `src/lib/ticket/service.test.ts` passed.
 
 ## P2 — Storage and file-size safety
 

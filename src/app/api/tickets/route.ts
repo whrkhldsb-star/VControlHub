@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addTicketComment, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { addTicketComment, canViewTicket, createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -41,18 +42,29 @@ function normalizeStatus(status: string) {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "ticket:manage" }, async ({ session }) => {
-    return NextResponse.json({ tickets: await listTickets(session?.userId) });
+  return withApiRoute(request, { permission: "ticket:read" }, async ({ session }) => {
+    return NextResponse.json({
+      tickets: await listTickets({
+        userId: session?.userId,
+        includeAll: Boolean(session && sessionHasPermission(session, "ticket:manage")),
+      }),
+    });
   });
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
+  return withApiRoute(request, { requireAuth: true, rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
     const body = await request.json();
     if (body && typeof body === "object" && "ticketId" in body) {
       const parsed = ticketCommentSchema.safeParse(body);
       if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+      if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(parsed.data.ticketId, session.userId)))) {
+        return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+      }
       return NextResponse.json({ comment: await addTicketComment({ ticketId: parsed.data.ticketId, authorId: session?.userId ?? "", body: parsed.data.body }) }, { status: 201 });
+    }
+    if (!session || !sessionHasPermission(session, "ticket:create")) {
+      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
     }
     const parsed = ticketCreateSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });

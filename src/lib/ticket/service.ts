@@ -7,9 +7,11 @@ export async function createTicket(input: { title: string; description: string; 
   return prisma.ticket.create({ data: { title: input.title.trim(), description: input.description.trim(), status: "OPEN", priority: input.priority ?? "NORMAL", createdBy: input.createdBy } });
 }
 
-export async function listTickets(userId?: string) {
+export async function listTickets(input?: { userId?: string; includeAll?: boolean } | string) {
+  const userId = typeof input === "string" ? input : input?.userId;
+  const includeAll = typeof input === "object" ? input.includeAll === true : false;
   return prisma.ticket.findMany({
-    where: userId ? { OR: [{ createdBy: userId }, { assigneeId: userId }] } : {},
+    where: !includeAll && userId ? { OR: [{ createdBy: userId }, { assigneeId: userId }] } : {},
     include: {
       creator: { select: { username: true, displayName: true } },
       assignee: { select: { username: true, displayName: true } },

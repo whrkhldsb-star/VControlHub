@@ -31,8 +31,8 @@ function params(id = "tk1") {
 describe("/api/tickets/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice" });
-    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "admin", username: "root" } });
+    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", roles: ["viewer"] });
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "admin", username: "root", roles: ["operator"] } });
     mocks.sessionHasPermission.mockReturnValue(false);
     mocks.canViewTicket.mockResolvedValue(true);
     mocks.getTicketById.mockResolvedValue({ id: "tk1", title: "Need help" });
