@@ -411,6 +411,7 @@ export async function PATCH(request: Request) {
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
+        include: { server: { include: { sshKey: true } } },
       });
       if (!task)
         return NextResponse.json({ error: "任务不存在" }, { status: 404 });
@@ -499,8 +500,67 @@ export async function PATCH(request: Request) {
         }
       }
 
-      // Non-aria2 refresh (legacy)
+      // Non-aria2 refresh: inspect the real remote process/exit marker before reporting status.
       if (action === "refresh") {
+        if (task.pid && task.status === "RUNNING") {
+          try {
+            const sshParams = await buildSshParamsFromServer(
+              task.server,
+              task.server.sshKey,
+            );
+            const safeTaskFileStem = task.id.replace(/[^A-Za-z0-9_-]/g, "_");
+            const pidFile = `/tmp/app-dl-${safeTaskFileStem}.pid`;
+            const exitFile = `${pidFile}.exit`;
+            const outputPath = task.fileName
+              ? `${task.targetPath.replace(/\/$/, "")}/${task.fileName}`
+              : "";
+            const statSnippet = outputPath
+              ? `if [ -f ${shellQuote(outputPath)} ]; then stat -c %s -- ${shellQuote(outputPath)} 2>/dev/null || echo 0; else echo 0; fi`
+              : "echo 0";
+            const probeCommand = [
+              `if [ -f ${shellQuote(exitFile)} ]; then`,
+              "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
+              "  if [ \"$status\" = \"0\" ]; then echo COMPLETED; else echo FAILED; fi",
+              `  ${statSnippet}`,
+              `elif kill -0 ${task.pid} 2>/dev/null; then`,
+              "  echo RUNNING",
+              "  echo 0",
+              "else",
+              "  echo FAILED",
+              "  echo 0",
+              "fi",
+            ].join("\n");
+            const { stdout } = await execRemoteCommand({
+              ...sshParams,
+              command: probeCommand,
+              timeout: 10000,
+            });
+            const [remoteState, sizeLine] = stdout.trim().split(/\r?\n/);
+            if (remoteState === "COMPLETED") {
+              const size = /^\d+$/.test(sizeLine ?? "") ? sizeLine : null;
+              const data = {
+                status: "COMPLETED" as const,
+                progress: "下载完成",
+                ...(size
+                  ? { fileSize: size, totalBytes: size, completedBytes: size }
+                  : {}),
+              };
+              await prisma.downloadTask.update({ where: { id: taskId }, data });
+              return NextResponse.json({ status: data.status, progress: data.progress });
+            }
+            if (remoteState === "FAILED") {
+              const data = {
+                status: "FAILED" as const,
+                progress: "下载失败",
+                errorMessage: "远程下载进程已退出或失败",
+              };
+              await prisma.downloadTask.update({ where: { id: taskId }, data });
+              return NextResponse.json({ status: data.status, progress: data.progress });
+            }
+          } catch (err) {
+            logError("[DownloadAPI] direct download refresh failed:", err);
+          }
+        }
         return NextResponse.json({
           status: task.status,
           progress: task.progress,

@@ -270,6 +270,43 @@ describe("/api/downloads", () => {
     expect(getGlobalStatMock).toHaveBeenCalledOnce();
   });
 
+  it("refreshes a completed direct download from the remote process exit state", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_direct",
+      url: "https://example.com/file.iso",
+      status: "RUNNING",
+      progress: "下载中...",
+      pid: 12345,
+      aria2Gid: null,
+      relayMode: false,
+      targetPath: "/srv/cloud/downloads",
+      fileName: "file.iso",
+      server: serverFixture(),
+    });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "COMPLETED\n2048\n", stderr: "", exitCode: 0 });
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_direct", action: "refresh" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ status: "COMPLETED", progress: "下载完成" });
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({
+      command: expect.stringContaining("app-dl-task_direct.pid.exit"),
+    }));
+    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_direct" },
+      data: expect.objectContaining({
+        status: "COMPLETED",
+        progress: "下载完成",
+        fileSize: "2048",
+        totalBytes: "2048",
+        completedBytes: "2048",
+      }),
+    }));
+  });
+
   it("does not mark an aria2 task paused when the real pause operation fails", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_relay",
@@ -326,6 +363,7 @@ describe("/api/downloads", () => {
       relayMode: false,
       server: serverFixture(),
     });
+    execRemoteCommandMock.mockReset();
     execRemoteCommandMock.mockRejectedValueOnce(new Error("ssh unavailable"));
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_direct", { method: "DELETE" }));
