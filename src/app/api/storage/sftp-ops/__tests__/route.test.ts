@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const {
-  requireSessionMock,
+  requireApiSessionMock,
   sessionHasPermissionMock,
   assertStorageAccessMock,
   prismaMock,
@@ -9,9 +9,11 @@ const {
   renameRemoteFileMock,
   writeRemoteFileMock,
 } = vi.hoisted(() => ({
-  requireSessionMock: vi.fn(),
+  requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
-  assertStorageAccessMock: vi.fn<() => Promise<{ allowed: boolean; reason?: string }>>(() => Promise.resolve({ allowed: true })),
+  assertStorageAccessMock: vi.fn<
+    () => Promise<{ allowed: boolean; reason?: string }>
+  >(() => Promise.resolve({ allowed: true })),
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
@@ -22,8 +24,8 @@ const {
   writeRemoteFileMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/require-session", () => ({
-  requireSession: requireSessionMock,
+vi.mock("@/lib/auth/api-session", () => ({
+  requireApiSession: requireApiSessionMock,
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
@@ -85,58 +87,106 @@ function mockSftpNode() {
 describe("/api/storage/sftp-ops", () => {
   it("allows writing a new file under a nested directory so users can create files from the file manager", async () => {
     vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
     mockSftpNode();
 
     const response = await POST(
-      request({ action: "write", nodeId: "node_1", path: "new-folder/hello.txt", content: "hello" }),
+      request({
+        action: "write",
+        nodeId: "node_1",
+        path: "new-folder/hello.txt",
+        content: "hello",
+      }),
     );
 
     expect(response.status).toBe(200);
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ storageNodeId: "node_1", relativePath: "new-folder/hello.txt", operation: "write", writeBytes: 5 }),
+      expect.objectContaining({
+        storageNodeId: "node_1",
+        relativePath: "new-folder/hello.txt",
+        operation: "write",
+        writeBytes: 5,
+      }),
     );
     expect(writeRemoteFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt", content: "hello" }),
+      expect.objectContaining({
+        remotePath: "/data/files/new-folder/hello.txt",
+        content: "hello",
+      }),
     );
     expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
-      expect.objectContaining({ remotePath: "/data/files/new-folder", recursive: true }),
+      expect.objectContaining({
+        remotePath: "/data/files/new-folder",
+        recursive: true,
+      }),
     );
   });
 
   it("checks storage access for both source and destination before rename", async () => {
     vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
     mockSftpNode();
 
     const response = await POST(
-      request({ action: "rename", nodeId: "node_1", path: "allowed/a.txt", newPath: "allowed/b.txt" }),
+      request({
+        action: "rename",
+        nodeId: "node_1",
+        path: "allowed/a.txt",
+        newPath: "allowed/b.txt",
+      }),
     );
 
     expect(response.status).toBe(200);
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ storageNodeId: "node_1", relativePath: "allowed/a.txt", operation: "write" }),
+      expect.objectContaining({
+        storageNodeId: "node_1",
+        relativePath: "allowed/a.txt",
+        operation: "write",
+      }),
     );
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ storageNodeId: "node_1", relativePath: "allowed/b.txt", operation: "write" }),
+      expect.objectContaining({
+        storageNodeId: "node_1",
+        relativePath: "allowed/b.txt",
+        operation: "write",
+      }),
     );
     expect(renameRemoteFileMock).toHaveBeenCalled();
   });
 
   it("rejects rename when destination path is outside the user's storage grant", async () => {
     vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
     mockSftpNode();
     assertStorageAccessMock
       .mockResolvedValueOnce({ allowed: true })
-      .mockResolvedValueOnce({ allowed: false, reason: "目标路径无授权" } as { allowed: boolean; reason?: string });
+      .mockResolvedValueOnce({ allowed: false, reason: "目标路径无授权" } as {
+        allowed: boolean;
+        reason?: string;
+      });
 
     const response = await POST(
-      request({ action: "rename", nodeId: "node_1", path: "allowed/a.txt", newPath: "private/b.txt" }),
+      request({
+        action: "rename",
+        nodeId: "node_1",
+        path: "allowed/a.txt",
+        newPath: "private/b.txt",
+      }),
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toMatchObject({ error: "目标路径无授权" });
+    await expect(response.json()).resolves.toMatchObject({
+      error: "目标路径无授权",
+    });
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
   });
 });

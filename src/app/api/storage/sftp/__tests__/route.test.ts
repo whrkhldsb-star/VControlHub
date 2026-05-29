@@ -1,17 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 
 const {
-  requireSessionMock,
-  sessionHasPermissionMock,
+  requireApiPermissionMock,
   assertStorageAccessMock,
   prismaMock,
   listRemoteDirectoryMock,
 } = vi.hoisted(() => ({
-  requireSessionMock: vi.fn(),
-  sessionHasPermissionMock: vi.fn(() => true),
-  assertStorageAccessMock: vi.fn<() => Promise<{ allowed: boolean; reason?: string }>>(() =>
-    Promise.resolve({ allowed: true }),
-  ),
+  requireApiPermissionMock: vi.fn(),
+  assertStorageAccessMock: vi.fn<
+    () => Promise<{ allowed: boolean; reason?: string }>
+  >(() => Promise.resolve({ allowed: true })),
   prismaMock: {
     storageNode: {
       findUnique: vi.fn(),
@@ -20,12 +18,8 @@ const {
   listRemoteDirectoryMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/require-session", () => ({
-  requireSession: requireSessionMock,
-}));
-
-vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: sessionHasPermissionMock,
+vi.mock("@/lib/auth/require-api-permission", () => ({
+  requireApiPermission: requireApiPermissionMock,
 }));
 
 vi.mock("@/lib/storage/access-control", () => ({
@@ -49,7 +43,9 @@ import { GET } from "../route";
 
 function request(path = "/") {
   const params = new URLSearchParams({ nodeId: "node_1", path });
-  return new Request(`https://example.com/api/storage/sftp?${params.toString()}`);
+  return new Request(
+    `https://example.com/api/storage/sftp?${params.toString()}`,
+  );
 }
 
 function mockSftpNode(overrides: Record<string, unknown> = {}) {
@@ -78,10 +74,19 @@ function mockSftpNode(overrides: Record<string, unknown> = {}) {
 describe("/api/storage/sftp", () => {
   it("lists a remote directory through the canonical storage API", async () => {
     vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "alice" },
+    });
     mockSftpNode();
     listRemoteDirectoryMock.mockResolvedValueOnce([
-      { name: "logs", longname: "drwxr-xr-x logs", type: "directory", size: 4096, modifyTime: 1, accessTime: 1 },
+      {
+        name: "logs",
+        longname: "drwxr-xr-x logs",
+        type: "directory",
+        size: 4096,
+        modifyTime: 1,
+        accessTime: 1,
+      },
     ]);
 
     const response = await GET(request("/"));
@@ -106,23 +111,35 @@ describe("/api/storage/sftp", () => {
 
   it("returns the browser-facing relative path while using the normalized absolute path for SSH", async () => {
     vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "alice" },
+    });
     mockSftpNode();
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
 
     const response = await GET(request("/logs/../reports"));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ remotePath: "/logs/../reports" });
-    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({ remotePath: "/data/files/reports" }));
+    await expect(response.json()).resolves.toMatchObject({
+      remotePath: "/logs/../reports",
+    });
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/files/reports" }),
+    );
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ storageNodeId: "node_1", relativePath: "reports", operation: "read" }),
+      expect.objectContaining({
+        storageNodeId: "node_1",
+        relativePath: "reports",
+        operation: "read",
+      }),
     );
   });
 
   it("decrypts password-based VPS credentials before listing a remote directory", async () => {
     vi.clearAllMocks();
-    requireSessionMock.mockResolvedValueOnce({ userId: "u_1", username: "alice" });
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "alice" },
+    });
     mockSftpNode({
       server: {
         id: "srv_1",

@@ -3,8 +3,7 @@ import { access, mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
+import type { SessionPayload } from "@/lib/auth/session";
 
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { prisma } from "@/lib/db";
@@ -15,17 +14,22 @@ import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { createRemoteDirectory, writeRemoteFile } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { withApiRoute } from "@/lib/http/api-guard";
 
 type UploadLike = {
- arrayBuffer(): Promise<ArrayBuffer>;
- name?: string;
- type?: string;
- size?: number;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  name?: string;
+  type?: string;
+  size?: number;
 };
 
 function isUploadLike(value: unknown): value is UploadLike {
- return !!value && typeof value === "object" && typeof (value as UploadLike).arrayBuffer === "function";
+  return (
+    !!value &&
+    typeof value === "object" &&
+    typeof (value as UploadLike).arrayBuffer === "function"
+  );
 }
 
 export const dynamic = "force-dynamic";
@@ -72,37 +76,38 @@ function guessContentType(fileName: string, mimeType: string | null) {
   return "application/octet-stream";
 }
 
-export async function GET(request: Request) {
-  const session = await requireSession("/storage");
+async function handleGet(request: Request, session: SessionPayload) {
+  const url = new URL(request.url);
+  const relativePath = url.searchParams.get("path");
+  const storageNodeId = url.searchParams.get("nodeId");
+  const download = url.searchParams.get("download") === "1";
 
- const url = new URL(request.url);
- const relativePath = url.searchParams.get("path");
- const storageNodeId = url.searchParams.get("nodeId");
- const download = url.searchParams.get("download") === "1";
+  if (!relativePath) {
+    return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
+  }
 
- if (!relativePath) {
- return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
- }
+  const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
+  if (!normalizedDownloadPath.ok) {
+    return NextResponse.json(
+      { error: normalizedDownloadPath.reason },
+      { status: 400 },
+    );
+  }
 
- const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
- if (!normalizedDownloadPath.ok) {
- return NextResponse.json({ error: normalizedDownloadPath.reason }, { status: 400 });
- }
+  const entryWhere: Record<string, unknown> = {
+    relativePath: normalizedDownloadPath.path,
+    isDeleted: false,
+    storageNode: {
+      driver: "LOCAL",
+    },
+  };
+  // If nodeId specified, scope to that specific node to avoid cross-node path collisions
+  if (storageNodeId) {
+    entryWhere.storageNodeId = storageNodeId;
+  }
 
- const entryWhere: Record<string, unknown> = {
- relativePath: normalizedDownloadPath.path,
- isDeleted: false,
- storageNode: {
- driver: "LOCAL",
- },
- };
- // If nodeId specified, scope to that specific node to avoid cross-node path collisions
- if (storageNodeId) {
- entryWhere.storageNodeId = storageNodeId;
- }
-
- const entry = await prisma.fileEntry.findFirst({
- where: entryWhere,
+  const entry = await prisma.fileEntry.findFirst({
+    where: entryWhere,
     include: {
       storageNode: {
         select: {
@@ -116,7 +121,10 @@ export async function GET(request: Request) {
   });
 
   if (!entry) {
-    return NextResponse.json({ error: "文件条目不存在，或未登记为本机存储文件" }, { status: 404 });
+    return NextResponse.json(
+      { error: "文件条目不存在，或未登记为本机存储文件" },
+      { status: 404 },
+    );
   }
 
   const accessDecision = await assertStorageAccess({
@@ -126,65 +134,82 @@ export async function GET(request: Request) {
     operation: "read",
   });
   if (!accessDecision.allowed) {
-    return NextResponse.json({ error: accessDecision.reason ?? "缺少存储访问授权" }, { status: 403 });
+    return NextResponse.json(
+      { error: accessDecision.reason ?? "缺少存储访问授权" },
+      { status: 403 },
+    );
   }
 
   let absolutePath: string;
   try {
-    ({ absolutePath } = resolveManagedLocalPath(entry.storageNode.basePath, normalizedDownloadPath.path));
+    ({ absolutePath } = resolveManagedLocalPath(
+      entry.storageNode.basePath,
+      normalizedDownloadPath.path,
+    ));
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "非法路径" }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "非法路径" },
+      { status: 400 },
+    );
   }
 
   try {
     await access(absolutePath);
     const fileStat = await stat(absolutePath);
     if (!fileStat.isFile()) {
-      return NextResponse.json({ error: "目标不是可下载文件" }, { status: 400 });
+      return NextResponse.json(
+        { error: "目标不是可下载文件" },
+        { status: 400 },
+      );
     }
 
-	const nodeStream = createReadStream(absolutePath);
-	const body = nodeStreamToWeb(nodeStream);
-	const headers = new Headers();
-	headers.set("content-type", guessContentType(entry.name, entry.mimeType));
-	headers.set("content-length", String(fileStat.size));
-	headers.set("cache-control", "private, no-store");
-	headers.set(
-		"content-disposition",
-		buildContentDisposition(download ? "attachment" : "inline", entry.name),
-	);
+    const nodeStream = createReadStream(absolutePath);
+    const body = nodeStreamToWeb(nodeStream);
+    const headers = new Headers();
+    headers.set("content-type", guessContentType(entry.name, entry.mimeType));
+    headers.set("content-length", String(fileStat.size));
+    headers.set("cache-control", "private, no-store");
+    headers.set(
+      "content-disposition",
+      buildContentDisposition(download ? "attachment" : "inline", entry.name),
+    );
 
-	return new Response(body, { status: 200, headers });
- } catch (downloadError) {
- logError("[/api/storage/local] download error:", downloadError);
- return NextResponse.json({ error: "文件不存在或暂时无法读取" }, { status: 404 });
- }
+    return new Response(body, { status: 200, headers });
+  } catch (downloadError) {
+    logError("[/api/storage/local] download error:", downloadError);
+    return NextResponse.json(
+      { error: "文件不存在或暂时无法读取" },
+      { status: 404 },
+    );
+  }
 }
 
-export async function POST(request: Request) {
-  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-  const session = await requireSession();
-  if (!sessionHasPermission(session, "storage:write")) {
-    return NextResponse.json({ error: "缺少权限" }, { status: 403 });
-  }
-
+async function handlePost(request: Request, session: SessionPayload) {
   const formData = await request.formData();
   const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
   const relativePath = String(formData.get("relativePath") ?? "").trim();
   const file = formData.get("file");
 
   if (!storageNodeId) {
-    return NextResponse.json({ error: "缺少 storageNodeId 参数" }, { status: 400 });
+    return NextResponse.json(
+      { error: "缺少 storageNodeId 参数" },
+      { status: 400 },
+    );
   }
 
   if (!relativePath) {
-    return NextResponse.json({ error: "缺少 relativePath 参数" }, { status: 400 });
+    return NextResponse.json(
+      { error: "缺少 relativePath 参数" },
+      { status: 400 },
+    );
   }
 
   const normalizedUploadPath = normalizeStorageRelativePath(relativePath);
   if (!normalizedUploadPath.ok) {
-    return NextResponse.json({ error: normalizedUploadPath.reason }, { status: 400 });
+    return NextResponse.json(
+      { error: normalizedUploadPath.reason },
+      { status: 400 },
+    );
   }
 
   if (!isUploadLike(file)) {
@@ -215,7 +240,10 @@ export async function POST(request: Request) {
   });
 
   if (!storageNode || !["LOCAL", "SFTP"].includes(storageNode.driver)) {
-    return NextResponse.json({ error: "仅支持上传到 LOCAL 或 SFTP 存储节点" }, { status: 400 });
+    return NextResponse.json(
+      { error: "仅支持上传到 LOCAL 或 SFTP 存储节点" },
+      { status: 400 },
+    );
   }
 
   let normalizedRelativePath: string;
@@ -224,17 +252,31 @@ export async function POST(request: Request) {
 
   try {
     if (storageNode.driver === "LOCAL") {
-      ({ normalizedRelativePath, absolutePath } = resolveManagedLocalPath(storageNode.basePath, normalizedUploadPath.path));
+      ({ normalizedRelativePath, absolutePath } = resolveManagedLocalPath(
+        storageNode.basePath,
+        normalizedUploadPath.path,
+      ));
     } else {
       normalizedRelativePath = normalizedUploadPath.path;
-      remotePath = normalizeRemoteTargetPath(storageNode.basePath, normalizedRelativePath);
+      remotePath = normalizeRemoteTargetPath(
+        storageNode.basePath,
+        normalizedRelativePath,
+      );
     }
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "非法路径" }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "非法路径" },
+      { status: 400 },
+    );
   }
 
   const fileBuffer = Buffer.from(await file.arrayBuffer());
-  const byteSize = typeof file.size === "number" && Number.isFinite(file.size) && file.size >= 0 ? file.size : fileBuffer.byteLength;
+  const byteSize =
+    typeof file.size === "number" &&
+    Number.isFinite(file.size) &&
+    file.size >= 0
+      ? file.size
+      : fileBuffer.byteLength;
   const accessDecision = await assertStorageAccess({
     session,
     storageNodeId,
@@ -243,35 +285,58 @@ export async function POST(request: Request) {
     writeBytes: byteSize,
   });
   if (!accessDecision.allowed) {
-    return NextResponse.json({ error: accessDecision.reason ?? "缺少存储写入授权" }, { status: 403 });
+    return NextResponse.json(
+      { error: accessDecision.reason ?? "缺少存储写入授权" },
+      { status: 403 },
+    );
   }
   const mimeType = file.type || null;
   const fileName = path.posix.basename(normalizedRelativePath);
 
   if (storageNode.driver === "LOCAL") {
     if (!absolutePath) {
-      return NextResponse.json({ error: "本机存储路径解析失败" }, { status: 400 });
+      return NextResponse.json(
+        { error: "本机存储路径解析失败" },
+        { status: 400 },
+      );
     }
     const parentDir = path.dirname(absolutePath);
     await mkdir(parentDir, { recursive: true });
     await writeFile(absolutePath, fileBuffer);
   } else {
     if (!remotePath) {
-      return NextResponse.json({ error: "远端存储路径解析失败" }, { status: 400 });
+      return NextResponse.json(
+        { error: "远端存储路径解析失败" },
+        { status: 400 },
+      );
     }
     let credentials: ReturnType<typeof resolveStorageSshCredentials>;
     try {
       credentials = resolveStorageSshCredentials(storageNode);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "连接凭据不可用" }, { status: 400 });
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "连接凭据不可用" },
+        { status: 400 },
+      );
     }
     const remoteParent = path.posix.dirname(remotePath);
     try {
-      await createRemoteDirectory({ ...credentials, remotePath: remoteParent, recursive: true });
-      await writeRemoteFile({ ...credentials, remotePath, content: fileBuffer });
+      await createRemoteDirectory({
+        ...credentials,
+        remotePath: remoteParent,
+        recursive: true,
+      });
+      await writeRemoteFile({
+        ...credentials,
+        remotePath,
+        content: fileBuffer,
+      });
     } catch (error) {
       logError("[/api/storage/local] sftp upload error:", error);
-      return NextResponse.json({ error: error instanceof Error ? error.message : "远端上传失败" }, { status: 502 });
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "远端上传失败" },
+        { status: 502 },
+      );
     }
   }
 
@@ -315,4 +380,32 @@ export async function POST(request: Request) {
     relativePath: normalizedRelativePath,
     size: byteSize,
   });
+}
+
+export async function GET(request: Request) {
+  return withApiRoute(
+    request,
+    { permission: "storage:read", errorMessage: "读取本机文件失败" },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      return handleGet(request, session);
+    },
+  );
+}
+
+export async function POST(request: Request) {
+  return withApiRoute(
+    request,
+    {
+      permission: "storage:write",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "上传文件失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      return handlePost(request, session);
+    },
+  );
 }

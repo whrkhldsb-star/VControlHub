@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
+import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
- createRemoteDirectory,
- deleteRemoteFile,
- renameRemoteFile,
- readRemoteFile,
- writeRemoteFile,
+  createRemoteDirectory,
+  deleteRemoteFile,
+  renameRemoteFile,
+  readRemoteFile,
+  writeRemoteFile,
 } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import path from "node:path";
-import { normalizeRemoteTargetPath, normalizeRemoteRelativePath, toClientStorageError } from "@/lib/storage/remote-path";
+import {
+  normalizeRemoteTargetPath,
+  normalizeRemoteRelativePath,
+  toClientStorageError,
+} from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { withApiRoute } from "@/lib/http/api-guard";
 
 const logger = createLogger("api:storage:sftp-ops");
 
@@ -33,26 +38,22 @@ const postSchema = z.object({
 
 type SftpOpsBody = z.infer<typeof postSchema>;
 
-export async function POST(request: Request) {
-  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-  const session = await requireSession();
+async function handlePost(request: Request, session: SessionPayload) {
+  let rawBody: unknown;
+  try {
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
+  }
 
- let rawBody: unknown;
- try {
- rawBody = await request.json();
- } catch {
- return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
- }
+  const zodResult = postSchema.safeParse(rawBody);
+  if (!zodResult.success) {
+    return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+  }
 
- const zodResult = postSchema.safeParse(rawBody);
- if (!zodResult.success) {
- return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
- }
+  const body: SftpOpsBody = rawBody as SftpOpsBody;
 
-	const body: SftpOpsBody = rawBody as SftpOpsBody;
-
- const { action, nodeId, path: remotePath } = body;
+  const { action, nodeId, path: remotePath } = body;
 
   if (!nodeId) {
     return NextResponse.json({ error: "缺少 nodeId 参数" }, { status: 400 });
@@ -74,45 +75,50 @@ export async function POST(request: Request) {
       port: true,
       username: true,
       serverId: true,
- server: {
-  select: {
-  id: true,
-  host: true,
-  port: true,
-  username: true,
-  connectionType: true,
-  password: true,
-  sshKey: {
-  select: {
-  privateKey: true,
-  },
-  },
-  },
-  },
-  },
+      server: {
+        select: {
+          id: true,
+          host: true,
+          port: true,
+          username: true,
+          connectionType: true,
+          password: true,
+          sshKey: {
+            select: {
+              privateKey: true,
+            },
+          },
+        },
+      },
+    },
   });
 
- if (!node) {
-  return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
- }
-
- if (node.driver !== "SFTP") {
-  return NextResponse.json({ error: "该节点不是 SFTP 类型" }, { status: 400 });
- }
-
- const connectionCredentials = (() => {
-  try {
-   return resolveStorageSshCredentials(node);
-  } catch (error) {
-   return error instanceof Error ? error : new Error("缺少远端主机地址或连接凭据，无法连接");
+  if (!node) {
+    return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
   }
- })();
- if (connectionCredentials instanceof Error) {
-  return NextResponse.json(
-  { error: connectionCredentials.message },
-  { status: 400 },
-  );
- }
+
+  if (node.driver !== "SFTP") {
+    return NextResponse.json(
+      { error: "该节点不是 SFTP 类型" },
+      { status: 400 },
+    );
+  }
+
+  const connectionCredentials = (() => {
+    try {
+      return resolveStorageSshCredentials(node);
+    } catch (error) {
+      return error instanceof Error
+        ? error
+        : new Error("缺少远端主机地址或连接凭据，无法连接");
+    }
+  })();
+  if (connectionCredentials instanceof Error) {
+    return NextResponse.json(
+      { error: connectionCredentials.message },
+      { status: 400 },
+    );
+  }
 
   let normalizedRemotePath: string;
   let normalizedRelativePath: string;
@@ -120,11 +126,20 @@ export async function POST(request: Request) {
     normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, remotePath);
     normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
   } catch {
-    return NextResponse.json(toClientStorageError("请求路径超出存储节点根目录"), { status: 400 });
+    return NextResponse.json(
+      toClientStorageError("请求路径超出存储节点根目录"),
+      { status: 400 },
+    );
   }
 
-  const operation = action === "read" ? "read" : action === "delete" ? "delete" : "write";
-  const requiredPermission = operation === "read" ? "storage:read" : operation === "delete" ? "storage:delete" : "storage:write";
+  const operation =
+    action === "read" ? "read" : action === "delete" ? "delete" : "write";
+  const requiredPermission =
+    operation === "read"
+      ? "storage:read"
+      : operation === "delete"
+        ? "storage:delete"
+        : "storage:write";
   if (!sessionHasPermission(session, requiredPermission)) {
     return NextResponse.json({ error: "缺少权限" }, { status: 403 });
   }
@@ -133,19 +148,25 @@ export async function POST(request: Request) {
     storageNodeId: node.id,
     relativePath: normalizedRelativePath,
     operation,
-    writeBytes: action === "write" && typeof body.content === "string" ? Buffer.byteLength(body.content) : null,
+    writeBytes:
+      action === "write" && typeof body.content === "string"
+        ? Buffer.byteLength(body.content)
+        : null,
   });
   if (!accessDecision.allowed) {
-    return NextResponse.json({ error: accessDecision.reason ?? "缺少存储访问授权" }, { status: 403 });
+    return NextResponse.json(
+      { error: accessDecision.reason ?? "缺少存储访问授权" },
+      { status: 403 },
+    );
   }
 
- const connParams = {
-  host: connectionCredentials.host,
-  port: connectionCredentials.port,
-  username: connectionCredentials.username,
-  privateKey: connectionCredentials.privateKey,
-  password: connectionCredentials.password,
- };
+  const connParams = {
+    host: connectionCredentials.host,
+    port: connectionCredentials.port,
+    username: connectionCredentials.username,
+    privateKey: connectionCredentials.privateKey,
+    password: connectionCredentials.password,
+  };
 
   try {
     switch (action) {
@@ -168,10 +189,16 @@ export async function POST(request: Request) {
         let normalizedNewPath: string;
         let normalizedNewRelativePath: string;
         try {
-          normalizedNewPath = normalizeRemoteTargetPath(node.basePath, body.newPath);
+          normalizedNewPath = normalizeRemoteTargetPath(
+            node.basePath,
+            body.newPath,
+          );
           normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
         } catch {
-          return NextResponse.json(toClientStorageError("新路径超出存储节点根目录"), { status: 400 });
+          return NextResponse.json(
+            toClientStorageError("新路径超出存储节点根目录"),
+            { status: 400 },
+          );
         }
         const destinationAccessDecision = await assertStorageAccess({
           session,
@@ -182,7 +209,10 @@ export async function POST(request: Request) {
         });
         if (!destinationAccessDecision.allowed) {
           return NextResponse.json(
-            { error: destinationAccessDecision.reason ?? "缺少目标路径存储访问授权" },
+            {
+              error:
+                destinationAccessDecision.reason ?? "缺少目标路径存储访问授权",
+            },
             { status: 403 },
           );
         }
@@ -231,8 +261,16 @@ export async function POST(request: Request) {
           );
         }
         const parentDirectory = path.posix.dirname(normalizedRemotePath);
-        if (parentDirectory && parentDirectory !== "." && parentDirectory !== "/") {
-          await createRemoteDirectory({ ...connParams, remotePath: parentDirectory, recursive: true });
+        if (
+          parentDirectory &&
+          parentDirectory !== "." &&
+          parentDirectory !== "/"
+        ) {
+          await createRemoteDirectory({
+            ...connParams,
+            remotePath: parentDirectory,
+            recursive: true,
+          });
         }
         await writeRemoteFile({
           ...connParams,
@@ -250,6 +288,25 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     logger.error("remote file operation failed", error, { action, nodeId });
-    return NextResponse.json(toClientStorageError("远端文件操作失败，请检查节点配置、路径或权限"), { status: 502 });
+    return NextResponse.json(
+      toClientStorageError("远端文件操作失败，请检查节点配置、路径或权限"),
+      { status: 502 },
+    );
   }
+}
+
+export async function POST(request: Request) {
+  return withApiRoute(
+    request,
+    {
+      requireAuth: true,
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "远端文件操作失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
+      return handlePost(request, session);
+    },
+  );
 }
