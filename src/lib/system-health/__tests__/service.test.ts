@@ -50,6 +50,32 @@ describe("system health service", () => {
     ])).toMatchObject({ total: 3, healthy: 1, warning: 1, critical: 1, overall: "critical" });
   });
 
+  it("checks the production VControlHub service units instead of legacy whrkhldsb units", async () => {
+    mockExecSync.mockImplementation((command: string) => {
+      if (command.includes("systemctl is-active vcontrolhub-next.service")) return "active\n";
+      if (command.includes("systemctl is-active vcontrolhub-ssh-ws.service")) return "active\n";
+      if (command.includes("systemctl is-active whrkhldsb-next.service")) return "inactive\n";
+      if (command.includes("systemctl is-active whrkhldsb-ssh-ws.service")) return "inactive\n";
+      if (command.includes("rev-parse --short HEAD")) return "abc123\n";
+      if (command.includes("ls-remote origin refs/heads/main")) return "abc123\n";
+      return "";
+    });
+
+    const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
+
+    expect(mockExecSync).toHaveBeenCalledWith("systemctl is-active vcontrolhub-next.service", expect.any(Object));
+    expect(mockExecSync).toHaveBeenCalledWith("systemctl is-active vcontrolhub-ssh-ws.service", expect.any(Object));
+    expect(mockExecSync).not.toHaveBeenCalledWith("systemctl is-active whrkhldsb-next.service", expect.any(Object));
+    expect(result.checks.find((check) => check.id === "next-service")).toMatchObject({
+      status: "healthy",
+      message: expect.stringContaining("vcontrolhub-next.service"),
+    });
+    expect(result.checks.find((check) => check.id === "ssh-ws-service")).toMatchObject({
+      status: "healthy",
+      message: expect.stringContaining("vcontrolhub-ssh-ws.service"),
+    });
+  });
+
   it("marks git sync as warning when origin/main differs from local head", async () => {
     mockExecSync.mockImplementation((command: string) => {
       if (command.includes("rev-parse --short HEAD")) return "abc123\n";

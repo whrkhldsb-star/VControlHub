@@ -30,8 +30,8 @@ export type SystemHealthReport = {
 
 const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp"];
 const SERVICE_CHECKS = [
-	{ id: "next-service", label: "Next.js 服务", unit: "whrkhldsb-next.service" },
-	{ id: "ssh-ws-service", label: "SSH WebSocket 服务", unit: "whrkhldsb-ssh-ws.service" },
+	{ id: "next-service", label: "Next.js 服务", unit: "vcontrolhub-next.service" },
+	{ id: "ssh-ws-service", label: "SSH WebSocket 服务", unit: "vcontrolhub-ssh-ws.service" },
 	{ id: "caddy-service", label: "Caddy 反代服务", unit: "caddy.service" },
 ];
 const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
