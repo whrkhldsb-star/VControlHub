@@ -28,7 +28,7 @@ const defaultPrefs: Preferences = {
 const pageOptions = [
 	{ label: "仪表盘", value: "/" },
 	{ label: "服务器管理", value: "/servers" },
-	{ label: "文件管理", value: "/storage" },
+	{ label: "文件管理", value: "/files" },
 	{ label: "Docker 容器", value: "/docker" },
 	{ label: "服务器监控", value: "/monitoring" },
 	{ label: "下载站", value: "/downloads" },

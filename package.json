@@ -30,6 +30,7 @@
     "bcryptjs": "^3.0.3",
     "cron-parser": "^5.5.0",
     "dompurify": "^3.4.3",
+    "lucide-react": "^1.17.0",
     "next": "^16.2.6",
     "otplib": "^13.4.0",
     "ppk-to-openssh": "^3.2.0",

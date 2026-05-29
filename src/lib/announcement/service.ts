@@ -21,3 +21,23 @@ export async function listAnnouncements() {
 		select: { id: true, title: true, body: true, level: true, pinned: true, createdAt: true, startsAt: true, expiresAt: true },
 	});
 }
+
+export async function updateAnnouncement(id: string, input: { title?: string; body?: string; level?: string; pinned?: boolean; published?: boolean; expiresAt?: Date | null }) {
+	const existing = await prisma.announcement.findUnique({ where: { id } });
+	if (!existing) throw new Error("公告不存在");
+	const data: Record<string, unknown> = {};
+	if (input.title !== undefined) data.title = input.title.trim();
+	if (input.body !== undefined) data.body = input.body.trim();
+	if (input.level !== undefined) data.level = input.level;
+	if (input.pinned !== undefined) data.pinned = input.pinned;
+	if (input.published !== undefined) data.published = input.published;
+	if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt;
+	if (Object.keys(data).length === 0) return existing;
+	return prisma.announcement.update({ where: { id }, data });
+}
+
+export async function deleteAnnouncement(id: string) {
+	const existing = await prisma.announcement.findUnique({ where: { id } });
+	if (!existing) throw new Error("公告不存在");
+	return prisma.announcement.delete({ where: { id } });
+}

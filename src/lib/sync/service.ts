@@ -122,7 +122,7 @@ function assertSafeSshPort(targetPort: number): void {
 function buildSshOptions(targetPort: number): string {
 	assertSafeSshPort(targetPort);
 	return [
-		"-o StrictHostKeyChecking=no",
+		"-o StrictHostKeyChecking=accept-new",
 		"-o UserKnownHostsFile=/dev/null",
 		`-p ${targetPort}`,
 	].join(" ");
@@ -133,7 +133,8 @@ function buildSshTransport(input: SyncTargetCommandInput): string {
 	if (input.keyPath) sshCommand.push("-i", shellQuote(input.keyPath));
 	const base = sshCommand.join(" ");
 	if (input.password) {
-		return `sshpass -p ${shellQuote(input.password)} ${base}`;
+		// Use SSHPASS env var to avoid leaking password in /proc/cmdline
+		return `SSHPASS=${shellQuote(input.password)} sshpass -e ${base}`;
 	}
 	return base;
 }

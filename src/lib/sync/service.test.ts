@@ -31,7 +31,7 @@ describe("sync service command helpers", () => {
 
     expect(command).toContain("trap 'rm -f -- ");
     expect(command).toContain("rsync -avz --stats");
-    expect(command).toContain("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -p 2222 -i ");
+    expect(command).toContain("ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -p 2222 -i ");
     expect(command).toContain("deploy@[2001:db8::10]:");
     expect(command).not.toContain("TEST_KEY_PLACEHOLDER");
   });

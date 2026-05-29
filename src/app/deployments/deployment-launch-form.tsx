@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -52,7 +53,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:bg-amber-50 light:text-amber-800">
 				<p className="font-medium">暂无可用 VPS，不能发起部署。</p>
 				<p className="mt-1 text-xs text-amber-100/80 light:text-amber-700">请先到服务器管理页面添加或启用 VPS，部署模板会在这里选择目标节点后进入审批链路。</p>
-				<a href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10 light:text-amber-800">去添加 VPS</a>
+				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10 light:text-amber-800">去添加 VPS</Link>
 			</div>
 		);
 	}

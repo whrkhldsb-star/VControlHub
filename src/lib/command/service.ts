@@ -126,9 +126,11 @@ async function executeCommandOverSshWithPassword(input: {
  ];
 
  const result = await new Promise<SshExecutionResult>((resolve, reject) => {
-  const child = spawn("sshpass", ["-p", input.password, "ssh", ...args], {
+  // Use SSHPASS env var instead of -p flag to avoid leaking password in /proc/cmdline
+  const env = { ...process.env, SSHPASS: input.password };
+  const child = spawn("sshpass", ["-e", "ssh", ...args], {
    stdio: ["ignore", "pipe", "pipe"],
-   env: process.env,
+   env,
   });
 
   let stdout = "";

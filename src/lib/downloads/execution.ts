@@ -215,7 +215,7 @@ export async function transferFileViaSsh2(
  remoteFilePath: string,
  taskId: string,
 ): Promise<void> {
- const scpArgs = ["-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", "-P", String(server.port || 22)];
+ const scpArgs = ["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-P", String(server.port || 22)];
  const target = toScpTarget(server.username || "root", server.host, remoteFilePath);
 
  if (decryptSshPrivateKey(server.sshKey?.privateKey ?? "")) {

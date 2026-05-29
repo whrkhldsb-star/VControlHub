@@ -151,10 +151,13 @@ describe("command service execution flow", () => {
       serverIds: ["srv_pw_1"],
     });
 
+    // SSH password is now passed via SSHPASS env var (not -p flag) to avoid /proc/cmdline leak
     expect(spawnMock).toHaveBeenCalledWith(
       "sshpass",
-      expect.arrayContaining(["-p", "plain-secret"]),
-      expect.any(Object),
+      expect.arrayContaining(["-e", "ssh"]),
+      expect.objectContaining({
+        env: expect.objectContaining({ SSHPASS: "plain-secret" }),
+      }),
     );
   });
 

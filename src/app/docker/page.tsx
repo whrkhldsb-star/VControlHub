@@ -319,8 +319,14 @@ export default function DockerPage() {
 										</div>
 										<div className="flex flex-wrap items-center gap-2">
 											{c.State !== "running" && <button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>}
-											{c.State === "running" && <button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>}
+											{c.State === "running" && (
+												<>
+													<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
+													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
+												</>
+											)}
 											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
+											<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 										</div>
 									</div>
 								))}

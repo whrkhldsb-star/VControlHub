@@ -10,8 +10,28 @@ export async function createSnippet(input: { title: string; content: string; lan
 export async function listSnippets(input: { userId?: string; q?: string; language?: string } = {}) {
  const q = input.q?.trim();
  return prisma.snippet.findMany({
- where: { AND: [input.language ? { language: input.language } : {}, q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}, { OR: [{ isPrivate: false }, input.userId ? { createdBy: input.userId } : {}] }] },
- orderBy: { updatedAt: "desc" },
- select: { id: true, title: true, content: true, language: true, description: true, tags: true, isPrivate: true, createdBy: true, createdAt: true, updatedAt: true },
+  where: { AND: [input.language ? { language: input.language } : {}, q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { content: { contains: q, mode: "insensitive" } }, { tags: { has: q } }] } : {}, { OR: [{ isPrivate: false }, input.userId ? { createdBy: input.userId } : {}] }] },
+  orderBy: { updatedAt: "desc" },
+  select: { id: true, title: true, content: true, language: true, description: true, tags: true, isPrivate: true, createdBy: true, createdAt: true, updatedAt: true },
  });
+}
+
+export async function updateSnippet(id: string, input: { title?: string; content?: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean }) {
+  const existing = await prisma.snippet.findUnique({ where: { id } });
+  if (!existing) throw new Error("代码片段不存在");
+  const data: Record<string, unknown> = {};
+  if (input.title !== undefined) data.title = input.title.trim();
+  if (input.content !== undefined) data.content = input.content;
+  if (input.language !== undefined) data.language = input.language.trim() || "text";
+  if (input.description !== undefined) data.description = input.description?.trim() || null;
+  if (input.tags !== undefined) data.tags = tags(input.tags);
+  if (input.isPrivate !== undefined) data.isPrivate = input.isPrivate;
+  if (Object.keys(data).length === 0) return existing;
+  return prisma.snippet.update({ where: { id }, data });
+}
+
+export async function deleteSnippet(id: string) {
+  const existing = await prisma.snippet.findUnique({ where: { id } });
+  if (!existing) throw new Error("代码片段不存在");
+  return prisma.snippet.delete({ where: { id } });
 }

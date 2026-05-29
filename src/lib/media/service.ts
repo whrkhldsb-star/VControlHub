@@ -29,7 +29,10 @@ export async function listMediaItems(input: { mediaType?: "image" | "video"; q?:
      relativePath: true,
      size: true,
      favorite: true,
+     tags: true,
+     mimeType: true,
      createdAt: true,
+     updatedAt: true,
      storageNode: {
        select: {
          id: true,

@@ -1,0 +1,105 @@
+"use client";
+
+import { useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+
+interface StorageNode {
+  id: string;
+  name: string;
+}
+
+export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
+  const [open, setOpen] = useState(false);
+  const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
+  const [path, setPath] = useState("");
+  const [name, setName] = useState("");
+  const [expiresIn, setExpiresIn] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<{ token: string } | null>(null);
+  const [error, setError] = useState("");
+
+  const handleCreate = async () => {
+    setSaving(true);
+    setError("");
+    setResult(null);
+    try {
+      const body: Record<string, unknown> = { storageNodeId: nodeId, path };
+      if (name.trim()) body.name = name.trim();
+      if (expiresIn) body.expiresInHours = Number(expiresIn);
+      const res = await csrfFetch("/api/share-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "创建失败");
+      setResult({ token: data.token });
+      setPath("");
+      setName("");
+      setExpiresIn("");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "创建失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mb-6">
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+        >
+          + 创建分享链接
+        </button>
+      ) : (
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-white">新建分享链接</h3>
+            <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-slate-500 hover:text-slate-300">收起</button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">存储节点</label>
+              <select value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900">
+                {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">文件路径</label>
+              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="如 /docs/readme.md" className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">名称（可选）</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">有效期（小时，空=永久）</label>
+              <input type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
+            </div>
+          </div>
+
+          {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
+
+          {result && (
+            <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
+              <p className="text-xs text-emerald-300 font-medium">✅ 分享链接已创建</p>
+              <code className="mt-1 block break-all text-xs text-emerald-200/80">/share/{result.token}</code>
+              <p className="mt-1 text-[10px] text-slate-500">请妥善保存 token，数据库仅存储哈希，无法再次查看。</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={saving || !nodeId || !path.trim()}
+            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+          >
+            {saving ? "创建中…" : "创建"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

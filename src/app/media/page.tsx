@@ -1,26 +1,11 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listMediaItems } from "@/lib/media/service";
-import { PageShell, Card, PermissionDenied } from "@/components/page-shell";
+import { PageShell, PermissionDenied } from "@/components/page-shell";
 import { MediaScanButton } from "./media-scan-button";
+import { MediaItemCard } from "./media-item-card";
 
 export const dynamic = "force-dynamic";
-
-function formatSize(bytes: bigint | number | null) {
-  if (!bytes) return "未知";
-  const b = Number(bytes);
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
-  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
-}
-
-function storageLocationLabel(m: { storageNode?: { name: string; basePath: string; server?: { name: string } | null } | null }) {
-  const node = m.storageNode;
-  if (!node) return "未知存储";
-  const serverName = node.server?.name ?? "本地";
-  return `${serverName} · ${node.basePath}`;
-}
 
 export default async function Page({ searchParams }: { searchParams?: Promise<{ type?: string; q?: string }> }) {
   const session = await requireSession("/media");
@@ -31,7 +16,6 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
   const q = params?.q || undefined;
   const media = await listMediaItems({ mediaType, q });
 
-  // Group by storage node server name
   const grouped = new Map<string, typeof media>();
   for (const m of media) {
     const groupKey = m.storageNode?.server?.name ?? m.storageNode?.name ?? "未分配存储";
@@ -41,6 +25,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
 
   const imageCount = media.filter((m) => m.mediaType === "image").length;
   const videoCount = media.filter((m) => m.mediaType === "video").length;
+  const favCount = media.filter((m) => m.favorite).length;
 
   return (
     <PageShell>
@@ -54,6 +39,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
         <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-cyan-200">共 {media.length} 项</span>
         <span className="rounded-full border border-blue-400/20 bg-blue-400/[0.06] px-3 py-1 text-blue-200">图片 {imageCount}</span>
         <span className="rounded-full border border-purple-400/20 bg-purple-400/[0.06] px-3 py-1 text-purple-200">视频 {videoCount}</span>
+        {favCount > 0 && <span className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-3 py-1 text-amber-200">⭐ 收藏 {favCount}</span>}
       </div>
 
       {canManageMedia && <MediaScanButton />}
@@ -73,22 +59,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((m) => (
-              <Card key={m.id}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span>{m.mediaType === "image" ? "🖼" : "🎬"}</span>
-                      <span className="truncate text-sm font-medium text-white">{m.name}</span>
-                    </div>
-                    <p className="mt-1 text-[11px] text-slate-500" title={m.relativePath}>📂 {m.relativePath}</p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
-                      <span>📦 {formatSize(m.size)}</span>
-                      <span>💾 {storageLocationLabel(m)}</span>
-                    </div>
-                  </div>
-                  {m.favorite && <span className="text-amber-400 text-sm">⭐</span>}
-                </div>
-              </Card>
+              <MediaItemCard key={m.id} item={m as unknown as import("./media-item-card").MediaItem} canManage={canManageMedia} />
             ))}
           </div>
         </section>
