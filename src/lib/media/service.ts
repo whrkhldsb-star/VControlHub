@@ -7,46 +7,51 @@ export function classifyMedia(mimeType?: string | null) {
   return null;
 }
 
-export async function listMediaItems(input: { mediaType?: "image" | "video"; q?: string; favorite?: boolean } = {}) {
- const q = input.q?.trim();
- return prisma.mediaItem.findMany({
-   where: {
-     mediaType: input.mediaType,
-     favorite: input.favorite,
-     ...(q ? {
-       OR: [
-         { name: { contains: q, mode: "insensitive" } },
-         { relativePath: { contains: q, mode: "insensitive" } },
-         { tags: { has: q } },
-       ],
-     } : {}),
-   },
-   orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }],
-   select: {
-     id: true,
-     name: true,
-     mediaType: true,
-     relativePath: true,
-     size: true,
-     favorite: true,
-     tags: true,
-     mimeType: true,
-     createdAt: true,
-     updatedAt: true,
-     storageNode: {
-       select: {
-         id: true,
-         name: true,
-         basePath: true,
-         driver: true,
-         serverId: true,
-         server: {
-           select: { id: true, name: true, host: true },
-         },
-       },
-     },
-   },
- });
+export async function listMediaItems(
+  input: { mediaType?: "image" | "video"; q?: string; favorite?: boolean } = {},
+) {
+  const q = input.q?.trim();
+  return prisma.mediaItem.findMany({
+    where: {
+      mediaType: input.mediaType,
+      favorite: input.favorite,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { relativePath: { contains: q, mode: "insensitive" } },
+              { tags: { has: q } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }],
+    take: 200,
+    select: {
+      id: true,
+      name: true,
+      mediaType: true,
+      relativePath: true,
+      size: true,
+      favorite: true,
+      tags: true,
+      mimeType: true,
+      createdAt: true,
+      updatedAt: true,
+      storageNode: {
+        select: {
+          id: true,
+          name: true,
+          basePath: true,
+          driver: true,
+          serverId: true,
+          server: {
+            select: { id: true, name: true, host: true },
+          },
+        },
+      },
+    },
+  });
 }
 
 export async function scanMediaFromFileEntries(userId?: string) {
@@ -54,11 +59,20 @@ export async function scanMediaFromFileEntries(userId?: string) {
     where: {
       entryType: "FILE",
       isDeleted: false,
-      OR: [{ mimeType: { startsWith: "image/" } }, { mimeType: { startsWith: "video/" } }],
+      OR: [
+        { mimeType: { startsWith: "image/" } },
+        { mimeType: { startsWith: "video/" } },
+      ],
     },
+    take: 1000,
     include: {
       storageNode: {
-        select: { id: true, name: true, basePath: true, server: { select: { name: true } } },
+        select: {
+          id: true,
+          name: true,
+          basePath: true,
+          server: { select: { name: true } },
+        },
       },
     },
   });
@@ -96,6 +110,13 @@ export async function scanMediaFromFileEntries(userId?: string) {
   return { scanned: entries.length, upserted };
 }
 
-export async function updateMediaTags(input: { id: string; tags?: string[]; favorite?: boolean }) {
-  return prisma.mediaItem.update({ where: { id: input.id }, data: { tags: input.tags, favorite: input.favorite } });
+export async function updateMediaTags(input: {
+  id: string;
+  tags?: string[];
+  favorite?: boolean;
+}) {
+  return prisma.mediaItem.update({
+    where: { id: input.id },
+    data: { tags: input.tags, favorite: input.favorite },
+  });
 }

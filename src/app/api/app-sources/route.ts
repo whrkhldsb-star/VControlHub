@@ -27,6 +27,7 @@ export async function GET(request: Request) {
 
       const sources = await prisma.appSource.findMany({
         orderBy: [{ name: "asc" }],
+        take: 50,
       });
 
       let remoteApps: NormalizedApp[] = [];

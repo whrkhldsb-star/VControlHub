@@ -53,6 +53,7 @@ export async function POST(request: Request) {
           const images = await prisma.imageUpload.findMany({
             where: whereClause,
             select: { id: true, storageKey: true },
+            take: 100,
           });
           // Delete DB records
           const result = await prisma.imageUpload.deleteMany({
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
           const images = await prisma.imageUpload.findMany({
             where: whereClause,
             select: { id: true, isPublic: true },
+            take: 100,
           });
           const updates = images.map((img) =>
             prisma.imageUpload.update({

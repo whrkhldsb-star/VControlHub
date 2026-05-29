@@ -47,6 +47,8 @@ export async function GET(request: Request) {
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       const recentImages = await prisma.imageUpload.findMany({
         where: { ...where, createdAt: { gte: sevenDaysAgo } },
+        orderBy: { createdAt: "asc" },
+        take: 5000,
         select: { createdAt: true },
       });
 

@@ -77,12 +77,14 @@ export async function GET(req: NextRequest) {
           healthStatus: true,
         },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+        take: 100,
       });
 
       const servers = await prisma.server.findMany({
         where: { enabled: true },
         select: { id: true, name: true, host: true, port: true },
         orderBy: { name: "asc" },
+        take: 200,
       });
 
       return NextResponse.json({
