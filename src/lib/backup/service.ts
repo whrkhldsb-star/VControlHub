@@ -67,6 +67,14 @@ export function buildRestoreCommand(input: { projectRoot: string; backupPath: st
   return `cd ${shellQuote(input.projectRoot)} && bash scripts/restore-db.sh ${shellQuote(backupPath)}`;
 }
 
+export function buildBackupRestoreCommand(input: { projectRoot: string; backupPath: string; type?: BackupType }) {
+  const backupPath = assertPortableBackupPath(input.backupPath);
+  if (input.type === "FILES" || input.type === "FULL") {
+    return `cd ${shellQuote(input.projectRoot)} && tar -xzf ${shellQuote(backupPath)} -C ${shellQuote(input.projectRoot)}`;
+  }
+  return `cd ${shellQuote(input.projectRoot)} && bash scripts/restore-db.sh ${shellQuote(backupPath)}`;
+}
+
 export function resolveBackupPath(projectRoot: string, filePath: string) {
   const portablePath = assertPortableBackupPath(filePath);
   return join(projectRoot, portablePath);
