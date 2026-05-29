@@ -5,19 +5,30 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { joinStoragePath, normalizeStorageRelativePath, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
+import {
+  joinStoragePath,
+  normalizeStorageRelativePath,
+  normalizeStorageTargetDirectory,
+} from "@/lib/storage/path-utils";
+import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 export type MoveFileActionState = { error?: string; success?: string };
 
-export async function moveFileAction(_prev: MoveFileActionState | null, formData: FormData) {
+export async function moveFileAction(
+  _prev: MoveFileActionState | null,
+  formData: FormData,
+) {
   const session = await requirePermission("storage:write");
 
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
     const targetDir = String(formData.get("targetDir") ?? "").trim();
-    
-    if (!fileEntryId) return { error: "缺少文件参数" } satisfies MoveFileActionState;
-    if (!targetDir) return { error: "目标路径不能为空" } satisfies MoveFileActionState;
+
+    if (!fileEntryId)
+      return { error: "缺少文件参数" } satisfies MoveFileActionState;
+    if (!targetDir)
+      return { error: "目标路径不能为空" } satisfies MoveFileActionState;
 
     const targetDirResult = normalizeStorageTargetDirectory(targetDir);
     if (!targetDirResult.ok) {
@@ -34,11 +45,30 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
         entryType: true,
         relativePath: true,
         storageNodeId: true,
-        storageNode: { select: { driver: true, basePath: true } },
+        storageNode: {
+          select: {
+            driver: true,
+            basePath: true,
+            host: true,
+            port: true,
+            username: true,
+            server: {
+              select: {
+                host: true,
+                port: true,
+                username: true,
+                connectionType: true,
+                password: true,
+                sshKey: { select: { privateKey: true } },
+              },
+            },
+          },
+        },
       },
     });
 
-    if (!entry) return { error: "文件条目不存在" } satisfies MoveFileActionState;
+    if (!entry)
+      return { error: "文件条目不存在" } satisfies MoveFileActionState;
 
     const joinedPath = joinStoragePath(normalizedTargetDir, entry.name);
     if (!joinedPath.ok) {
@@ -46,9 +76,13 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
     }
 
     const newRelativePath = joinedPath.path;
-    const normalizedCurrentPath = normalizeStorageRelativePath(entry.relativePath);
+    const normalizedCurrentPath = normalizeStorageRelativePath(
+      entry.relativePath,
+    );
     if (!normalizedCurrentPath.ok) {
-      return { error: normalizedCurrentPath.reason } satisfies MoveFileActionState;
+      return {
+        error: normalizedCurrentPath.reason,
+      } satisfies MoveFileActionState;
     }
 
     const destinationAccess = await assertStorageAccess({
@@ -59,7 +93,9 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
     });
 
     if (!destinationAccess.allowed) {
-      return { error: destinationAccess.reason ?? "没有该存储节点或路径的访问授权" } satisfies MoveFileActionState;
+      return {
+        error: destinationAccess.reason ?? "没有该存储节点或路径的访问授权",
+      } satisfies MoveFileActionState;
     }
 
     if (newRelativePath === entry.relativePath) {
@@ -78,7 +114,9 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
     });
 
     if (existing) {
-      return { error: `目标路径 /${newRelativePath} 已存在同名文件` } satisfies MoveFileActionState;
+      return {
+        error: `目标路径 /${newRelativePath} 已存在同名文件`,
+      } satisfies MoveFileActionState;
     }
 
     // LOCAL 节点：在磁盘上实际移动文件，成功后再更新 DB，避免 DB/磁盘路径不一致
@@ -86,8 +124,14 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
       const { rename, mkdir } = await import("node:fs/promises");
       const path = await import("node:path");
 
-      const oldAbsolutePath = path.resolve(entry.storageNode.basePath, normalizedCurrentPath.path);
-      const newAbsolutePath = path.resolve(entry.storageNode.basePath, newRelativePath);
+      const oldAbsolutePath = path.resolve(
+        entry.storageNode.basePath,
+        normalizedCurrentPath.path,
+      );
+      const newAbsolutePath = path.resolve(
+        entry.storageNode.basePath,
+        newRelativePath,
+      );
 
       const allowedRoot = path.resolve(entry.storageNode.basePath);
       const oldRelativeToRoot = path.relative(allowedRoot, oldAbsolutePath);
@@ -113,6 +157,35 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
       }
     }
 
+    if (entry.storageNode.driver === "SFTP") {
+      const { renameRemoteFile } = await import("@/lib/ssh/client");
+      let oldPath: string;
+      let newPath: string;
+      try {
+        oldPath = normalizeRemoteTargetPath(
+          entry.storageNode.basePath,
+          normalizedCurrentPath.path,
+        );
+        newPath = normalizeRemoteTargetPath(
+          entry.storageNode.basePath,
+          newRelativePath,
+        );
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "路径超出存储根目录",
+        } satisfies MoveFileActionState;
+      }
+
+      try {
+        const credentials = resolveStorageSshCredentials(entry.storageNode);
+        await renameRemoteFile({ ...credentials, oldPath, newPath });
+      } catch (error) {
+        return {
+          error: `远端文件移动失败：${error instanceof Error ? error.message : "未知错误"}`,
+        } satisfies MoveFileActionState;
+      }
+    }
+
     // 如果是目录，还需要更新所有子条目的路径
     if (entry.entryType === "DIRECTORY") {
       const oldPrefix = entry.relativePath + "/";
@@ -129,7 +202,9 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
       for (const child of children) {
         await prisma.fileEntry.update({
           where: { id: child.id },
-          data: { relativePath: child.relativePath.replace(oldPrefix, newPrefix) },
+          data: {
+            relativePath: child.relativePath.replace(oldPrefix, newPrefix),
+          },
         });
       }
     }
@@ -144,8 +219,12 @@ export async function moveFileAction(_prev: MoveFileActionState | null, formData
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: `已移动到 /${newRelativePath}` } satisfies MoveFileActionState;
+    return {
+      success: `已移动到 /${newRelativePath}`,
+    } satisfies MoveFileActionState;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "移动文件失败" } satisfies MoveFileActionState;
+    return {
+      error: error instanceof Error ? error.message : "移动文件失败",
+    } satisfies MoveFileActionState;
   }
 }

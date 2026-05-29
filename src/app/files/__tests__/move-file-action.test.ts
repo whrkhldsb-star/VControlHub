@@ -35,9 +35,19 @@ vi.mock("node:fs/promises", () => ({
   rename: vi.fn(),
 }));
 
+vi.mock("@/lib/ssh/client", () => ({
+  renameRemoteFile: vi.fn(),
+}));
+
+vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+  decryptServerPassword: vi.fn((value: string) => value),
+  decryptSshPrivateKey: vi.fn((value: string) => value),
+}));
+
 const { prisma } = await import("@/lib/db");
 const { assertStorageAccess } = await import("@/lib/storage/access-control");
 const { mkdir, rename } = await import("node:fs/promises");
+const { renameRemoteFile } = await import("@/lib/ssh/client");
 
 const baseEntry = {
   id: "file-1",
@@ -49,6 +59,17 @@ const baseEntry = {
     id: "node-1",
     driver: "SFTP" as const,
     basePath: "/srv/storage",
+    host: null,
+    port: null,
+    username: null,
+    server: {
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      connectionType: "SSH_KEY" as const,
+      password: null,
+      sshKey: { privateKey: "PRIVATE KEY" },
+    },
   },
 };
 
@@ -60,8 +81,14 @@ describe("moveFileAction", () => {
   });
 
   it("validates target directory with storage ACL before updating DB", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue({ ...baseEntry, storageNode: { ...baseEntry.storageNode, driver: "SFTP" as const } } as unknown as Awaited<ReturnType<typeof prisma.fileEntry.findUnique>>);
-    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue({
+      ...baseEntry,
+      storageNode: { ...baseEntry.storageNode, driver: "SFTP" as const },
+    } as unknown as Awaited<ReturnType<typeof prisma.fileEntry.findUnique>>);
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({
+      allowed: false,
+      reason: "没有该存储节点或路径的访问授权",
+    });
 
     const formData = new FormData();
     formData.set("fileEntryId", "file-1");
@@ -70,17 +97,23 @@ describe("moveFileAction", () => {
     const result = await moveFileAction(null, formData);
 
     expect(result).toEqual({ error: "没有该存储节点或路径的访问授权" });
-    expect(assertStorageAccess).toHaveBeenCalledWith(expect.objectContaining({
-      storageNodeId: "node-1",
-      relativePath: "team-b/a.txt",
-      operation: "write",
-      session: expect.objectContaining({ userId: "user-1" }),
-    }));
+    expect(assertStorageAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storageNodeId: "node-1",
+        relativePath: "team-b/a.txt",
+        operation: "write",
+        session: expect.objectContaining({ userId: "user-1" }),
+      }),
+    );
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("rejects unsafe target directories before ACL and DB writes", async () => {
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(baseEntry as unknown as Awaited<ReturnType<typeof prisma.fileEntry.findUnique>>);
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
+      baseEntry as unknown as Awaited<
+        ReturnType<typeof prisma.fileEntry.findUnique>
+      >,
+    );
 
     const formData = new FormData();
     formData.set("fileEntryId", "file-1");
@@ -98,7 +131,11 @@ describe("moveFileAction", () => {
       ...baseEntry,
       storageNode: { driver: "LOCAL" as const, basePath: "/srv/storage" },
     };
-    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(localEntry as unknown as Awaited<ReturnType<typeof prisma.fileEntry.findUnique>>);
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
+      localEntry as unknown as Awaited<
+        ReturnType<typeof prisma.fileEntry.findUnique>
+      >,
+    );
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
     vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
     vi.mocked(mkdir).mockResolvedValueOnce(undefined);
@@ -115,5 +152,39 @@ describe("moveFileAction", () => {
     expect(rename).toHaveBeenCalled();
     expect(result).toEqual({ error: "本地文件移动失败：EXDEV" });
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("moves SFTP files on the remote server before updating the DB index", async () => {
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
+      baseEntry as unknown as Awaited<
+        ReturnType<typeof prisma.fileEntry.findUnique>
+      >,
+    );
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
+      id: "file-1",
+    } as never);
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "team-b");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result).toEqual({ success: "已移动到 /team-b/a.txt" });
+    expect(renameRemoteFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.10",
+        oldPath: "/srv/storage/team-a/a.txt",
+        newPath: "/srv/storage/team-b/a.txt",
+      }),
+    );
+    expect(prisma.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "file-1" },
+        data: { relativePath: "team-b/a.txt" },
+      }),
+    );
   });
 });
