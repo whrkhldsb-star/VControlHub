@@ -154,6 +154,36 @@ describe("/api/storage/sftp-ops", () => {
     });
   });
 
+  it("removes a remotely written SFTP file when index persistence fails", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.upsert.mockRejectedValueOnce(new Error("db unavailable"));
+
+    const response = await POST(
+      request({
+        action: "write",
+        nodeId: "node_1",
+        path: "new-folder/hello.txt",
+        content: "hello",
+      }),
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("远端文件操作失败"),
+    });
+    expect(writeRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt" }),
+    );
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt" }),
+    );
+  });
+
   it("checks storage access for both source and destination before rename", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce({

@@ -383,11 +383,26 @@ async function handlePost(request: Request, session: SessionPayload) {
           remotePath: normalizedRemotePath,
           content: body.content,
         });
-        await upsertSftpFileIndex({
-          storageNodeId: node.id,
-          relativePath: normalizedRelativePath,
-          content: body.content,
-        });
+        try {
+          await upsertSftpFileIndex({
+            storageNodeId: node.id,
+            relativePath: normalizedRelativePath,
+            content: body.content,
+          });
+        } catch (indexError) {
+          try {
+            await deleteRemoteFile({
+              ...connParams,
+              remotePath: normalizedRemotePath,
+            });
+          } catch (cleanupError) {
+            logger.warn("failed to clean up remote file after index persistence failed", cleanupError, {
+              nodeId,
+              remotePath: normalizedRemotePath,
+            });
+          }
+          throw indexError;
+        }
         return NextResponse.json({ success: true });
       }
 
