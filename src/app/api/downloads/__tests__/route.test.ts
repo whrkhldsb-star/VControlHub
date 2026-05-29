@@ -237,9 +237,84 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
+  it("filters download list to owned tasks or readable storage targets", async () => {
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+      {
+        id: "owned_task",
+        createdBy: "u_1",
+        status: "RUNNING",
+        targetPath: "/srv/cloud/own/file.iso",
+        server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
+        creator: { id: "u_1", username: "alice", displayName: null },
+        aria2Gid: null,
+        pid: 12345,
+        category: null,
+        maxSpeedKb: null,
+        totalBytes: null,
+        completedBytes: null,
+        downloadSpeed: null,
+        fileSize: null,
+        isBatch: false,
+        batchUrls: null,
+      },
+      {
+        id: "shared_task",
+        createdBy: "u_2",
+        status: "RUNNING",
+        targetPath: "/srv/cloud/shared/file.iso",
+        server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
+        creator: { id: "u_2", username: "bob", displayName: null },
+        aria2Gid: null,
+        pid: 23456,
+        category: null,
+        maxSpeedKb: null,
+        totalBytes: null,
+        completedBytes: null,
+        downloadSpeed: null,
+        fileSize: null,
+        isBatch: false,
+        batchUrls: null,
+      },
+      {
+        id: "private_task",
+        createdBy: "u_3",
+        status: "RUNNING",
+        targetPath: "/srv/cloud/private/file.iso",
+        server: null,
+        creator: { id: "u_3", username: "carol", displayName: null },
+        aria2Gid: "gid_private",
+        pid: null,
+        category: null,
+        maxSpeedKb: null,
+        totalBytes: null,
+        completedBytes: null,
+        downloadSpeed: null,
+        fileSize: null,
+        isBatch: false,
+        batchUrls: null,
+      },
+    ]);
+    assertStorageAccessMock.mockImplementation(async () => ({ allowed: true }));
+
+    const response = await GET(new Request("https://example.com/api/downloads"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.tasks.map((task: { id: string }) => task.id)).toEqual(["owned_task", "shared_task"]);
+    expect(tellStatusMock).not.toHaveBeenCalledWith("gid_private");
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
+      session,
+      storageNodeId: "store_1",
+      relativePath: "shared/file.iso",
+      operation: "read",
+    }));
+    assertStorageAccessMock.mockReset();
+    assertStorageAccessMock.mockResolvedValue({ allowed: true });
+  });
+
   it("does not start or query aria2 when listing direct-only tasks", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
-      { id: "task_direct", status: "RUNNING", aria2Gid: null, pid: 12345, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
+      { id: "task_direct", createdBy: "u_1", status: "RUNNING", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, aria2Gid: null, pid: 12345, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
     ]);
 
     const response = await GET(new Request("https://example.com/api/downloads"));
@@ -253,7 +328,7 @@ describe("/api/downloads", () => {
 
   it("reconciles terminal aria2 tasks from tellStatus", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
-      { id: "task_relay", status: "RUNNING", aria2Gid: "gid_1", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
+      { id: "task_relay", createdBy: "u_1", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, status: "RUNNING", aria2Gid: "gid_1", pid: null, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
     ]);
     tellStatusMock.mockResolvedValueOnce({ gid: "gid_1", status: "complete", completedLength: "100", totalLength: "100", downloadSpeed: "0" });
     getGlobalStatMock.mockResolvedValueOnce({ downloadSpeed: "0" });
@@ -273,6 +348,7 @@ describe("/api/downloads", () => {
   it("refreshes a completed direct download from the remote process exit state", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_direct",
+      createdBy: "u_1",
       url: "https://example.com/file.iso",
       status: "RUNNING",
       progress: "下载中...",
@@ -307,9 +383,83 @@ describe("/api/downloads", () => {
     }));
   });
 
+  it("forbids cross-user task control when storage write access is absent", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_private",
+      createdBy: "u_2",
+      status: "RUNNING",
+      aria2Gid: "gid_1",
+      progress: "下载中",
+      targetPath: "/srv/cloud/private/file.iso",
+      server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_private", action: "pause" }),
+    }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "没有该下载任务的控制权限" });
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
+      session,
+      storageNodeId: "store_1",
+      relativePath: "private/file.iso",
+      operation: "write",
+    }));
+    expect(pauseDownloadMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+  });
+
+  it("forbids cross-user task cancellation when storage delete access is absent", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_private",
+      createdBy: "u_2",
+      url: "https://example.com/file.iso",
+      status: "RUNNING",
+      pid: null,
+      aria2Gid: "gid_1",
+      relayMode: true,
+      targetPath: "/srv/cloud/private/file.iso",
+      server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_private", { method: "DELETE" }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "没有该下载任务的取消权限" });
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
+      session,
+      storageNodeId: "store_1",
+      relativePath: "private/file.iso",
+      operation: "delete",
+    }));
+    expect(removeDownloadMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+  });
+
+  it("requires storage node management permission for global download speed limits", async () => {
+    sessionHasPermissionMock
+      .mockReturnValueOnce(true)
+      .mockReturnValueOnce(false);
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ globalMaxSpeedKb: 128 }),
+    }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "缺少全局下载限速管理权限" });
+    expect(changeGlobalOptionMock).not.toHaveBeenCalled();
+  });
+
   it("does not mark an aria2 task paused when the real pause operation fails", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_relay",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
       status: "RUNNING",
       aria2Gid: "gid_1",
       progress: "下载中",
@@ -333,6 +483,8 @@ describe("/api/downloads", () => {
   it("does not mark an aria2 task resumed when the real resume operation fails", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_relay",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
       status: "PENDING",
       aria2Gid: "gid_1",
       progress: "已暂停",
@@ -356,6 +508,8 @@ describe("/api/downloads", () => {
   it("does not mark a direct task cancelled when remote process termination fails", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_direct",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
       url: "https://example.com/file.iso",
       status: "RUNNING",
       pid: 12345,
@@ -379,6 +533,8 @@ describe("/api/downloads", () => {
   it("does not mark an aria2 task cancelled when removeDownload fails", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_relay",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
       url: "magnet:?xt=urn:btih:abcdef",
       status: "RUNNING",
       pid: null,
@@ -402,6 +558,8 @@ describe("/api/downloads", () => {
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_relay",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
       url: "magnet:?xt=urn:btih:abcdef",
       status: "RUNNING",
       pid: null,

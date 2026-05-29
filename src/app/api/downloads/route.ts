@@ -20,6 +20,7 @@ import {
   getDownloadTargetRelativePath,
   resolveDownloadTargetPath,
 } from "@/lib/downloads/target-path";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { validateDownloadSourceUrl } from "@/lib/downloads/source-url";
 import {
@@ -38,6 +39,40 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
+
+function taskTargetRelativePath(task: { targetPath: string | null; server?: { storageNode?: { basePath: string } | null } | null }) {
+  const storageNode = task.server?.storageNode;
+  if (!storageNode || !task.targetPath) return null;
+  try {
+    return getDownloadTargetRelativePath(storageNode.basePath, task.targetPath);
+  } catch {
+    return null;
+  }
+}
+
+async function canAccessDownloadTask(input: {
+  session: NonNullable<Awaited<ReturnType<typeof import("@/lib/auth/require-session").requireSession>>>;
+  task: {
+    createdBy: string | null;
+    targetPath: string | null;
+    server?: { storageNode?: { id: string; basePath: string } | null } | null;
+  };
+  operation: "read" | "write" | "delete";
+}) {
+  if (input.task.createdBy === input.session.userId) return true;
+  const storageNode = input.task.server?.storageNode;
+  if (!storageNode) return false;
+  const relativePath = taskTargetRelativePath(input.task);
+  if (relativePath === null) return false;
+  const decision = await assertStorageAccess({
+    session: input.session,
+    storageNodeId: storageNode.id,
+    relativePath,
+    operation: input.operation,
+  });
+  return decision.allowed;
+}
+
 
 /* ── POST: Create download task ───────────────────────────── */
 
@@ -258,7 +293,9 @@ export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "storage:read", errorMessage: "获取下载任务失败" },
-    async () => {
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
       const { searchParams } = new URL(request.url);
       const serverId = searchParams.get("serverId");
       const category = searchParams.get("category");
@@ -270,15 +307,22 @@ export async function GET(request: Request) {
       const tasks = await prisma.downloadTask.findMany({
         where,
         include: {
-          server: { select: { id: true, name: true, host: true } },
+          server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true } } } },
           creator: { select: { id: true, username: true, displayName: true } },
         },
         orderBy: { createdAt: "desc" },
         take: 200,
       });
 
+      const visibleTasks = [];
+      for (const task of tasks) {
+        if (await canAccessDownloadTask({ session, task, operation: "read" })) {
+          visibleTasks.push(task);
+        }
+      }
+
       const activeGids = new Map<string, string>();
-      for (const t of tasks) {
+      for (const t of visibleTasks) {
         if (t.aria2Gid && ["PENDING", "RUNNING"].includes(t.status)) {
           activeGids.set(t.aria2Gid, t.id);
         }
@@ -330,7 +374,7 @@ export async function GET(request: Request) {
         }
       }
 
-      const safe = tasks.map((t) => ({
+      const safe = visibleTasks.map((t) => ({
         ...t,
         pid: t.pid ?? null,
         aria2Gid: t.aria2Gid ?? null,
@@ -375,7 +419,9 @@ export async function PATCH(request: Request) {
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "操作失败",
     },
-    async () => {
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
       const body = await request.json();
       const parsed = patchDownloadSchema.safeParse(body);
       if (!parsed.success) {
@@ -391,6 +437,9 @@ export async function PATCH(request: Request) {
 
       // Global speed limit
       if (globalMaxSpeedKb !== undefined) {
+        if (!sessionHasPermission(session, "storage:manage-node")) {
+          return NextResponse.json({ error: "缺少全局下载限速管理权限" }, { status: 403 });
+        }
         try {
           await ensureAria2Daemon();
           await changeGlobalOption({
@@ -411,10 +460,13 @@ export async function PATCH(request: Request) {
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
-        include: { server: { include: { sshKey: true } } },
+        include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
         return NextResponse.json({ error: "任务不存在" }, { status: 404 });
+      if (!(await canAccessDownloadTask({ session, task, operation: "write" }))) {
+        return NextResponse.json({ error: "没有该下载任务的控制权限" }, { status: 403 });
+      }
 
       // Per-task speed limit
       if (maxSpeedKb !== undefined && task.aria2Gid) {
@@ -592,10 +644,13 @@ export async function DELETE(request: Request) {
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
-        include: { server: { include: { sshKey: true } } },
+        include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
         return NextResponse.json({ error: "任务不存在" }, { status: 404 });
+      if (!(await canAccessDownloadTask({ session, task, operation: "delete" }))) {
+        return NextResponse.json({ error: "没有该下载任务的取消权限" }, { status: 403 });
+      }
 
       if (task.aria2Gid) {
         try {

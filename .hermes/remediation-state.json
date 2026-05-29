@@ -1,0 +1,75 @@
+{
+  "createdAt": "2026-05-29T23:30:00Z",
+  "updatedAt": "2026-05-29T23:35:38Z",
+  "mode": "backlog_driven_autonomous_remediation_and_optimization",
+  "currentCronJobId": "b8833e83bb1f",
+  "legacyPausedAuditJobId": "a8e21e83a7df",
+  "jobDistinction": {
+    "legacyPausedAuditJob": "Broad website issue discovery plus small automatic fixes/upgrades; currently paused.",
+    "currentRemediationJob": "Backlog-driven remediation, optimization, and upgrade loop based on .hermes/remediation-backlog.md."
+  },
+  "sourceOfTruth": ".hermes/remediation-backlog.md",
+  "priorityOrder": ["P0", "P1", "P2", "P3", "P4", "P5", "P6"],
+  "schedule": "every 10m",
+  "nonOverlapPolicy": "If the previous remediation run is still active, skip the current tick instead of starting another fix run.",
+  "freshAuditPolicy": {
+    "afterSuccessfulRuns": 6,
+    "afterBacklogCompleted": true,
+    "action": "Run comprehensive audit, update remediation-backlog.md with newly discovered or reprioritized issues, then continue remediation."
+  },
+  "allowedChangeScope": [
+    "architecture",
+    "code",
+    "API design",
+    "UI and UX",
+    "performance",
+    "availability",
+    "feature completeness",
+    "reliability",
+    "observability",
+    "tests",
+    "deployment scripts",
+    "operator guidance"
+  ],
+  "lastHealthyBaseline": {
+    "date": "2026-05-29",
+    "typecheck": "passed",
+    "lint": "passed",
+    "tests": "targeted downloads route 16/16 passed",
+    "build": "passed",
+    "runtimeBuild": "passed",
+    "smoke": "19/19 passed",
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, caddy active; /api/status healthy; no recent warning/error logs"
+  },
+  "lastRun": {
+    "finishedAt": "2026-05-29T23:35:38Z",
+    "target": "P0 download task resource authorization",
+    "status": "deployed_verified_pending_commit",
+    "summary": "Restricted download listing/control/cancel to owners or storage-path-authorized callers; global aria2 speed limit now requires storage:manage-node.",
+    "validation": [
+      "npx vitest run src/app/api/downloads/__tests__/route.test.ts",
+      "npm run typecheck -- --pretty false",
+      "npm run lint",
+      "npm run build",
+      "npm run build:runtime",
+      "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
+    ],
+    "deployment": "production services restarted and smoke 19/19 passed",
+    "nextTarget": "P1 ticket permission model"
+  },
+  "runPolicy": {
+    "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
+    "mustUpdateBacklog": true,
+    "mustUpdateState": true,
+    "mustReport": true,
+    "commitAfterDeployOnly": true,
+    "deployServices": ["vcontrolhub-next.service", "vcontrolhub-ssh-ws.service"],
+    "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
+  },
+  "counters": {
+    "successfulRemediationRunsSinceFreshAudit": 1,
+    "skippedOverlapRuns": 0
+  },
+  "blockers": []
+}
