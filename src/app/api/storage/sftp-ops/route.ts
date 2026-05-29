@@ -25,6 +25,74 @@ import { withApiRoute } from "@/lib/http/api-guard";
 
 const logger = createLogger("api:storage:sftp-ops");
 
+function guessMimeType(relativePath: string) {
+  const ext = path.posix.extname(relativePath).toLowerCase();
+  if (ext === ".txt") return "text/plain; charset=utf-8";
+  if (ext === ".json") return "application/json; charset=utf-8";
+  if (ext === ".md") return "text/markdown; charset=utf-8";
+  if ([".jpg", ".jpeg"].includes(ext)) return "image/jpeg";
+  if (ext === ".png") return "image/png";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".mp4") return "video/mp4";
+  if (ext === ".mp3") return "audio/mpeg";
+  if (ext === ".pdf") return "application/pdf";
+  return "application/octet-stream";
+}
+
+async function upsertSftpFileIndex(params: {
+  storageNodeId: string;
+  relativePath: string;
+  content: string | Buffer;
+}) {
+  const name = path.posix.basename(params.relativePath);
+  const size = Buffer.isBuffer(params.content)
+    ? params.content.byteLength
+    : Buffer.byteLength(params.content);
+  await prisma.fileEntry.upsert({
+    where: {
+      storageNodeId_relativePath: {
+        storageNodeId: params.storageNodeId,
+        relativePath: params.relativePath,
+      },
+    },
+    update: {
+      name,
+      entryType: "FILE",
+      mimeType: guessMimeType(params.relativePath),
+      size: BigInt(size),
+      isDeleted: false,
+    },
+    create: {
+      storageNodeId: params.storageNodeId,
+      name,
+      entryType: "FILE",
+      mimeType: guessMimeType(params.relativePath),
+      size: BigInt(size),
+      relativePath: params.relativePath,
+    },
+  });
+}
+
+async function softDeleteSftpIndex(storageNodeId: string, relativePath: string) {
+  await prisma.fileEntry.updateMany({
+    where: { storageNodeId, relativePath },
+    data: { isDeleted: true },
+  });
+}
+
+async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string) {
+  await prisma.fileEntry.updateMany({
+    where: { storageNodeId, relativePath: oldRelativePath },
+    data: {
+      relativePath: newRelativePath,
+      name: path.posix.basename(newRelativePath),
+      isDeleted: false,
+    },
+  });
+}
+
 export const dynamic = "force-dynamic";
 
 const postSchema = z.object({
@@ -176,6 +244,7 @@ async function handlePost(request: Request, session: SessionPayload) {
           remotePath: normalizedRemotePath,
           isDirectory: body.isDirectory ?? false,
         });
+        await softDeleteSftpIndex(node.id, normalizedRelativePath);
         return NextResponse.json({ success: true });
       }
 
@@ -222,6 +291,7 @@ async function handlePost(request: Request, session: SessionPayload) {
           oldPath: normalizedRemotePath,
           newPath: normalizedNewPath,
         });
+        await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath);
         return NextResponse.json({ success: true });
       }
 
@@ -275,6 +345,11 @@ async function handlePost(request: Request, session: SessionPayload) {
         await writeRemoteFile({
           ...connParams,
           remotePath: normalizedRemotePath,
+          content: body.content,
+        });
+        await upsertSftpFileIndex({
+          storageNodeId: node.id,
+          relativePath: normalizedRelativePath,
           content: body.content,
         });
         return NextResponse.json({ success: true });

@@ -5,6 +5,7 @@ const {
   sessionHasPermissionMock,
   assertStorageAccessMock,
   prismaMock,
+  deleteRemoteFileMock,
   createRemoteDirectoryMock,
   renameRemoteFileMock,
   writeRemoteFileMock,
@@ -18,7 +19,12 @@ const {
     storageNode: {
       findUnique: vi.fn(),
     },
+    fileEntry: {
+      upsert: vi.fn(),
+      updateMany: vi.fn(),
+    },
   },
+  deleteRemoteFileMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
   renameRemoteFileMock: vi.fn(),
   writeRemoteFileMock: vi.fn(),
@@ -47,7 +53,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
 
 vi.mock("@/lib/ssh/client", () => ({
   createRemoteDirectory: createRemoteDirectoryMock,
-  deleteRemoteFile: vi.fn(),
+  deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
   readRemoteFile: vi.fn(),
   writeRemoteFile: writeRemoteFileMock,
@@ -123,6 +129,27 @@ describe("/api/storage/sftp-ops", () => {
         recursive: true,
       }),
     );
+    expect(prismaMock.fileEntry.upsert).toHaveBeenCalledWith({
+      where: {
+        storageNodeId_relativePath: {
+          storageNodeId: "node_1",
+          relativePath: "new-folder/hello.txt",
+        },
+      },
+      update: expect.objectContaining({
+        name: "hello.txt",
+        entryType: "FILE",
+        size: BigInt(5),
+        isDeleted: false,
+      }),
+      create: expect.objectContaining({
+        storageNodeId: "node_1",
+        name: "hello.txt",
+        entryType: "FILE",
+        relativePath: "new-folder/hello.txt",
+        size: BigInt(5),
+      }),
+    });
   });
 
   it("checks storage access for both source and destination before rename", async () => {
@@ -158,6 +185,36 @@ describe("/api/storage/sftp-ops", () => {
       }),
     );
     expect(renameRemoteFileMock).toHaveBeenCalled();
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "allowed/a.txt" },
+      data: { relativePath: "allowed/b.txt", name: "b.txt", isDeleted: false },
+    });
+  });
+
+  it("soft-deletes the file index only after remote delete succeeds", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+
+    const response = await POST(
+      request({
+        action: "delete",
+        nodeId: "node_1",
+        path: "old/file.txt",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/files/old/file.txt" }),
+    );
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "old/file.txt" },
+      data: { isDeleted: true },
+    });
   });
 
   it("rejects rename when destination path is outside the user's storage grant", async () => {
