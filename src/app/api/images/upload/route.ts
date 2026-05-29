@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -126,18 +126,27 @@ async function handleUpload(request: Request, userId: string) {
     const uploadDir = UPLOAD_DIR;
     await mkdir(uploadDir, { recursive: true });
 
+    const writtenPaths: string[] = [];
+
     // Save original + generate thumbnail + WebP/AVIF variants
     const ext = path.extname(storageKey).toLowerCase();
     const base = path.basename(storageKey, ext);
     const thumbName = `${base}_thumb.webp`;
+    const originalPath = path.join(uploadDir, storageKey);
+    const thumbPath = path.join(uploadDir, thumbName);
+    const webpPath = path.join(uploadDir, `${base}.webp`);
+    const avifPath = path.join(uploadDir, `${base}.avif`);
 
     await Promise.all([
-      writeFile(path.join(uploadDir, storageKey), buffer),
+      writeFile(originalPath, buffer).then(() => {
+        writtenPaths.push(originalPath);
+      }),
       // Generate thumbnail (best-effort)
       (async () => {
         try {
           const thumb = await generateThumbnail(buffer);
-          await writeFile(path.join(uploadDir, thumbName), thumb);
+          await writeFile(thumbPath, thumb);
+          writtenPaths.push(thumbPath);
         } catch {
           /* best-effort */
         }
@@ -147,7 +156,8 @@ async function handleUpload(request: Request, userId: string) {
         try {
           if (!mimeType.includes("webp")) {
             const webp = await convertToWebP(buffer);
-            await writeFile(path.join(uploadDir, `${base}.webp`), webp);
+            await writeFile(webpPath, webp);
+            writtenPaths.push(webpPath);
           }
         } catch {
           /* best-effort */
@@ -158,13 +168,16 @@ async function handleUpload(request: Request, userId: string) {
         try {
           if (!mimeType.includes("avif")) {
             const avif = await convertToAVIF(buffer);
-            await writeFile(path.join(uploadDir, `${base}.avif`), avif);
+            await writeFile(avifPath, avif);
+            writtenPaths.push(avifPath);
           }
         } catch {
           /* best-effort */
         }
       })(),
     ]);
+
+    let linkedStorageCopyPath: string | null = null;
 
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
@@ -185,7 +198,8 @@ async function handleUpload(request: Request, userId: string) {
             );
           }
           await mkdir(resolvedPath.path, { recursive: true });
-          await writeFile(path.join(resolvedPath.path, storageKey), buffer);
+          linkedStorageCopyPath = path.join(resolvedPath.path, storageKey);
+          await writeFile(linkedStorageCopyPath, buffer);
         }
       } catch (e) {
         // Non-fatal: cloud copy is best-effort
@@ -194,22 +208,33 @@ async function handleUpload(request: Request, userId: string) {
     }
 
     // Create DB record
-    const image = await prisma.imageUpload.create({
-      data: {
-        filename: originalName,
-        storageKey,
-        mimeType,
-        sizeBytes: buffer.byteLength,
-        width: imgWidth,
-        height: imgHeight,
-        checksum,
-        album,
-        isPublic: true,
-        storageNodeId: storageNodeId || undefined,
-        relativePath: relativePath || undefined,
-        userId: userId,
-      },
-    });
+    let image;
+    try {
+      image = await prisma.imageUpload.create({
+        data: {
+          filename: originalName,
+          storageKey,
+          mimeType,
+          sizeBytes: buffer.byteLength,
+          width: imgWidth,
+          height: imgHeight,
+          checksum,
+          album,
+          isPublic: true,
+          storageNodeId: storageNodeId || undefined,
+          relativePath: relativePath || undefined,
+          userId: userId,
+        },
+      });
+    } catch (error) {
+      await Promise.allSettled([
+        ...writtenPaths.map((filePath) => rm(filePath, { force: true })),
+        linkedStorageCopyPath
+          ? rm(linkedStorageCopyPath, { force: true })
+          : Promise.resolve(),
+      ]);
+      throw error;
+    }
 
     const publicUrl = `/api/images/${image.id}/file`;
 

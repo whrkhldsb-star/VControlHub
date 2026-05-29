@@ -1,4 +1,4 @@
-import { rm } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -46,17 +46,28 @@ import { POST } from "../route";
 const uploadRoot = "/tmp/vcontrolhub-image-upload-test";
 const session = { userId: "u1", username: "admin", roles: ["admin"] };
 
-function uploadRequest() {
+function uploadRequest(extra?: Record<string, string>) {
   const formData = new FormData();
   formData.set(
     "file",
     new Blob([Buffer.from("png")], { type: "image/png" }),
     "photo.png",
   );
+  for (const [key, value] of Object.entries(extra ?? {})) {
+    formData.set(key, value);
+  }
   return new Request("http://local/api/images/upload", {
     method: "POST",
     body: formData,
   });
+}
+
+async function listFiles(root: string) {
+  try {
+    return await readdir(root);
+  } catch {
+    return [];
+  }
 }
 
 describe("POST /api/images/upload", () => {
@@ -109,5 +120,34 @@ describe("POST /api/images/upload", () => {
 
     const response = await POST(uploadRequest());
     expect(response.status).toBe(403);
+  });
+
+  it("removes written image-bed files when image record creation fails", async () => {
+    imageCreateMock.mockRejectedValueOnce(new Error("database unavailable"));
+
+    const response = await POST(uploadRequest());
+
+    expect(response.status).toBe(500);
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
+  it("removes image-bed and LOCAL storage copies when linked image record creation fails", async () => {
+    const localRoot = "/tmp/vcontrolhub-image-upload-storage-copy-test";
+    await rm(localRoot, { recursive: true, force: true });
+    storageFindUniqueMock.mockResolvedValueOnce({
+      id: "node_1",
+      driver: "LOCAL",
+      basePath: localRoot,
+    });
+    imageCreateMock.mockRejectedValueOnce(new Error("database unavailable"));
+
+    const response = await POST(
+      uploadRequest({ storageNodeId: "node_1", relativePath: "gallery" }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(await listFiles(uploadRoot)).toEqual([]);
+    expect(await listFiles(`${localRoot}/gallery`)).toEqual([]);
+    await rm(localRoot, { recursive: true, force: true });
   });
 });
