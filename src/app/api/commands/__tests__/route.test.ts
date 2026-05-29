@@ -82,6 +82,26 @@ describe("/api/commands audit coverage", () => {
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("/etc/shadow");
   });
 
+  it("normalizes duplicate command targets before execution/audit", async () => {
+    const response = await route.POST(new Request("http://local/api/commands", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "Restart nginx",
+        command: "systemctl restart nginx",
+        serverIds: [" srv1 ", "srv1", "", "srv2", " srv2 "],
+      }),
+    }));
+
+    expect(response.status).toBe(201);
+    expect(mocks.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
+      serverIds: ["srv1", "srv2"],
+    }));
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.submit", expect.objectContaining({
+      targetCount: 2,
+    }));
+  });
+
   it("forces command submissions without execute permission into approval flow", async () => {
     mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
     await route.POST(new Request("http://local/api/commands", {

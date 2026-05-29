@@ -161,6 +161,47 @@ describe("command service execution flow", () => {
     );
   });
 
+  it("normalizes duplicate command targets before creating approval/execution rows", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_dedupe_1",
+      status: "PENDING_APPROVAL",
+      targets: [{ id: "target_srv_1" }, { id: "target_srv_2" }],
+    });
+
+    await createCommandRequest({
+      title: "Run maintenance",
+      command: "uptime",
+      requesterId: "u_1",
+      submissionMode: "assistant",
+      serverIds: [" srv_1 ", "srv_1", "", "srv_2", " srv_2 "],
+    });
+
+    expect(mockPrisma.commandRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          targets: {
+            create: [
+              { serverId: "srv_1", status: "PENDING_APPROVAL" },
+              { serverId: "srv_2", status: "PENDING_APPROVAL" },
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("rejects command requests when target normalization leaves no servers", async () => {
+    await expect(createCommandRequest({
+      title: "Run maintenance",
+      command: "uptime",
+      requesterId: "u_1",
+      submissionMode: "assistant",
+      serverIds: ["", "   "],
+    })).rejects.toThrow("至少选择 1 台目标 VPS");
+
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+  });
+
   it("marks command request as failed when only some targets complete", async () => {
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_partial_1",
