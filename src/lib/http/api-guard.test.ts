@@ -95,4 +95,22 @@ describe("api guard", () => {
     expect(response.status).toBe(500);
     expect(await json(response)).toEqual({ error: "boom" });
   });
+
+  it("supports route-specific error mapping", async () => {
+    const response = await withApiRoute(
+      request(),
+      {
+        onError(error) {
+          const message = error instanceof Error ? error.message : "failed";
+          return Response.json({ error: message, custom: true }, { status: message.includes("端口") ? 409 : 500 });
+        },
+      },
+      async () => {
+        throw new Error("端口 8080 已被占用");
+      },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await json(response)).toEqual({ error: "端口 8080 已被占用", custom: true });
+  });
 });

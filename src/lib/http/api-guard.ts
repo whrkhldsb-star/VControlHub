@@ -17,6 +17,7 @@ export type ApiRouteOptions = {
   rateLimit?: RateLimitConfig;
   errorStatus?: number;
   errorMessage?: string;
+  onError?: (error: unknown) => Response;
 };
 
 export type ApiRouteContext = {
@@ -56,6 +57,7 @@ export async function withApiRoute(
 
     return await handler({ session });
   } catch (error) {
+    if (options.onError) return options.onError(error);
     return apiCatch(error, options.errorStatus ?? 500, options.errorMessage ?? "操作失败");
   }
 }

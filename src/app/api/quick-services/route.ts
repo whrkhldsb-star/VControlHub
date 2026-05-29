@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createLogger } from "@/lib/logging";
-
-const logger = createLogger("api:quick-services");
 
 const installSchema = z.object({ slug: z.string().min(1), customPort: z.number().int().min(1).max(65535).optional() });
 
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import {
 	listQuickServices,
@@ -15,18 +10,15 @@ import {
 	checkPort,
 	getUsedPorts,
 } from "@/lib/quick-service/service";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
-export async function GET() {
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "user:manage"))
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-
+export async function GET(request: Request) {
+	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
 		const installed = await listQuickServices();
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
 
@@ -73,21 +65,23 @@ export async function GET() {
 
 		const usedPorts = getUsedPorts();
 		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts });
-	} catch (error) {
-		logger.error("获取快捷服务列表失败", error);
-		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
-	}
+	});
 }
 
 /** POST /api/quick-services — install a service (local or remote) */
 export async function POST(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "user:manage"))
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-
+	return withApiRoute(request, {
+		permission: "user:manage",
+		rateLimit: GENERAL_WRITE_LIMIT,
+		onError(error) {
+			const message = error instanceof Error ? error.message : "安装失败";
+			const isPortError = message.includes("端口") && message.includes("占用");
+			return NextResponse.json(
+				{ error: message, portConflict: isPortError },
+				{ status: isPortError ? 409 : 500 },
+			);
+		},
+	}, async ({ session }) => {
 		const parsed = installSchema.safeParse(await request.json());
 		if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
 		const { slug, customPort } = parsed.data;
@@ -120,14 +114,7 @@ export async function POST(request: Request) {
 			}
 		}
 
-		const svc = await installService({ template, userId: session.userId, customPort });
+		const svc = await installService({ template, userId: session?.userId ?? "", customPort });
 		return NextResponse.json({ service: svc }, { status: 201 });
-	} catch (err) {
-		const msg = err instanceof Error ? err.message : "安装失败";
-		const isPortError = msg.includes("端口") && msg.includes("占用");
-		return NextResponse.json(
-			{ error: msg, portConflict: isPortError },
-			{ status: isPortError ? 409 : 500 },
-		);
-	}
+	});
 }

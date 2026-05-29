@@ -1,21 +1,12 @@
 import { NextResponse } from "next/server";
-import { createLogger } from "@/lib/logging";
-
-const logger = createLogger("api:quick-services:check-port");
-
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
+import { withApiRoute } from "@/lib/http/api-guard";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
 
 export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
 export async function GET(request: Request) {
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "user:manage"))
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-
+	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
 		const { searchParams } = new URL(request.url);
 		const portStr = searchParams.get("port");
 		const action = searchParams.get("action");
@@ -49,8 +40,5 @@ export async function GET(request: Request) {
 
 		const result = checkPort(port);
 		return NextResponse.json({ port, ...result });
-	} catch (error) {
-		logger.error("检查端口可用性失败", error);
-		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
-	}
+	});
 }

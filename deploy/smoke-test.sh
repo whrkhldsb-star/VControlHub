@@ -9,9 +9,6 @@ APP_SLUG="${2:-${SERVICE_PREFIX:-vcontrolhub}}"
 NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
-[ -z "${TARGET}" ] && TARGET="$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)" || true
-[ -z "${TARGET}" ] && TARGET="localhost"
-
 # Allow APP_DIR override via env (defaults to /opt/${APP_SLUG} for standard installs,
 # but auto-detects from systemd service if available)
 if [ -z "${APP_DIR:-}" ]; then
@@ -30,6 +27,15 @@ if [ -f "${ENV_FILE}" ]; then
 fi
 NEXT_PORT="${NEXT_PORT:-3000}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
+
+if [ -z "${TARGET}" ] && [ -n "${SMOKE_TARGET:-}" ]; then
+    TARGET="${SMOKE_TARGET}"
+fi
+if [ -z "${TARGET}" ] && [ -n "${SSH_WS_ALLOWED_ORIGINS:-}" ]; then
+    TARGET="$(printf '%s' "${SSH_WS_ALLOWED_ORIGINS}" | tr ',' '\n' | grep -E '^https?://[^/]+\.[^/]+' | grep -Ev '^https?://(localhost|127\.|0\.0\.0\.0|\[?::1)' | head -1 | sed -E 's#^https?://([^/]+).*#\1#')"
+fi
+[ -z "${TARGET}" ] && TARGET="$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)" || true
+[ -z "${TARGET}" ] && TARGET="localhost"
 
 PASS=0
 FAIL=0
