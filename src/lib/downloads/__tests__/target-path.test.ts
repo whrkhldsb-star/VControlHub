@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveDownloadTargetPath } from "@/lib/downloads/target-path";
+import { getDownloadTargetRelativePath, resolveDownloadTargetPath } from "@/lib/downloads/target-path";
 
 describe("resolveDownloadTargetPath", () => {
   it("keeps an absolute target when it is inside the storage node basePath", () => {
@@ -33,5 +33,10 @@ describe("resolveDownloadTargetPath", () => {
     expect(() => resolveDownloadTargetPath("/srv/cloud", "/srv/cloud/../../etc")).toThrow(
       "下载目标路径超出存储节点根目录",
     );
+  });
+
+  it("returns the relative path used for storage access checks", () => {
+    expect(getDownloadTargetRelativePath("/srv/cloud", "/srv/cloud/movies/new")).toBe("movies/new");
+    expect(getDownloadTargetRelativePath("/srv/cloud", "/srv/cloud")).toBe("");
   });
 });

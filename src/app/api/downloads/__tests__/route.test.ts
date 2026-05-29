@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { StorageAccessDecision } from "@/lib/storage/access-control";
 
 const {
   requireSessionMock,
   sessionHasPermissionMock,
+  assertStorageAccessMock,
   prismaMock,
   ensureAria2DaemonMock,
   addUriMock,
@@ -30,6 +32,7 @@ const {
 } = vi.hoisted(() => ({
   requireSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
+  assertStorageAccessMock: vi.fn<() => Promise<StorageAccessDecision>>(() => Promise.resolve({ allowed: true })),
   prismaMock: {
     server: { findUnique: vi.fn() },
     downloadTask: {
@@ -71,6 +74,7 @@ const {
 
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/logging", () => ({ logError: logErrorMock, createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }));
@@ -164,6 +168,28 @@ describe("/api/downloads", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/文件名|名称|路径/) });
+    expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("checks storage path grants before creating a download task", async () => {
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+
+    const response = await POST(request({
+      url: "https://example.com/file.iso",
+      serverId: "srv_1",
+      targetPath: "private",
+      fileName: "file.iso",
+    }));
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: "没有该存储节点或路径的访问授权" });
+    expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({
+      session,
+      storageNodeId: "store_1",
+      relativePath: "private",
+      operation: "write",
+    }));
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });

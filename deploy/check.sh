@@ -30,6 +30,7 @@ SSH_WS_HOST="${SSH_WS_HOST:-127.0.0.1}"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-0}"
+SKIP_LIVE_CHECKS="${SKIP_LIVE_CHECKS:-0}"
 
 log() { printf '\033[1;32m[check]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[check]\033[0m %s\n' "$*" >&2; }
@@ -74,39 +75,43 @@ done
 [ -f "${APP_DIR}/dist/server.js" ] || fail "Missing runtime bundle: ${APP_DIR}/dist/server.js"
 [ -f "${APP_DIR}/dist/ssh-ws-proxy.js" ] || fail "Missing SSH-WS runtime bundle: ${APP_DIR}/dist/ssh-ws-proxy.js"
 
-if have_cmd systemctl; then
-  for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
-    if systemctl list-unit-files "$svc" >/dev/null 2>&1; then
-      systemctl is-active --quiet "$svc" && log "$svc active" || warn "$svc is not active"
-    else
-      warn "$svc is not installed"
-    fi
-  done
-fi
+if [ "${SKIP_LIVE_CHECKS}" != "1" ]; then
+  if have_cmd systemctl; then
+    for svc in "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"; do
+      if systemctl list-unit-files "$svc" >/dev/null 2>&1; then
+        systemctl is-active --quiet "$svc" && log "$svc active" || warn "$svc is not active"
+      else
+        warn "$svc is not installed"
+      fi
+    done
+  fi
 
-if have_cmd curl; then
-  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://${NEXT_HOST}:${NEXT_PORT}/login" || true)"
-  [ "$code" = "200" ] || fail "Local /login returned HTTP ${code:-000}"
-  log "Local /login HTTP 200"
+  if have_cmd curl; then
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://${NEXT_HOST}:${NEXT_PORT}/login" || true)"
+    [ "$code" = "200" ] || fail "Local /login returned HTTP ${code:-000}"
+    log "Local /login HTTP 200"
 
-  if command -v python3 >/dev/null 2>&1; then
-    python3 - "${SSH_WS_HOST}" "${SSH_WS_PORT}" <<'PY'
+    if command -v python3 >/dev/null 2>&1; then
+      python3 - "${SSH_WS_HOST}" "${SSH_WS_PORT}" <<'PY'
 import socket
 import sys
 host, port = sys.argv[1], int(sys.argv[2])
 with socket.create_connection((host, port), timeout=5):
     pass
 PY
-    log "SSH-WS port ${SSH_WS_HOST}:${SSH_WS_PORT} accepts TCP connections"
-  else
-    warn "python3 not found; skipping SSH-WS TCP check"
-  fi
+      log "SSH-WS port ${SSH_WS_HOST}:${SSH_WS_PORT} accepts TCP connections"
+    else
+      warn "python3 not found; skipping SSH-WS TCP check"
+    fi
 
-  if [ -n "${CHECK_PUBLIC_URL}" ]; then
-    code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 15 "${CHECK_PUBLIC_URL%/}/login" || true)"
-    [ "$code" = "200" ] || warn "Public /login returned HTTP ${code:-000}"
-    [ "$code" = "200" ] && log "Public /login HTTP 200"
+    if [ -n "${CHECK_PUBLIC_URL}" ]; then
+      code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 15 "${CHECK_PUBLIC_URL%/}/login" || true)"
+      [ "$code" = "200" ] || warn "Public /login returned HTTP ${code:-000}"
+      [ "$code" = "200" ] && log "Public /login HTTP 200"
+    fi
   fi
+else
+  warn "Skipping live service and HTTP checks (SKIP_LIVE_CHECKS=1)"
 fi
 
 if [ "${RUN_NPM_CHECKS}" = "1" ]; then

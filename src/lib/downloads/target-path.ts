@@ -11,6 +11,24 @@ function isPathWithinBase(candidate: string, basePath: string): boolean {
   return candidate === basePath || candidate.startsWith(`${basePath}/`);
 }
 
+export function getDownloadTargetRelativePath(
+  basePath: string | null | undefined,
+  resolvedTargetPath: string,
+): string {
+  const base = normalizeBasePath(basePath);
+  const normalizedTarget = path.posix.normalize(resolvedTargetPath).replace(/\/+$/, "") || "/";
+
+  if (!isPathWithinBase(normalizedTarget, base)) {
+    throw new Error("下载目标路径超出存储节点根目录");
+  }
+
+  if (normalizedTarget === base) {
+    return "";
+  }
+
+  return normalizedTarget.slice(base.length + 1);
+}
+
 /**
  * Resolve a download destination directory against a StorageNode basePath.
  *
