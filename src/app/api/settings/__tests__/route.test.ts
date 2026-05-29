@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
-    requireSession: vi.fn(),
-    sessionHasPermission: vi.fn(),
+    requireApiPermission: vi.fn(),
     getAllSettingsMasked: vi.fn(),
     setManySettings: vi.fn(),
     isValidSettingKey: vi.fn(),
@@ -11,8 +10,7 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/auth/require-session", () => ({ requireSession: mocks.requireSession }));
-vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/settings/service", () => ({
   getAllSettingsMasked: mocks.getAllSettingsMasked,
   setManySettings: mocks.setManySettings,
@@ -32,8 +30,7 @@ const route = await import("../route");
 describe("/api/settings audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireSession.mockResolvedValue({ userId: "u1", username: "alice", user: { id: "u1" } });
-    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
     mocks.getAllSettingsMasked.mockResolvedValue({});
     mocks.isValidSettingKey.mockImplementation((key: string) => ["platform.name", "smtp.pass"].includes(key));
     mocks.setManySettings.mockResolvedValue(undefined);

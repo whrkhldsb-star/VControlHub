@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
-    requireSession: vi.fn(),
-    sessionHasPermission: vi.fn(),
+    requireApiPermission: vi.fn(),
     listTemplates: vi.fn(),
     createTemplate: vi.fn(),
     updateTemplate: vi.fn(),
@@ -12,8 +11,7 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/auth/require-session", () => ({ requireSession: mocks.requireSession }));
-vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/command-template/service", () => ({
   listTemplates: mocks.listTemplates,
   createTemplate: mocks.createTemplate,
@@ -27,8 +25,7 @@ const route = await import("../route");
 describe("/api/command-templates audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireSession.mockResolvedValue({ userId: "u1", username: "alice", user: { id: "u1" } });
-    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
     mocks.listTemplates.mockResolvedValue([]);
     mocks.createTemplate.mockResolvedValue({
       id: "tmpl1",

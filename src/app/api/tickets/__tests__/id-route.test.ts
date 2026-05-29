@@ -1,0 +1,82 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mocks } = vi.hoisted(() => ({
+  mocks: {
+    requireApiPermission: vi.fn(),
+    requireApiSession: vi.fn(),
+    sessionHasPermission: vi.fn(),
+    canViewTicket: vi.fn(),
+    getTicketById: vi.fn(),
+    updateTicketStatus: vi.fn(),
+    addTicketComment: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
+vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession }));
+vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
+vi.mock("@/lib/ticket/service", () => ({
+  canViewTicket: mocks.canViewTicket,
+  getTicketById: mocks.getTicketById,
+  updateTicketStatus: mocks.updateTicketStatus,
+  addTicketComment: mocks.addTicketComment,
+}));
+
+const route = await import("../[id]/route");
+
+function params(id = "tk1") {
+  return { params: Promise.resolve({ id }) };
+}
+
+describe("/api/tickets/[id]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice" });
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "admin", username: "root" } });
+    mocks.sessionHasPermission.mockReturnValue(false);
+    mocks.canViewTicket.mockResolvedValue(true);
+    mocks.getTicketById.mockResolvedValue({ id: "tk1", title: "Need help" });
+    mocks.updateTicketStatus.mockResolvedValue({ id: "tk1", status: "RESOLVED" });
+    mocks.addTicketComment.mockResolvedValue({ id: "comment1", body: "done" });
+  });
+
+  it("allows ticket participants to view their ticket", async () => {
+    const response = await route.GET(new Request("http://local/api/tickets/tk1"), params());
+
+    expect(response.status).toBe(200);
+    expect(mocks.canViewTicket).toHaveBeenCalledWith("tk1", "u1");
+    await expect(response.json()).resolves.toEqual({ ticket: { id: "tk1", title: "Need help" } });
+  });
+
+  it("blocks users who are neither managers nor participants", async () => {
+    mocks.canViewTicket.mockResolvedValue(false);
+
+    const response = await route.GET(new Request("http://local/api/tickets/tk1"), params());
+
+    expect(response.status).toBe(403);
+    expect(mocks.getTicketById).not.toHaveBeenCalled();
+  });
+
+  it("requires ticket management permission for status updates", async () => {
+    const response = await route.PATCH(new Request("http://local/api/tickets/tk1", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status: "resolved" }),
+    }), params());
+
+    expect(response.status).toBe(200);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ticket:manage");
+    expect(mocks.updateTicketStatus).toHaveBeenCalledWith({ id: "tk1", status: "RESOLVED" });
+  });
+
+  it("allows ticket participants to add comments", async () => {
+    const response = await route.POST(new Request("http://local/api/tickets/tk1", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: " please check " }),
+    }), params());
+
+    expect(response.status).toBe(201);
+    expect(mocks.addTicketComment).toHaveBeenCalledWith({ ticketId: "tk1", authorId: "u1", body: "please check" });
+  });
+});

@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { createLogger } from "@/lib/logging";
-
-const logger = createLogger("api:settings");
-
 import { z } from "zod";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
 import {
 	getAllSettingsMasked,
 	setManySettings,
 	isValidSettingKey,
 } from "@/lib/settings/service";
 import { SettingKey, MASKED_VALUE } from "@/lib/settings/schema";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
 
 export const dynamic = "force-dynamic";
@@ -28,32 +23,18 @@ const patchBodySchema = z.record(z.string(), z.string());
 
 /* ── GET ──────────────────────────────────────────────────── */
 
-export async function GET() {
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "user:manage")) {
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-		}
+export async function GET(request: Request) {
+	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
 		// getAllSettingsMasked already masks sensitive values (***)
 		const settings = await getAllSettingsMasked();
 		return NextResponse.json({ settings });
-	} catch (error) {
-		logger.error("获取系统设置失败", error);
-		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
-	}
+	});
 }
 
 /* ── PATCH ────────────────────────────────────────────────── */
 
 export async function PATCH(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const session = await requireSession();
-		if (!sessionHasPermission(session, "user:manage")) {
-			return NextResponse.json({ error: "权限不足" }, { status: 403 });
-		}
-
+	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "保存失败" }, async ({ session }) => {
 		const body = await request.json();
 
 		// 1. Validate the body is a string→string record
@@ -105,13 +86,10 @@ export async function PATCH(request: Request) {
 		}
 
 		await setManySettings(entries);
-		auditUserAction(session.userId, "settings.update", {
+		auditUserAction(session?.userId ?? "", "settings.update", {
 			keys: entries.map((entry) => entry.key),
 			count: entries.length,
 		});
 		return NextResponse.json({ success: true });
-	} catch (err) {
-		const message = err instanceof Error ? err.message : "保存失败";
-		return NextResponse.json({ error: message }, { status: 400 });
-	}
+	});
 }

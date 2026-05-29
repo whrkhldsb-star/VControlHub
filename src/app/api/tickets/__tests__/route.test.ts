@@ -2,8 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
-    requireSession: vi.fn(),
-    sessionHasPermission: vi.fn(),
+    requireApiPermission: vi.fn(),
     createTicket: vi.fn(),
     listTickets: vi.fn(),
     addTicketComment: vi.fn(),
@@ -11,8 +10,7 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/auth/require-session", () => ({ requireSession: mocks.requireSession }));
-vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/ticket/service", () => ({
   createTicket: mocks.createTicket,
   listTickets: mocks.listTickets,
@@ -25,8 +23,7 @@ const route = await import("../route");
 describe("/api/tickets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireSession.mockResolvedValue({ userId: "u1", username: "alice" });
-    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice" } });
     mocks.createTicket.mockResolvedValue({ id: "tk1" });
     mocks.listTickets.mockResolvedValue([]);
     mocks.addTicketComment.mockResolvedValue({ id: "comment1" });

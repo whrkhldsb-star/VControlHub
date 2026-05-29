@@ -2,15 +2,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
-    requireSession: vi.fn(),
-    sessionHasPermission: vi.fn(),
+    requireApiPermission: vi.fn(),
     createBackupRecord: vi.fn(),
     listBackupRecords: vi.fn(),
   },
 }));
 
-vi.mock("@/lib/auth/require-session", () => ({ requireSession: mocks.requireSession }));
-vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/backup/service", () => ({ createBackupRecord: mocks.createBackupRecord, listBackupRecords: mocks.listBackupRecords }));
 
 const route = await import("../route");
@@ -18,15 +16,14 @@ const route = await import("../route");
 describe("/api/backups", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireSession.mockResolvedValue({ userId: "u1", user: { id: "u1" } });
-    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", user: { id: "u1" } } });
     mocks.listBackupRecords.mockResolvedValue([{ id: "bak1" }]);
     mocks.createBackupRecord.mockImplementation(async (input: any) => ({ id: "bak1", ...input }));
   });
 
   it("requires backup:read for listing backups", async () => {
-    mocks.sessionHasPermission.mockReturnValue(false);
-    const res = await route.GET();
+    mocks.requireApiPermission.mockResolvedValue(new Response(JSON.stringify({ error: "缺少权限" }), { status: 403 }));
+    const res = await route.GET(new Request("http://local/api/backups"));
     expect(res.status).toBe(403);
     expect(mocks.listBackupRecords).not.toHaveBeenCalled();
   });
