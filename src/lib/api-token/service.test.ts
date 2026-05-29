@@ -6,7 +6,7 @@ describe("api token service", () => {
   beforeEach(() => vi.clearAllMocks());
   it("returns plaintext token once and stores only hash plus prefix/suffix", async () => {
     mockPrisma.apiToken.create.mockImplementation(async ({ data, select }: any) => ({ id: "tok1", name: data.name, tokenPrefix: data.tokenPrefix, tokenSuffix: data.tokenSuffix, scopes: data.scopes, expiresAt: data.expiresAt, lastUsedAt: null, revokedAt: null, createdAt: new Date(), selectKeys: Object.keys(select) }));
-    const result = await createApiToken({ userId: "u1", name: "cli", scopes: ["read", "write"] });
+    const result = await createApiToken({ userId: "u1", name: "cli", scopes: [" read ", "read", "health:read"] });
     expect(result.token).toMatch(/^whr_/);
     const data = mockPrisma.apiToken.create.mock.calls[0][0].data;
     expect(data.tokenHash).toBe(hashApiToken(result.token));
@@ -14,8 +14,13 @@ describe("api token service", () => {
     expect(JSON.stringify(data)).not.toContain(result.token);
     expect(data.tokenPrefix).toBe(result.token.slice(0, 8));
     expect(data.tokenSuffix).toBe(result.token.slice(-6));
+    expect(data.scopes).toEqual(["read", "health:read"]);
     expect(result.apiToken).not.toHaveProperty("tokenHash");
     expect(JSON.stringify(result.apiToken)).not.toContain(data.tokenHash);
+  });
+  it("rejects unknown requested scopes instead of creating a misleading lower-privilege token", async () => {
+    await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow("不支持的 scope: admin:everything");
+    expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
   });
   it("rejects expired, revoked, or owner-disabled tokens", async () => {
     mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t1", createdBy: "u1", scopes: ["read"], revokedAt: new Date(), expiresAt: null, creator: { id: "u1", status: "ACTIVE" } });

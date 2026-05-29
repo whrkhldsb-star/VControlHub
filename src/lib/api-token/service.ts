@@ -24,9 +24,14 @@ export function hashApiToken(token: string) {
 }
 
 function normalizeScopes(scopes?: string[]) {
-  return Array.from(new Set((scopes ?? ["read"]).map((s) => s.trim()).filter(Boolean)))
-    .filter(isAllowedApiTokenScope)
-    .slice(0, 20);
+  const normalized = Array.from(
+    new Set((scopes ?? ["read"]).map((s) => s.trim()).filter(Boolean)),
+  );
+  const invalid = normalized.filter((scope) => !isAllowedApiTokenScope(scope));
+  if (invalid.length > 0) {
+    throw new Error(`不支持的 scope: ${invalid.join(", ")}`);
+  }
+  return (normalized.length > 0 ? normalized : ["read"]).slice(0, 20);
 }
 
 const API_TOKEN_SAFE_SELECT = {
