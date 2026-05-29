@@ -37,4 +37,33 @@ describe("operation task service", () => {
     expect(tasks[0]).toMatchObject({ source: "download", status: "running", progress: "50%" });
     expect(tasks[1]).toMatchObject({ source: "command", status: "pending" });
   });
+
+  it("maps active deployment command requests as running operation tasks", async () => {
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+    mockPrisma.deploymentRun.findMany.mockResolvedValue([
+      {
+        id: "dep_running",
+        status: "PENDING",
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+        updatedAt: new Date("2026-01-03T00:00:00Z"),
+        template: { name: "Deploy app" },
+        creator: { username: "ops", displayName: null },
+        commandRequest: { status: "APPROVED" },
+      },
+    ]);
+
+    const tasks = await listOperationTasks({ limit: 10 });
+
+    expect(tasks).toEqual([
+      expect.objectContaining({
+        id: "deployment:dep_running",
+        source: "deployment",
+        title: "Deploy app",
+        status: "running",
+        actor: "ops",
+        href: "/deployments",
+      }),
+    ]);
+  });
 });

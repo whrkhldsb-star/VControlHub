@@ -23,7 +23,7 @@ type ScheduledTaskRow = Prisma.ScheduledTaskGetPayload<{ include: { creator: { s
 type DownloadTaskRow = Prisma.DownloadTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type SyncJobTaskRow = Prisma.SyncJobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type BackupTaskRow = Prisma.BackupRecordGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
-type DeploymentTaskRow = Prisma.DeploymentRunGetPayload<{ include: { creator: { select: { username: true; displayName: true } }; template: { select: { name: true } } } }>;
+type DeploymentTaskRow = Prisma.DeploymentRunGetPayload<{ include: { creator: { select: { username: true; displayName: true } }; template: { select: { name: true } }; commandRequest: { select: { status: true } } } }>;
 
 function toIso(value: Date | string | null | undefined) {
   return value ? new Date(value).toISOString() : new Date(0).toISOString();
@@ -34,12 +34,19 @@ function actorName(actor: { username?: string | null; displayName?: string | nul
 }
 
 export function mapOperationStatus(status: string): OperationTaskStatus {
-  if (["RUNNING", "ACTIVE", "IN_PROGRESS"].includes(status)) return "running";
-  if (["COMPLETED", "APPROVED", "IDLE"].includes(status)) return "completed";
+  if (["RUNNING", "ACTIVE", "IN_PROGRESS", "APPROVED"].includes(status)) return "running";
+  if (["COMPLETED", "IDLE"].includes(status)) return "completed";
   if (["FAILED", "REJECTED", "EXPIRED"].includes(status)) return "failed";
   if (["CANCELLED", "DISABLED"].includes(status)) return "cancelled";
   if (["PAUSED"].includes(status)) return "paused";
   return "pending";
+}
+
+function resolveDeploymentOperationStatus(item: DeploymentTaskRow): OperationTaskStatus {
+  const commandStatus = item.commandRequest?.status;
+  if (!commandStatus) return mapOperationStatus(item.status);
+  if (commandStatus === "PENDING_APPROVAL") return "pending";
+  return mapOperationStatus(commandStatus);
 }
 
 export async function listOperationTasks(options: { limit?: number } = {}): Promise<OperationTask[]> {
@@ -50,7 +57,7 @@ export async function listOperationTasks(options: { limit?: number } = {}): Prom
     prisma.downloadTask.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
     prisma.syncJob.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
     prisma.backupRecord.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),
-    prisma.deploymentRun.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } } } }),
+    prisma.deploymentRun.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true } } } }),
   ]);
 
   const tasks: OperationTask[] = [
@@ -59,7 +66,7 @@ export async function listOperationTasks(options: { limit?: number } = {}): Prom
     ...downloads.map((item: DownloadTaskRow) => ({ id: `download:${item.id}`, source: "download" as const, sourceId: item.id, title: item.fileName || item.url, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress, href: "/downloads" })),
     ...syncJobs.map((item: SyncJobTaskRow) => ({ id: `sync:${item.id}`, source: "sync" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastSyncResult, href: "/files" })),
     ...backups.map((item: BackupTaskRow) => ({ id: `backup:${item.id}`, source: "backup" as const, sourceId: item.id, title: `${item.type} 备份`, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.filePath, href: "/backups" })),
-    ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), href: "/deployments" })),
+    ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), href: "/deployments" })),
   ];
 
   return tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
