@@ -41,7 +41,7 @@ const runningTask = {
 
 describe("DownloadsClient", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.mocked(csrfFetch).mockReset();
   });
 
   it("surfaces download list load failures instead of showing a misleading empty state", async () => {
@@ -66,6 +66,23 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("取消下载失败");
     expect(screen.getByText("https://example.com/a.iso")).toBeInTheDocument();
+  });
+
+  it("updates the visible task status from a successful manual refresh response", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null })
+      .mockResolvedValueOnce({ status: "COMPLETED", progress: "下载完成" });
+
+    render(<DownloadsClient servers={servers} canManage />);
+
+    expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
+    expect(screen.getAllByText("下载中").length).toBeGreaterThan(0);
+    await actor.click(screen.getByRole("button", { name: "🔄 刷新" }));
+
+    await screen.findAllByText("已完成");
+    expect(screen.queryByText("0.1% ·")).not.toBeInTheDocument();
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(2);
   });
 
   it("surfaces download create failures with backend details and keeps the form open", async () => {

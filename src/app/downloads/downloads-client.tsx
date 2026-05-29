@@ -165,11 +165,24 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 				setMessage({ type: "success", text: "任务已取消" });
 				void fetchTasks();
 			} else {
-				await csrfFetch("/api/downloads", {
+				const result = await csrfFetch("/api/downloads", {
 					method: "PATCH", headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ taskId, action }),
 				});
-				void fetchTasks();
+				if (action === "refresh" && result?.status) {
+					setTasks((current) => current.map((task) => task.id === taskId ? {
+						...task,
+						status: result.status ?? task.status,
+						progress: result.progress ?? task.progress,
+						completedBytes: result.completedBytes ?? task.completedBytes,
+						totalBytes: result.totalBytes ?? task.totalBytes,
+						downloadSpeed: result.downloadSpeed ?? task.downloadSpeed,
+						fileSize: result.fileSize ?? task.fileSize,
+						errorMessage: result.errorMessage ?? task.errorMessage,
+					} : task));
+				} else {
+					void fetchTasks();
+				}
 			}
 		} catch (error) {
 			setMessage({ type: "error", text: getErrorMessage(error, "下载任务操作失败") });
