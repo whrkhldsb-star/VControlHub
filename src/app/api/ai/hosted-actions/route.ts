@@ -4,21 +4,17 @@
  */
 
 import { NextResponse } from "next/server";
-import { requireApiSession } from "@/lib/auth/require-api-session";
+
 import { getPendingActions } from "@/lib/ai/hosted-service";
+import { withApiRoute } from "@/lib/http/api-guard";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const authed = await requireApiSession();
-  if (authed instanceof NextResponse) return authed;
-  const { session } = authed;
-
-  try {
+export async function GET(request: Request) {
+  return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
+    if (!session)
+      return NextResponse.json({ error: "未认证" }, { status: 401 });
     const actions = await getPendingActions(session.userId);
     return NextResponse.json({ actions });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "获取托管操作失败";
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  });
 }
