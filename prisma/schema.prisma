@@ -670,6 +670,8 @@ model MediaItem {
 
   @@index([storageNodeId, mediaType])
   @@index([favorite, updatedAt])
+  @@index([mediaType, createdAt])
+  @@index([storageNodeId])
   @@map("media_items")
 }
 
@@ -689,6 +691,8 @@ model Ticket {
   comments    TicketComment[]
 
   @@index([status, priority, createdAt])
+  @@index([createdBy])
+  @@index([assigneeId])
   @@map("tickets")
 }
 
@@ -702,6 +706,7 @@ model TicketComment {
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([ticketId, createdAt])
+  @@index([authorId])
   @@map("ticket_comments")
 }
 

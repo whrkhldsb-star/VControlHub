@@ -58,54 +58,39 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 		orderBy: { name: "asc" },
 	});
 
-	const results: ServerHealth[] = [];
-
-	for (const server of servers) {
+	// Parallel health checks — SSH connections can take seconds each
+	const checks = servers.map(async (server) => {
 		if (!server.enabled) {
-			results.push({
-				serverId: server.id,
-				serverName: server.name,
-				host: server.host,
-				enabled: false,
-				status: "offline",
-				lastCheck: new Date().toISOString(),
-			});
-			continue;
+			return {
+				serverId: server.id, serverName: server.name, host: server.host,
+				enabled: false, status: "offline" as const, lastCheck: new Date().toISOString(),
+			};
 		}
-
-		const result = await collectServerMetrics(server.id);
-
-		if ("error" in result) {
-			results.push({
-				serverId: server.id,
-				serverName: server.name,
-				host: server.host,
-				enabled: true,
-				status: "offline",
-				lastCheck: new Date().toISOString(),
-				error: result.error,
-			});
-			continue;
+		try {
+			const result = await collectServerMetrics(server.id);
+			if ("error" in result) {
+				return {
+					serverId: server.id, serverName: server.name, host: server.host,
+					enabled: true, status: "offline" as const, lastCheck: new Date().toISOString(), error: result.error,
+				};
+			}
+			const metrics = result as ServerMetrics;
+			const health = evaluateHealth(metrics);
+			const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
+			return {
+				serverId: server.id, serverName: server.name, host: server.host,
+				enabled: true, status: health, cpu: metrics.cpu.usagePercent, mem: metrics.memory.usagePercent,
+				diskMax, uptime: metrics.uptime, lastCheck: metrics.timestamp, metrics,
+			};
+		} catch (err) {
+			return {
+				serverId: server.id, serverName: server.name, host: server.host,
+				enabled: true, status: "offline" as const, lastCheck: new Date().toISOString(),
+				error: err instanceof Error ? err.message : "Unknown error",
+			};
 		}
-
-		const metrics = result as ServerMetrics;
-		const health = evaluateHealth(metrics);
-		const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
-
-		results.push({
-			serverId: server.id,
-			serverName: server.name,
-			host: server.host,
-			enabled: true,
-			status: health,
-			cpu: metrics.cpu.usagePercent,
-			mem: metrics.memory.usagePercent,
-			diskMax,
-			uptime: metrics.uptime,
-			lastCheck: metrics.timestamp,
-			metrics,
-		});
-	}
+	});
+	const results = (await Promise.allSettled(checks)).map((r) => r.status === "fulfilled" ? r.value : null).filter(Boolean) as ServerHealth[];
 
 	return {
 		total: servers.length,
@@ -202,15 +187,9 @@ export async function evaluateAlerts() {
 					where: { roles: { some: { role: { permissions: { some: { permission: { key: "notification:manage" } } } } } } },
 					select: { id: true },
 				});
-				for (const admin of admins) {
-					await createNotification({
-						userId: admin.id,
-						type: "server_alert",
-						title,
-						message,
-						actionUrl: `/health`,
-					});
-				}
+				await Promise.allSettled(admins.map((admin) =>
+					createNotification({ userId: admin.id, type: "server_alert", title, message, actionUrl: `/health` })
+				));
 			}
 
 			if (rule.notifyChannels.includes("webhook") && rule.webhookUrl) {

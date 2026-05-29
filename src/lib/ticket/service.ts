@@ -8,7 +8,27 @@ export async function createTicket(input: { title: string; description: string; 
 }
 
 export async function listTickets(userId?: string) {
-  return prisma.ticket.findMany({ where: userId ? { OR: [{ createdBy: userId }, { assigneeId: userId }] } : {}, include: { creator: { select: { username: true, displayName: true } }, assignee: { select: { username: true, displayName: true } }, comments: { orderBy: { createdAt: "asc" } } }, orderBy: { updatedAt: "desc" } });
+  return prisma.ticket.findMany({
+    where: userId ? { OR: [{ createdBy: userId }, { assigneeId: userId }] } : {},
+    include: {
+      creator: { select: { username: true, displayName: true } },
+      assignee: { select: { username: true, displayName: true } },
+      comments: { select: { id: true, body: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+    },
+    orderBy: { updatedAt: "desc" },
+    take: 200,
+  });
+}
+
+export async function getTicketById(id: string) {
+  return prisma.ticket.findUnique({
+    where: { id },
+    include: {
+      creator: { select: { id: true, username: true, displayName: true } },
+      assignee: { select: { id: true, username: true, displayName: true } },
+      comments: { include: { author: { select: { id: true, username: true, displayName: true } } }, orderBy: { createdAt: "asc" } },
+    },
+  });
 }
 
 export async function updateTicketStatus(input: { id: string; status: string; assigneeId?: string | null }) {

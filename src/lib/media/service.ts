@@ -63,7 +63,33 @@ export async function scanMediaFromFileEntries(userId?: string) {
       },
     },
   });
+  // Batch insert new items, skip existing ones
+  const newItems: Array<{
+    fileEntryId: string; name: string; relativePath: string; mimeType: string;
+    mediaType: string; size: bigint | null; storageNodeId: string; serverName: string | null;
+  }> = [];
   let upserted = 0;
+  for (const entry of entries) {
+    const mediaType = classifyMedia(entry.mimeType);
+    if (!mediaType) continue;
+    // Collect for batch insert
+    newItems.push({
+      fileEntryId: entry.id,
+      name: entry.name,
+      relativePath: entry.relativePath,
+      mimeType: entry.mimeType ?? "application/octet-stream",
+      mediaType,
+      size: entry.size ?? null,
+      storageNodeId: entry.storageNodeId,
+      serverName: entry.storageNode?.server?.name ?? null,
+    });
+  }
+  // Use createMany with skipDuplicates for bulk insert
+  if (newItems.length > 0) {
+    const result = await prisma.mediaItem.createMany({ data: newItems, skipDuplicates: true });
+    upserted = result.count;
+  }
+  // Update existing items that may have changed (sequential for updates)
   for (const entry of entries) {
     const mediaType = classifyMedia(entry.mimeType);
     if (!mediaType) continue;
