@@ -195,4 +195,40 @@ describe("prisma seed", () => {
       }),
     );
   });
+
+  it("refreshes the initial admin password while the account still requires first-login rotation", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user_admin",
+      username: "admin",
+      status: "PENDING_PASSWORD_RESET",
+      mustChangePassword: true,
+    });
+    const { seedDatabase } = await loadSeedModule();
+
+    await seedDatabase();
+
+    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.objectContaining({
+        passwordHash: "hashed-bootstrap-password",
+        status: "PENDING_PASSWORD_RESET",
+        mustChangePassword: true,
+      }),
+    }));
+  });
+
+  it("does not overwrite an active admin password on reseed", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "user_admin",
+      username: "admin",
+      status: "ACTIVE",
+      mustChangePassword: false,
+    });
+    const { seedDatabase } = await loadSeedModule();
+
+    await seedDatabase();
+
+    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: expect.not.objectContaining({ passwordHash: expect.any(String) }),
+    }));
+  });
 });

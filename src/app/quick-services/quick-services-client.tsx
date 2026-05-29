@@ -25,6 +25,14 @@ interface CatalogItem {
 	monthlyPulls?: number;
 }
 
+interface DockerEnvironmentStatus {
+	available: boolean;
+	running: boolean;
+	version: string | null;
+	message: string | null;
+	installHint: string | null;
+}
+
 interface AppSource {
 	id: string;
 	name: string;
@@ -84,6 +92,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [remoteCatalog, setRemoteCatalog] = useState<CatalogItem[]>([]);
 	const [sources, setSources] = useState<AppSource[]>([]);
 	const [usedPorts, setUsedPorts] = useState<number[]>([]);
+	const [dockerStatus, setDockerStatus] = useState<DockerEnvironmentStatus | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("community");
@@ -114,6 +123,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			setCatalog(data.catalog ?? []);
 			setRemoteCatalog(data.remoteCatalog ?? []);
 			setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
+			setDockerStatus(data.docker ?? null);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "加载失败");
 		} finally {
@@ -176,6 +186,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	}, [checkPortAvailability]);
 
 	const openInstallDialog = (item: CatalogItem) => {
+		if (dockerStatus && !dockerStatus.available) {
+			setMessage({ type: "err", text: dockerStatus.installHint ? `${dockerStatus.message}：${dockerStatus.installHint}` : (dockerStatus.message ?? "Docker 不可用") });
+			return;
+		}
 		setInstallDialog({ slug: item.slug, name: item.name, defaultPort: item.defaultPort });
 		setCustomPort(String(item.defaultPort));
 		setPortCheck({ available: false, usedBy: null, checking: true });
@@ -410,6 +424,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	return (
 		<div className="space-y-6">
+			{dockerStatus && !dockerStatus.available ? (
+				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100">
+					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
+					<p className="mt-1 text-xs text-amber-100/75">{dockerStatus.message}</p>
+					{dockerStatus.installHint ? <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
+				</div>
+			) : null}
+
 			{/* Message */}
 			{message && (
 				<div className={`rounded-lg px-4 py-3 text-sm ${message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>

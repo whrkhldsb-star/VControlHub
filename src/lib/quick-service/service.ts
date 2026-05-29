@@ -128,6 +128,24 @@ function dockerExecSync(args: string[], timeout = 30_000) {
 	return execFileSync("docker", args, { timeout, encoding: "utf8" });
 }
 
+export function getDockerEnvironmentStatus() {
+	try {
+		const version = execFileSync("docker", ["--version"], { timeout: 5_000, encoding: "utf8" }).trim();
+		execFileSync("docker", ["info"], { timeout: 10_000, stdio: "pipe" });
+		return { available: true, running: true, version, message: null as string | null, installHint: null as string | null };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		const notInstalled = /ENOENT|not found|no such file/i.test(message);
+		return {
+			available: false,
+			running: false,
+			version: null as string | null,
+			message: notInstalled ? "Docker 未安装" : "Docker 未运行或当前用户无权限访问 Docker daemon",
+			installHint: "快捷服务依赖 Docker。请先执行 curl -fsSL https://get.docker.com | sh，并确认 systemctl enable --now docker。",
+		};
+	}
+}
+
 /* -- Port allocation & detection --------------------------------------- */
 
 const PORT_RANGE_MIN = 10000;
@@ -219,10 +237,9 @@ export async function installService(opts: InstallOptions) {
 	const { template, userId, customPort } = opts;
 
 	// Pre-flight: ensure Docker is available
-	try {
-		execFileSync("docker", ["info"], { timeout: 10_000, stdio: "pipe" });
-	} catch {
-		throw new Error("Docker 未安装或未运行。快捷服务依赖 Docker 容器，请先在服务器上安装并启动 Docker 后重试。安装命令: curl -fsSL https://get.docker.com | sh");
+	const dockerStatus = getDockerEnvironmentStatus();
+	if (!dockerStatus.available) {
+		throw new Error(`${dockerStatus.message}。${dockerStatus.installHint}`);
 	}
 
 	validateTemplate(template);

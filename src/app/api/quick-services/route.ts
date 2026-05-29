@@ -9,6 +9,7 @@ import {
 	installService,
 	checkPort,
 	getUsedPorts,
+	getDockerEnvironmentStatus,
 } from "@/lib/quick-service/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -64,7 +65,8 @@ export async function GET(request: Request) {
 		}));
 
 		const usedPorts = getUsedPorts();
-		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts });
+		const docker = getDockerEnvironmentStatus();
+		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts, docker });
 	});
 }
 

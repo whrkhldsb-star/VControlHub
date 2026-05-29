@@ -142,13 +142,18 @@ async function seedAdmin() {
  where: { username: ADMIN_BOOTSTRAP.username },
  });
 
+ const shouldRefreshInitialPassword = !existingAdmin || (
+   existingAdmin.status === UserStatus.PENDING_PASSWORD_RESET && existingAdmin.mustChangePassword === true
+ );
+
  const admin = await prisma.user.upsert({
  where: { username: ADMIN_BOOTSTRAP.username },
  update: {
  displayName: ADMIN_BOOTSTRAP.displayName,
- // Do NOT overwrite passwordHash / status / mustChangePassword on re-seed
- // so that users who have already changed their password stay intact
- ...(!existingAdmin
+ // Do NOT overwrite passwordHash for active users on re-seed. If the admin
+ // account is still in first-login reset state, keep it aligned with the
+ // current ADMIN_INITIAL_PASSWORD so fresh installs and redeploys are usable.
+ ...(shouldRefreshInitialPassword
  ? {
  passwordHash,
  status: UserStatus.PENDING_PASSWORD_RESET,

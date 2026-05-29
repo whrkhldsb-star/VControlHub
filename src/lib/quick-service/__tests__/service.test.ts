@@ -28,7 +28,7 @@ vi.mock("child_process", () => ({
 	execSync: execSyncMock,
 }));
 
-import { checkPort, installService, startService, uninstallService } from "../service";
+import { checkPort, getDockerEnvironmentStatus, installService, startService, uninstallService } from "../service";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -169,6 +169,18 @@ describe("quick service docker lifecycle", () => {
 			where: { slug: "demo" },
 			data: expect.objectContaining({ status: "error" }),
 		});
+	});
+
+	it("reports actionable Docker environment guidance before install attempts", () => {
+		execFileSyncMock.mockImplementationOnce(() => {
+			throw Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" });
+		});
+
+		expect(getDockerEnvironmentStatus()).toEqual(expect.objectContaining({
+			available: false,
+			message: "Docker 未安装",
+			installHint: expect.stringContaining("get.docker.com"),
+		}));
 	});
 
 	it("returns invalid for out-of-range port checks without shelling out", () => {

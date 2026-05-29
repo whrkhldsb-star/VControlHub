@@ -12,7 +12,21 @@ const APP_SLUG = getAppSlug();
 const SESSION_COOKIE_NAME = process.env.AUTH_SESSION_COOKIE_NAME?.trim() || `${APP_SLUG}_session`;
 const SESSION_ISSUER = process.env.AUTH_SESSION_ISSUER?.trim() || APP_SLUG;
 const SESSION_AUDIENCE = process.env.AUTH_SESSION_AUDIENCE?.trim() || `${APP_SLUG}-console`;
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+const REMEMBER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+function readPositiveIntEnv(name: string, fallback: number) {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function getSessionTtlSeconds(remember = false) {
+  const fallback = remember ? REMEMBER_SESSION_TTL_SECONDS : DEFAULT_SESSION_TTL_SECONDS;
+  const envName = remember ? "AUTH_REMEMBER_SESSION_TTL_SECONDS" : "AUTH_SESSION_TTL_SECONDS";
+  return readPositiveIntEnv(envName, fallback);
+}
 const AUTH_BYPASS_PREFIXES = ["/_next", "/api/public", "/api/status", "/favicon.ico"];
 const AUTH_BYPASS_EXACT = new Set(["/login", "/login/verify-2fa", "/api/login", "/api/auth/2fa/verify-login", "/status"]);
 
@@ -66,14 +80,15 @@ export function shouldBypassAuth(pathname: string) {
   return AUTH_BYPASS_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
-export async function createSessionToken(payload: SessionPayload) {
+export async function createSessionToken(payload: SessionPayload, options: { remember?: boolean } = {}) {
   const now = Date.now();
+  const ttlMs = getSessionTtlSeconds(options.remember === true) * 1000;
   const envelope: SessionTokenEnvelope = {
     ...payload,
     iss: SESSION_ISSUER,
     aud: SESSION_AUDIENCE,
     iat: now,
-    exp: now + SESSION_TTL_MS,
+    exp: now + ttlMs,
   };
 
   const encodedPayload = encodeBase64Url(JSON.stringify(envelope));

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { authenticateUser } from "@/lib/auth/service";
-import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName } from "@/lib/auth/session";
+import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, getSessionTtlSeconds } from "@/lib/auth/session";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
@@ -14,6 +14,7 @@ const loginFormSchema = z.object({
   username: z.string().min(1, "用户名不能为空"),
   password: z.string().min(1, "密码不能为空"),
   next: z.string().optional(),
+  remember: z.string().optional(),
 });
 
 function safeNextPath(nextValue: FormDataEntryValue | null) {
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
 			username: String(formData.get("username") ?? ""),
 			password: String(formData.get("password") ?? ""),
 			next: formData.get("next") instanceof File ? undefined : (formData.get("next") as string | null) ?? undefined,
+			remember: formData.get("remember") instanceof File ? undefined : (formData.get("remember") as string | null) ?? undefined,
 		};
 		const parsed = loginFormSchema.safeParse(formRaw);
 		if (!parsed.success) {
@@ -64,6 +66,8 @@ export async function POST(request: Request) {
 			return redirectWithRelativeLocation(`/login?${params.toString()}`);
 		}
 		const { username, password } = parsed.data;
+		const rememberSession = parsed.data.remember === "on" || parsed.data.remember === "true" || parsed.data.remember === "1";
+		const sessionMaxAge = getSessionTtlSeconds(rememberSession);
 		const nextPath = safeNextPath(formData.get("next"));
 
 		// Check account lockout before attempting authentication
@@ -127,7 +131,7 @@ export async function POST(request: Request) {
 			username: user.username,
 			roles: user.roles,
 			mustChangePassword: user.mustChangePassword,
-		});
+		}, { remember: rememberSession });
 
 		const requestUrl = new URL(request.url);
 		const response = redirectWithRelativeLocation(nextPath);
@@ -136,7 +140,7 @@ export async function POST(request: Request) {
 			sameSite: "lax",
 			secure: requestUrl.protocol === "https:",
 			path: "/",
-			maxAge: 7 * 24 * 60 * 60,
+			maxAge: sessionMaxAge,
 		});
 		// Set CSRF token cookie (non-HttpOnly so JS can read it for headers)
 		const csrfToken = generateCsrfToken();
@@ -145,7 +149,7 @@ export async function POST(request: Request) {
 			sameSite: "lax",
 			secure: requestUrl.protocol === "https:",
 			path: "/",
-			maxAge: 7 * 24 * 60 * 60,
+			maxAge: sessionMaxAge,
 		});
 		return response;
 	} catch (e) {

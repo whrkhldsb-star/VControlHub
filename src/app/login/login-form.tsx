@@ -36,6 +36,15 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 				/>
 			</div>
 
+			<label className="flex items-center justify-between gap-3 rounded-xl bg-white/[0.025] px-3.5 py-2.5 text-xs text-white/45 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]">
+				<span>记住登录 30 天，减少频繁跳转登录页</span>
+				<input
+					type="checkbox"
+					name="remember"
+					className="h-4 w-4 rounded border-white/20 bg-white/[0.06] text-cyan-400 focus:ring-cyan-400/40"
+				/>
+			</label>
+
 			{error ? (
 				<div className="rounded-xl bg-rose-500/[0.08] px-4 py-2.5 text-sm text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.15)]">
 					{error}
