@@ -11,7 +11,7 @@ function normalizeDeploymentInput(input: {
 }) {
   const templateId = input.templateId.trim();
   const requesterId = input.requesterId.trim();
-  const serverIds = input.serverIds.map((id) => id.trim()).filter(Boolean);
+  const serverIds = Array.from(new Set(input.serverIds.map((id) => id.trim()).filter(Boolean)));
   const reason = input.reason?.trim();
   if (!templateId) throw new Error("部署模板必填");
   if (!requesterId) throw new Error("请求人不能为空");

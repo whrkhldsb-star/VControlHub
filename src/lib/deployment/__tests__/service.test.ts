@@ -30,6 +30,19 @@ describe("deployment service", () => {
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
   });
 
+  it("deduplicates deployment target server ids before creating run and command targets", async () => {
+    const run = await createDeploymentRunFromTemplate({
+      templateId: "tmpl1",
+      serverIds: [" srv1 ", "srv1", "srv2", "srv2"],
+      variables: { pkg: "nginx" },
+      requesterId: "u1",
+    });
+
+    expect(mockPrisma.deploymentRun.create.mock.calls[0][0].data.serverIds).toEqual(["srv1", "srv2"]);
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ serverIds: ["srv1", "srv2"] }));
+    expect(run.commandRequestId).toBe("cmd1");
+  });
+
   it("rejects deployment requests without at least one target server", async () => {
     await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: [], variables: { pkg: "nginx" }, requesterId: "u1" })).rejects.toThrow("至少选择 1 台目标 VPS");
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
