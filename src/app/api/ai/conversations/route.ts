@@ -1,75 +1,88 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireApiSession } from "@/lib/auth/require-api-session";
-import { createLogger } from "@/lib/logging";
-import {
-	createConversation,
-	listConversations,
-	serializeConversationListItem,
-} from "@/lib/ai/service";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-const logger = createLogger("api:ai:conversations");
+import {
+  createConversation,
+  listConversations,
+  serializeConversationListItem,
+} from "@/lib/ai/service";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
 const createConversationSchema = z.object({
   title: z.string().min(1).max(200).optional(),
+  providerId: z.string().min(1),
+  model: z.string().min(1),
+  systemPrompt: z.string().max(2000).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(1).max(128000).optional(),
+  topP: z.number().min(0).max(1).optional(),
+  frequencyPenalty: z.number().min(-2).max(2).optional(),
+  presencePenalty: z.number().min(-2).max(2).optional(),
+  enableVision: z.boolean().optional(),
+  hostingEnabled: z.boolean().optional(),
 });
 
-export async function GET() {
-	try {
-		const authed = await requireApiSession();
-		if (authed instanceof NextResponse) return authed;
-		const { session } = authed;
-		const conversations = await listConversations(session.userId);
-		return NextResponse.json({
-			conversations: conversations.map(serializeConversationListItem),
-		});
-	} catch (error) {
-		logger.error("list conversations failed", error);
-		return NextResponse.json({ error: "服务器错误" }, { status: 500 });
-	}
+export async function GET(request: Request) {
+  return withApiRoute(
+    request,
+    { requireAuth: true, errorMessage: "服务器错误" },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json(
+          { error: "未登录或会话已过期" },
+          { status: 401 },
+        );
+      const conversations = await listConversations(session.userId);
+      return NextResponse.json({
+        conversations: conversations.map(serializeConversationListItem),
+      });
+    },
+  );
 }
 
 export async function POST(request: Request) {
-	const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-	if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-	try {
-		const authed = await requireApiSession();
-		if (authed instanceof NextResponse) return authed;
-		const { session } = authed;
-		// Check ai:chat permission
-		const { sessionHasPermission } = await import("@/lib/auth/authorization");
-		if (!sessionHasPermission(session, "ai:chat")) {
-		 return NextResponse.json({ error: "你没有使用 AI 助手的权限" }, { status: 403 });
-		}
+  return withApiRoute(
+    request,
+    {
+      permission: "ai:chat",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      errorMessage: "创建失败",
+    },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json(
+          { error: "未登录或会话已过期" },
+          { status: 401 },
+        );
+      const body = await request.json().catch(() => null);
+      const parsed = createConversationSchema.safeParse(body);
+      if (!parsed.success)
+        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
 
-		const body = await request.json();
-		const parsed = createConversationSchema.safeParse(body);
-		if (!parsed.success) {
-			return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
-		}
-		const conv = await createConversation({ ...body, createdBy: session.userId });
-		return NextResponse.json(
-			{
-				conversation: {
-					...conv,
-					createdAt: conv.createdAt.toISOString(),
-					updatedAt: conv.updatedAt.toISOString(),
-					provider: conv.provider
-						? {
-								...conv.provider,
-								createdAt: conv.provider.createdAt.toISOString(),
-								updatedAt: conv.provider.updatedAt.toISOString(),
-							}
-						: null,
-				},
-			},
-			{ status: 201 },
-		);
-	} catch (e: unknown) {
-		const msg = e instanceof Error ? e.message : "创建失败";
-		return NextResponse.json({ error: msg }, { status: 400 });
-	}
+      const conv = await createConversation({
+        ...parsed.data,
+        createdBy: session.userId,
+      });
+      return NextResponse.json(
+        {
+          conversation: {
+            ...conv,
+            createdAt: conv.createdAt.toISOString(),
+            updatedAt: conv.updatedAt.toISOString(),
+            provider: conv.provider
+              ? {
+                  ...conv.provider,
+                  createdAt: conv.provider.createdAt.toISOString(),
+                  updatedAt: conv.provider.updatedAt.toISOString(),
+                }
+              : null,
+          },
+        },
+        { status: 201 },
+      );
+    },
+  );
 }

@@ -12,6 +12,12 @@ const { mocks } = vi.hoisted(() => ({
     deleteProvider: vi.fn(),
     fetchModelsFromCredentials: vi.fn(),
     fetchModelsFromProvider: vi.fn(),
+    listConversations: vi.fn(),
+    createConversation: vi.fn(),
+    getConversationById: vi.fn(),
+    updateConversation: vi.fn(),
+    deleteConversation: vi.fn(),
+    clearConversationMessages: vi.fn(),
     getPendingActions: vi.fn(),
     approveHostedAction: vi.fn(),
     rejectHostedAction: vi.fn(),
@@ -41,6 +47,16 @@ vi.mock("@/lib/ai/service", () => ({
   deleteProvider: mocks.deleteProvider,
   fetchModelsFromCredentials: mocks.fetchModelsFromCredentials,
   fetchModelsFromProvider: mocks.fetchModelsFromProvider,
+  listConversations: mocks.listConversations,
+  createConversation: mocks.createConversation,
+  getConversationById: mocks.getConversationById,
+  updateConversation: mocks.updateConversation,
+  deleteConversation: mocks.deleteConversation,
+  clearConversationMessages: mocks.clearConversationMessages,
+  serializeConversationListItem: (conversation: Record<string, unknown>) =>
+    conversation,
+  serializeConversation: (conversation: Record<string, unknown>) =>
+    conversation,
   serializeProvider: (provider: Record<string, unknown>) => ({
     ...provider,
     apiKey: undefined,
@@ -58,6 +74,9 @@ const modelsRoute = await import("../models/route");
 const modelsProbeRoute = await import("../models/probe/route");
 const hostedActionsRoute = await import("../hosted-actions/route");
 const hostedActionDetailRoute = await import("../hosted-actions/[id]/route");
+const conversationsRoute = await import("../conversations/route");
+const conversationDetailRoute = await import("../conversations/[id]/route");
+const chatRoute = await import("../chat/route");
 
 const session = { userId: "u1", username: "alice", roles: ["admin"] };
 const params = { params: Promise.resolve({ id: "p1" }) };
@@ -67,6 +86,13 @@ const provider = {
   apiKey: "sk-1234567890abcdef",
   createdAt: new Date("2026-01-01T00:00:00Z"),
   updatedAt: new Date("2026-01-02T00:00:00Z"),
+};
+const conversation = {
+  id: "c1",
+  title: "Test conversation",
+  createdAt: new Date("2026-01-03T00:00:00Z"),
+  updatedAt: new Date("2026-01-04T00:00:00Z"),
+  provider: null,
 };
 
 describe("AI API shared guard migration", () => {
@@ -82,6 +108,12 @@ describe("AI API shared guard migration", () => {
     mocks.deleteProvider.mockResolvedValue(undefined);
     mocks.fetchModelsFromCredentials.mockResolvedValue(["gpt-test"]);
     mocks.fetchModelsFromProvider.mockResolvedValue(["gpt-provider"]);
+    mocks.listConversations.mockResolvedValue([conversation]);
+    mocks.createConversation.mockResolvedValue(conversation);
+    mocks.getConversationById.mockResolvedValue(conversation);
+    mocks.updateConversation.mockResolvedValue(conversation);
+    mocks.deleteConversation.mockResolvedValue(undefined);
+    mocks.clearConversationMessages.mockResolvedValue(undefined);
     mocks.getPendingActions.mockResolvedValue([{ id: "a1" }]);
     mocks.approveHostedAction.mockResolvedValue(undefined);
     mocks.rejectHostedAction.mockResolvedValue({
@@ -182,5 +214,68 @@ describe("AI API shared guard migration", () => {
       "ai:action:approve",
     );
     expect(mocks.approveHostedAction).toHaveBeenCalledWith("a1", "u1", true);
+  });
+
+  it("uses shared guard for AI conversation list/create/update/delete routes", async () => {
+    const listResponse = await conversationsRoute.GET(
+      new Request("http://local/api/ai/conversations"),
+    );
+    expect(listResponse.status).toBe(200);
+    expect(mocks.requireApiSession).toHaveBeenCalled();
+    expect(mocks.listConversations).toHaveBeenCalledWith("u1");
+
+    const createResponse = await conversationsRoute.POST(
+      new Request("http://local/api/ai/conversations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title: "New chat",
+          providerId: "p1",
+          model: "gpt-test",
+        }),
+      }),
+    );
+    expect(createResponse.status).toBe(201);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
+    expect(mocks.createConversation).toHaveBeenCalledWith({
+      title: "New chat",
+      providerId: "p1",
+      model: "gpt-test",
+      createdBy: "u1",
+    });
+
+    const detailParams = { params: Promise.resolve({ id: "c1" }) };
+    const patchResponse = await conversationDetailRoute.PATCH(
+      new Request("http://local/api/ai/conversations/c1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: "Renamed chat" }),
+      }),
+      detailParams,
+    );
+    expect(patchResponse.status).toBe(200);
+    expect(mocks.updateConversation).toHaveBeenCalledWith("c1", "u1", {
+      title: "Renamed chat",
+    });
+
+    const deleteResponse = await conversationDetailRoute.DELETE(
+      new Request("http://local/api/ai/conversations/c1", { method: "DELETE" }),
+      detailParams,
+    );
+    expect(deleteResponse.status).toBe(200);
+    expect(mocks.deleteConversation).toHaveBeenCalledWith("c1", "u1");
+  });
+
+  it("checks ai:chat permission before validating chat request bodies", async () => {
+    const response = await chatRoute.POST(
+      new Request("http://local/api/ai/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: "missing conversation id" }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
   });
 });
