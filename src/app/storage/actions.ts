@@ -5,7 +5,14 @@ import { revalidatePath } from "next/cache";
 import { writeAuditLog } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
-import { checkStorageNodeHealth, createFileEntry, createStorageNode, listStorageNodes, updateStorageNode, deleteStorageNode } from "@/lib/storage/service";
+import {
+  checkStorageNodeHealth,
+  createFileEntry,
+  createStorageNode,
+  listStorageNodes,
+  updateStorageNode,
+  deleteStorageNode,
+} from "@/lib/storage/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -20,11 +27,88 @@ export type StorageActionState = {
   success?: string;
 };
 
+async function runSftpRemoteDelete(input: {
+  storageNode: {
+    driver: string;
+    basePath: string;
+    host?: string | null;
+    port?: number | null;
+    username?: string | null;
+    server?: {
+      host?: string | null;
+      port?: number | null;
+      username?: string | null;
+      connectionType?: string | null;
+      password?: string | null;
+      sshKey?: { privateKey?: string | null } | null;
+    } | null;
+  };
+  relativePath: string;
+  isDirectory: boolean;
+}) {
+  if (input.storageNode.driver !== "SFTP") return;
+  const { deleteRemoteFile } = await import("@/lib/ssh/client");
+  const remotePath = normalizeRemoteTargetPath(
+    input.storageNode.basePath,
+    input.relativePath,
+  );
+  const credentials = resolveStorageSshCredentials(input.storageNode);
+  await deleteRemoteFile({
+    ...credentials,
+    remotePath,
+    isDirectory: input.isDirectory,
+  });
+}
+
+async function runSftpRemoteRename(input: {
+  storageNode: {
+    driver: string;
+    basePath: string;
+    host?: string | null;
+    port?: number | null;
+    username?: string | null;
+    server?: {
+      host?: string | null;
+      port?: number | null;
+      username?: string | null;
+      connectionType?: string | null;
+      password?: string | null;
+      sshKey?: { privateKey?: string | null } | null;
+    } | null;
+  };
+  oldRelativePath: string;
+  newRelativePath: string;
+}) {
+  if (input.storageNode.driver !== "SFTP") return;
+  const { renameRemoteFile } = await import("@/lib/ssh/client");
+  const oldPath = normalizeRemoteTargetPath(
+    input.storageNode.basePath,
+    input.oldRelativePath,
+  );
+  const newPath = normalizeRemoteTargetPath(
+    input.storageNode.basePath,
+    input.newRelativePath,
+  );
+  const credentials = resolveStorageSshCredentials(input.storageNode);
+  await renameRemoteFile({ ...credentials, oldPath, newPath });
+}
+
 export async function getStorageFormOptions() {
-  const [servers, nodes] = await Promise.all([listServerProfiles(), listStorageNodes()]);
+  const [servers, nodes] = await Promise.all([
+    listServerProfiles(),
+    listStorageNodes(),
+  ]);
   return {
-    servers: servers.map((server: (typeof servers)[number]) => ({ id: server.id, name: server.name, host: server.host })),
-    nodes: nodes.map((node: (typeof nodes)[number]) => ({ id: node.id, name: node.name, driver: node.driver })),
+    servers: servers.map((server: (typeof servers)[number]) => ({
+      id: server.id,
+      name: server.name,
+      host: server.host,
+    })),
+    nodes: nodes.map((node: (typeof nodes)[number]) => ({
+      id: node.id,
+      name: node.name,
+      driver: node.driver,
+    })),
   };
 }
 
@@ -38,17 +122,26 @@ export async function checkStorageNodeHealthAction(storageNodeId: string) {
     return {
       success: `节点健康检查完成：${result.healthStatus === "HEALTHY" ? "健康" : "异常"}`,
       health: result,
-    } satisfies StorageActionState & { health: Awaited<ReturnType<typeof checkStorageNodeHealth>> };
+    } satisfies StorageActionState & {
+      health: Awaited<ReturnType<typeof checkStorageNodeHealth>>;
+    };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "节点健康检查失败" } satisfies StorageActionState;
+    return {
+      error: error instanceof Error ? error.message : "节点健康检查失败",
+    } satisfies StorageActionState;
   }
 }
 
-export async function createStorageNodeAction(_prev: StorageActionState | null, formData: FormData) {
+export async function createStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
   await requirePermission("storage:manage-node");
 
   try {
-    const driver = String(formData.get("driver") ?? "LOCAL").toUpperCase() as "LOCAL" | "SFTP";
+    const driver = String(formData.get("driver") ?? "LOCAL").toUpperCase() as
+      | "LOCAL"
+      | "SFTP";
     const portRaw = String(formData.get("port") ?? "").trim();
     const serverIdRaw = String(formData.get("serverId") ?? "").trim();
     const hostRaw = String(formData.get("host") ?? "").trim();
@@ -59,9 +152,16 @@ export async function createStorageNodeAction(_prev: StorageActionState | null, 
       driver,
       isDefault: String(formData.get("isDefault") ?? "") === "on",
       basePath: String(formData.get("basePath") ?? ""),
-      directAccessMode: String(formData.get("directAccessMode") ?? "PROXY") as "PROXY" | "DIRECT" | "AUTO",
-      publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim() || undefined,
-      directAccessExpiresSeconds: Number(String(formData.get("directAccessExpiresSeconds") ?? "300").trim() || 300),
+      directAccessMode: String(formData.get("directAccessMode") ?? "PROXY") as
+        | "PROXY"
+        | "DIRECT"
+        | "AUTO",
+      publicBaseUrl:
+        String(formData.get("publicBaseUrl") ?? "").trim() || undefined,
+      directAccessExpiresSeconds: Number(
+        String(formData.get("directAccessExpiresSeconds") ?? "300").trim() ||
+          300,
+      ),
       serverId: serverIdRaw || undefined,
       host: hostRaw || undefined,
       port: portRaw ? Number(portRaw) : undefined,
@@ -75,21 +175,30 @@ export async function createStorageNodeAction(_prev: StorageActionState | null, 
 
     return { success: "存储节点已创建。" } satisfies StorageActionState;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "创建存储节点失败" } satisfies StorageActionState;
+    return {
+      error: error instanceof Error ? error.message : "创建存储节点失败",
+    } satisfies StorageActionState;
   }
 }
 
-export async function createFolderAction(_prev: StorageActionState | null, formData: FormData) {
+export async function createFolderAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
   await requirePermission("storage:write");
 
   try {
     const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
-    const currentPathResult = normalizeStorageTargetDirectory(String(formData.get("currentPath") ?? ""));
+    const currentPathResult = normalizeStorageTargetDirectory(
+      String(formData.get("currentPath") ?? ""),
+    );
     if (!currentPathResult.ok) {
       return { error: currentPathResult.reason } satisfies StorageActionState;
     }
 
-    const folderNameResult = normalizeStorageEntryName(String(formData.get("folderName") ?? ""));
+    const folderNameResult = normalizeStorageEntryName(
+      String(formData.get("folderName") ?? ""),
+    );
     if (!folderNameResult.ok) {
       return { error: folderNameResult.reason } satisfies StorageActionState;
     }
@@ -122,73 +231,82 @@ export async function createFolderAction(_prev: StorageActionState | null, formD
     });
 
     if (existing) {
-      return { error: `路径 /${relativePath} 已存在，请使用其他名称` } satisfies StorageActionState;
+      return {
+        error: `路径 /${relativePath} 已存在，请使用其他名称`,
+      } satisfies StorageActionState;
     }
 
-  const storageNode = await prisma.storageNode.findUnique({
-    where: { id: storageNodeId },
-    select: {
-      id: true,
-      name: true,
-      driver: true,
-      basePath: true,
-      host: true,
-      port: true,
-      username: true,
-      serverId: true,
-      server: {
-        select: {
-          id: true,
-          host: true,
-          port: true,
-          username: true,
-          connectionType: true,
-          password: true,
-          sshKey: { select: { privateKey: true } },
+    const storageNode = await prisma.storageNode.findUnique({
+      where: { id: storageNodeId },
+      select: {
+        id: true,
+        name: true,
+        driver: true,
+        basePath: true,
+        host: true,
+        port: true,
+        username: true,
+        serverId: true,
+        server: {
+          select: {
+            id: true,
+            host: true,
+            port: true,
+            username: true,
+            connectionType: true,
+            password: true,
+            sshKey: { select: { privateKey: true } },
+          },
         },
       },
-    },
-  });
-
-  if (!storageNode) {
-    return { error: "存储节点不存在" } satisfies StorageActionState;
-  }
-
-  if (storageNode.driver === "LOCAL") {
-    const { mkdir } = await import("node:fs/promises");
-    const path = await import("node:path");
-    const allowedRoot = path.resolve(storageNode.basePath);
-    const absolutePath = path.resolve(allowedRoot, relativePath);
-    const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-    if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-      return { error: "非法路径" } satisfies StorageActionState;
-    }
-
-    await mkdir(absolutePath, { recursive: true });
-  } else if (storageNode.driver === "SFTP") {
-    const { createRemoteDirectory } = await import("@/lib/ssh/client");
-
-    let remotePath: string;
-    try {
-      remotePath = normalizeRemoteTargetPath(storageNode.basePath, relativePath);
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : "非法路径" } satisfies StorageActionState;
-    }
-
-    let credentials: ReturnType<typeof resolveStorageSshCredentials>;
-    try {
-      credentials = resolveStorageSshCredentials(storageNode);
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : "连接凭据不可用" } satisfies StorageActionState;
-    }
-
-    await createRemoteDirectory({
-      ...credentials,
-      remotePath,
-      recursive: true,
     });
-  }
+
+    if (!storageNode) {
+      return { error: "存储节点不存在" } satisfies StorageActionState;
+    }
+
+    if (storageNode.driver === "LOCAL") {
+      const { mkdir } = await import("node:fs/promises");
+      const path = await import("node:path");
+      const allowedRoot = path.resolve(storageNode.basePath);
+      const absolutePath = path.resolve(allowedRoot, relativePath);
+      const relativeToRoot = path.relative(allowedRoot, absolutePath);
+
+      if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+        return { error: "非法路径" } satisfies StorageActionState;
+      }
+
+      await mkdir(absolutePath, { recursive: true });
+    } else if (storageNode.driver === "SFTP") {
+      const { createRemoteDirectory } = await import("@/lib/ssh/client");
+
+      let remotePath: string;
+      try {
+        remotePath = normalizeRemoteTargetPath(
+          storageNode.basePath,
+          relativePath,
+        );
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "非法路径",
+        } satisfies StorageActionState;
+      }
+
+      let credentials: ReturnType<typeof resolveStorageSshCredentials>;
+      try {
+        credentials = resolveStorageSshCredentials(storageNode);
+      } catch (error) {
+        return {
+          error: error instanceof Error ? error.message : "连接凭据不可用",
+        } satisfies StorageActionState;
+      }
+
+      await createRemoteDirectory({
+        ...credentials,
+        remotePath,
+        recursive: true,
+      });
+    }
 
     await createFileEntry({
       storageNodeId,
@@ -202,355 +320,535 @@ export async function createFolderAction(_prev: StorageActionState | null, formD
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: `文件夹 /${relativePath} 已创建` } satisfies StorageActionState;
+    return {
+      success: `文件夹 /${relativePath} 已创建`,
+    } satisfies StorageActionState;
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "创建文件夹失败" } satisfies StorageActionState;
+    return {
+      error: error instanceof Error ? error.message : "创建文件夹失败",
+    } satisfies StorageActionState;
   }
 }
 
-export async function deleteFileEntryAction(_prev: StorageActionState | null, formData: FormData) {
-	await requirePermission("storage:delete");
+export async function deleteFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("storage:delete");
 
-	try {
-		const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
+  try {
+    const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
-		if (!fileEntryId) {
-			return { error: "缺少文件条目参数" } satisfies StorageActionState;
-		}
+    if (!fileEntryId) {
+      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+    }
 
-		const entry = await prisma.fileEntry.findUnique({
-			where: { id: fileEntryId },
-			select: { id: true, name: true, entryType: true, relativePath: true, storageNodeId: true, storageNode: { select: { driver: true, basePath: true } } },
-		});
+    const entry = await prisma.fileEntry.findUnique({
+      where: { id: fileEntryId },
+      select: {
+        id: true,
+        name: true,
+        entryType: true,
+        relativePath: true,
+        storageNodeId: true,
+        storageNode: {
+          select: {
+            driver: true,
+            basePath: true,
+            host: true,
+            port: true,
+            username: true,
+            server: {
+              select: {
+                host: true,
+                port: true,
+                username: true,
+                connectionType: true,
+                password: true,
+                sshKey: { select: { privateKey: true } },
+              },
+            },
+          },
+        },
+      },
+    });
 
-		if (!entry) {
-			return { error: "文件条目不存在" } satisfies StorageActionState;
-		}
+    if (!entry) {
+      return { error: "文件条目不存在" } satisfies StorageActionState;
+    }
 
-		if (entry.entryType === "DIRECTORY") {
-			const prefix = entry.relativePath + "/";
-			await prisma.fileEntry.updateMany({
-				where: {
-					storageNodeId: entry.storageNodeId,
-					relativePath: { startsWith: prefix },
-				},
-				data: { isDeleted: true },
-			});
-		}
+    await runSftpRemoteDelete({
+      storageNode: entry.storageNode,
+      relativePath: entry.relativePath,
+      isDirectory: entry.entryType === "DIRECTORY",
+    });
 
-		if (entry.storageNode.driver === "LOCAL" && entry.entryType === "FILE") {
-			try {
-				const { unlink } = await import("node:fs/promises");
-				const path = await import("node:path");
-				const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
-				const absolutePath = path.resolve(entry.storageNode.basePath, normalizedRelativePath);
-				const allowedRoot = path.resolve(entry.storageNode.basePath);
-				const relativeToRoot = path.relative(allowedRoot, absolutePath);
+    if (entry.entryType === "DIRECTORY") {
+      const prefix = entry.relativePath + "/";
+      await prisma.fileEntry.updateMany({
+        where: {
+          storageNodeId: entry.storageNodeId,
+          relativePath: { startsWith: prefix },
+        },
+        data: { isDeleted: true },
+      });
+    }
 
-				if (!relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot)) {
-					await unlink(absolutePath);
-				}
-			} catch {
-				// Silently ignore fs errors — DB soft-delete proceeds regardless
-			}
-		}
+    if (entry.storageNode.driver === "LOCAL" && entry.entryType === "FILE") {
+      try {
+        const { unlink } = await import("node:fs/promises");
+        const path = await import("node:path");
+        const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
+        const absolutePath = path.resolve(
+          entry.storageNode.basePath,
+          normalizedRelativePath,
+        );
+        const allowedRoot = path.resolve(entry.storageNode.basePath);
+        const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
-		await prisma.fileEntry.update({
-			where: { id: fileEntryId },
-			data: { isDeleted: true },
-		});
+        if (
+          !relativeToRoot.startsWith("..") &&
+          !path.isAbsolute(relativeToRoot)
+        ) {
+          await unlink(absolutePath);
+        }
+      } catch {
+        // Silently ignore fs errors — DB soft-delete proceeds regardless
+      }
+    }
 
-		writeAuditLog({
-			actorType: "USER",
-			action: "storage.file_delete",
-			severity: "WARNING",
-			detail: { entryId: entry.id, entryName: entry.name },
-		}).catch(() => {}); // audit failure must not block or pollute production logs
+    await prisma.fileEntry.update({
+      where: { id: fileEntryId },
+      data: { isDeleted: true },
+    });
 
-		revalidatePath("/");
-		revalidatePath("/storage");
-		revalidatePath("/files");
+    writeAuditLog({
+      actorType: "USER",
+      action: "storage.file_delete",
+      severity: "WARNING",
+      detail: { entryId: entry.id, entryName: entry.name },
+    }).catch(() => {}); // audit failure must not block or pollute production logs
 
-		return { success: `已将 ${entry.name} 移至回收站` } satisfies StorageActionState;
-	} catch (error) {
-		return { error: error instanceof Error ? error.message : "删除文件条目失败" } satisfies StorageActionState;
-	}
+    revalidatePath("/");
+    revalidatePath("/storage");
+    revalidatePath("/files");
+
+    return {
+      success: `已将 ${entry.name} 移至回收站`,
+    } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "删除文件条目失败",
+    } satisfies StorageActionState;
+  }
 }
 
-export async function restoreFileEntryAction(_prev: StorageActionState | null, formData: FormData) {
-	await requirePermission("storage:delete");
+export async function restoreFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("storage:delete");
 
-	try {
-		const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
+  try {
+    const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
-		if (!fileEntryId) {
-			return { error: "缺少文件条目参数" } satisfies StorageActionState;
-		}
+    if (!fileEntryId) {
+      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+    }
 
-		const entry = await prisma.fileEntry.findUnique({
-			where: { id: fileEntryId },
-			select: { id: true, name: true, entryType: true, relativePath: true, storageNodeId: true },
-		});
+    const entry = await prisma.fileEntry.findUnique({
+      where: { id: fileEntryId },
+      select: {
+        id: true,
+        name: true,
+        entryType: true,
+        relativePath: true,
+        storageNodeId: true,
+      },
+    });
 
-		if (!entry) {
-			return { error: "文件条目不存在" } satisfies StorageActionState;
-		}
+    if (!entry) {
+      return { error: "文件条目不存在" } satisfies StorageActionState;
+    }
 
-		if (entry.entryType === "DIRECTORY") {
-			const prefix = entry.relativePath + "/";
-			await prisma.fileEntry.updateMany({
-				where: {
-					storageNodeId: entry.storageNodeId,
-					relativePath: { startsWith: prefix },
-				},
-				data: { isDeleted: false },
-			});
-		}
+    if (entry.entryType === "DIRECTORY") {
+      const prefix = entry.relativePath + "/";
+      await prisma.fileEntry.updateMany({
+        where: {
+          storageNodeId: entry.storageNodeId,
+          relativePath: { startsWith: prefix },
+        },
+        data: { isDeleted: false },
+      });
+    }
 
-		await prisma.fileEntry.update({
-			where: { id: fileEntryId },
-			data: { isDeleted: false },
-		});
+    await prisma.fileEntry.update({
+      where: { id: fileEntryId },
+      data: { isDeleted: false },
+    });
 
-		revalidatePath("/");
-		revalidatePath("/storage");
-		revalidatePath("/files");
+    revalidatePath("/");
+    revalidatePath("/storage");
+    revalidatePath("/files");
 
-		return { success: `已恢复 ${entry.name}` } satisfies StorageActionState;
-	} catch (error) {
-		return { error: error instanceof Error ? error.message : "恢复文件条目失败" } satisfies StorageActionState;
-	}
+    return { success: `已恢复 ${entry.name}` } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "恢复文件条目失败",
+    } satisfies StorageActionState;
+  }
 }
 
-export async function permanentDeleteFileEntryAction(_prev: StorageActionState | null, formData: FormData) {
-	await requirePermission("storage:delete");
+export async function permanentDeleteFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("storage:delete");
 
-	try {
-		const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
+  try {
+    const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
-		if (!fileEntryId) {
-			return { error: "缺少文件条目参数" } satisfies StorageActionState;
-		}
+    if (!fileEntryId) {
+      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+    }
 
-		const entry = await prisma.fileEntry.findUnique({
-			where: { id: fileEntryId },
-			select: { id: true, name: true, entryType: true, relativePath: true, storageNodeId: true, storageNode: { select: { driver: true, basePath: true } } },
-		});
+    const entry = await prisma.fileEntry.findUnique({
+      where: { id: fileEntryId },
+      select: {
+        id: true,
+        name: true,
+        entryType: true,
+        relativePath: true,
+        storageNodeId: true,
+        storageNode: {
+          select: {
+            driver: true,
+            basePath: true,
+            host: true,
+            port: true,
+            username: true,
+            server: {
+              select: {
+                host: true,
+                port: true,
+                username: true,
+                connectionType: true,
+                password: true,
+                sshKey: { select: { privateKey: true } },
+              },
+            },
+          },
+        },
+      },
+    });
 
-		if (!entry) {
-			return { error: "文件条目不存在" } satisfies StorageActionState;
-		}
+    if (!entry) {
+      return { error: "文件条目不存在" } satisfies StorageActionState;
+    }
 
- if (entry.entryType === "DIRECTORY") {
- const prefix = entry.relativePath + "/";
- await prisma.fileEntry.deleteMany({
- where: {
- storageNodeId: entry.storageNodeId,
- relativePath: { startsWith: prefix },
- },
- });
- }
+    await runSftpRemoteDelete({
+      storageNode: entry.storageNode,
+      relativePath: entry.relativePath,
+      isDirectory: entry.entryType === "DIRECTORY",
+    });
 
- if (entry.storageNode.driver === "LOCAL") {
- try {
- const { unlink, rm } = await import("node:fs/promises");
- const path = await import("node:path");
- const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
- const absolutePath = path.resolve(entry.storageNode.basePath, normalizedRelativePath);
- const allowedRoot = path.resolve(entry.storageNode.basePath);
- const relativeToRoot = path.relative(allowedRoot, absolutePath);
+    if (entry.entryType === "DIRECTORY") {
+      const prefix = entry.relativePath + "/";
+      await prisma.fileEntry.deleteMany({
+        where: {
+          storageNodeId: entry.storageNodeId,
+          relativePath: { startsWith: prefix },
+        },
+      });
+    }
 
- if (!relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot)) {
- if (entry.entryType === "FILE") {
- await unlink(absolutePath);
- } else if (entry.entryType === "DIRECTORY") {
- await rm(absolutePath, { recursive: true, force: true });
- }
- }
- } catch {
- // Silently ignore fs errors — DB delete proceeds regardless
- }
- }
+    if (entry.storageNode.driver === "LOCAL") {
+      try {
+        const { unlink, rm } = await import("node:fs/promises");
+        const path = await import("node:path");
+        const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
+        const absolutePath = path.resolve(
+          entry.storageNode.basePath,
+          normalizedRelativePath,
+        );
+        const allowedRoot = path.resolve(entry.storageNode.basePath);
+        const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
-		await prisma.fileEntry.delete({
-			where: { id: fileEntryId },
-		});
+        if (
+          !relativeToRoot.startsWith("..") &&
+          !path.isAbsolute(relativeToRoot)
+        ) {
+          if (entry.entryType === "FILE") {
+            await unlink(absolutePath);
+          } else if (entry.entryType === "DIRECTORY") {
+            await rm(absolutePath, { recursive: true, force: true });
+          }
+        }
+      } catch {
+        // Silently ignore fs errors — DB delete proceeds regardless
+      }
+    }
 
-		revalidatePath("/");
-		revalidatePath("/storage");
-		revalidatePath("/files");
+    await prisma.fileEntry.delete({
+      where: { id: fileEntryId },
+    });
 
-		return { success: `已永久删除 ${entry.name}` } satisfies StorageActionState;
-	} catch (error) {
-		return { error: error instanceof Error ? error.message : "永久删除文件条目失败" } satisfies StorageActionState;
-	}
+    revalidatePath("/");
+    revalidatePath("/storage");
+    revalidatePath("/files");
+
+    return { success: `已永久删除 ${entry.name}` } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "永久删除文件条目失败",
+    } satisfies StorageActionState;
+  }
 }
 
-export async function renameFileEntryAction(_prev: StorageActionState | null, formData: FormData) {
-	await requirePermission("storage:write");
+export async function renameFileEntryAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("storage:write");
 
-	try {
-		const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
-		const newName = String(formData.get("newName") ?? "").trim();
+  try {
+    const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
+    const newName = String(formData.get("newName") ?? "").trim();
 
-		if (!fileEntryId) {
-			return { error: "缺少文件条目参数" } satisfies StorageActionState;
-		}
+    if (!fileEntryId) {
+      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+    }
 
-		if (!newName) {
-			return { error: "名称不能为空" } satisfies StorageActionState;
-		}
+    if (!newName) {
+      return { error: "名称不能为空" } satisfies StorageActionState;
+    }
 
-		if (/[\\/:*?"<>|]/.test(newName)) {
-			return { error: "名称包含非法字符" } satisfies StorageActionState;
-		}
+    if (/[\\/:*?"<>|]/.test(newName)) {
+      return { error: "名称包含非法字符" } satisfies StorageActionState;
+    }
 
-		const entry = await prisma.fileEntry.findUnique({
-			where: { id: fileEntryId },
-			select: { id: true, name: true, entryType: true, relativePath: true, storageNodeId: true, storageNode: { select: { driver: true, basePath: true } } },
-		});
+    const entry = await prisma.fileEntry.findUnique({
+      where: { id: fileEntryId },
+      select: {
+        id: true,
+        name: true,
+        entryType: true,
+        relativePath: true,
+        storageNodeId: true,
+        storageNode: {
+          select: {
+            driver: true,
+            basePath: true,
+            host: true,
+            port: true,
+            username: true,
+            server: {
+              select: {
+                host: true,
+                port: true,
+                username: true,
+                connectionType: true,
+                password: true,
+                sshKey: { select: { privateKey: true } },
+              },
+            },
+          },
+        },
+      },
+    });
 
-		if (!entry) {
-			return { error: "文件条目不存在" } satisfies StorageActionState;
-		}
+    if (!entry) {
+      return { error: "文件条目不存在" } satisfies StorageActionState;
+    }
 
-		const lastSlashIndex = entry.relativePath.lastIndexOf("/");
-		const newRelativePath = lastSlashIndex >= 0
-			? entry.relativePath.substring(0, lastSlashIndex + 1) + newName
-			: newName;
+    const lastSlashIndex = entry.relativePath.lastIndexOf("/");
+    const newRelativePath =
+      lastSlashIndex >= 0
+        ? entry.relativePath.substring(0, lastSlashIndex + 1) + newName
+        : newName;
 
-		const existing = await prisma.fileEntry.findFirst({
-			where: {
-				storageNodeId: entry.storageNodeId,
-				relativePath: newRelativePath,
-				isDeleted: false,
-				id: { not: fileEntryId },
-			},
-			select: { id: true },
-		});
+    const existing = await prisma.fileEntry.findFirst({
+      where: {
+        storageNodeId: entry.storageNodeId,
+        relativePath: newRelativePath,
+        isDeleted: false,
+        id: { not: fileEntryId },
+      },
+      select: { id: true },
+    });
 
-		if (existing) {
-			return { error: `路径 /${newRelativePath} 已存在，请使用其他名称` } satisfies StorageActionState;
-		}
+    if (existing) {
+      return {
+        error: `路径 /${newRelativePath} 已存在，请使用其他名称`,
+      } satisfies StorageActionState;
+    }
 
-		if (entry.entryType === "DIRECTORY") {
-			const oldPrefix = entry.relativePath + "/";
-			const newPrefix = newRelativePath + "/";
-			const children = await prisma.fileEntry.findMany({
-				where: {
-					storageNodeId: entry.storageNodeId,
-					relativePath: { startsWith: oldPrefix },
-				},
-				select: { id: true, relativePath: true },
-			});
+    await runSftpRemoteRename({
+      storageNode: entry.storageNode,
+      oldRelativePath: entry.relativePath,
+      newRelativePath,
+    });
 
- for (const child of children) {
- await prisma.fileEntry.update({
- where: { id: child.id },
- data: { relativePath: newPrefix + child.relativePath.slice(oldPrefix.length) },
- });
- }
-		}
+    if (entry.entryType === "DIRECTORY") {
+      const oldPrefix = entry.relativePath + "/";
+      const newPrefix = newRelativePath + "/";
+      const children = await prisma.fileEntry.findMany({
+        where: {
+          storageNodeId: entry.storageNodeId,
+          relativePath: { startsWith: oldPrefix },
+        },
+        select: { id: true, relativePath: true },
+      });
 
-		await prisma.fileEntry.update({
-			where: { id: fileEntryId },
-			data: { name: newName, relativePath: newRelativePath },
-		});
+      for (const child of children) {
+        await prisma.fileEntry.update({
+          where: { id: child.id },
+          data: {
+            relativePath:
+              newPrefix + child.relativePath.slice(oldPrefix.length),
+          },
+        });
+      }
+    }
 
-		if (entry.storageNode.driver === "LOCAL") {
-			try {
-				const { rename } = await import("node:fs/promises");
-				const path = await import("node:path");
-				const normalizedOldRelativePath = entry.relativePath.replace(/^\/+/, "");
-				const normalizedNewRelativePath = newRelativePath.replace(/^\/+/, "");
-				const oldAbsolutePath = path.resolve(entry.storageNode.basePath, normalizedOldRelativePath);
-				const newAbsolutePath = path.resolve(entry.storageNode.basePath, normalizedNewRelativePath);
-				const allowedRoot = path.resolve(entry.storageNode.basePath);
-				const oldRelativeToRoot = path.relative(allowedRoot, oldAbsolutePath);
-				const newRelativeToRoot = path.relative(allowedRoot, newAbsolutePath);
+    await prisma.fileEntry.update({
+      where: { id: fileEntryId },
+      data: { name: newName, relativePath: newRelativePath },
+    });
 
-				if (
-					!oldRelativeToRoot.startsWith("..") && !path.isAbsolute(oldRelativeToRoot) &&
-					!newRelativeToRoot.startsWith("..") && !path.isAbsolute(newRelativeToRoot)
-				) {
-					await rename(oldAbsolutePath, newAbsolutePath);
-				}
-			} catch {
-				// Silently ignore fs errors — DB rename proceeds regardless
-			}
-		}
+    if (entry.storageNode.driver === "LOCAL") {
+      try {
+        const { rename } = await import("node:fs/promises");
+        const path = await import("node:path");
+        const normalizedOldRelativePath = entry.relativePath.replace(
+          /^\/+/,
+          "",
+        );
+        const normalizedNewRelativePath = newRelativePath.replace(/^\/+/, "");
+        const oldAbsolutePath = path.resolve(
+          entry.storageNode.basePath,
+          normalizedOldRelativePath,
+        );
+        const newAbsolutePath = path.resolve(
+          entry.storageNode.basePath,
+          normalizedNewRelativePath,
+        );
+        const allowedRoot = path.resolve(entry.storageNode.basePath);
+        const oldRelativeToRoot = path.relative(allowedRoot, oldAbsolutePath);
+        const newRelativeToRoot = path.relative(allowedRoot, newAbsolutePath);
 
-		revalidatePath("/");
-		revalidatePath("/storage");
-		revalidatePath("/files");
+        if (
+          !oldRelativeToRoot.startsWith("..") &&
+          !path.isAbsolute(oldRelativeToRoot) &&
+          !newRelativeToRoot.startsWith("..") &&
+          !path.isAbsolute(newRelativeToRoot)
+        ) {
+          await rename(oldAbsolutePath, newAbsolutePath);
+        }
+      } catch {
+        // Silently ignore fs errors — DB rename proceeds regardless
+      }
+    }
 
-		return { success: `已重命名为 ${newName}` } satisfies StorageActionState;
-	} catch (error) {
-		return { error: error instanceof Error ? error.message : "重命名文件条目失败" } satisfies StorageActionState;
-	}
+    revalidatePath("/");
+    revalidatePath("/storage");
+    revalidatePath("/files");
+
+    return { success: `已重命名为 ${newName}` } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "重命名文件条目失败",
+    } satisfies StorageActionState;
+  }
 }
 
-export async function updateStorageNodeAction(_prev: StorageActionState | null, formData: FormData) {
-	await requirePermission("storage:manage-node");
+export async function updateStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("storage:manage-node");
 
-	try {
-		const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
-		const driver = String(formData.get("driver") ?? "").trim().toUpperCase() as "LOCAL" | "SFTP" | "";
-		const portRaw = String(formData.get("port") ?? "").trim();
-		const serverIdRaw = String(formData.get("serverId") ?? "").trim();
-		const hostRaw = String(formData.get("host") ?? "").trim();
-		const usernameRaw = String(formData.get("username") ?? "").trim();
-		const isDefaultRaw = String(formData.get("isDefault") ?? "").trim();
+  try {
+    const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
+    const driver = String(formData.get("driver") ?? "")
+      .trim()
+      .toUpperCase() as "LOCAL" | "SFTP" | "";
+    const portRaw = String(formData.get("port") ?? "").trim();
+    const serverIdRaw = String(formData.get("serverId") ?? "").trim();
+    const hostRaw = String(formData.get("host") ?? "").trim();
+    const usernameRaw = String(formData.get("username") ?? "").trim();
+    const isDefaultRaw = String(formData.get("isDefault") ?? "").trim();
 
-		if (!storageNodeId) {
-			return { error: "缺少存储节点参数" } satisfies StorageActionState;
-		}
+    if (!storageNodeId) {
+      return { error: "缺少存储节点参数" } satisfies StorageActionState;
+    }
 
-		await updateStorageNode({
-			storageNodeId,
-			name: String(formData.get("name") ?? "").trim() || undefined,
-			driver: driver === "LOCAL" || driver === "SFTP" ? driver : undefined,
-			basePath: String(formData.get("basePath") ?? "").trim() || undefined,
-			directAccessMode: ["PROXY", "DIRECT", "AUTO"].includes(String(formData.get("directAccessMode") ?? "")) ? (String(formData.get("directAccessMode")) as "PROXY" | "DIRECT" | "AUTO") : undefined,
-			publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim(),
-			directAccessExpiresSeconds: Number(String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300),
-			isDefault: isDefaultRaw === "on" ? true : isDefaultRaw === "off" ? false : undefined,
-			serverId: serverIdRaw || null,
-			host: hostRaw || null,
-			port: portRaw ? Number(portRaw) : undefined,
-			username: usernameRaw || null,
-		});
+    await updateStorageNode({
+      storageNodeId,
+      name: String(formData.get("name") ?? "").trim() || undefined,
+      driver: driver === "LOCAL" || driver === "SFTP" ? driver : undefined,
+      basePath: String(formData.get("basePath") ?? "").trim() || undefined,
+      directAccessMode: ["PROXY", "DIRECT", "AUTO"].includes(
+        String(formData.get("directAccessMode") ?? ""),
+      )
+        ? (String(formData.get("directAccessMode")) as
+            | "PROXY"
+            | "DIRECT"
+            | "AUTO")
+        : undefined,
+      publicBaseUrl: String(formData.get("publicBaseUrl") ?? "").trim(),
+      directAccessExpiresSeconds: Number(
+        String(formData.get("directAccessExpiresSeconds") ?? "").trim() || 300,
+      ),
+      isDefault:
+        isDefaultRaw === "on"
+          ? true
+          : isDefaultRaw === "off"
+            ? false
+            : undefined,
+      serverId: serverIdRaw || null,
+      host: hostRaw || null,
+      port: portRaw ? Number(portRaw) : undefined,
+      username: usernameRaw || null,
+    });
 
-		revalidatePath("/");
-		revalidatePath("/servers");
-		revalidatePath("/storage");
-		revalidatePath("/files");
+    revalidatePath("/");
+    revalidatePath("/servers");
+    revalidatePath("/storage");
+    revalidatePath("/files");
 
-		return { success: "存储节点已更新。" } satisfies StorageActionState;
-	} catch (error) {
-		return { error: error instanceof Error ? error.message : "更新存储节点失败" } satisfies StorageActionState;
-	}
+    return { success: "存储节点已更新。" } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "更新存储节点失败",
+    } satisfies StorageActionState;
+  }
 }
 
-export async function deleteStorageNodeAction(_prev: StorageActionState | null, formData: FormData) {
-	await requirePermission("storage:manage-node");
+export async function deleteStorageNodeAction(
+  _prev: StorageActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("storage:manage-node");
 
-	try {
-		const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
+  try {
+    const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
 
-		if (!storageNodeId) {
-			return { error: "缺少存储节点参数" } satisfies StorageActionState;
-		}
+    if (!storageNodeId) {
+      return { error: "缺少存储节点参数" } satisfies StorageActionState;
+    }
 
-		await deleteStorageNode(storageNodeId);
+    await deleteStorageNode(storageNodeId);
 
-		revalidatePath("/");
-		revalidatePath("/servers");
-		revalidatePath("/storage");
-		revalidatePath("/files");
+    revalidatePath("/");
+    revalidatePath("/servers");
+    revalidatePath("/storage");
+    revalidatePath("/files");
 
-		return { success: "存储节点已删除。" } satisfies StorageActionState;
-	} catch (error) {
-		return { error: error instanceof Error ? error.message : "删除存储节点失败" } satisfies StorageActionState;
-	}
+    return { success: "存储节点已删除。" } satisfies StorageActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "删除存储节点失败",
+    } satisfies StorageActionState;
+  }
 }
