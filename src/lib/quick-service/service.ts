@@ -358,7 +358,7 @@ export async function startService(slug: string) {
 	const containerName = safeContainerName(svc.slug);
 	try {
 		dockerExecSync(["start", containerName], 30_000);
-		await prisma.quickService.update({ where: { slug }, data: { status: "running" } });
+		await prisma.quickService.update({ where: { slug }, data: { status: "running", error: null } });
 	} catch {
 		const tmpl: ServiceTemplate = {
 			slug: svc.slug,
@@ -392,7 +392,7 @@ export async function stopService(slug: string) {
 	const containerName = safeContainerName(svc.slug);
 	try {
 		dockerExecSync(["stop", containerName], 30_000);
-		await prisma.quickService.update({ where: { slug }, data: { status: "stopped" } });
+		await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: null } });
 	} catch (err) {
 		const msg = err instanceof Error ? err.message : String(err);
 		await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });

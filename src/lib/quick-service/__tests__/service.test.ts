@@ -28,7 +28,7 @@ vi.mock("child_process", () => ({
 	execSync: execSyncMock,
 }));
 
-import { checkPort, getDockerEnvironmentStatus, installService, startService, uninstallService } from "../service";
+import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, uninstallService } from "../service";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -201,6 +201,25 @@ describe("quick service docker lifecycle", () => {
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { slug: "demo" },
 			data: { status: "error", error: expect.stringContaining("docker daemon unavailable") },
+		});
+	});
+
+	it("clears stale lifecycle errors after a successful start or stop", async () => {
+		prismaMock.quickService.findUnique
+			.mockResolvedValueOnce({ id: "svc-6", slug: "demo" })
+			.mockResolvedValueOnce({ id: "svc-6", slug: "demo" });
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		await startService("demo");
+		await stopService("demo");
+
+		expect(prismaMock.quickService.update).toHaveBeenNthCalledWith(1, {
+			where: { slug: "demo" },
+			data: { status: "running", error: null },
+		});
+		expect(prismaMock.quickService.update).toHaveBeenNthCalledWith(2, {
+			where: { slug: "demo" },
+			data: { status: "stopped", error: null },
 		});
 	});
 
