@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 
-const { mockPrisma } = vi.hoisted(() => ({
+const { mockPrisma, listRemoteDirectoryMock } = vi.hoisted(() => ({
  mockPrisma: {
  storageNode: {
  updateMany: vi.fn(),
@@ -20,11 +20,19 @@ const { mockPrisma } = vi.hoisted(() => ({
  update: vi.fn(),
  },
  },
+ listRemoteDirectoryMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
  prisma: mockPrisma,
  isDatabaseUnavailableError: vi.fn(() => false),
+}));
+vi.mock("@/lib/ssh/client", () => ({
+ listRemoteDirectory: listRemoteDirectoryMock,
+}));
+vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+ decryptServerPassword: (value: string) => `decrypted:${value}`,
+ decryptSshPrivateKey: (value: string) => `decrypted:${value}`,
 }));
 import {
 	createFileEntry,
@@ -32,6 +40,7 @@ import {
 	getLocalEditableFileDraft,
 	getStorageOverview,
 	listFileEntries,
+	restoreFileEntry,
 	updateStorageNode,
 } from "@/lib/storage/service";
 import { prisma } from "@/lib/db";
@@ -400,5 +409,161 @@ server: null,
  }),
  }),
  );
+ });
+
+ it("restores a local deleted entry only when the real file still exists", async () => {
+ vi.clearAllMocks();
+ const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-restore-"));
+ const relativePath = "docs/notes.txt";
+ const absolutePath = path.join(tempRoot, relativePath);
+ await mkdir(path.dirname(absolutePath), { recursive: true });
+ await writeFileToDisk(absolutePath, "recover me", "utf8");
+
+ vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+ id: "file_restore_local",
+ name: "notes.txt",
+ entryType: "FILE",
+ mimeType: "text/plain",
+ size: BigInt(10),
+ checksumSha256: null,
+ relativePath,
+ storageNodeId: "node_1",
+ parentId: null,
+ isDeleted: true,
+ createdAt: new Date(),
+ updatedAt: new Date(),
+ storageNode: {
+ id: "node_1",
+ driver: "LOCAL",
+ basePath: tempRoot,
+ host: null,
+ port: null,
+ username: null,
+ server: null,
+ },
+ } as any);
+ vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({ id: "file_restore_local", isDeleted: false } as any);
+
+ try {
+ await restoreFileEntry({ fileEntryId: "file_restore_local" });
+ expect(prisma.fileEntry.update).toHaveBeenCalledWith({
+ where: { id: "file_restore_local" },
+ data: { isDeleted: false },
+ });
+ } finally {
+ await rm(tempRoot, { recursive: true, force: true });
+ }
+ });
+
+ it("does not restore a local deleted entry when the real file is missing", async () => {
+ vi.clearAllMocks();
+ const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-restore-missing-"));
+
+ vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+ id: "file_missing_local",
+ name: "missing.txt",
+ entryType: "FILE",
+ mimeType: "text/plain",
+ size: BigInt(10),
+ checksumSha256: null,
+ relativePath: "docs/missing.txt",
+ storageNodeId: "node_1",
+ parentId: null,
+ isDeleted: true,
+ createdAt: new Date(),
+ updatedAt: new Date(),
+ storageNode: {
+ id: "node_1",
+ driver: "LOCAL",
+ basePath: tempRoot,
+ host: null,
+ port: null,
+ username: null,
+ server: null,
+ },
+ } as any);
+
+ try {
+ await expect(restoreFileEntry({ fileEntryId: "file_missing_local" })).rejects.toThrow("原始文件已不存在");
+ expect(prisma.fileEntry.update).not.toHaveBeenCalled();
+ } finally {
+ await rm(tempRoot, { recursive: true, force: true });
+ }
+ });
+
+ it("restores an SFTP deleted entry only after confirming the remote file still exists", async () => {
+ vi.clearAllMocks();
+ vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+ id: "file_restore_sftp",
+ name: "report.pdf",
+ entryType: "FILE",
+ mimeType: "application/pdf",
+ size: BigInt(123),
+ checksumSha256: null,
+ relativePath: "team/report.pdf",
+ storageNodeId: "node_2",
+ parentId: null,
+ isDeleted: true,
+ createdAt: new Date(),
+ updatedAt: new Date(),
+ storageNode: {
+ id: "node_2",
+ driver: "SFTP",
+ basePath: "/data/files",
+ host: "203.0.113.10",
+ port: 2222,
+ username: "deploy",
+ server: { host: "203.0.113.10", port: 22, username: "root", connectionType: "PASSWORD", password: "cipher", sshKey: null },
+ },
+ } as any);
+ listRemoteDirectoryMock.mockResolvedValueOnce([
+ { name: "report.pdf", longname: "", type: "file", size: 123, modifyTime: 0, accessTime: 0 },
+ ]);
+ vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({ id: "file_restore_sftp", isDeleted: false } as any);
+
+ await restoreFileEntry({ fileEntryId: "file_restore_sftp" });
+
+ expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({
+ host: "203.0.113.10",
+ port: 2222,
+ username: "deploy",
+ remotePath: "/data/files/team",
+ password: "decrypted:cipher",
+ }));
+ expect(prisma.fileEntry.update).toHaveBeenCalledWith({
+ where: { id: "file_restore_sftp" },
+ data: { isDeleted: false },
+ });
+ });
+
+ it("does not restore an SFTP deleted entry when the remote file is missing", async () => {
+ vi.clearAllMocks();
+ vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+ id: "file_missing_sftp",
+ name: "missing.pdf",
+ entryType: "FILE",
+ mimeType: "application/pdf",
+ size: BigInt(123),
+ checksumSha256: null,
+ relativePath: "team/missing.pdf",
+ storageNodeId: "node_2",
+ parentId: null,
+ isDeleted: true,
+ createdAt: new Date(),
+ updatedAt: new Date(),
+ storageNode: {
+ id: "node_2",
+ driver: "SFTP",
+ basePath: "/data/files",
+ host: "203.0.113.10",
+ port: 22,
+ username: "root",
+ server: { host: "203.0.113.10", port: 22, username: "root", connectionType: "SSH_KEY", password: null, sshKey: { privateKey: "cipher-key" } },
+ },
+ } as any);
+ listRemoteDirectoryMock.mockResolvedValueOnce([]);
+
+ await expect(restoreFileEntry({ fileEntryId: "file_missing_sftp" })).rejects.toThrow("原始远端文件已不存在");
+ expect(prisma.fileEntry.update).not.toHaveBeenCalled();
  });
 });

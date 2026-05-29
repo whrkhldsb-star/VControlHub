@@ -526,13 +526,118 @@ export async function softDeleteFileEntry(input: FileEntryMutationInput) {
   });
 }
 
+type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
+  include: {
+    storageNode: {
+      select: {
+        id: true;
+        driver: true;
+        basePath: true;
+        host: true;
+        port: true;
+        username: true;
+        server: {
+          select: {
+            host: true;
+            port: true;
+            username: true;
+            connectionType: true;
+            password: true;
+            sshKey: { select: { privateKey: true } };
+          };
+        };
+      };
+    };
+  };
+}>;
+
+async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
+  if (entry.storageNode.driver === "LOCAL") {
+    const absolutePath = resolveLocalAbsolutePath(entry.storageNode.basePath, entry.relativePath);
+    let fileStat;
+    try {
+      fileStat = await stat(absolutePath);
+    } catch {
+      throw new Error("原始文件已不存在，无法恢复索引");
+    }
+
+    if (entry.entryType === "DIRECTORY" && !fileStat.isDirectory()) {
+      throw new Error("原始路径已不是目录，无法恢复索引");
+    }
+    if (entry.entryType === "FILE" && !fileStat.isFile()) {
+      throw new Error("原始路径已不是文件，无法恢复索引");
+    }
+    return;
+  }
+
+  const parentRelativePath = path.posix.dirname(entry.relativePath);
+  const normalizedParent = parentRelativePath === "." ? "" : parentRelativePath;
+  let remoteParentPath: string;
+  try {
+    remoteParentPath = normalizeRemotePath(entry.storageNode.basePath, normalizedParent);
+  } catch {
+    throw new Error("原始远端路径非法，无法恢复索引");
+  }
+
+  const credentials = resolveStorageSshCredentials(entry.storageNode);
+  let entries;
+  try {
+    entries = await listRemoteDirectory({ ...credentials, remotePath: remoteParentPath });
+  } catch {
+    throw new Error("无法确认远端文件仍然存在，恢复已取消");
+  }
+
+  const expectedName = path.posix.basename(entry.relativePath);
+  const remoteEntry = entries.find((candidate) => candidate.name === expectedName);
+  if (!remoteEntry) {
+    throw new Error("原始远端文件已不存在，无法恢复索引");
+  }
+
+  if (entry.entryType === "DIRECTORY" && remoteEntry.type !== "directory") {
+    throw new Error("原始远端路径已不是目录，无法恢复索引");
+  }
+  if (entry.entryType === "FILE" && remoteEntry.type !== "file") {
+    throw new Error("原始远端路径已不是文件，无法恢复索引");
+  }
+}
+
 export async function restoreFileEntry(input: FileEntryMutationInput) {
   const payload = fileEntryMutationSchema.parse(input);
-  const current = await prisma.fileEntry.findUnique({ where: { id: payload.fileEntryId } });
+  const current = await prisma.fileEntry.findUnique({
+    where: { id: payload.fileEntryId },
+    include: {
+      storageNode: {
+        select: {
+          id: true,
+          driver: true,
+          basePath: true,
+          host: true,
+          port: true,
+          username: true,
+          server: {
+            select: {
+              host: true,
+              port: true,
+              username: true,
+              connectionType: true,
+              password: true,
+              sshKey: { select: { privateKey: true } },
+            },
+          },
+        },
+      },
+    },
+  });
 
   if (!current) {
     throw new Error("文件条目不存在或已删除");
   }
+
+  if (!current.isDeleted) {
+    throw new Error("文件条目未在回收站中");
+  }
+
+  await assertDeletedEntryStillExists(current);
 
   return prisma.fileEntry.update({
     where: { id: payload.fileEntryId },
