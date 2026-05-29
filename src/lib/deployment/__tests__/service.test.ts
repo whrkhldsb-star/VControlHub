@@ -2,14 +2,19 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    commandTemplate: { findUnique: vi.fn(), findMany: vi.fn() },
+    commandTemplate: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
   },
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/command/service", () => ({ createCommandRequest: vi.fn(async () => ({ id: "cmd1", status: "PENDING_APPROVAL" })) }));
+vi.mock("@/lib/command-template/service", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/command-template/service")>("@/lib/command-template/service");
+  return { ...actual, seedBuiltinTemplates: vi.fn(actual.seedBuiltinTemplates) };
+});
 const commandService = await import("@/lib/command/service");
+const commandTemplateService = await import("@/lib/command-template/service");
 
 const { createDeploymentRunFromTemplate, listDeploymentRuns, listDeploymentTemplates } = await import("../service");
 
@@ -18,6 +23,8 @@ describe("deployment service", () => {
     vi.clearAllMocks();
     mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"] });
     mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
+    mockPrisma.commandTemplate.count.mockResolvedValue(1);
+    mockPrisma.commandTemplate.create.mockResolvedValue({});
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
     mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }));
   });
@@ -79,7 +86,8 @@ describe("deployment service", () => {
   it("lists templates for the deployment page without rendering secrets", async () => {
     const templates = await listDeploymentTemplates();
     expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
-    expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: { createdAt: "desc" } });
+    expect(commandTemplateService.seedBuiltinTemplates).toHaveBeenCalled();
+    expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }] });
   });
 
   it("marks deployment run as rejected when its approval request is rejected", async () => {

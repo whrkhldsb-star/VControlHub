@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
-import { renderCommand } from "@/lib/command-template/service";
+import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 
 function normalizeDeploymentInput(input: {
   templateId: string;
@@ -40,7 +40,8 @@ function assertTemplateVariables(
 }
 
 export async function listDeploymentTemplates() {
-  return prisma.commandTemplate.findMany({ orderBy: { createdAt: "desc" } });
+  await seedBuiltinTemplates();
+  return prisma.commandTemplate.findMany({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }] });
 }
 
 export async function createDeploymentRunFromTemplate(input: {
