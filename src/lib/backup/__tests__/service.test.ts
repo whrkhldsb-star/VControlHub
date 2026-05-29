@@ -26,11 +26,32 @@ describe("backup service", () => {
     expect(record.filePath).not.toMatch(/^\/root\//);
   });
 
-  it("builds backup command using deploy script and never embeds credentials", () => {
-    const command = buildPortableBackupCommand({ projectRoot: "/opt/whrkhldsb", outputPath: "backups/app.dump" });
-    expect(command).toContain("deploy/backup.sh");
-    expect(command).toContain("backups/app.dump");
-    expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
+  it("builds backup commands that match each requested backup type", () => {
+    const databaseCommand = buildPortableBackupCommand({ projectRoot: "/opt/whrkhldsb", outputPath: "backups/db.dump", type: "DATABASE" });
+    const filesCommand = buildPortableBackupCommand({ projectRoot: "/opt/whrkhldsb", outputPath: "backups/files.tar.gz", type: "FILES" });
+    const fullCommand = buildPortableBackupCommand({ projectRoot: "/opt/whrkhldsb", outputPath: "backups/full.tar.gz", type: "FULL" });
+
+    expect(databaseCommand).toContain("deploy/backup.sh");
+    expect(databaseCommand).not.toContain("--files");
+    expect(databaseCommand).not.toContain("--full");
+    expect(filesCommand).toContain("deploy/backup.sh --files");
+    expect(fullCommand).toContain("deploy/backup.sh --full");
+    for (const command of [databaseCommand, filesCommand, fullCommand]) {
+      expect(command).toContain("backups/");
+      expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
+    }
+  });
+
+  it("creates backup records with type-specific portable file extensions", async () => {
+    mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
+
+    const db = await createBackupRecord({ type: "DATABASE", createdBy: "u1" });
+    const files = await createBackupRecord({ type: "FILES", createdBy: "u1" });
+    const full = await createBackupRecord({ type: "FULL", createdBy: "u1" });
+
+    expect(db.filePath).toMatch(/^backups\/database-.*\.sql\.gz$/);
+    expect(files.filePath).toMatch(/^backups\/files-.*\.tar\.gz$/);
+    expect(full.filePath).toMatch(/^backups\/full-.*\.tar\.gz$/);
   });
 
   it("rejects non-portable backup paths before resolving them", () => {

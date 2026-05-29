@@ -3,17 +3,23 @@ import { join, normalize, sep } from "node:path";
 import { prisma } from "@/lib/db";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+export type BackupType = "DATABASE" | "FILES" | "FULL";
+
+export function isBackupType(value: string): value is BackupType {
+  return value === "DATABASE" || value === "FILES" || value === "FULL";
+}
 
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\''`)}'`;
 }
 
-export function buildBackupFilePath(type: string, now = new Date()) {
+export function buildBackupFilePath(type: BackupType, now = new Date()) {
   const stamp = now.toISOString().replace(/[:.]/g, "-");
-  return `backups/${type.toLowerCase()}-${stamp}.dump`;
+  const extension = type === "DATABASE" ? "sql.gz" : "tar.gz";
+  return `backups/${type.toLowerCase()}-${stamp}.${extension}`;
 }
 
-export async function createBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string }) {
+export async function createBackupRecord(input: { type: BackupType; createdBy?: string; note?: string }) {
   return prisma.backupRecord.create({
     data: {
       type: input.type,
@@ -50,9 +56,10 @@ export function assertPortableBackupPath(filePath: string) {
   return value;
 }
 
-export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string }) {
+export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string; type?: BackupType }) {
   const outputPath = assertPortableBackupPath(input.outputPath);
-  return `cd ${shellQuote(input.projectRoot)} && bash deploy/backup.sh ${shellQuote(outputPath)}`;
+  const modeFlag = input.type === "FILES" ? " --files" : input.type === "FULL" ? " --full" : "";
+  return `cd ${shellQuote(input.projectRoot)} && bash deploy/backup.sh${modeFlag} ${shellQuote(outputPath)}`;
 }
 
 export function buildRestoreCommand(input: { projectRoot: string; backupPath: string }) {

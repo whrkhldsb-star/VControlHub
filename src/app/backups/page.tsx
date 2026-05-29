@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { buildRestoreCommand, listBackupRecords } from "@/lib/backup/service";
+import { buildPortableBackupCommand, buildRestoreCommand, isBackupType, listBackupRecords } from "@/lib/backup/service";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 
@@ -51,7 +51,12 @@ export default async function BackupsPage() {
 								{b.errorMessage && <span className="text-rose-300">错误：{b.errorMessage}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-slate-400">{b.note}</p>}
-							{canRestore && <code className="mt-3 block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{buildRestoreCommand({ projectRoot, backupPath: b.filePath })}</code>}
+							{canRestore && (
+								<div className="mt-3 grid gap-2">
+									<code className="block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{buildRestoreCommand({ projectRoot, backupPath: b.filePath })}</code>
+								</div>
+							)}
 						</div>
 					))}
 				</div>
