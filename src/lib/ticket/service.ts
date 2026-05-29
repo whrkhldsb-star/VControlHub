@@ -39,9 +39,22 @@ export async function canViewTicket(id: string, userId: string) {
   return ticket?.createdBy === userId || ticket?.assigneeId === userId;
 }
 
-export async function updateTicketStatus(input: { id: string; status: string; assigneeId?: string | null }) {
-  if (!STATUSES.has(input.status)) throw new Error("工单状态无效");
-  return prisma.ticket.update({ where: { id: input.id }, data: { status: input.status, assigneeId: input.assigneeId, closedAt: input.status === "CLOSED" ? new Date() : null } });
+export async function updateTicketStatus(input: { id: string; status?: string; assigneeId?: string | null }) {
+  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null } = {};
+
+  if (input.status !== undefined) {
+    if (!STATUSES.has(input.status)) throw new Error("工单状态无效");
+    data.status = input.status;
+    data.closedAt = input.status === "CLOSED" ? new Date() : null;
+  }
+
+  if (input.assigneeId !== undefined) {
+    data.assigneeId = input.assigneeId;
+  }
+
+  if (Object.keys(data).length === 0) throw new Error("工单更新内容不能为空");
+
+  return prisma.ticket.update({ where: { id: input.id }, data });
 }
 
 export async function addTicketComment(input: { ticketId: string; authorId: string; body: string }) {

@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (body.assigneeId !== undefined) updates.assigneeId = body.assigneeId;
 
-    const ticket = await updateTicketStatus(updates as { id: string; status: string; assigneeId?: string | null });
+    const ticket = await updateTicketStatus(updates as { id: string; status?: string; assigneeId?: string | null });
     return NextResponse.json({ ticket });
   });
 }

@@ -10,6 +10,34 @@ describe("ticket service", () => {
     expect(ticket.status).toBe("OPEN");
     await expect(updateTicketStatus({ id: "tk1", status: "BAD" })).rejects.toThrow(/状态无效/);
   });
+
+  it("updates assignee without requiring a status change", async () => {
+    mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "OPEN", assigneeId: "u2" });
+
+    await updateTicketStatus({ id: "tk1", assigneeId: "u2" });
+
+    expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
+      where: { id: "tk1" },
+      data: { assigneeId: "u2" },
+    });
+  });
+
+  it("preserves assignee when status changes omit assigneeId and clears assignee only for explicit null", async () => {
+    mockPrisma.ticket.update.mockResolvedValue({ id: "tk1" });
+
+    await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" });
+    await updateTicketStatus({ id: "tk1", assigneeId: null });
+
+    expect(mockPrisma.ticket.update).toHaveBeenNthCalledWith(1, {
+      where: { id: "tk1" },
+      data: { status: "IN_PROGRESS", closedAt: null },
+    });
+    expect(mockPrisma.ticket.update).toHaveBeenNthCalledWith(2, {
+      where: { id: "tk1" },
+      data: { assigneeId: null },
+    });
+  });
+
   it("adds non-empty comments", async () => {
     await expect(addTicketComment({ ticketId: "tk1", authorId: "u1", body: "  " })).rejects.toThrow(/不能为空/);
   });
