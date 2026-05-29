@@ -72,6 +72,7 @@ export async function POST(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
+      errorStatus: 400,
       errorMessage: "创建用户失败",
     },
     async ({ session }) => {
@@ -89,47 +90,53 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      const { username, displayName, password, roleKeys } = parsed.data;
+      const { password } = parsed.data;
+      const username = parsed.data.username.trim();
+      const displayName = parsed.data.displayName?.trim() || null;
+      const requestedRoleKeys = Array.from(
+        new Set((parsed.data.roleKeys ?? ["viewer"]).map((key) => key.trim()).filter(Boolean)),
+      );
+      const roleKeys = requestedRoleKeys.length > 0 ? requestedRoleKeys : ["viewer"];
 
-      const existing = await prisma.user.findUnique({ where: { username } });
-      if (existing) {
-        return NextResponse.json({ error: "用户名已存在" }, { status: 409 });
-      }
+      const user = await prisma.$transaction(async (tx) => {
+        const existing = await tx.user.findUnique({ where: { username } });
+        if (existing) {
+          throw new Error("用户名已存在");
+        }
 
-      const passwordHash = await hashPassword(password);
-      const user = await prisma.user.create({
-        data: {
-          username,
-          displayName: displayName || null,
-          passwordHash,
-          status: "ACTIVE",
-          mustChangePassword: false,
-        },
-      });
-
-      if (roleKeys && roleKeys.length > 0) {
-        const roles = await prisma.role.findMany({
+        const roles = await tx.role.findMany({
           where: { key: { in: roleKeys } },
         });
-        for (const role of roles) {
-          await prisma.userRole.create({
-            data: { userId: user.id, roleId: role.id },
-          });
+        const foundRoleKeys = new Set(roles.map((role) => role.key));
+        const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
+        if (missingRoleKeys.length > 0) {
+          throw new Error(`角色不存在: ${missingRoleKeys.join(", ")}`);
         }
-      } else {
-        const viewerRole = await prisma.role.findUnique({
-          where: { key: "viewer" },
+
+        const passwordHash = await hashPassword(password);
+        const createdUser = await tx.user.create({
+          data: {
+            username,
+            displayName,
+            passwordHash,
+            status: "ACTIVE",
+            mustChangePassword: false,
+          },
         });
-        if (viewerRole) {
-          await prisma.userRole.create({
-            data: { userId: user.id, roleId: viewerRole.id },
+
+        if (roles.length > 0) {
+          await tx.userRole.createMany({
+            data: roles.map((role) => ({ userId: createdUser.id, roleId: role.id })),
+            skipDuplicates: true,
           });
         }
-      }
+
+        return createdUser;
+      });
 
       auditUserAction(session.userId, "user.create", {
         targetUsername: username,
-        roles: roleKeys ?? [],
+        roles: roleKeys,
       });
 
       return NextResponse.json({ success: true, userId: user.id });
