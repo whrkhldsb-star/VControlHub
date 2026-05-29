@@ -32,14 +32,23 @@ function maskProvider(provider: Awaited<ReturnType<typeof getProviderById>>) {
 }
 
 function parseAvailableModels(data: z.infer<typeof updateProviderSchema>) {
-  if (data.availableModels !== undefined)
-    return { availableModels: data.availableModels };
+  if (data.availableModels !== undefined) {
+    return {
+      availableModels: Array.from(
+        new Set(data.availableModels.map((model) => model.trim()).filter(Boolean)),
+      ),
+    };
+  }
   if (data.models !== undefined) {
     return {
-      availableModels: data.models
-        .split(",")
-        .map((model) => model.trim())
-        .filter(Boolean),
+      availableModels: Array.from(
+        new Set(
+          data.models
+            .split(",")
+            .map((model) => model.trim())
+            .filter(Boolean),
+        ),
+      ),
     };
   }
   return {};

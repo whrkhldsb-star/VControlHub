@@ -15,7 +15,7 @@ const createProviderSchema = z.object({
   name: z.string().min(1),
   type: z.string().optional(),
   apiKey: z.string().min(1),
-  baseUrl: z.string().url(),
+  baseUrl: z.string().url().optional(),
   models: z.string().optional(),
   availableModels: z.array(z.string()).optional(),
   defaultModel: z.string().optional(),
@@ -23,13 +23,9 @@ const createProviderSchema = z.object({
 });
 
 function parseModels(data: { availableModels?: string[]; models?: string }) {
-  return (
-    data.availableModels ??
-    data.models
-      ?.split(",")
-      .map((model) => model.trim())
-      .filter(Boolean) ??
-    []
+  const rawModels = data.availableModels ?? data.models?.split(",") ?? [];
+  return Array.from(
+    new Set(rawModels.map((model) => model.trim()).filter(Boolean)),
   );
 }
 

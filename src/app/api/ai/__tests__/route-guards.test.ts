@@ -159,6 +159,30 @@ describe("AI API shared guard migration", () => {
     );
   });
 
+  it("allows provider creation to use the service default Base URL and normalizes duplicate model lists", async () => {
+    const response = await providersRoute.POST(
+      new Request("http://local/api/ai/providers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "OpenAI Compatible",
+          apiKey: "sk",
+          models: " gpt-4o, gpt-4o, , gpt-4.1 ",
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.createProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "OpenAI Compatible",
+        apiKey: "sk",
+        availableModels: ["gpt-4o", "gpt-4.1"],
+        createdBy: "u1",
+      }),
+    );
+  });
+
   it("masks provider API keys in detail responses", async () => {
     const response = await providerDetailRoute.GET(
       new Request("http://local/api/ai/providers/p1"),
