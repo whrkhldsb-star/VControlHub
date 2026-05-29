@@ -3,9 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks, httpRequestMock, loggerMock } = vi.hoisted(() => ({
   mocks: {
-    requireApiSession: vi.fn(),
-    isSessionPayload: vi.fn(),
-    sessionHasPermission: vi.fn(),
+    requireApiPermission: vi.fn(),
     auditUserAction: vi.fn(),
   },
   httpRequestMock: vi.fn(),
@@ -17,23 +15,27 @@ const { mocks, httpRequestMock, loggerMock } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/auth/api-session", () => ({
-  requireApiSession: mocks.requireApiSession,
-  isSessionPayload: mocks.isSessionPayload,
+vi.mock("@/lib/auth/require-api-permission", () => ({
+  requireApiPermission: mocks.requireApiPermission,
 }));
-vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
-vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+vi.mock("@/lib/audit/service", () => ({
+  auditUserAction: mocks.auditUserAction,
+}));
 vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMock }));
 vi.mock("node:http", () => ({ default: { request: httpRequestMock } }));
 
 const route = await import("../route");
 
+const session = {
+  userId: "u1",
+  username: "alice",
+  permissions: ["docker:manage"],
+};
+
 describe("/api/docker/containers audit coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", permissions: ["docker:manage"] });
-    mocks.isSessionPayload.mockReturnValue(true);
-    mocks.sessionHasPermission.mockReturnValue(true);
+    mocks.requireApiPermission.mockResolvedValue({ session });
   });
 
   it("returns an empty unavailable list without error logging when the Docker socket is missing", async () => {
@@ -46,7 +48,10 @@ describe("/api/docker/containers audit coverage", () => {
         }),
         write: vi.fn(),
         end: vi.fn(() => {
-          const error = Object.assign(new Error("connect ENOENT /var/run/docker.sock"), { code: "ENOENT" });
+          const error = Object.assign(
+            new Error("connect ENOENT /var/run/docker.sock"),
+            { code: "ENOENT" },
+          );
           requestHandlers.error?.(error);
         }),
         destroy: vi.fn(),
@@ -54,13 +59,29 @@ describe("/api/docker/containers audit coverage", () => {
       return req;
     });
 
-    const response = await route.GET(new NextRequest("http://local/api/docker/containers"));
+    const response = await route.GET(
+      new NextRequest("http://local/api/docker/containers"),
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ ok: true, status: 200, data: [], dockerAvailable: false, message: "Docker 未安装或 Docker socket 不可用" });
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("docker:manage");
+    expect(body).toEqual({
+      ok: true,
+      status: 200,
+      data: [],
+      dockerAvailable: false,
+      message: "Docker 未安装或 Docker socket 不可用",
+    });
     expect(loggerMock.error).not.toHaveBeenCalled();
-    expect(loggerMock.warn).toHaveBeenCalledWith("Docker socket unavailable", expect.any(Error), expect.objectContaining({ apiPath: "/containers/json?all=true", method: "GET" }));
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      "Docker socket unavailable",
+      expect.any(Error),
+      expect.objectContaining({
+        apiPath: "/containers/json?all=true",
+        method: "GET",
+      }),
+    );
   });
 
   it("audits container lifecycle actions without leaking logs or commands", async () => {
@@ -82,19 +103,35 @@ describe("/api/docker/containers audit coverage", () => {
       };
     });
 
-    const response = await route.POST(new NextRequest("http://local/api/docker/containers", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: "app_1", action: "remove" }),
-    }));
+    const response = await route.POST(
+      new NextRequest("http://local/api/docker/containers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: "app_1", action: "remove" }),
+      }),
+    );
 
     expect(response.status).not.toBe(401);
-    expect(httpRequestMock).toHaveBeenCalledWith(expect.objectContaining({ path: "/containers/app_1?force=true", method: "DELETE" }), expect.any(Function));
-    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "docker.container.remove", {
-      containerId: "app_1",
-      status: 204,
-      ok: true,
-    }, "WARNING");
-    expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("/containers/app_1/logs");
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("docker:manage");
+    expect(httpRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: "/containers/app_1?force=true",
+        method: "DELETE",
+      }),
+      expect.any(Function),
+    );
+    expect(mocks.auditUserAction).toHaveBeenCalledWith(
+      "u1",
+      "docker.container.remove",
+      {
+        containerId: "app_1",
+        status: 204,
+        ok: true,
+      },
+      "WARNING",
+    );
+    expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
+      "/containers/app_1/logs",
+    );
   });
 });
