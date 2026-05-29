@@ -22,6 +22,7 @@ describe("server config helpers", () => {
  username: "root",
  connectionType: "SSH_KEY",
  sshKeyId: "key_1",
+ storagePath: "/root/drive",
  password: null,
  tags: ["prod", "cn-hk"],
  description: "main node",

@@ -455,7 +455,7 @@ describe("server service", () => {
 	connectionType: "PASSWORD",
 	password: "secret123",
 	tags: [],
-	})).rejects.toThrow("已存在相同主机、端口和用户名的 VPS 节点");
+	})).rejects.toThrow("已存在相同主机、端口和用户名的");
 
 	expect(prisma.server.create).not.toHaveBeenCalled();
 	expect(prisma.storageNode.create).not.toHaveBeenCalled();

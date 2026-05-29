@@ -13,6 +13,7 @@ describe("RBAC defaults", () => {
 
   it("keeps viewer read-only", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.viewer).toEqual([
+      "ai:chat",
       "audit:read",
       "backup:read",
       "command:read",

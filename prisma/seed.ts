@@ -18,7 +18,9 @@ function seedLog(message: string) {
 const PERMISSION_LABELS: Record<string, { name: string; description: string }> = {
   "announcement:manage": { name: "管理公告", description: "允许发布、置顶和下线站内公告" },
  "api-token:manage": { name: "管理 API Token", description: "允许创建和撤销个人 API Token" },
+ "ai:chat": { name: "使用 AI 助手", description: "允许与 AI 助手进行对话交互" },
  "ai:manage": { name: "管理 AI 助手", description: "允许配置 AI 提供商、创建对话与多模态交互" },
+ "ai:action:approve": { name: "审批 AI 托管操作", description: "允许审批 AI 助手发起的高风险托管操作" },
 	"deploy:export":{ name: "导出部署包", description: "允许生成不含敏感值的部署迁移模板包" },
 	"docker:manage": { name: "管理 Docker", description: "允许管理 Docker 容器、镜像与编排" },
 	"image:read": { name: "查看镜像", description: "允许查看 Docker 镜像列表与详情" },

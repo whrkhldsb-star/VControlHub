@@ -70,7 +70,9 @@ beforeEach(() => {
   mockPrisma.permission.findMany.mockResolvedValue([
     { id: "perm_announcement:manage", key: "announcement:manage" },
     { id: "perm_api-token:manage", key: "api-token:manage" },
+    { id: "perm_ai:chat", key: "ai:chat" },
     { id: "perm_ai:manage", key: "ai:manage" },
+    { id: "perm_ai:action:approve", key: "ai:action:approve" },
     { id: "perm_deploy:export", key: "deploy:export" },
     { id: "perm_docker:manage", key: "docker:manage" },
     { id: "perm_image:read", key: "image:read" },
