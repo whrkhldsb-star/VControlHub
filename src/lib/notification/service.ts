@@ -76,7 +76,7 @@ export async function getUnreadCount(userId: string): Promise<number> {
 }
 
 export async function markAsRead(notificationId: string, userId: string) {
-	const result = prisma.notification.updateMany({
+	const result = await prisma.notification.updateMany({
 		where: { id: notificationId, userId },
 		data: { isRead: true },
 	});
@@ -87,7 +87,7 @@ export async function markAsRead(notificationId: string, userId: string) {
 }
 
 export async function markAllAsRead(userId: string) {
-	const result = prisma.notification.updateMany({
+	const result = await prisma.notification.updateMany({
 		where: { userId, isRead: false },
 		data: { isRead: true },
 	});
@@ -96,7 +96,7 @@ export async function markAllAsRead(userId: string) {
 }
 
 export async function deleteNotification(notificationId: string, userId: string) {
-	const result = prisma.notification.deleteMany({
+	const result = await prisma.notification.deleteMany({
 		where: { id: notificationId, userId },
 	});
 	// Push updated unread count after deletion
