@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { requireSession } from "@/lib/auth/require-session";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
-import { normalizeRemotePath, toClientStorageError } from "@/lib/storage/remote-path";
-import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import {
+  getSftpSyncNode,
+  syncSftpDirectoryEntries,
+} from "@/lib/storage/sftp-sync";
+import {
+  normalizeRemotePath,
+  toClientStorageError,
+} from "@/lib/storage/remote-path";
 
 export const dynamic = "force-dynamic";
 
@@ -18,55 +23,80 @@ const sftpSyncSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const rl = withRateLimit(request, GENERAL_WRITE_LIMIT);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
-  const session = await requireSession();
-  if (!sessionHasPermission(session, "storage:write")) {
-    return NextResponse.json({ error: "缺少权限" }, { status: 403 });
-  }
+  return withApiRoute(
+    request,
+    { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT },
+    async ({ session }) => {
+      if (!session)
+        return NextResponse.json({ error: "未认证" }, { status: 401 });
 
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch {
-    return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
-  }
+      let rawBody: unknown;
+      try {
+        rawBody = await request.json();
+      } catch {
+        return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
+      }
 
-  const parsed = sftpSyncSchema.safeParse(rawBody);
-  if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
-  const { nodeId, remotePath, recursive = false, maxDepth = 1 } = parsed.data;
+      const parsed = sftpSyncSchema.safeParse(rawBody);
+      if (!parsed.success)
+        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+      const {
+        nodeId,
+        remotePath,
+        recursive = false,
+        maxDepth = 1,
+      } = parsed.data;
 
-  const node = await getSftpSyncNode(nodeId);
-  if (!node) {
-    return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
-  }
-  if (node.driver !== "SFTP") {
-    return NextResponse.json({ error: "该节点不是 SFTP 类型" }, { status: 400 });
-  }
+      const node = await getSftpSyncNode(nodeId);
+      if (!node) {
+        return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+      }
+      if (node.driver !== "SFTP") {
+        return NextResponse.json(
+          { error: "该节点不是 SFTP 类型" },
+          { status: 400 },
+        );
+      }
 
-  try {
-    normalizeRemotePath(node.basePath, remotePath);
-  } catch {
-    return NextResponse.json(toClientStorageError("同步路径超出存储节点根目录"), { status: 400 });
-  }
+      try {
+        normalizeRemotePath(node.basePath, remotePath);
+      } catch {
+        return NextResponse.json(
+          toClientStorageError("同步路径超出存储节点根目录"),
+          { status: 400 },
+        );
+      }
 
-  const accessDecision = await assertStorageAccess({
-    session,
-    storageNodeId: node.id,
-    relativePath: remotePath,
-    operation: "write",
-  });
-  if (!accessDecision.allowed) {
-    return NextResponse.json({ error: accessDecision.reason ?? "缺少存储访问授权" }, { status: 403 });
-  }
+      const accessDecision = await assertStorageAccess({
+        session,
+        storageNodeId: node.id,
+        relativePath: remotePath,
+        operation: "write",
+      });
+      if (!accessDecision.allowed) {
+        return NextResponse.json(
+          { error: accessDecision.reason ?? "缺少存储访问授权" },
+          { status: 403 },
+        );
+      }
 
-  try {
-    const result = await syncSftpDirectoryEntries({ node, remotePath, recursive, maxDepth });
-    return NextResponse.json({ success: result.errors.length === 0, ...result });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "同步失败" },
-      { status: 400 },
-    );
-  }
+      try {
+        const result = await syncSftpDirectoryEntries({
+          node,
+          remotePath,
+          recursive,
+          maxDepth,
+        });
+        return NextResponse.json({
+          success: result.errors.length === 0,
+          ...result,
+        });
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : "同步失败" },
+          { status: 400 },
+        );
+      }
+    },
+  );
 }
