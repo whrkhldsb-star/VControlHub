@@ -21,6 +21,15 @@ describe("direct gateway helpers", () => {
     ).toBe("http://media.example.com:39090");
   });
 
+  it("wraps IPv6 hosts in URL brackets for direct gateway public urls", () => {
+    expect(buildDirectGatewayPublicBaseUrl({ host: "2001:db8::10" })).toBe(
+      `http://[2001:db8::10]:${DIRECT_GATEWAY_DEFAULT_PORT}`,
+    );
+    expect(
+      buildDirectGatewayPublicBaseUrl({ host: " [2001:db8::20] ", port: 39090 }),
+    ).toBe("http://[2001:db8::20]:39090");
+  });
+
   it("generates an install command that writes the gateway, env, and systemd unit for the storage root", () => {
     const command = buildInstallDirectGatewayCommand({
       rootPath: "/data/media",

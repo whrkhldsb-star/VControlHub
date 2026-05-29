@@ -6,7 +6,13 @@ export function buildDirectGatewayPublicBaseUrl(input: {
   port?: number;
 }) {
   const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
-  return `http://${input.host}:${port}`;
+  const host = input.host.trim();
+  const urlHost = shouldBracketIpv6Host(host) ? `[${host}]` : host;
+  return `http://${urlHost}:${port}`;
+}
+
+function shouldBracketIpv6Host(host: string) {
+  return host.includes(":") && !host.startsWith("[") && !host.endsWith("]");
 }
 
 export function getDirectGatewayStatusLabel(input: {
