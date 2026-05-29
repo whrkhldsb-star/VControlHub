@@ -6,10 +6,12 @@ const {
   prismaMock,
   mkdirMock,
   writeFileMock,
+  unlinkMock,
   accessMock,
   statMock,
   createRemoteDirectoryMock,
   writeRemoteFileMock,
+  deleteRemoteFileMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   assertStorageAccessMock: vi.fn(() => Promise.resolve({ allowed: true })),
@@ -25,10 +27,12 @@ const {
   },
   mkdirMock: vi.fn(),
   writeFileMock: vi.fn(),
+  unlinkMock: vi.fn(),
   accessMock: vi.fn(),
   statMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
   writeRemoteFileMock: vi.fn(),
+  deleteRemoteFileMock: vi.fn(),
 }));
 
 vi.mock("node:fs", () => ({
@@ -44,11 +48,13 @@ vi.mock("node:fs/promises", () => ({
     mkdir: mkdirMock,
     stat: statMock,
     writeFile: writeFileMock,
+    unlink: unlinkMock,
   },
   access: accessMock,
   mkdir: mkdirMock,
   stat: statMock,
   writeFile: writeFileMock,
+  unlink: unlinkMock,
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -66,6 +72,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/ssh/client", () => ({
   createRemoteDirectory: createRemoteDirectoryMock,
   writeRemoteFile: writeRemoteFileMock,
+  deleteRemoteFile: deleteRemoteFileMock,
 }));
 
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
@@ -248,6 +255,70 @@ describe("/api/storage/local", () => {
         }),
       }),
     );
+  });
+
+  it("cleans up SFTP uploads when DB indexing fails after the remote write", async () => {
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node_1",
+      name: "远端媒体库",
+      driver: "SFTP",
+      basePath: "/data/storage",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        host: "203.0.113.20",
+        port: 2222,
+        username: "deploy",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db down"));
+
+    const response = await POST(
+      new Request("https://example.com/api/storage/local", {
+        method: "POST",
+        body: uploadForm("nested/docs/notes.txt"),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("上传索引写入失败"),
+    });
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.20",
+        remotePath: "/data/storage/nested/docs/notes.txt",
+      }),
+    );
+  });
+
+  it("cleans up LOCAL uploads when DB indexing fails after the disk write", async () => {
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node_1",
+      name: "主控本机",
+      driver: "LOCAL",
+      basePath: "/tmp/storage",
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db down"));
+
+    const response = await POST(
+      new Request("https://example.com/api/storage/local", {
+        method: "POST",
+        body: uploadForm("docs/notes.txt"),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("上传索引写入失败"),
+    });
+    expect(unlinkMock).toHaveBeenCalledWith("/tmp/storage/docs/notes.txt");
   });
 
   it("rejects unsafe upload relativePath before storage node lookup or writes", async () => {

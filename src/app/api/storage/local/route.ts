@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { access, mkdir, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -11,7 +11,11 @@ import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
-import { createRemoteDirectory, writeRemoteFile } from "@/lib/ssh/client";
+import {
+  createRemoteDirectory,
+  deleteRemoteFile,
+  writeRemoteFile,
+} from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -293,6 +297,11 @@ async function handlePost(request: Request, session: SessionPayload) {
   const mimeType = file.type || null;
   const fileName = path.posix.basename(normalizedRelativePath);
 
+  let uploadedLocalPath: string | null = null;
+  let uploadedRemotePath: string | null = null;
+  let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | null =
+    null;
+
   if (storageNode.driver === "LOCAL") {
     if (!absolutePath) {
       return NextResponse.json(
@@ -303,6 +312,7 @@ async function handlePost(request: Request, session: SessionPayload) {
     const parentDir = path.dirname(absolutePath);
     await mkdir(parentDir, { recursive: true });
     await writeFile(absolutePath, fileBuffer);
+    uploadedLocalPath = absolutePath;
   } else {
     if (!remotePath) {
       return NextResponse.json(
@@ -310,9 +320,8 @@ async function handlePost(request: Request, session: SessionPayload) {
         { status: 400 },
       );
     }
-    let credentials: ReturnType<typeof resolveStorageSshCredentials>;
     try {
-      credentials = resolveStorageSshCredentials(storageNode);
+      sftpCredentials = resolveStorageSshCredentials(storageNode);
     } catch (error) {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : "连接凭据不可用" },
@@ -322,15 +331,16 @@ async function handlePost(request: Request, session: SessionPayload) {
     const remoteParent = path.posix.dirname(remotePath);
     try {
       await createRemoteDirectory({
-        ...credentials,
+        ...sftpCredentials,
         remotePath: remoteParent,
         recursive: true,
       });
       await writeRemoteFile({
-        ...credentials,
+        ...sftpCredentials,
         remotePath,
         content: fileBuffer,
       });
+      uploadedRemotePath = remotePath;
     } catch (error) {
       logError("[/api/storage/local] sftp upload error:", error);
       return NextResponse.json(
@@ -340,38 +350,70 @@ async function handlePost(request: Request, session: SessionPayload) {
     }
   }
 
-  const existingEntry = await prisma.fileEntry.findFirst({
-    where: {
-      storageNodeId,
-      relativePath: normalizedRelativePath,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (existingEntry) {
-    await prisma.fileEntry.update({
-      where: { id: existingEntry.id },
-      data: {
-        name: fileName,
-        entryType: "FILE",
-        mimeType,
-        size: BigInt(byteSize),
-        isDeleted: false,
-      },
-    });
-  } else {
-    await prisma.fileEntry.create({
-      data: {
+  try {
+    const existingEntry = await prisma.fileEntry.findFirst({
+      where: {
         storageNodeId,
-        name: fileName,
-        entryType: "FILE",
-        mimeType,
-        size: BigInt(byteSize),
         relativePath: normalizedRelativePath,
       },
+      select: {
+        id: true,
+      },
     });
+
+    if (existingEntry) {
+      await prisma.fileEntry.update({
+        where: { id: existingEntry.id },
+        data: {
+          name: fileName,
+          entryType: "FILE",
+          mimeType,
+          size: BigInt(byteSize),
+          isDeleted: false,
+        },
+      });
+    } else {
+      await prisma.fileEntry.create({
+        data: {
+          storageNodeId,
+          name: fileName,
+          entryType: "FILE",
+          mimeType,
+          size: BigInt(byteSize),
+          relativePath: normalizedRelativePath,
+        },
+      });
+    }
+  } catch (error) {
+    logError("[/api/storage/local] upload index error:", error);
+    if (uploadedLocalPath) {
+      try {
+        await unlink(uploadedLocalPath);
+      } catch (cleanupError) {
+        logError(
+          "[/api/storage/local] local upload cleanup error:",
+          cleanupError,
+        );
+      }
+    }
+    if (uploadedRemotePath && sftpCredentials) {
+      try {
+        await deleteRemoteFile({
+          ...sftpCredentials,
+          remotePath: uploadedRemotePath,
+        });
+      } catch (cleanupError) {
+        logError(
+          "[/api/storage/local] sftp upload cleanup error:",
+          cleanupError,
+        );
+      }
+    }
+    const message = error instanceof Error ? error.message : "未知错误";
+    return NextResponse.json(
+      { error: `上传索引写入失败：${message}` },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({
