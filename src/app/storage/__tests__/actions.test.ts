@@ -8,6 +8,9 @@ const {
   deleteRemoteFileMock,
   renameRemoteFileMock,
   mkdirMock,
+  rmMock,
+  unlinkMock,
+  renameFsMock,
 } = vi.hoisted(() => ({
   requirePermissionMock: vi.fn().mockResolvedValue({
     userId: "user-1",
@@ -33,6 +36,9 @@ const {
   deleteRemoteFileMock: vi.fn(),
   renameRemoteFileMock: vi.fn(),
   mkdirMock: vi.fn(),
+  rmMock: vi.fn(),
+  unlinkMock: vi.fn(),
+  renameFsMock: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({
@@ -68,6 +74,9 @@ vi.mock("@/lib/ssh/client", () => ({
 
 vi.mock("node:fs/promises", () => ({
   mkdir: mkdirMock,
+  rm: rmMock,
+  unlink: unlinkMock,
+  rename: renameFsMock,
 }));
 
 import {
@@ -318,6 +327,7 @@ describe("SFTP file entry actions", () => {
       entryForm("entry-1", { newName: "new.txt" }),
     );
 
+    expect(renameFsMock).not.toHaveBeenCalled();
     expect(result.success).toContain("new.txt");
     expect(renameRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -328,6 +338,70 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "entry-1" },
+        data: { name: "new.txt", relativePath: "docs/new.txt" },
+      }),
+    );
+  });
+
+  it("fails LOCAL soft delete when the disk delete fails and avoids DB mutation", async () => {
+    prismaMock.fileEntry.findUnique.mockResolvedValueOnce({
+      id: "local-file",
+      name: "report.txt",
+      entryType: "FILE",
+      relativePath: "reports/report.txt",
+      storageNodeId: "node-local",
+      storageNode: {
+        driver: "LOCAL",
+        basePath: "/srv/storage",
+        host: null,
+        port: null,
+        username: null,
+        server: null,
+      },
+    });
+    unlinkMock.mockRejectedValueOnce(new Error("ENOENT"));
+
+    const result = await deleteFileEntryAction(null, entryForm("local-file"));
+
+    expect(unlinkMock).toHaveBeenCalled();
+    expect(result).toEqual({ error: "ENOENT" });
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("renames LOCAL files on disk before updating indexed paths", async () => {
+    prismaMock.fileEntry.findUnique.mockResolvedValueOnce({
+      id: "local-file",
+      name: "old.txt",
+      entryType: "FILE",
+      relativePath: "docs/old.txt",
+      storageNodeId: "node-local",
+      storageNode: {
+        driver: "LOCAL",
+        basePath: "/srv/storage",
+        host: null,
+        port: null,
+        username: null,
+        server: null,
+      },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    renameFsMock.mockResolvedValueOnce(undefined);
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "local-file" });
+
+    const result = await renameFileEntryAction(
+      null,
+      entryForm("local-file", { newName: "new.txt" }),
+    );
+
+    expect(result).toEqual({ success: "已重命名为 new.txt" });
+    expect(mkdirMock).toHaveBeenCalledWith("/srv/storage/docs", { recursive: true });
+    expect(renameFsMock).toHaveBeenCalledWith(
+      "/srv/storage/docs/old.txt",
+      "/srv/storage/docs/new.txt",
+    );
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "local-file" },
         data: { name: "new.txt", relativePath: "docs/new.txt" },
       }),
     );

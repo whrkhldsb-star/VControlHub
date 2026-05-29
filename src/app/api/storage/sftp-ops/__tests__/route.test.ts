@@ -22,6 +22,8 @@ const {
     fileEntry: {
       upsert: vi.fn(),
       updateMany: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
     },
   },
   deleteRemoteFileMock: vi.fn(),
@@ -214,6 +216,92 @@ describe("/api/storage/sftp-ops", () => {
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "old/file.txt" },
       data: { isDeleted: true },
+    });
+  });
+
+  it("soft-deletes a SFTP directory and its indexed descendants after remote delete succeeds", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+
+    const response = await POST(
+      request({
+        action: "delete",
+        nodeId: "node_1",
+        path: "old-folder",
+        isDirectory: true,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/files/old-folder",
+        isDirectory: true,
+      }),
+    );
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node_1",
+        OR: [
+          { relativePath: "old-folder" },
+          { relativePath: { startsWith: "old-folder/" } },
+        ],
+      },
+      data: { isDeleted: true },
+    });
+  });
+
+  it("renames a SFTP directory and rewrites indexed descendant paths", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([
+      { id: "child-1", relativePath: "allowed/a.txt" },
+      { id: "child-2", relativePath: "allowed/nested/b.txt" },
+    ]);
+
+    const response = await POST(
+      request({
+        action: "rename",
+        nodeId: "node_1",
+        path: "allowed",
+        newPath: "renamed",
+        isDirectory: true,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(renameRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oldPath: "/data/files/allowed",
+        newPath: "/data/files/renamed",
+      }),
+    );
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node_1",
+        relativePath: { startsWith: "allowed/" },
+      },
+      select: { id: true, relativePath: true },
+    });
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
+      where: { id: "child-1" },
+      data: { relativePath: "renamed/a.txt", isDeleted: false },
+    });
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
+      where: { id: "child-2" },
+      data: { relativePath: "renamed/nested/b.txt", isDeleted: false },
+    });
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "allowed" },
+      data: { relativePath: "renamed", name: "renamed", isDeleted: false },
     });
   });
 

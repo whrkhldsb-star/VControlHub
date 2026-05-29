@@ -75,14 +75,50 @@ async function upsertSftpFileIndex(params: {
   });
 }
 
-async function softDeleteSftpIndex(storageNodeId: string, relativePath: string) {
+async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, isDirectory = false) {
+  const normalizedPrefix = relativePath.endsWith("/")
+    ? relativePath
+    : `${relativePath}/`;
   await prisma.fileEntry.updateMany({
-    where: { storageNodeId, relativePath },
+    where: isDirectory
+      ? {
+          storageNodeId,
+          OR: [
+            { relativePath },
+            { relativePath: { startsWith: normalizedPrefix } },
+          ],
+        }
+      : { storageNodeId, relativePath },
     data: { isDeleted: true },
   });
 }
 
-async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string) {
+async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string, isDirectory = false) {
+  if (isDirectory) {
+    const oldPrefix = oldRelativePath.endsWith("/")
+      ? oldRelativePath
+      : `${oldRelativePath}/`;
+    const newPrefix = newRelativePath.endsWith("/")
+      ? newRelativePath
+      : `${newRelativePath}/`;
+    const children = await prisma.fileEntry.findMany({
+      where: {
+        storageNodeId,
+        relativePath: { startsWith: oldPrefix },
+      },
+      select: { id: true, relativePath: true },
+    });
+    for (const child of children) {
+      await prisma.fileEntry.update({
+        where: { id: child.id },
+        data: {
+          relativePath: newPrefix + child.relativePath.slice(oldPrefix.length),
+          isDeleted: false,
+        },
+      });
+    }
+  }
+
   await prisma.fileEntry.updateMany({
     where: { storageNodeId, relativePath: oldRelativePath },
     data: {
@@ -244,7 +280,7 @@ async function handlePost(request: Request, session: SessionPayload) {
           remotePath: normalizedRemotePath,
           isDirectory: body.isDirectory ?? false,
         });
-        await softDeleteSftpIndex(node.id, normalizedRelativePath);
+        await softDeleteSftpIndex(node.id, normalizedRelativePath, body.isDirectory ?? false);
         return NextResponse.json({ success: true });
       }
 
@@ -291,7 +327,7 @@ async function handlePost(request: Request, session: SessionPayload) {
           oldPath: normalizedRemotePath,
           newPath: normalizedNewPath,
         });
-        await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath);
+        await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, body.isDirectory ?? false);
         return NextResponse.json({ success: true });
       }
 

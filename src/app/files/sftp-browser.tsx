@@ -508,11 +508,12 @@ const newFullPath = joinSftpPath(remotePath, newName);
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-          action: "rename",
-          nodeId: selectedNodeId,
-          path: oldFullPath,
-          newPath: newFullPath,
-        }),
+			  action: "rename",
+			  nodeId: selectedNodeId,
+			  path: oldFullPath,
+			  newPath: newFullPath,
+			  isDirectory: entry.type === "directory",
+			}),
 	});
  setRenamingEntry(null);
  fetchDirectory(selectedNodeId, remotePath);

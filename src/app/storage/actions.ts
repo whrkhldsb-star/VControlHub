@@ -80,7 +80,9 @@ async function runSftpRemoteRename(input: {
   newRelativePath: string;
 }) {
   if (input.storageNode.driver !== "SFTP") return;
-  const { renameRemoteFile } = await import("@/lib/ssh/client");
+  const [renameRemoteFile] = await Promise.all([
+    import("@/lib/ssh/client").then((mod) => mod.renameRemoteFile),
+  ]);
   const oldPath = normalizeRemoteTargetPath(
     input.storageNode.basePath,
     input.oldRelativePath,
@@ -91,6 +93,61 @@ async function runSftpRemoteRename(input: {
   );
   const credentials = resolveStorageSshCredentials(input.storageNode);
   await renameRemoteFile({ ...credentials, oldPath, newPath });
+}
+
+async function resolveManagedLocalEntryPath(input: {
+  basePath: string;
+  relativePath: string;
+}) {
+  const path = await import("node:path");
+  const normalizedRelativePath = input.relativePath.replace(/^\/+/, "");
+  const allowedRoot = path.resolve(input.basePath);
+  const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
+  const relativeToRoot = path.relative(allowedRoot, absolutePath);
+
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    throw new Error("路径超出存储根目录");
+  }
+
+  return { path, absolutePath, allowedRoot };
+}
+
+async function runLocalFilesystemDelete(input: {
+  storageNode: { driver: string; basePath: string };
+  relativePath: string;
+  isDirectory: boolean;
+}) {
+  if (input.storageNode.driver !== "LOCAL") return;
+  const { unlink, rm } = await import("node:fs/promises");
+  const { absolutePath } = await resolveManagedLocalEntryPath({
+    basePath: input.storageNode.basePath,
+    relativePath: input.relativePath,
+  });
+
+  if (input.isDirectory) {
+    await rm(absolutePath, { recursive: true, force: false });
+  } else {
+    await unlink(absolutePath);
+  }
+}
+
+async function runLocalFilesystemRename(input: {
+  storageNode: { driver: string; basePath: string };
+  oldRelativePath: string;
+  newRelativePath: string;
+}) {
+  if (input.storageNode.driver !== "LOCAL") return;
+  const { rename, mkdir } = await import("node:fs/promises");
+  const oldPath = await resolveManagedLocalEntryPath({
+    basePath: input.storageNode.basePath,
+    relativePath: input.oldRelativePath,
+  });
+  const newPath = await resolveManagedLocalEntryPath({
+    basePath: input.storageNode.basePath,
+    relativePath: input.newRelativePath,
+  });
+  await mkdir(newPath.path.dirname(newPath.absolutePath), { recursive: true });
+  await rename(oldPath.absolutePath, newPath.absolutePath);
 }
 
 export async function getStorageFormOptions() {
@@ -382,6 +439,11 @@ export async function deleteFileEntryAction(
       relativePath: entry.relativePath,
       isDirectory: entry.entryType === "DIRECTORY",
     });
+    await runLocalFilesystemDelete({
+      storageNode: entry.storageNode,
+      relativePath: entry.relativePath,
+      isDirectory: entry.entryType === "DIRECTORY",
+    });
 
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
@@ -392,29 +454,6 @@ export async function deleteFileEntryAction(
         },
         data: { isDeleted: true },
       });
-    }
-
-    if (entry.storageNode.driver === "LOCAL" && entry.entryType === "FILE") {
-      try {
-        const { unlink } = await import("node:fs/promises");
-        const path = await import("node:path");
-        const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
-        const absolutePath = path.resolve(
-          entry.storageNode.basePath,
-          normalizedRelativePath,
-        );
-        const allowedRoot = path.resolve(entry.storageNode.basePath);
-        const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-        if (
-          !relativeToRoot.startsWith("..") &&
-          !path.isAbsolute(relativeToRoot)
-        ) {
-          await unlink(absolutePath);
-        }
-      } catch {
-        // Silently ignore fs errors — DB soft-delete proceeds regardless
-      }
     }
 
     await prisma.fileEntry.update({
@@ -551,6 +590,11 @@ export async function permanentDeleteFileEntryAction(
       relativePath: entry.relativePath,
       isDirectory: entry.entryType === "DIRECTORY",
     });
+    await runLocalFilesystemDelete({
+      storageNode: entry.storageNode,
+      relativePath: entry.relativePath,
+      isDirectory: entry.entryType === "DIRECTORY",
+    });
 
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
@@ -560,33 +604,6 @@ export async function permanentDeleteFileEntryAction(
           relativePath: { startsWith: prefix },
         },
       });
-    }
-
-    if (entry.storageNode.driver === "LOCAL") {
-      try {
-        const { unlink, rm } = await import("node:fs/promises");
-        const path = await import("node:path");
-        const normalizedRelativePath = entry.relativePath.replace(/^\/+/, "");
-        const absolutePath = path.resolve(
-          entry.storageNode.basePath,
-          normalizedRelativePath,
-        );
-        const allowedRoot = path.resolve(entry.storageNode.basePath);
-        const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-        if (
-          !relativeToRoot.startsWith("..") &&
-          !path.isAbsolute(relativeToRoot)
-        ) {
-          if (entry.entryType === "FILE") {
-            await unlink(absolutePath);
-          } else if (entry.entryType === "DIRECTORY") {
-            await rm(absolutePath, { recursive: true, force: true });
-          }
-        }
-      } catch {
-        // Silently ignore fs errors — DB delete proceeds regardless
-      }
     }
 
     await prisma.fileEntry.delete({
@@ -688,6 +705,11 @@ export async function renameFileEntryAction(
       oldRelativePath: entry.relativePath,
       newRelativePath,
     });
+    await runLocalFilesystemRename({
+      storageNode: entry.storageNode,
+      oldRelativePath: entry.relativePath,
+      newRelativePath,
+    });
 
     if (entry.entryType === "DIRECTORY") {
       const oldPrefix = entry.relativePath + "/";
@@ -715,40 +737,6 @@ export async function renameFileEntryAction(
       where: { id: fileEntryId },
       data: { name: newName, relativePath: newRelativePath },
     });
-
-    if (entry.storageNode.driver === "LOCAL") {
-      try {
-        const { rename } = await import("node:fs/promises");
-        const path = await import("node:path");
-        const normalizedOldRelativePath = entry.relativePath.replace(
-          /^\/+/,
-          "",
-        );
-        const normalizedNewRelativePath = newRelativePath.replace(/^\/+/, "");
-        const oldAbsolutePath = path.resolve(
-          entry.storageNode.basePath,
-          normalizedOldRelativePath,
-        );
-        const newAbsolutePath = path.resolve(
-          entry.storageNode.basePath,
-          normalizedNewRelativePath,
-        );
-        const allowedRoot = path.resolve(entry.storageNode.basePath);
-        const oldRelativeToRoot = path.relative(allowedRoot, oldAbsolutePath);
-        const newRelativeToRoot = path.relative(allowedRoot, newAbsolutePath);
-
-        if (
-          !oldRelativeToRoot.startsWith("..") &&
-          !path.isAbsolute(oldRelativeToRoot) &&
-          !newRelativeToRoot.startsWith("..") &&
-          !path.isAbsolute(newRelativeToRoot)
-        ) {
-          await rename(oldAbsolutePath, newAbsolutePath);
-        }
-      } catch {
-        // Silently ignore fs errors — DB rename proceeds regardless
-      }
-    }
 
     revalidatePath("/");
     revalidatePath("/storage");
