@@ -39,6 +39,12 @@ export async function POST(request: Request) {
 		const authed = await requireApiSession();
 		if (authed instanceof NextResponse) return authed;
 		const { session } = authed;
+		// Check ai:chat permission
+		const { sessionHasPermission } = await import("@/lib/auth/authorization");
+		if (!sessionHasPermission(session, "ai:chat")) {
+		 return NextResponse.json({ error: "你没有使用 AI 助手的权限" }, { status: 403 });
+		}
+
 		const body = await request.json();
 		const parsed = createConversationSchema.safeParse(body);
 		if (!parsed.success) {

@@ -38,6 +38,12 @@ export async function POST(request: Request) {
  if (authed instanceof NextResponse) return authed;
  const { session } = authed;
 
+ // Check ai:chat permission
+ const { sessionHasPermission } = await import("@/lib/auth/authorization");
+ if (!sessionHasPermission(session, "ai:chat")) {
+  return NextResponse.json({ error: "你没有使用 AI 助手的权限" }, { status: 403 });
+ }
+
  let body: {
   conversationId: string;
   content: string;
@@ -364,7 +370,15 @@ export async function POST(request: Request) {
        });
 
        if (tool.autoApproved) {
-        // 安全操作：直接执行
+        // 安全操作：检查用户是否有 SSH 权限
+        if (!sessionHasPermission(session, "server:ssh")) {
+         const errResult = { success: false, error: "你没有服务器 SSH 执行权限" };
+         await prisma.aiHostedAction.update({ where: { id: action.id }, data: { status: "FAILED", errorMessage: errResult.error, completedAt: new Date() } });
+         await prisma.aiMessage.create({ data: { conversationId: conv.id, role: "tool", content: JSON.stringify(errResult), toolCallId } });
+         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_result", toolCallId, success: false, error: errResult.error, actionId: action.id })}\n\n`));
+         allToolResults.push({ toolCallId, toolName: tool.name, result: errResult, needsApproval: false, actionId: action.id });
+         continue;
+        }
         const execResult = await executeSafeAction({
          actionType: tool.actionType,
          serverId: (args.serverId as string) || null,

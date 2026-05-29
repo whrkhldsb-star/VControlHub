@@ -238,8 +238,10 @@ export function buildCommand(actionType: string, params: Record<string, unknown>
 
 // ── 审批操作 ──────────────────────────────────────────────
 
-export async function approveHostedAction(actionId: string, approverId: string) {
-  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: approverId } });
+export async function approveHostedAction(actionId: string, approverId: string, isAdminOverride = false) {
+  const where: any = { id: actionId };
+  if (!isAdminOverride) where.requesterId = approverId;
+  const action = await prisma.aiHostedAction.findFirst({ where });
   if (!action) throw new Error("操作不存在或无权审批");
   if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
 
@@ -253,8 +255,10 @@ export async function approveHostedAction(actionId: string, approverId: string) 
   await executeApprovedAction(actionId);
 }
 
-export async function rejectHostedAction(actionId: string, approverId: string, reason?: string) {
-  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: approverId } });
+export async function rejectHostedAction(actionId: string, approverId: string, reason?: string, isAdminOverride = false) {
+  const where: any = { id: actionId };
+  if (!isAdminOverride) where.requesterId = approverId;
+  const action = await prisma.aiHostedAction.findFirst({ where });
   if (!action) throw new Error("操作不存在或无权审批");
   if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
 

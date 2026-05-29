@@ -83,7 +83,11 @@ export default async function RequestsPage() {
 											<ApprovalBadge status={request.approvalStateLabel} />
 											<InitiatorBadge assistant={request.isAssistantInitiated} />
 										</div>
+										{canApprove ? (
 										<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">{request.command}</p>
+									) : (
+										<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">🔒 仅审批人可查看命令内容</p>
+									)}
 										{request.reason && <p className="mt-2 text-sm text-slate-400">原因：{request.reason}</p>}
 										<p className="mt-1 text-[11px] text-slate-600">申请人：{request.requester.displayName || request.requester.username}</p>
 									</div>

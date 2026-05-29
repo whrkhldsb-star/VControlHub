@@ -1,10 +1,14 @@
 /**
- * PATCH /api/ai/hosted-actions/[id]/approve — 审批通过
- * PATCH /api/ai/hosted-actions/[id]/reject — 审批拒绝
+ * PATCH /api/ai/hosted-actions/[id] — approve or reject an AI hosted action
+ *
+ * Permission rules:
+ * - The original requester can always approve/reject their own action
+ * - Users with `ai:action:approve` permission can approve/reject any action (admin override)
  */
 
 import { NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/auth/require-api-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { approveHostedAction, rejectHostedAction } from "@/lib/ai/hosted-service";
 import { withRateLimit, rateLimitResponse, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -29,14 +33,17 @@ export async function PATCH(
 			return NextResponse.json({ error: "无效请求" }, { status: 400 });
 		}
 
+		// Check permission: requester can always approve own action;
+		// ai:action:approve grants admin override for others' actions
+		const hasAdminApprove = sessionHasPermission(session, "ai:action:approve");
+
 		if (body.action === "approve") {
-			await approveHostedAction(id, session.userId);
-			// 审批通过后自动执行，获取最新状态
+			await approveHostedAction(id, session.userId, hasAdminApprove);
 			const { prisma } = await import("@/lib/db");
 			const action = await prisma.aiHostedAction.findUnique({ where: { id } });
 			return NextResponse.json({ success: true, action });
 		} else {
-			const result = await rejectHostedAction(id, session.userId, body.reason);
+			const result = await rejectHostedAction(id, session.userId, body.reason, hasAdminApprove);
 			return NextResponse.json({ success: true, action: result });
 		}
 	} catch (e) {
