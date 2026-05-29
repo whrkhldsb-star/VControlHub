@@ -356,5 +356,49 @@ server: null,
  } finally {
  await rm(tempRoot, { recursive: true, force: true });
  }
-});
+
+ });
+
+
+ it("clears host port and username when editing an SFTP node back to VPS-bound credentials", async () => {
+ vi.clearAllMocks();
+ vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+ id: "node_1",
+ name: "旧远端",
+ driver: "SFTP",
+ basePath: "/old",
+ isDefault: false,
+ host: "198.51.100.9",
+ port: 2222,
+ username: "old-user",
+ serverId: null,
+ directAccessMode: "PROXY",
+ publicBaseUrl: null,
+ directAccessExpiresSeconds: 300,
+ server: null,
+ } as any);
+ vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({} as any);
+
+ await updateStorageNode({
+ storageNodeId: "node_1",
+ name: "绑定 VPS",
+ driver: "SFTP",
+ basePath: "/data/files",
+ host: null,
+ port: null,
+ username: null,
+ serverId: "srv_1",
+ });
+
+ expect(prisma.storageNode.update).toHaveBeenCalledWith(
+ expect.objectContaining({
+ data: expect.objectContaining({
+ host: null,
+ port: null,
+ username: null,
+ serverId: "srv_1",
+ }),
+ }),
+ );
+ });
 });

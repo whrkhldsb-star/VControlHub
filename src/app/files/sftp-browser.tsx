@@ -46,6 +46,7 @@ type SyncResult = {
   synced: number;
   created: number;
   updated: number;
+  deleted: number;
   errors: string[];
 };
 
@@ -681,7 +682,7 @@ const newFullPath = joinSftpPath(remotePath, newName);
           {syncResult && (
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1 text-xs text-emerald-200">
-                ✅ 同步完成：新建 {syncResult.created} 个、更新 {syncResult.updated} 个
+                ✅ 同步完成：新建 {syncResult.created} 个、更新 {syncResult.updated} 个、清理 {syncResult.deleted} 个
               </span>
               {syncResult.errors.length > 0 && (
                 <span className="rounded-full border border-rose-400/20 bg-rose-400/5 px-3 py-1 text-xs text-rose-200">

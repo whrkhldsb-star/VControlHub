@@ -4,8 +4,10 @@ const { prismaMock, listRemoteDirectoryMock } = vi.hoisted(() => ({
   prismaMock: {
     fileEntry: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
   listRemoteDirectoryMock: vi.fn(),
@@ -58,11 +60,13 @@ describe("sftp sync service", () => {
       { name: "demo.mp4", longname: "-rw-r--r-- demo.mp4", type: "file", size: 1024, modifyTime: 1, accessTime: 1 },
     ]);
     prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
     prismaMock.fileEntry.create.mockResolvedValue({});
+    prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 0 });
 
     const result = await syncSftpDirectoryEntries({ node, recursive: false, maxDepth: 1 });
 
-    expect(result).toEqual({ synced: 2, created: 2, updated: 0, errors: [] });
+    expect(result).toEqual({ synced: 2, created: 2, updated: 0, deleted: 0, errors: [] });
     expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "203.0.113.20",
@@ -122,8 +126,60 @@ describe("sftp sync service", () => {
       synced: 0,
       created: 0,
       updated: 0,
+      deleted: 0,
       errors: ["连接凭据不可用：Unsupported state or unable to authenticate data"],
     });
     expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
   });
+
+  it("marks stale entries under the synced directory as deleted", async () => {
+    vi.clearAllMocks();
+    const node = {
+      id: "node_1",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/data/files",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        id: "srv_1",
+        host: "203.0.113.20",
+        port: 22,
+        username: "root",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    } as const;
+    listRemoteDirectoryMock.mockResolvedValueOnce([
+      { name: "live.txt", longname: "-rw-r--r-- live.txt", type: "file", size: 11, modifyTime: 1, accessTime: 1 },
+    ]);
+    prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fileEntry.findMany.mockResolvedValue([
+      { id: "stale_1", relativePath: "team-a/old.txt" },
+      { id: "live_1", relativePath: "team-a/live.txt" },
+      { id: "nested_1", relativePath: "team-a/sub/keep.txt" },
+      { id: "outside_1", relativePath: "other/old.txt" },
+    ]);
+    prismaMock.fileEntry.create.mockResolvedValue({});
+    prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await syncSftpDirectoryEntries({ node, remotePath: "team-a", recursive: false });
+
+    expect(result).toEqual({ synced: 1, created: 1, updated: 0, deleted: 1, errors: [] });
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node_1",
+        isDeleted: false,
+        relativePath: { startsWith: "team-a/" },
+      },
+      select: { id: true, relativePath: true },
+    });
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["stale_1"] } },
+      data: { isDeleted: true },
+    });
+  });
+
 });

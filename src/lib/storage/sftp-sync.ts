@@ -33,6 +33,7 @@ export interface SftpSyncResult {
   synced: number;
   created: number;
   updated: number;
+  deleted: number;
   errors: string[];
 }
 
@@ -88,6 +89,48 @@ async function upsertRemoteEntry(nodeId: string, entry: SftpListEntry, relativeP
   return "created" as const;
 }
 
+function computeDirectoryRelativePath(basePath: string, remotePath: string): string | null {
+  const normalizedBase = basePath.replace(/\/+$/, "") || "/";
+  const normalizedRemote = remotePath.replace(/\/+$/, "") || "/";
+
+  if (normalizedRemote === normalizedBase) return "";
+  if (normalizedBase === "/" && normalizedRemote.startsWith("/")) return normalizedRemote.slice(1);
+  if (normalizedRemote.startsWith(`${normalizedBase}/`)) return normalizedRemote.slice(normalizedBase.length + 1);
+  return null;
+}
+
+async function pruneStaleEntries(nodeId: string, basePath: string, dirPath: string, remoteRelativePaths: Set<string>) {
+  const relativeDir = computeDirectoryRelativePath(basePath, dirPath);
+  if (relativeDir === null) return 0;
+
+  const existing = await prisma.fileEntry.findMany({
+    where: {
+      storageNodeId: nodeId,
+      isDeleted: false,
+      ...(relativeDir ? { relativePath: { startsWith: `${relativeDir}/` } } : {}),
+    },
+    select: { id: true, relativePath: true },
+  });
+
+  const prefix = relativeDir ? `${relativeDir}/` : "";
+  const staleIds = existing
+    .filter((entry) => {
+      if (!entry.relativePath.startsWith(prefix)) return false;
+      const remainder = entry.relativePath.slice(prefix.length);
+      const isDirectChild = remainder.length > 0 && !remainder.includes("/");
+      return isDirectChild && !remoteRelativePaths.has(entry.relativePath);
+    })
+    .map((entry) => entry.id);
+
+  if (staleIds.length === 0) return 0;
+
+  const result = await prisma.fileEntry.updateMany({
+    where: { id: { in: staleIds } },
+    data: { isDeleted: true },
+  });
+  return result.count;
+}
+
 export async function syncSftpDirectoryEntries(input: {
   node: SftpSyncNode;
   remotePath?: string;
@@ -104,11 +147,12 @@ export async function syncSftpDirectoryEntries(input: {
     credentials = resolveStorageSshCredentials(node);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "未知错误";
-    return { synced: 0, created: 0, updated: 0, errors: [`连接凭据不可用：${msg}`] };
+    return { synced: 0, created: 0, updated: 0, deleted: 0, errors: [`连接凭据不可用：${msg}`] };
   }
+
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
-  const result: SftpSyncResult = { synced: 0, created: 0, updated: 0, errors: [] };
+  const result: SftpSyncResult = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [] };
 
   async function syncDirectory(dirPath: string, currentDepth: number): Promise<void> {
     let entries: SftpListEntry[];
@@ -127,6 +171,8 @@ export async function syncSftpDirectoryEntries(input: {
       return;
     }
 
+    const remoteRelativePaths = new Set<string>();
+
     for (const entry of entries) {
       if (entry.type === "other") continue;
       const relativePath = computeRelativePath(basePath, dirPath, entry.name);
@@ -135,6 +181,7 @@ export async function syncSftpDirectoryEntries(input: {
         continue;
       }
 
+      remoteRelativePaths.add(relativePath);
       result.synced += 1;
       try {
         const action = await upsertRemoteEntry(node.id, entry, relativePath);
@@ -148,6 +195,8 @@ export async function syncSftpDirectoryEntries(input: {
         await syncDirectory(`${dirPath.replace(/\/+$/, "")}/${entry.name}`, currentDepth + 1);
       }
     }
+
+    result.deleted += await pruneStaleEntries(node.id, basePath, dirPath, remoteRelativePaths);
   }
 
   await syncDirectory(normalizedStartPath, 0);
