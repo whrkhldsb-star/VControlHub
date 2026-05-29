@@ -45,7 +45,7 @@ export async function createServerAction(
     const enableDirectGateway = formData.get("enableDirectGateway") === "on";
     const storagePath = String(formData.get("storagePath") ?? "/root/drive");
 
-    await createServerProfile({
+    const created = await createServerProfile({
       name,
       host,
       port,
@@ -65,7 +65,10 @@ export async function createServerAction(
     revalidatePath("/files");
 
     return {
-      success: "VPS 节点已纳管，可继续在审批中心投递命令。",
+      success:
+        created.onboardingWarnings.length > 0
+          ? `VPS 节点已纳管，但有自动配置项需要处理：${created.onboardingWarnings.join(" ")}`
+          : "VPS 节点已纳管，可继续在审批中心投递命令。",
     } as ServerActionState;
   } catch (error) {
     return {

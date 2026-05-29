@@ -659,7 +659,7 @@ describe("server service", () => {
     });
   });
 
-  it("surfaces direct gateway install failures during onboarding", async () => {
+  it("keeps the server usable when direct gateway install fails during onboarding", async () => {
     execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
     vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
       id: "key_1",
@@ -750,18 +750,21 @@ describe("server service", () => {
       updatedAt: new Date(),
     } as any);
 
-    await expect(
-      createServerProfile({
-        name: "direct-fail",
-        host: "203.0.113.10",
-        port: 22,
-        username: "root",
-        connectionType: "SSH_KEY",
-        sshKeyId: "key_1",
-        tags: [],
-        enableDirectGateway: true,
-      }),
-    ).rejects.toThrow("connect ETIMEDOUT");
+    const result = await createServerProfile({
+      name: "direct-fail",
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_1",
+      tags: [],
+      enableDirectGateway: true,
+    });
+
+    expect(result.directGateway.enabled).toBe(false);
+    expect(result.onboardingWarnings).toEqual([
+      "目标服务器直连自动配置失败：connect ETIMEDOUT。VPS 节点和存储节点已创建，可稍后在 VPS 管理面板重试启用直连。",
+    ]);
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
   });

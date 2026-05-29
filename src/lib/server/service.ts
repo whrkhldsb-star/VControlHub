@@ -129,6 +129,10 @@ function buildServerConnectionTypeLabel(
   return connectionType === "SSH_KEY" ? "SSH 密钥" : "密码";
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error || "未知错误");
+}
+
 function enrichServer(server: ServerWithRelations) {
   return {
     id: server.id,
@@ -387,15 +391,28 @@ async function applyServerDirectGatewayState(input: {
     host: server.host,
     port: DIRECT_GATEWAY_DEFAULT_PORT,
   });
-  const ssh = await buildSshParamsFromServer(server, server.sshKey);
-  const command = input.enabled
-    ? buildInstallDirectGatewayCommand({
-        rootPath: basePath,
-        secret: getConfiguredDirectAccessSecret(),
-        port: DIRECT_GATEWAY_DEFAULT_PORT,
-      })
-    : buildUninstallDirectGatewayCommand();
   let cleanupSkipped = false;
+  let errorMessage: string | null = null;
+  let ssh: Awaited<ReturnType<typeof buildSshParamsFromServer>>;
+  let command: string;
+  try {
+    ssh = await buildSshParamsFromServer(server, server.sshKey);
+    command = input.enabled
+      ? buildInstallDirectGatewayCommand({
+          rootPath: basePath,
+          secret: getConfiguredDirectAccessSecret(),
+          port: DIRECT_GATEWAY_DEFAULT_PORT,
+        })
+      : buildUninstallDirectGatewayCommand();
+  } catch (error) {
+    if (!input.bestEffort) throw error;
+    return {
+      enabled: false,
+      publicBaseUrl: null,
+      cleanupSkipped: true,
+      errorMessage: getErrorMessage(error),
+    };
+  }
   if (!isLocalHost) {
     try {
       const result = await execRemoteCommand({
@@ -409,11 +426,17 @@ async function applyServerDirectGatewayState(input: {
         );
     } catch (error) {
       if (!input.bestEffort) throw error;
+      errorMessage = getErrorMessage(error);
       cleanupSkipped = true;
     }
   }
   if (input.enabled && cleanupSkipped) {
-    return { enabled: false, publicBaseUrl: null, cleanupSkipped };
+    return {
+      enabled: false,
+      publicBaseUrl: null,
+      cleanupSkipped,
+      errorMessage,
+    };
   }
   await prisma.server.update({
     where: { id: input.serverId },
@@ -441,6 +464,7 @@ async function applyServerDirectGatewayState(input: {
     enabled: input.enabled,
     publicBaseUrl: input.enabled ? publicBaseUrl : null,
     cleanupSkipped,
+    errorMessage,
   };
 }
 
@@ -454,6 +478,7 @@ export async function setServerDirectGatewayEnabled(
 export async function createServerProfile(input: CreateServerInput) {
   const payload = createServerSchema.parse(input);
   const normalized = normalizeServerInput(payload);
+  const onboardingWarnings: string[] = [];
 
   if (normalized.connectionType === "SSH_KEY") {
     if (!normalized.sshKeyId) throw new Error("SSH 密钥连接方式需选择密钥");
@@ -574,16 +599,31 @@ export async function createServerProfile(input: CreateServerInput) {
         // Directory may already exist or FS unavailable — DB record proceeds regardless
       }
     } else {
-      await createRemoteDirectory({
-        ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
-        remotePath: configuredPath,
-        recursive: true,
-      });
+      try {
+        await createRemoteDirectory({
+          ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+          remotePath: configuredPath,
+          recursive: true,
+        });
+      } catch (error) {
+        onboardingWarnings.push(
+          `远端存储目录自动创建失败：${getErrorMessage(error)}。VPS 节点和存储节点已创建，请确认 SSH 可连接后在目标服务器手动创建 ${configuredPath}，或重新保存/重试相关操作。`,
+        );
+      }
     }
   }
 
   if (payload.enableDirectGateway && !isLocalHost) {
-    await applyServerDirectGatewayState({ serverId: server.id, enabled: true });
+    const directResult = await applyServerDirectGatewayState({
+      serverId: server.id,
+      enabled: true,
+      bestEffort: true,
+    });
+    if (!directResult.enabled) {
+      onboardingWarnings.push(
+        `目标服务器直连自动配置失败${directResult.errorMessage ? `：${directResult.errorMessage}` : ""}。VPS 节点和存储节点已创建，可稍后在 VPS 管理面板重试启用直连。`,
+      );
+    }
   }
 
   // Re-fetch to include the newly created storageNode relation
@@ -634,7 +674,10 @@ export async function createServerProfile(input: CreateServerInput) {
   revalidatePath("/storage");
   revalidatePath("/files");
 
-  return enrichServer(refreshed!);
+  return {
+    ...enrichServer(refreshed!),
+    onboardingWarnings,
+  };
 }
 
 export async function updateServerProfile(
