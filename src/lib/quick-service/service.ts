@@ -148,6 +148,17 @@ function dockerExecSync(args: string[], timeout = 30_000) {
 	return execFileSync("docker", args, { timeout, encoding: "utf8" });
 }
 
+function dockerErrorMessage(error: unknown): string {
+	if (error && typeof error === "object") {
+		const maybe = error as { stderr?: unknown; stdout?: unknown; message?: unknown };
+		const stderr = typeof maybe.stderr === "string" ? maybe.stderr.trim() : "";
+		const stdout = typeof maybe.stdout === "string" ? maybe.stdout.trim() : "";
+		const message = typeof maybe.message === "string" ? maybe.message.trim() : "";
+		return stderr || stdout || message || String(error);
+	}
+	return String(error);
+}
+
 export function getDockerEnvironmentStatus() {
 	try {
 		const version = execFileSync("docker", ["--version"], { timeout: 5_000, encoding: "utf8" }).trim();
@@ -315,7 +326,12 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	});
 
 	startDockerContainer(svc.id, template, hostPort).catch(async (err) => {
-		const msg = err instanceof Error ? err.message : String(err);
+		let msg = dockerErrorMessage(err);
+		try {
+			dockerExecSync(["rm", "-f", safeContainerName(template.slug)], 15_000);
+		} catch (cleanupErr) {
+			msg = `${msg}; 清理残留容器失败: ${dockerErrorMessage(cleanupErr)}`;
+		}
 		await prisma.quickService.update({ where: { id: svc.id }, data: { status: "error", error: msg } });
 	});
 
@@ -370,7 +386,7 @@ export async function uninstallService(slug: string) {
 		try {
 			dockerExecSync(["rm", "-f", containerName], 15_000);
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
+			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
 			throw new Error(`卸载失败: ${msg}`);
 		}
@@ -408,7 +424,7 @@ export async function startService(slug: string) {
 			try {
 				await startDockerContainer(svc.id, tmpl, svc.port);
 			} catch (err) {
-				const msg = err instanceof Error ? err.message : String(err);
+				const msg = dockerErrorMessage(err);
 				await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
 				throw new Error(`启动失败: ${msg}`);
 			}
@@ -427,7 +443,7 @@ export async function stopService(slug: string) {
 			dockerExecSync(["stop", containerName], 30_000);
 			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: null } });
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
+			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
 			throw new Error(`停止失败: ${msg}`);
 		}

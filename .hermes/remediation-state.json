@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T01:59:09Z",
+  "updatedAt": "2026-05-30T02:16:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,25 +50,25 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; key auth-protected APIs returned 401 without 500; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T01:59:09Z",
-    "target": "Fresh audit checkpoint after 7 successful remediation runs",
-    "status": "fresh_audit_completed_verified_no_code_change",
-    "commit": "d0c66c9",
-    "summary": "Performed milestone fresh audit after the remediation counter exceeded the threshold; production is healthy, full quality gates passed, smoke passed, route probes had no 500s, and backlog/state were refreshed for the next remediation cycle.",
+    "finishedAt": "2026-05-30T02:16:00Z",
+    "target": "P3 Quick Services install failure visibility and cleanup state",
+    "status": "verified_deployed_commit_pending",
+    "commit": null,
+    "summary": "Failed async Docker installs now preserve actionable Docker stderr/stdout in QuickService.error, mark the row error, and best-effort remove partial qs-* containers while appending cleanup failure context if cleanup itself fails.",
     "validation": [
-      "git status clean at audit start",
-      "systemctl services active",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "key HTTPS API probes returned 200/401 without 500",
-      "recent service log check",
+      "npx vitest run src/lib/quick-service/__tests__/service.test.ts (14/14)",
       "npm run typecheck",
       "npm run lint",
-      "npm test 163 files / 640 tests",
+      "Quick Services targeted regressions 27/27",
       "npm run build",
-      "npm run build:runtime"
+      "npm run build:runtime",
+      "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
+      "HTTPS probes /api/status 200, /api/quick-services 401, /quick-services 307",
+      "recent service logs checked with no new error/warn matches"
     ],
-    "deployment": "No code change in this checkpoint; production was already running the latest verified code and smoke passed.",
-    "nextTarget": "Continue with remaining P3/P4/P5/P6 availability backlog, starting with Quick Services install failure cleanup or two-factor settings reload removal."
+    "deployment": "Production services restarted successfully and smoke test passed.",
+    "nextTarget": "Continue P4 backlog: replace remaining two-factor settings window.location.reload() with router.refresh() or local state refresh."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -83,7 +83,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []
