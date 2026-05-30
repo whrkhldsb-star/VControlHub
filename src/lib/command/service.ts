@@ -48,15 +48,23 @@ type SshExecutionResult = {
 
 const DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES = 256 * 1024;
+const DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS = 2 * DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
+
+function getPositiveEnvNumber(name: string, fallback: number) {
+  const raw = Number(process.env[name]);
+  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
+}
 
 function getCommandExecutionTimeoutMs() {
-  const raw = Number(process.env.COMMAND_EXECUTION_TIMEOUT_MS);
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
+  return getPositiveEnvNumber("COMMAND_EXECUTION_TIMEOUT_MS", DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS);
 }
 
 function getCommandOutputLimitBytes() {
-  const raw = Number(process.env.COMMAND_OUTPUT_LIMIT_BYTES);
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES;
+  return getPositiveEnvNumber("COMMAND_OUTPUT_LIMIT_BYTES", DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES);
+}
+
+function getCommandStaleRunningAfterMs() {
+  return getPositiveEnvNumber("COMMAND_STALE_RUNNING_AFTER_MS", Math.max(DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS, getCommandExecutionTimeoutMs() * 2));
 }
 
 function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number) {
@@ -582,6 +590,71 @@ function mapCommandRequest(
       : null,
     isAssistantInitiated: request.initiatedByType === "ASSISTANT",
   };
+}
+
+export async function recoverStaleRunningCommandRequests(now = new Date()) {
+  const staleCutoff = new Date(now.getTime() - getCommandStaleRunningAfterMs());
+  const staleRequests = await prisma.commandRequest.findMany({
+    where: {
+      status: "RUNNING",
+      updatedAt: { lt: staleCutoff },
+    },
+    select: {
+      id: true,
+      targets: { select: { id: true, status: true } },
+    },
+    take: 50,
+  });
+
+  let recovered = 0;
+  for (const request of staleRequests) {
+    const targetStatuses = request.targets.map((target) => target.status);
+    const hasRunningOrQueuedTarget = targetStatuses.some((status) => ["RUNNING", "APPROVED", "PENDING_APPROVAL"].includes(status));
+    if (hasRunningOrQueuedTarget) {
+      await prisma.commandTarget.updateMany({
+        where: {
+          commandRequestId: request.id,
+          status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+        },
+        data: {
+          status: "FAILED",
+          stderr: "后台 SSH 执行器可能因服务重启或进程退出而中断；已自动标记为失败，请重新提交或重试。",
+          exitCode: 255,
+          finishedAt: now,
+        },
+      });
+      await prisma.commandRequest.update({
+        where: { id: request.id },
+        data: { status: "FAILED" },
+      });
+      await prisma.executionLog.create({
+        data: {
+          commandRequestId: request.id,
+          serverId: null,
+          summary: "检测到陈旧 RUNNING 命令：后台执行器可能已随服务重启丢失，已自动恢复为 FAILED，避免任务中心长期卡住。",
+        },
+      });
+      recovered += 1;
+      continue;
+    }
+
+    const allCompleted = targetStatuses.length > 0 && targetStatuses.every((status) => status === "COMPLETED");
+    const nextStatus = allCompleted ? "COMPLETED" : "FAILED";
+    await prisma.commandRequest.update({
+      where: { id: request.id },
+      data: { status: nextStatus },
+    });
+    await prisma.executionLog.create({
+      data: {
+        commandRequestId: request.id,
+        serverId: null,
+        summary: `检测到陈旧 RUNNING 命令：已根据目标状态自动归档为 ${nextStatus}。`,
+      },
+    });
+    recovered += 1;
+  }
+
+  return { recovered };
 }
 
 export async function createCommandRequest(input: CreateCommandInput) {

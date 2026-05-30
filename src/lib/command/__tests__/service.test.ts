@@ -499,6 +499,80 @@ describe("command service execution flow", () => {
     ).rejects.toThrow("当前命令请求不在待审批状态");
   });
 
+  it("recovers stale running command requests that lost their in-process worker", async () => {
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
+    const now = new Date("2026-05-30T08:00:00Z");
+    mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
+      {
+        id: "req_stale_1",
+        targets: [{ id: "target_stale", status: "RUNNING" }],
+      },
+    ]);
+    mockPrisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_stale_1", status: "FAILED" });
+
+    const { recoverStaleRunningCommandRequests } = await import("../service");
+    const result = await recoverStaleRunningCommandRequests(now);
+
+    expect(result).toEqual({ recovered: 1 });
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        status: "RUNNING",
+        updatedAt: { lt: new Date("2026-05-30T07:59:59Z") },
+      },
+      take: 50,
+    }));
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
+      where: {
+        commandRequestId: "req_stale_1",
+        status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] },
+      },
+      data: expect.objectContaining({
+        status: "FAILED",
+        stderr: expect.stringContaining("服务重启"),
+        exitCode: 255,
+        finishedAt: now,
+      }),
+    });
+    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_stale_1" },
+      data: { status: "FAILED" },
+    });
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        commandRequestId: "req_stale_1",
+        summary: expect.stringContaining("陈旧 RUNNING 命令"),
+      }),
+    }));
+  });
+
+  it("archives stale running command requests from completed target state", async () => {
+    process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
+    mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
+      {
+        id: "req_stale_done",
+        targets: [{ id: "target_done", status: "COMPLETED" }],
+      },
+    ]);
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_stale_done", status: "COMPLETED" });
+
+    const { recoverStaleRunningCommandRequests } = await import("../service");
+    const result = await recoverStaleRunningCommandRequests(new Date("2026-05-30T08:00:00Z"));
+
+    expect(result).toEqual({ recovered: 1 });
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_stale_done" },
+      data: { status: "COMPLETED" },
+    });
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        commandRequestId: "req_stale_done",
+        summary: expect.stringContaining("自动归档为 COMPLETED"),
+      }),
+    }));
+  });
+
   it("does not fall back to demo command data when database is unavailable", async () => {
     const dbError = new Error("Can't reach database server");
     mockPrisma.commandRequest.findMany.mockRejectedValue(dbError);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { createCommandRequest, listCommandRequests } from "@/lib/command/service";
+import { createCommandRequest, listCommandRequests, recoverStaleRunningCommandRequests } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
     if (!session || !sessionHasPermission(session, "command:read")) return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    await recoverStaleRunningCommandRequests();
     return NextResponse.json({ requests: await listCommandRequests() });
   });
 }

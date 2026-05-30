@@ -6,6 +6,7 @@ const { mocks } = vi.hoisted(() => ({
     sessionHasPermission: vi.fn(),
     createCommandRequest: vi.fn(),
     listCommandRequests: vi.fn(),
+    recoverStaleRunningCommandRequests: vi.fn(),
     auditUserAction: vi.fn(),
   },
 }));
@@ -15,6 +16,7 @@ vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.session
 vi.mock("@/lib/command/service", () => ({
   createCommandRequest: mocks.createCommandRequest,
   listCommandRequests: mocks.listCommandRequests,
+  recoverStaleRunningCommandRequests: mocks.recoverStaleRunningCommandRequests,
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 
@@ -26,6 +28,7 @@ describe("/api/commands audit coverage", () => {
     mocks.requireApiSession.mockResolvedValue({ userId: "u1", username: "alice", user: { id: "u1" } });
     mocks.sessionHasPermission.mockReturnValue(true);
     mocks.listCommandRequests.mockResolvedValue([]);
+    mocks.recoverStaleRunningCommandRequests.mockResolvedValue({ recovered: 0 });
     mocks.createCommandRequest.mockResolvedValue({
       id: "cmd1",
       title: "Restart nginx",
@@ -45,6 +48,17 @@ describe("/api/commands audit coverage", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ requests: [{ id: "cmd1", title: "Restart nginx" }] });
     expect(mocks.sessionHasPermission).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1" }), "command:read");
+    expect(mocks.recoverStaleRunningCommandRequests).toHaveBeenCalledBefore(mocks.listCommandRequests);
+  });
+
+  it("does not recover stale command tasks without read permission", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:read");
+
+    const response = await route.GET(new Request("http://local/api/commands"));
+
+    expect(response.status).toBe(403);
+    expect(mocks.recoverStaleRunningCommandRequests).not.toHaveBeenCalled();
+    expect(mocks.listCommandRequests).not.toHaveBeenCalled();
   });
 
   it("rejects command lists without read permission", async () => {
