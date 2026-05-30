@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T06:06:00Z",
+  "updatedAt": "2026-05-30T06:25:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,20 +43,20 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Rate-limit store and API guard regressions passed: 9 tests",
+    "tests": "Full Vitest suite passed: 170 files / 675 tests; targeted system-health + quick-service regressions passed: 19 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /api/images/upload and file-proxy unauth probes returned 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /api/system-health and Quick Services check-port unauth probes returned 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T06:06:00Z",
-    "target": "P6 shared Redis-capable API rate limiting",
+    "finishedAt": "2026-05-30T06:25:00Z",
+    "target": "P6 local shell-string execution hardening",
     "status": "verified_deployed_committed",
-    "commit": "fd3cc7e",
-    "summary": "Unified API/file-upload/file-proxy rate checks onto the shared rate-limit store so Redis is used when REDIS_URL is configured. Legacy synchronous login checks remain on the local helper for compatibility with the account-lockout flow.",
+    "commit": "e081b0b",
+    "summary": "Replaced remaining local shell-string execSync health and Quick Services port checks with argv-based execFileSync calls plus in-process parsing. System Health now calls systemctl/git without shell pipelines, and Quick Services port discovery/check-port no longer shells through grep/pipes. Remaining ssh2.exec remote-command surfaces are tracked by the background-task architecture item.",
     "validation": [
-      "npx vitest run src/lib/__tests__/rate-limit.test.ts src/lib/http/api-guard.test.ts (9/9)",
+      "npx vitest run src/lib/system-health/__tests__/service.test.ts src/lib/quick-service/__tests__/service.test.ts (19/19)",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
@@ -64,12 +64,13 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "readiness via http://127.0.0.1:3000/api/status",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /api/images/upload 401, /api/servers/nonexistent/file-proxy 401, /api/status 200",
+      "HTTPS probes /api/status 200, /api/system-health 401, /api/quick-services/check-port?port=3000 401",
       "recent production service logs checked with no new error/warn matches",
-      "git diff --check"
+      "git diff --check",
+      "npm test (170 files / 675 tests)"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P6 architecture hardening: move command/deployment SSH execution out of synchronous API paths or replace remaining shell-string exec surfaces where practical."
+    "nextTarget": "Fresh comprehensive audit is due because successfulRemediationRunsSinceFreshAudit reached 6 and the only remaining listed backlog item is the larger P6 background-task architecture hardening."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -84,7 +85,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 5,
+    "successfulRemediationRunsSinceFreshAudit": 6,
     "skippedOverlapRuns": 0
   },
   "blockers": []
