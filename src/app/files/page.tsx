@@ -2,6 +2,10 @@ import Link from "next/link";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import {
+  getStorageAccessCapabilities,
+  getStorageAccessCapabilityKey,
+} from "@/lib/storage/access-control";
 import { getStorageOverview } from "@/lib/storage/service";
 import {
   buildFileTree,
@@ -95,12 +99,39 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
   const totalItems = folders.length + files.length;
   const sourceSummary = [...currentNode.sources.values()];
+  const capabilityMap = await getStorageAccessCapabilities({
+    session,
+    targets: [
+      ...folders
+        .filter((folder) => folder.storageNodeId && folder.relativePath)
+        .map((folder) => ({
+          storageNodeId: folder.storageNodeId!,
+          relativePath: folder.relativePath!,
+        })),
+      ...files.map((entry) => ({
+        storageNodeId: entry.storageNode.id,
+        relativePath: entry.relativePath,
+      })),
+    ],
+  });
 
   // Build initial data for SPA component (same format as API response)
   const initialData = {
     currentPath,
     nodeIdFilter,
-    folders: folders.map(serializeFileTreeFolder),
+    folders: folders.map((folder) => {
+      const serialized = serializeFileTreeFolder(folder);
+      const capabilityKey = serialized.storageNodeId
+        ? getStorageAccessCapabilityKey({
+            storageNodeId: serialized.storageNodeId,
+            relativePath: serialized.relativePath,
+          })
+        : null;
+      return {
+        ...serialized,
+        capabilities: capabilityKey ? capabilityMap.get(capabilityKey) ?? null : null,
+      };
+    }),
     files: files.map((entry) => ({
       id: entry.id,
       name: entry.name,
@@ -116,6 +147,13 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       storageNodeId: entry.storageNode.id,
       storageNodeName: entry.storageNode.name,
       storageNodeDriver: entry.storageNode.driver,
+      capabilities:
+        capabilityMap.get(
+          getStorageAccessCapabilityKey({
+            storageNodeId: entry.storageNode.id,
+            relativePath: entry.relativePath,
+          }) ?? "",
+        ) ?? null,
       updatedAt:
         "updatedAt" in entry && entry.updatedAt
           ? String(entry.updatedAt)

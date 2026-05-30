@@ -164,6 +164,88 @@ export async function assertStorageAccess(input: {
   return { allowed: true, matchedGrantId: operationGrant.id };
 }
 
+export type StorageAccessCapability = {
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+};
+
+export function getStorageAccessCapabilityKey(input: {
+  storageNodeId: string;
+  relativePath?: string | null;
+}) {
+  const normalizedPath = normalizeAccessPath(input.relativePath);
+  if (normalizedPath === null) return null;
+  return `${input.storageNodeId}:${normalizedPath}`;
+}
+
+export async function getStorageAccessCapabilities(input: {
+  session: SessionPayload;
+  targets: Array<{ storageNodeId: string; relativePath?: string | null }>;
+}): Promise<Map<string, StorageAccessCapability>> {
+  const result = new Map<string, StorageAccessCapability>();
+  const canRoleRead = sessionHasPermission(input.session, "storage:read");
+  const canRoleWrite = sessionHasPermission(input.session, "storage:write");
+  const canRoleDelete = sessionHasPermission(input.session, "storage:delete");
+  const canManageNodes = sessionHasPermission(input.session, "storage:manage-node");
+
+  const uniqueTargets = new Map<string, { storageNodeId: string; relativePath: string }>();
+  for (const target of input.targets) {
+    const normalizedPath = normalizeAccessPath(target.relativePath);
+    if (normalizedPath === null) {
+      result.set(`${target.storageNodeId}:`, { canRead: false, canWrite: false, canDelete: false });
+      continue;
+    }
+    uniqueTargets.set(`${target.storageNodeId}:${normalizedPath}`, {
+      storageNodeId: target.storageNodeId,
+      relativePath: normalizedPath,
+    });
+  }
+
+  if (uniqueTargets.size === 0) return result;
+
+  if (canManageNodes) {
+    for (const [key] of uniqueTargets) {
+      result.set(key, { canRead: true, canWrite: true, canDelete: true });
+    }
+    return result;
+  }
+
+  const nodeIds = [...new Set([...uniqueTargets.values()].map((target) => target.storageNodeId))];
+  const grants = await prisma.userStorageAccess.findMany({
+    where: { userId: input.session.userId, storageNodeId: { in: nodeIds } },
+    orderBy: [{ pathPrefix: "desc" }, { createdAt: "asc" }],
+  });
+  const grantsByNode = new Map<string, StorageAccessGrantRow[]>();
+  for (const grant of grants) {
+    const rows = grantsByNode.get(grant.storageNodeId) ?? [];
+    rows.push(grant);
+    grantsByNode.set(grant.storageNodeId, rows);
+  }
+
+  const legacyFallback = isLegacyGrantFallbackEnabled();
+  for (const [key, target] of uniqueTargets) {
+    const nodeGrants = grantsByNode.get(target.storageNodeId) ?? [];
+    if (nodeGrants.length === 0) {
+      result.set(key, {
+        canRead: canRoleRead && legacyFallback,
+        canWrite: canRoleWrite && legacyFallback,
+        canDelete: canRoleDelete && legacyFallback,
+      });
+      continue;
+    }
+
+    const matchingGrants = nodeGrants.filter((grant) => pathMatchesGrant(target.relativePath, grant.pathPrefix));
+    result.set(key, {
+      canRead: canRoleRead && matchingGrants.some((grant) => grant.canRead),
+      canWrite: canRoleWrite && matchingGrants.some((grant) => grant.canWrite),
+      canDelete: canRoleDelete && matchingGrants.some((grant) => grant.canDelete),
+    });
+  }
+
+  return result;
+}
+
 export async function getStorageAccessUsage(input: { storageNodeId: string; pathPrefix: string }) {
   return getGrantUsageBytes(input);
 }

@@ -30,6 +30,9 @@ export type FolderProp = {
   displayName?: string;
   path: string;
   entryId?: string | null;
+  storageNodeId?: string | null;
+  relativePath?: string | null;
+  capabilities?: FileProp["capabilities"];
   fileCount: number;
   folderCount: number;
   sourceKeys: string[];
@@ -142,6 +145,31 @@ export function FileListClient({
       ),
     [files],
   );
+  const entryCanRead = useCallback(
+    (entry: { capabilities?: FileProp["capabilities"] }) =>
+      entry.capabilities?.canRead ?? true,
+    [],
+  );
+  const entryCanWrite = useCallback(
+    (entry: { capabilities?: FileProp["capabilities"] }) =>
+      entry.capabilities?.canWrite ?? canEditLocalFiles,
+    [canEditLocalFiles],
+  );
+  const entryCanDelete = useCallback(
+    (entry: { capabilities?: FileProp["capabilities"] }) =>
+      entry.capabilities?.canDelete ?? canDelete,
+    [canDelete],
+  );
+  const selectableFiles = useMemo(
+    () =>
+      visibleFiles.filter((file) => entryCanWrite(file) || entryCanDelete(file)),
+    [visibleFiles, entryCanWrite, entryCanDelete],
+  );
+  const folderCanWrite = useCallback(
+    (folder: FolderProp) =>
+      folder.capabilities?.canWrite ?? canEditLocalFiles,
+    [canEditLocalFiles],
+  );
 
   const sortedFiles = useMemo(() => {
     const arr = [...visibleFiles];
@@ -196,9 +224,15 @@ export function FileListClient({
   });
   const [isPending, startTransition] = useTransition();
 
-  const allFileIds = visibleFiles.map((f) => f.id);
+  const allFileIds = selectableFiles.map((f) => f.id);
+  const selectedFileEntries = useMemo(
+    () => visibleFiles.filter((file) => selectedIds.has(file.id)),
+    [visibleFiles, selectedIds],
+  );
+  const selectedEntriesCanDelete = selectedFileEntries.every(entryCanDelete);
+  const selectedEntriesCanMove = selectedFileEntries.every(entryCanWrite);
   const allSelected =
-    visibleFiles.length > 0 && allFileIds.every((id) => selectedIds.has(id));
+    selectableFiles.length > 0 && allFileIds.every((id) => selectedIds.has(id));
   const someSelected = selectedIds.size > 0 && !allSelected;
 
   const toggleAll = useCallback(() => {
@@ -339,6 +373,10 @@ export function FileListClient({
     directDownloadUrl: string | null,
     compact = false,
   ) {
+    if (!entryCanRead(entry)) {
+      return null;
+    }
+
     if (!directDownloadUrl || directDownloadUrl === proxyDownloadUrl) {
       return (
         <Link
@@ -395,7 +433,7 @@ export function FileListClient({
   ) {
     return (
       <div className="flex items-center gap-1 flex-wrap">
-        {entry.previewable ? (
+        {entry.previewable && entryCanRead(entry) ? (
           <Link
             href={previewHref}
             title="预览"
@@ -410,7 +448,7 @@ export function FileListClient({
           directDownloadUrl,
           compact,
         )}
-        {canEditLocalFiles ? (
+        {entryCanWrite(entry) ? (
           <RenameInlineForm
             fileEntryId={entry.id}
             currentName={entry.name}
@@ -419,7 +457,7 @@ export function FileListClient({
             onRefresh={onRefresh}
           />
         ) : null}
-        {canEditLocalFiles ? (
+        {entryCanWrite(entry) ? (
           <MoveInlineForm
             fileEntryId={entry.id}
             name={entry.name}
@@ -429,7 +467,7 @@ export function FileListClient({
             onRefresh={onRefresh}
           />
         ) : null}
-        {canDelete ? (
+        {canDelete && entryCanDelete(entry) ? (
           <DeleteConfirmButton
             fileEntryId={entry.id}
             entryName={entry.name}
@@ -506,13 +544,15 @@ export function FileListClient({
             >
               {/* Selection checkbox */}
               <div className="absolute top-2 left-2 z-20">
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => toggleOne(fileProp.id)}
-                  aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded border border-white/30 bg-slate-950/80 accent-cyan-400 shadow-sm shadow-black/30"
-                />
+                {entryCanWrite(entry) || entryCanDelete(entry) ? (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(entry.id)}
+                    onChange={() => toggleOne(entry.id)}
+                    aria-label={`选择 ${entry.name}`}
+                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                  />
+                ) : null}
               </div>
 
               {/* Thumbnail / icon area */}
@@ -541,7 +581,7 @@ export function FileListClient({
 
               {/* File name & meta */}
               <div className="px-4 pb-2 flex-1 flex flex-col">
-                {entry.previewable ? (
+                {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
                     className="w-full truncate text-sm font-medium text-white hover:text-cyan-100 transition"
@@ -562,7 +602,7 @@ export function FileListClient({
 
               {/* Action bar — always visible, icon buttons */}
               <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40">
-                {entry.previewable ? (
+                {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
                     title="预览"
@@ -577,7 +617,7 @@ export function FileListClient({
                   directDownloadUrl,
                   true,
                 )}
-                {canEditLocalFiles ? (
+                {entryCanWrite(entry) ? (
                   <RenameInlineForm
                     fileEntryId={entry.id}
                     currentName={entry.name}
@@ -586,7 +626,7 @@ export function FileListClient({
                     onRefresh={onRefresh}
                   />
                 ) : null}
-                {canEditLocalFiles ? (
+                {entryCanWrite(entry) ? (
                   <MoveInlineForm
                     fileEntryId={entry.id}
                     name={entry.name}
@@ -596,7 +636,7 @@ export function FileListClient({
                     onRefresh={onRefresh}
                   />
                 ) : null}
-                {canDelete ? (
+                {canDelete && entryCanDelete(entry) ? (
                   <DeleteConfirmButton
                     fileEntryId={entry.id}
                     entryName={entry.name}
@@ -669,7 +709,7 @@ export function FileListClient({
                 </svg>
                 打开
               </button>
-              {canEditLocalFiles ? (
+              {folderCanWrite(folder) ? (
                 <RenameInlineForm
                   fileEntryId={folder.entryId ?? ""}
                   currentName={folder.displayName ?? folder.name}
@@ -678,7 +718,7 @@ export function FileListClient({
                   onRefresh={onRefresh}
                 />
               ) : null}
-              {canEditLocalFiles && folder.entryId ? (
+              {folderCanWrite(folder) && folder.entryId ? (
                 <MoveInlineForm
                   fileEntryId={folder.entryId}
                   name={folder.displayName ?? folder.name}
@@ -709,13 +749,15 @@ export function FileListClient({
             >
               {/* Checkbox */}
               <div className="shrink-0">
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  onChange={() => toggleOne(fileProp.id)}
-                  aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded accent-cyan-400"
-                />
+                {entryCanWrite(entry) || entryCanDelete(entry) ? (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(entry.id)}
+                    onChange={() => toggleOne(entry.id)}
+                    aria-label={`选择 ${entry.name}`}
+                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                  />
+                ) : null}
               </div>
 
               {/* Thumbnail or colored icon */}
@@ -738,7 +780,7 @@ export function FileListClient({
               {/* File info */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  {entry.previewable ? (
+                  {entry.previewable && entryCanRead(entry) ? (
                     <Link
                       href={previewHref}
                       className="truncate font-medium text-white hover:text-cyan-100 transition text-sm"
@@ -877,7 +919,7 @@ export function FileListClient({
                       </svg>
                       打开
                     </button>
-                    {canEditLocalFiles ? (
+                    {folderCanWrite(folder) ? (
                       <RenameInlineForm
                         fileEntryId={folder.entryId ?? ""}
                         currentName={folder.displayName ?? folder.name}
@@ -886,7 +928,7 @@ export function FileListClient({
                         onRefresh={onRefresh}
                       />
                     ) : null}
-                    {canEditLocalFiles && folder.entryId ? (
+                    {folderCanWrite(folder) && folder.entryId ? (
                       <MoveInlineForm
                         fileEntryId={folder.entryId}
                         name={folder.displayName ?? folder.name}
@@ -914,19 +956,21 @@ export function FileListClient({
                     className={`grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 px-5 py-3 text-sm hover:bg-white/[0.02] transition ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
                   >
                     <div>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => toggleOne(fileProp.id)}
-                        aria-label={`选择 ${entry.name}`}
-                        className="rounded h-4 w-4 accent-cyan-400"
-                      />
+                      {entryCanWrite(entry) || entryCanDelete(entry) ? (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(entry.id)}
+                          onChange={() => toggleOne(entry.id)}
+                          aria-label={`选择 ${entry.name}`}
+                          className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                        />
+                      ) : null}
                     </div>
                     <div className="flex justify-center">
                       <FileTypeIcon entry={entry} size={22} />
                     </div>
                     <div className="min-w-0">
-                      {entry.previewable ? (
+                      {entry.previewable && entryCanRead(entry) ? (
                         <Link
                           href={previewHref}
                           className="truncate font-medium text-white hover:text-cyan-100 transition"
@@ -950,7 +994,7 @@ export function FileListClient({
                       {entry.updatedAt ? formatDate(entry.updatedAt) : "—"}
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {entry.previewable ? (
+                      {entry.previewable && entryCanRead(entry) ? (
                         <Link
                           href={previewHref}
                           title="预览"
@@ -965,7 +1009,7 @@ export function FileListClient({
                         directDownloadUrl,
                         true,
                       )}
-                      {canEditLocalFiles ? (
+                      {entryCanWrite(entry) ? (
                         <RenameInlineForm
                           fileEntryId={entry.id}
                           currentName={entry.name}
@@ -974,7 +1018,7 @@ export function FileListClient({
                           onRefresh={onRefresh}
                         />
                       ) : null}
-                      {canEditLocalFiles ? (
+                      {entryCanWrite(entry) ? (
                         <MoveInlineForm
                           fileEntryId={entry.id}
                           name={entry.name}
@@ -984,7 +1028,7 @@ export function FileListClient({
                           onRefresh={onRefresh}
                         />
                       ) : null}
-                      {canDelete ? (
+                      {canDelete && entryCanDelete(entry) ? (
                         <DeleteConfirmButton
                           fileEntryId={entry.id}
                           entryName={entry.name}
@@ -1037,7 +1081,7 @@ export function FileListClient({
                   打开
                 </button>
               </div>
-              {canEditLocalFiles ? (
+              {folderCanWrite(folder) ? (
                 <div className="mt-2 flex flex-wrap gap-1 pl-9">
                   <RenameInlineForm
                     fileEntryId={folder.entryId ?? ""}
@@ -1075,17 +1119,20 @@ export function FileListClient({
                 className={`px-4 py-3 ${isChecked ? "bg-cyan-400/[0.04]" : ""}`}
               >
                 <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={isChecked}
-                    onChange={() => toggleOne(fileProp.id)}
-                    className="mt-2 rounded h-4 w-4 accent-cyan-400"
-                  />
+                  {entryCanWrite(entry) || entryCanDelete(entry) ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(entry.id)}
+                      onChange={() => toggleOne(entry.id)}
+                      aria-label={`选择 ${entry.name}`}
+                      className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                    />
+                  ) : null}
                   <div className="shrink-0 mt-0.5 rounded-lg bg-white/[0.03] p-1">
                     <FileTypeIcon entry={entry} size={22} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    {entry.previewable ? (
+                    {entry.previewable && entryCanRead(entry) ? (
                       <Link
                         href={previewHref}
                         className="truncate font-medium text-white text-sm hover:text-cyan-100 transition"
@@ -1107,7 +1154,7 @@ export function FileListClient({
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1 pl-9">
-                  {entry.previewable ? (
+                  {entry.previewable && entryCanRead(entry) ? (
                     <Link
                       href={previewHref}
                       title="预览"
@@ -1122,7 +1169,7 @@ export function FileListClient({
                     directDownloadUrl,
                     true,
                   )}
-                  {canEditLocalFiles ? (
+                  {entryCanWrite(entry) ? (
                     <RenameInlineForm
                       fileEntryId={entry.id}
                       currentName={entry.name}
@@ -1131,7 +1178,7 @@ export function FileListClient({
                       onRefresh={onRefresh}
                     />
                   ) : null}
-                  {canEditLocalFiles ? (
+                  {entryCanWrite(entry) ? (
                     <MoveInlineForm
                       fileEntryId={entry.id}
                       name={entry.name}
@@ -1141,7 +1188,7 @@ export function FileListClient({
                       onRefresh={onRefresh}
                     />
                   ) : null}
-                  {canDelete ? (
+                  {canDelete && entryCanDelete(entry) ? (
                     <DeleteConfirmButton
                       fileEntryId={entry.id}
                       entryName={entry.name}
@@ -1389,7 +1436,7 @@ export function FileListClient({
               >
                 取消选择
               </button>
-              {canDelete ? (
+              {canDelete && selectedEntriesCanDelete ? (
                 <button
                   type="button"
                   onClick={() => setBatchAction("confirm-delete")}
@@ -1398,7 +1445,7 @@ export function FileListClient({
                   批量删除
                 </button>
               ) : null}
-              {canEditLocalFiles ? (
+              {selectedEntriesCanMove ? (
                 <button
                   type="button"
                   onClick={handleBatchMove}

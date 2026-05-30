@@ -9,6 +9,10 @@ const refreshMock = vi.hoisted(() => vi.fn());
 const deleteFileEntryActionMock = vi.hoisted(() => vi.fn());
 const moveFileActionMock = vi.hoisted(() => vi.fn());
 
+function firstFileCheckbox(name: string) {
+  return screen.getAllByLabelText(`选择 ${name}`)[0];
+}
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: pushMock,
@@ -181,7 +185,7 @@ describe("FileListClient", () => {
     fireEvent.click(screen.getByLabelText("全选文件"));
 
     expect(screen.getByText("已选 1 个文件")).toBeInTheDocument();
-    expect(screen.getByLabelText("选择 cover.jpg")).toBeChecked();
+    expect(firstFileCheckbox("cover.jpg")).toBeChecked();
   });
 
   it("persists the selected file view mode and restores it on next render", () => {
@@ -236,7 +240,7 @@ describe("FileListClient", () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText("选择 cover.jpg"));
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
     expect(screen.getByText("· 已选 1 个")).toBeInTheDocument();
 
     rerender(
@@ -253,7 +257,7 @@ describe("FileListClient", () => {
     );
 
     expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("选择 cover.jpg")).not.toBeChecked();
+    expect(firstFileCheckbox("cover.jpg")).not.toBeChecked();
   });
 
   it("lets users choose website proxy or target-server direct traffic for downloads", () => {
@@ -270,6 +274,41 @@ describe("FileListClient", () => {
     );
   });
 
+  it("hides preview, download, delete, and batch selection when entry capabilities deny access", () => {
+    renderFileList({
+      files: [
+        {
+          ...imageFile,
+          storageNodeDriver: "SFTP",
+          capabilities: { canRead: false, canWrite: false, canDelete: false },
+        },
+      ],
+    });
+
+    expect(screen.queryByRole("link", { name: /cover\.jpg/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("选择 cover.jpg")).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("delete-btn")).toHaveLength(0);
+    fireEvent.click(screen.getByLabelText("全选文件"));
+    expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
+  });
+
+  it("uses per-entry capabilities for batch actions", () => {
+    renderFileList({
+      files: [
+        { ...imageFile, capabilities: { canRead: true, canWrite: true, canDelete: false } },
+        { ...archiveFile, capabilities: { canRead: true, canWrite: false, canDelete: true } },
+      ],
+    });
+
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
+    expect(screen.getByRole("button", { name: "批量移动" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "批量删除" })).not.toBeInTheDocument();
+
+    fireEvent.click(firstFileCheckbox("archive.zip"));
+    expect(screen.queryByRole("button", { name: "批量移动" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "批量删除" })).not.toBeInTheDocument();
+  });
+
   it("keeps batch delete selection open and reports per-file failures", async () => {
     const onRefresh = vi.fn();
     deleteFileEntryActionMock
@@ -278,8 +317,8 @@ describe("FileListClient", () => {
 
     renderFileList({ files: [imageFile, archiveFile], onRefresh });
 
-    fireEvent.click(screen.getByLabelText("选择 cover.jpg"));
-    fireEvent.click(screen.getByLabelText("选择 archive.zip"));
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
+    fireEvent.click(firstFileCheckbox("archive.zip"));
     fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
@@ -299,9 +338,9 @@ describe("FileListClient", () => {
 
     renderFileList({ files: [imageFile, archiveFile, docFile], onRefresh });
 
-    fireEvent.click(screen.getByLabelText("选择 cover.jpg"));
-    fireEvent.click(screen.getByLabelText("选择 archive.zip"));
-    fireEvent.click(screen.getByLabelText("选择 report.pdf"));
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
+    fireEvent.click(firstFileCheckbox("archive.zip"));
+    fireEvent.click(firstFileCheckbox("report.pdf"));
     fireEvent.click(screen.getByRole("button", { name: "批量移动" }));
     fireEvent.change(screen.getByPlaceholderText("目标路径"), { target: { value: "archive" } });
     fireEvent.click(screen.getByRole("button", { name: "确认移动" }));

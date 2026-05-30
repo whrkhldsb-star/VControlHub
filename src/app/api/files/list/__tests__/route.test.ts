@@ -5,12 +5,14 @@ const {
   requireApiPermissionMock,
   sessionHasPermissionMock,
   getStorageOverviewMock,
+  getStorageAccessCapabilitiesMock,
   getSftpSyncNodeMock,
   syncSftpDirectoryEntriesMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
   getStorageOverviewMock: vi.fn(),
+  getStorageAccessCapabilitiesMock: vi.fn(),
   getSftpSyncNodeMock: vi.fn(),
   syncSftpDirectoryEntriesMock: vi.fn(),
 }));
@@ -27,6 +29,12 @@ vi.mock("@/lib/storage/service", () => ({
   getStorageOverview: getStorageOverviewMock,
 }));
 
+vi.mock("@/lib/storage/access-control", () => ({
+  getStorageAccessCapabilities: getStorageAccessCapabilitiesMock,
+  getStorageAccessCapabilityKey: ({ storageNodeId, relativePath }: { storageNodeId: string; relativePath?: string | null }) =>
+    `${storageNodeId}:${relativePath ?? ""}`,
+}));
+
 vi.mock("@/lib/storage/sftp-sync", () => ({
   getSftpSyncNode: getSftpSyncNodeMock,
   syncSftpDirectoryEntries: syncSftpDirectoryEntriesMock,
@@ -37,7 +45,21 @@ import { GET } from "../route";
 function overview() {
   return {
     nodes: [{ id: "node_sftp", name: "远端存储", driver: "SFTP" }],
-    entries: [],
+    entries: [
+      {
+        id: "file_1",
+        name: "remote.txt",
+        entryType: "FILE",
+        mimeType: "text/plain",
+        relativePath: "remote.txt",
+        size: BigInt(12),
+        sizeLabel: "12 B",
+        previewable: true,
+        directAccess: { mode: "managed-download", description: "SFTP proxy" },
+        storageNode: { id: "node_sftp", name: "远端存储", driver: "SFTP" },
+        updatedAt: new Date("2026-05-30T00:00:00.000Z"),
+      },
+    ],
     remoteDirectories: [],
     stats: {
       totalNodes: 1,
@@ -72,6 +94,11 @@ describe("/api/files/list", () => {
       skipped: 0,
       errors: ["远端连接失败"],
     });
+    getStorageAccessCapabilitiesMock.mockResolvedValueOnce(
+      new Map([
+        ["node_sftp:remote.txt", { canRead: true, canWrite: false, canDelete: true }],
+      ]),
+    );
 
     const response = await GET(
       new NextRequest(
@@ -84,6 +111,16 @@ describe("/api/files/list", () => {
       nodeIdFilter: "node_sftp",
       syncWarning: "远端连接失败",
       nodes: [{ id: "node_sftp", name: "远端存储", driver: "SFTP" }],
+      files: [
+        expect.objectContaining({
+          id: "file_1",
+          capabilities: { canRead: true, canWrite: false, canDelete: true },
+        }),
+      ],
+    });
+    expect(getStorageAccessCapabilitiesMock).toHaveBeenCalledWith({
+      session: expect.objectContaining({ userId: "u_1" }),
+      targets: [{ storageNodeId: "node_sftp", relativePath: "remote.txt" }],
     });
     expect(getStorageOverviewMock).toHaveBeenCalledTimes(1);
   });

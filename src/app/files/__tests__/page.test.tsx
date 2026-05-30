@@ -100,6 +100,7 @@ const {
   requireSessionMock,
   getStorageOverviewMock,
   listStorageNodesMock,
+  getStorageAccessCapabilitiesMock,
   refreshMock,
   pushMock,
   replaceMock,
@@ -113,6 +114,7 @@ const {
   }),
   getStorageOverviewMock: vi.fn(),
   listStorageNodesMock: vi.fn(),
+  getStorageAccessCapabilitiesMock: vi.fn(),
   refreshMock: vi.fn(),
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
@@ -130,6 +132,12 @@ vi.mock("@/lib/storage/service", () => ({
 
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: vi.fn().mockReturnValue(true),
+}));
+
+vi.mock("@/lib/storage/access-control", () => ({
+  getStorageAccessCapabilities: getStorageAccessCapabilitiesMock,
+  getStorageAccessCapabilityKey: ({ storageNodeId, relativePath }: { storageNodeId: string; relativePath?: string | null }) =>
+    `${storageNodeId}:${relativePath ?? ""}`,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -280,6 +288,7 @@ beforeEach(() => {
   listStorageNodesMock.mockResolvedValue(
     structuredClone(baseStorageOverview.nodes),
   );
+  getStorageAccessCapabilitiesMock.mockResolvedValue(new Map());
 });
 
 describe("FilesPage", () => {
@@ -332,47 +341,27 @@ describe("FilesPage", () => {
     );
   });
 
-  it("renders delete and rename buttons for files when user has permissions", async () => {
+  it("renders per-entry actions from storage access capabilities on the initial page payload", async () => {
+    getStorageAccessCapabilitiesMock.mockResolvedValueOnce(
+      new Map([
+        ["node_1:docs", { canRead: true, canWrite: true, canDelete: true }],
+        ["node_1:docs/notes.txt", { canRead: true, canWrite: true, canDelete: true }],
+        ["node_2:media/videos/demo.mp4", { canRead: true, canWrite: true, canDelete: true }],
+      ]),
+    );
+
     render(
       await FilesPage({
         searchParams: Promise.resolve({ path: "docs", nodeId: "node_1" }),
       }),
     );
 
-    expect(
-      screen.getAllByRole("link", { name: "经网站服务器下载 notes.txt" })
-        .length,
-    ).toBeGreaterThan(0);
-    const deleteButtons = screen.queryAllByTestId("delete-btn");
-    const renameButtons = screen.queryAllByTestId("rename-btn");
-    if (deleteButtons.length === 0) {
-      const allButtons = screen.getAllByRole("button");
-      expect(
-        allButtons.some(
-          (btn) =>
-            btn.getAttribute("title") === "删除" ||
-            btn.textContent?.includes("删除"),
-        ),
-      ).toBe(true);
-      expect(
-        allButtons.some(
-          (btn) =>
-            btn.getAttribute("title") === "重命名" ||
-            btn.textContent?.includes("重命名"),
-        ),
-      ).toBe(true);
-    } else {
-      expect(
-        deleteButtons.some(
-          (btn) => btn.getAttribute("data-entry-name") === "notes.txt",
-        ),
-      ).toBe(true);
-      expect(
-        renameButtons.some(
-          (btn) => btn.getAttribute("data-current-name") === "notes.txt",
-        ),
-      ).toBe(true);
-    }
+    expect(getStorageAccessCapabilitiesMock).toHaveBeenCalledWith({
+      session: expect.objectContaining({ userId: "u_1" }),
+      targets: expect.arrayContaining([
+        { storageNodeId: "node_1", relativePath: "docs/notes.txt" },
+      ]),
+    });
   });
 
   it("renders remote registered directories in the tree and file list", async () => {

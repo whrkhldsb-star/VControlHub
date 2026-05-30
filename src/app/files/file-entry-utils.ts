@@ -6,6 +6,12 @@ import {
   OFFICE_MIME_SET,
 } from "@/lib/storage/mime-constants";
 
+export type EntryCapabilities = {
+  canRead: boolean;
+  canWrite: boolean;
+  canDelete: boolean;
+};
+
 export type StorageEntry = {
   id: string;
   name: string;
@@ -17,6 +23,7 @@ export type StorageEntry = {
   previewable: boolean;
   directAccess: { mode: string; href?: string; description: string };
   storageNode: { id: string; name: string; driver: string };
+  capabilities?: EntryCapabilities | null;
   updatedAt?: Date | string;
 };
 
@@ -35,6 +42,7 @@ export type FileProp = {
   storageNodeId: string;
   storageNodeName: string;
   storageNodeDriver: string;
+  capabilities?: EntryCapabilities | null;
   updatedAt?: string | null;
 };
 
@@ -165,6 +173,7 @@ export function toStorageEntry(file: FileProp): StorageEntry {
       name: file.storageNodeName,
       driver: file.storageNodeDriver,
     },
+    capabilities: file.capabilities,
     updatedAt: file.updatedAt ?? undefined,
   };
 }

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
+import {
+  getStorageAccessCapabilities,
+  getStorageAccessCapabilityKey,
+} from "@/lib/storage/access-control";
 import { getStorageOverview } from "@/lib/storage/service";
 import {
   getSftpSyncNode,
@@ -114,11 +118,38 @@ export async function GET(request: NextRequest) {
 
       const sourceSummary = [...currentNode.sources.values()];
       const totalItems = folders.length + files.length;
+      const capabilityMap = await getStorageAccessCapabilities({
+        session,
+        targets: [
+          ...folders
+            .filter((folder) => folder.storageNodeId && folder.relativePath)
+            .map((folder) => ({
+              storageNodeId: folder.storageNodeId!,
+              relativePath: folder.relativePath!,
+            })),
+          ...files.map((entry) => ({
+            storageNodeId: entry.storageNode.id,
+            relativePath: entry.relativePath,
+          })),
+        ],
+      });
 
       return NextResponse.json({
         currentPath,
         nodeIdFilter,
-        folders: folders.map(serializeFileTreeFolder),
+        folders: folders.map((folder) => {
+          const serialized = serializeFileTreeFolder(folder);
+          const capabilityKey = serialized.storageNodeId
+            ? getStorageAccessCapabilityKey({
+                storageNodeId: serialized.storageNodeId,
+                relativePath: serialized.relativePath,
+              })
+            : null;
+          return {
+            ...serialized,
+            capabilities: capabilityKey ? capabilityMap.get(capabilityKey) ?? null : null,
+          };
+        }),
         files: files.map((entry) => ({
           id: entry.id,
           name: entry.name,
@@ -138,6 +169,13 @@ export async function GET(request: NextRequest) {
           storageNodeId: entry.storageNode.id,
           storageNodeName: entry.storageNode.name,
           storageNodeDriver: entry.storageNode.driver,
+          capabilities:
+            capabilityMap.get(
+              getStorageAccessCapabilityKey({
+                storageNodeId: entry.storageNode.id,
+                relativePath: entry.relativePath,
+              }) ?? "",
+            ) ?? null,
           updatedAt:
             "updatedAt" in entry && entry.updatedAt
               ? String(entry.updatedAt)

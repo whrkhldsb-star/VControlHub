@@ -11,6 +11,8 @@ export type FileTreeNode = {
 	name: string;
 	path: string;
 	entryId?: string;
+	storageNodeId?: string;
+	relativePath?: string;
 	folders: Map<string, FileTreeNode>;
 	files: StorageEntryForTree[];
 	sources: Map<string, string>;
@@ -21,6 +23,8 @@ export type SerializedTreeNode = {
 	displayName?: string;
 	path: string;
 	entryId: string | null;
+	storageNodeId: string | null;
+	relativePath: string | null;
 	fileCount: number;
 	folderCount: number;
 	sourceKeys: string[];
@@ -98,10 +102,12 @@ export function buildFileTree(
 		for (const directory of directories) {
 			const group = nodeGroupMap.get(directory.storageNodeId);
 			if (!group) continue;
-			ensureFolder(`${group.groupKey}/${directory.path}`, {
+			const directoryNode = ensureFolder(`${group.groupKey}/${directory.path}`, {
 				id: directory.storageNodeId,
 				label: `${directory.storageNodeName}（${directory.storageNodeDriver}）`,
 			});
+			directoryNode.storageNodeId = directory.storageNodeId;
+			directoryNode.relativePath = directory.path;
 		}
 
 		for (const entry of entries) {
@@ -131,6 +137,8 @@ export function buildFileTree(
 				const directoryNode = ensureFolder([group.groupKey, ...segments].join("/"), source);
 				directoryNode.sources.set(source.id, source.label);
 				directoryNode.entryId = entry.id;
+				directoryNode.storageNodeId = entry.storageNode.id;
+				directoryNode.relativePath = entry.relativePath;
 			} else {
 				cursor.files.push(entry);
 				cursor.sources.set(source.id, source.label);
@@ -138,10 +146,12 @@ export function buildFileTree(
 		}
 	} else {
 		for (const directory of directories) {
-			ensureFolder(directory.path, {
+			const directoryNode = ensureFolder(directory.path, {
 				id: directory.storageNodeId,
 				label: `${directory.storageNodeName}（${directory.storageNodeDriver}）`,
 			});
+			directoryNode.storageNodeId = directory.storageNodeId;
+			directoryNode.relativePath = directory.path;
 		}
 
 		for (const entry of entries) {
@@ -165,6 +175,8 @@ export function buildFileTree(
 				const directoryNode = ensureFolder(segments.join("/"), source);
 				directoryNode.sources.set(source.id, source.label);
 				directoryNode.entryId = entry.id;
+				directoryNode.storageNodeId = entry.storageNode.id;
+				directoryNode.relativePath = entry.relativePath;
 			} else {
 				cursor.files.push(entry);
 				cursor.sources.set(source.id, source.label);
@@ -202,6 +214,8 @@ export function serializeFileTreeNode(node: FileTreeNode, depth = 0): Serialized
 			displayName: getFileTreeDisplayName(child),
 			path: child.path,
 			entryId: child.entryId ?? null,
+			storageNodeId: child.storageNodeId ?? null,
+			relativePath: child.relativePath ?? null,
 			fileCount: child.files.length,
 			folderCount: child.folders.size,
 			sourceKeys: [...child.sources.keys()],
@@ -239,6 +253,8 @@ export function serializeFileTreeFolder(node: FileTreeNode) {
 		displayName: getFileTreeDisplayName(node),
 		path: node.path,
 		entryId: node.entryId ?? null,
+		storageNodeId: node.storageNodeId ?? null,
+		relativePath: node.relativePath ?? null,
 		fileCount: node.files.length,
 		folderCount: node.folders.size,
 		sourceKeys: [...node.sources.keys()],
