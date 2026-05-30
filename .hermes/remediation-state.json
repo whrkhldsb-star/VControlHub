@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T21:05:38Z",
+  "updatedAt": "2026-05-30T21:37:29Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,22 +44,23 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Storage access plus Files page/API/client regressions passed: 26 tests",
+    "tests": "Destructive-dialog regressions passed: 12 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /files 307; /api/files/list 401; /api/storage/sftp 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /backups /announcements /snippets /ai returned 307; related APIs returned 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T21:05:38Z",
-    "target": "P1 storage/file permission UI capabilities from fresh-audit findings",
-    "status": "completed_verified_deployed_committed_pushed",
-    "commit": "5bf1693",
-    "summary": "Files page initial payload and /api/files/list SPA refreshes now serialize per-entry storage read/write/delete capabilities from explicit UserStorageAccess grants; the file browser hides preview/download, rename/move/edit, delete, and batch selection controls when the current entry capability does not allow the action.",
+    "finishedAt": "2026-05-30T21:37:29Z",
+    "target": "P2 accessible modal confirmations replacing raw browser dialogs",
+    "status": "completed_verified_deployed_committed_pending_push",
+    "commit": "de07c57",
+    "summary": "Replaced raw browser confirm/prompt usage in shipped destructive/edit flows with accessible in-app dialogs and explicit success/error feedback: backup restore typed RESTORE modal, announcement/snippet delete confirmation dialogs with toast/error states, and AI conversation rename modal.",
     "validation": [
       "read remediation backlog/state first",
-      "continued existing dirty storage/file permission capability batch instead of starting a new topic",
-      "npx vitest run src/app/api/files/list/__tests__/route.test.ts src/app/files/__tests__/page.test.tsx src/app/files/__tests__/file-list-client.test.tsx src/lib/storage/__tests__/access-control.test.ts passed 26/26",
+      "checked for overlapping remediation/build/test processes",
+      "source scan confirmed no remaining confirm()/prompt() calls under src/app",
+      "npx vitest run src/app/backups/__tests__/restore-backup-button.test.tsx src/app/announcements/__tests__/announcement-list-client.test.tsx src/app/snippets/__tests__/snippet-list-client.test.tsx src/app/ai/__tests__/ai-client-destructive-actions.test.tsx passed 12/12",
       "npm run typecheck -- --pretty false passed",
       "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
       "npm run build passed",
@@ -67,12 +68,12 @@
       "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
       "http://127.0.0.1:3000/api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /files 307, /api/files/list 401, /api/storage/sftp 401, /api/status 200",
+      "production probes: /backups /announcements /snippets /ai 307; /api/backups /api/announcements /api/snippets 401; /api/status 200",
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit 5bf1693 and bookkeeping commit pushed to origin/main.",
-    "nextTarget": "Continue remaining fresh-audit P1 storage sync/taskification or P2 destructive modal/accessibility polish."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit de07c57 created; push pending.",
+    "nextTarget": "Because this is the 6th successful remediation run since the last fresh audit, perform a comprehensive fresh audit after committing this batch."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +88,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 5,
+    "successfulRemediationRunsSinceFreshAudit": 6,
     "skippedOverlapRuns": 0
   },
   "blockers": []
