@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T00:15:13Z",
+  "updatedAt": "2026-05-30T00:30:44Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -35,29 +35,30 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "targeted storage route and neighboring storage tests 26/26 passed",
+    "tests": "targeted storage access-control, local/SFTP route, and SFTP sync tests 27/27 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; storage route probes returned 401/307 without 500; no recent warning/error logs"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; storage route probes returned 401 without 500; no recent warning/error logs"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T00:15:13Z",
-    "target": "P2 storage/file-size safety",
+    "finishedAt": "2026-05-30T00:30:44Z",
+    "target": "P2 storage/file-size safety and resource authorization hardening",
     "status": "deployed_verified_pending_commit",
-    "summary": "Added hard inline-read and upload memory guards: SFTP read now rejects files over 1 MB via indexed size before remote download and via post-read fallback; LOCAL/SFTP upload endpoint rejects declared files over 100 MB before arrayBuffer, storage lookup, grants, or backing writes.",
+    "summary": "Changed storage path authorization so users without explicit UserStorageAccess grants are denied by default even if their role has generic storage:read/write/delete; storage managers/admins with storage:manage-node keep break-glass access, and legacy deployments can temporarily opt in to the old behavior with VCONTROLHUB_STORAGE_GRANT_FALLBACK=true.",
     "validation": [
-      "npx vitest run src/app/api/storage/sftp-ops/__tests__/route.test.ts src/app/api/storage/local/__tests__/route.test.ts src/lib/storage/__tests__/access-control.test.ts src/lib/storage/__tests__/sftp-sync.test.ts",
+      "npx vitest run src/lib/storage/__tests__/access-control.test.ts src/app/api/storage/sftp-ops/__tests__/route.test.ts src/app/api/storage/local/__tests__/route.test.ts src/lib/storage/__tests__/sftp-sync.test.ts",
       "npm run typecheck -- --pretty false",
       "npm run lint",
       "npm run build",
       "npm run build:runtime",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub",
-      "storage route probes and recent service log check"
+      "storage route probes and recent service log check",
+      "git diff --check"
     ],
     "deployment": "production services restarted and smoke 19/19 passed",
-    "nextTarget": "Continue remaining P2 access-control fallback hardening, then rotate to P3 Quick Services permissions/task robustness"
+    "nextTarget": "Rotate to P3 Quick Services permissions/task robustness"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -69,7 +70,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": []

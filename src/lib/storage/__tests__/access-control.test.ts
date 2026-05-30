@@ -20,7 +20,7 @@ const baseSession = {
 } satisfies SessionPayload;
 
 describe("storage access control", () => {
-  it("keeps role-based storage access when no explicit grants exist", async () => {
+  it("denies role-based storage access when no explicit grants exist", async () => {
     vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([]);
 
     await expect(assertStorageAccess({
@@ -28,7 +28,28 @@ describe("storage access control", () => {
       storageNodeId: "node-1",
       relativePath: "docs/a.txt",
       operation: "read",
-    })).resolves.toMatchObject({ allowed: true });
+    })).resolves.toMatchObject({ allowed: false, reason: "没有该存储节点或路径的访问授权" });
+  });
+
+  it("allows no-grant role-based access only when the legacy fallback flag is enabled", async () => {
+    const previous = process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK;
+    process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK = "true";
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([]);
+
+    try {
+      await expect(assertStorageAccess({
+        session: baseSession,
+        storageNodeId: "node-1",
+        relativePath: "docs/a.txt",
+        operation: "read",
+      })).resolves.toMatchObject({ allowed: true });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK;
+      } else {
+        process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK = previous;
+      }
+    }
   });
 
   it("denies paths outside explicit grants", async () => {

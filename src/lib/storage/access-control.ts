@@ -95,6 +95,10 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
   return rows.reduce((total: bigint, row: FileEntrySizeRow) => total + (row.size ?? BigInt(0)), BigInt(0));
 }
 
+function isLegacyGrantFallbackEnabled() {
+  return ["1", "true", "yes", "on"].includes((process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK ?? "").trim().toLowerCase());
+}
+
 export async function assertStorageAccess(input: {
   session: SessionPayload;
   storageNodeId: string;
@@ -107,7 +111,7 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: "缺少操作权限" };
   }
 
-  // Storage managers/admins retain full access for backwards compatibility and break-glass maintenance.
+  // Storage managers/admins retain full access for break-glass maintenance.
   if (sessionHasPermission(input.session, "storage:manage-node")) {
     return { allowed: true };
   }
@@ -117,9 +121,11 @@ export async function assertStorageAccess(input: {
     orderBy: [{ pathPrefix: "desc" }, { createdAt: "asc" }],
   });
 
-  // Backwards compatibility: existing users keep role-based storage access until an admin adds explicit grants.
   if (grants.length === 0) {
-    return { allowed: true };
+    if (isLegacyGrantFallbackEnabled()) {
+      return { allowed: true };
+    }
+    return { allowed: false, reason: "没有该存储节点或路径的访问授权" };
   }
 
   const targetPath = normalizeAccessPath(input.relativePath);
