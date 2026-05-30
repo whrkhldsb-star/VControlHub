@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T12:05:30Z",
+  "updatedAt": "2026-05-30T12:21:30Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,36 +43,38 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Command service/worker regressions 20/20 and neighboring deployment/operation-task/commands API tests 20/20 passed during command execution heartbeat remediation",
+    "tests": "Command service/worker regressions 20/20 and neighboring deployment/operation-task/commands API tests 20/20 passed during command worker ownership remediation",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; command/deployment/task route probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T12:05:30Z",
-    "target": "P6 command/deployment background-worker RUNNING heartbeat slice",
+    "finishedAt": "2026-05-30T12:21:30Z",
+    "target": "P6 command/deployment background-worker persistent ownership metadata slice",
     "status": "completed_deployed_committed",
-    "commit": "5d59440",
-    "summary": "Long-lived background SSH command execution now refreshes RUNNING CommandRequest.updatedAt while active, avoiding false stale recovery before the configured timeout window; command maintenance worker tests also cover queued APPROVED recovery.",
+    "commit": "53e5331",
+    "summary": "RUNNING command requests now persist worker ownership metadata (workerId and workerHeartbeatAt), refresh it during background SSH execution, clear it on terminal/cancel/failure states, and use worker heartbeat freshness for stale-running recovery with an updatedAt fallback for legacy rows.",
     "validation": [
       "read remediation backlog/state first",
       "git status and overlap process check before work",
-      "targeted P6 durable command/deployment background-worker heartbeat slice",
+      "targeted P6 durable command/deployment background-worker ownership metadata slice",
+      "npx prisma generate passed",
       "npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/worker.test.ts passed 20/20",
       "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 20/20",
       "npm run typecheck passed",
       "npm run lint passed",
       "npm run build passed",
       "npm run build:runtime passed",
+      "npx prisma db push applied schema changes",
       "production services restarted successfully",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
       "production probes: /api/commands 401, /operation-tasks 307, /deployments 307, /api/status 200",
       "recent production logs checked with no error/warn matches",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
-    "nextTarget": "Continue P6 durable command/deployment background-worker architecture with persistent worker ownership/claim metadata and richer task status reconciliation, or run the next fresh audit after 1 more successful remediation run."
+    "deployment": "Applied Prisma schema via db push, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
+    "nextTarget": "Fresh comprehensive audit is due after this sixth successful remediation run; then continue P6 richer command/deployment task status reconciliation and operator-visible worker diagnostics."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 5,
+    "successfulRemediationRunsSinceFreshAudit": 6,
     "skippedOverlapRuns": 0
   },
   "blockers": []
