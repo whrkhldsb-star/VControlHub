@@ -6,6 +6,26 @@ import { prisma } from "@/lib/db";
 import type { ServiceTemplate } from "./types";
 
 const runFile = promisify(execFile);
+const serviceOperationLocks = new Set<string>();
+
+async function withServiceOperationLock<T>(slug: string, _operation: string, fn: () => Promise<T>): Promise<T> {
+	const normalizedSlug = slug.trim();
+	if (serviceOperationLocks.has(normalizedSlug)) {
+		throw new Error(`服务 ${normalizedSlug} 正在执行其它操作，请稍后重试`);
+	}
+	serviceOperationLocks.add(normalizedSlug);
+	try {
+		return await fn();
+	} finally {
+		serviceOperationLocks.delete(normalizedSlug);
+	}
+}
+
+function assertServiceNotBusy(svc: { slug: string; status?: string | null }, operation: string) {
+	if (svc.status === "installing") {
+		throw new Error(`服务 ${svc.slug} 正在安装中，无法${operation}，请稍后重试`);
+	}
+}
 
 // Re-export for backward compatibility
 export type { ServiceTemplate } from "./types";
@@ -234,6 +254,11 @@ export interface InstallOptions {
 }
 
 export async function installService(opts: InstallOptions) {
+	const { template } = opts;
+	return withServiceOperationLock(template.slug, "安装", () => installServiceUnlocked(opts));
+}
+
+async function installServiceUnlocked(opts: InstallOptions) {
 	const { template, userId, customPort } = opts;
 
 	// Pre-flight: ensure Docker is available
@@ -336,68 +361,77 @@ async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, ho
 }
 
 export async function uninstallService(slug: string) {
-	const svc = await prisma.quickService.findUnique({ where: { slug } });
-	if (!svc) throw new Error("服务不存在");
+	return withServiceOperationLock(slug, "卸载", async () => {
+		const svc = await prisma.quickService.findUnique({ where: { slug } });
+		if (!svc) throw new Error("服务不存在");
+		assertServiceNotBusy(svc, "卸载");
 
-	const containerName = safeContainerName(svc.slug);
-	try {
-		dockerExecSync(["rm", "-f", containerName], 15_000);
-	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
-		throw new Error(`卸载失败: ${msg}`);
-	}
+		const containerName = safeContainerName(svc.slug);
+		try {
+			dockerExecSync(["rm", "-f", containerName], 15_000);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
+			throw new Error(`卸载失败: ${msg}`);
+		}
 
-	await prisma.quickService.delete({ where: { slug } });
+		await prisma.quickService.delete({ where: { slug } });
+	});
 }
 
 export async function startService(slug: string) {
-	const svc = await prisma.quickService.findUnique({ where: { slug } });
-	if (!svc) throw new Error("服务不存在");
+	return withServiceOperationLock(slug, "启动", async () => {
+		const svc = await prisma.quickService.findUnique({ where: { slug } });
+		if (!svc) throw new Error("服务不存在");
+		assertServiceNotBusy(svc, "启动");
 
-	const containerName = safeContainerName(svc.slug);
-	try {
-		dockerExecSync(["start", containerName], 30_000);
-		await prisma.quickService.update({ where: { slug }, data: { status: "running", error: null } });
-	} catch {
-		const tmpl: ServiceTemplate = {
-			slug: svc.slug,
-			name: svc.name,
-			category: svc.category,
-			icon: svc.icon,
-			description: svc.description,
-			image: svc.image,
-			defaultPort: svc.port,
-			internalPort: svc.internalPort ?? undefined,
-			path: svc.path,
-			envJson: JSON.parse(svc.envJson),
-			volumesJson: JSON.parse(svc.volumesJson),
-			extraPorts: JSON.parse(svc.extraPortsJson || "[]"),
-			command: svc.command ?? undefined,
-		};
+		const containerName = safeContainerName(svc.slug);
 		try {
-			await startDockerContainer(svc.id, tmpl, svc.port);
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
-			throw new Error(`启动失败: ${msg}`);
+			dockerExecSync(["start", containerName], 30_000);
+			await prisma.quickService.update({ where: { slug }, data: { status: "running", error: null } });
+		} catch {
+			const tmpl: ServiceTemplate = {
+				slug: svc.slug,
+				name: svc.name,
+				category: svc.category,
+				icon: svc.icon,
+				description: svc.description,
+				image: svc.image,
+				defaultPort: svc.port,
+				internalPort: svc.internalPort ?? undefined,
+				path: svc.path,
+				envJson: JSON.parse(svc.envJson),
+				volumesJson: JSON.parse(svc.volumesJson),
+				extraPorts: JSON.parse(svc.extraPortsJson || "[]"),
+				command: svc.command ?? undefined,
+			};
+			try {
+				await startDockerContainer(svc.id, tmpl, svc.port);
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err);
+				await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
+				throw new Error(`启动失败: ${msg}`);
+			}
 		}
-	}
+	});
 }
 
 export async function stopService(slug: string) {
-	const svc = await prisma.quickService.findUnique({ where: { slug } });
-	if (!svc) throw new Error("服务不存在");
+	return withServiceOperationLock(slug, "停止", async () => {
+		const svc = await prisma.quickService.findUnique({ where: { slug } });
+		if (!svc) throw new Error("服务不存在");
+		assertServiceNotBusy(svc, "停止");
 
-	const containerName = safeContainerName(svc.slug);
-	try {
-		dockerExecSync(["stop", containerName], 30_000);
-		await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: null } });
-	} catch (err) {
-		const msg = err instanceof Error ? err.message : String(err);
-		await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
-		throw new Error(`停止失败: ${msg}`);
-	}
+		const containerName = safeContainerName(svc.slug);
+		try {
+			dockerExecSync(["stop", containerName], 30_000);
+			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: null } });
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
+			throw new Error(`停止失败: ${msg}`);
+		}
+	});
 }
 
 export async function syncServiceStatus(slug: string) {

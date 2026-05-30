@@ -223,6 +223,31 @@ describe("quick service docker lifecycle", () => {
 		});
 	});
 
+	it("rejects concurrent operations on the same service slug", async () => {
+		let releaseInstall!: () => void;
+		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+			releaseInstall = () => cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
+			return {};
+		});
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-lock", slug: "demo", port: 12345 });
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		const installing = installService({ template, userId: "user-1", customPort: 12345 });
+		await expect(startService("demo")).rejects.toThrow("正在执行其它操作");
+		expect(prismaMock.quickService.findUnique).not.toHaveBeenCalled();
+
+		releaseInstall();
+		await installing;
+	});
+
+	it("rejects lifecycle operations while a service is still installing", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-installing", slug: "demo", status: "installing" });
+
+		await expect(uninstallService("demo")).rejects.toThrow("正在安装中");
+		expect(execFileSyncMock).not.toHaveBeenCalledWith("docker", expect.arrayContaining(["rm", "-f", "qs-demo"]), expect.anything());
+		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
+	});
+
 	it("reports actionable Docker environment guidance before install attempts", () => {
 		execFileSyncMock.mockImplementationOnce(() => {
 			throw Object.assign(new Error("spawn docker ENOENT"), { code: "ENOENT" });
