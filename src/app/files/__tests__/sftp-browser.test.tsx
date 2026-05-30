@@ -22,6 +22,15 @@ describe("SftpBrowser", () => {
     csrfFetchMock.mockReset();
   });
 
+  it("renders an actionable empty state when no SFTP nodes exist", () => {
+    render(<SftpBrowser sftpNodes={[]} />);
+
+    expect(screen.getByText("还没有可浏览的 SFTP 存储节点")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "添加 VPS 并创建 SFTP" })).toHaveAttribute("href", "/servers");
+    expect(screen.getByRole("link", { name: "管理存储节点" })).toHaveAttribute("href", "#storage-nodes");
+    expect(csrfFetchMock).not.toHaveBeenCalled();
+  });
+
   it("loads remote files from the canonical storage SFTP API when a node is selected", async () => {
     csrfFetchMock.mockResolvedValueOnce({
       nodeId: "node_1",

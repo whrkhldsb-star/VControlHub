@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import {
@@ -524,8 +525,39 @@ const newFullPath = joinSftpPath(remotePath, newName);
     }
   };
 
-  // No SFTP nodes — render nothing
-  if (sftpNodes.length === 0) return null;
+  if (sftpNodes.length === 0) {
+    return (
+      <article className="rounded-3xl border border-dashed border-cyan-400/30 bg-cyan-400/5 p-6 light:border-cyan-500/30 light:bg-cyan-50">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300 light:text-cyan-700">
+              SFTP 远端浏览
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white light:text-slate-950">
+              还没有可浏览的 SFTP 存储节点
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-300 light:text-slate-600">
+              添加 VPS 时可以自动创建 SFTP 节点；也可以在存储节点管理中手动新增 SFTP 节点。创建后即可在这里实时浏览、同步、重命名和删除远端文件。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/servers"
+              className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:text-cyan-800"
+            >
+              添加 VPS 并创建 SFTP
+            </Link>
+            <Link
+              href="#storage-nodes"
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10 light:border-slate-200 light:bg-white light:text-slate-700"
+            >
+              管理存储节点
+            </Link>
+          </div>
+        </div>
+      </article>
+    );
+  }
 
   const segments = splitSftpPath(remotePath);
   const TABLE_COLS = "grid-cols-[minmax(280px,2fr)_100px_110px_150px_minmax(220px,1fr)]";

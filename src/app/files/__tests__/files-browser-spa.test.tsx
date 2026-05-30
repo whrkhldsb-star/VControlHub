@@ -156,7 +156,6 @@ describe("FilesBrowserSpa", () => {
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
-        sftpNodes={[]}
       />,
     );
 
@@ -184,7 +183,6 @@ describe("FilesBrowserSpa", () => {
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
-        sftpNodes={[]}
       />,
     );
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
@@ -224,7 +222,6 @@ describe("FilesBrowserSpa", () => {
           ],
         }}
         deletedEntries={[]}
-        sftpNodes={[]}
       />,
     );
 
@@ -254,7 +251,6 @@ describe("FilesBrowserSpa", () => {
       <FilesBrowserSpa
         initialData={{ ...baseData, currentPath: "" }}
         deletedEntries={[]}
-        sftpNodes={[]}
       />,
     );
 

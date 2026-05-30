@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T02:32:00Z",
+  "updatedAt": "2026-05-30T02:53:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,24 +50,24 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; key auth-protected APIs returned 401 without 500; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T02:32:00Z",
-    "target": "P4 two-factor settings no-full-reload UX",
-    "status": "verified_deployed_committed",
-    "commit": "a095185",
-    "summary": "Two-factor enable/disable success now uses App Router router.refresh() instead of window.location.reload(), preserving browser/client state while refreshing server-rendered account security status.",
+    "finishedAt": "2026-05-30T02:53:00Z",
+    "target": "P4 SFTP browser availability and empty-state UX",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Mounted the SFTP remote browser on the Files page and replaced the no-SFTP-node null render with an actionable empty state linking to VPS onboarding and the storage-node manager anchor.",
     "validation": [
-      "npx vitest run src/components/__tests__/two-factor-settings.test.tsx src/app/settings/__tests__/settings-client.test.tsx (8/8)",
+      "npx vitest run src/app/files/__tests__/sftp-browser.test.tsx src/app/files/__tests__/page.test.tsx src/app/files/__tests__/files-browser-spa.test.tsx (16/16)",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
       "npm run build:runtime",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /api/status 200, /settings 307, POST /api/auth/2fa/setup 401",
+      "HTTPS probes /files 307 and /api/storage/sftp 401",
       "recent service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P4 backlog: add SFTP browser empty state for no SFTP nodes, or improve monitoring error retry UX."
+    "nextTarget": "Continue P4 backlog: improve monitoring page error state with error reason and retry button, then health auto-refresh preferences."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -82,7 +82,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []

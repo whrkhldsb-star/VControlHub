@@ -384,13 +384,6 @@ export function FilesBrowserSpa({
 }: {
   initialData: FilesApiResponse;
   deletedEntries: DeletedEntryProp[];
-  sftpNodes?: {
-    id: string;
-    name: string;
-    driver: string;
-    serverId: string | null;
-    serverName: string | null;
-  }[];
 }) {
   const [data, setData] = useState<FilesApiResponse>(initialData);
   const [loading, setLoading] = useState(false);
