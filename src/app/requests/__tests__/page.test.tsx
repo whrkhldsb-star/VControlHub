@@ -39,7 +39,11 @@ vi.mock("@/lib/command/service", () => ({
         },
       ],
       latestApproval: null,
-      latestLog: { id: "log_1", summary: "命令审批已通过，任务正在进入执行器队列。" },
+      executionLogs: [
+        { id: "log_2", summary: "检测到陈旧 RUNNING 命令：后台执行器 worker-old，最后心跳 2026-01-01T00:01:00.000Z；已根据目标状态自动归档为 FAILED。", createdAt: "2026-01-01T00:02:00.000Z" },
+        { id: "log_1", summary: "命令审批已通过，任务正在进入执行器队列。", createdAt: "2026-01-01T00:00:00.000Z" },
+      ],
+      latestLog: { id: "log_2", summary: "检测到陈旧 RUNNING 命令：后台执行器 worker-old，最后心跳 2026-01-01T00:01:00.000Z；已根据目标状态自动归档为 FAILED。" },
     },
     {
       id: "cmd_2",
@@ -58,6 +62,7 @@ vi.mock("@/lib/command/service", () => ({
         },
       ],
       latestApproval: null,
+      executionLogs: [],
       latestLog: null,
     },
   ]),
@@ -97,7 +102,9 @@ describe("RequestsPage", () => {
     expect(screen.getByText("助手授权")).toBeInTheDocument();
     expect(screen.getByText("用户审批")).toBeInTheDocument();
     expect(screen.getByText("hk-prod-1")).toBeInTheDocument();
+    expect(screen.getAllByText("执行 / worker 记录")).toHaveLength(2);
     expect(screen.getByText("命令审批已通过，任务正在进入执行器队列。")).toBeInTheDocument();
+    expect(screen.getByText(/后台执行器 worker-old/)).toBeInTheDocument();
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
   });
 });

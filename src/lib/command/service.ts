@@ -637,6 +637,7 @@ function mapCommandRequest(
     executionLogs: request.executionLogs.map(
       (
         log: Record<string, unknown> & {
+          id?: string;
           createdAt?: Date | string;
           summary?: string;
           exitCode?: number | null;
@@ -644,6 +645,7 @@ function mapCommandRequest(
           stderr?: string | null;
         },
       ) => ({
+        id: log.id as string | undefined,
         summary: (log.summary as string) ?? "",
         exitCode: (log.exitCode as number | null) ?? null,
         stdout: (log.stdout as string | null) ?? null,
@@ -687,6 +689,7 @@ function mapCommandRequest(
       : null,
     latestLog: request.executionLogs[0]
       ? {
+          id: request.executionLogs[0].id as string | undefined,
           summary: (request.executionLogs[0].summary as string) ?? "",
           exitCode:
             (request.executionLogs[0].exitCode as number | null) ?? null,
@@ -742,11 +745,14 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
         where: { id: request.id },
         data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
       });
+      const heartbeatDetail = request.workerHeartbeatAt
+        ? `，最后心跳 ${request.workerHeartbeatAt.toISOString()}`
+        : "，无 worker 心跳记录";
       await prisma.executionLog.create({
         data: {
           commandRequestId: request.id,
           serverId: null,
-          summary: "检测到陈旧 RUNNING 命令：后台执行器可能已随服务重启丢失，已自动恢复为 FAILED，避免任务中心长期卡住。",
+          summary: `检测到陈旧 RUNNING 命令：后台执行器 ${request.workerId ?? "未知"}${heartbeatDetail}，可能已随服务重启丢失；已自动恢复为 FAILED，避免任务中心长期卡住。`,
         },
       });
       recovered += 1;
@@ -759,11 +765,14 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
       where: { id: request.id },
       data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
     });
+    const archiveHeartbeatDetail = request.workerHeartbeatAt
+      ? `，最后心跳 ${request.workerHeartbeatAt.toISOString()}`
+      : "，无 worker 心跳记录";
     await prisma.executionLog.create({
       data: {
         commandRequestId: request.id,
         serverId: null,
-        summary: `检测到陈旧 RUNNING 命令：已根据目标状态自动归档为 ${nextStatus}。`,
+        summary: `检测到陈旧 RUNNING 命令：后台执行器 ${request.workerId ?? "未知"}${archiveHeartbeatDetail}；已根据目标状态自动归档为 ${nextStatus}。`,
       },
     });
     recovered += 1;
@@ -784,7 +793,7 @@ export async function recoverQueuedApprovedCommandRequests(limit = 20) {
   for (const request of queuedRequests) {
     const claimed = await enqueueApprovedCommandExecution(
       request.id,
-      "检测到已批准但尚未进入运行态的命令：维护 worker 已重新认领并放入后台 SSH 执行队列。",
+      `检测到已批准但尚未进入运行态的命令：维护 worker ${COMMAND_WORKER_ID} 已重新认领并放入后台 SSH 执行队列。`,
     );
     if (claimed) enqueued += 1;
   }

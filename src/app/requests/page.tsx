@@ -127,9 +127,16 @@ export default async function RequestsPage() {
 									</section>
 
 									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">执行日志</h4>
-										{request.latestLog ? (
-											<div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-xs text-slate-400">{request.latestLog.summary}</div>
+										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">执行 / worker 记录</h4>
+										{request.executionLogs.length > 0 ? (
+											<div className="space-y-2">
+												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
+													<div key={log.id ?? `${request.id}-log-${index}`} className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-xs text-slate-400">
+														<div>{log.summary}</div>
+														{log.createdAt && <div className="mt-1 text-[11px] text-slate-600">{new Date(log.createdAt).toLocaleString("zh-CN")}</div>}
+													</div>
+												))}
+											</div>
 										) : (
 											<p className="text-xs text-slate-500">暂无执行日志。</p>
 										)}

@@ -520,6 +520,13 @@ describe("command service execution flow", () => {
         }),
       }),
     );
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          summary: expect.stringMatching(/维护 worker .+重新认领/),
+        }),
+      }),
+    );
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
   });
 
@@ -806,6 +813,8 @@ describe("command service execution flow", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
       {
         id: "req_stale_1",
+        workerId: "worker-lost-1",
+        workerHeartbeatAt: new Date("2026-05-30T07:58:00Z"),
         targets: [{ id: "target_stale", status: "RUNNING" }],
       },
     ]);
@@ -848,6 +857,11 @@ describe("command service execution flow", () => {
         summary: expect.stringContaining("陈旧 RUNNING 命令"),
       }),
     }));
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        summary: expect.stringContaining("worker-lost-1"),
+      }),
+    }));
   });
 
   it("archives stale running command requests from completed target state", async () => {
@@ -855,6 +869,8 @@ describe("command service execution flow", () => {
     mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
       {
         id: "req_stale_done",
+        workerId: "worker-archived-1",
+        workerHeartbeatAt: new Date("2026-05-30T07:57:00Z"),
         targets: [{ id: "target_done", status: "COMPLETED" }],
       },
     ]);
@@ -873,6 +889,11 @@ describe("command service execution flow", () => {
       data: expect.objectContaining({
         commandRequestId: "req_stale_done",
         summary: expect.stringContaining("自动归档为 COMPLETED"),
+      }),
+    }));
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        summary: expect.stringContaining("worker-archived-1"),
       }),
     }));
   });
