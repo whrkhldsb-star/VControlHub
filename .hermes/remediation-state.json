@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T11:30:03Z",
+  "updatedAt": "2026-05-30T11:46:12Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,35 +43,35 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Full Vitest passed 172 files / 693 tests during fresh audit checkpoint",
+    "tests": "Command/deployment/operation-task neighboring Vitest passed 36/36 during queued command recovery remediation",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; major public HTML/API probes returned 307/401/200; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; command/deployment/task route probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T11:30:03Z",
-    "target": "P6 health API guard drift reduction",
+    "finishedAt": "2026-05-30T11:46:12Z",
+    "target": "P6 command/deployment background-worker queued APPROVED recovery",
     "status": "completed_deployed_committed",
-    "commit": "a571e05",
-    "summary": "Migrated /api/health cookie-session authorization to the shared declarative API guard with permission health:read while preserving fail-closed Bearer-token monitor access.",
+    "commit": "39e3621",
+    "summary": "Command maintenance worker now recovers APPROVED command requests left queued after a prior process exits before scheduling execution, atomically claims them, logs the re-enqueue, and starts background SSH execution without duplicate scheduling.",
     "validation": [
       "read remediation backlog/state first",
       "git status and overlap process check clean before work",
-      "identified remaining manual API auth-route drift candidate in /api/health",
-      "npx vitest run src/app/api/health/__tests__/route.test.ts passed 8/8",
+      "targeted P6 durable command/deployment background-worker architecture slice",
+      "npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/__tests__/worker.test.ts src/app/api/commands/__tests__/route.test.ts src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts passed 36/36",
       "npm run typecheck passed",
       "npm run lint passed",
       "npm run build passed",
       "npm run build:runtime passed",
       "production services restarted successfully",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19 after one transient security-header retry; direct header probe showed x-content-type-options present",
-      "production probes: /api/health 401, /api/health?historyFor=srv_1 401, /health 307, /api/status 200",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
+      "production probes: /api/commands 401, /operation-tasks 307, /deployments 307, /api/status 200",
       "recent production logs checked with no error/warn matches",
       "git diff --check passed"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
-    "nextTarget": "Continue P6 durable command/deployment background-worker architecture or next smaller audit candidate; fresh audit after 3 more successful remediation runs."
+    "nextTarget": "Continue P6 durable command/deployment background-worker architecture with richer task status reconciliation and persistent worker ownership/heartbeats, or run the next fresh audit after 2 more successful remediation runs."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -86,7 +86,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": []
