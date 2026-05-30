@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T03:29:15Z",
     "target": "P4 Health dashboard refresh preference UX",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "efe1c4a",
     "summary": "Health dashboard auto-refresh now reads the shared refresh preference instead of using a fixed 30 second timer, displays the active cadence, and disables automatic polling when the global preference is manual refresh.",
     "validation": [
       "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx src/lib/preferences/__tests__/refresh-interval.test.ts (10/10)",
