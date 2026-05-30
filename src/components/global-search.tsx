@@ -138,7 +138,13 @@ export function GlobalSearch() {
 
 	return (
 		<div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm" onClick={() => { setOpen(false); setQuery(""); }}>
-			<div className="w-full max-w-lg mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-label="全局搜索"
+				className="w-full max-w-lg mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+				onClick={(e) => e.stopPropagation()}
+			>
 				<div className="flex items-center px-4 border-b border-white/[0.06]">
 					<svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -146,6 +152,12 @@ export function GlobalSearch() {
 					<input
 						ref={inputRef}
 						type="text"
+						role="combobox"
+						aria-label="搜索页面和操作"
+						aria-expanded="true"
+						aria-controls="global-search-results"
+						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}` : undefined}
+						aria-autocomplete="list"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
@@ -154,12 +166,12 @@ export function GlobalSearch() {
 					/>
 					<kbd className="text-[10px] text-slate-600 bg-white/[0.05] rounded px-1.5 py-0.5">ESC</kbd>
 				</div>
-				<ul className="max-h-72 overflow-y-auto py-2">
+				<ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2">
 					{filtered.length === 0 && (
 						<li className="px-4 py-6 text-center text-sm text-slate-600">未找到结果</li>
 					)}
 					{filtered.map((item, i) => (
-						<li key={item.href + item.label}>
+						<li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
 							<button
 								onClick={() => navigate(item)}
 								className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${

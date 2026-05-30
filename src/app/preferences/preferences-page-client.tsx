@@ -47,12 +47,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
 	return (
 		<div className="flex items-center justify-between">
-			<span className="text-sm text-slate-300">{label}</span>
+			<span id={`preference-toggle-${label}`} className="text-sm text-slate-300">{label}</span>
 			<button
+				type="button"
+				role="switch"
+				aria-checked={checked}
+				aria-labelledby={`preference-toggle-${label}`}
 				onClick={() => onChange(!checked)}
-				className={`relative w-10 h-5 rounded-full transition ${checked ? "bg-cyan-500" : "bg-slate-700"}`}
+				className={`relative w-10 h-5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${checked ? "bg-cyan-500" : "bg-slate-700"}`}
 			>
-				<span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition ${checked ? "translate-x-5" : ""}`} />
+				<span aria-hidden="true" className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition ${checked ? "translate-x-5" : ""}`} />
 			</button>
 		</div>
 	);
@@ -133,7 +137,7 @@ export default function PreferencesPage() {
 			<h1 className="text-2xl font-bold mb-1">个性化设置</h1>
 			<p className="text-slate-400 mb-6">自定义你的工作环境</p>
 			{saved && (
-				<div className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>
+				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>
 			)}
 			{error && (
 				<div role="alert" className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>

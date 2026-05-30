@@ -25,6 +25,23 @@ describe("GlobalSearch", () => {
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
 
+	it("exposes the search overlay as a labelled dialog and combobox listbox", async () => {
+		const user = userEvent.setup();
+		render(<GlobalSearch />);
+
+		act(() => {
+			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+		});
+
+		expect(await screen.findByRole("dialog", { name: "全局搜索" })).toHaveAttribute("aria-modal", "true");
+		const input = screen.getByRole("combobox", { name: "搜索页面和操作" });
+		expect(input).toHaveAttribute("aria-controls", "global-search-results");
+		expect(screen.getByRole("listbox")).toHaveAttribute("id", "global-search-results");
+
+		await user.type(input, "健康");
+		expect(screen.getByRole("option", { name: /健康看板/ })).toHaveAttribute("aria-selected", "true");
+	});
+
 	it("routes health search results to the real health dashboard page", () => {
 		const healthItem = getSearchItems().find((item) => item.label === "健康看板");
 
