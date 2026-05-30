@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T03:45:04Z",
+  "updatedAt": "2026-05-30T04:05:07Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,31 +43,32 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Monitoring page/light-theme CSS regression passed: 3 tests",
+    "tests": "Full Vitest suite passed: 165 files / 652 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /monitoring redirected to login and /api/monitoring/stats returned 401 instead of 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; / redirected to login and /api/dashboard/analytics returned 401 instead of 500; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T03:45:04Z",
-    "target": "P4 light-theme compatibility for monitoring/health/status surfaces",
-    "status": "verified_deployed_committed",
-    "commit": "1e4726a",
-    "summary": "Extended the global light-mode compatibility layer so monitoring/health/status-style warning, error, success, info, and neutral action surfaces keep readable backgrounds, borders, and status text in light theme.",
+    "finishedAt": "2026-05-30T04:05:07Z",
+    "target": "P5 dashboard analytics API product surface",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Wired the existing dashboard analytics API into the main dashboard with a client-side trend panel for server resources, downloads, audit activity, and image-bed uploads, including inline loading and failure states.",
     "validation": [
-      "npx vitest run src/app/monitoring/__tests__/page.test.tsx (3/3)",
+      "npx vitest run src/app/__tests__/dashboard-analytics-panel.test.tsx src/app/__tests__/page.test.tsx (3/3)",
       "npm run typecheck",
       "npm run lint",
+      "npm test (165 files / 652 tests)",
       "npm run build",
       "npm run build:runtime",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /monitoring 307, /api/monitoring/stats 401, /api/status 200",
+      "HTTPS probes / 307, /api/dashboard/analytics 401, /api/status 200",
       "recent service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Start P5 backlog: wire dashboard analytics API into dashboard charts/trends or mark it internal if intentionally unused."
+    "nextTarget": "Continue P5 backlog: add a UI entry for deployment export API or hide/deprecate it cleanly."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -82,7 +83,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 6,
+    "successfulRemediationRunsSinceFreshAudit": 7,
     "skippedOverlapRuns": 0
   },
   "blockers": []

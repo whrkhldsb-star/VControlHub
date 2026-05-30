@@ -1,13 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
-  csrfFetch: vi.fn().mockResolvedValue({
-    servers: [{ time: "2026-01-01T00:00:00.000Z", cpu: 12, memory: 34, disk: 56 }],
-    downloads: [{ date: "2026-01-01", completed: 1, failed: 0, running: 0, pending: 0 }],
-    audit: [{ date: "2026-01-01", total: 2 }],
-    imageBed: [{ date: "2026-01-01", count: 3, size: 4096 }],
-  }),
+  csrfFetch: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-session", () => ({
@@ -111,9 +106,17 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import Home from "../page";
 
+const csrfFetchMock = vi.mocked(csrfFetch);
+
 describe("Home", () => {
+  beforeEach(() => {
+    csrfFetchMock.mockReset();
+    csrfFetchMock.mockResolvedValue({ servers: [], downloads: [], audit: [], imageBed: [] });
+  });
+
   it("renders dashboard sections for servers and storage overview", async () => {
     render(await Home());
 
@@ -130,6 +133,10 @@ describe("Home", () => {
     expect(screen.getByText("远程下载")).toBeInTheDocument();
     expect(screen.getByText("审批中心")).toBeInTheDocument();
     expect(screen.getByText("最近审批活动")).toBeInTheDocument();
+    expect(screen.getByText("数据趋势")).toBeInTheDocument();
+    expect(screen.getByText("正在加载趋势…")).toBeInTheDocument();
+    expect(screen.getByText(/来自 \/api\/dashboard\/analytics/)).toBeInTheDocument();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/dashboard/analytics?type=all"));
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();
     expect(screen.getByText("server.updated")).toBeInTheDocument();
     expect(screen.getByText("2026/05/27 16:30:00")).toBeInTheDocument();

@@ -62,7 +62,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## P5 — Incomplete product surfaces
 
-- [ ] Wire dashboard analytics API into dashboard charts/trends or mark API internal if intentionally unused.
+- [x] 2026-05-30 — Wire dashboard analytics API into the main dashboard with a client-side `DashboardAnalyticsPanel` showing 24h server resource bars, 7d download status trends, 30d audit activity, and 7d image-bed uploads, plus inline API failure handling. Verification: dashboard panel/page regressions 3/3, full Vitest 165 files / 652 tests, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/` 307, `/api/dashboard/analytics` 401, `/api/status` 200, recent logs clean. Commit: pending this run.
 - [ ] Add UI entry for deployment export API or hide/deprecate it cleanly.
 - [ ] Clarify backup API behavior: creating records vs actually executing backup task; add task execution or adjust UI wording.
 - [ ] Add backup restore API/UI if `backup:restore` is intended to be user-facing.

@@ -7,6 +7,7 @@ import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
 import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
+import { DashboardAnalyticsPanel } from "./dashboard-analytics-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -175,6 +176,8 @@ export default async function Home() {
 						badgeColor="amber"
 					/>
 			</section>
+
+			<DashboardAnalyticsPanel />
 
 			{/* Two columns: Recent activity + Audit log */}
 				<section className="mt-8 grid gap-6 lg:grid-cols-2">
