@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T16:45:43Z",
+  "updatedAt": "2026-05-30T17:02:39Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -18,7 +18,7 @@
     "P5",
     "P6"
   ],
-  "schedule": "every 10m",
+  "schedule": "every 20m",
   "nonOverlapPolicy": "If the previous remediation run is still active, skip the current tick instead of starting another fix run.",
   "freshAuditPolicy": {
     "afterSuccessfulRuns": 6,
@@ -50,29 +50,26 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; operation task/requests/deployment probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T16:44:54Z",
-    "target": "P6 durable command/deployment background-worker architecture: richer restart-surviving queue claim diagnostics/reconciliation history beyond Task Center worker ownership display",
-    "status": "completed_verified_deployed_committed",
-    "commit": "411cb50",
-    "summary": "Stale RUNNING command recovery logs now include worker ownership and heartbeat details, queued APPROVED recovery logs identify the claiming worker, and the Requests approval page renders recent execution/worker history rather than only the newest execution log.",
+    "finishedAt": "2026-05-30T17:02:39Z",
+    "target": "Manual comprehensive audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, and logs",
+    "status": "audit_completed_backlog_refreshed_not_deployed",
+    "commit": null,
+    "summary": "Manual audit completed after the high-priority backlog became effectively complete. Production services and route probes were healthy, full quality gate passed, and new P1/P2/P3 findings were recorded in remediation-backlog.md for the next backlog-driven runs.",
     "validation": [
       "read remediation backlog/state first",
-      "git status before work",
-      "npx prisma generate passed after schema/client metadata refresh",
-      "npx vitest run src/lib/command/__tests__/service.test.ts src/app/requests/__tests__/page.test.tsx src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx src/lib/operation-task/__tests__/service.test.ts passed 21/21",
-      "npm run typecheck passed",
-      "npm run lint passed",
-      "npm run build passed",
-      "npm run build:runtime passed",
-      "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded and both services active",
-      "curl http://127.0.0.1:3000/api/status returned 200",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /api/status 200, /api/commands 401, /requests 307, /operation-tasks 307, /deployments 307",
+      "paused current remediation cron job b8833e83bb1f to avoid overlap",
+      "git status and recent history checked",
+      "production services vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active",
+      "/api/status returned 200 healthy",
+      "major unauthenticated page/API probes returned 307/401/200 without 500",
       "recent production logs checked with no error/warn matches",
-      "git diff --check passed"
+      "npm run typecheck, npm run lint, npm test, npm run build, npm run build:runtime passed",
+      "backend/API/data-access audit findings reviewed",
+      "frontend/real-user-path audit findings reviewed",
+      "remediation-backlog.md refreshed with new manual audit findings"
     ],
-    "deployment": "Production services restarted and smoke/route probes passed.",
-    "nextTarget": "Current high-priority checklist is effectively complete; run a fresh comprehensive audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, and logs."
+    "deployment": "No code deployment performed; this run refreshed the remediation checklist only.",
+    "nextTarget": "Start with P1 audit findings: server-side guards for client-only pages, global search/navigation completeness, preference/refresh consistency, and SFTP sync/task UX."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +84,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 0,
     "skippedOverlapRuns": 0
   },
   "blockers": []

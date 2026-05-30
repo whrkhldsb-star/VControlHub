@@ -100,6 +100,19 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - [ ] After all current checklist items are done, run a new comprehensive audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, and logs.
 - [ ] Also run a fresh audit after 6 successful remediation runs even if the backlog is not fully empty, then update this file with new or reprioritized findings.
 
+## Fresh audit findings — 2026-05-30 manual review
+
+- [ ] P1: Add server-side session/permission guards or explicit public-policy wrappers for client-only pages such as monitoring, traffic, docker, preferences, api-docs, and image-bed so users do not land on pages that only fail after client-side API calls.
+- [ ] P1: Fix global search/navigation completeness: wire the missing 2FA action path, ensure search entries cover the main nav surface, and remove dead shortcuts that dispatch events with no listener.
+- [ ] P1: Either implement or hide preference fields that are currently saved but not consumed by the app (`defaultPage`, `dashboardWidgets`, `compactMode`, `sidebarCollapsed`); also unify refresh defaults and visibility-aware auto-refresh behavior.
+- [ ] P1: Background long-running storage sync/import work should be taskified or at least gain progress/timeout/cancel UX; SFTP sync currently blocks the request path and the UI only shows a transient spinner.
+- [ ] P1: Split storage/file permissions into read/write/delete/manage-node capabilities in the UI so SFTP browser/file actions only appear when the current user can actually use them.
+- [ ] P2: Improve file manager ergonomics: size sorting should use numeric bytes, selection should clear on path/filter changes, and mobile/grid affordances should not hide multi-select controls behind hover-only states.
+- [ ] P2: Replace raw confirm/prompt dialogs in destructive flows with accessible modal confirmations and explicit success/error states.
+- [ ] P2: Add dialog/switch/button accessibility polish for global search, preference toggles, icon buttons, and other keyboard/reader-facing controls.
+- [ ] P2: Reduce large in-memory or unpaginated reads in storage/permissions/overview/listing flows by moving toward paginated/aggregated queries.
+- [ ] P3: Tighten or document management-facing URL inputs and direct-access redirects so operator-configured external endpoints cannot create confusing open-redirect or SSRF-like behaviors.
+
 ## Current blockers
 
 - None recorded.
