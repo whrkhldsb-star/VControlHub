@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T02:53:00Z",
+  "updatedAt": "2026-05-30T03:09:36Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -47,27 +47,27 @@
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; key auth-protected APIs returned 401 without 500; recent logs clean"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; key auth-protected APIs returned 401 instead of 500; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T02:53:00Z",
-    "target": "P4 SFTP browser availability and empty-state UX",
-    "status": "verified_deployed_committed",
-    "commit": "3917ddc",
-    "summary": "Mounted the SFTP remote browser on the Files page and replaced the no-SFTP-node null render with an actionable empty state linking to VPS onboarding and the storage-node manager anchor.",
+    "finishedAt": "2026-05-30T03:09:36Z",
+    "target": "P4 monitoring page error-state UX",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Monitoring now surfaces backend/fetch error reasons, offers an initial-load retry button, preserves stale stats on refresh failures, and shows an inline warning instead of silently swallowing monitoring failures.",
     "validation": [
-      "npx vitest run src/app/files/__tests__/sftp-browser.test.tsx src/app/files/__tests__/page.test.tsx src/app/files/__tests__/files-browser-spa.test.tsx (16/16)",
+      "npx vitest run src/app/monitoring/__tests__/page.test.tsx (2/2)",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
       "npm run build:runtime",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /files 307 and /api/storage/sftp 401",
+      "HTTPS probes /monitoring 307 and /api/monitoring/stats 401",
       "recent service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P4 backlog: improve monitoring page error state with error reason and retry button, then health auto-refresh preferences."
+    "nextTarget": "Continue P4 backlog: make Health dashboard auto-refresh respect global/user refresh preferences."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -82,7 +82,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": []
