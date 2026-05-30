@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition, useMemo } from "react";
+import { useState, useCallback, useEffect, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -150,7 +150,7 @@ export function FileListClient({
         case "name":
           return a.name.localeCompare(b.name, "zh-CN");
         case "size":
-          return (a.sizeLabel ?? "").localeCompare(b.sizeLabel ?? "");
+          return (a.sizeBytes ?? -1) - (b.sizeBytes ?? -1);
         case "source":
           return a.storageNodeName.localeCompare(b.storageNodeName, "zh-CN");
         case "updated":
@@ -164,12 +164,13 @@ export function FileListClient({
     return arr;
   }, [visibleFiles, sortKey, sortDir]);
 
-  function SortIcon({ col }: { col: SortKey }) {
+  function SortIcon({ col, label }: { col: SortKey; label: string }) {
     const active = sortKey === col;
     return (
       <button
         type="button"
         onClick={() => toggleSort(col)}
+        aria-label={`按${label}排序`}
         className="inline-flex items-center gap-1 hover:text-white transition"
       >
         {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
@@ -226,6 +227,10 @@ export function FileListClient({
     setProgress({ done: 0, total: 0, errors: [] });
     setMoveProgress({ done: 0, total: 0, errors: [] });
   }, []);
+
+  useEffect(() => {
+    clearSelection();
+  }, [currentPath, searchQuery, clearSelection]);
 
   const handleBatchDelete = useCallback(() => {
     setBatchAction("deleting");
@@ -506,7 +511,7 @@ export function FileListClient({
                   checked={isChecked}
                   onChange={() => toggleOne(fileProp.id)}
                   aria-label={`选择 ${entry.name}`}
-                  className="h-4 w-4 rounded accent-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-4 w-4 rounded border border-white/30 bg-slate-950/80 accent-cyan-400 shadow-sm shadow-black/30"
                 />
               </div>
 
@@ -800,16 +805,16 @@ export function FileListClient({
               </div>
               <div />
               <div>
-                名称 <SortIcon col="name" />
+                名称 <SortIcon col="name" label="名称" />
               </div>
               <div>
-                大小 <SortIcon col="size" />
+                大小 <SortIcon col="size" label="大小" />
               </div>
               <div>
-                来源 <SortIcon col="source" />
+                来源 <SortIcon col="source" label="来源" />
               </div>
               <div>
-                修改时间 <SortIcon col="updated" />
+                修改时间 <SortIcon col="updated" label="修改时间" />
               </div>
               <div>操作</div>
             </div>

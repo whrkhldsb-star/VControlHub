@@ -12,6 +12,7 @@ export type StorageEntry = {
   entryType: string;
   mimeType?: string | null;
   relativePath: string;
+  size?: bigint | number | null;
   sizeLabel: string;
   previewable: boolean;
   directAccess: { mode: string; href?: string; description: string };
@@ -25,6 +26,7 @@ export type FileProp = {
   entryType: string;
   mimeType?: string | null;
   relativePath: string;
+  sizeBytes?: number | null;
   sizeLabel: string;
   previewable: boolean;
   directAccessMode: string;
@@ -150,6 +152,7 @@ export function toStorageEntry(file: FileProp): StorageEntry {
     entryType: file.entryType,
     mimeType: file.mimeType,
     relativePath: file.relativePath,
+    size: file.sizeBytes == null ? null : BigInt(file.sizeBytes),
     sizeLabel: file.sizeLabel,
     previewable: file.previewable,
     directAccess: {

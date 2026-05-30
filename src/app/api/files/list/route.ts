@@ -125,6 +125,7 @@ export async function GET(request: NextRequest) {
           entryType: entry.entryType,
           mimeType: entry.mimeType ?? null,
           relativePath: entry.relativePath,
+          sizeBytes: entry.size == null ? null : Number(entry.size),
           sizeLabel: entry.sizeLabel,
           previewable: entry.previewable,
           directAccessMode: entry.directAccess.mode,

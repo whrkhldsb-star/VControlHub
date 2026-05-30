@@ -60,6 +60,7 @@ const imageFile: FileProp = {
   entryType: "FILE",
   mimeType: "image/jpeg",
   relativePath: "photos/cover.jpg",
+  sizeBytes: 10 * 1024,
   sizeLabel: "10 KB",
   previewable: true,
   directAccessMode: "managed-download",
@@ -77,6 +78,8 @@ const archiveFile: FileProp = {
   name: "archive.zip",
   mimeType: "application/zip",
   relativePath: "photos/archive.zip",
+  sizeBytes: 2 * 1024 * 1024,
+  sizeLabel: "2 MB",
   directAccessHref: "/api/storage/local?path=photos%2Farchive.zip",
   updatedAt: "2026-05-05T00:00:00.000Z",
 };
@@ -101,6 +104,8 @@ const docFile: FileProp = {
   name: "report.pdf",
   mimeType: "application/pdf",
   relativePath: "photos/report.pdf",
+  sizeBytes: 512,
+  sizeLabel: "512 B",
   directAccessHref: "/api/storage/local?path=photos%2Freport.pdf",
   updatedAt: "2026-05-06T00:00:00.000Z",
 };
@@ -203,6 +208,52 @@ describe("FileListClient", () => {
     expect(screen.queryByText("image/jpeg")).not.toBeInTheDocument();
     expect(container.querySelector('[data-testid="file-table-scroll"]')).toHaveClass("overflow-x-auto");
     expect(container.querySelector('[data-testid="file-table-inner"]')).toHaveClass("min-w-[1180px]");
+  });
+
+  it("sorts by numeric file size instead of formatted labels", () => {
+    renderFileList({ files: [imageFile, archiveFile, docFile], folders: [] });
+
+    fireEvent.click(screen.getByRole("button", { name: "按大小排序" }));
+
+    const table = screen.getByTestId("file-table-inner");
+    const fileNames = Array.from(table.querySelectorAll("a.truncate.font-medium"))
+      .map((node) => node.textContent)
+      .filter((name): name is string => Boolean(name));
+    expect(fileNames.slice(0, 3)).toEqual(["report.pdf", "cover.jpg", "archive.zip"]);
+  });
+
+  it("clears selected files when path or search filters change", () => {
+    const { rerender } = render(
+      <FileListClient
+        folders={[]}
+        files={[imageFile, archiveFile]}
+        canEditLocalFiles={true}
+        canDelete={true}
+        currentPath="photos"
+        searchQuery=""
+        onFolderClick={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("选择 cover.jpg"));
+    expect(screen.getByText("· 已选 1 个")).toBeInTheDocument();
+
+    rerender(
+      <FileListClient
+        folders={[]}
+        files={[imageFile, archiveFile]}
+        canEditLocalFiles={true}
+        canDelete={true}
+        currentPath="docs"
+        searchQuery=""
+        onFolderClick={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("选择 cover.jpg")).not.toBeChecked();
   });
 
   it("lets users choose website proxy or target-server direct traffic for downloads", () => {

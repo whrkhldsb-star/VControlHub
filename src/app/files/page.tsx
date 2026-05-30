@@ -107,6 +107,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       entryType: entry.entryType,
       mimeType: entry.mimeType ?? null,
       relativePath: entry.relativePath,
+      sizeBytes: entry.size == null ? null : Number(entry.size),
       sizeLabel: entry.sizeLabel,
       previewable: entry.previewable,
       directAccessMode: entry.directAccess.mode,

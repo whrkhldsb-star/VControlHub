@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T18:51:28Z",
+  "updatedAt": "2026-05-30T19:24:55Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,35 +44,35 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Preference API/page/dashboard/login regressions passed: 13 tests",
+    "tests": "Files page/file-list regressions passed: 21 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /preferences 307; / 307; /login 200; /api/preferences 401 without 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /files 307; /api/files/list 401; /api/storage/sftp 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T18:51:28Z",
-    "target": "P1 preference fields real app-side effects from fresh-audit findings",
-    "status": "completed_verified_deployed_committed_pending_push",
-    "commit": "5582fca",
-    "summary": "Preferences now filter stale no-op fields, normalize saved preference JSON through a shared helper, consume defaultPage during login when there is no explicit next target, and consume dashboardWidgets on the dashboard so saved/local preferences hide or show real dashboard sections.",
+    "finishedAt": "2026-05-30T19:24:55Z",
+    "target": "P2 file manager ergonomics from fresh-audit findings",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "File manager size sorting now uses numeric bytes from page/API payloads, selected files are cleared when directory/search scope changes, sort icon buttons are accessible by label, and batch selection checkboxes are visible without hover-only discovery.",
     "validation": [
       "read remediation backlog/state first",
-      "git status and overlap process check completed; continued existing dirty preference batch instead of starting a new topic",
-      "npx vitest run src/app/api/preferences/__tests__/route.test.ts src/app/preferences/__tests__/page.test.tsx src/app/__tests__/dashboard-preference-client.test.tsx src/app/api/login/__tests__/route.test.ts src/app/login/__tests__/actions.test.ts passed 13/13",
-      "npm run typecheck passed",
+      "continued existing dirty file-manager batch instead of starting a new topic",
+      "npx vitest run src/app/files/__tests__/file-list-client.test.tsx src/app/files/__tests__/files-browser-spa.test.tsx src/app/files/__tests__/page.test.tsx passed 21/21",
+      "npm run typecheck -- --pretty false passed",
       "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
-      "npm run build:runtime passed",
       "npm run build passed",
+      "npm run build:runtime passed",
       "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
       "http://127.0.0.1:3000/api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /preferences 307, / 307, /login 200, /api/preferences 401, /api/login 405, /api/status 200",
+      "production probes: /files 307, /api/files/list 401, /api/storage/sftp 401, /api/status 200",
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed.",
-    "nextTarget": "Continue remaining fresh-audit P1 items, starting with background long-running storage sync/import progress/timeout/cancel UX or storage/file permission UI gating."
+    "nextTarget": "Continue remaining fresh-audit P1 storage sync/taskification or storage/file permission UI gating."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": []
