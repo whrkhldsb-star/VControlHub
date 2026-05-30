@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T07:21:16Z",
+  "updatedAt": "2026-05-30T07:41:30Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,23 +43,23 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Command timeout/output-limit regressions passed 10/10; neighboring deployment/operation-task/commands API tests passed 17/17",
+    "tests": "Command stale RUNNING reconciliation and route regressions passed 19/19; neighboring deployment/operation-task tests passed 11/11",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands and /api/deployments returned 401; /operation-tasks and /deployments returned 307; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands returned 401; /operation-tasks and /deployments returned 307; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T07:21:16Z",
-    "target": "P6 command/deployment SSH execution timeout and output guardrails",
+    "finishedAt": "2026-05-30T07:41:30Z",
+    "target": "P6 command/deployment task reconciliation after in-process worker loss",
     "status": "validated_deployed_committed",
-    "commit": "118d568",
-    "summary": "Background command/deployment SSH execution now enforces a default 5-minute per-target timeout, kills timed-out local ssh/sshpass processes, records timeout failures with exit code 124, and bounds captured stdout/stderr to 256 KiB so hung or chatty commands cannot exhaust API worker resources. Limits are configurable via COMMAND_EXECUTION_TIMEOUT_MS and COMMAND_OUTPUT_LIMIT_BYTES.",
+    "commit": "d66f808",
+    "summary": "Command list reads now recover stale RUNNING command requests older than the execution window. Requests with queued/running targets are marked FAILED with clear recovery logs if their in-process SSH worker was likely lost after service restart; requests whose targets are already terminal are archived to COMPLETED/FAILED based on target state.",
     "validation": [
-      "git status checked clean before work",
-      "no overlapping remediation/build/test process found other than the preflight check itself",
-      "npx vitest run src/lib/command/__tests__/service.test.ts passed 10/10",
-      "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 17/17",
+      "git status checked before work",
+      "no overlapping remediation/build/test process found other than language servers",
+      "npx vitest run src/lib/command/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 19/19",
+      "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts passed 11/11",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
@@ -67,12 +67,12 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded; both active",
       "curl http://127.0.0.1:3000/api/status healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "production probes: /api/status 200, /api/commands 401, /api/deployments 401, /operation-tasks 307, /deployments 307",
+      "production probes: /api/status 200, /api/commands 401, /operation-tasks 307, /deployments 307",
       "recent production logs checked with no error/warn matches",
       "git diff --check"
     ],
     "deployment": "Production services restarted and smoke-tested successfully.",
-    "nextTarget": "Continue P6 durable command/deployment background worker model: persistence across restarts, cancellation controls, and task status reconciliation."
+    "nextTarget": "Continue P6 durable command/deployment background worker model: explicit cancellation controls, restart-surviving queue claims, and task status reconciliation beyond stale recovery."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []
