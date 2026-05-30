@@ -503,10 +503,13 @@ function scheduleCommandExecution(commandRequestId: string) {
 }
 
 async function enqueueApprovedCommandExecution(commandRequestId: string, summary: string) {
-  await prisma.commandRequest.update({
-    where: { id: commandRequestId },
+  const claimed = await prisma.commandRequest.updateMany({
+    where: { id: commandRequestId, status: { in: ["APPROVED"] } },
     data: { status: "RUNNING" },
   });
+
+  if (claimed.count === 0) return false;
+
   await markTargetsRunning(commandRequestId);
   await prisma.executionLog.create({
     data: {
@@ -516,6 +519,7 @@ async function enqueueApprovedCommandExecution(commandRequestId: string, summary
     },
   });
   scheduleCommandExecution(commandRequestId);
+  return true;
 }
 
 function mapCommandRequest(
@@ -723,6 +727,26 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
   }
 
   return { recovered };
+}
+
+export async function recoverQueuedApprovedCommandRequests(limit = 20) {
+  const queuedRequests = await prisma.commandRequest.findMany({
+    where: { status: "APPROVED" },
+    orderBy: { updatedAt: "asc" },
+    select: { id: true },
+    take: limit,
+  });
+
+  let enqueued = 0;
+  for (const request of queuedRequests) {
+    const claimed = await enqueueApprovedCommandExecution(
+      request.id,
+      "检测到已批准但尚未进入运行态的命令：维护 worker 已重新认领并放入后台 SSH 执行队列。",
+    );
+    if (claimed) enqueued += 1;
+  }
+
+  return { enqueued };
 }
 
 export async function cancelCommandRequest(input: { commandRequestId: string; actorId: string; reason?: string }) {

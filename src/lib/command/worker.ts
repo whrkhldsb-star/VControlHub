@@ -1,6 +1,9 @@
 import { createLogger } from "@/lib/logging";
 
-import { recoverStaleRunningCommandRequests } from "./service";
+import {
+  recoverQueuedApprovedCommandRequests,
+  recoverStaleRunningCommandRequests,
+} from "./service";
 
 const logger = createLogger("command-maintenance-worker");
 const DEFAULT_COMMAND_RECONCILE_INTERVAL_MS = 60_000;
@@ -42,6 +45,11 @@ async function reconcileStaleCommandsOnce(state: CommandMaintenanceWorkerState, 
 
   state.running = true;
   try {
+    const queued = await recoverQueuedApprovedCommandRequests();
+    if (queued.enqueued > 0) {
+      logger.warn("Re-enqueued approved command requests", { reason, enqueued: queued.enqueued });
+    }
+
     const result = await recoverStaleRunningCommandRequests();
     if (result.recovered > 0) {
       logger.warn("Recovered stale command requests", { reason, recovered: result.recovered });

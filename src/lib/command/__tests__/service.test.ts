@@ -10,6 +10,7 @@ type MockChildProcess = EventEmitter & {
 const { mockPrisma, spawnMock } = vi.hoisted(() => ({
   mockPrisma: {
     commandRequest: {
+      updateMany: vi.fn(),
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -51,7 +52,7 @@ vi.mock("@/lib/db", () => ({
     error instanceof Error && /P1001|Can't reach database server|PrismaClientInitializationError|database server/i.test(error.message),
 }));
 
-import { createCommandRequest, listCommandRequests, reviewCommandRequest, cancelCommandRequest } from "../service";
+import { createCommandRequest, listCommandRequests, reviewCommandRequest, cancelCommandRequest, recoverQueuedApprovedCommandRequests } from "../service";
 
 describe("command service execution flow", () => {
   beforeEach(() => {
@@ -63,6 +64,7 @@ describe("command service execution flow", () => {
     delete process.env.COMMAND_EXECUTION_TIMEOUT_MS;
     delete process.env.COMMAND_OUTPUT_LIMIT_BYTES;
 
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as MockChildProcess;
       child.stdout = new EventEmitter();
@@ -396,6 +398,67 @@ describe("command service execution flow", () => {
         data: { status: "COMPLETED" },
       }),
     );
+  });
+
+  it("recovers approved commands left queued after a prior process exits before scheduling execution", async () => {
+    mockPrisma.commandRequest.findMany.mockResolvedValue([{ id: "req_queued_1" }]);
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_queued_1",
+        server: {
+          id: "srv_queued_1",
+          name: "queued-node",
+          host: "203.0.113.30",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "uptime" },
+      },
+    ]);
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_queued_1", targets: [{ id: "target_queued_1" }] });
+
+    const result = await recoverQueuedApprovedCommandRequests();
+
+    expect(result).toEqual({ enqueued: 1 });
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: "APPROVED" },
+        orderBy: { updatedAt: "asc" },
+        take: 20,
+      }),
+    );
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_queued_1", status: { in: ["APPROVED"] } },
+      data: { status: "RUNNING" },
+    });
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { commandRequestId: "req_queued_1" } }),
+    );
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_queued_1",
+          summary: expect.stringContaining("重新认领"),
+        }),
+      }),
+    );
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
+  });
+
+  it("does not schedule duplicate background execution when an approved command was already claimed", async () => {
+    mockPrisma.commandRequest.findMany.mockResolvedValue([{ id: "req_claimed_1" }]);
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await recoverQueuedApprovedCommandRequests();
+
+    expect(result).toEqual({ enqueued: 0 });
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.executionLog.create).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
   });
 
   it("kills long-running SSH commands and marks the target failed with timeout output", async () => {
