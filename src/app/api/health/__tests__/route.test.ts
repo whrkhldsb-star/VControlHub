@@ -2,26 +2,21 @@ import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
-  requireApiSessionMock,
-  sessionHasPermissionMock,
+  requireApiPermissionMock,
   verifyBearerTokenMock,
   collectAllHealthMock,
   getMetricHistoryMock,
   snapshotMetricsMock,
 } = vi.hoisted(() => ({
-  requireApiSessionMock: vi.fn(),
-  sessionHasPermissionMock: vi.fn(),
+  requireApiPermissionMock: vi.fn(),
   verifyBearerTokenMock: vi.fn(),
   collectAllHealthMock: vi.fn(),
   getMetricHistoryMock: vi.fn(),
   snapshotMetricsMock: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/api-session", () => ({
-  requireApiSession: requireApiSessionMock,
-}));
-vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: sessionHasPermissionMock,
+vi.mock("@/lib/auth/require-api-permission", () => ({
+  requireApiPermission: requireApiPermissionMock,
 }));
 vi.mock("@/lib/auth/bearer-token", () => ({
   verifyBearerToken: verifyBearerTokenMock,
@@ -39,9 +34,8 @@ const session = { userId: "user_1", username: "viewer", roles: ["viewer"] };
 describe("/api/health", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    requireApiSessionMock.mockResolvedValue(session);
+    requireApiPermissionMock.mockResolvedValue({ session });
     verifyBearerTokenMock.mockResolvedValue(null);
-    sessionHasPermissionMock.mockReturnValue(true);
     collectAllHealthMock.mockResolvedValue({
       total: 1,
       online: 1,
@@ -76,26 +70,26 @@ describe("/api/health", () => {
   });
 
   it("returns 401 when the session is missing", async () => {
-    requireApiSessionMock.mockResolvedValueOnce(
+    requireApiPermissionMock.mockResolvedValueOnce(
       NextResponse.json({ error: "未登录或会话已过期" }, { status: 401 }),
     );
 
     const response = await GET(new Request("https://example.com/api/health"));
 
     expect(response.status).toBe(401);
+    expect(requireApiPermissionMock).toHaveBeenCalledWith("health:read");
     expect(collectAllHealthMock).not.toHaveBeenCalled();
   });
 
-  it("requires health read permission before exposing node health details", async () => {
-    sessionHasPermissionMock.mockReturnValueOnce(false);
+  it("requires health read permission via the shared API guard before exposing node health details", async () => {
+    requireApiPermissionMock.mockResolvedValueOnce(
+      NextResponse.json({ error: "缺少权限" }, { status: 403 }),
+    );
 
     const response = await GET(new Request("https://example.com/api/health"));
 
     expect(response.status).toBe(403);
-    expect(sessionHasPermissionMock).toHaveBeenCalledWith(
-      session,
-      "health:read",
-    );
+    expect(requireApiPermissionMock).toHaveBeenCalledWith("health:read");
     expect(collectAllHealthMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({ error: "缺少权限" });
   });
@@ -118,7 +112,7 @@ describe("/api/health", () => {
       expect.any(Request),
       "health:read",
     );
-    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(requireApiPermissionMock).not.toHaveBeenCalled();
     expect(collectAllHealthMock).toHaveBeenCalledOnce();
   });
 
@@ -132,7 +126,7 @@ describe("/api/health", () => {
     );
 
     expect(response.status).toBe(401);
-    expect(requireApiSessionMock).not.toHaveBeenCalled();
+    expect(requireApiPermissionMock).not.toHaveBeenCalled();
     expect(collectAllHealthMock).not.toHaveBeenCalled();
   });
 

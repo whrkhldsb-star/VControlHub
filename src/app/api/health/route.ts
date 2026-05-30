@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import { verifyBearerToken } from "@/lib/auth/bearer-token";
 import {
   collectAllHealth,
@@ -30,15 +29,8 @@ export async function GET(request: Request) {
 
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "健康数据获取失败" },
-    async ({ session }) => {
-      if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
-      if (!sessionHasPermission(session, "health:read")) {
-        return NextResponse.json({ error: "缺少权限" }, { status: 403 });
-      }
-      return handleHealthRequest(request);
-    },
+    { permission: "health:read", errorMessage: "健康数据获取失败" },
+    async () => handleHealthRequest(request),
   );
 }
 
