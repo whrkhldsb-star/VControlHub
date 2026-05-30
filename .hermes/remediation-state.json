@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T17:14:12Z",
+  "updatedAt": "2026-05-30T17:44:52Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,35 +44,35 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Client/page guard regressions passed: 15 tests",
+    "tests": "Global search and settings anchor regressions passed: 8 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; guarded page probes returned 307; related API probes returned 401/200 without 500; recent service logs clean except known Next standalone startup warning"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /settings returned 307; /api/settings returned 401 without 500; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T17:14:12Z",
-    "target": "P1 server-side guards for client-heavy pages from fresh-audit findings",
-    "status": "completed_verified_deployed_committed_pushed",
-    "commit": "32e1f45",
-    "summary": "Added server-side session/permission wrappers around monitoring, traffic, docker, preferences, api-docs, and image-bed pages, moving browser behavior into explicit client components so unauthorized users do not land on pages that only fail after client API calls.",
+    "finishedAt": "2026-05-30T17:45:40Z",
+    "target": "P1 global search/navigation completeness from fresh-audit findings",
+    "status": "completed_verified_deployed_committed_pending_push",
+    "commit": "6740ac6",
+    "summary": "Global search now derives its page catalog from shared sidebar navigation items, covers main/system nav routes, routes password and 2FA actions to concrete settings anchors, and removes dead custom modal event shortcuts.",
     "validation": [
       "read remediation backlog/state first",
-      "git status and recent history checked",
-      "npx vitest run src/app/docker/__tests__/page.test.tsx src/app/monitoring/__tests__/page.test.tsx src/app/preferences/__tests__/page.test.tsx src/app/api-docs/__tests__/page.test.tsx src/app/image-bed/__tests__/page.test.tsx passed 15/15",
+      "git status and overlap process check completed",
+      "npx vitest run src/components/__tests__/global-search.test.tsx src/app/settings/__tests__/settings-client.test.tsx passed 8/8",
       "npm run typecheck passed",
-      "npm run lint passed with existing react-hooks/set-state-in-effect warnings in moved client components",
-      "npm run build passed",
+      "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
       "npm run build:runtime passed",
+      "npm run build passed",
       "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
       "http://127.0.0.1:3000/api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes for guarded pages returned 307 and related APIs returned 401/200 without 500",
-      "recent production logs checked; no new error entries, only known Next standalone startup warning"
+      "production probes: /settings 307, /api/settings 401, /api/status 200",
+      "recent production logs checked; no new error/warn entries"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed.",
-    "nextTarget": "Continue remaining fresh-audit P1 items, starting with global search/navigation completeness or preference fields that are saved but not consumed.",
-    "pushedAt": "2026-05-30T17:14:12Z"
+    "nextTarget": "Continue remaining fresh-audit P1 items, starting with preference fields that are saved but not consumed or storage sync task/progress UX.",
+    "pushedAt": "2026-05-30T17:45:40Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []
