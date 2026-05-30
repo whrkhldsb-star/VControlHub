@@ -30,7 +30,7 @@ describe("api guard", () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValue({ session });
     requireApiSessionMock.mockResolvedValue(session);
-    withRateLimitMock.mockReturnValue({ allowed: true, retryAfterMs: 0, remaining: 1 });
+    withRateLimitMock.mockResolvedValue({ allowed: true, retryAfterMs: 0, remaining: 1 });
   });
 
   it("passes the authorized session into the route handler", async () => {
@@ -55,7 +55,7 @@ describe("api guard", () => {
   });
 
   it("applies rate limiting before auth", async () => {
-    withRateLimitMock.mockReturnValueOnce({ allowed: false, retryAfterMs: 2500, remaining: 0 });
+    withRateLimitMock.mockResolvedValueOnce({ allowed: false, retryAfterMs: 2500, remaining: 0 });
     const handler = vi.fn(async () => Response.json({ ok: true }));
 
     const response = await withApiRoute(request(), { permission: "snippet:manage", rateLimit: { maxRequests: 1, windowMs: 1000 } }, handler);

@@ -113,7 +113,6 @@ class RedisRateLimitStore implements RateLimitStore {
 		// Dynamic require — redis is an optional peer dependency
 		let redisModule;
 		try {
-			// @ts-expect-error — optional dependency, not installed by default
 			redisModule = await import("redis");
 		} catch {
 			throw new Error("redis package is not installed. Run: npm install redis");

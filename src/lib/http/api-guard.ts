@@ -28,7 +28,7 @@ export async function enforceApiGuard(options: ApiGuardOptions): Promise<Respons
   const { request, permission, rateLimit } = options;
 
   if (rateLimit) {
-    const rl = withRateLimit(request, rateLimit);
+    const rl = await withRateLimit(request, rateLimit);
     if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   }
 

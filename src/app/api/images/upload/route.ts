@@ -52,7 +52,7 @@ function isUploadFile(v: unknown): v is UploadFile {
 }
 
 export async function POST(request: Request) {
-  const rl = withRateLimit(request, IMAGE_UPLOAD_LIMIT);
+  const rl = await withRateLimit(request, IMAGE_UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
   const tokenAuth = await verifyBearerToken(request, "image:write");

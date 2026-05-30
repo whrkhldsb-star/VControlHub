@@ -1,8 +1,13 @@
 /**
- * Simple in-memory sliding-window rate limiter.
- * Uses a Map of IP → { timestamps[] } to track requests within a window.
- * Suitable for single-instance deployments. For multi-instance, use Redis.
+ * Rate limiting helpers.
+ *
+ * `checkRateLimit` is the legacy synchronous in-memory helper used by a few
+ * browser-form/auth paths. New API guards should use `checkRateLimitAsync`,
+ * which delegates to the shared rate-limit store and therefore uses Redis when
+ * REDIS_URL is configured.
  */
+
+import { getRateLimitStore } from "@/lib/rate-limit-store";
 
 type RateLimitEntry = {
   timestamps: number[];
@@ -62,6 +67,22 @@ export function checkRateLimit(
 
   entry.timestamps.push(now);
   return { allowed: true, retryAfterMs: 0, remaining: config.maxRequests - entry.timestamps.length };
+}
+
+export async function checkRateLimitAsync(
+  identifier: string,
+  config: RateLimitConfig = DEFAULT_CONFIG,
+): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
+  const now = Date.now();
+  const timestamps = await getRateLimitStore().addAndGetWindow(identifier, now, config.windowMs);
+
+  if (timestamps.length > config.maxRequests) {
+    const oldestInWindow = timestamps[0] ?? now;
+    const retryAfterMs = oldestInWindow + config.windowMs - now;
+    return { allowed: false, retryAfterMs: Math.max(retryAfterMs, 0), remaining: 0 };
+  }
+
+  return { allowed: true, retryAfterMs: 0, remaining: Math.max(config.maxRequests - timestamps.length, 0) };
 }
 
 /** Extract client IP from request headers (handles Cloudflare/proxy) */

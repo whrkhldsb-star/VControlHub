@@ -5,7 +5,7 @@
  *   import { withRateLimit, AI_CHAT_LIMIT, UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
  *
  *   export async function POST(request: Request) {
- *     const rateLimitResult = withRateLimit(request, AI_CHAT_LIMIT);
+ *     const rateLimitResult = await withRateLimit(request, AI_CHAT_LIMIT);
  *     if (!rateLimitResult.allowed) {
  *       return NextResponse.json({ error: "请求过于频繁，请稍后再试" }, {
  *         status: 429,
@@ -16,7 +16,7 @@
  *   }
  */
 
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
 export type RateLimitConfig = { maxRequests: number; windowMs: number };
 
@@ -39,12 +39,12 @@ export const IMAGE_UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: 6
  * Check rate limit for a request. Returns the result with allowed/retryAfterMs.
  * Uses client IP as the identifier.
  */
-export function withRateLimit(
+export async function withRateLimit(
 	request: Request,
 	config: RateLimitConfig,
-): { allowed: boolean; retryAfterMs: number; remaining: number } {
+): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
 	const ip = getClientIp(request);
-	return checkRateLimit(ip, config);
+	return checkRateLimitAsync(ip, config);
 }
 
 /**

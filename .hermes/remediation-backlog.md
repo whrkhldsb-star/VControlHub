@@ -72,7 +72,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 - [ ] Move command/deployment SSH execution out of synchronous API path into background tasks/worker model with timeouts, output limits, cancellation, and task status.
 - [x] 2026-05-30 — Strengthen download URL SSRF protections by resolving DNS before task creation and rejecting hostnames whose DNS answers point at private, loopback, link-local, multicast, or metadata ranges. Download creation now fails before server lookup, storage grants, DB writes, or remote SSH side effects when a public-looking hostname resolves internally. Verification: source-url and downloads route regressions 25/25, neighboring remote-command tests 4/4, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/api/downloads` 401, `/downloads` 307, `/api/status` 200, recent logs clean. Commit: 066fc31.
-- [ ] Unify rate limiting store so Redis-backed store is used when configured instead of per-process memory only.
+- [x] 2026-05-30 — Unify API rate limiting onto the shared rate-limit store so guarded API/file-upload/file-proxy rate checks use Redis when `REDIS_URL` is configured, while legacy login form checks keep their synchronous local lockout-compatible path. Added the runtime `redis` dependency, made `withRateLimit` async, and covered the store delegation with regressions. Verification: rate-limit/API-guard regressions 9/9, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/api/images/upload` 401, `/api/servers/nonexistent/file-proxy` 401, `/api/status` 200, recent logs clean.
 - [ ] Replace remaining shell-string `execSync`/`exec` surfaces with argv-based execution where practical.
 
 ## Fresh-audit checkpoint policy

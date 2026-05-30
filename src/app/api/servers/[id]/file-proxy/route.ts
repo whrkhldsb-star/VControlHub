@@ -188,7 +188,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const rl = withRateLimit(request, UPLOAD_LIMIT);
+  const rl = await withRateLimit(request, UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   return withApiRoute(
     request,
@@ -402,7 +402,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const rl = withRateLimit(request, UPLOAD_LIMIT);
+  const rl = await withRateLimit(request, UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
   return withApiRoute(
     request,
