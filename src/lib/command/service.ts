@@ -50,6 +50,7 @@ type SshExecutionResult = {
 const DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES = 256 * 1024;
 const DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS = 2 * DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
+const DEFAULT_COMMAND_EXECUTION_HEARTBEAT_MS = 60_000;
 const activeCommandChildren = new Map<string, ChildProcess>();
 const cancelledCommandTargets = new Set<string>();
 
@@ -87,6 +88,10 @@ function getCommandOutputLimitBytes() {
 
 function getCommandStaleRunningAfterMs() {
   return getPositiveEnvNumber("COMMAND_STALE_RUNNING_AFTER_MS", Math.max(DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS, getCommandExecutionTimeoutMs() * 2));
+}
+
+function getCommandExecutionHeartbeatMs() {
+  return getPositiveEnvNumber("COMMAND_EXECUTION_HEARTBEAT_MS", DEFAULT_COMMAND_EXECUTION_HEARTBEAT_MS);
 }
 
 function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number) {
@@ -439,6 +444,14 @@ async function executeTargets(commandRequestId: string) {
   return { totalCount: targets.length, completedCount };
 }
 
+async function heartbeatRunningCommandRequest(commandRequestId: string) {
+  const now = new Date();
+  await prisma.commandRequest.updateMany({
+    where: { id: commandRequestId, status: "RUNNING" },
+    data: { status: "RUNNING", updatedAt: now },
+  });
+}
+
 async function executeAndFinalizeCommand(commandRequestId: string) {
   await Promise.resolve();
   const request = await prisma.commandRequest.findUnique({
@@ -450,26 +463,40 @@ async function executeAndFinalizeCommand(commandRequestId: string) {
     throw new Error("命令请求不存在");
   }
 
-  const { totalCount, completedCount } = await executeTargets(commandRequestId);
-  const nextStatus =
-    totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
+  const heartbeatIntervalMs = getCommandExecutionHeartbeatMs();
+  let heartbeat: NodeJS.Timeout | null = setInterval(() => {
+    heartbeatRunningCommandRequest(commandRequestId).catch(() => {});
+  }, heartbeatIntervalMs);
+  heartbeat.unref?.();
 
-  const summary =
-    totalCount > 0 && completedCount === totalCount
-      ? `后台 SSH 执行已完成 ${completedCount}/${totalCount} 个目标。`
-      : completedCount > 0
-        ? `后台 SSH 执行仅完成 ${completedCount}/${totalCount} 个目标，请查看失败节点日志。`
-        : totalCount > 0
-          ? `后台 SSH 执行失败，${totalCount} 个目标均未完成。`
-          : "后台 SSH 执行未找到可执行目标。";
-  await prisma.executionLog.create({
-    data: { commandRequestId, serverId: null, summary },
-  });
+  try {
+    await heartbeatRunningCommandRequest(commandRequestId);
+    const { totalCount, completedCount } = await executeTargets(commandRequestId);
+    const nextStatus =
+      totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
 
-  return prisma.commandRequest.update({
-    where: { id: commandRequestId },
-    data: { status: nextStatus },
-  });
+    const summary =
+      totalCount > 0 && completedCount === totalCount
+        ? `后台 SSH 执行已完成 ${completedCount}/${totalCount} 个目标。`
+        : completedCount > 0
+          ? `后台 SSH 执行仅完成 ${completedCount}/${totalCount} 个目标，请查看失败节点日志。`
+          : totalCount > 0
+            ? `后台 SSH 执行失败，${totalCount} 个目标均未完成。`
+            : "后台 SSH 执行未找到可执行目标。";
+    await prisma.executionLog.create({
+      data: { commandRequestId, serverId: null, summary },
+    });
+
+    return prisma.commandRequest.update({
+      where: { id: commandRequestId },
+      data: { status: nextStatus },
+    });
+  } finally {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
+    }
+  }
 }
 
 async function markCommandExecutionFailed(commandRequestId: string, error: unknown) {

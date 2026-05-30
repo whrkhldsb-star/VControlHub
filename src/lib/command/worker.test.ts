@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { recoverStaleRunningCommandRequestsMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
+const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequestsMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
   recoverStaleRunningCommandRequestsMock: vi.fn(),
+  recoverQueuedApprovedCommandRequestsMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
@@ -9,6 +10,7 @@ const { recoverStaleRunningCommandRequestsMock, infoMock, warnMock, errorMock } 
 
 vi.mock("./service", () => ({
   recoverStaleRunningCommandRequests: recoverStaleRunningCommandRequestsMock,
+  recoverQueuedApprovedCommandRequests: recoverQueuedApprovedCommandRequestsMock,
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -27,6 +29,7 @@ describe("command maintenance worker", () => {
     vi.clearAllMocks();
     delete process.env.COMMAND_RECONCILE_INTERVAL_MS;
     recoverStaleRunningCommandRequestsMock.mockResolvedValue({ recovered: 0 });
+    recoverQueuedApprovedCommandRequestsMock.mockResolvedValue({ enqueued: 0 });
     stopCommandMaintenanceWorkerForTests();
   });
 
@@ -36,25 +39,40 @@ describe("command maintenance worker", () => {
 
     startCommandMaintenanceWorker();
     startCommandMaintenanceWorker();
+    await Promise.resolve();
 
     expect(infoMock).toHaveBeenCalledTimes(1);
+    expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(1);
     expect(recoverStaleRunningCommandRequestsMock).toHaveBeenCalledTimes(1);
     await vi.runOnlyPendingTimersAsync();
+    expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(2);
     expect(recoverStaleRunningCommandRequestsMock).toHaveBeenCalledTimes(2);
     expect(warnMock).toHaveBeenCalledWith("Recovered stale command requests", { reason: "startup", recovered: 1 });
+  });
+
+  it("logs recovered queued approved commands during maintenance ticks", async () => {
+    recoverQueuedApprovedCommandRequestsMock.mockResolvedValueOnce({ enqueued: 2 }).mockResolvedValue({ enqueued: 0 });
+
+    startCommandMaintenanceWorker();
+    await Promise.resolve();
+
+    expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(1);
+    expect(warnMock).toHaveBeenCalledWith("Re-enqueued approved command requests", { reason: "startup", enqueued: 2 });
   });
 
   it("skips overlapping reconciliation ticks while a previous tick is still running", async () => {
     process.env.COMMAND_RECONCILE_INTERVAL_MS = "1000";
     let release!: () => void;
-    recoverStaleRunningCommandRequestsMock.mockReturnValue(new Promise((resolve) => {
-      release = () => resolve({ recovered: 0 });
+    recoverQueuedApprovedCommandRequestsMock.mockReturnValue(new Promise((resolve) => {
+      release = () => resolve({ enqueued: 0 });
     }));
+    recoverStaleRunningCommandRequestsMock.mockResolvedValue({ recovered: 0 });
 
     startCommandMaintenanceWorker();
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(recoverStaleRunningCommandRequestsMock).toHaveBeenCalledTimes(1);
+    expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(1);
+    expect(recoverStaleRunningCommandRequestsMock).not.toHaveBeenCalled();
     expect(warnMock).toHaveBeenCalledWith(
       "Skipping command reconciliation because a previous tick is still running",
       { reason: "interval" },

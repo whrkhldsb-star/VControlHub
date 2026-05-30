@@ -63,6 +63,7 @@ describe("command service execution flow", () => {
     delete process.env.DEMO_MODE;
     delete process.env.COMMAND_EXECUTION_TIMEOUT_MS;
     delete process.env.COMMAND_OUTPUT_LIMIT_BYTES;
+    delete process.env.COMMAND_EXECUTION_HEARTBEAT_MS;
 
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     spawnMock.mockImplementation(() => {
@@ -135,6 +136,70 @@ describe("command service execution flow", () => {
       where: { id: "req_user_1" },
       data: { status: "COMPLETED" },
     });
+  });
+
+  it("refreshes RUNNING command requests while background SSH execution is still active", async () => {
+    vi.useFakeTimers();
+    process.env.COMMAND_EXECUTION_HEARTBEAT_MS = "1000";
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_heartbeat_1",
+      status: "APPROVED",
+      targets: [{ id: "target_heartbeat" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_heartbeat",
+        server: {
+          id: "srv_heartbeat",
+          name: "long-node",
+          host: "203.0.113.21",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "sleep 5" },
+      },
+    ]);
+    let heartbeatChild!: MockChildProcess;
+    spawnMock.mockImplementationOnce(() => {
+      heartbeatChild = new EventEmitter() as MockChildProcess;
+      heartbeatChild.stdout = new EventEmitter();
+      heartbeatChild.stderr = new EventEmitter();
+      heartbeatChild.kill = vi.fn(() => true);
+      return heartbeatChild;
+    });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_heartbeat_1", targets: [{ id: "target_heartbeat" }] });
+
+    await createCommandRequest({
+      title: "Long command with heartbeat",
+      command: "sleep 5",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_heartbeat"],
+    });
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
+    const heartbeatCallsBeforeInterval = mockPrisma.commandRequest.updateMany.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(mockPrisma.commandRequest.updateMany.mock.calls.length).toBeGreaterThan(heartbeatCallsBeforeInterval);
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
+      where: { id: "req_heartbeat_1", status: "RUNNING" },
+      data: { status: "RUNNING", updatedAt: expect.any(Date) },
+    });
+
+    heartbeatChild.emit("close", 0);
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+        where: { id: "req_heartbeat_1" },
+        data: { status: "COMPLETED" },
+      }),
+    );
+    const callsAfterFinish = mockPrisma.commandRequest.updateMany.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(mockPrisma.commandRequest.updateMany.mock.calls.length).toBe(callsAfterFinish);
   });
 
   it("decrypts stored server password before password SSH execution", async () => {
