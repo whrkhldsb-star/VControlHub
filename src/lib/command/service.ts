@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -51,6 +52,7 @@ const DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES = 256 * 1024;
 const DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS = 2 * DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
 const DEFAULT_COMMAND_EXECUTION_HEARTBEAT_MS = 60_000;
+const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 const activeCommandChildren = new Map<string, ChildProcess>();
 const cancelledCommandTargets = new Set<string>();
 
@@ -448,7 +450,12 @@ async function heartbeatRunningCommandRequest(commandRequestId: string) {
   const now = new Date();
   await prisma.commandRequest.updateMany({
     where: { id: commandRequestId, status: "RUNNING" },
-    data: { status: "RUNNING", updatedAt: now },
+    data: {
+      status: "RUNNING",
+      updatedAt: now,
+      workerId: COMMAND_WORKER_ID,
+      workerHeartbeatAt: now,
+    },
   });
 }
 
@@ -489,7 +496,7 @@ async function executeAndFinalizeCommand(commandRequestId: string) {
 
     return prisma.commandRequest.update({
       where: { id: commandRequestId },
-      data: { status: nextStatus },
+      data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
     });
   } finally {
     if (heartbeat) {
@@ -503,7 +510,7 @@ async function markCommandExecutionFailed(commandRequestId: string, error: unkno
   const message = error instanceof Error ? error.message : "命令后台执行失败";
   await prisma.commandRequest.update({
     where: { id: commandRequestId },
-    data: { status: "FAILED" },
+    data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
   });
   await prisma.commandTarget.updateMany({
     where: { commandRequestId, status: "RUNNING" },
@@ -532,7 +539,11 @@ function scheduleCommandExecution(commandRequestId: string) {
 async function enqueueApprovedCommandExecution(commandRequestId: string, summary: string) {
   const claimed = await prisma.commandRequest.updateMany({
     where: { id: commandRequestId, status: { in: ["APPROVED"] } },
-    data: { status: "RUNNING" },
+    data: {
+      status: "RUNNING",
+      workerId: COMMAND_WORKER_ID,
+      workerHeartbeatAt: new Date(),
+    },
   });
 
   if (claimed.count === 0) return false;
@@ -696,10 +707,15 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
   const staleRequests = await prisma.commandRequest.findMany({
     where: {
       status: "RUNNING",
-      updatedAt: { lt: staleCutoff },
+      OR: [
+        { workerHeartbeatAt: { lt: staleCutoff } },
+        { workerHeartbeatAt: null, updatedAt: { lt: staleCutoff } },
+      ],
     },
     select: {
       id: true,
+      workerId: true,
+      workerHeartbeatAt: true,
       targets: { select: { id: true, status: true } },
     },
     take: 50,
@@ -724,7 +740,7 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
       });
       await prisma.commandRequest.update({
         where: { id: request.id },
-        data: { status: "FAILED" },
+        data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
       });
       await prisma.executionLog.create({
         data: {
@@ -741,7 +757,7 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
     const nextStatus = allCompleted ? "COMPLETED" : "FAILED";
     await prisma.commandRequest.update({
       where: { id: request.id },
-      data: { status: nextStatus },
+      data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
     });
     await prisma.executionLog.create({
       data: {
@@ -819,7 +835,7 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
   });
   await prisma.commandRequest.update({
     where: { id: commandRequestId },
-    data: { status: "CANCELLED" },
+    data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
   });
   await prisma.executionLog.create({
     data: {
@@ -902,7 +918,9 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
 
   const updated = await prisma.commandRequest.update({
     where: { id: payload.commandRequestId },
-    data: { status: nextStatus },
+    data: payload.approved
+      ? { status: nextStatus }
+      : { status: nextStatus, workerId: null, workerHeartbeatAt: null },
   });
 
   if (payload.approved) {

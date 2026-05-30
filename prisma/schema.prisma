@@ -198,6 +198,8 @@ model CommandRequest {
   status          CommandRequestStatus @default(PENDING_APPROVAL)
   initiatedByType ActorType
   requesterId     String
+  workerId        String?
+  workerHeartbeatAt DateTime?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
  requester User @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
@@ -208,6 +210,7 @@ model CommandRequest {
 
  @@index([status, createdAt])
  @@index([requesterId, createdAt])
+ @@index([status, workerHeartbeatAt])
  @@map("command_requests")
 }
 

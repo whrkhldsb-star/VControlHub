@@ -134,7 +134,7 @@ describe("command service execution flow", () => {
     );
     expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
       where: { id: "req_user_1" },
-      data: { status: "COMPLETED" },
+      data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
     });
   });
 
@@ -187,14 +187,19 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandRequest.updateMany.mock.calls.length).toBeGreaterThan(heartbeatCallsBeforeInterval);
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
       where: { id: "req_heartbeat_1", status: "RUNNING" },
-      data: { status: "RUNNING", updatedAt: expect.any(Date) },
+      data: {
+        status: "RUNNING",
+        updatedAt: expect.any(Date),
+        workerId: expect.any(String),
+        workerHeartbeatAt: expect.any(Date),
+      },
     });
 
     heartbeatChild.emit("close", 0);
     await vi.waitFor(() =>
       expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
         where: { id: "req_heartbeat_1" },
-        data: { status: "COMPLETED" },
+        data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
       }),
     );
     const callsAfterFinish = mockPrisma.commandRequest.updateMany.mock.calls.length;
@@ -359,7 +364,7 @@ describe("command service execution flow", () => {
     await vi.waitFor(() =>
       expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
         where: { id: "req_partial_1" },
-        data: { status: "FAILED" },
+        data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
       }),
     );
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
@@ -460,7 +465,7 @@ describe("command service execution flow", () => {
     await vi.waitFor(() =>
       expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
         where: { id: "req_parallel_1" },
-        data: { status: "COMPLETED" },
+        data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
       }),
     );
   });
@@ -498,7 +503,11 @@ describe("command service execution flow", () => {
     );
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
       where: { id: "req_queued_1", status: { in: ["APPROVED"] } },
-      data: { status: "RUNNING" },
+      data: {
+        status: "RUNNING",
+        workerId: expect.any(String),
+        workerHeartbeatAt: expect.any(Date),
+      },
     });
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { commandRequestId: "req_queued_1" } }),
@@ -589,7 +598,7 @@ describe("command service execution flow", () => {
     await vi.waitFor(() =>
       expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
         where: { id: "req_timeout_1" },
-        data: { status: "FAILED" },
+        data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
       }),
     );
   });
@@ -662,7 +671,7 @@ describe("command service execution flow", () => {
     });
     expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
       where: { id: "req_cancel_1" },
-      data: { status: "CANCELLED" },
+      data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
     });
   });
 
@@ -810,7 +819,10 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         status: "RUNNING",
-        updatedAt: { lt: new Date("2026-05-30T07:59:59Z") },
+        OR: [
+          { workerHeartbeatAt: { lt: new Date("2026-05-30T07:59:59Z") } },
+          { workerHeartbeatAt: null, updatedAt: { lt: new Date("2026-05-30T07:59:59Z") } },
+        ],
       },
       take: 50,
     }));
@@ -828,7 +840,7 @@ describe("command service execution flow", () => {
     });
     expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
       where: { id: "req_stale_1" },
-      data: { status: "FAILED" },
+      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
@@ -855,7 +867,7 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
       where: { id: "req_stale_done" },
-      data: { status: "COMPLETED" },
+      data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
