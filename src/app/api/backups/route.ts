@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { createBackupRecord, listBackupRecords } from "@/lib/backup/service";
+import { runBackupRecord, listBackupRecords } from "@/lib/backup/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     const body = await readRequestBody(request);
     const parsed = createBackupSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "备份参数无效" }, { status: 400 });
-    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note });
+    const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note });
     if ((request.headers.get("accept") || "").includes("text/html")) {
       return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
     }

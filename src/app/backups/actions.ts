@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
-import { createBackupRecord } from "@/lib/backup/service";
+import { runBackupRecord } from "@/lib/backup/service";
 
 export type BackupActionState = {
   success: boolean;
@@ -29,7 +29,7 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
     return { success: false, error: "备注最多 500 个字符" };
   }
 
-  await createBackupRecord({
+  await runBackupRecord({
     type: type as "DATABASE" | "FILES" | "FULL",
     createdBy: session.userId,
     note: note || undefined,

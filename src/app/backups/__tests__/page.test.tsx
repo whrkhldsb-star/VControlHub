@@ -70,6 +70,11 @@ describe("BackupsPage", () => {
   it("shows backup commands that match each recorded backup type", async () => {
     render(await BackupsPage());
 
+    expect(screen.getByText("创建并执行备份")).toBeInTheDocument();
+    expect(screen.getByText(/提交后会立即在服务器执行对应的 deploy\/backup\.sh 模式/)).toBeInTheDocument();
+    expect(screen.queryByText(/创建可审计记录后/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建并执行" })).toBeInTheDocument();
+
     expect(screen.getByText(/deploy\/backup\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --full 'backups\/full\.tar\.gz'/)).toBeInTheDocument();

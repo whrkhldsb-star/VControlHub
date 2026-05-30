@@ -24,8 +24,8 @@ export default async function BackupsPage() {
 
 			{canCreate && (
 				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-					<h2 className="text-sm font-semibold text-white">一键创建备份记录</h2>
-					<p className="mt-1 text-xs text-slate-500">创建可审计记录后，可在服务器上运行生成的 deploy/backup.sh 命令完成导出。</p>
+					<h2 className="text-sm font-semibold text-white">创建并执行备份</h2>
+					<p className="mt-1 text-xs text-slate-500">提交后会立即在服务器执行对应的 deploy/backup.sh 模式，记录会从 RUNNING 更新为 COMPLETED 或 FAILED。</p>
 					<CreateBackupForm />
 			</section>
 			)}

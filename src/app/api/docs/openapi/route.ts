@@ -329,8 +329,8 @@ const spec = {
       },
       post: {
         tags: ["备份"],
-        summary: "创建备份",
-        responses: { "200": { description: "已创建" } },
+        summary: "创建并执行备份",
+        responses: { "201": { description: "备份执行完成或失败，状态写入备份记录" } },
       },
     },
     "/dashboard/analytics": {

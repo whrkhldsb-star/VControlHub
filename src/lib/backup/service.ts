@@ -1,6 +1,11 @@
+import { stat } from "node:fs/promises";
 import { join, normalize, sep } from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
 import { prisma } from "@/lib/db";
+
+const runFile = promisify(execFile);
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 export type BackupType = "DATABASE" | "FILES" | "FULL";
@@ -29,6 +34,35 @@ export async function createBackupRecord(input: { type: BackupType; createdBy?: 
       note: input.note?.trim() || undefined,
     },
   });
+}
+
+export async function runBackupRecord(input: { type: BackupType; createdBy?: string; note?: string; projectRoot?: string }) {
+  const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
+  const record = await createBackupRecord(input);
+  let outputPath: string;
+  try {
+    outputPath = resolveBackupPath(projectRoot, record.filePath);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "备份路径无效";
+    return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: message.slice(0, 2000) });
+  }
+  const args = input.type === "FILES" ? ["--files", outputPath] : input.type === "FULL" ? ["--full", outputPath] : [outputPath];
+
+  await updateBackupRecordStatus(record.id, { status: "RUNNING" });
+
+  try {
+    await runFile("bash", ["deploy/backup.sh", ...args], {
+      cwd: projectRoot,
+      timeout: 30 * 60 * 1000,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, APP_DIR: projectRoot },
+    });
+    const fileInfo = await stat(outputPath);
+    return updateBackupRecordStatus(record.id, { status: "COMPLETED", fileSize: fileInfo.size, completedAt: new Date(), errorMessage: null });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "备份执行失败";
+    return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: message.slice(0, 2000) });
+  }
 }
 
 export async function listBackupRecords() {
@@ -82,9 +116,9 @@ export function resolveBackupPath(projectRoot: string, filePath: string) {
 
 export async function updateBackupRecordStatus(
   id: string,
-  input: { status: BackupStatus; fileSize?: number; completedAt?: Date; errorMessage?: string },
+  input: { status: BackupStatus; fileSize?: number; completedAt?: Date; errorMessage?: string | null },
 ) {
-  const data: { status: BackupStatus; fileSize?: string; completedAt?: Date; errorMessage?: string } = { status: input.status };
+  const data: { status: BackupStatus; fileSize?: string; completedAt?: Date; errorMessage?: string | null } = { status: input.status };
   if (input.fileSize !== undefined) data.fileSize = String(input.fileSize);
   if (input.completedAt) data.completedAt = input.completedAt;
   if (input.errorMessage !== undefined) data.errorMessage = input.errorMessage;
