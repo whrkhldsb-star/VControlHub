@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T04:05:07Z",
     "target": "P5 dashboard analytics API product surface",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "86e21d2",
     "summary": "Wired the existing dashboard analytics API into the main dashboard with a client-side trend panel for server resources, downloads, audit activity, and image-bed uploads, including inline loading and failure states.",
     "validation": [
       "npx vitest run src/app/__tests__/dashboard-analytics-panel.test.tsx src/app/__tests__/page.test.tsx (3/3)",
