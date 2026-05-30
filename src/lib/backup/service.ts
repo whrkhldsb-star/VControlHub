@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 
 const runFile = promisify(execFile);
 
+export const RESTORE_CONFIRM_TEXT = "RESTORE";
+
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 export type BackupType = "DATABASE" | "FILES" | "FULL";
 
@@ -69,6 +71,10 @@ export async function listBackupRecords() {
   return prisma.backupRecord.findMany({ orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } });
 }
 
+export async function getBackupRecord(id: string) {
+  return prisma.backupRecord.findUnique({ where: { id } });
+}
+
 export function assertPortableBackupPath(filePath: string) {
   const value = filePath.trim();
   const parts = value.split(/[\\/]+/);
@@ -112,6 +118,38 @@ export function buildBackupRestoreCommand(input: { projectRoot: string; backupPa
 export function resolveBackupPath(projectRoot: string, filePath: string) {
   const portablePath = assertPortableBackupPath(filePath);
   return join(projectRoot, portablePath);
+}
+
+function buildRestoreExecution(record: { type: string; filePath: string }, projectRoot: string) {
+  const backupPath = resolveBackupPath(projectRoot, record.filePath);
+  const type = isBackupType(record.type) ? record.type : "DATABASE";
+  if (type === "FILES" || type === "FULL") {
+    return { file: "tar", args: ["-xzf", backupPath, "-C", projectRoot], backupPath };
+  }
+  return { file: "bash", args: ["scripts/restore-db.sh", backupPath], backupPath };
+}
+
+export async function restoreBackupRecord(input: { id: string; confirm: string; projectRoot?: string }) {
+  if (input.confirm !== RESTORE_CONFIRM_TEXT) {
+    throw new Error("恢复操作需要明确确认");
+  }
+  const record = await getBackupRecord(input.id);
+  if (!record) {
+    throw new Error("备份记录不存在");
+  }
+  if (record.status !== "COMPLETED") {
+    throw new Error("只能恢复已完成的备份");
+  }
+  const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
+  const execution = buildRestoreExecution(record, projectRoot);
+  await stat(execution.backupPath);
+  await runFile(execution.file, execution.args, {
+    cwd: projectRoot,
+    timeout: 30 * 60 * 1000,
+    maxBuffer: 1024 * 1024,
+    env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" },
+  });
+  return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
 }
 
 export async function updateBackupRecordStatus(

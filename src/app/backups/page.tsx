@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, isBackupType, listBackupRecords } from "@/lib/backup/service";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
+import { RestoreBackupButton } from "./restore-backup-button";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,8 @@ export default async function BackupsPage() {
 								<div className="mt-3 grid gap-2">
 									<code className="block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<code className="block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
+									{b.status !== "COMPLETED" && <p className="text-xs text-slate-500">只有 COMPLETED 状态的备份可以执行恢复。</p>}
 								</div>
 							)}
 						</div>

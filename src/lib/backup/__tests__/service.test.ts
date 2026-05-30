@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma, runFileMock, statMock } = vi.hoisted(() => ({
-  mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), update: vi.fn() } },
+  mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() } },
   runFileMock: vi.fn(),
   statMock: vi.fn(),
 }));
@@ -16,14 +16,17 @@ const {
   buildBackupRestoreCommand,
   buildRestoreCommand,
   resolveBackupPath,
-  updateBackupRecordStatus,
   runBackupRecord,
+  updateBackupRecordStatus,
+  restoreBackupRecord,
 } = await import("../service");
 
 describe("backup service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
+    mockPrisma.backupRecord.findMany.mockResolvedValue([]);
+    mockPrisma.backupRecord.findUnique.mockResolvedValue({ id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz" });
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
     runFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
       cb(null, { stdout: "ok", stderr: "" });
@@ -134,5 +137,39 @@ describe("backup service", () => {
     for (const command of [databaseCommand, filesCommand, fullCommand]) {
       expect(command).not.toMatch(/DATABASE_URL=.*postgres|PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
     }
+  });
+
+  it("executes database restore only after explicit confirmation and completed record validation", async () => {
+    const result = await restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app" });
+
+    expect(mockPrisma.backupRecord.findUnique).toHaveBeenCalledWith({ where: { id: "bak1" } });
+    expect(statMock).toHaveBeenCalledWith("/opt/app/backups/database.sql.gz");
+    expect(runFileMock.mock.calls[0][0]).toBe("bash");
+    expect(runFileMock.mock.calls[0][1]).toEqual(["scripts/restore-db.sh", "/opt/app/backups/database.sql.gz"]);
+    expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }));
+    expect(result).toMatchObject({ id: "bak1", type: "DATABASE", filePath: "backups/database.sql.gz" });
+  });
+
+  it("uses tar extraction for completed FILES/FULL restore records", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak2", type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz" });
+
+    await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
+
+    expect(statMock).toHaveBeenCalledWith("/opt/app/backups/files.tar.gz");
+    expect(runFileMock.mock.calls[0][0]).toBe("tar");
+    expect(runFileMock.mock.calls[0][1]).toEqual(["-xzf", "/opt/app/backups/files.tar.gz", "-C", "/opt/app"]);
+    expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app" }));
+  });
+
+  it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
+    await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("恢复操作需要明确确认");
+    expect(runFileMock).not.toHaveBeenCalled();
+
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak3", type: "DATABASE", status: "FAILED", filePath: "backups/database.sql.gz" });
+    await expect(restoreBackupRecord({ id: "bak3", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("只能恢复已完成的备份");
+
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
+    await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
+    expect(runFileMock).not.toHaveBeenCalled();
   });
 });

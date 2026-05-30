@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T04:46:30Z",
+  "updatedAt": "2026-05-30T05:09:49Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,20 +43,20 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Backup service/API/page regressions passed: 14 tests",
+    "tests": "Backup restore service/API/page/client regressions passed: 23 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /backups redirected to login and /api/backups returned 401 instead of 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /backups redirected to login, /api/backups returned 401, and restore route returned 401 instead of 500; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T04:46:30Z",
-    "target": "P5 backup creation behavior",
-    "status": "verified_deployed_committed",
-    "commit": "60bbdf7",
-    "summary": "Made backup creation execute the real deploy/backup.sh artifact path immediately instead of only creating a pending record. Backup records now move through RUNNING to COMPLETED or FAILED with real artifact size or error metadata; API and server-action callers share the same execution service; Backups page and OpenAPI wording now describe create-and-execute semantics.",
+    "finishedAt": "2026-05-30T05:09:49Z",
+    "target": "P5 backup restore product surface",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Added a user-facing backup restore surface for backup:restore. Completed backup rows now show a guarded restore action that requires explicit RESTORE confirmation, posts through csrfFetch to a new restore API route, validates permission/completed record/portable path/artifact existence, and executes the real database or tar restore command without exposing secrets.",
     "validation": [
-      "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/backups/__tests__/page.test.tsx (14/14)",
+      "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts src/app/backups/__tests__/page.test.tsx src/app/backups/__tests__/restore-backup-button.test.tsx (23/23)",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
@@ -64,11 +64,11 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "readiness via http://127.0.0.1:3000/api/status",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /backups 307, /api/backups 401, /api/status 200",
+      "HTTPS probes /backups 307, /api/backups 401, /api/backups/test/restore 401, /api/status 200",
       "recent production service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P5 backlog: add backup restore API/UI if backup:restore should be user-facing, then unify system-health API and Health page behavior."
+    "nextTarget": "Continue P5 backlog: unify system-health API and Health page behavior, then proceed to P6 architecture hardening."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -83,7 +83,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []

@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+
+import { restoreBackupRecord } from "@/lib/backup/service";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+
+export const dynamic = "force-dynamic";
+
+const restoreBackupSchema = z.object({
+  confirm: z.literal("RESTORE", { message: "恢复操作需要输入 RESTORE 确认" }),
+});
+
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  return withApiRoute(request, { permission: "backup:restore", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "恢复失败" }, async () => {
+    const { id } = await params;
+    const body = await request.json().catch(() => ({}));
+    const parsed = restoreBackupSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "恢复确认无效" }, { status: 400 });
+    }
+
+    try {
+      const restore = await restoreBackupRecord({ id, confirm: parsed.data.confirm });
+      return NextResponse.json({ restore });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "恢复执行失败";
+      const status = message.includes("不存在") ? 404 : message.includes("确认") || message.includes("已完成") || message.includes("路径") ? 400 : 500;
+      return NextResponse.json({ error: message }, { status });
+    }
+  });
+}

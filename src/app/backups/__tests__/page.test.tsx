@@ -27,7 +27,7 @@ vi.mock("@/lib/backup/service", async () => {
       {
         id: "bak-db",
         type: "DATABASE",
-        status: "PENDING",
+        status: "COMPLETED",
         filePath: "backups/database.sql.gz",
         createdAt: new Date("2026-05-29T00:00:00.000Z"),
         fileSize: null,
@@ -39,7 +39,7 @@ vi.mock("@/lib/backup/service", async () => {
       {
         id: "bak-files",
         type: "FILES",
-        status: "PENDING",
+        status: "COMPLETED",
         filePath: "backups/files.tar.gz",
         createdAt: new Date("2026-05-29T00:00:00.000Z"),
         fileSize: null,
@@ -51,7 +51,7 @@ vi.mock("@/lib/backup/service", async () => {
       {
         id: "bak-full",
         type: "FULL",
-        status: "PENDING",
+        status: "COMPLETED",
         filePath: "backups/full.tar.gz",
         createdAt: new Date("2026-05-29T00:00:00.000Z"),
         fileSize: null,
@@ -81,5 +81,6 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "执行恢复" })).toHaveLength(3);
   });
 });
