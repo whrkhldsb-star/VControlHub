@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T02:16:00Z",
     "target": "P3 Quick Services install failure visibility and cleanup state",
-    "status": "verified_deployed_commit_pending",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "c729ce5",
     "summary": "Failed async Docker installs now preserve actionable Docker stderr/stdout in QuickService.error, mark the row error, and best-effort remove partial qs-* containers while appending cleanup failure context if cleanup itself fails.",
     "validation": [
       "npx vitest run src/lib/quick-service/__tests__/service.test.ts (14/14)",
