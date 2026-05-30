@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T05:09:49Z",
     "target": "P5 backup restore product surface",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "339455f",
     "summary": "Added a user-facing backup restore surface for backup:restore. Completed backup rows now show a guarded restore action that requires explicit RESTORE confirmation, posts through csrfFetch to a new restore API route, validates permission/completed record/portable path/artifact existence, and executes the real database or tar restore command without exposing secrets.",
     "validation": [
       "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts src/app/backups/__tests__/page.test.tsx src/app/backups/__tests__/restore-backup-button.test.tsx (23/23)",
