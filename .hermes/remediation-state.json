@@ -50,10 +50,10 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /api/downloads returned 401, /downloads redirected to login, recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T05:48:00Z",
+    "finishedAt": "2026-05-30T05:48:39Z",
     "target": "P6 download URL SSRF DNS hardening",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "066fc31",
     "summary": "Strengthened download URL SSRF protections by resolving HTTP/HTTPS download hostnames before task creation and rejecting DNS answers pointing to private, loopback, link-local, multicast, documentation, or metadata ranges. Unsafe public-looking hostnames now fail before server lookup, storage authorization, DB task creation, or remote SSH execution.",
     "validation": [
       "npx vitest run src/lib/downloads/__tests__/source-url.test.ts src/app/api/downloads/__tests__/route.test.ts src/lib/downloads/__tests__/remote-command.test.ts (29/29)",

@@ -71,7 +71,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 ## P6 — Architecture hardening
 
 - [ ] Move command/deployment SSH execution out of synchronous API path into background tasks/worker model with timeouts, output limits, cancellation, and task status.
-- [x] 2026-05-30 — Strengthen download URL SSRF protections by resolving DNS before task creation and rejecting hostnames whose DNS answers point at private, loopback, link-local, multicast, or metadata ranges. Download creation now fails before server lookup, storage grants, DB writes, or remote SSH side effects when a public-looking hostname resolves internally. Verification: source-url and downloads route regressions 25/25, neighboring remote-command tests 4/4, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/api/downloads` 401, `/downloads` 307, `/api/status` 200, recent logs clean.
+- [x] 2026-05-30 — Strengthen download URL SSRF protections by resolving DNS before task creation and rejecting hostnames whose DNS answers point at private, loopback, link-local, multicast, or metadata ranges. Download creation now fails before server lookup, storage grants, DB writes, or remote SSH side effects when a public-looking hostname resolves internally. Verification: source-url and downloads route regressions 25/25, neighboring remote-command tests 4/4, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/api/downloads` 401, `/downloads` 307, `/api/status` 200, recent logs clean. Commit: 066fc31.
 - [ ] Unify rate limiting store so Redis-backed store is used when configured instead of per-process memory only.
 - [ ] Replace remaining shell-string `execSync`/`exec` surfaces with argv-based execution where practical.
 
