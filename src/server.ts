@@ -16,6 +16,7 @@ import next from "next";
 
 import { setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
+import { startCommandMaintenanceWorker } from "@/lib/command/worker";
 
 const logger = createLogger("server");
 
@@ -29,6 +30,7 @@ async function main() {
 	const handle = app.getRequestHandler();
 
 	await app.prepare();
+	startCommandMaintenanceWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);

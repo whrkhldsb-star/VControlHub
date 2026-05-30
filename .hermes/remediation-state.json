@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T09:11:46Z",
+  "updatedAt": "2026-05-30T09:49:13Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,24 +43,23 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Command cancellation service/API tests plus existing command regressions passed 22/22; neighboring deployment/operation-task tests passed 11/11",
+    "tests": "Command worker/service/API regressions passed 24/24",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands returned 401; /operation-tasks, /deployments, and /requests returned 307; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands returned 401; /operation-tasks and /deployments returned 307; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T09:11:46Z",
-    "target": "P6 command cancellation controls for background SSH execution",
-    "status": "validated_deployed_committed",
-    "commit": "6b9b185",
-    "summary": "Added a command cancellation control path: PATCH /api/commands with action=cancel is guarded by command:execute, marks pending/approved/running command requests and active targets CANCELLED, records execution/audit logs, and terminates in-process SSH children for running targets with exit code 130.",
+    "finishedAt": "2026-05-30T09:49:13Z",
+    "target": "P6 command maintenance reconciliation worker",
+    "status": "validated_deployed_pending_commit",
+    "commit": null,
+    "summary": "Added an idempotent command maintenance worker that starts with the custom Next.js server and reconciles stale RUNNING command requests on startup and every minute, so stuck command/deployment task state recovers without requiring an operator to open the Commands API/list page.",
     "validation": [
       "read remediation backlog/state first",
       "git status checked before work",
-      "no overlapping remediation/build/test process found other than language servers",
-      "npx vitest run src/lib/command/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 22/22",
-      "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts passed 11/11",
+      "no overlapping remediation/build/test process found other than language servers and production services",
+      "npx vitest run src/lib/command/worker.test.ts src/lib/command/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 24/24",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
@@ -68,12 +67,12 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded; both active",
       "curl http://127.0.0.1:3000/api/status healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "production probes: /api/status 200, /api/commands 401, /operation-tasks 307, /deployments 307, /requests 307",
+      "production probes: /api/status 200, /api/commands 401, /operation-tasks 307, /deployments 307",
       "recent production logs checked with no error/warn matches",
       "git diff --check"
     ],
     "deployment": "Production services restarted and smoke-tested successfully.",
-    "nextTarget": "Continue P6 durable command/deployment background worker model: restart-surviving queue claims/worker ownership and richer task status reconciliation."
+    "nextTarget": "Continue P6 durable command/deployment background-worker architecture: restart-surviving queue claims/worker ownership and richer task status reconciliation beyond the in-process worker."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -88,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": []
