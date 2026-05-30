@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T21:37:29Z",
+  "updatedAt": "2026-05-30T22:06:33Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,23 +44,24 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Destructive-dialog regressions passed: 12 tests",
+    "tests": "Global-search/preferences accessibility regressions passed: 10 tests; full Vitest passed: 176 files / 719 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /backups /announcements /snippets /ai returned 307; related APIs returned 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /preferences returned 307; /api/preferences returned 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T21:37:29Z",
-    "target": "P2 accessible modal confirmations replacing raw browser dialogs",
+    "finishedAt": "2026-05-30T22:06:33Z",
+    "target": "P2 accessibility polish for global search and preference toggles",
     "status": "completed_verified_deployed_committed_pushed",
-    "commit": "de07c57",
-    "summary": "Replaced raw browser confirm/prompt usage in shipped destructive/edit flows with accessible in-app dialogs and explicit success/error feedback: backup restore typed RESTORE modal, announcement/snippet delete confirmation dialogs with toast/error states, and AI conversation rename modal.",
+    "commit": "e5deb40",
+    "summary": "Improved keyboard/screen-reader accessibility for global search and preferences: global search now exposes a labelled modal dialog, combobox, listbox/options, active descendant, and selected state; preference toggles now render as labelled switches with aria-checked, focus-visible rings, and an announced save status.",
     "validation": [
       "read remediation backlog/state first",
       "checked for overlapping remediation/build/test processes",
-      "source scan confirmed no remaining confirm()/prompt() calls under src/app",
-      "npx vitest run src/app/backups/__tests__/restore-backup-button.test.tsx src/app/announcements/__tests__/announcement-list-client.test.tsx src/app/snippets/__tests__/snippet-list-client.test.tsx src/app/ai/__tests__/ai-client-destructive-actions.test.tsx passed 12/12",
+      "production baseline before work: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy; major route probes returned 307/401/200; recent logs clean",
+      "npx vitest run src/components/__tests__/global-search.test.tsx src/app/preferences/__tests__/page.test.tsx passed 10/10",
+      "full npm test -- --run passed 176 files / 719 tests",
       "npm run typecheck -- --pretty false passed",
       "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
       "npm run build passed",
@@ -68,12 +69,12 @@
       "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
       "http://127.0.0.1:3000/api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /backups /announcements /snippets /ai 307; /api/backups /api/announcements /api/snippets 401; /api/status 200",
+      "production probes: /preferences 307; /api/preferences 401; /api/status 200; / 307",
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit de07c57 and bookkeeping commit pushed to origin/main.",
-    "nextTarget": "Because this is the 6th successful remediation run since the last fresh audit, perform a comprehensive fresh audit after committing this batch."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Commit/push is the next closeout step for this run.",
+    "nextTarget": "Commit/push this verified batch, then continue with P2 unpaginated/large-read reduction or P3 management-facing URL/direct-access hardening. Because the fresh-audit threshold was already reached before this run, the next reportable cycle should perform a comprehensive fresh audit after this batch is committed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -88,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 6,
+    "successfulRemediationRunsSinceFreshAudit": 7,
     "skippedOverlapRuns": 0
   },
   "blockers": []
