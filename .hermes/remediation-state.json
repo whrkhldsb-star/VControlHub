@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T21:05:38Z",
     "target": "P1 storage/file permission UI capabilities from fresh-audit findings",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed_pushed",
+    "commit": "5bf1693",
     "summary": "Files page initial payload and /api/files/list SPA refreshes now serialize per-entry storage read/write/delete capabilities from explicit UserStorageAccess grants; the file browser hides preview/download, rename/move/edit, delete, and batch selection controls when the current entry capability does not allow the action.",
     "validation": [
       "read remediation backlog/state first",
@@ -71,8 +71,8 @@
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Commit/push is the remaining closeout step for this run.",
-    "nextTarget": "Commit/push this verified batch, then continue remaining fresh-audit P1 storage sync/taskification or P2 destructive modal/accessibility polish."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit 5bf1693 and bookkeeping commit pushed to origin/main.",
+    "nextTarget": "Continue remaining fresh-audit P1 storage sync/taskification or P2 destructive modal/accessibility polish."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
