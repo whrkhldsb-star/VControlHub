@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import MonitoringPage from "../page";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -62,5 +64,17 @@ describe("MonitoringPage", () => {
 
     expect(await screen.findByText(/上次刷新失败：刷新失败：权限不足/)).toBeInTheDocument();
     expect(screen.getByText("vps-1")).toBeInTheDocument();
+  });
+
+  it("keeps monitoring light-theme overrides in the CSS compatibility layer", () => {
+    const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
+
+    expect(css).toContain("html.light .bg-amber-500\\/10");
+    expect(css).toContain("html.light .bg-rose-500\\/10");
+    expect(css).toContain("html.light .bg-emerald-500\\/10");
+    expect(css).toContain("html.light .bg-cyan-500\\/10");
+    expect(css).toContain("html.light .bg-slate-700\\/50");
+    expect(css).toContain("html.light .text-amber-400");
+    expect(css).toContain("html.light .text-rose-50");
   });
 });

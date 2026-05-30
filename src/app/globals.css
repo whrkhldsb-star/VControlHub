@@ -111,6 +111,7 @@ html.light .bg-slate-900\/80,
 html.light .bg-slate-900\/95,
 html.light .bg-slate-800,
 html.light .bg-slate-800\/50,
+html.light .bg-slate-700\/50,
 html.light .bg-slate-700\/60,
 html.light .bg-black\/20,
 html.light .bg-black\/30,
@@ -179,10 +180,12 @@ html.light .bg-slate-900 textarea {
 html.light .text-amber-100,
 html.light .text-amber-100\/80,
 html.light .text-amber-200,
-html.light .text-amber-300 {
+html.light .text-amber-300,
+html.light .text-amber-400 {
 	color: #92400e;
 }
 
+html.light .text-rose-50,
 html.light .text-rose-100,
 html.light .text-rose-100\/80,
 html.light .text-rose-200,
@@ -204,4 +207,49 @@ html.light .text-cyan-400 {
 html.light input::placeholder,
 html.light textarea::placeholder {
 	color: var(--text-muted);
+}
+
+/* Status and action tint surfaces used by monitoring/health/status-style pages. */
+html.light .bg-amber-400\/10,
+html.light .bg-amber-500\/10 {
+	background-color: #fffbeb;
+}
+
+html.light .border-amber-400\/20,
+html.light .border-amber-500\/20,
+html.light .border-amber-400\/30 {
+	border-color: #f59e0b66;
+}
+
+html.light .bg-rose-400\/10,
+html.light .bg-rose-500\/10 {
+	background-color: #fff1f2;
+}
+
+html.light .border-rose-400\/20,
+html.light .border-rose-500\/20,
+html.light .border-rose-300\/40,
+html.light .border-rose-400\/30 {
+	border-color: #fb718566;
+}
+
+html.light .bg-emerald-400\/10,
+html.light .bg-emerald-500\/10 {
+	background-color: #ecfdf5;
+}
+
+html.light .border-emerald-400\/20,
+html.light .border-emerald-400\/30 {
+	border-color: #34d39966;
+}
+
+html.light .bg-cyan-400\/10,
+html.light .bg-cyan-500\/10,
+html.light .hover\:bg-cyan-500\/20:hover {
+	background-color: #ecfeff;
+}
+
+html.light .border-cyan-400\/20,
+html.light .border-cyan-400\/30 {
+	border-color: #22d3ee66;
 }
