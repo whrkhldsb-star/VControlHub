@@ -42,9 +42,10 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; storage route probes returned 401 without 500; no recent warning/error logs"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T00:30:44Z",
+    "finishedAt": "2026-05-30T00:31:35Z",
     "target": "P2 storage/file-size safety and resource authorization hardening",
-    "status": "deployed_verified_pending_commit",
+    "status": "deployed_verified_committed_pushed",
+    "commit": "097027e",
     "summary": "Changed storage path authorization so users without explicit UserStorageAccess grants are denied by default even if their role has generic storage:read/write/delete; storage managers/admins with storage:manage-node keep break-glass access, and legacy deployments can temporarily opt in to the old behavior with VCONTROLHUB_STORAGE_GRANT_FALLBACK=true.",
     "validation": [
       "npx vitest run src/lib/storage/__tests__/access-control.test.ts src/app/api/storage/sftp-ops/__tests__/route.test.ts src/app/api/storage/local/__tests__/route.test.ts src/lib/storage/__tests__/sftp-sync.test.ts",
