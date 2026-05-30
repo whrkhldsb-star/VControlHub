@@ -320,7 +320,8 @@ async function executeTargets(commandRequestId: string) {
   return { totalCount: targets.length, completedCount };
 }
 
-async function runApprovedCommand(commandRequestId: string) {
+async function executeAndFinalizeCommand(commandRequestId: string) {
+  await Promise.resolve();
   const request = await prisma.commandRequest.findUnique({
     where: { id: commandRequestId },
     include: { targets: true },
@@ -330,20 +331,72 @@ async function runApprovedCommand(commandRequestId: string) {
     throw new Error("命令请求不存在");
   }
 
-  await prisma.commandRequest.update({
-    where: { id: commandRequestId },
-    data: { status: "RUNNING" },
-  });
-
-  await markTargetsRunning(commandRequestId);
   const { totalCount, completedCount } = await executeTargets(commandRequestId);
   const nextStatus =
     totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
+
+  const summary =
+    totalCount > 0 && completedCount === totalCount
+      ? `后台 SSH 执行已完成 ${completedCount}/${totalCount} 个目标。`
+      : completedCount > 0
+        ? `后台 SSH 执行仅完成 ${completedCount}/${totalCount} 个目标，请查看失败节点日志。`
+        : totalCount > 0
+          ? `后台 SSH 执行失败，${totalCount} 个目标均未完成。`
+          : "后台 SSH 执行未找到可执行目标。";
+  await prisma.executionLog.create({
+    data: { commandRequestId, serverId: null, summary },
+  });
 
   return prisma.commandRequest.update({
     where: { id: commandRequestId },
     data: { status: nextStatus },
   });
+}
+
+async function markCommandExecutionFailed(commandRequestId: string, error: unknown) {
+  const message = error instanceof Error ? error.message : "命令后台执行失败";
+  await prisma.commandRequest.update({
+    where: { id: commandRequestId },
+    data: { status: "FAILED" },
+  });
+  await prisma.commandTarget.updateMany({
+    where: { commandRequestId, status: "RUNNING" },
+    data: {
+      status: "FAILED",
+      stderr: message,
+      exitCode: 255,
+      finishedAt: new Date(),
+    },
+  });
+  await prisma.executionLog.create({
+    data: {
+      commandRequestId,
+      serverId: null,
+      summary: `命令后台执行器启动失败：${message}`,
+    },
+  });
+}
+
+function scheduleCommandExecution(commandRequestId: string) {
+  void executeAndFinalizeCommand(commandRequestId).catch((error) => {
+    markCommandExecutionFailed(commandRequestId, error).catch(() => {});
+  });
+}
+
+async function enqueueApprovedCommandExecution(commandRequestId: string, summary: string) {
+  await prisma.commandRequest.update({
+    where: { id: commandRequestId },
+    data: { status: "RUNNING" },
+  });
+  await markTargetsRunning(commandRequestId);
+  await prisma.executionLog.create({
+    data: {
+      commandRequestId,
+      serverId: null,
+      summary,
+    },
+  });
+  scheduleCommandExecution(commandRequestId);
 }
 
 function mapCommandRequest(
@@ -514,39 +567,15 @@ export async function createCommandRequest(input: CreateCommandInput) {
   });
 
   if (!requiresApproval) {
-    await markTargetsRunning(commandRequest.id);
-    const { totalCount, completedCount } = await executeTargets(
+    await enqueueApprovedCommandExecution(
       commandRequest.id,
+      "站内用户操作已进入后台 SSH 执行队列，可在任务中心查看各节点状态。",
     );
 
-    const finalStatus =
-      totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
-    await prisma.commandRequest.update({
-      where: { id: commandRequest.id },
-      data: { status: finalStatus },
-    });
-
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId: commandRequest.id,
-        serverId: null,
-        summary:
-          completedCount === totalCount && totalCount > 0
-            ? `站内用户操作已直接进入真实 SSH 执行流程，成功完成 ${completedCount}/${totalCount} 个目标。`
-            : completedCount > 0
-              ? `站内用户操作已进入真实 SSH 执行流程，但仅完成 ${completedCount}/${totalCount} 个目标，请查看失败节点日志。`
-              : totalCount > 0
-                ? `站内用户操作已进入真实 SSH 执行流程，但 ${totalCount} 个目标均执行失败。`
-                : "站内用户操作已进入执行流程，但未找到可执行目标。",
-      },
-    });
-
-    // Notify requester of command result (no-approval flow)
-    notifyCommandResult(
-      payload.requesterId,
-      payload.title,
-      completedCount > 0 ? "completed" : "failed",
-    ).catch(() => {});
+    // Notify requester that command execution has started; final status will be visible on the task row/logs.
+    notifyCommandResult(payload.requesterId, payload.title, "approved").catch(
+      () => {},
+    );
   } else {
     // Notify admins about pending command approval
     notifyCommandPending(payload.requesterId, payload.title).catch(() => {});
@@ -586,32 +615,19 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
   });
 
   if (payload.approved) {
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId: payload.commandRequestId,
-        serverId: null,
-        summary: "命令审批已通过，任务正在进入真实 SSH 执行器。",
-      },
-    });
-
     // Notify requester: command approved
     notifyCommandResult(request.requesterId, request.title, "approved").catch(
       () => {},
     );
 
-    await runApprovedCommand(payload.commandRequestId);
+    await enqueueApprovedCommandExecution(
+      payload.commandRequestId,
+      "命令审批已通过，任务已进入后台 SSH 执行队列。",
+    );
 
-    // After execution, notify requester of the final result
-    const finalRequest = await prisma.commandRequest.findUniqueOrThrow({
+    return prisma.commandRequest.findUniqueOrThrow({
       where: { id: payload.commandRequestId },
     });
-    notifyCommandResult(
-      request.requesterId,
-      request.title,
-      finalRequest.status === "COMPLETED" ? "completed" : "failed",
-    ).catch(() => {});
-
-    return finalRequest;
   }
 
   await prisma.commandTarget.updateMany({

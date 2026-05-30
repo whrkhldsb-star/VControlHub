@@ -55,6 +55,7 @@ import { createCommandRequest, listCommandRequests, reviewCommandRequest } from 
 describe("command service execution flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     process.env.COMMAND_DEMO_FALLBACK = "false";
     delete process.env.NEXT_PUBLIC_DEMO_MODE;
     delete process.env.DEMO_MODE;
@@ -71,7 +72,7 @@ describe("command service execution flow", () => {
     });
   });
 
-  it("executes immediately for user-initiated requests", async () => {
+  it("enqueues user-initiated execution without blocking the API caller", async () => {
     mockPrisma.commandRequest.create.mockResolvedValue({
       id: "req_user_1",
       status: "APPROVED",
@@ -93,7 +94,8 @@ describe("command service execution flow", () => {
         commandRequest: { command: "uptime" },
       },
     ]);
-    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_user_1", status: "COMPLETED" });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_user_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_user_1", targets: [{ id: "target_1" }] });
 
     const result = await createCommandRequest({
       title: "Run uptime",
@@ -108,10 +110,21 @@ describe("command service execution flow", () => {
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { commandRequestId: "req_user_1" } }),
     );
+    expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          commandRequestId: "req_user_1",
+          summary: expect.stringContaining("后台 SSH 执行队列"),
+        }),
+      }),
+    );
+    expect(mockPrisma.commandTarget.update).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
     expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "target_1" } }),
     );
-    expect(mockPrisma.executionLog.create).toHaveBeenCalledTimes(2);
     expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
       where: { id: "req_user_1" },
       data: { status: "COMPLETED" },
@@ -141,7 +154,8 @@ describe("command service execution flow", () => {
         commandRequest: { command: "uptime" },
       },
     ]);
-    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_pw_1", status: "COMPLETED" });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_pw_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_pw_1", targets: [{ id: "target_pw_1" }] });
 
     await createCommandRequest({
       title: "Run uptime",
@@ -151,14 +165,13 @@ describe("command service execution flow", () => {
       serverIds: ["srv_pw_1"],
     });
 
-    // SSH password is now passed via SSHPASS env var (not -p flag) to avoid /proc/cmdline leak
-    expect(spawnMock).toHaveBeenCalledWith(
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledWith(
       "sshpass",
       expect.arrayContaining(["-e", "ssh"]),
       expect.objectContaining({
         env: expect.objectContaining({ SSHPASS: "plain-secret" }),
       }),
-    );
+    ));
   });
 
   it("normalizes duplicate command targets before creating approval/execution rows", async () => {
@@ -259,7 +272,8 @@ describe("command service execution flow", () => {
         });
         return child;
       });
-    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_partial_1", status: "FAILED" });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_partial_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_partial_1", targets: [{ id: "target_ok" }, { id: "target_fail" }] });
 
     await createCommandRequest({
       title: "Deploy",
@@ -269,10 +283,12 @@ describe("command service execution flow", () => {
       serverIds: ["srv_ok", "srv_fail"],
     });
 
-    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_partial_1" },
-      data: { status: "FAILED" },
-    });
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+        where: { id: "req_partial_1" },
+        data: { status: "FAILED" },
+      }),
+    );
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -284,12 +300,15 @@ describe("command service execution flow", () => {
     );
   });
 
-  it("approves assistant request and advances execution flow", async () => {
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_assistant_1", status: "PENDING_APPROVAL" });
+  it("approves assistant request and enqueues execution without blocking review", async () => {
+    mockPrisma.commandRequest.findUnique
+      .mockResolvedValueOnce({ id: "req_assistant_1", status: "PENDING_APPROVAL" })
+      .mockResolvedValueOnce({ id: "req_assistant_1", targets: [{ id: "target_2" }] });
     mockPrisma.commandRequest.update
       .mockResolvedValueOnce({ id: "req_assistant_1", status: "APPROVED" })
       .mockResolvedValueOnce({ id: "req_assistant_1", status: "RUNNING" })
       .mockResolvedValueOnce({ id: "req_assistant_1", status: "COMPLETED" });
+    mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValue({ id: "req_assistant_1", status: "RUNNING" });
     mockPrisma.commandTarget.findMany.mockResolvedValue([
       {
         id: "target_2",
@@ -306,7 +325,6 @@ describe("command service execution flow", () => {
         commandRequest: { command: "systemctl restart nginx" },
       },
     ]);
-    mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValue({ id: "req_assistant_1", status: "COMPLETED" });
 
     const result = await reviewCommandRequest({
       commandRequestId: "req_assistant_1",
@@ -315,21 +333,25 @@ describe("command service execution flow", () => {
       comment: "ok",
     });
 
-    expect(result.status).toBe("COMPLETED");
+    expect(result.status).toBe("RUNNING");
     expect(mockPrisma.commandApproval.create).toHaveBeenCalled();
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { commandRequestId: "req_assistant_1" } }),
     );
-    expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "target_2" } }),
-    );
+    expect(mockPrisma.commandTarget.update).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
     expect(mockPrisma.executionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           commandRequestId: "req_assistant_1",
-          summary: "命令审批已通过，任务正在进入真实 SSH 执行器。",
+          summary: "命令审批已通过，任务已进入后台 SSH 执行队列。",
         }),
       }),
+    );
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
+    expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "target_2" } }),
     );
   });
 

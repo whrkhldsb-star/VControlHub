@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T06:38:05Z",
+  "updatedAt": "2026-05-30T07:03:49Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,35 +43,36 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Full Vitest suite passed: 170 files / 675 tests",
+    "tests": "Targeted command/deployment/operation-task/API tests passed: command service 8/8 plus neighboring tests 17/17",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; major unauth HTML/API probes returned 307/401/200 instead of 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands and /api/deployments returned 401; /operation-tasks and /deployments returned 307; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T06:38:05Z",
-    "target": "Fresh comprehensive audit checkpoint",
-    "status": "fresh_audit_completed_committed",
-    "commit": "15dbc94",
-    "summary": "Performed the due fresh audit checkpoint after six successful remediation runs. No overlapping remediation/build/test process was found, git was clean before the audit, production services were active, /api/status was healthy, major protected pages and APIs returned expected 307/401/200 responses without 500s, recent service logs had no error/warn matches, and the full quality gate passed. No code defect requiring an immediate fix was found in this checkpoint; backlog/state were refreshed.",
+    "finishedAt": "2026-05-30T07:03:49Z",
+    "target": "P6 command/deployment SSH execution decoupling stage 1",
+    "status": "validated_deployed_pending_commit",
+    "commit": null,
+    "summary": "Approved/direct command requests now transition to RUNNING, mark targets RUNNING, write an enqueue log, and return to API/review/deployment callers before SSH target execution finalizes asynchronously in-process. This is the first deployable slice of moving command/deployment execution out of synchronous API paths; durable worker cancellation/timeouts remain on the backlog.",
     "validation": [
-      "git status --short clean before audit",
-      "pgrep overlap check found no previous remediation/build/test process other than the check itself",
-      "systemctl is-active vcontrolhub-next.service vcontrolhub-ssh-ws.service returned active/active",
-      "curl http://127.0.0.1:3000/api/status returned healthy",
-      "HTTPS probes for /, /servers, /files, /downloads, /quick-services, /health, /monitoring, /deployments, /backups returned 307; /api/status 200; protected APIs 401",
-      "recent production service logs checked with no error/warn matches",
+      "git status checked clean before work",
+      "no overlapping remediation/build/test process found other than the preflight check itself",
+      "npx vitest run src/lib/command/__tests__/service.test.ts passed 8/8",
+      "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 17/17",
       "npm run typecheck",
       "npm run lint",
-      "npm test (170 files / 675 tests)",
       "npm run build",
       "npm run build:runtime",
+      "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded; both active",
+      "curl http://127.0.0.1:3000/api/status healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
+      "production probes: /api/status 200, /api/commands 401, /api/deployments 401, /operation-tasks 307, /deployments 307",
+      "recent production logs checked with no error/warn matches",
       "git diff --check"
     ],
-    "deployment": "No code/runtime change was made in this audit checkpoint, so no production restart was required; current production services were verified active and smoke-tested successfully.",
-    "nextTarget": "Continue with the remaining P6 command/deployment background-task architecture hardening, or split out smaller deployable performance/availability slices discovered in the next backlog-driven pass."
+    "deployment": "Production services restarted and smoke-tested successfully.",
+    "nextTarget": "Continue P6 durable command/deployment background worker model: persistence across restarts, explicit timeouts/output limits, cancellation controls, and task status reconciliation."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -86,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []
