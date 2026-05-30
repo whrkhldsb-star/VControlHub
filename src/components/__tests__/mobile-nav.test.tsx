@@ -21,8 +21,15 @@ describe("MobileNav", () => {
 	it("does not expose stale routes in mobile bottom navigation", () => {
 		const hrefs = getMobileNavTabs().map((tab) => tab.href);
 
+		expect(hrefs).toEqual(["/", "/servers", "/traffic", "/files", "/settings"]);
 		expect(hrefs).not.toContain("/more");
 		expect(hrefs).toContain("/settings");
+	});
+
+	it("derives mobile tabs by stable hrefs instead of fragile main-nav indexes", () => {
+		const labels = getMobileNavTabs().map((tab) => tab.fallbackLabel);
+
+		expect(labels).toEqual(["仪表盘", "VPS 管理", "流量中心", "文件管理", "系统设置"]);
 	});
 
 	it("renders a working settings entry instead of a missing more page", () => {

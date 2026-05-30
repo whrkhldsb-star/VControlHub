@@ -68,10 +68,12 @@ export const systemNavItems: AppNavItem[] = [
 	{ href: "/audit", labelKey: "nav.audit", fallbackLabel: "审计日志", icon: <IconAudit /> },
 ];
 
-export const mobileNavItems: AppNavItem[] = [
-	mainNavItems[0],
-	mainNavItems[1],
-	mainNavItems[3],
-	mainNavItems[4],
-	mainNavItems[22],
-];
+const mobileNavHrefs = ["/", "/servers", "/traffic", "/files", "/settings"] as const;
+
+export const mobileNavItems: AppNavItem[] = mobileNavHrefs.map((href) => {
+	const item = mainNavItems.find((navItem) => navItem.href === href);
+	if (!item) {
+		throw new Error(`Missing mobile navigation item for href: ${href}`);
+	}
+	return item;
+});

@@ -52,8 +52,9 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## P4 — UI availability and polish
 
-- [ ] Replace mobile nav index references in `src/components/nav-items.tsx` with href-based selection; confirm intended bottom items.
-- [ ] Replace remaining `window.location.reload()` in server actions/forms with `router.refresh()` or local state refresh: `server-card-actions`, `create-announcement-form`, `create-ticket-form`.
+- [x] 2026-05-30 — Replace mobile nav index references in `src/components/nav-items.tsx` with stable href-based selection and regression coverage for the intended bottom items (`/`, `/servers`, `/traffic`, `/files`, `/settings`). Verification: targeted mobile-nav/component tests, full Vitest suite 163 files / 640 tests, typecheck, lint, build, runtime build, production restart, smoke 19/19, route probes passed. Commit pending in current run.
+- [x] 2026-05-30 — Replace `window.location.reload()` in announcement and ticket creation forms with App Router `router.refresh()` so successful submissions update server-rendered lists without a full page reload. Verification: new form regressions prove `router.refresh()` is called after successful CSRF POST; targeted tests, full Vitest suite, typecheck, lint, build, runtime build, production restart, smoke 19/19 passed. Commit pending in current run.
+- [ ] Replace remaining `window.location.reload()` in two-factor settings with `router.refresh()` or local state refresh.
 - [ ] Add empty state for SFTP browser when no SFTP nodes exist, with link/action to create storage node.
 - [ ] Improve monitoring page error state with error reason and retry button.
 - [ ] Make Health dashboard auto-refresh respect global/user refresh preferences instead of fixed 30s.

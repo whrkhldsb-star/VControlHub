@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 export function CreateAnnouncementForm() {
+	const router = useRouter();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ export function CreateAnnouncementForm() {
 				}),
 			});
 			form.reset();
-			window.location.reload();
+			router.refresh();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "创建失败");
 		} finally {

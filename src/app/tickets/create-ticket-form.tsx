@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState } from "react";
+import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 export function CreateTicketForm() {
+	const router = useRouter();
 	const [state, formAction, pending] = useActionState(async (_prev: { error?: string } | null, formData: FormData) => {
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
@@ -15,7 +17,7 @@ export function CreateTicketForm() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ subject: title, description, priority }),
 			});
-			window.location.reload();
+			router.refresh();
 			return null;
 		} catch (err) {
 			return { error: err instanceof Error ? err.message : "创建失败" };
