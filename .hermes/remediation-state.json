@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T12:55:28Z",
+  "updatedAt": "2026-05-30T16:12:53Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,10 +50,10 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; operation task/requests/deployment probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T12:55:28Z",
+    "finishedAt": "2026-05-30T16:12:53Z",
     "target": "P6 durable command/deployment background-worker architecture: operator-visible worker ownership/heartbeat diagnostics in Task Center",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed",
+    "commit": "47f159b",
     "summary": "Added workerId/workerHeartbeatAt metadata to Operation Task aggregation for command and deployment-backed tasks, rendered worker badges and heartbeat context in the Operation Tasks UI, and added service/client regressions so operators can see which in-process worker owns running command/deployment work.",
     "validation": [
       "read remediation backlog/state first",
