@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T01:10:00Z",
+  "updatedAt": "2026-05-30T01:12:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -9,7 +9,15 @@
     "currentRemediationJob": "Backlog-driven remediation, optimization, and upgrade loop based on .hermes/remediation-backlog.md."
   },
   "sourceOfTruth": ".hermes/remediation-backlog.md",
-  "priorityOrder": ["P0", "P1", "P2", "P3", "P4", "P5", "P6"],
+  "priorityOrder": [
+    "P0",
+    "P1",
+    "P2",
+    "P3",
+    "P4",
+    "P5",
+    "P6"
+  ],
   "schedule": "every 10m",
   "nonOverlapPolicy": "If the previous remediation run is still active, skip the current tick instead of starting another fix run.",
   "freshAuditPolicy": {
@@ -42,10 +50,10 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; /api/quick-services returned 401 without 500; no recent warning/error logs"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T01:10:00Z",
+    "finishedAt": "2026-05-30T01:12:00Z",
     "target": "P3 Quick Services lifecycle task locking",
-    "status": "deployed_verified_commit_pending",
-    "commit": null,
+    "status": "deployed_verified_committed_pushed",
+    "commit": "7b3c3ec",
     "summary": "Added a same-slug Quick Services lifecycle lock plus installing-state guard so install/start/stop/uninstall cannot race each other or mutate Docker/DB while an install is still in progress.",
     "validation": [
       "npx vitest run src/lib/quick-service/__tests__/service.test.ts src/app/api/quick-services/__tests__/route.test.ts src/lib/auth/__tests__/rbac.test.ts prisma/__tests__/seed.test.ts",
@@ -68,7 +76,10 @@
     "mustUpdateState": true,
     "mustReport": true,
     "commitAfterDeployOnly": true,
-    "deployServices": ["vcontrolhub-next.service", "vcontrolhub-ssh-ws.service"],
+    "deployServices": [
+      "vcontrolhub-next.service",
+      "vcontrolhub-ssh-ws.service"
+    ],
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
