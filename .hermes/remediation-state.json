@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T01:51:41Z",
+  "updatedAt": "2026-05-30T01:52:37Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,10 +50,10 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status ready; /announcements and /tickets returned 307 redirects; /api/announcements and /api/tickets returned 401 without 500; no recent warning/error logs"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T01:51:41Z",
+    "finishedAt": "2026-05-30T01:52:37Z",
     "target": "P4 UI availability and polish: mobile nav stability plus non-reloading create forms",
-    "status": "deployed_verified_commit_pending",
-    "commit": null,
+    "status": "deployed_verified_committed_push_pending",
+    "commit": "3bc6bbf",
     "summary": "Replaced fragile mobile bottom-nav array indexes with stable href-based selection and replaced announcement/ticket creation full page reloads with App Router refreshes, adding regressions for each behavior.",
     "validation": [
       "npx vitest run src/components/__tests__/mobile-nav.test.tsx src/app/announcements/__tests__/create-announcement-form.test.tsx src/app/tickets/__tests__/create-ticket-form.test.tsx",
