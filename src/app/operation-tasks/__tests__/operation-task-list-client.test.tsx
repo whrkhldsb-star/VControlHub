@@ -21,6 +21,9 @@ const initialTasks: OperationTask[] = [
     updatedAt: "2026-01-01T00:00:00.000Z",
     actor: "alice",
     href: "/requests",
+    workerId: "worker-1",
+    workerHeartbeatAt: "2026-01-01T00:01:00.000Z",
+    progress: "后台执行器 worker-1 · 心跳 2026/1/1 08:01:00",
   },
 ];
 
@@ -36,6 +39,8 @@ describe("OperationTaskListClient", () => {
     render(<OperationTaskListClient initialTasks={initialTasks} />);
 
     expect(screen.getByText("重启服务")).toBeInTheDocument();
+    expect(screen.getByText("worker worker-1")).toBeInTheDocument();
+    expect(screen.getByText(/后台执行器 worker-1/)).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "刷新" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("任务中心刷新失败");

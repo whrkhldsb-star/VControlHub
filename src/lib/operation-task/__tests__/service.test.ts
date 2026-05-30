@@ -19,7 +19,16 @@ describe("operation task service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.commandRequest.findMany.mockResolvedValue([
-      { id: "cmd1", title: "重启服务", status: "PENDING_APPROVAL", createdAt: new Date("2026-01-01T00:00:00Z"), updatedAt: new Date("2026-01-01T00:00:00Z"), requester: { username: "alice", displayName: null } },
+      {
+        id: "cmd1",
+        title: "重启服务",
+        status: "PENDING_APPROVAL",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+        workerId: null,
+        workerHeartbeatAt: null,
+        requester: { username: "alice", displayName: null },
+      },
     ]);
     mockPrisma.scheduledTask.findMany.mockResolvedValue([]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([
@@ -35,7 +44,7 @@ describe("operation task service", () => {
 
     expect(tasks.map((task) => task.id)).toEqual(["download:dl1", "command:cmd1"]);
     expect(tasks[0]).toMatchObject({ source: "download", status: "running", progress: "50%" });
-    expect(tasks[1]).toMatchObject({ source: "command", status: "pending" });
+    expect(tasks[1]).toMatchObject({ source: "command", status: "pending", workerId: null, workerHeartbeatAt: null });
   });
 
   it("maps active deployment command requests as running operation tasks", async () => {
@@ -49,7 +58,12 @@ describe("operation task service", () => {
         updatedAt: new Date("2026-01-03T00:00:00Z"),
         template: { name: "Deploy app" },
         creator: { username: "ops", displayName: null },
-        commandRequest: { status: "APPROVED" },
+        commandRequest: {
+          status: "APPROVED",
+          workerId: "worker-1",
+          workerHeartbeatAt: new Date("2026-01-03T00:01:00Z"),
+          updatedAt: new Date("2026-01-03T00:01:00Z"),
+        },
       },
     ]);
 
@@ -62,6 +76,9 @@ describe("operation task service", () => {
         title: "Deploy app",
         status: "running",
         actor: "ops",
+        progress: expect.stringContaining("后台执行器 worker-1"),
+        workerId: "worker-1",
+        workerHeartbeatAt: "2026-01-03T00:01:00.000Z",
         href: "/deployments",
       }),
     ]);

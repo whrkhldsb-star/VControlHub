@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T12:38:03Z",
+  "updatedAt": "2026-05-30T12:55:28Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,36 +43,35 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Full Vitest passed: 172 files / 698 tests during fresh-audit checkpoint",
+    "tests": "Operation Task service/client regressions passed: 3 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; major HTML/API probes returned 307/401/200; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; operation task/requests/deployment probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T12:38:03Z",
-    "target": "Fresh comprehensive audit checkpoint after six successful remediation runs",
-    "status": "fresh_audit_checkpoint_completed_committed",
-    "commit": "f6be706",
-    "summary": "No code/runtime changes were required in this checkpoint. Verified clean git/remote baseline, production availability, route probes, recent logs, and the full local quality gate. Backlog was refreshed with the checkpoint and the remaining priority remains P6 operator-visible worker diagnostics/richer command task reconciliation before the next full post-backlog audit.",
+    "finishedAt": "2026-05-30T12:55:28Z",
+    "target": "P6 durable command/deployment background-worker architecture: operator-visible worker ownership/heartbeat diagnostics in Task Center",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Added workerId/workerHeartbeatAt metadata to Operation Task aggregation for command and deployment-backed tasks, rendered worker badges and heartbeat context in the Operation Tasks UI, and added service/client regressions so operators can see which in-process worker owns running command/deployment work.",
     "validation": [
       "read remediation backlog/state first",
-      "git status and overlap process check before work",
-      "production services active before work",
-      "HEAD matched origin/main at start",
-      "curl http://127.0.0.1:3000/api/status returned 200",
+      "git status before work",
+      "npx vitest run src/lib/operation-task/__tests__/service.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx passed 3/3",
       "npm run typecheck passed",
       "npm run lint passed",
-      "npm test passed: 172 files / 698 tests",
       "npm run build passed",
       "npm run build:runtime passed",
+      "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded and both services active",
+      "curl http://127.0.0.1:3000/api/status returned 200",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: / 307, /api/status 200, /api/commands 401, /operation-tasks 307, /deployments 307, /health 307, /quick-services 307, /files 307, /api/downloads 401, /api/system-health 401",
+      "production probes: /api/status 200, /api/operation-tasks 401, /operation-tasks 307, /requests 307, /deployments 307",
       "recent production logs checked with no error/warn matches",
       "git diff --check passed"
     ],
-    "deployment": "No restart was necessary because this checkpoint made no code/runtime change; smoke and route probes validated current deployed services.",
-    "nextTarget": "P6 durable command/deployment background-worker architecture: operator-visible worker ownership/heartbeat diagnostics and richer restart-surviving task reconciliation."
+    "deployment": "Production services restarted and smoke/route probes passed.",
+    "nextTarget": "P6 durable command/deployment background-worker architecture: richer restart-surviving queue claim diagnostics/reconciliation history beyond Task Center worker ownership display."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +86,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []
