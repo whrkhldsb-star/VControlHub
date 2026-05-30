@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T10:24:14Z",
     "target": "P6 Quick Services catalog/list query bounds",
-    "status": "validated_deployed_pending_commit",
-    "commit": null,
+    "status": "validated_deployed_committed",
+    "commit": "c0423fa",
     "summary": "Bounded Quick Services installed-service listing, remote app catalog hydration, and enabled app-source enumeration so catalog/API responses cannot grow without limit as operators add services or external app sources.",
     "validation": [
       "read remediation backlog/state first",
