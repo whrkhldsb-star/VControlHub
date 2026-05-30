@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T19:27:15Z",
+  "updatedAt": "2026-05-30T21:05:38Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,22 +44,22 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Files page/file-list regressions passed: 21 tests",
+    "tests": "Storage access plus Files page/API/client regressions passed: 26 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /files 307; /api/files/list 401; /api/storage/sftp 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T19:24:55Z",
-    "target": "P2 file manager ergonomics from fresh-audit findings",
-    "status": "completed_verified_deployed_committed_pushed",
-    "commit": "a3c6afc",
-    "summary": "File manager size sorting now uses numeric bytes from page/API payloads, selected files are cleared when directory/search scope changes, sort icon buttons are accessible by label, and batch selection checkboxes are visible without hover-only discovery.",
+    "finishedAt": "2026-05-30T21:05:38Z",
+    "target": "P1 storage/file permission UI capabilities from fresh-audit findings",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Files page initial payload and /api/files/list SPA refreshes now serialize per-entry storage read/write/delete capabilities from explicit UserStorageAccess grants; the file browser hides preview/download, rename/move/edit, delete, and batch selection controls when the current entry capability does not allow the action.",
     "validation": [
       "read remediation backlog/state first",
-      "continued existing dirty file-manager batch instead of starting a new topic",
-      "npx vitest run src/app/files/__tests__/file-list-client.test.tsx src/app/files/__tests__/files-browser-spa.test.tsx src/app/files/__tests__/page.test.tsx passed 21/21",
+      "continued existing dirty storage/file permission capability batch instead of starting a new topic",
+      "npx vitest run src/app/api/files/list/__tests__/route.test.ts src/app/files/__tests__/page.test.tsx src/app/files/__tests__/file-list-client.test.tsx src/lib/storage/__tests__/access-control.test.ts passed 26/26",
       "npm run typecheck -- --pretty false passed",
       "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
       "npm run build passed",
@@ -71,8 +71,8 @@
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed; functional commit a3c6afc and bookkeeping commit pushed to origin/main.",
-    "nextTarget": "Continue remaining fresh-audit P1 storage sync/taskification or storage/file permission UI gating."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Commit/push is the remaining closeout step for this run.",
+    "nextTarget": "Commit/push this verified batch, then continue remaining fresh-audit P1 storage sync/taskification or P2 destructive modal/accessibility polish."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": []
