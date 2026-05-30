@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import MonitoringPage from "../page";
+import MonitoringPageClient from "../monitoring-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/components/page-shell", () => ({
@@ -40,7 +40,7 @@ describe("MonitoringPage", () => {
       .mockRejectedValueOnce(new Error("监控采集命令超时"))
       .mockResolvedValueOnce(stats);
 
-    render(<MonitoringPage />);
+    render(<MonitoringPageClient />);
 
     expect(await screen.findByText("无法获取监控数据")).toBeInTheDocument();
     expect(screen.getByText("监控采集命令超时")).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("MonitoringPage", () => {
       .mockResolvedValueOnce(stats)
       .mockRejectedValueOnce(new Error("刷新失败：权限不足"));
 
-    render(<MonitoringPage />);
+    render(<MonitoringPageClient />);
 
     expect(await screen.findByText("vps-1")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "刷新" }));

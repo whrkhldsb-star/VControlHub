@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import PreferencesPage from "../page";
+import PreferencesPageClient from "../preferences-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/components/page-shell", () => ({
@@ -34,7 +34,7 @@ describe("PreferencesPage", () => {
 	it("surfaces preference load failures instead of silently showing defaults", async () => {
 		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("偏好接口不可用"));
 
-		render(<PreferencesPage />);
+		render(<PreferencesPageClient />);
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("偏好接口不可用");
 		expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("PreferencesPage", () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce(serverPrefs).mockRejectedValueOnce(new Error("偏好设置保存失败"));
 
-		render(<PreferencesPage />);
+		render(<PreferencesPageClient />);
 
 		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "服务器管理" }));

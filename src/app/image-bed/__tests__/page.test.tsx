@@ -8,7 +8,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import ImageBedPage from "../page";
+import ImageBedPageClient from "../image-bed-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("next/image", () => ({
@@ -47,7 +47,7 @@ describe("ImageBedPage", () => {
 
   it("loads local storage nodes through the supported API when opening cloud publish", async () => {
     const user = userEvent.setup();
-    render(<ImageBedPage />);
+    render(<ImageBedPageClient />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
@@ -71,7 +71,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPage />);
+    render(<ImageBedPageClient />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
@@ -96,7 +96,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPage />);
+    render(<ImageBedPageClient />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     const input = document.querySelector(
@@ -158,7 +158,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPage />);
+    render(<ImageBedPageClient />);
 
     await screen.findByText("cat.png");
     await user.click(screen.getByTitle("删除"));
@@ -232,7 +232,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPage />);
+    render(<ImageBedPageClient />);
 
     await screen.findByText("cat.png");
     await user.click(screen.getByRole("button", { name: "☐ 批量模式" }));
@@ -298,7 +298,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPage />);
+    render(<ImageBedPageClient />);
 
     await screen.findByText("private-cat.png");
     expect(screen.getByText("私有")).toBeInTheDocument();

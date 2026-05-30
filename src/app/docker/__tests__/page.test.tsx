@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import DockerPage from "../page";
+import DockerPageClient from "../docker-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/components/page-shell", () => ({
@@ -42,7 +42,7 @@ describe("DockerPage", () => {
 			return { data: [runningContainer] };
 		});
 
-		render(<DockerPage />);
+		render(<DockerPageClient />);
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "停止" }));
@@ -61,7 +61,7 @@ describe("DockerPage", () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");
 
-		render(<DockerPage />);
+		render(<DockerPageClient />);
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "删除" }));
@@ -84,7 +84,7 @@ describe("DockerPage", () => {
 	it("submits the remove action only after the in-app confirmation", async () => {
 		const user = userEvent.setup();
 
-		render(<DockerPage />);
+		render(<DockerPageClient />);
 
 		expect(await screen.findByText("web")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "删除" }));

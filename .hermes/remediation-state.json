@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T17:06:39Z",
+  "updatedAt": "2026-05-30T17:14:12Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,34 +43,35 @@
   "lastHealthyBaseline": {
     "date": "2026-05-30",
     "typecheck": "passed",
-    "lint": "passed",
-    "tests": "Operation Task service/client regressions passed: 3 tests",
+    "lint": "passed with existing client-effect warnings",
+    "tests": "Client/page guard regressions passed: 15 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; operation task/requests/deployment probes returned 401/307/200; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; guarded page probes returned 307; related API probes returned 401/200 without 500; recent service logs clean except known Next standalone startup warning"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T17:02:39Z",
-    "target": "Manual comprehensive audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, and logs",
-    "status": "audit_completed_backlog_refreshed_not_deployed",
+    "finishedAt": "2026-05-30T17:14:12Z",
+    "target": "P1 server-side guards for client-heavy pages from fresh-audit findings",
+    "status": "completed_verified_deployed_pending_commit",
     "commit": null,
-    "summary": "Manual audit completed after the high-priority backlog became effectively complete. Production services and route probes were healthy, full quality gate passed, and new P1/P2/P3 findings were recorded in remediation-backlog.md for the next backlog-driven runs.",
+    "summary": "Added server-side session/permission wrappers around monitoring, traffic, docker, preferences, api-docs, and image-bed pages, moving browser behavior into explicit client components so unauthorized users do not land on pages that only fail after client API calls.",
     "validation": [
       "read remediation backlog/state first",
-      "paused current remediation cron job b8833e83bb1f to avoid overlap",
       "git status and recent history checked",
-      "production services vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active",
-      "/api/status returned 200 healthy",
-      "major unauthenticated page/API probes returned 307/401/200 without 500",
-      "recent production logs checked with no error/warn matches",
-      "npm run typecheck, npm run lint, npm test, npm run build, npm run build:runtime passed",
-      "backend/API/data-access audit findings reviewed",
-      "frontend/real-user-path audit findings reviewed",
-      "remediation-backlog.md refreshed with new manual audit findings"
+      "npx vitest run src/app/docker/__tests__/page.test.tsx src/app/monitoring/__tests__/page.test.tsx src/app/preferences/__tests__/page.test.tsx src/app/api-docs/__tests__/page.test.tsx src/app/image-bed/__tests__/page.test.tsx passed 15/15",
+      "npm run typecheck passed",
+      "npm run lint passed with existing react-hooks/set-state-in-effect warnings in moved client components",
+      "npm run build passed",
+      "npm run build:runtime passed",
+      "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
+      "http://127.0.0.1:3000/api/status returned healthy",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
+      "production probes for guarded pages returned 307 and related APIs returned 401/200 without 500",
+      "recent production logs checked; no new error entries, only known Next standalone startup warning"
     ],
-    "deployment": "No code deployment performed; this run refreshed the remediation checklist only.",
-    "nextTarget": "Continue backlog remediation from the new manual audit findings, then after all current checklist items are complete run another broad detailed overall site audit and refresh the backlog before continuing."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed.",
+    "nextTarget": "Continue remaining fresh-audit P1 items, starting with global search/navigation completeness or preference fields that are saved but not consumed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -85,7 +86,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []

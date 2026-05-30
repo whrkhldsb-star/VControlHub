@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import ApiDocsPage from "../page";
+import ApiDocsPageClient from "../api-docs-page-client";
 
 const spec = {
 	info: { description: "本地 API 说明" },
@@ -25,7 +25,7 @@ describe("ApiDocsPage", () => {
 			json: async () => spec,
 		} as Response);
 
-		render(<ApiDocsPage />);
+		render(<ApiDocsPageClient />);
 
 		expect(await screen.findByRole("heading", { name: "API 文档" })).toBeInTheDocument();
 		expect(await screen.findByText("健康检查")).toBeInTheDocument();
