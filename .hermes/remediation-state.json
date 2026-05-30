@@ -53,7 +53,7 @@
   "lastRun": {
     "finishedAt": "2026-05-30T21:37:29Z",
     "target": "P2 accessible modal confirmations replacing raw browser dialogs",
-    "status": "completed_verified_deployed_committed_pending_push",
+    "status": "completed_verified_deployed_committed_pushed",
     "commit": "de07c57",
     "summary": "Replaced raw browser confirm/prompt usage in shipped destructive/edit flows with accessible in-app dialogs and explicit success/error feedback: backup restore typed RESTORE modal, announcement/snippet delete confirmation dialogs with toast/error states, and AI conversation rename modal.",
     "validation": [
@@ -72,7 +72,7 @@
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit de07c57 created; push pending.",
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit de07c57 and bookkeeping commit pushed to origin/main.",
     "nextTarget": "Because this is the 6th successful remediation run since the last fresh audit, perform a comprehensive fresh audit after committing this batch."
   },
   "runPolicy": {
