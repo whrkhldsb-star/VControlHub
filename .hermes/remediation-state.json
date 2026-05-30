@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T17:02:39Z",
+  "updatedAt": "2026-05-30T17:06:39Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -23,7 +23,8 @@
   "freshAuditPolicy": {
     "afterSuccessfulRuns": 6,
     "afterBacklogCompleted": true,
-    "action": "Run comprehensive audit, update remediation-backlog.md with newly discovered or reprioritized issues, then continue remediation."
+    "action": "Run comprehensive audit, update remediation-backlog.md with newly discovered or reprioritized issues, then continue remediation.",
+    "completionAuditDetail": "When the current checklist is completed, run a broad detailed audit like the 2026-05-30 manual review: backend/API, frontend/UI, permissions, production behavior, performance/data scale, tests, deployment, logs, navigation, accessibility, and real user journeys; update remediation-backlog.md before continuing."
   },
   "allowedChangeScope": [
     "architecture",
@@ -69,7 +70,7 @@
       "remediation-backlog.md refreshed with new manual audit findings"
     ],
     "deployment": "No code deployment performed; this run refreshed the remediation checklist only.",
-    "nextTarget": "Start with P1 audit findings: server-side guards for client-only pages, global search/navigation completeness, preference/refresh consistency, and SFTP sync/task UX."
+    "nextTarget": "Continue backlog remediation from the new manual audit findings, then after all current checklist items are complete run another broad detailed overall site audit and refresh the backlog before continuing."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
