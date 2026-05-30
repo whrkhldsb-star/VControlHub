@@ -153,6 +153,10 @@ export const EDITABLE_TEXT_EXTENSIONS = new Set([
 
 export const MAX_EDITABLE_FILE_SIZE_BYTES = 512 * 1024;
 
+export const MAX_INLINE_REMOTE_READ_BYTES = 1024 * 1024;
+
+export const MAX_STORAGE_UPLOAD_BYTES = 100 * 1024 * 1024;
+
 /** Is the file previewable in the browser? */
 export function isPreviewableMime(mime: string | null | undefined): boolean {
 	if (!mime) return false;

@@ -20,6 +20,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -220,6 +221,21 @@ async function handlePost(request: Request, session: SessionPayload) {
     return NextResponse.json({ error: "缺少上传文件" }, { status: 400 });
   }
 
+  const declaredFileSize =
+    typeof file.size === "number" && Number.isFinite(file.size) && file.size >= 0
+      ? file.size
+      : null;
+  if (declaredFileSize !== null && declaredFileSize > MAX_STORAGE_UPLOAD_BYTES) {
+    return NextResponse.json(
+      {
+        error: "上传文件超过 100 MB，请使用下载任务或 SFTP 工具传输大文件",
+        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
+        size: declaredFileSize,
+      },
+      { status: 413 },
+    );
+  }
+
   const storageNode = await prisma.storageNode.findUnique({
     where: { id: storageNodeId },
     select: {
@@ -275,12 +291,18 @@ async function handlePost(request: Request, session: SessionPayload) {
   }
 
   const fileBuffer = Buffer.from(await file.arrayBuffer());
+  if (fileBuffer.byteLength > MAX_STORAGE_UPLOAD_BYTES) {
+    return NextResponse.json(
+      {
+        error: "上传文件超过 100 MB，请使用下载任务或 SFTP 工具传输大文件",
+        maxUploadBytes: MAX_STORAGE_UPLOAD_BYTES,
+        size: fileBuffer.byteLength,
+      },
+      { status: 413 },
+    );
+  }
   const byteSize =
-    typeof file.size === "number" &&
-    Number.isFinite(file.size) &&
-    file.size >= 0
-      ? file.size
-      : fileBuffer.byteLength;
+    declaredFileSize !== null ? declaredFileSize : fileBuffer.byteLength;
   const accessDecision = await assertStorageAccess({
     session,
     storageNodeId,

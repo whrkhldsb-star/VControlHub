@@ -22,6 +22,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
 
 const logger = createLogger("api:storage:sftp-ops");
 
@@ -332,10 +333,41 @@ async function handlePost(request: Request, session: SessionPayload) {
       }
 
       case "read": {
+        const indexedEntry = await prisma.fileEntry.findFirst({
+          where: {
+            storageNodeId: node.id,
+            relativePath: normalizedRelativePath,
+            isDeleted: false,
+          },
+          select: { size: true },
+        });
+        const indexedSize = indexedEntry?.size ?? null;
+        if (indexedSize !== null && indexedSize > BigInt(MAX_INLINE_REMOTE_READ_BYTES)) {
+          return NextResponse.json(
+            {
+              error: "文件超过 1 MB，暂不支持在线读取，请使用下载功能",
+              maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
+              size: Number(indexedSize),
+            },
+            { status: 413 },
+          );
+        }
+
         const buffer = await readRemoteFile({
           ...connParams,
           remotePath: normalizedRemotePath,
         });
+
+        if (buffer.byteLength > MAX_INLINE_REMOTE_READ_BYTES) {
+          return NextResponse.json(
+            {
+              error: "文件超过 1 MB，暂不支持在线读取，请使用下载功能",
+              maxInlineBytes: MAX_INLINE_REMOTE_READ_BYTES,
+              size: buffer.byteLength,
+            },
+            { status: 413 },
+          );
+        }
 
         // Try to decode as UTF-8 text; if it fails, fall back to base64
         let content: string;

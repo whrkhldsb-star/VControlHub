@@ -38,10 +38,10 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## P2 — Storage and file-size safety
 
-- [ ] Add SFTP read/preview size limit in `src/app/api/storage/sftp-ops/route.ts`; large files should return a clear error and require download instead of inline read/base64 JSON.
-- [ ] Add local upload pre-read size checks using `File.size`/Content-Length where available before `arrayBuffer()`.
+- [x] 2026-05-30 — Add SFTP read/preview size limit in `src/app/api/storage/sftp-ops/route.ts`; large files now return HTTP 413 with a clear download-oriented error before remote read when indexed size is known, and after read as a fallback when index size is unknown. Verification: storage route regressions, neighboring storage tests, typecheck, lint, build, runtime build, production restart, smoke 19/19, route probes passed.
+- [x] 2026-05-30 — Add local upload pre-read size checks using `File.size` before `arrayBuffer()`; uploads over 100 MB now return HTTP 413 before storage lookup, access checks, disk writes, or SFTP writes. Verification: regression proves `arrayBuffer()` is not called for oversized declared files; storage route regressions, typecheck, lint, build, runtime build, production smoke passed.
 - [ ] Review `src/lib/storage/access-control.ts` default no-grant fallback; migrate toward default deny or a compatibility flag with explicit admin/storage-manager fallback.
-- [ ] Add tests for over-limit SFTP read and over-limit local upload.
+- [x] 2026-05-30 — Add tests for over-limit SFTP read and over-limit local upload. Verification: `npx vitest run src/app/api/storage/sftp-ops/__tests__/route.test.ts src/app/api/storage/local/__tests__/route.test.ts src/lib/storage/__tests__/access-control.test.ts src/lib/storage/__tests__/sftp-sync.test.ts` passed 26/26.
 
 ## P3 — Quick Services permission and task robustness
 

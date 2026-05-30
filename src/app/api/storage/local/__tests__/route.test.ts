@@ -89,14 +89,11 @@ const session = {
   mustChangePassword: false,
 };
 
-function uploadForm(relativePath: string) {
+function uploadForm(relativePath: string, file: File = new File(["hello world"], "notes.txt", { type: "text/plain" })) {
   const formData = new FormData();
   formData.set("storageNodeId", "node_1");
   formData.set("relativePath", relativePath);
-  formData.set(
-    "file",
-    new File(["hello world"], "notes.txt", { type: "text/plain" }),
-  );
+  formData.set("file", file);
   return formData;
 }
 
@@ -255,6 +252,40 @@ describe("/api/storage/local", () => {
         }),
       }),
     );
+  });
+
+  it("rejects oversized uploads before reading the file body into memory", async () => {
+    const file = {
+      name: "huge.bin",
+      type: "application/octet-stream",
+      size: 100 * 1024 * 1024 + 1,
+      arrayBuffer: vi.fn(async () => new ArrayBuffer(1)),
+    };
+    const formData = {
+      get: (key: string) => {
+        if (key === "storageNodeId") return "node_1";
+        if (key === "relativePath") return "huge.bin";
+        if (key === "file") return file;
+        return null;
+      },
+    };
+
+    const response = await POST({
+      url: "https://example.com/api/storage/local",
+      headers: new Headers(),
+      formData: async () => formData,
+    } as unknown as Request);
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("上传文件超过 100 MB"),
+      maxUploadBytes: 100 * 1024 * 1024,
+    });
+    expect(file.arrayBuffer).not.toHaveBeenCalled();
+    expect(prismaMock.storageNode.findUnique).not.toHaveBeenCalled();
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(writeRemoteFileMock).not.toHaveBeenCalled();
   });
 
   it("cleans up SFTP uploads when DB indexing fails after the remote write", async () => {

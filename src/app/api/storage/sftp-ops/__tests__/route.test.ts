@@ -8,6 +8,7 @@ const {
   deleteRemoteFileMock,
   createRemoteDirectoryMock,
   renameRemoteFileMock,
+  readRemoteFileMock,
   writeRemoteFileMock,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
     fileEntry: {
       upsert: vi.fn(),
       updateMany: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
     },
@@ -29,6 +31,7 @@ const {
   deleteRemoteFileMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
   renameRemoteFileMock: vi.fn(),
+  readRemoteFileMock: vi.fn(),
   writeRemoteFileMock: vi.fn(),
 }));
 
@@ -57,7 +60,7 @@ vi.mock("@/lib/ssh/client", () => ({
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
-  readRemoteFile: vi.fn(),
+  readRemoteFile: readRemoteFileMock,
   writeRemoteFile: writeRemoteFileMock,
 }));
 
@@ -220,6 +223,58 @@ describe("/api/storage/sftp-ops", () => {
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "allowed/a.txt" },
       data: { relativePath: "allowed/b.txt", name: "b.txt", isDeleted: false },
+    });
+  });
+
+  it("rejects indexed oversized SFTP reads before downloading the remote file into memory", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+      size: BigInt(1024 * 1024 + 1),
+    });
+
+    const response = await POST(
+      request({
+        action: "read",
+        nodeId: "node_1",
+        path: "large.log",
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("文件超过 1 MB"),
+      maxInlineBytes: 1024 * 1024,
+    });
+    expect(readRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized SFTP reads after download when the index has no size", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    readRemoteFileMock.mockResolvedValueOnce(Buffer.alloc(1024 * 1024 + 1));
+
+    const response = await POST(
+      request({
+        action: "read",
+        nodeId: "node_1",
+        path: "large.log",
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("文件超过 1 MB"),
+      size: 1024 * 1024 + 1,
     });
   });
 

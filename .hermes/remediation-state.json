@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-29T23:56:02Z",
+  "updatedAt": "2026-05-30T00:15:13Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -32,32 +32,32 @@
     "operator guidance"
   ],
   "lastHealthyBaseline": {
-    "date": "2026-05-29",
+    "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "targeted ticket/RBAC/seed tests 26/26 passed",
+    "tests": "targeted storage route and neighboring storage tests 26/26 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws active; /api/status healthy; /tickets 307 and /api/tickets 401 without 500; no recent warning/error logs"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; storage route probes returned 401/307 without 500; no recent warning/error logs"
   },
   "lastRun": {
-    "finishedAt": "2026-05-29T23:56:02Z",
-    "target": "P1 ticket permission model",
+    "finishedAt": "2026-05-30T00:15:13Z",
+    "target": "P2 storage/file-size safety",
     "status": "deployed_verified_pending_commit",
-    "summary": "Split ticket:create and ticket:read from ticket:manage; normal authenticated readers can create tickets and see only created/assigned tickets, while ticket managers list all tickets. Comment/detail paths remain limited to managers or ticket participants.",
+    "summary": "Added hard inline-read and upload memory guards: SFTP read now rejects files over 1 MB via indexed size before remote download and via post-read fallback; LOCAL/SFTP upload endpoint rejects declared files over 100 MB before arrayBuffer, storage lookup, grants, or backing writes.",
     "validation": [
-      "npx vitest run src/app/api/tickets/__tests__/route.test.ts src/app/api/tickets/__tests__/id-route.test.ts src/lib/ticket/service.test.ts src/lib/auth/__tests__/rbac.test.ts prisma/__tests__/seed.test.ts",
+      "npx vitest run src/app/api/storage/sftp-ops/__tests__/route.test.ts src/app/api/storage/local/__tests__/route.test.ts src/lib/storage/__tests__/access-control.test.ts src/lib/storage/__tests__/sftp-sync.test.ts",
       "npm run typecheck -- --pretty false",
       "npm run lint",
       "npm run build",
       "npm run build:runtime",
-      "npx prisma db seed",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub",
+      "storage route probes and recent service log check"
     ],
     "deployment": "production services restarted and smoke 19/19 passed",
-    "nextTarget": "Continue P1 edge coverage if needed, then P2 storage/file-size safety"
+    "nextTarget": "Continue remaining P2 access-control fallback hardening, then rotate to P3 Quick Services permissions/task robustness"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -69,7 +69,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []
