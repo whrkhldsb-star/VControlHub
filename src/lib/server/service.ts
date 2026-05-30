@@ -144,6 +144,20 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error || "未知错误");
 }
 
+function safeRevalidatePath(path: string) {
+  try {
+    revalidatePath(path);
+  } catch (error) {
+    // Service functions are also used by maintenance scripts/tests outside a
+    // Next.js request/static-generation context. Cache revalidation is a best
+    // effort UI refresh and must not make an already-applied VPS/storage change
+    // look failed.
+    if (!/static generation store missing/i.test(getErrorMessage(error))) {
+      throw error;
+    }
+  }
+}
+
 function isLocalHostLiteral(host: string) {
   return /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(host.trim());
 }
@@ -448,7 +462,15 @@ async function loadServerForDirectGateway(serverId: string) {
     where: { id: serverId },
     include: {
       sshKey: { select: { privateKey: true } },
-      storageNode: { select: { basePath: true, driver: true } },
+      storageNode: {
+        select: {
+          id: true,
+          basePath: true,
+          driver: true,
+          fileEntries: { select: { id: true }, take: 1 },
+          mediaItems: { select: { id: true }, take: 1 },
+        },
+      },
     },
   });
 }
@@ -571,9 +593,9 @@ async function applyServerDirectGatewayState(input: {
         }
       : { directAccessMode: "PROXY", publicBaseUrl: null },
   });
-  revalidatePath("/servers");
-  revalidatePath("/storage");
-  revalidatePath("/files");
+  safeRevalidatePath("/servers");
+  safeRevalidatePath("/storage");
+  safeRevalidatePath("/files");
   return {
     enabled: input.enabled,
     publicBaseUrl: input.enabled ? publicBaseUrl : null,
@@ -720,6 +742,8 @@ export async function createServerProfile(input: CreateServerInput) {
       basePath: configuredPath,
       isDefault: defaultCount === 0,
       serverId: isLocalHost ? null : server.id,
+      directAccessMode: "PROXY",
+      publicBaseUrl: null,
     },
   });
 
@@ -801,8 +825,8 @@ export async function createServerProfile(input: CreateServerInput) {
     },
   });
 
-  revalidatePath("/storage");
-  revalidatePath("/files");
+  safeRevalidatePath("/storage");
+  safeRevalidatePath("/files");
 
   return {
     ...enrichServer(refreshed!),
@@ -1009,7 +1033,15 @@ export async function deleteServerProfile(serverId: string) {
     where: { id: serverId },
     include: {
       sshKey: { select: { privateKey: true } },
-      storageNode: { select: { basePath: true, driver: true } },
+      storageNode: {
+        select: {
+          id: true,
+          basePath: true,
+          driver: true,
+          fileEntries: { select: { id: true }, take: 1 },
+          mediaItems: { select: { id: true }, take: 1 },
+        },
+      },
     },
   });
   if (!current) throw new Error("VPS 节点不存在或已删除");
@@ -1025,6 +1057,13 @@ export async function deleteServerProfile(serverId: string) {
       bestEffort: true,
     });
     cleanupSkipped = result.cleanupSkipped;
+  }
+  const storageNodeId = current.storageNode?.id ?? null;
+  if (storageNodeId) {
+    if ((current.storageNode?.mediaItems?.length ?? 0) > 0) {
+      await prisma.mediaItem.deleteMany({ where: { storageNodeId } });
+    }
+    await prisma.storageNode.delete({ where: { id: storageNodeId } });
   }
   await prisma.server.delete({ where: { id: serverId } });
   return cleanupSkipped

@@ -65,6 +65,10 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       count: vi.fn(),
       updateMany: vi.fn(),
+      delete: vi.fn(),
+    },
+    mediaItem: {
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -536,7 +540,13 @@ describe("server service", () => {
       fileProxyPort: 0,
       publicUrl: null,
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_direct",
@@ -979,7 +989,13 @@ describe("server service", () => {
       fileProxyPort: 0,
       publicUrl: null,
       sshKey: null,
-      storageNode: { basePath: "/srv/vcontrolhub/storage", driver: "LOCAL" },
+      storageNode: {
+        id: "sn_local",
+        basePath: "/srv/vcontrolhub/storage",
+        driver: "LOCAL",
+        fileEntries: [],
+        mediaItems: [],
+      },
     } as any);
 
     await expect(
@@ -1032,7 +1048,13 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
@@ -1082,7 +1104,13 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_1",
@@ -1095,12 +1123,19 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
       count: 1,
     } as any);
+    vi.mocked(prisma.storageNode.delete).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
 
     await deleteServerProfile("srv_1");
@@ -1124,7 +1159,13 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_1",
@@ -1137,12 +1178,19 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
       count: 1,
     } as any);
+    vi.mocked(prisma.storageNode.delete).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
 
     await expect(deleteServerProfile("srv_1")).resolves.toEqual({
@@ -1166,11 +1214,20 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://127.0.0.1:31888",
       sshKey: null,
-      storageNode: { basePath: "/srv/vcontrolhub/storage", driver: "LOCAL" },
+      storageNode: {
+        id: "sn_local",
+        basePath: "/srv/vcontrolhub/storage",
+        driver: "LOCAL",
+        fileEntries: [],
+        mediaItems: [],
+      },
     } as any);
+    vi.mocked(prisma.storageNode.delete).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
 
-    await expect(deleteServerProfile("srv_local")).resolves.toEqual({ deleted: true });
+    await expect(deleteServerProfile("srv_local")).resolves.toEqual({
+      deleted: true,
+    });
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -1241,7 +1298,13 @@ describe("server service", () => {
       fileProxyPort: 0,
       publicUrl: null,
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root", driver: "SFTP" },
+      storageNode: {
+        id: "sn_1",
+        basePath: "/root",
+        driver: "SFTP",
+        fileEntries: [{ id: "file_1" }],
+        mediaItems: [],
+      },
     } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_direct_fail",

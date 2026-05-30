@@ -546,7 +546,7 @@ describe("FilesPage", () => {
     );
 
     expect(screen.getAllByText(/香港媒体库/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/项目数 1/)).toBeInTheDocument();
+    expect(screen.getByText(/项目数 2/)).toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: "打开" }).length,
     ).toBeGreaterThan(0);
