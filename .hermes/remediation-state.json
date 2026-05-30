@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T11:13:40Z",
+  "updatedAt": "2026-05-30T11:30:03Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,27 +50,28 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; major public HTML/API probes returned 307/401/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T11:13:40Z",
-    "target": "P4 notification navigation polish",
+    "finishedAt": "2026-05-30T11:30:03Z",
+    "target": "P6 health API guard drift reduction",
     "status": "completed_deployed_committed",
-    "commit": "04817c0",
-    "summary": "Replaced remaining internal notification dropdown anchor navigation with Next.js Link for client-side routing of notification action items and the all-notifications footer.",
+    "commit": "a571e05",
+    "summary": "Migrated /api/health cookie-session authorization to the shared declarative API guard with permission health:read while preserving fail-closed Bearer-token monitor access.",
     "validation": [
       "read remediation backlog/state first",
       "git status and overlap process check clean before work",
-      "scanned for remaining internal <a href> usages in src/*.tsx and reduced count to zero",
-      "npx vitest run src/components/__tests__/notification-bell.test.tsx passed 4/4",
+      "identified remaining manual API auth-route drift candidate in /api/health",
+      "npx vitest run src/app/api/health/__tests__/route.test.ts passed 8/8",
       "npm run typecheck passed",
       "npm run lint passed",
       "npm run build passed",
       "npm run build:runtime passed",
       "production services restarted successfully",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /notifications 307, /api/notifications 401, /api/status 200",
-      "recent production logs checked with no error/warn matches"
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19 after one transient security-header retry; direct header probe showed x-content-type-options present",
+      "production probes: /api/health 401, /api/health?historyFor=srv_1 401, /health 307, /api/status 200",
+      "recent production logs checked with no error/warn matches",
+      "git diff --check passed"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
-    "nextTarget": "Continue P6 durable command/deployment background-worker architecture or next smaller audit candidate."
+    "nextTarget": "Continue P6 durable command/deployment background-worker architecture or next smaller audit candidate; fresh audit after 3 more successful remediation runs."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -85,7 +86,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []
