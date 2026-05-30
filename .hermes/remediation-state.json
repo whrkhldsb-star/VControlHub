@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T03:09:36Z",
     "target": "P4 monitoring page error-state UX",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "b70edc3",
     "summary": "Monitoring now surfaces backend/fetch error reasons, offers an initial-load retry button, preserves stale stats on refresh failures, and shows an inline warning instead of silently swallowing monitoring failures.",
     "validation": [
       "npx vitest run src/app/monitoring/__tests__/page.test.tsx (2/2)",
