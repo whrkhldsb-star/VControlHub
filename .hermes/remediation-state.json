@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T10:58:34Z",
+  "updatedAt": "2026-05-30T11:13:40Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,22 +50,23 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; major public HTML/API probes returned 307/401/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T10:58:34Z",
-    "target": "P6 API guard drift reduction for command operation routes",
-    "status": "completed_deployed_committed_pending_push",
-    "commit": "bd9e89a",
-    "summary": "Migrated /api/commands GET/POST/PATCH to declarative withApiRoute permission guards while preserving command submission approval downgrade and cancellation authorization behavior.",
+    "finishedAt": "2026-05-30T11:13:40Z",
+    "target": "P4 notification navigation polish",
+    "status": "completed_deployed_committed",
+    "commit": "04817c0",
+    "summary": "Replaced remaining internal notification dropdown anchor navigation with Next.js Link for client-side routing of notification action items and the all-notifications footer.",
     "validation": [
       "read remediation backlog/state first",
       "git status and overlap process check clean before work",
-      "npx vitest run src/app/api/commands/__tests__/route.test.ts src/lib/command/__tests__/service.test.ts src/lib/command/worker.test.ts passed 25/25",
+      "scanned for remaining internal <a href> usages in src/*.tsx and reduced count to zero",
+      "npx vitest run src/components/__tests__/notification-bell.test.tsx passed 4/4",
       "npm run typecheck passed",
       "npm run lint passed",
       "npm run build passed",
       "npm run build:runtime passed",
       "production services restarted successfully",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /api/commands 401, /operation-tasks 307, /api/status 200",
+      "production probes: /notifications 307, /api/notifications 401, /api/status 200",
       "recent production logs checked with no error/warn matches"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
@@ -84,7 +85,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []
