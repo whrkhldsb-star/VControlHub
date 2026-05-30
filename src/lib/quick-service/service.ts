@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { execFile, execFileSync, execSync } from "child_process";
+import { execFile, execFileSync } from "child_process";
 import { promisify } from "util";
 
 import { prisma } from "@/lib/db";
@@ -218,14 +218,38 @@ export function allocatePort(preferredPort?: number): number {
 
 export function getUsedPorts(): number[] {
 	try {
-		const out = execSync(`ss -tlnpH 2>/dev/null | grep -oP 'LISTEN.*?:\\K\\d+' || ss -tlnp 2>/dev/null | grep -oP ':\\K\\d+' | sort -un`, {
-			timeout: 5000,
-			encoding: "utf8",
-		});
-		return out.trim().split("\n").map(Number).filter((n) => !isNaN(n));
+		const out = readListeningSockets();
+		return Array.from(parseListeningPorts(out)).sort((a, b) => a - b);
 	} catch {
 		return [];
 	}
+}
+
+function readListeningSockets(): string {
+	try {
+		return execFileSync("ss", ["-tlnpH"], { timeout: 5000, encoding: "utf8" });
+	} catch {
+		return execFileSync("ss", ["-tlnp"], { timeout: 5000, encoding: "utf8" });
+	}
+}
+
+function parseListeningPorts(output: string): Set<number> {
+	const ports = new Set<number>();
+	for (const line of output.split("\n")) {
+		const match = line.match(/(?:^|\s)(?:\[.*?\]|[^\s:]+):(\d+)\b/);
+		if (!match) continue;
+		const port = Number(match[1]);
+		if (Number.isInteger(port) && port >= 1 && port <= 65535) ports.add(port);
+	}
+	return ports;
+}
+
+function findPortLine(output: string, port: number): string | null {
+	for (const line of output.split("\n")) {
+		const ports = parseListeningPorts(line);
+		if (ports.has(port)) return line;
+	}
+	return null;
 }
 
 function assertPortAvailable(port: number, label = "端口") {
@@ -471,12 +495,9 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 		return { available: false, usedBy: null };
 	}
 	try {
-		const out = execSync(
-			`ss -tlnpH 2>/dev/null | grep ':${port}\\b' || true`,
-			{ timeout: 5000, encoding: "utf8" },
-		);
-		if (out.trim()) {
-			const pidMatch = out.match(/pid=(\d+)/);
+		const line = findPortLine(readListeningSockets(), port);
+		if (line) {
+			const pidMatch = line.match(/pid=(\d+)/);
 			let usedBy = "未知进程";
 			if (pidMatch) {
 				const pid = pidMatch[1];

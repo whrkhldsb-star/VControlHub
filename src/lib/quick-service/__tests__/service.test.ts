@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execFileSyncMock, execFileMock, execSyncMock, mkdirSyncMock } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -12,7 +12,6 @@ const { prismaMock, execFileSyncMock, execFileMock, execSyncMock, mkdirSyncMock 
 	},
 	execFileSyncMock: vi.fn(),
 	execFileMock: vi.fn(),
-	execSyncMock: vi.fn(),
 	mkdirSyncMock: vi.fn(),
 }));
 
@@ -22,10 +21,9 @@ vi.mock("node:fs", async (importOriginal) => {
 	return { ...actual, default: { ...actual, mkdirSync: mkdirSyncMock }, mkdirSync: mkdirSyncMock };
 });
 vi.mock("child_process", () => ({
-	default: { execFileSync: execFileSyncMock, execSync: execSyncMock, execFile: execFileMock },
+	default: { execFileSync: execFileSyncMock, execFile: execFileMock },
 	execFileSync: execFileSyncMock,
 	execFile: execFileMock,
-	execSync: execSyncMock,
 }));
 
 import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, uninstallService } from "../service";
@@ -48,7 +46,6 @@ describe("quick service docker lifecycle", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		execFileSyncMock.mockReturnValue("");
-		execSyncMock.mockReturnValue("");
 		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
 			return {};
@@ -302,6 +299,18 @@ describe("quick service docker lifecycle", () => {
 
 	it("returns invalid for out-of-range port checks without shelling out", () => {
 		expect(checkPort(70000)).toEqual({ available: false, usedBy: null });
-		expect(execSyncMock).not.toHaveBeenCalled();
+		expect(execFileSyncMock).not.toHaveBeenCalled();
+	});
+
+	it("checks listening ports with argv-based ss execution instead of shell grep", () => {
+		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
+			if (file === "ss" && args[0] === "-tlnpH") return "LISTEN 0 128 0.0.0.0:12345 0.0.0.0:* users:((\"node\",pid=4242,fd=18))\n";
+			if (file === "tr") return "node server.js ";
+			return "";
+		});
+
+		expect(checkPort(12345)).toEqual({ available: false, usedBy: "node server.js" });
+		expect(execFileSyncMock).toHaveBeenCalledWith("ss", ["-tlnpH"], expect.any(Object));
+		expect(execFileSyncMock).not.toHaveBeenCalledWith(expect.stringContaining("grep"), expect.anything(), expect.anything());
 	});
 });

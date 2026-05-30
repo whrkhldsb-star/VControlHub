@@ -1,19 +1,19 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockPrisma, mockExecSync } = vi.hoisted(() => ({
+const { mockPrisma, mockExecFileSync } = vi.hoisted(() => ({
   mockPrisma: {
     $queryRaw: vi.fn(),
     server: { count: vi.fn() },
     storageNode: { count: vi.fn() },
     setting: { findMany: vi.fn() },
   },
-  mockExecSync: vi.fn(),
+  mockExecFileSync: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("node:child_process", () => ({
-  execSync: mockExecSync,
-  default: { execSync: mockExecSync },
+  execFileSync: mockExecFileSync,
+  default: { execFileSync: mockExecFileSync },
 }));
 
 const { collectSystemHealthChecks, summarizeSystemHealth } = await import("../service");
@@ -25,9 +25,9 @@ describe("system health service", () => {
     mockPrisma.server.count.mockResolvedValue(2);
     mockPrisma.storageNode.count.mockResolvedValue(1);
     mockPrisma.setting.findMany.mockResolvedValue([]);
-    mockExecSync.mockImplementation((command: string) => {
-      if (command.includes("rev-parse --short HEAD")) return "abc123\n";
-      if (command.includes("ls-remote origin refs/heads/main")) return "abc123\n";
+    mockExecFileSync.mockImplementation((file: string, args: string[]) => {
+      if (file === "git" && args.includes("rev-parse")) return "abc123\n";
+      if (file === "git" && args.includes("ls-remote")) return "abc123456789\trefs/heads/main\n";
       return "";
     });
   });
@@ -51,21 +51,21 @@ describe("system health service", () => {
   });
 
   it("checks the production VControlHub service units instead of legacy whrkhldsb units", async () => {
-    mockExecSync.mockImplementation((command: string) => {
-      if (command.includes("systemctl is-active vcontrolhub-next.service")) return "active\n";
-      if (command.includes("systemctl is-active vcontrolhub-ssh-ws.service")) return "active\n";
-      if (command.includes("systemctl is-active whrkhldsb-next.service")) return "inactive\n";
-      if (command.includes("systemctl is-active whrkhldsb-ssh-ws.service")) return "inactive\n";
-      if (command.includes("rev-parse --short HEAD")) return "abc123\n";
-      if (command.includes("ls-remote origin refs/heads/main")) return "abc123\n";
+    mockExecFileSync.mockImplementation((file: string, args: string[]) => {
+      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-next.service") return "active\n";
+      if (file === "systemctl" && args.join(" ") === "is-active vcontrolhub-ssh-ws.service") return "active\n";
+      if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-next.service") return "inactive\n";
+      if (file === "systemctl" && args.join(" ") === "is-active whrkhldsb-ssh-ws.service") return "inactive\n";
+      if (file === "git" && args.includes("rev-parse")) return "abc123\n";
+      if (file === "git" && args.includes("ls-remote")) return "abc123456789\trefs/heads/main\n";
       return "";
     });
 
     const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
 
-    expect(mockExecSync).toHaveBeenCalledWith("systemctl is-active vcontrolhub-next.service", expect.any(Object));
-    expect(mockExecSync).toHaveBeenCalledWith("systemctl is-active vcontrolhub-ssh-ws.service", expect.any(Object));
-    expect(mockExecSync).not.toHaveBeenCalledWith("systemctl is-active whrkhldsb-next.service", expect.any(Object));
+    expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-next.service"], expect.any(Object));
+    expect(mockExecFileSync).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-ssh-ws.service"], expect.any(Object));
+    expect(mockExecFileSync).not.toHaveBeenCalledWith("systemctl", ["is-active", "whrkhldsb-next.service"], expect.any(Object));
     expect(result.checks.find((check) => check.id === "next-service")).toMatchObject({
       status: "healthy",
       message: expect.stringContaining("vcontrolhub-next.service"),
@@ -77,9 +77,9 @@ describe("system health service", () => {
   });
 
   it("marks git sync as warning when origin/main differs from local head", async () => {
-    mockExecSync.mockImplementation((command: string) => {
-      if (command.includes("rev-parse --short HEAD")) return "abc123\n";
-      if (command.includes("ls-remote origin refs/heads/main")) return "def456\n";
+    mockExecFileSync.mockImplementation((file: string, args: string[]) => {
+      if (file === "git" && args.includes("rev-parse")) return "abc123\n";
+      if (file === "git" && args.includes("ls-remote")) return "def456789012\trefs/heads/main\n";
       return "";
     });
 
