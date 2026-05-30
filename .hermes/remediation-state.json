@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T17:14:12Z",
     "target": "P1 server-side guards for client-heavy pages from fresh-audit findings",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed_pushed",
+    "commit": "32e1f45",
     "summary": "Added server-side session/permission wrappers around monitoring, traffic, docker, preferences, api-docs, and image-bed pages, moving browser behavior into explicit client components so unauthorized users do not land on pages that only fail after client API calls.",
     "validation": [
       "read remediation backlog/state first",
@@ -71,7 +71,8 @@
       "recent production logs checked; no new error entries, only known Next standalone startup warning"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed.",
-    "nextTarget": "Continue remaining fresh-audit P1 items, starting with global search/navigation completeness or preference fields that are saved but not consumed."
+    "nextTarget": "Continue remaining fresh-audit P1 items, starting with global search/navigation completeness or preference fields that are saved but not consumed.",
+    "pushedAt": "2026-05-30T17:14:12Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
