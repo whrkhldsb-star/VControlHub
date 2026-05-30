@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T10:41:13Z",
+  "updatedAt": "2026-05-30T10:58:34Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,28 +50,26 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; major public HTML/API probes returned 307/401/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T10:41:13Z",
-    "target": "Fresh comprehensive audit checkpoint after remediation counter threshold",
-    "status": "fresh_audit_completed_state_only",
-    "commit": null,
-    "summary": "Ran threshold-triggered comprehensive health/audit checkpoint with no code changes required. Quality gates, full Vitest, build/runtime build, production route probes, smoke test, and recent log checks passed. Backlog updated with remaining P6 durable-worker architecture and smaller newly observed audit candidates.",
+    "finishedAt": "2026-05-30T10:58:34Z",
+    "target": "P6 API guard drift reduction for command operation routes",
+    "status": "completed_deployed_committed_pending_push",
+    "commit": "bd9e89a",
+    "summary": "Migrated /api/commands GET/POST/PATCH to declarative withApiRoute permission guards while preserving command submission approval downgrade and cancellation authorization behavior.",
     "validation": [
       "read remediation backlog/state first",
-      "git status checked and clean before audit",
-      "no overlapping remediation/build/test process found",
-      "production services active and /api/status healthy before audit",
-      "source scans for API guard coverage, plain API forms, reload usage, internal anchors, bounded query candidates, and shell execution candidates",
-      "npm run typecheck",
-      "npm run lint",
-      "npm test passed 172 files / 693 tests",
-      "npm run build",
-      "npm run build:runtime",
-      "production probes returned expected 307/401/200 statuses without 500",
+      "git status and overlap process check clean before work",
+      "npx vitest run src/app/api/commands/__tests__/route.test.ts src/lib/command/__tests__/service.test.ts src/lib/command/worker.test.ts passed 25/25",
+      "npm run typecheck passed",
+      "npm run lint passed",
+      "npm run build passed",
+      "npm run build:runtime passed",
+      "production services restarted successfully",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
+      "production probes: /api/commands 401, /operation-tasks 307, /api/status 200",
       "recent production logs checked with no error/warn matches"
     ],
-    "deployment": "No runtime/code change in this audit checkpoint; services were already active and smoke-tested successfully, so no restart was required.",
-    "nextTarget": "Continue P6 durable command/deployment background-worker architecture: restart-surviving queue claims/worker ownership/richer task reconciliation; alternatively address smaller audit candidates if a deployable slice is safer."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
+    "nextTarget": "Continue P6 durable command/deployment background-worker architecture or next smaller audit candidate."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -86,7 +84,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []
