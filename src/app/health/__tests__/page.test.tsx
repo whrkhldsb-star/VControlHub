@@ -11,13 +11,18 @@ vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMoc
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
 vi.mock("@/lib/server/service", () => ({ listServerProfiles: listServerProfilesMock }));
 vi.mock("@/lib/system-health/service", () => ({
-  collectSystemHealthChecks: vi.fn().mockResolvedValue({ summary: { total: 4, healthy: 3, warning: 1, critical: 0, overall: "warning" } }),
+  collectSystemHealthChecks: vi.fn().mockResolvedValue({
+    generatedAt: "2026-05-30T00:00:00.000Z",
+    summary: { total: 4, healthy: 3, warning: 1, critical: 0, overall: "warning" },
+    checks: [{ id: "next-service" }, { id: "ssh-ws-service" }, { id: "database" }, { id: "git-sync" }],
+  }),
 }));
 vi.mock("../health-dashboard-client", () => ({
-  HealthDashboardClient: ({ serverCount, systemHealthSummary }: { serverCount: number; systemHealthSummary?: { total: number; healthy: number; warning: number; critical: number; overall: string } }) => (
+  HealthDashboardClient: ({ serverCount, initialSystemHealth }: { serverCount: number; initialSystemHealth?: { summary: { total: number; healthy: number; warning: number; critical: number; overall: string }; checks?: Array<{ id: string }> } | null }) => (
     <div data-testid="health-dashboard">
       节点数量：{serverCount}
-      <span data-testid="system-health-overall">{systemHealthSummary?.overall ?? "none"}</span>
+      <span data-testid="system-health-overall">{initialSystemHealth?.summary.overall ?? "none"}</span>
+      <span data-testid="system-health-check-count">{initialSystemHealth?.checks?.length ?? 0}</span>
     </div>
   ),
 }));
@@ -52,5 +57,7 @@ describe("HealthPage", () => {
 
     expect(listServerProfilesMock).toHaveBeenCalledOnce();
     expect(screen.getByTestId("health-dashboard")).toHaveTextContent("节点数量：1");
+    expect(screen.getByTestId("system-health-overall")).toHaveTextContent("warning");
+    expect(screen.getByTestId("system-health-check-count")).toHaveTextContent("4");
   });
 });

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T05:09:49Z",
+  "updatedAt": "2026-05-30T05:30:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,20 +43,20 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Backup restore service/API/page/client regressions passed: 23 tests",
+    "tests": "Health client/page/API/system-health regressions passed: 21 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /backups redirected to login, /api/backups returned 401, and restore route returned 401 instead of 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /health redirected to login, /api/health and /api/system-health returned 401 instead of 500; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T05:09:49Z",
-    "target": "P5 backup restore product surface",
-    "status": "verified_deployed_committed",
-    "commit": "339455f",
-    "summary": "Added a user-facing backup restore surface for backup:restore. Completed backup rows now show a guarded restore action that requires explicit RESTORE confirmation, posts through csrfFetch to a new restore API route, validates permission/completed record/portable path/artifact existence, and executes the real database or tar restore command without exposing secrets.",
+    "finishedAt": "2026-05-30T05:30:00Z",
+    "target": "P5 system-health and Health page unification",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Unified the Health Center with the system-health API. The server page now passes the full system self-check report, the client renders individual system check rows beside repair guidance, and the client refreshes self-check data from /api/system-health while preserving the VPS health overview.",
     "validation": [
-      "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts src/app/backups/__tests__/page.test.tsx src/app/backups/__tests__/restore-backup-button.test.tsx (23/23)",
+      "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx src/app/health/__tests__/page.test.tsx src/app/api/health/__tests__/route.test.ts src/lib/system-health/__tests__/service.test.ts (21/21)",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
@@ -64,11 +64,11 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "readiness via http://127.0.0.1:3000/api/status",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /backups 307, /api/backups 401, /api/backups/test/restore 401, /api/status 200",
+      "HTTPS probes /health 307, /api/health 401, /api/system-health 401, /api/status 200",
       "recent production service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P5 backlog: unify system-health API and Health page behavior, then proceed to P6 architecture hardening."
+    "nextTarget": "P6 architecture hardening: move command/deployment SSH execution out of synchronous API paths, strengthen download URL SSRF protections, unify rate limiting store, and replace shell-string exec surfaces where practical. Because the current checklist is now down to P6 architecture items, the next run should consider whether to start a P6 deployable slice or perform a fresh comprehensive audit."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -83,7 +83,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []

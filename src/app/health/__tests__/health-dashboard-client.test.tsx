@@ -53,6 +53,7 @@ describe("HealthDashboardClient", () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch)
 			.mockResolvedValueOnce(overview)
+			.mockResolvedValueOnce(overview)
 			.mockRejectedValueOnce(new Error("刷新健康状态失败"));
 
 		render(<HealthDashboardClient serverCount={1} />);
@@ -67,6 +68,7 @@ describe("HealthDashboardClient", () => {
 	it("shows a history load error while keeping the server row expanded", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(overview)
 			.mockResolvedValueOnce(overview)
 			.mockRejectedValueOnce(new Error("历史指标读取失败"));
 
@@ -83,7 +85,13 @@ describe("HealthDashboardClient", () => {
 		render(
 			<HealthDashboardClient
 				serverCount={1}
-				systemHealthSummary={{ total: 4, healthy: 3, warning: 0, critical: 0, overall: "healthy" }}
+				initialSystemHealth={{
+					generatedAt: "2026-05-30T00:00:00.000Z",
+					summary: { total: 4, healthy: 3, warning: 0, critical: 0, overall: "healthy" },
+					checks: [
+						{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+					],
+				}}
 			/>,
 		);
 
@@ -118,5 +126,27 @@ describe("HealthDashboardClient", () => {
 		expect(screen.getByRole("button", { name: "切换健康状态自动刷新" })).toBeDisabled();
 		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
 		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 60_000);
+	});
+
+	it("refreshes system self-check details through the system-health API", async () => {
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(overview)
+			.mockResolvedValueOnce({
+				generatedAt: "2026-05-30T00:00:00.000Z",
+				summary: { total: 2, healthy: 1, warning: 1, critical: 0, overall: "warning" },
+				checks: [
+					{ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询" },
+					{ id: "git-sync", label: "GitHub 同步状态", status: "warning", message: "本地与远端不一致" },
+				],
+			});
+
+		render(<HealthDashboardClient serverCount={1} />);
+
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect(csrfFetch).toHaveBeenCalledWith("/api/health");
+		expect(csrfFetch).toHaveBeenCalledWith("/api/system-health");
+		expect(screen.getByText("2 项检查 · 1 正常 · 1 警告 · 0 严重")).toBeInTheDocument();
+		expect(screen.getByText("GitHub 同步状态")).toBeInTheDocument();
+		expect(screen.getByText("本地与远端不一致")).toBeInTheDocument();
 	});
 });

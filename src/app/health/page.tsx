@@ -20,7 +20,6 @@ export default async function HealthPage() {
 
 	const servers = await listServerProfiles();
 	const systemHealth = await collectSystemHealthChecks({ projectRoot: process.cwd() }).catch(() => null);
-	const systemHealthSummary = systemHealth?.summary ?? null;
 
 	return (
 		<main className="p-6">
@@ -34,7 +33,7 @@ export default async function HealthPage() {
 					纳管节点 {servers.length} 台
 				</div>
 			</header>
-			<HealthDashboardClient serverCount={servers.length} systemHealthSummary={systemHealthSummary} />
+			<HealthDashboardClient serverCount={servers.length} initialSystemHealth={systemHealth} />
 		</main>
 	);
 }

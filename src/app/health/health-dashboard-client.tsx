@@ -29,7 +29,31 @@ type HealthOverview = {
 
 type MetricPoint = { cpu: number; mem: number; disk: number; online: boolean; t: string };
 
-type Props = { serverCount: number; systemHealthSummary?: SystemHealthSummary | null };
+type SystemHealthCheck = {
+	id: string;
+	label: string;
+	status: SystemHealthStatus;
+	message: string;
+	detail?: string;
+};
+
+type SystemHealthReport = {
+	generatedAt: string;
+	summary: SystemHealthSummary;
+	checks: SystemHealthCheck[];
+};
+
+type Props = { serverCount: number; initialSystemHealth?: SystemHealthReport | null };
+
+function isSystemHealthReport(value: unknown): value is SystemHealthReport {
+	return Boolean(
+		value
+		&& typeof value === "object"
+		&& "summary" in value
+		&& "checks" in value
+		&& Array.isArray((value as { checks?: unknown }).checks),
+	);
+}
 
 type RepairSuggestion = {
 	id: string;
@@ -115,9 +139,10 @@ function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 
 /* ── Component ────────────────────────────────────────────── */
 
-export function HealthDashboardClient({ serverCount: _serverCount, systemHealthSummary }: Props) {
+export function HealthDashboardClient({ serverCount: _serverCount, initialSystemHealth }: Props) {
 	void _serverCount;
 	const [overview, setOverview] = useState<HealthOverview | null>(null);
+	const [systemHealth, setSystemHealth] = useState<SystemHealthReport | null>(initialSystemHealth ?? null);
 	const [loading, setLoading] = useState(true);
 	const [history, setHistory] = useState<Record<string, MetricPoint[]>>({});
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
@@ -147,6 +172,15 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 		}
 	}, []);
 
+	const fetchSystemHealth = useCallback(async () => {
+		try {
+			const report = await csrfFetch("/api/system-health");
+			if (isSystemHealthReport(report)) setSystemHealth(report);
+		} catch {
+			// The VPS health overview is the primary surface; keep it visible if the system self-check endpoint fails.
+		}
+	}, []);
+
 	const fetchHistory = useCallback(async (serverId: string) => {
 		try {
 			const data = await csrfFetch(`/api/health?historyFor=${serverId}&hours=24`);
@@ -162,9 +196,12 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 	}, []);
 
 	useEffect(() => {
-		const timer = window.setTimeout(() => { void fetchHealth(); }, 0);
+		const timer = window.setTimeout(() => {
+			void fetchHealth();
+			void fetchSystemHealth();
+		}, 0);
 		return () => window.clearTimeout(timer);
-	}, [fetchHealth]);
+	}, [fetchHealth, fetchSystemHealth]);
 
 	useEffect(() => {
 		const readSavedInterval = () => {
@@ -177,9 +214,12 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 
 	useEffect(() => {
 		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
-		const interval = window.setInterval(() => { void fetchHealth(); }, refreshIntervalSeconds * 1000);
+		const interval = window.setInterval(() => {
+			void fetchHealth();
+			void fetchSystemHealth();
+		}, refreshIntervalSeconds * 1000);
 		return () => window.clearInterval(interval);
-	}, [autoRefresh, fetchHealth, refreshIntervalSeconds]);
+	}, [autoRefresh, fetchHealth, fetchSystemHealth, refreshIntervalSeconds]);
 
 	const toggleExpand = async (serverId: string) => {
 		if (expandedServer === serverId) {
@@ -227,13 +267,16 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 					{loadError}
 				</div>
 			)}
-			{systemHealthSummary && (
+			{systemHealth && (
 				<>
 					<section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
 			<div className="flex items-center justify-between gap-3">
 				<div>
 					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">系统自检</p>
 					<h2 className="mt-1 text-lg font-semibold text-white">修复建议</h2>
+					<p className="mt-1 text-xs text-slate-400">
+						{systemHealth.summary.total} 项检查 · {systemHealth.summary.healthy} 正常 · {systemHealth.summary.warning} 警告 · {systemHealth.summary.critical} 严重
+					</p>
 				</div>
 				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
 					<Link href="/audit" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">看审计日志</Link>
@@ -241,7 +284,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 				</div>
 			</div>
 						<div className="grid gap-3 lg:grid-cols-3">
-							{repairSuggestions(systemHealthSummary).map((item) => {
+							{repairSuggestions(systemHealth.summary).map((item) => {
 								const tone = repairToneClasses[item.status];
 								return (
 									<article key={item.id} className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
@@ -254,6 +297,21 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 								</article>
 							);
 						})}
+						</div>
+						<div className="grid gap-2 md:grid-cols-2">
+							{systemHealth.checks.map((check) => {
+								const sc = statusConfig[check.status] ?? statusConfig.unknown;
+								return (
+									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
+										<div className="flex items-center justify-between gap-3">
+											<div className="text-sm font-medium text-white">{check.label}</div>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{statusConfig[check.status]?.label ?? check.status}</span>
+										</div>
+										<p className="mt-1 text-xs text-slate-300">{check.message}</p>
+										{check.detail && <p className="mt-1 break-all text-[11px] text-slate-500">{check.detail}</p>}
+									</div>
+								);
+							})}
 						</div>
 					</section>
 				</>
