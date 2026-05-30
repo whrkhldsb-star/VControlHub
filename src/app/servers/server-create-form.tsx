@@ -87,6 +87,7 @@ function ConnectionTypeFields({
               用户名
             </label>
             <input
+              key="ssh-key-username"
               id="serverUsername"
               name="username"
               type="text"
@@ -106,6 +107,7 @@ function ConnectionTypeFields({
               用户名
             </label>
             <input
+              key="password-username"
               id="serverUsername"
               name="username"
               type="text"
@@ -122,12 +124,18 @@ function ConnectionTypeFields({
               密码
             </label>
             <input
+              key="password-secret"
               id="serverPassword"
               name="password"
               type="password"
-              placeholder="••••••"
+              defaultValue=""
+              autoComplete="new-password"
+              placeholder="留空，不使用默认密码"
               className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
+            <p className="text-[11px] text-slate-500">
+              密码不会预填；请手动输入目标 VPS 当前 SSH 密码。
+            </p>
           </div>
         </div>
       )}

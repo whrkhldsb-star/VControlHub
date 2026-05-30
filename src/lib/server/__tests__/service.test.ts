@@ -747,6 +747,125 @@ describe("server service", () => {
     expect(result.storageNode?.basePath).toBe("/data/vch-files");
   });
 
+  it("keeps the server and storage node when remote directory creation and direct gateway auto-config fail", async () => {
+    vi.mocked(createRemoteDirectory).mockRejectedValueOnce(
+      new Error("mkdir permission denied"),
+    );
+    execRemoteCommandMock.mockRejectedValueOnce(new Error("systemctl not found"));
+    vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
+      id: "key_warn",
+      name: "warn-key",
+      fingerprint: "SHA256:warn",
+      privateKey: "plain-key",
+    } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.server.create).mockResolvedValueOnce({
+      id: "srv_warn",
+      name: "warn-node",
+      host: "203.0.113.40",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_warn",
+      password: null,
+      publicUrl: null,
+      fileProxyPort: 0,
+      sshKey: {
+        id: "key_warn",
+        name: "warn-key",
+        fingerprint: "SHA256:warn",
+        privateKey: "plain-key",
+      },
+      storageNode: null,
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+    vi.mocked(prisma.storageNode.count).mockResolvedValueOnce(0);
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "sn_warn",
+      name: "warn-node 存储",
+      driver: "SFTP",
+      basePath: "/data/warn",
+      isDefault: true,
+      serverId: "srv_warn",
+    } as any);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_warn",
+      host: "203.0.113.40",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_warn",
+      fileProxyPort: 0,
+      publicUrl: null,
+      sshKey: { privateKey: "plain-key" },
+      storageNode: { basePath: "/data/warn", driver: "SFTP" },
+    } as any);
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_warn",
+      name: "warn-node",
+      host: "203.0.113.40",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_warn",
+      password: null,
+      publicUrl: null,
+      fileProxyPort: 0,
+      sshKey: {
+        id: "key_warn",
+        name: "warn-key",
+        fingerprint: "SHA256:warn",
+        privateKey: "plain-key",
+      },
+      storageNode: {
+        id: "sn_warn",
+        name: "warn-node 存储",
+        driver: "SFTP",
+        isDefault: true,
+        basePath: "/data/warn",
+        directAccessMode: "PROXY",
+        publicBaseUrl: null,
+      },
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    const result = await createServerProfile({
+      name: "warn-node",
+      host: "203.0.113.40",
+      port: 22,
+      username: "root",
+      connectionType: "SSH_KEY",
+      sshKeyId: "key_warn",
+      storagePath: "/data/warn",
+      enableDirectGateway: true,
+      tags: [],
+    });
+
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({ remotePath: "/data/warn", recursive: true }),
+    );
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({ command: expect.stringContaining("/data/warn") }),
+    );
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+    expect(result.onboardingWarnings).toEqual([
+      expect.stringContaining("远端存储目录自动创建失败"),
+      expect.stringContaining("目标服务器直连自动配置失败"),
+    ]);
+  });
+
   it("refuses to enable direct gateway for local-only storage nodes without remote side effects", async () => {
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_local",

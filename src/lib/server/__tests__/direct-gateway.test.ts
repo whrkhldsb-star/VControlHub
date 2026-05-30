@@ -47,7 +47,8 @@ describe("direct gateway helpers", () => {
     expect(command).toContain(
       "systemctl enable --now vcontrolhub-direct.service",
     );
-    expect(command).toContain("curl -fsS http://127.0.0.1:31888/__vch_health");
+    expect(command).toContain("python3 - <<'VCH_DIRECT_HEALTH'");
+    expect(command).toContain("http://127.0.0.1:31888/__vch_health");
     expect(command).not.toContain("rm -rf /");
   });
 

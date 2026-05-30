@@ -116,19 +116,71 @@ function buildRemoteDirectoryChain(remotePath: string) {
   return paths;
 }
 
+function execCommandOnClient(
+  client: Client,
+  command: string,
+  timeoutMs = 120_000,
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Command timed out after ${timeoutMs / 1000}s`));
+      client.end();
+    }, timeoutMs);
+
+    client.exec(command, (err, stream) => {
+      if (err) {
+        clearTimeout(timer);
+        reject(err);
+        return;
+      }
+      let stdout = "";
+      let stderr = "";
+      stream.on("data", (data: Buffer) => {
+        stdout += data.toString();
+      });
+      stream.stderr.on("data", (data: Buffer) => {
+        stderr += data.toString();
+      });
+      stream.on("close", (code: number | null) => {
+        clearTimeout(timer);
+        resolve({ stdout, stderr, exitCode: code });
+      });
+    });
+  });
+}
+
 export async function createRemoteDirectory(input: SshConnectionParams & { remotePath: string; recursive?: boolean }): Promise<void> {
   const config = createSshConfig(input);
   const client = await connectSsh(config);
   try {
-    await new Promise<void>((resolve, reject) => {
-      client.sftp((err, sftp) => {
-        if (err) return reject(err);
-        const paths = input.recursive ? buildRemoteDirectoryChain(input.remotePath) : [input.remotePath];
-        paths
-          .reduce<Promise<void>>((promise, remotePath) => promise.then(() => sftpMkdir(sftp, remotePath)), Promise.resolve())
-          .then(resolve, reject);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        client.sftp((err, sftp) => {
+          if (err) return reject(err);
+          const paths = input.recursive ? buildRemoteDirectoryChain(input.remotePath) : [input.remotePath];
+          paths
+            .reduce<Promise<void>>((promise, remotePath) => promise.then(() => sftpMkdir(sftp, remotePath)), Promise.resolve())
+            .then(resolve, reject);
+        });
       });
-    });
+    } catch (sftpError) {
+      if (!input.recursive) throw sftpError;
+      const quotedPath = `'${input.remotePath.replace(/'/g, `'"'"'`)}'`;
+      const result = await execCommandOnClient(
+        client,
+        `mkdir -p -- ${quotedPath}`,
+        30_000,
+      );
+      if (result.exitCode && result.exitCode !== 0) {
+        throw new Error(
+          result.stderr ||
+            result.stdout ||
+            (sftpError instanceof Error
+              ? sftpError.message
+              : "远端目录创建失败"),
+        );
+      }
+    }
   } finally {
     client.end();
   }

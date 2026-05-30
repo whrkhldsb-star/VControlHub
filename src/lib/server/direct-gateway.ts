@@ -151,7 +151,14 @@ WantedBy=multi-user.target
 VCH_DIRECT_UNIT
 systemctl daemon-reload
 systemctl enable --now ${DIRECT_GATEWAY_SERVICE_NAME}
-curl -fsS http://127.0.0.1:${port}/__vch_health >/dev/null
+python3 - <<'VCH_DIRECT_HEALTH'
+from urllib.request import urlopen
+url = "http://127.0.0.1:${port}/__vch_health"
+with urlopen(url, timeout=10) as response:
+    body = response.read().decode("utf-8", "replace").strip()
+    if response.status != 200 or body != "ok":
+        raise SystemExit(f"unexpected direct gateway health response: {response.status} {body!r}")
+VCH_DIRECT_HEALTH
 echo vcontrolhub-direct-ready`;
 }
 
