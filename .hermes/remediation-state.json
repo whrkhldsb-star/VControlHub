@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T02:53:00Z",
     "target": "P4 SFTP browser availability and empty-state UX",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "3917ddc",
     "summary": "Mounted the SFTP remote browser on the Files page and replaced the no-SFTP-node null render with an actionable empty state linking to VPS onboarding and the storage-node manager anchor.",
     "validation": [
       "npx vitest run src/app/files/__tests__/sftp-browser.test.tsx src/app/files/__tests__/page.test.tsx src/app/files/__tests__/files-browser-spa.test.tsx (16/16)",
