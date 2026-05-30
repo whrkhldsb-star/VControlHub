@@ -1,3 +1,4 @@
+import type React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +19,12 @@ vi.mock("@/lib/ws/use-ws-notifications", () => ({
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
+}));
+
+vi.mock("next/link", () => ({
+  default: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>{children}</a>
+  ),
 }));
 
 describe("NotificationBell", () => {
@@ -94,5 +101,30 @@ describe("NotificationBell", () => {
 
     const notificationLink = (await screen.findByText("危险通知入口")).closest("a");
     expect(notificationLink).toHaveAttribute("href", "/notifications");
+  });
+
+  it("uses client-side Next links for notification navigation targets", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ unreadCount: 1 })
+      .mockResolvedValueOnce({
+        unreadCount: 1,
+        notifications: [{
+          id: "n_internal",
+          type: "system",
+          title: "内部通知入口",
+          message: "应通过 Next Link 进行客户端导航",
+          isRead: false,
+          actionUrl: "/servers",
+          createdAt: "2026-05-25T00:00:00.000Z",
+        }],
+      });
+
+    render(<NotificationBell />);
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/notifications"));
+    await user.click(screen.getByRole("button", { name: "通知" }));
+
+    expect(await screen.findByRole("link", { name: /内部通知入口/ })).toHaveAttribute("href", "/servers");
+    expect(screen.getByRole("link", { name: "查看全部通知 →" })).toHaveAttribute("href", "/notifications");
   });
 });

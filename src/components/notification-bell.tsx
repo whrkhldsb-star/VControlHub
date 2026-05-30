@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -154,7 +155,7 @@ export function NotificationBell() {
 					) : notifications.length > 0 ? (
 						<div className="divide-y divide-white/[0.04]">
 							{notifications.slice(0, 10).map((n) => (
-								<a
+								<Link
 									key={n.id}
 									href={getSafeNotificationActionUrl(n.actionUrl)}
 									className={`block px-4 py-3 hover:bg-white/[0.04] transition ${n.isRead ? "opacity-60" : ""}`}
@@ -164,14 +165,14 @@ export function NotificationBell() {
 										<span className={`text-xs font-medium truncate ${n.isRead ? "text-slate-500" : "text-white"}`}>{n.title}</span>
 									</div>
 									<p className="mt-1 text-[11px] text-slate-600 truncate">{n.message}</p>
-								</a>
+								</Link>
 							))}
 						</div>
 					) : null}
 					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/90">
-						<a href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition">
+						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition">
 							查看全部通知 →
-						</a>
+						</Link>
 					</div>
 				</div>
 			)}
