@@ -306,6 +306,98 @@ describe("command service execution flow", () => {
     );
   });
 
+  it("executes multiple SSH targets concurrently so one slow server does not block later targets", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_parallel_1",
+      status: "APPROVED",
+      targets: [{ id: "target_slow" }, { id: "target_fast" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_slow",
+        server: {
+          id: "srv_slow",
+          name: "slow-node",
+          host: "203.0.113.21",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "deploy" },
+      },
+      {
+        id: "target_fast",
+        server: {
+          id: "srv_fast",
+          name: "fast-node",
+          host: "203.0.113.22",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "deploy" },
+      },
+    ]);
+    let slowChild!: MockChildProcess;
+    spawnMock
+      .mockImplementationOnce(() => {
+        slowChild = new EventEmitter() as MockChildProcess;
+        slowChild.stdout = new EventEmitter();
+        slowChild.stderr = new EventEmitter();
+        slowChild.kill = vi.fn(() => true);
+        return slowChild;
+      })
+      .mockImplementationOnce(() => {
+        const child = new EventEmitter() as MockChildProcess;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        child.kill = vi.fn(() => true);
+        queueMicrotask(() => {
+          child.stdout.emit("data", Buffer.from("fast ok\n"));
+          child.emit("close", 0);
+        });
+        return child;
+      });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_parallel_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_parallel_1", targets: [{ id: "target_slow" }, { id: "target_fast" }] });
+
+    await createCommandRequest({
+      title: "Deploy in parallel",
+      command: "deploy",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_slow", "srv_fast"],
+    });
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "target_fast" },
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      ),
+    );
+    expect(mockPrisma.commandRequest.update).not.toHaveBeenCalledWith({
+      where: { id: "req_parallel_1" },
+      data: { status: "COMPLETED" },
+    });
+
+    slowChild.stdout.emit("data", Buffer.from("slow ok\n"));
+    slowChild.emit("close", 0);
+
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+        where: { id: "req_parallel_1" },
+        data: { status: "COMPLETED" },
+      }),
+    );
+  });
+
   it("kills long-running SSH commands and marks the target failed with timeout output", async () => {
     vi.useFakeTimers();
     process.env.COMMAND_EXECUTION_TIMEOUT_MS = "50";

@@ -292,6 +292,115 @@ async function executeCommandOverSshWithPassword(input: {
   return result;
 }
 
+async function executeTarget(commandRequestId: string, target: Awaited<ReturnType<typeof prisma.commandTarget.findMany>>[number] & {
+  server: {
+    id: string;
+    name: string;
+    host: string;
+    port: number;
+    username: string;
+    connectionType: string;
+    password: string | null;
+    sshKey: { id: string; name: string; privateKey: string | null } | null;
+  };
+  commandRequest: { command: string; title: string };
+}) {
+  const privateKey = target.server.sshKey?.privateKey
+    ? decryptSshPrivateKey(target.server.sshKey.privateKey).trim()
+    : undefined;
+  const password = target.server.password
+    ? decryptServerPassword(target.server.password).trim()
+    : undefined;
+  const connectionType = target.server.connectionType;
+
+  if (connectionType === "SSH_KEY" && !privateKey) {
+    const summary = `节点 ${target.server.name} 绑定的 SSH 密钥缺少私钥，无法执行真实 SSH 命令。`;
+    await prisma.commandTarget.update({
+      where: { id: target.id },
+      data: {
+        status: "FAILED",
+        stdout: null,
+        stderr: summary,
+        exitCode: 255,
+        finishedAt: new Date(),
+      },
+    });
+    await prisma.executionLog.create({
+      data: {
+        commandRequestId,
+        serverId: target.server.id,
+        summary,
+      },
+    });
+    return false;
+  }
+
+  if (connectionType === "PASSWORD" && !password) {
+    const summary = `节点 ${target.server.name} 配置为密码连接但缺少密码，无法执行真实 SSH 命令。`;
+    await prisma.commandTarget.update({
+      where: { id: target.id },
+      data: {
+        status: "FAILED",
+        stdout: null,
+        stderr: summary,
+        exitCode: 255,
+        finishedAt: new Date(),
+      },
+    });
+    await prisma.executionLog.create({
+      data: {
+        commandRequestId,
+        serverId: target.server.id,
+        summary,
+      },
+    });
+    return false;
+  }
+
+  const result = await executeCommandOverSsh({
+    host: target.server.host,
+    port: target.server.port,
+    username: target.server.username,
+    privateKey,
+    password,
+    command: target.commandRequest.command,
+    targetId: target.id,
+  }).catch((error): SshExecutionResult => ({
+    stdout: "",
+    stderr: error instanceof Error ? error.message : "SSH 执行失败",
+    exitCode: 255,
+  }));
+
+  const succeeded = result.exitCode === 0;
+
+  await prisma.commandTarget.update({
+    where: { id: target.id },
+    data: {
+      status: succeeded ? "COMPLETED" : "FAILED",
+      stdout: result.stdout || null,
+      stderr: result.stderr || null,
+      exitCode: result.exitCode,
+      finishedAt: new Date(),
+    },
+  });
+
+  const summary = result.cancelled
+    ? `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）已由操作员取消。`
+    : succeeded
+      ? `命令已在 ${target.server.name}（${target.server.host}:${target.server.port}）执行完成，退出码 0。`
+      : `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）执行失败，退出码 ${result.exitCode}。`;
+
+  await prisma.executionLog.create({
+    data: {
+      commandRequestId,
+      serverId: target.server.id,
+      summary,
+    },
+  });
+
+  return succeeded;
+}
+
 async function executeTargets(commandRequestId: string) {
   const targets = await prisma.commandTarget.findMany({
     where: { commandRequestId },
@@ -320,103 +429,12 @@ async function executeTargets(commandRequestId: string) {
     },
   });
 
-  let completedCount = 0;
-
-  for (const target of targets) {
-    const privateKey = target.server.sshKey?.privateKey
-      ? decryptSshPrivateKey(target.server.sshKey.privateKey).trim()
-      : undefined;
-    const password = target.server.password
-      ? decryptServerPassword(target.server.password).trim()
-      : undefined;
-    const connectionType = target.server.connectionType;
-
-    if (connectionType === "SSH_KEY" && !privateKey) {
-      const summary = `节点 ${target.server.name} 绑定的 SSH 密钥缺少私钥，无法执行真实 SSH 命令。`;
-      await prisma.commandTarget.update({
-        where: { id: target.id },
-        data: {
-          status: "FAILED",
-          stdout: null,
-          stderr: summary,
-          exitCode: 255,
-          finishedAt: new Date(),
-        },
-      });
-      await prisma.executionLog.create({
-        data: {
-          commandRequestId,
-          serverId: target.server.id,
-          summary,
-        },
-      });
-      continue;
-    }
-
-    if (connectionType === "PASSWORD" && !password) {
-      const summary = `节点 ${target.server.name} 配置为密码连接但缺少密码，无法执行真实 SSH 命令。`;
-      await prisma.commandTarget.update({
-        where: { id: target.id },
-        data: {
-          status: "FAILED",
-          stdout: null,
-          stderr: summary,
-          exitCode: 255,
-          finishedAt: new Date(),
-        },
-      });
-      await prisma.executionLog.create({
-        data: {
-          commandRequestId,
-          serverId: target.server.id,
-          summary,
-        },
-      });
-      continue;
-    }
-
-    const result = await executeCommandOverSsh({
-      host: target.server.host,
-      port: target.server.port,
-      username: target.server.username,
-      privateKey,
-      password,
-      command: target.commandRequest.command,
-      targetId: target.id,
-    }).catch((error): SshExecutionResult => ({
-      stdout: "",
-      stderr: error instanceof Error ? error.message : "SSH 执行失败",
-      exitCode: 255,
-    }));
-
-    const succeeded = result.exitCode === 0;
-    if (succeeded) completedCount += 1;
-
-    await prisma.commandTarget.update({
-      where: { id: target.id },
-      data: {
-        status: succeeded ? "COMPLETED" : "FAILED",
-        stdout: result.stdout || null,
-        stderr: result.stderr || null,
-        exitCode: result.exitCode,
-        finishedAt: new Date(),
-      },
-    });
-
-    const summary = result.cancelled
-      ? `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）已由操作员取消。`
-      : succeeded
-        ? `命令已在 ${target.server.name}（${target.server.host}:${target.server.port}）执行完成，退出码 0。`
-        : `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）执行失败，退出码 ${result.exitCode}。`;
-
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId,
-        serverId: target.server.id,
-        summary,
-      },
-    });
-  }
+  const results = await Promise.allSettled(
+    targets.map((target) => executeTarget(commandRequestId, target)),
+  );
+  const completedCount = results.filter(
+    (result) => result.status === "fulfilled" && result.value,
+  ).length;
 
   return { totalCount: targets.length, completedCount };
 }
