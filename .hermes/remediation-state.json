@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T05:30:00Z",
+  "updatedAt": "2026-05-30T05:48:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,20 +43,20 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Health client/page/API/system-health regressions passed: 21 tests",
+    "tests": "Download SSRF DNS regressions passed: source-url/downloads route/remote-command 29 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /health redirected to login, /api/health and /api/system-health returned 401 instead of 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /api/downloads returned 401, /downloads redirected to login, recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T05:30:00Z",
-    "target": "P5 system-health and Health page unification",
-    "status": "verified_deployed_committed",
-    "commit": "c6b337f",
-    "summary": "Unified the Health Center with the system-health API. The server page now passes the full system self-check report, the client renders individual system check rows beside repair guidance, and the client refreshes self-check data from /api/system-health while preserving the VPS health overview.",
+    "finishedAt": "2026-05-30T05:48:00Z",
+    "target": "P6 download URL SSRF DNS hardening",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Strengthened download URL SSRF protections by resolving HTTP/HTTPS download hostnames before task creation and rejecting DNS answers pointing to private, loopback, link-local, multicast, documentation, or metadata ranges. Unsafe public-looking hostnames now fail before server lookup, storage authorization, DB task creation, or remote SSH execution.",
     "validation": [
-      "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx src/app/health/__tests__/page.test.tsx src/app/api/health/__tests__/route.test.ts src/lib/system-health/__tests__/service.test.ts (21/21)",
+      "npx vitest run src/lib/downloads/__tests__/source-url.test.ts src/app/api/downloads/__tests__/route.test.ts src/lib/downloads/__tests__/remote-command.test.ts (29/29)",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
@@ -64,11 +64,12 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "readiness via http://127.0.0.1:3000/api/status",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /health 307, /api/health 401, /api/system-health 401, /api/status 200",
-      "recent production service logs checked with no new error/warn matches"
+      "HTTPS probes /api/downloads 401, /downloads 307, /api/status 200",
+      "recent production service logs checked with no new error/warn matches",
+      "git diff --check"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "P6 architecture hardening: move command/deployment SSH execution out of synchronous API paths, strengthen download URL SSRF protections, unify rate limiting store, and replace shell-string exec surfaces where practical. Because the current checklist is now down to P6 architecture items, the next run should consider whether to start a P6 deployable slice or perform a fresh comprehensive audit."
+    "nextTarget": "Continue P6 architecture hardening: move command/deployment SSH execution out of synchronous API paths, unify the rate limiting store, or replace remaining shell-string exec surfaces where practical."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -83,7 +84,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": []

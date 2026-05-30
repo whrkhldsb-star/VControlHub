@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { validateDownloadSourceUrl } from "@/lib/downloads/source-url";
+const { lookupMock } = vi.hoisted(() => ({
+  lookupMock: vi.fn(),
+}));
+
+import { assertDownloadSourceUrlSafe, validateDownloadSourceUrl } from "@/lib/downloads/source-url";
+
+vi.mock("node:dns/promises", () => ({
+  default: { lookup: lookupMock },
+  lookup: lookupMock,
+}));
 
 describe("validateDownloadSourceUrl", () => {
   it("accepts public http, https and magnet links", () => {
@@ -46,5 +55,35 @@ describe("validateDownloadSourceUrl", () => {
         blockedHostnameSuffixes: [".internal.example"],
       }),
     ).toMatchObject({ ok: false });
+  });
+});
+
+describe("assertDownloadSourceUrlSafe", () => {
+  it("resolves hostnames and rejects DNS answers pointing at private or metadata addresses", async () => {
+    lookupMock.mockResolvedValueOnce([{ address: "169.254.169.254", family: 4 }]);
+
+    await expect(assertDownloadSourceUrlSafe("https://evil.example/file.iso")).resolves.toMatchObject({
+      ok: false,
+      reason: "下载链接 DNS 解析到内网、回环或链路本地地址",
+    });
+    expect(lookupMock).toHaveBeenCalledWith("evil.example", { all: true, verbatim: true });
+  });
+
+  it("resolves hostnames and rejects DNS answers pointing at unique-local IPv6 addresses", async () => {
+    lookupMock.mockResolvedValueOnce([{ address: "fd00::1234", family: 6 }]);
+
+    await expect(assertDownloadSourceUrlSafe("https://ipv6.example/file.iso")).resolves.toMatchObject({
+      ok: false,
+      reason: "下载链接 DNS 解析到内网、回环或链路本地地址",
+    });
+  });
+
+  it("accepts public DNS answers and skips DNS for magnet links", async () => {
+    lookupMock.mockReset();
+    lookupMock.mockResolvedValueOnce([{ address: "93.184.216.34", family: 4 }]);
+
+    await expect(assertDownloadSourceUrlSafe("https://example.com/file.iso")).resolves.toEqual({ ok: true });
+    await expect(assertDownloadSourceUrlSafe("magnet:?xt=urn:btih:abcdef")).resolves.toEqual({ ok: true });
+    expect(lookupMock).toHaveBeenCalledTimes(1);
   });
 });

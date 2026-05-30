@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StorageAccessDecision } from "@/lib/storage/access-control";
 
 const {
+  lookupMock,
   requireSessionMock,
   sessionHasPermissionMock,
   assertStorageAccessMock,
@@ -30,6 +31,7 @@ const {
   readdirMock,
   statMock,
 } = vi.hoisted(() => ({
+  lookupMock: vi.fn(),
   requireSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
   assertStorageAccessMock: vi.fn<() => Promise<StorageAccessDecision>>(() => Promise.resolve({ allowed: true })),
@@ -72,6 +74,10 @@ const {
   statMock: vi.fn(),
 }));
 
+vi.mock("node:dns/promises", () => ({
+  default: { lookup: lookupMock },
+  lookup: lookupMock,
+}));
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: requireSessionMock }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: sessionHasPermissionMock }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: assertStorageAccessMock }));
@@ -149,6 +155,7 @@ function serverFixture() {
 describe("/api/downloads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
     requireSessionMock.mockResolvedValue(session);
     sessionHasPermissionMock.mockReturnValue(true);
     prismaMock.server.findUnique.mockResolvedValue(serverFixture());
@@ -168,6 +175,25 @@ describe("/api/downloads", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/文件名|名称|路径/) });
+    expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects download URLs whose DNS resolves to private or metadata addresses before storage or remote side effects", async () => {
+    lookupMock.mockResolvedValueOnce([{ address: "169.254.169.254", family: 4 }]);
+
+    const response = await POST(request({
+      url: "https://evil.example/file.iso",
+      serverId: "srv_1",
+      targetPath: "/srv/cloud/downloads",
+      fileName: "file.iso",
+    }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: "下载链接 DNS 解析到内网、回环或链路本地地址" });
+    expect(lookupMock).toHaveBeenCalledWith("evil.example", { all: true, verbatim: true });
+    expect(prismaMock.server.findUnique).not.toHaveBeenCalled();
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });

@@ -22,7 +22,7 @@ import {
 } from "@/lib/downloads/target-path";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { validateDownloadSourceUrl } from "@/lib/downloads/source-url";
+import { assertDownloadSourceUrlSafe } from "@/lib/downloads/source-url";
 import {
   normalizeDownloadFileName,
   mapAria2Status,
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
         );
       }
       for (const u of allUrls) {
-        const validation = validateDownloadSourceUrl(u);
+        const validation = await assertDownloadSourceUrlSafe(u);
         if (!validation.ok) {
           return NextResponse.json(
             { error: validation.reason },
