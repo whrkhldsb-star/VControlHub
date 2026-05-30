@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T09:49:13Z",
     "target": "P6 command maintenance reconciliation worker",
-    "status": "validated_deployed_pending_commit",
-    "commit": null,
+    "status": "validated_deployed_committed",
+    "commit": "eb12d8e",
     "summary": "Added an idempotent command maintenance worker that starts with the custom Next.js server and reconciles stale RUNNING command requests on startup and every minute, so stuck command/deployment task state recovers without requiring an operator to open the Commands API/list page.",
     "validation": [
       "read remediation backlog/state first",
