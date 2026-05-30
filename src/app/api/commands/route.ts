@@ -9,24 +9,22 @@ import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
-    if (!session || !sessionHasPermission(session, "command:read")) return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+  return withApiRoute(request, { permission: "command:read" }, async () => {
     await recoverStaleRunningCommandRequests();
     return NextResponse.json({ requests: await listCommandRequests() });
   });
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { requireAuth: true, rateLimit: COMMAND_LIMIT }, async ({ session }) => {
-    if (!session || !sessionHasPermission(session, "command:create")) return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+  return withApiRoute(request, { permission: "command:create", rateLimit: COMMAND_LIMIT }, async ({ session }) => {
     const json = await request.json().catch(() => null);
-    const parsed = createCommandSchema.safeParse({ ...json, requesterId: session.userId, submissionMode: json?.submissionMode ?? "user" });
+    const parsed = createCommandSchema.safeParse({ ...json, requesterId: session!.userId, submissionMode: json?.submissionMode ?? "user" });
     if (!parsed.success) return NextResponse.json({ error: "请求参数无效", issues: parsed.error.flatten() }, { status: 400 });
-    if (parsed.data.submissionMode === "user" && !sessionHasPermission(session, "command:execute")) {
+    if (parsed.data.submissionMode === "user" && !sessionHasPermission(session!, "command:execute")) {
       parsed.data.submissionMode = "assistant";
     }
     const command = await createCommandRequest(parsed.data);
-    auditUserAction(session.userId, "command.submit", {
+    auditUserAction(session!.userId, "command.submit", {
       commandRequestId: command.id,
       title: command.title,
       status: command.status,
@@ -39,8 +37,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  return withApiRoute(request, { requireAuth: true, rateLimit: COMMAND_LIMIT }, async ({ session }) => {
-    if (!session || !sessionHasPermission(session, "command:execute")) return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+  return withApiRoute(request, { permission: "command:execute", rateLimit: COMMAND_LIMIT }, async ({ session }) => {
     const json = await request.json().catch(() => null);
     const action = String(json?.action ?? "");
     const commandRequestId = String(json?.commandRequestId ?? json?.id ?? "");
@@ -50,10 +47,10 @@ export async function PATCH(request: Request) {
 
     const command = await cancelCommandRequest({
       commandRequestId,
-      actorId: session.userId,
+      actorId: session!.userId,
       reason: typeof json?.reason === "string" ? json.reason : undefined,
     });
-    auditUserAction(session.userId, "command.cancel", {
+    auditUserAction(session!.userId, "command.cancel", {
       commandRequestId: command.id,
       status: command.status,
     });
