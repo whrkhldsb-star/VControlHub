@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T07:03:49Z",
     "target": "P6 command/deployment SSH execution decoupling stage 1",
-    "status": "validated_deployed_pending_commit",
-    "commit": null,
+    "status": "validated_deployed_committed",
+    "commit": "9529151",
     "summary": "Approved/direct command requests now transition to RUNNING, mark targets RUNNING, write an enqueue log, and return to API/review/deployment callers before SSH target execution finalizes asynchronously in-process. This is the first deployable slice of moving command/deployment execution out of synchronous API paths; durable worker cancellation/timeouts remain on the backlog.",
     "validation": [
       "git status checked clean before work",
