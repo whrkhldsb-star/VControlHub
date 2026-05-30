@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T04:05:07Z",
+  "updatedAt": "2026-05-30T04:24:56Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,32 +43,35 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Full Vitest suite passed: 165 files / 652 tests",
+    "tests": "Full Vitest suite passed: 167 files / 656 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; / redirected to login and /api/dashboard/analytics returned 401 instead of 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted successfully; /api/status healthy; /deployments redirected to login and /api/deploy-export returned 401 instead of 500; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T04:05:07Z",
-    "target": "P5 dashboard analytics API product surface",
+    "finishedAt": "2026-05-30T04:24:56Z",
+    "target": "P5 deployment export API product surface plus fresh-audit checkpoint",
     "status": "verified_deployed_committed",
-    "commit": "86e21d2",
-    "summary": "Wired the existing dashboard analytics API into the main dashboard with a client-side trend panel for server resources, downloads, audit activity, and image-bed uploads, including inline loading and failure states.",
+    "commit": "a4c7893",
+    "summary": "Wired the existing deployment export API into the Deployments page with a deploy:export-gated client panel, CSRF-backed export creation, file preview, and JSON download. Aligned the POST schema with the actual service contract so current UI payloads no longer need unused legacy format/services fields.",
     "validation": [
-      "npx vitest run src/app/__tests__/dashboard-analytics-panel.test.tsx src/app/__tests__/page.test.tsx (3/3)",
+      "Initial production baseline: services active, /api/status healthy, no recent service error/warn matches",
+      "npx vitest run src/app/api/deploy-export/__tests__/route.test.ts src/app/deployments/__tests__/page.test.tsx src/lib/deploy-export/service.test.ts (6/6)",
+      "npx vitest run src/app/api/deployments/__tests__/route.test.ts src/app/deployments/__tests__/page.test.tsx src/app/api/deploy-export/__tests__/route.test.ts src/lib/deploy-export/service.test.ts (12/12)",
       "npm run typecheck",
       "npm run lint",
-      "npm test (165 files / 652 tests)",
+      "npm test (167 files / 656 tests)",
       "npm run build",
       "npm run build:runtime",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
+      "readiness via http://127.0.0.1:3000/api/status",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes / 307, /api/dashboard/analytics 401, /api/status 200",
-      "recent service logs checked with no new error/warn matches"
+      "HTTPS probes /deployments 307, /api/deploy-export 401, /api/status 200",
+      "recent production service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P5 backlog: add a UI entry for deployment export API or hide/deprecate it cleanly."
+    "nextTarget": "Continue P5 backlog: clarify backup API behavior and restore surface, then unify system-health API and Health page behavior."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -83,7 +86,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 7,
+    "successfulRemediationRunsSinceFreshAudit": 0,
     "skippedOverlapRuns": 0
   },
   "blockers": []
