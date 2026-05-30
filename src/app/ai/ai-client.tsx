@@ -53,6 +53,10 @@ export function AiClient({
  >(null);
  const [confirmError, setConfirmError] = useState<string | null>(null);
  const [confirmBusy, setConfirmBusy] = useState(false);
+ const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+ const [renameTitle, setRenameTitle] = useState("");
+ const [renameBusy, setRenameBusy] = useState(false);
+ const [renameError, setRenameError] = useState<string | null>(null);
  const messagesEndRef = useRef<HTMLDivElement | null>(null);
  const fileInputRef = useRef<HTMLInputElement | null>(null);
  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -666,6 +670,38 @@ if (data.conversation) {
     }
   };
 
+  const openRenameDialog = () => {
+    if (!activeConv) return;
+    setRenameTitle(activeConv.title);
+    setRenameError(null);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameConversation = async () => {
+    if (!activeConvId) return;
+    const nextTitle = renameTitle.trim();
+    if (!nextTitle) {
+      setRenameError("请输入新的对话标题。");
+      return;
+    }
+    setRenameBusy(true);
+    setRenameError(null);
+    try {
+      await csrfFetch(`/api/ai/conversations/${activeConvId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+      await refreshConversations();
+      setRenameDialogOpen(false);
+      addToast("success", "对话标题已更新");
+    } catch (error) {
+      setRenameError(error instanceof Error ? error.message : "重命名失败");
+    } finally {
+      setRenameBusy(false);
+    }
+  };
+
 	return (
     <div className="flex h-[calc(100vh-0px)] overflow-hidden">
       {confirmDialogCopy && (
@@ -679,6 +715,47 @@ if (data.conversation) {
           onCancel={closeConfirmDialog}
           onConfirm={runConfirmedAction}
         />
+      )}
+      {renameDialogOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rename-conversation-title"
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl"
+          >
+            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">修改对话标题</h3>
+            <label className="mt-4 grid gap-1 text-sm text-slate-300">
+              新标题
+              <input
+                value={renameTitle}
+                onChange={(event) => setRenameTitle(event.target.value)}
+                autoFocus
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+                placeholder="输入新的对话标题"
+              />
+            </label>
+            {renameError && <p role="alert" className="mt-3 text-xs text-rose-300">{renameError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={renameBusy}
+                onClick={() => { setRenameDialogOpen(false); setRenameError(null); }}
+                className="rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={renameBusy || !renameTitle.trim()}
+                onClick={handleRenameConversation}
+                className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/30 disabled:opacity-50"
+              >
+                {renameBusy ? "保存中..." : "保存标题"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <AiSidebar
         showSidebar={showSidebar}
@@ -705,16 +782,7 @@ if (data.conversation) {
             setConfirmError(null);
             setConfirmAction({ type: "clear-messages" });
           }}
-          onRenameConv={() => {
-            const title = prompt("修改对话标题", activeConv.title);
-            if (title?.trim()) {
-              csrfFetch(`/api/ai/conversations/${activeConvId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title: title.trim() }),
-              }).then(() => refreshConversations());
-            }
-          }}
+          onRenameConv={openRenameDialog}
           onExportConv={async () => {
             try {
               const data = await csrfFetch(`/api/ai/conversations/${activeConvId}`);

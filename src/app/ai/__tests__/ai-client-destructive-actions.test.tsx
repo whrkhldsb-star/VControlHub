@@ -141,6 +141,32 @@ describe("AiClient destructive actions", () => {
     expect(screen.getByRole("dialog", { name: "清空对话消息" })).toBeInTheDocument();
   });
 
+  it("opens a rename dialog instead of using prompt and updates the title through csrfFetch", async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, "prompt");
+
+    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    await user.click(screen.getByText("生产排障助手"));
+    await screen.findByText(/OpenAI · gpt-4o-mini/);
+    await user.click(screen.getByRole("button", { name: "✏ 重命名" }));
+
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "修改对话标题" })).toBeInTheDocument();
+
+    await user.clear(screen.getByPlaceholderText("输入新的对话标题"));
+    await user.type(screen.getByPlaceholderText("输入新的对话标题"), "新的标题");
+    await user.click(screen.getByRole("button", { name: "保存标题" }));
+
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith("/api/ai/conversations/conv-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "新的标题" }),
+      });
+    });
+    expect(addToastMock).toHaveBeenCalledWith("success", "对话标题已更新");
+  });
+
   it("uses an in-app dialog before deleting a provider", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm");

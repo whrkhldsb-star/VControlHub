@@ -18,27 +18,33 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 describe("RestoreBackupButton", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.spyOn(window, "prompt").mockReturnValue("RESTORE");
     vi.mocked(csrfFetch).mockResolvedValue({ restoredAt: "2026-05-30T00:00:00.000Z" });
   });
 
-  it("requires explicit confirmation before calling the restore API", async () => {
-    vi.mocked(window.prompt).mockReturnValueOnce("NOPE");
+  it("requires explicit in-page confirmation before calling the restore API", async () => {
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
     await userEvent.click(screen.getByRole("button", { name: "执行恢复" }));
 
+    expect(screen.getByRole("dialog", { name: "确认恢复备份" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认恢复" })).toBeDisabled();
     expect(csrfFetch).not.toHaveBeenCalled();
-    expect(screen.getByText(/确认文本不匹配/)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("确认文本"), "RESTORE");
+
+    expect(screen.getByRole("button", { name: "确认恢复" })).toBeEnabled();
   });
 
   it("posts to the restore API through csrfFetch and refreshes server-rendered records", async () => {
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
     await userEvent.click(screen.getByRole("button", { name: "执行恢复" }));
+    await userEvent.type(screen.getByLabelText("确认文本"), "RESTORE");
+    await userEvent.click(screen.getByRole("button", { name: "确认恢复" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/restore", expect.objectContaining({ method: "POST", body: JSON.stringify({ confirm: "RESTORE" }) })));
     expect(refreshMock).toHaveBeenCalledOnce();
     expect(screen.getByText(/恢复已执行/)).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "确认恢复备份" })).not.toBeInTheDocument();
   });
 });

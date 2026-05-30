@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useToast } from "@/components/toast-provider";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "lucide-react";
 
@@ -36,8 +37,12 @@ export function AnnouncementList({
   items: Announcement[];
   canManage: boolean;
 }) {
+  const { addToast } = useToast();
   const [items, setItems] = useState(initial);
   const [editing, setEditing] = useState<Announcement | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Announcement | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("ALL");
 
@@ -60,13 +65,19 @@ export function AnnouncementList({
       });
   }, [items, search, levelFilter]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这条公告吗？")) return;
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
     try {
-      await csrfFetch(`/api/announcements?id=${id}`, { method: "DELETE" });
-      setItems((prev) => prev.filter((a) => a.id !== id));
-    } catch {
-      // silent
+      await csrfFetch(`/api/announcements?id=${pendingDelete.id}`, { method: "DELETE" });
+      setItems((prev) => prev.filter((a) => a.id !== pendingDelete.id));
+      setPendingDelete(null);
+      addToast("success", "公告已删除");
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "删除公告失败");
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -122,7 +133,7 @@ export function AnnouncementList({
                       <button onClick={() => setEditing(a)} title="编辑" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400">
                         <Pencil size={14} />
                       </button>
-                      <button onClick={() => handleDelete(a.id)} title="删除" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400">
+                      <button onClick={() => { setPendingDelete(a); setDeleteError(null); }} title="删除" aria-label={`删除公告 ${a.title}`} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400">
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -144,6 +155,24 @@ export function AnnouncementList({
           onClose={() => setEditing(null)}
           onSaved={handleSaved}
         />
+      )}
+
+      {pendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
+            <h3 id="delete-announcement-title" className="text-base font-semibold text-white">删除公告</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">确认删除公告 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
+            {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
+                取消
+              </button>
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
+                {deleteBusy ? "正在删除..." : "确认删除"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
