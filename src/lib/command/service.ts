@@ -43,7 +43,28 @@ type SshExecutionResult = {
   stdout: string;
   stderr: string;
   exitCode: number;
+  timedOut?: boolean;
 };
+
+const DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS = 5 * 60 * 1000;
+const DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES = 256 * 1024;
+
+function getCommandExecutionTimeoutMs() {
+  const raw = Number(process.env.COMMAND_EXECUTION_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
+}
+
+function getCommandOutputLimitBytes() {
+  const raw = Number(process.env.COMMAND_OUTPUT_LIMIT_BYTES);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES;
+}
+
+function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number) {
+  if (Buffer.byteLength(current, "utf8") >= limitBytes) return current;
+  const next = Buffer.concat([Buffer.from(current), Buffer.from(String(chunk))]);
+  if (next.byteLength <= limitBytes) return next.toString("utf8");
+  return `${next.subarray(0, limitBytes).toString("utf8")}\n[输出已截断，超过 ${limitBytes} 字节限制]`;
+}
 
 async function executeCommandOverSsh(input: {
   host: string;
@@ -113,18 +134,30 @@ async function executeCommandOverSshWithKey(input: {
 
       let stdout = "";
       let stderr = "";
+      let timedOut = false;
+      const timeoutMs = getCommandExecutionTimeoutMs();
+      const outputLimitBytes = getCommandOutputLimitBytes();
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
+        child.kill("SIGTERM");
+      }, timeoutMs);
 
       child.stdout.on("data", (chunk) => {
-        stdout += chunk.toString();
+        stdout = appendBoundedOutput(stdout, chunk, outputLimitBytes);
       });
 
       child.stderr.on("data", (chunk) => {
-        stderr += chunk.toString();
+        stderr = appendBoundedOutput(stderr, chunk, outputLimitBytes);
       });
 
-      child.on("error", reject);
+      child.on("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
       child.on("close", (code) => {
-        resolve({ stdout, stderr, exitCode: code ?? 255 });
+        clearTimeout(timeout);
+        resolve({ stdout, stderr, exitCode: timedOut ? 124 : (code ?? 255), timedOut });
       });
     });
 
@@ -162,16 +195,25 @@ async function executeCommandOverSshWithPassword(input: {
 
     let stdout = "";
     let stderr = "";
+    let timedOut = false;
+    const timeoutMs = getCommandExecutionTimeoutMs();
+    const outputLimitBytes = getCommandOutputLimitBytes();
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
+      child.kill("SIGTERM");
+    }, timeoutMs);
 
     child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
+      stdout = appendBoundedOutput(stdout, chunk, outputLimitBytes);
     });
 
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      stderr = appendBoundedOutput(stderr, chunk, outputLimitBytes);
     });
 
     child.on("error", (err) => {
+      clearTimeout(timeout);
       if (
         err &&
         "code" in err &&
@@ -187,7 +229,8 @@ async function executeCommandOverSshWithPassword(input: {
       }
     });
     child.on("close", (code) => {
-      resolve({ stdout, stderr, exitCode: code ?? 255 });
+      clearTimeout(timeout);
+      resolve({ stdout, stderr, exitCode: timedOut ? 124 : (code ?? 255), timedOut });
     });
   });
 

@@ -4,6 +4,7 @@ import { EventEmitter } from "node:events";
 type MockChildProcess = EventEmitter & {
   stdout: EventEmitter;
   stderr: EventEmitter;
+  kill: ReturnType<typeof vi.fn>;
 };
 
 const { mockPrisma, spawnMock } = vi.hoisted(() => ({
@@ -59,11 +60,14 @@ describe("command service execution flow", () => {
     process.env.COMMAND_DEMO_FALLBACK = "false";
     delete process.env.NEXT_PUBLIC_DEMO_MODE;
     delete process.env.DEMO_MODE;
+    delete process.env.COMMAND_EXECUTION_TIMEOUT_MS;
+    delete process.env.COMMAND_OUTPUT_LIMIT_BYTES;
 
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as MockChildProcess;
       child.stdout = new EventEmitter();
       child.stderr = new EventEmitter();
+      child.kill = vi.fn(() => true);
       queueMicrotask(() => {
         child.stdout.emit("data", Buffer.from("ok\n"));
         child.emit("close", 0);
@@ -256,6 +260,7 @@ describe("command service execution flow", () => {
         const child = new EventEmitter() as MockChildProcess;
         child.stdout = new EventEmitter();
         child.stderr = new EventEmitter();
+        child.kill = vi.fn(() => true);
         queueMicrotask(() => {
           child.stdout.emit("data", Buffer.from("ok\n"));
           child.emit("close", 0);
@@ -266,6 +271,7 @@ describe("command service execution flow", () => {
         const child = new EventEmitter() as MockChildProcess;
         child.stdout = new EventEmitter();
         child.stderr = new EventEmitter();
+        child.kill = vi.fn(() => true);
         queueMicrotask(() => {
           child.stderr.emit("data", Buffer.from("failed\n"));
           child.emit("close", 1);
@@ -295,6 +301,131 @@ describe("command service execution flow", () => {
           commandRequestId: "req_partial_1",
           serverId: null,
           summary: expect.stringContaining("仅完成 1/2 个目标"),
+        }),
+      }),
+    );
+  });
+
+  it("kills long-running SSH commands and marks the target failed with timeout output", async () => {
+    vi.useFakeTimers();
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "50";
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_timeout_1",
+      status: "APPROVED",
+      targets: [{ id: "target_timeout" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_timeout",
+        server: {
+          id: "srv_timeout",
+          name: "slow-node",
+          host: "203.0.113.13",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "sleep 3600" },
+      },
+    ]);
+    let timeoutChild!: MockChildProcess;
+    spawnMock.mockImplementationOnce(() => {
+      timeoutChild = new EventEmitter() as MockChildProcess;
+      timeoutChild.stdout = new EventEmitter();
+      timeoutChild.stderr = new EventEmitter();
+      timeoutChild.kill = vi.fn(() => {
+        timeoutChild.emit("close", null);
+        return true;
+      });
+      return timeoutChild;
+    });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_timeout_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_timeout_1", targets: [{ id: "target_timeout" }] });
+
+    await createCommandRequest({
+      title: "Slow command",
+      command: "sleep 3600",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_timeout"],
+    });
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
+    await vi.advanceTimersByTimeAsync(50);
+
+    await vi.waitFor(() => expect(timeoutChild.kill).toHaveBeenCalledWith("SIGTERM"));
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith({
+        where: { id: "target_timeout" },
+        data: expect.objectContaining({
+          status: "FAILED",
+          exitCode: 124,
+          stderr: expect.stringContaining("已终止"),
+        }),
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+        where: { id: "req_timeout_1" },
+        data: { status: "FAILED" },
+      }),
+    );
+  });
+
+  it("truncates oversized SSH output before persisting target logs", async () => {
+    process.env.COMMAND_OUTPUT_LIMIT_BYTES = "12";
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_output_1",
+      status: "APPROVED",
+      targets: [{ id: "target_output" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_output",
+        server: {
+          id: "srv_output",
+          name: "chatty-node",
+          host: "203.0.113.14",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "yes" },
+      },
+    ]);
+    spawnMock.mockImplementationOnce(() => {
+      const child = new EventEmitter() as MockChildProcess;
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn(() => true);
+      queueMicrotask(() => {
+        child.stdout.emit("data", Buffer.from("abcdefghijklmnopqrstuvwxyz"));
+        child.emit("close", 0);
+      });
+      return child;
+    });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_output_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_output_1", targets: [{ id: "target_output" }] });
+
+    await createCommandRequest({
+      title: "Chatty command",
+      command: "yes",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_output"],
+    });
+
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith({
+        where: { id: "target_output" },
+        data: expect.objectContaining({
+          status: "COMPLETED",
+          stdout: expect.stringContaining("输出已截断"),
+          exitCode: 0,
         }),
       }),
     );
