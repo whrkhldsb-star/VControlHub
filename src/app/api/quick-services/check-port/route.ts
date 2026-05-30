@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
 		const { searchParams } = new URL(request.url);
 		const portStr = searchParams.get("port");
 		const action = searchParams.get("action");

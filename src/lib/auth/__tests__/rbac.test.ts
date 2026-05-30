@@ -29,6 +29,12 @@ describe("RBAC defaults", () => {
     ]);
   });
 
+  it("lets operators manage Quick Services via docker:manage without broad user management", () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.operator).toContain("docker:manage");
+    expect(DEFAULT_ROLE_PERMISSIONS.operator).not.toContain("user:manage");
+    expect(DEFAULT_ROLE_PERMISSIONS.viewer).not.toContain("docker:manage");
+  });
+
   it("requires approval for assistant initiated destructive or command actions", () => {
     expect(
       isProtectedByApproval({

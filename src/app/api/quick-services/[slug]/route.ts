@@ -9,7 +9,7 @@ const serviceActionSchema = z.object({ action: z.enum(["start", "stop", "sync"])
 export const dynamic = "force-dynamic";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT }, async () => {
 		const { slug } = await params;
 		const parsed = serviceActionSchema.safeParse(await request.json());
 		if (!parsed.success) return NextResponse.json({ error: "输入参数无效，支持: start/stop/sync" }, { status: 400 });
@@ -33,7 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ slug: string }> }) {
-	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "卸载失败" }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "卸载失败" }, async () => {
 		const { slug } = await params;
 		await uninstallService(slug);
 		return NextResponse.json({ success: true });

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function QuickServicesPage() {
 	const session = await requireSession("/quick-services");
-	const canManage = sessionHasPermission(session, "user:manage");
+	const canManage = sessionHasPermission(session, "docker:manage");
 
 	return (
 		<PageShell>

@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "docker:manage", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
 		const installed = await listQuickServices();
 		const installedMap = new Map(installed.map((s) => [s.slug, s]));
 
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 /** POST /api/quick-services — install a service (local or remote) */
 export async function POST(request: Request) {
 	return withApiRoute(request, {
-		permission: "user:manage",
+		permission: "docker:manage",
 		rateLimit: GENERAL_WRITE_LIMIT,
 		onError(error) {
 			const message = error instanceof Error ? error.message : "安装失败";

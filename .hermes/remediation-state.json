@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T00:31:35Z",
+  "updatedAt": "2026-05-30T00:47:06Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -35,31 +35,33 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "targeted storage access-control, local/SFTP route, and SFTP sync tests 27/27 passed",
+    "tests": "Quick Services route, RBAC, and seed regressions 19/19 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; storage route probes returned 401 without 500; no recent warning/error logs"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws active after restart; /api/status ready; /api/quick-services returned 401 without 500; no recent warning/error logs"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T00:31:35Z",
-    "target": "P2 storage/file-size safety and resource authorization hardening",
-    "status": "deployed_verified_committed_pushed",
-    "commit": "097027e",
-    "summary": "Changed storage path authorization so users without explicit UserStorageAccess grants are denied by default even if their role has generic storage:read/write/delete; storage managers/admins with storage:manage-node keep break-glass access, and legacy deployments can temporarily opt in to the old behavior with VCONTROLHUB_STORAGE_GRANT_FALLBACK=true.",
+    "finishedAt": "2026-05-30T00:47:06Z",
+    "target": "P3 Quick Services permission separation",
+    "status": "deployed_verified_pending_commit",
+    "commit": null,
+    "summary": "Changed Quick Services list/install/control/check-port routes and the /quick-services page to require docker:manage instead of broad user:manage, and updated the docker:manage seed label to explicitly cover Quick Services.",
     "validation": [
-      "npx vitest run src/lib/storage/__tests__/access-control.test.ts src/app/api/storage/sftp-ops/__tests__/route.test.ts src/app/api/storage/local/__tests__/route.test.ts src/lib/storage/__tests__/sftp-sync.test.ts",
+      "npx vitest run src/app/api/quick-services/__tests__/route.test.ts src/lib/auth/__tests__/rbac.test.ts prisma/__tests__/seed.test.ts",
       "npm run typecheck -- --pretty false",
       "npm run lint",
       "npm run build",
       "npm run build:runtime",
+      "npx prisma db seed",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub",
-      "storage route probes and recent service log check",
+      "GET https://whrkhldsb.qzz.io/api/quick-services returned 401 without 500",
+      "recent service log check",
       "git diff --check"
     ],
     "deployment": "production services restarted and smoke 19/19 passed",
-    "nextTarget": "Rotate to P3 Quick Services permissions/task robustness"
+    "nextTarget": "Continue P3 Quick Services install/uninstall idempotency guard or task-lock"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -71,7 +73,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": []

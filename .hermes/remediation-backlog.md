@@ -45,8 +45,8 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## P3 — Quick Services permission and task robustness
 
-- [ ] Replace Quick Services `user:manage` permission with `quick-service:manage` or `docker:manage` consistently in routes/UI/RBAC.
-- [ ] Add seed/test synchronization for any new permissions.
+- [x] 2026-05-30 — Replace Quick Services `user:manage` permission with `docker:manage` consistently in routes/UI/RBAC so Docker operators can manage Quick Services without broad user-management rights. Verification: Quick Services route regression proves `docker:manage` is used and `user:manage` is not; RBAC regression proves operators have Docker/Quick Services management without user management; targeted tests, typecheck, lint, build, runtime build, seed, production restart, smoke 19/19, and route probe passed. Commit pending in current run.
+- [x] 2026-05-30 — Add seed/test synchronization for Quick Services permission labeling by expanding `docker:manage` labels to cover Quick Services. Verification: `prisma/__tests__/seed.test.ts` included in targeted run and `npx prisma db seed` executed successfully.
 - [ ] Add install/uninstall idempotency guard or task-lock to prevent concurrent operations on the same slug.
 - [ ] Improve Quick Services install failure visibility/logging and cleanup state.
 

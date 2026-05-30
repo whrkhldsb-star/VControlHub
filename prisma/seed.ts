@@ -22,7 +22,7 @@ const PERMISSION_LABELS: Record<string, { name: string; description: string }> =
  "ai:manage": { name: "管理 AI 助手", description: "允许配置 AI 提供商、创建对话与多模态交互" },
  "ai:action:approve": { name: "审批 AI 托管操作", description: "允许审批 AI 助手发起的高风险托管操作" },
 	"deploy:export":{ name: "导出部署包", description: "允许生成不含敏感值的部署迁移模板包" },
-	"docker:manage": { name: "管理 Docker", description: "允许管理 Docker 容器、镜像与编排" },
+	"docker:manage": { name: "管理 Docker / 快捷服务", description: "允许管理 Docker 容器、镜像、编排与快捷服务部署" },
 	"image:read": { name: "查看镜像", description: "允许查看 Docker 镜像列表与详情" },
 	"image:write": { name: "管理镜像", description: "允许拉取、构建和删除 Docker 镜像" },
 	"media:manage": { name: "管理媒体库", description: "允许扫描、标记和浏览图片视频媒体资源" },

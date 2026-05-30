@@ -69,7 +69,15 @@ describe("/api/quick-services routes", () => {
     mocks.getRemoteApps.mockResolvedValue([]);
   });
 
-  it("short-circuits when the user lacks manage permission", async () => {
+  it("uses docker:manage rather than broad user management for Quick Services access", async () => {
+    const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
+
+    expect(response.status).toBe(200);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("docker:manage");
+    expect(mocks.requireApiPermission).not.toHaveBeenCalledWith("user:manage");
+  });
+
+  it("short-circuits when the user lacks Quick Services manage permission", async () => {
     mocks.requireApiPermission.mockResolvedValueOnce(Response.json({ error: "权限不足" }, { status: 403 }));
 
     const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
