@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T18:51:28Z",
     "target": "P1 preference fields real app-side effects from fresh-audit findings",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed_pending_push",
+    "commit": "5582fca",
     "summary": "Preferences now filter stale no-op fields, normalize saved preference JSON through a shared helper, consume defaultPage during login when there is no explicit next target, and consume dashboardWidgets on the dashboard so saved/local preferences hide or show real dashboard sections.",
     "validation": [
       "read remediation backlog/state first",
