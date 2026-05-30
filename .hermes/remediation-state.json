@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T07:03:49Z",
+  "updatedAt": "2026-05-30T07:21:16Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,22 +43,22 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Targeted command/deployment/operation-task/API tests passed: command service 8/8 plus neighboring tests 17/17",
+    "tests": "Command timeout/output-limit regressions passed 10/10; neighboring deployment/operation-task/commands API tests passed 17/17",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands and /api/deployments returned 401; /operation-tasks and /deployments returned 307; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T07:03:49Z",
-    "target": "P6 command/deployment SSH execution decoupling stage 1",
+    "finishedAt": "2026-05-30T07:21:16Z",
+    "target": "P6 command/deployment SSH execution timeout and output guardrails",
     "status": "validated_deployed_committed",
-    "commit": "9529151",
-    "summary": "Approved/direct command requests now transition to RUNNING, mark targets RUNNING, write an enqueue log, and return to API/review/deployment callers before SSH target execution finalizes asynchronously in-process. This is the first deployable slice of moving command/deployment execution out of synchronous API paths; durable worker cancellation/timeouts remain on the backlog.",
+    "commit": "118d568",
+    "summary": "Background command/deployment SSH execution now enforces a default 5-minute per-target timeout, kills timed-out local ssh/sshpass processes, records timeout failures with exit code 124, and bounds captured stdout/stderr to 256 KiB so hung or chatty commands cannot exhaust API worker resources. Limits are configurable via COMMAND_EXECUTION_TIMEOUT_MS and COMMAND_OUTPUT_LIMIT_BYTES.",
     "validation": [
       "git status checked clean before work",
       "no overlapping remediation/build/test process found other than the preflight check itself",
-      "npx vitest run src/lib/command/__tests__/service.test.ts passed 8/8",
+      "npx vitest run src/lib/command/__tests__/service.test.ts passed 10/10",
       "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 17/17",
       "npm run typecheck",
       "npm run lint",
@@ -72,7 +72,7 @@
       "git diff --check"
     ],
     "deployment": "Production services restarted and smoke-tested successfully.",
-    "nextTarget": "Continue P6 durable command/deployment background worker model: persistence across restarts, explicit timeouts/output limits, cancellation controls, and task status reconciliation."
+    "nextTarget": "Continue P6 durable command/deployment background worker model: persistence across restarts, cancellation controls, and task status reconciliation."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []
