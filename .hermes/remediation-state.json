@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T09:11:46Z",
     "target": "P6 command cancellation controls for background SSH execution",
-    "status": "validated_deployed_pending_commit",
-    "commit": null,
+    "status": "validated_deployed_committed",
+    "commit": "6b9b185",
     "summary": "Added a command cancellation control path: PATCH /api/commands with action=cancel is guarded by command:execute, marks pending/approved/running command requests and active targets CANCELLED, records execution/audit logs, and terminates in-process SSH children for running targets with exit code 130.",
     "validation": [
       "read remediation backlog/state first",
