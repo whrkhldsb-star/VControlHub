@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T11:46:12Z",
+  "updatedAt": "2026-05-30T12:05:30Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,23 +43,24 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Command/deployment/operation-task neighboring Vitest passed 36/36 during queued command recovery remediation",
+    "tests": "Command service/worker regressions 20/20 and neighboring deployment/operation-task/commands API tests 20/20 passed during command execution heartbeat remediation",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active; /api/status healthy; command/deployment/task route probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T11:46:12Z",
-    "target": "P6 command/deployment background-worker queued APPROVED recovery",
+    "finishedAt": "2026-05-30T12:05:30Z",
+    "target": "P6 command/deployment background-worker RUNNING heartbeat slice",
     "status": "completed_deployed_committed",
-    "commit": "39e3621",
-    "summary": "Command maintenance worker now recovers APPROVED command requests left queued after a prior process exits before scheduling execution, atomically claims them, logs the re-enqueue, and starts background SSH execution without duplicate scheduling.",
+    "commit": "5d59440",
+    "summary": "Long-lived background SSH command execution now refreshes RUNNING CommandRequest.updatedAt while active, avoiding false stale recovery before the configured timeout window; command maintenance worker tests also cover queued APPROVED recovery.",
     "validation": [
       "read remediation backlog/state first",
-      "git status and overlap process check clean before work",
-      "targeted P6 durable command/deployment background-worker architecture slice",
-      "npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/__tests__/worker.test.ts src/app/api/commands/__tests__/route.test.ts src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts passed 36/36",
+      "git status and overlap process check before work",
+      "targeted P6 durable command/deployment background-worker heartbeat slice",
+      "npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/worker.test.ts passed 20/20",
+      "npx vitest run src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 20/20",
       "npm run typecheck passed",
       "npm run lint passed",
       "npm run build passed",
@@ -71,7 +72,7 @@
       "git diff --check passed"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; readiness and smoke checks passed.",
-    "nextTarget": "Continue P6 durable command/deployment background-worker architecture with richer task status reconciliation and persistent worker ownership/heartbeats, or run the next fresh audit after 2 more successful remediation runs."
+    "nextTarget": "Continue P6 durable command/deployment background-worker architecture with persistent worker ownership/claim metadata and richer task status reconciliation, or run the next fresh audit after 1 more successful remediation run."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -86,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": []
