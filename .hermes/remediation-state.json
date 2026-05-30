@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T02:32:00Z",
     "target": "P4 two-factor settings no-full-reload UX",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "a095185",
     "summary": "Two-factor enable/disable success now uses App Router router.refresh() instead of window.location.reload(), preserving browser/client state while refreshing server-rendered account security status.",
     "validation": [
       "npx vitest run src/components/__tests__/two-factor-settings.test.tsx src/app/settings/__tests__/settings-client.test.tsx (8/8)",
