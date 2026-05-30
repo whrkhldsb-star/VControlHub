@@ -271,6 +271,7 @@ function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: numbe
 export async function listQuickServices() {
 	return prisma.quickService.findMany({
 		orderBy: [{ category: "asc" }, { name: "asc" }],
+		take: 200,
 		select: { id: true, slug: true, name: true, category: true, description: true, icon: true, image: true, port: true, path: true, internalPort: true, extraPortsJson: true, command: true, envJson: true, volumesJson: true, status: true, containerId: true, error: true, createdAt: true },
 	});
 }

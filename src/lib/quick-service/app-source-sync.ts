@@ -15,6 +15,9 @@ import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("app-source:sync");
 
+const MAX_ENABLED_APP_SOURCES = 50;
+const MAX_REMOTE_APPS = 500;
+
 type AppSourceAppSlugRow = Prisma.AppSourceAppGetPayload<{ select: { id: true; slug: true } }>;
 type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select: { name: true } } } }>;
 
@@ -122,7 +125,11 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
  * Sync all enabled sources.
  */
 export async function syncAllSources(): Promise<Array<{ name: string; synced: number; errors: number }>> {
-	const sources = await prisma.appSource.findMany({ where: { enabled: true } });
+	const sources = await prisma.appSource.findMany({
+		where: { enabled: true },
+		orderBy: { createdAt: "asc" },
+		take: MAX_ENABLED_APP_SOURCES,
+	});
 	const results = [];
 
 	for (const source of sources) {
@@ -145,6 +152,7 @@ export async function getRemoteApps(): Promise<NormalizedApp[]> {
 	const apps = await prisma.appSourceApp.findMany({
 		where: { source: { enabled: true } },
 		orderBy: [{ category: "asc" }, { name: "asc" }],
+		take: MAX_REMOTE_APPS,
 		include: { source: { select: { name: true } } },
 	});
 
