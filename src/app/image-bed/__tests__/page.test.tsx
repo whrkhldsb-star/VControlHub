@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,11 +12,18 @@ import ImageBedPage from "../page";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("next/image", () => ({
-  default: ({ alt: _alt, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) => <picture data-testid="mock-next-image" {...props} />,
+  default: ({
+    alt: _alt,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+    <picture data-testid="mock-next-image" {...props} />
+  ),
 }));
 
 vi.mock("@/components/page-shell", () => ({
-  PageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PageShell: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
@@ -24,8 +37,10 @@ describe("ImageBedPage", () => {
     vi.useRealTimers();
     vi.mocked(csrfFetch).mockImplementation(async (input) => {
       const url = String(input);
-      if (url.startsWith("/api/images/list")) return { images: [], total: 0, totalPages: 1 };
-      if (url === "/api/storage/nodes?driver=LOCAL") return { nodes: [{ id: "node_1", name: "本机存储" }] };
+      if (url.startsWith("/api/images/list"))
+        return { images: [], total: 0, totalPages: 1 };
+      if (url === "/api/storage/nodes?driver=LOCAL")
+        return { nodes: [{ id: "node_1", name: "本机存储" }] };
       throw new Error(`unexpected request: ${url}`);
     });
   });
@@ -37,16 +52,22 @@ describe("ImageBedPage", () => {
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes?driver=LOCAL"));
-    expect(await screen.findByRole("option", { name: "本机存储" })).toHaveValue("node_1");
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes?driver=LOCAL"),
+    );
+    expect(await screen.findByRole("option", { name: "本机存储" })).toHaveValue(
+      "node_1",
+    );
   });
 
   it("surfaces storage node load failures instead of opening silently empty", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockImplementation(async (input) => {
       const url = String(input);
-      if (url.startsWith("/api/images/list")) return { images: [], total: 0, totalPages: 1 };
-      if (url === "/api/storage/nodes?driver=LOCAL") throw new Error("缺少权限");
+      if (url.startsWith("/api/images/list"))
+        return { images: [], total: 0, totalPages: 1 };
+      if (url === "/api/storage/nodes?driver=LOCAL")
+        throw new Error("缺少权限");
       throw new Error(`unexpected request: ${url}`);
     });
 
@@ -61,7 +82,8 @@ describe("ImageBedPage", () => {
   it("shows image upload progress and per-file failures", async () => {
     vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
       const url = String(input);
-      if (url.startsWith("/api/images/list")) return { images: [], total: 0, totalPages: 1 };
+      if (url.startsWith("/api/images/list"))
+        return { images: [], total: 0, totalPages: 1 };
       if (url === "/api/images/upload") {
         const formData = init?.body as FormData;
         const file = formData.get("file") as File;
@@ -77,7 +99,9 @@ describe("ImageBedPage", () => {
     render(<ImageBedPage />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
     fireEvent.change(input, {
       target: {
         files: [
@@ -87,12 +111,24 @@ describe("ImageBedPage", () => {
       },
     });
 
-    expect(await screen.findByRole("status", { name: "图片上传进度" })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("status", { name: "图片上传进度" })).toHaveTextContent("已完成 1/2 张"));
-    expect(screen.getByRole("status", { name: "图片上传进度" })).toHaveTextContent("成功 1 · 失败 1");
+    expect(
+      await screen.findByRole("status", { name: "图片上传进度" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "图片上传进度" }),
+      ).toHaveTextContent("已完成 1/2 张"),
+    );
+    expect(
+      screen.getByRole("status", { name: "图片上传进度" }),
+    ).toHaveTextContent("成功 1 · 失败 1");
     expect(screen.getByText(/ok\.png/)).toHaveTextContent("上传完成");
-    expect(screen.getByText(/bad\.png/)).toHaveTextContent("失败：图片解码失败");
-    expect(screen.getByRole("alert")).toHaveTextContent("上传完成 1/2 张，1 张失败");
+    expect(screen.getByText(/bad\.png/)).toHaveTextContent(
+      "失败：图片解码失败",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "上传完成 1/2 张，1 张失败",
+    );
   });
 
   it("uses an in-app confirmation before deleting a single image", async () => {
@@ -102,7 +138,18 @@ describe("ImageBedPage", () => {
       const url = String(input);
       if (url.startsWith("/api/images/list")) {
         return {
-          images: [{ id: "img_1", filename: "cat.png", mimeType: "image/png", sizeBytes: 1024, album: null, isPublic: true, createdAt: "2026-01-01T00:00:00.000Z", publicUrl: "/api/images/img_1/file" }],
+          images: [
+            {
+              id: "img_1",
+              filename: "cat.png",
+              mimeType: "image/png",
+              sizeBytes: 1024,
+              album: null,
+              isPublic: true,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              publicUrl: "/api/images/img_1/file",
+            },
+          ],
           total: 1,
           totalPages: 1,
         };
@@ -119,16 +166,32 @@ describe("ImageBedPage", () => {
     const dialog = await screen.findByRole("dialog", { name: "确认删除图片" });
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(dialog).toHaveTextContent("cat.png");
-    expect(csrfFetch).not.toHaveBeenCalledWith("/api/images/img_1", expect.anything());
+    expect(csrfFetch).not.toHaveBeenCalledWith(
+      "/api/images/img_1",
+      expect.anything(),
+    );
 
     await user.click(within(dialog).getByRole("button", { name: "取消" }));
-    expect(screen.queryByRole("dialog", { name: "确认删除图片" })).not.toBeInTheDocument();
-    expect(csrfFetch).not.toHaveBeenCalledWith("/api/images/img_1", expect.anything());
+    expect(
+      screen.queryByRole("dialog", { name: "确认删除图片" }),
+    ).not.toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalledWith(
+      "/api/images/img_1",
+      expect.anything(),
+    );
 
     await user.click(screen.getByTitle("删除"));
-    await user.click(within(await screen.findByRole("dialog", { name: "确认删除图片" })).getByRole("button", { name: "确认删除" }));
+    await user.click(
+      within(
+        await screen.findByRole("dialog", { name: "确认删除图片" }),
+      ).getByRole("button", { name: "确认删除" }),
+    );
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/images/img_1", { method: "DELETE" }));
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith("/api/images/img_1", {
+        method: "DELETE",
+      }),
+    );
   });
 
   it("uses an in-app confirmation before batch deleting selected images", async () => {
@@ -139,14 +202,33 @@ describe("ImageBedPage", () => {
       if (url.startsWith("/api/images/list")) {
         return {
           images: [
-            { id: "img_1", filename: "cat.png", mimeType: "image/png", sizeBytes: 1024, album: null, isPublic: true, createdAt: "2026-01-01T00:00:00.000Z", publicUrl: "/api/images/img_1/file" },
-            { id: "img_2", filename: "dog.png", mimeType: "image/png", sizeBytes: 2048, album: null, isPublic: true, createdAt: "2026-01-02T00:00:00.000Z", publicUrl: "/api/images/img_2/file" },
+            {
+              id: "img_1",
+              filename: "cat.png",
+              mimeType: "image/png",
+              sizeBytes: 1024,
+              album: null,
+              isPublic: true,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              publicUrl: "/api/images/img_1/file",
+            },
+            {
+              id: "img_2",
+              filename: "dog.png",
+              mimeType: "image/png",
+              sizeBytes: 2048,
+              album: null,
+              isPublic: true,
+              createdAt: "2026-01-02T00:00:00.000Z",
+              publicUrl: "/api/images/img_2/file",
+            },
           ],
           total: 2,
           totalPages: 1,
         };
       }
-      if (url === "/api/images/batch" && init?.method === "POST") return { deleted: 2 };
+      if (url === "/api/images/batch" && init?.method === "POST")
+        return { deleted: 2 };
       throw new Error(`unexpected request: ${url}`);
     });
 
@@ -157,18 +239,78 @@ describe("ImageBedPage", () => {
     await user.click(screen.getByText("全选"));
     await user.click(screen.getByRole("button", { name: "🗑 批量删除" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "确认批量删除图片" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "确认批量删除图片",
+    });
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(dialog).toHaveTextContent("2 张图片");
 
     await user.click(within(dialog).getByRole("button", { name: "取消" }));
-    expect(csrfFetch).not.toHaveBeenCalledWith("/api/images/batch", expect.anything());
+    expect(csrfFetch).not.toHaveBeenCalledWith(
+      "/api/images/batch",
+      expect.anything(),
+    );
 
     await user.click(screen.getByRole("button", { name: "🗑 批量删除" }));
-    await user.click(within(await screen.findByRole("dialog", { name: "确认批量删除图片" })).getByRole("button", { name: "确认删除" }));
+    await user.click(
+      within(
+        await screen.findByRole("dialog", { name: "确认批量删除图片" }),
+      ).getByRole("button", { name: "确认删除" }),
+    );
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/images/batch", expect.objectContaining({ method: "POST" })));
-    const batchCall = vi.mocked(csrfFetch).mock.calls.find(([url]) => url === "/api/images/batch");
-    expect(JSON.parse(String(batchCall?.[1]?.body))).toEqual({ action: "delete", ids: ["img_1", "img_2"] });
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/images/batch",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    const batchCall = vi
+      .mocked(csrfFetch)
+      .mock.calls.find(([url]) => url === "/api/images/batch");
+    expect(JSON.parse(String(batchCall?.[1]?.body))).toEqual({
+      action: "delete",
+      ids: ["img_1", "img_2"],
+    });
+  });
+
+  it("opens the in-page preview with the streamed file URL for private images", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) {
+        return {
+          images: [
+            {
+              id: "img_private",
+              filename: "private-cat.png",
+              mimeType: "image/png",
+              sizeBytes: 4096,
+              album: "pets",
+              isPublic: false,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              publicUrl: "/api/images/img_private/file",
+            },
+          ],
+          total: 1,
+          totalPages: 1,
+        };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPage />);
+
+    await screen.findByText("private-cat.png");
+    expect(screen.getByText("私有")).toBeInTheDocument();
+    const images = screen.getAllByTestId("mock-next-image");
+    expect(images[0]).toHaveAttribute("src", "/api/images/img_private/file");
+
+    await user.click(images[0]);
+
+    expect(await screen.findByText("4.0 KB · image/png")).toBeInTheDocument();
+    expect(screen.getAllByTestId("mock-next-image")[1]).toHaveAttribute(
+      "src",
+      "/api/images/img_private/file",
+    );
   });
 });

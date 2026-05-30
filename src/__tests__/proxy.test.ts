@@ -6,7 +6,9 @@ type NextRequestInit = ConstructorParameters<typeof NextRequest>[1];
 import { proxy } from "../proxy";
 
 vi.mock("@/lib/auth/session", () => ({
-  getSessionCookieName: () => process.env.AUTH_SESSION_COOKIE_NAME?.trim() || `${process.env.APP_SLUG || "whrkhldsb"}_session`,
+  getSessionCookieName: () =>
+    process.env.AUTH_SESSION_COOKIE_NAME?.trim() ||
+    `${process.env.APP_SLUG || "whrkhldsb"}_session`,
 }));
 
 function makeRequest(pathname: string, init: NextRequestInit = {}) {
@@ -25,8 +27,12 @@ describe("proxy auth guard", () => {
     );
 
     const csp = response.headers.get("Content-Security-Policy");
-    expect(csp).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com");
-    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net");
+    expect(csp).toContain(
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://static.cloudflareinsights.com",
+    );
+    expect(csp).toContain(
+      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+    );
     expect(csp).toContain("font-src 'self' data: https://fonts.scalar.com");
 
     if (originalNodeEnv === undefined) vi.unstubAllEnvs();
@@ -37,7 +43,9 @@ describe("proxy auth guard", () => {
     const response = proxy(makeRequest("/servers"));
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe("https://example.test/login?next=%2Fservers");
+    expect(response.headers.get("location")).toBe(
+      "https://example.test/login?next=%2Fservers",
+    );
     expect(response.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });
 
@@ -47,7 +55,9 @@ describe("proxy auth guard", () => {
 
     const response = proxy(
       makeRequest("/servers", {
-        headers: { cookie: "my-console_session=header.payload.signature-value" },
+        headers: {
+          cookie: "my-console_session=header.payload.signature-value",
+        },
       }),
     );
 
@@ -61,7 +71,9 @@ describe("proxy auth guard", () => {
     const response = proxy(makeRequest("/api/servers/monitor"));
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: "未登录或会话已过期" });
+    await expect(response.json()).resolves.toEqual({
+      error: "未登录或会话已过期",
+    });
   });
 
   it("allows public login requests through with security headers", () => {
@@ -69,5 +81,23 @@ describe("proxy auth guard", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("lets anonymous browsers reach image file GET routes so public image links can render", () => {
+    const response = proxy(makeRequest("/api/images/img_1/file"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("keeps state-changing image API routes protected by auth and CSRF", async () => {
+    const response = proxy(
+      makeRequest("/api/images/img_1/file", { method: "POST" }),
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: "未登录或会话已过期",
+    });
   });
 });

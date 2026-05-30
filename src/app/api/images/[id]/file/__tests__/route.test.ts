@@ -2,13 +2,13 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { requireApiSessionMock, imageFindUniqueMock } = vi.hoisted(() => ({
-  requireApiSessionMock: vi.fn(),
+const { getApiSessionMock, imageFindUniqueMock } = vi.hoisted(() => ({
+  getApiSessionMock: vi.fn(),
   imageFindUniqueMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
-  requireApiSession: requireApiSessionMock,
+  getApiSession: getApiSessionMock,
 }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -21,13 +21,43 @@ vi.mock("@/lib/image-bed/constants", () => ({
 
 import { GET } from "../route";
 
-const session = { userId: "u1", username: "admin", roles: ["admin"] };
+const ownerSession = {
+  userId: "u1",
+  username: "owner",
+  roles: ["user"],
+  mustChangePassword: false,
+};
+const adminSession = {
+  userId: "admin_1",
+  username: "admin",
+  roles: ["admin"],
+  mustChangePassword: false,
+};
+const otherSession = {
+  userId: "u2",
+  username: "other",
+  roles: ["user"],
+  mustChangePassword: false,
+};
 const params = { params: Promise.resolve({ id: "img_1" }) };
 const uploadRoot = "/tmp/vcontrolhub-image-file-test";
+
+function image(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    id: "img_1",
+    storageKey: "2026/photo.png",
+    mimeType: "image/png",
+    filename: "photo.png",
+    isPublic: true,
+    userId: "u1",
+    ...overrides,
+  };
+}
 
 describe("GET /api/images/[id]/file", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    getApiSessionMock.mockResolvedValue(null);
     await mkdir(`${uploadRoot}/2026`, { recursive: true });
     await writeFile(`${uploadRoot}/2026/photo.png`, Buffer.from("png"));
   });
@@ -36,15 +66,8 @@ describe("GET /api/images/[id]/file", () => {
     await rm(uploadRoot, { recursive: true, force: true });
   });
 
-  it("uses shared auth guard and streams public images", async () => {
-    requireApiSessionMock.mockResolvedValue(session);
-    imageFindUniqueMock.mockResolvedValue({
-      id: "img_1",
-      storageKey: "2026/photo.png",
-      mimeType: "image/png",
-      filename: "photo.png",
-      isPublic: true,
-    });
+  it("streams public images without requiring a logged-in session so copied external links work", async () => {
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: true }));
 
     const response = await GET(
       new Request("http://local/api/images/img_1/file"),
@@ -52,7 +75,7 @@ describe("GET /api/images/[id]/file", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(requireApiSessionMock).toHaveBeenCalled();
+    expect(getApiSessionMock).not.toHaveBeenCalled();
     expect(imageFindUniqueMock).toHaveBeenCalledWith({
       where: { id: "img_1" },
       select: {
@@ -61,21 +84,47 @@ describe("GET /api/images/[id]/file", () => {
         mimeType: true,
         filename: true,
         isPublic: true,
+        userId: true,
       },
     });
     expect(response.headers.get("Content-Type")).toBe("image/png");
     expect(response.headers.get("Content-Length")).toBe("3");
+    expect(response.headers.get("Cache-Control")).toContain("public");
   });
 
-  it("blocks non-public images", async () => {
-    requireApiSessionMock.mockResolvedValue(session);
-    imageFindUniqueMock.mockResolvedValue({
-      id: "img_1",
-      storageKey: "2026/photo.png",
-      mimeType: "image/png",
-      filename: "photo.png",
-      isPublic: false,
-    });
+  it("lets the owner preview a private image from the image-bed page", async () => {
+    getApiSessionMock.mockResolvedValue(ownerSession);
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: false }));
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file"),
+      params,
+    );
+
+    expect(response.status).toBe(200);
+    expect(getApiSessionMock).toHaveBeenCalled();
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("lets admins preview another user's private image", async () => {
+    getApiSessionMock.mockResolvedValue(adminSession);
+    imageFindUniqueMock.mockResolvedValue(
+      image({ isPublic: false, userId: "u1" }),
+    );
+
+    const response = await GET(
+      new Request("http://local/api/images/img_1/file"),
+      params,
+    );
+
+    expect(response.status).toBe(200);
+  });
+
+  it("blocks non-public images from unrelated users", async () => {
+    getApiSessionMock.mockResolvedValue(otherSession);
+    imageFindUniqueMock.mockResolvedValue(
+      image({ isPublic: false, userId: "u1" }),
+    );
 
     const response = await GET(
       new Request("http://local/api/images/img_1/file"),
@@ -85,14 +134,14 @@ describe("GET /api/images/[id]/file", () => {
   });
 
   it("rejects escaped storage keys before touching outside the upload root", async () => {
-    requireApiSessionMock.mockResolvedValue(session);
-    imageFindUniqueMock.mockResolvedValue({
-      id: "img_1",
-      storageKey: "../../etc/passwd",
-      mimeType: "text/plain",
-      filename: "passwd",
-      isPublic: true,
-    });
+    imageFindUniqueMock.mockResolvedValue(
+      image({
+        storageKey: "../../etc/passwd",
+        mimeType: "text/plain",
+        filename: "passwd",
+        isPublic: true,
+      }),
+    );
 
     const response = await GET(
       new Request("http://local/api/images/img_1/file"),
