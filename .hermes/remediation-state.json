@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T06:06:00Z",
     "target": "P6 shared Redis-capable API rate limiting",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "fd3cc7e",
     "summary": "Unified API/file-upload/file-proxy rate checks onto the shared rate-limit store so Redis is used when REDIS_URL is configured. Legacy synchronous login checks remain on the local helper for compatibility with the account-lockout flow.",
     "validation": [
       "npx vitest run src/lib/__tests__/rate-limit.test.ts src/lib/http/api-guard.test.ts (9/9)",
