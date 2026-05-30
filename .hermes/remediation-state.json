@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T09:49:13Z",
+  "updatedAt": "2026-05-30T10:07:52Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -43,36 +43,37 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed",
-    "tests": "Command worker/service/API regressions passed 24/24",
+    "tests": "Full Vitest passed 171 files / 691 tests; command worker/service/API/deployment/operation-task regressions passed 36/36",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api/commands returned 401; /operation-tasks and /deployments returned 307; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T09:49:13Z",
-    "target": "P6 command maintenance reconciliation worker",
+    "finishedAt": "2026-05-30T10:07:52Z",
+    "target": "P6 command/deployment target execution concurrency",
     "status": "validated_deployed_committed",
-    "commit": "eb12d8e",
-    "summary": "Added an idempotent command maintenance worker that starts with the custom Next.js server and reconciles stale RUNNING command requests on startup and every minute, so stuck command/deployment task state recovers without requiring an operator to open the Commands API/list page.",
+    "commit": "37e79a7",
+    "summary": "Parallelized in-process background SSH target execution so one slow VPS no longer blocks other targets from starting or completing, while preserving per-target timeout, output limit, cancellation, and aggregate request status behavior.",
     "validation": [
       "read remediation backlog/state first",
       "git status checked before work",
-      "no overlapping remediation/build/test process found other than language servers and production services",
-      "npx vitest run src/lib/command/worker.test.ts src/lib/command/__tests__/service.test.ts src/app/api/commands/__tests__/route.test.ts passed 24/24",
+      "no overlapping remediation/build/test process found before work",
+      "npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/worker.test.ts src/app/api/commands/__tests__/route.test.ts src/lib/deployment/__tests__/service.test.ts src/lib/operation-task/__tests__/service.test.ts passed 36/36",
+      "npm test passed 171 files / 691 tests",
       "npm run typecheck",
       "npm run lint",
       "npm run build",
       "npm run build:runtime",
+      "git diff --check",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded; both active",
       "curl http://127.0.0.1:3000/api/status healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
       "production probes: /api/status 200, /api/commands 401, /operation-tasks 307, /deployments 307",
-      "recent production logs checked with no error/warn matches",
-      "git diff --check"
+      "recent production logs checked with no error/warn matches"
     ],
     "deployment": "Production services restarted and smoke-tested successfully.",
-    "nextTarget": "Continue P6 durable command/deployment background-worker architecture: restart-surviving queue claims/worker ownership and richer task status reconciliation beyond the in-process worker."
+    "nextTarget": "Fresh comprehensive audit is due because successfulRemediationRunsSinceFreshAudit reached the threshold; then continue P6 durable worker ownership/queue claims or newly discovered higher-value items."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +88,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 5,
+    "successfulRemediationRunsSinceFreshAudit": 6,
     "skippedOverlapRuns": 0
   },
   "blockers": []
