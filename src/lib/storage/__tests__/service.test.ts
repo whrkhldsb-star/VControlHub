@@ -314,6 +314,46 @@ describe("storage service", () => {
     );
   });
 
+  it("normalizes safe public direct-access URLs before storage-node persistence", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.create).mockResolvedValueOnce({
+      id: "node_ipv6",
+      name: "IPv6 直连库",
+      driver: "SFTP",
+      isDefault: false,
+      basePath: "/data/media",
+      host: "2001:4860:4860::8888",
+      port: 22,
+      username: "root",
+      serverId: "srv_ipv6",
+      directAccessMode: "DIRECT",
+      publicBaseUrl: "http://[2001:4860:4860::8888]:31888/files",
+      directAccessExpiresSeconds: 900,
+      server: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+
+    await createStorageNode({
+      name: "IPv6 直连库",
+      driver: "SFTP",
+      basePath: "/data/media",
+      host: "2001:4860:4860::8888",
+      serverId: "srv_ipv6",
+      directAccessMode: "DIRECT",
+      publicBaseUrl: " http://[2001:4860:4860::8888]:31888/files/ ",
+      directAccessExpiresSeconds: 900,
+    });
+
+    expect(prisma.storageNode.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          publicBaseUrl: "http://[2001:4860:4860::8888]:31888/files",
+        }),
+      }),
+    );
+  });
+
   it("creates file metadata entries", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);

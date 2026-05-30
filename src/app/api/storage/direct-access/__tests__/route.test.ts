@@ -198,6 +198,33 @@ describe("/api/storage/direct-access", () => {
     );
   });
 
+  it("fails closed instead of redirecting when stored direct base URL is private", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin" },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(
+      directNode({
+        directAccessMode: "DIRECT",
+        publicBaseUrl: "http://127.0.0.1:31888/files",
+      }),
+    );
+
+    const response = await GET(
+      new Request(
+        "https://app.example.com/api/storage/direct-access?nodeId=node_1&path=movies%2Fdemo.mp4",
+      ),
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("location")).toBeNull();
+    await expect(response.json()).resolves.toMatchObject({
+      mode: "managed-download",
+      fallbackUrl: "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
+    });
+  });
+
   it("falls back to managed SFTP when auto mode lacks a public base URL", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({

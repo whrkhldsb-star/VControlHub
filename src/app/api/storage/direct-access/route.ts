@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import {
   normalizeRemoteTargetPath,
   normalizeRemoteRelativePath,
@@ -123,16 +124,20 @@ async function resolveDirectAccessPayload(input: {
   if (node.directAccessMode === "DIRECT" || node.directAccessMode === "AUTO") {
     if (node.publicBaseUrl) {
       try {
-        return {
-          mode: "direct-url",
-          url: buildSignedDirectUrl({
-            publicBaseUrl: node.publicBaseUrl,
-            relativePath: normalizedRelativePath,
+        const publicBaseUrl = normalizePublicBaseUrl(node.publicBaseUrl);
+        if (publicBaseUrl) {
+          return {
+            mode: "direct-url",
+            url: buildSignedDirectUrl({
+              publicBaseUrl,
+              relativePath: normalizedRelativePath,
+              expiresSeconds: node.directAccessExpiresSeconds ?? 300,
+            }),
+            fallbackUrl: fallback,
             expiresSeconds: node.directAccessExpiresSeconds ?? 300,
-          }),
-          fallbackUrl: fallback,
-          expiresSeconds: node.directAccessExpiresSeconds ?? 300,
-        };
+          };
+        }
+        return { mode: "managed-download", fallbackUrl: fallback };
       } catch (error) {
         if (node.directAccessMode === "DIRECT") {
           const message =

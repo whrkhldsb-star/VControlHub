@@ -39,4 +39,26 @@ describe("storage schema", () => {
       }),
     ).toThrow(/端口最大为 65535/);
   });
+
+  it("rejects private or credentialed direct-access base URLs before persistence", () => {
+    for (const publicBaseUrl of [
+      "http://127.0.0.1:31888/files",
+      "http://localhost:31888/files",
+      "http://10.0.0.5:31888/files",
+      "http://[::1]:31888/files",
+      "https://user:pass@cdn.example.com/files",
+      "file:///tmp/storage",
+    ]) {
+      expect(() =>
+        createStorageNodeSchema.parse({
+          name: "远端库",
+          driver: "SFTP",
+          basePath: "/data/media",
+          host: "203.0.113.10",
+          directAccessMode: "DIRECT",
+          publicBaseUrl,
+        }),
+      ).toThrow(/公网 HTTP\(S\) 地址|格式不正确/);
+    }
+  });
 });

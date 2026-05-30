@@ -1,13 +1,29 @@
 import { z } from "zod";
 
+import { safeNormalizePublicBaseUrl } from "./direct-access-url";
+
 export const storageAccessModeSchema = z.enum(["PROXY", "DIRECT", "AUTO"]);
+
+const publicBaseUrlSchema = z
+  .string()
+  .trim()
+  .max(2048, "直连基础 URL 过长")
+  .optional()
+  .or(z.literal(""))
+  .superRefine((value, ctx) => {
+    if (!value) return;
+    const result = safeNormalizePublicBaseUrl(value);
+    if (!result.ok) {
+      ctx.addIssue({ code: "custom", message: result.error });
+    }
+  });
 
 export const createStorageNodeSchema = z.object({
   name: z.string().trim().min(2, "存储节点名称至少 2 个字符").max(64, "存储节点名称最多 64 个字符"),
   driver: z.enum(["LOCAL", "SFTP"]),
   basePath: z.string().trim().min(1, "存储根路径不能为空").max(255, "存储根路径过长"),
   directAccessMode: storageAccessModeSchema.optional().default("PROXY"),
-  publicBaseUrl: z.string().trim().url("直连基础 URL 格式不正确").max(2048, "直连基础 URL 过长").optional().or(z.literal("")),
+  publicBaseUrl: publicBaseUrlSchema,
   directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional().default(300),
   isDefault: z.boolean().optional().default(false),
   host: z.string().trim().max(255, "主机名过长").optional(),
@@ -22,7 +38,7 @@ export const updateStorageNodeSchema = z.object({
   driver: z.enum(["LOCAL", "SFTP"]).optional(),
   basePath: z.string().trim().min(1, "存储根路径不能为空").max(255, "存储根路径过长").optional(),
   directAccessMode: storageAccessModeSchema.optional(),
-  publicBaseUrl: z.string().trim().url("直连基础 URL 格式不正确").max(2048, "直连基础 URL 过长").optional().or(z.literal("")),
+  publicBaseUrl: publicBaseUrlSchema,
   directAccessExpiresSeconds: z.coerce.number().int().min(60, "直连链接最短 60 秒").max(86400, "直连链接最长 24 小时").optional(),
   isDefault: z.boolean().optional(),
   host: z.string().trim().max(255, "主机名过长").optional().nullable(),

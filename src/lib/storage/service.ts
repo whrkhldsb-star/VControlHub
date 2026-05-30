@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { listRemoteDirectory } from "@/lib/ssh/client";
+import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
@@ -364,7 +365,7 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
       username: payload.username,
       serverId: payload.serverId,
       directAccessMode: payload.directAccessMode,
-      publicBaseUrl: payload.publicBaseUrl || null,
+      publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
       directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
     },
     include: {
@@ -458,7 +459,7 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
       publicBaseUrl:
         payload.publicBaseUrl === undefined
           ? current.publicBaseUrl
-          : payload.publicBaseUrl || null,
+          : normalizePublicBaseUrl(payload.publicBaseUrl),
       directAccessExpiresSeconds:
         payload.directAccessExpiresSeconds ??
         current.directAccessExpiresSeconds,
