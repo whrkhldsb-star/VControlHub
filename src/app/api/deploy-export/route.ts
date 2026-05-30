@@ -1,7 +1,3 @@
-/**
- * @deprecated No frontend currently calls this endpoint.
- * Kept for future deployment-export feature.
- */
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -13,11 +9,13 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const deployExportPostSchema = z.object({
-  format: z.enum(["docker-compose", "systemd", "env"]),
-  services: z.array(z.object({ name: z.string(), type: z.string() })),
+  // Legacy clients may still send these fields; the current export service only
+  // needs domain/appName, so keep them optional instead of blocking the UI.
+  format: z.enum(["docker-compose", "systemd", "env"]).optional(),
+  services: z.array(z.object({ name: z.string(), type: z.string() })).optional(),
   serverId: z.string().optional(),
-  domain: z.string().optional(),
-  appName: z.string().optional(),
+  domain: z.string().trim().optional(),
+  appName: z.string().trim().optional(),
 });
 
 export const dynamic = "force-dynamic";

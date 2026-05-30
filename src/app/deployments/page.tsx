@@ -4,6 +4,7 @@ import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/se
 import { prisma } from "@/lib/db";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
+import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const session = await requireSession("/deployments");
 	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text="你没有应用部署查看权限。" /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
+	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
 	const formError = params?.error;
 	const [runs, templates, servers] = await Promise.all([
@@ -73,6 +75,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					部署提交失败：{formError}
 				</div>
 			)}
+			{canExport && <DeploymentExportPanel />}
 			{canRun && (
 				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 light:border-slate-200 light:bg-white">
 					<h2 className="text-sm font-semibold text-white light:text-slate-900">发起模板部署</h2>

@@ -63,7 +63,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 ## P5 — Incomplete product surfaces
 
 - [x] 2026-05-30 — Wire dashboard analytics API into the main dashboard with a client-side `DashboardAnalyticsPanel` showing 24h server resource bars, 7d download status trends, 30d audit activity, and 7d image-bed uploads, plus inline API failure handling. Verification: dashboard panel/page regressions 3/3, full Vitest 165 files / 652 tests, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/` 307, `/api/dashboard/analytics` 401, `/api/status` 200, recent logs clean. Commit: 86e21d2.
-- [ ] Add UI entry for deployment export API or hide/deprecate it cleanly.
+- [x] 2026-05-30 — Wire deployment export API into the Deployments page with a `deploy:export`-gated client panel that generates portable environment/systemd/Caddy/deploy-script templates through CSRF, previews returned files, and offers JSON download. Also aligned the POST schema with the current service contract so UI payloads no longer require unused legacy `format/services` fields. Verification: deploy-export route/page/service regressions 6/6, deployment neighboring tests 12/12, full Vitest 167 files / 656 tests, typecheck, lint, build, runtime build, production restart, smoke 19/19, `/deployments` 307, `/api/deploy-export` 401, `/api/status` 200, recent logs clean.
 - [ ] Clarify backup API behavior: creating records vs actually executing backup task; add task execution or adjust UI wording.
 - [ ] Add backup restore API/UI if `backup:restore` is intended to be user-facing.
 - [ ] Unify system-health API and Health page behavior.
@@ -78,6 +78,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 ## Fresh-audit checkpoint policy
 
 - [x] 2026-05-30 — Fresh audit checkpoint after 7 successful remediation runs: git clean at start, production services active, smoke 19/19 passed, key authenticated APIs returned 401 instead of 500, recent logs contained no new error/warn entries, full quality gate passed (`typecheck`, `lint`, full Vitest 163 files / 640 tests, `build`, `build:runtime`). Backlog was refreshed; remaining priority is functional availability for Quick Services failure cleanup, two-factor settings no-reload UX, storage/monitoring/health usability, incomplete dashboard/deploy/backup surfaces, and architecture hardening.
+- [x] 2026-05-30 — Fresh audit checkpoint after 7 additional successful remediation runs: production services active before work, `/api/status` healthy, no recent service error/warn matches, `typecheck`, `lint`, full Vitest 167 files / 656 tests, `build`, `build:runtime`, production restart, smoke 19/19, and key unauth route probes returned 307/401/200 instead of 500. Backlog refreshed; remaining P5 priority is backup behavior/restore and Health/system-health unification, followed by P6 architecture hardening.
 - [ ] After all current checklist items are done, run a new comprehensive audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, and logs.
 - [ ] Also run a fresh audit after 6 successful remediation runs even if the backlog is not fully empty, then update this file with new or reprioritized findings.
 
