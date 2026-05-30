@@ -49,6 +49,13 @@ describe("login action", () => {
 		status: "PENDING_PASSWORD_RESET",
 		roles: ["admin"],
 		permissions: ["command:execute"],
+		preferences: {
+			defaultPage: "/",
+			dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+			notificationsEnabled: true,
+			notificationSound: true,
+			autoRefreshInterval: 30,
+		},
 	});
     vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");
 
@@ -62,6 +69,34 @@ describe("login action", () => {
       "signed-token",
       expect.objectContaining({ httpOnly: true }),
     );
+  });
+
+  it("uses the user's default page when there is no explicit next target", async () => {
+	vi.mocked(authenticateUser).mockResolvedValueOnce({
+		id: "u_1",
+		username: "admin",
+		displayName: "Admin",
+		mustChangePassword: false,
+		twoFactorEnabled: false,
+		twoFactorSecret: null,
+		status: "ACTIVE",
+		roles: ["admin"],
+		permissions: ["command:execute"],
+		preferences: {
+			defaultPage: "/files",
+			dashboardWidgets: ["server-status"],
+			notificationsEnabled: true,
+			notificationSound: true,
+			autoRefreshInterval: 30,
+		},
+	});
+    vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");
+
+    const formData = new FormData();
+    formData.set("username", "admin");
+    formData.set("password", "19970103");
+
+    await expect(login(null, formData)).rejects.toThrow("REDIRECT:/files");
   });
 
   it("returns an error message for invalid credentials", async () => {

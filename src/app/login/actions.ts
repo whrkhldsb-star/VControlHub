@@ -15,10 +15,15 @@ function safeNextPath(nextValue: FormDataEntryValue | null) {
   return next.startsWith("/") && !next.startsWith("//") ? next : "/";
 }
 
+function getPostLoginRedirectPath(nextValue: FormDataEntryValue | null, defaultPage: string) {
+  const requestedNextPath = safeNextPath(nextValue);
+  return requestedNextPath === "/" ? defaultPage : requestedNextPath;
+}
+
 export async function login(_prevState: LoginActionState | null, formData: FormData) {
   const username = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
-  const nextPath = safeNextPath(formData.get("next"));
+  const requestedNextPath = formData.get("next");
 
   const user = await authenticateUser({ username, password });
   if (!user) {
@@ -43,5 +48,5 @@ export async function login(_prevState: LoginActionState | null, formData: FormD
     maxAge: 7 * 24 * 60 * 60,
   });
 
-  redirect(nextPath);
+  redirect(getPostLoginRedirectPath(requestedNextPath, user.preferences.defaultPage));
 }

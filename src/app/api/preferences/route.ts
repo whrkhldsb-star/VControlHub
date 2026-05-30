@@ -10,26 +10,17 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { defaultUserPreferences, normalizeUserPreferences } from "@/lib/preferences/user-preferences";
 
 const prefsSchema = z.object({
-  sidebarCollapsed: z.boolean().optional(),
   defaultPage: z.string().optional(),
   dashboardWidgets: z.array(z.string()).optional(),
   notificationsEnabled: z.boolean().optional(),
   notificationSound: z.boolean().optional(),
-  autoRefreshInterval: z.number().int().min(0).max(300).optional(),
-  compactMode: z.boolean().optional(),
+  autoRefreshInterval: z.number().optional(),
 });
 
-const defaultPreferences = {
-  sidebarCollapsed: false,
-  defaultPage: "/",
-  dashboardWidgets: ["quick-links", "analytics", "audit-log"],
-  notificationsEnabled: true,
-  notificationSound: true,
-  autoRefreshInterval: 0,
-  compactMode: false,
-};
+const defaultPreferences = defaultUserPreferences;
 
 export async function GET(request: Request) {
   return withApiRoute(
@@ -45,10 +36,10 @@ export async function GET(request: Request) {
       });
 
       const prefs = user?.preferences
-        ? {
+        ? normalizeUserPreferences({
             ...defaultPreferences,
             ...(typeof user.preferences === "object" ? user.preferences : {}),
-          }
+          })
         : defaultPreferences;
 
       return NextResponse.json(prefs);
@@ -74,12 +65,14 @@ export async function PUT(request: Request) {
       if (!parsed.success)
         return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
 
+      const prefs = normalizeUserPreferences(parsed.data);
+
       await prisma.user.update({
         where: { id: session.userId },
-        data: { preferences: JSON.parse(JSON.stringify(parsed.data)) },
+        data: { preferences: JSON.parse(JSON.stringify(prefs)) },
       });
 
-      return NextResponse.json({ ok: true });
+      return NextResponse.json(prefs);
     },
   );
 }

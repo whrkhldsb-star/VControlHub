@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T17:44:52Z",
+  "updatedAt": "2026-05-30T18:51:28Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,22 +44,22 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Global search and settings anchor regressions passed: 8 tests",
+    "tests": "Preference API/page/dashboard/login regressions passed: 13 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /settings returned 307; /api/settings returned 401 without 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /preferences 307; / 307; /login 200; /api/preferences 401 without 500; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T17:45:40Z",
-    "target": "P1 global search/navigation completeness from fresh-audit findings",
-    "status": "completed_verified_deployed_committed_pending_push",
-    "commit": "6740ac6",
-    "summary": "Global search now derives its page catalog from shared sidebar navigation items, covers main/system nav routes, routes password and 2FA actions to concrete settings anchors, and removes dead custom modal event shortcuts.",
+    "finishedAt": "2026-05-30T18:51:28Z",
+    "target": "P1 preference fields real app-side effects from fresh-audit findings",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Preferences now filter stale no-op fields, normalize saved preference JSON through a shared helper, consume defaultPage during login when there is no explicit next target, and consume dashboardWidgets on the dashboard so saved/local preferences hide or show real dashboard sections.",
     "validation": [
       "read remediation backlog/state first",
-      "git status and overlap process check completed",
-      "npx vitest run src/components/__tests__/global-search.test.tsx src/app/settings/__tests__/settings-client.test.tsx passed 8/8",
+      "git status and overlap process check completed; continued existing dirty preference batch instead of starting a new topic",
+      "npx vitest run src/app/api/preferences/__tests__/route.test.ts src/app/preferences/__tests__/page.test.tsx src/app/__tests__/dashboard-preference-client.test.tsx src/app/api/login/__tests__/route.test.ts src/app/login/__tests__/actions.test.ts passed 13/13",
       "npm run typecheck passed",
       "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
       "npm run build:runtime passed",
@@ -67,12 +67,12 @@
       "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
       "http://127.0.0.1:3000/api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /settings 307, /api/settings 401, /api/status 200",
-      "recent production logs checked; no new error/warn entries"
+      "production probes: /preferences 307, / 307, /login 200, /api/preferences 401, /api/login 405, /api/status 200",
+      "recent production logs checked; no new error/warn entries",
+      "git diff --check passed"
     ],
     "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed.",
-    "nextTarget": "Continue remaining fresh-audit P1 items, starting with preference fields that are saved but not consumed or storage sync task/progress UX.",
-    "pushedAt": "2026-05-30T17:45:40Z"
+    "nextTarget": "Continue remaining fresh-audit P1 items, starting with background long-running storage sync/import progress/timeout/cancel UX or storage/file permission UI gating."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []

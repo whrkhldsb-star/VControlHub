@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 		const { username, password } = parsed.data;
 		const rememberSession = parsed.data.remember === "on" || parsed.data.remember === "true" || parsed.data.remember === "1";
 		const sessionMaxAge = getSessionTtlSeconds(rememberSession);
-		const nextPath = safeNextPath(formData.get("next"));
+		const requestedNextPath = safeNextPath(formData.get("next"));
 
 		// Check account lockout before attempting authentication
 		const lockCheck = isAccountLocked(username);
@@ -90,12 +90,14 @@ export async function POST(request: Request) {
 			}
 			auditSystemAction("auth.login_failed", { username, ip: clientIp, failCount: lockResult.failCount }, "WARNING");
 			const invalidPath = new URLSearchParams(
-				nextPath === "/"
+				requestedNextPath === "/"
 					? { error: "invalid" }
-					: { error: "invalid", next: nextPath },
+					: { error: "invalid", next: requestedNextPath },
 			);
 			return redirectWithRelativeLocation(`/login?${invalidPath.toString()}`);
 		}
+
+		const nextPath = requestedNextPath === "/" ? user.preferences.defaultPage : requestedNextPath;
 
 		// Log successful login & clear any previous failure count
 		clearLoginFailure(username);

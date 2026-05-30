@@ -4,26 +4,17 @@ import { useEffect, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
+import {
+	defaultUserPreferences,
+	normalizeUserPreferences,
+	type DashboardWidgetId,
+	type DefaultPageOption,
+	type UserPreferences,
+} from "@/lib/preferences/user-preferences";
 
-interface Preferences {
-	sidebarCollapsed: boolean;
-	defaultPage: string;
-	dashboardWidgets: string[];
-	notificationsEnabled: boolean;
-	notificationSound: boolean;
-	autoRefreshInterval: number;
-	compactMode: boolean;
-}
+type Preferences = UserPreferences;
 
-const defaultPrefs: Preferences = {
-	sidebarCollapsed: false,
-	defaultPage: "/",
-	dashboardWidgets: ["quick-links", "analytics", "audit-log"],
-	notificationsEnabled: true,
-	notificationSound: true,
-	autoRefreshInterval: 0,
-	compactMode: false,
-};
+const defaultPrefs: Preferences = defaultUserPreferences;
 
 const pageOptions = [
 	{ label: "仪表盘", value: "/" },
@@ -33,14 +24,14 @@ const pageOptions = [
 	{ label: "服务器监控", value: "/monitoring" },
 	{ label: "下载站", value: "/downloads" },
 	{ label: "AI 助手", value: "/ai" },
-];
+] satisfies Array<{ label: string; value: DefaultPageOption }>;
 
 const widgetOptions = [
+	{ label: "服务器状态", value: "server-status" },
 	{ label: "快捷入口", value: "quick-links" },
 	{ label: "数据图表", value: "analytics" },
 	{ label: "审计日志", value: "audit-log" },
-	{ label: "服务器状态", value: "server-status" },
-];
+] satisfies Array<{ label: string; value: DashboardWidgetId }>;
 
 /** Section card — extracted to module top to avoid re-creation on every render */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -81,13 +72,13 @@ export default function PreferencesPage() {
 		const local = localStorage.getItem("vps-preferences");
 		if (local) {
 
-			try { setPrefs({ ...defaultPrefs, ...JSON.parse(local) }); } catch {}
+			try { setPrefs(normalizeUserPreferences({ ...defaultPrefs, ...JSON.parse(local) })); } catch {}
 		}
 		csrfFetch("/api/preferences")
 			
 			.then((data) => {
 				if (!data.error) {
-					const nextPrefs = { ...defaultPrefs, ...data };
+					const nextPrefs = normalizeUserPreferences({ ...defaultPrefs, ...data });
 					setPrefs(nextPrefs);
 					setLastSavedPrefs(nextPrefs);
 					localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
@@ -101,18 +92,22 @@ export default function PreferencesPage() {
 	}, []);
 
 	const save = async (newPrefs: Preferences) => {
-		setPrefs(newPrefs);
-		localStorage.setItem("vps-preferences", JSON.stringify(newPrefs));
+		const normalizedPrefs = normalizeUserPreferences(newPrefs);
+		setPrefs(normalizedPrefs);
+		localStorage.setItem("vps-preferences", JSON.stringify(normalizedPrefs));
 		window.dispatchEvent(new Event("vps-preferences-updated"));
 		setError("");
 		setSaved(false);
 		try {
-			await csrfFetch("/api/preferences", {
+			const savedPrefs = await csrfFetch("/api/preferences", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(newPrefs),
+				body: JSON.stringify(normalizedPrefs),
 			});
-			setLastSavedPrefs(newPrefs);
+			const nextPrefs = normalizeUserPreferences({ ...normalizedPrefs, ...savedPrefs });
+			setPrefs(nextPrefs);
+			setLastSavedPrefs(nextPrefs);
+			localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
 		} catch (err) {
@@ -123,7 +118,7 @@ export default function PreferencesPage() {
 		}
 	};
 
-	const toggleWidget = (widget: string) => {
+	const toggleWidget = (widget: DashboardWidgetId) => {
 		const current = prefs.dashboardWidgets;
 		const next = current.includes(widget)
 			? current.filter((w) => w !== widget)
@@ -198,10 +193,6 @@ export default function PreferencesPage() {
 						))}
 					</div>
 					<p className="text-[11px] text-slate-500">控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。</p>
-				</Section>
-				<Section title="📐 显示">
-					<Toggle label="紧凑模式" checked={prefs.compactMode} onChange={(v) => save({ ...prefs, compactMode: v })} />
-					<Toggle label="侧边栏默认收起" checked={prefs.sidebarCollapsed} onChange={(v) => save({ ...prefs, sidebarCollapsed: v })} />
 				</Section>
 			</div>
 		</PageShell>

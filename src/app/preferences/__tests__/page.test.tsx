@@ -13,13 +13,11 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 }));
 
 const serverPrefs = {
-	sidebarCollapsed: false,
 	defaultPage: "/",
 	dashboardWidgets: ["quick-links", "analytics", "audit-log"],
 	notificationsEnabled: true,
 	notificationSound: true,
-	autoRefreshInterval: 0,
-	compactMode: false,
+	autoRefreshInterval: 30,
 };
 
 describe("PreferencesPage", () => {
@@ -38,6 +36,14 @@ describe("PreferencesPage", () => {
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("偏好接口不可用");
 		expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
+	});
+
+	it("does not render preference switches that are not consumed by the app", async () => {
+		render(<PreferencesPageClient />);
+
+		expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
+		expect(screen.queryByText("紧凑模式")).not.toBeInTheDocument();
+		expect(screen.queryByText("侧边栏默认收起")).not.toBeInTheDocument();
 	});
 
 	it("shows an error and keeps the previous default page when saving preferences fails", async () => {

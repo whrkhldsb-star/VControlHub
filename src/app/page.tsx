@@ -8,6 +8,7 @@ import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
 import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
 import { DashboardAnalyticsPanel } from "./dashboard-analytics-panel";
+import { DashboardPreferenceClient } from "./dashboard-preference-client";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export default async function Home() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
+			<DashboardPreferenceClient>
 				{/* Header */}
 				<header className="mb-10">
 					<h1 className="text-3xl font-semibold tracking-tight text-white">仪表盘</h1>
@@ -64,7 +66,7 @@ export default async function Home() {
 				</header>
 
 				{/* VPS hero */}
-				<section className="mb-8 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-5">
+				<section data-dashboard-widget="server-status" className="mb-8 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-5">
 					<div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 						<div>
 							<p className="text-xs uppercase tracking-[0.22em] text-cyan-300/70">VPS 状态总览</p>
@@ -86,7 +88,7 @@ export default async function Home() {
 				</section>
 
 				{/* Stats Cards - grouped overview */}
-				<section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+				<section data-dashboard-widget="server-status" className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
 					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
 						<h2 className="text-sm font-medium text-white/80">核心资源</h2>
 						<div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
@@ -118,7 +120,7 @@ export default async function Home() {
 				</section>
 
 				{/* Quick Links */}
-				<section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+				<section data-dashboard-widget="quick-links" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
 					<QuickLink
 						href="/servers"
 						title="VPS 管理"
@@ -177,10 +179,12 @@ export default async function Home() {
 					/>
 			</section>
 
-			<DashboardAnalyticsPanel />
+			<div data-dashboard-widget="analytics">
+				<DashboardAnalyticsPanel />
+			</div>
 
 			{/* Two columns: Recent activity + Audit log */}
-				<section className="mt-8 grid gap-6 lg:grid-cols-2">
+				<section data-dashboard-widget="audit-log" className="mt-8 grid gap-6 lg:grid-cols-2">
 					{/* Recent Approval Activity */}
 					<div>
 						<h2 className="text-lg font-semibold text-white mb-4">最近审批活动</h2>
@@ -243,6 +247,7 @@ export default async function Home() {
 						)}
 					</div>
 				</section>
+			</DashboardPreferenceClient>
 		</PageShell>
 	);
 }

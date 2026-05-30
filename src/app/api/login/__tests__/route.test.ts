@@ -56,6 +56,7 @@ describe("POST /api/login", () => {
       username: "admin",
       roles: ["admin"],
       mustChangePassword: false,
+      preferences: { defaultPage: "/", dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
       twoFactorEnabled: false,
       twoFactorSecret: null,
     });
@@ -86,5 +87,22 @@ describe("POST /api/login", () => {
     expect(cookies).toContain("test_session=session-token");
     expect(cookies).toContain("csrf_token=csrf-token");
     expect(cookies).toContain("Max-Age=2592000");
+  });
+
+  it("uses the user's default page when login has no explicit next target", async () => {
+    authenticateUserMock.mockResolvedValueOnce({
+      id: "u_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      preferences: { defaultPage: "/files", dashboardWidgets: ["server-status"], notificationsEnabled: true, notificationSound: true, autoRefreshInterval: 30 },
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+    });
+
+    const response = await POST(makeLoginRequest({ username: "admin", password: "secret" }));
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/files");
   });
 });
