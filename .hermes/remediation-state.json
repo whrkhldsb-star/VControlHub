@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T22:06:33Z",
+  "updatedAt": "2026-05-30T22:38:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,24 +44,25 @@
     "date": "2026-05-30",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "Global-search/preferences accessibility regressions passed: 10 tests; full Vitest passed: 176 files / 719 tests",
+    "tests": "Storage quota aggregate regression passed; neighboring storage tests passed 28/28; full Vitest passed 176 files / 721 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /preferences returned 307; /api/preferences returned 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; /files returned 307; /api/files/list and /api/storage/local returned 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T22:06:33Z",
-    "target": "P2 accessibility polish for global search and preference toggles",
-    "status": "completed_verified_deployed_committed_pushed",
-    "commit": "e5deb40",
-    "summary": "Improved keyboard/screen-reader accessibility for global search and preferences: global search now exposes a labelled modal dialog, combobox, listbox/options, active descendant, and selected state; preference toggles now render as labelled switches with aria-checked, focus-visible rings, and an announced save status.",
+    "finishedAt": "2026-05-30T22:38:00Z",
+    "target": "P2 reduce storage grant quota large in-memory reads",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Changed storage grant quota enforcement from loading matching FileEntry sizes with findMany into a database-side aggregate _sum(size), preserving per-grant quota behavior while reducing API worker memory/CPU for large storage trees.",
     "validation": [
       "read remediation backlog/state first",
       "checked for overlapping remediation/build/test processes",
-      "production baseline before work: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy; major route probes returned 307/401/200; recent logs clean",
-      "npx vitest run src/components/__tests__/global-search.test.tsx src/app/preferences/__tests__/page.test.tsx passed 10/10",
-      "full npm test -- --run passed 176 files / 719 tests",
+      "production baseline before work: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy; recent logs clean; local HEAD matched origin/main",
+      "npx vitest run src/lib/storage/__tests__/access-control.test.ts passed 6/6",
+      "neighboring storage tests passed 28/28: access-control, local route, sftp-ops route, sftp-sync",
+      "npm test -- --run passed 176 files / 721 tests",
       "npm run typecheck -- --pretty false passed",
       "npm run lint passed with existing react-hooks/set-state-in-effect warnings",
       "npm run build passed",
@@ -69,12 +70,12 @@
       "production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted and active",
       "http://127.0.0.1:3000/api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /preferences 307; /api/preferences 401; /api/status 200; / 307",
+      "production probes: /files 307; /api/files/list 401; /api/storage/local 401; /api/status 200",
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Commit/push is the next closeout step for this run.",
-    "nextTarget": "Commit/push this verified batch, then continue with P2 unpaginated/large-read reduction or P3 management-facing URL/direct-access hardening. Because the fresh-audit threshold was already reached before this run, the next reportable cycle should perform a comprehensive fresh audit after this batch is committed."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Commit/push is pending for closeout in this run.",
+    "nextTarget": "Commit/push this verified storage-performance batch, then run the required comprehensive fresh audit because the success counter has exceeded the configured threshold. Remaining backlog items include P1 storage sync taskification and P3 management-facing URL/direct-access hardening."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -89,7 +90,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 7,
+    "successfulRemediationRunsSinceFreshAudit": 8,
     "skippedOverlapRuns": 0
   },
   "blockers": []

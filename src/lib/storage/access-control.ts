@@ -14,7 +14,6 @@ export type StorageAccessDecision = {
   matchedGrantId?: string;
 };
 
-type FileEntrySizeRow = Prisma.FileEntryGetPayload<{ select: { size: true } }>;
 type StorageAccessGrantRow = Prisma.UserStorageAccessGetPayload<Record<string, never>>;
 
 function normalizeAccessPath(value: string | null | undefined) {
@@ -75,7 +74,7 @@ export function parseNullableBigIntInput(value: unknown): bigint | null {
 async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: string }) {
   const normalizedPrefix = normalizeAccessPath(input.pathPrefix);
   if (normalizedPrefix === null) return BigInt(0);
-  const rows = await prisma.fileEntry.findMany({
+  const usage = await prisma.fileEntry.aggregate({
     where: {
       storageNodeId: input.storageNodeId,
       isDeleted: false,
@@ -89,10 +88,10 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
           }
         : {}),
     },
-    select: { size: true },
+    _sum: { size: true },
   });
 
-  return rows.reduce((total: bigint, row: FileEntrySizeRow) => total + (row.size ?? BigInt(0)), BigInt(0));
+  return usage._sum.size ?? BigInt(0);
 }
 
 function isLegacyGrantFallbackEnabled() {

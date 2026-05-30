@@ -10,7 +10,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 vi.mock("@/lib/db", () => ({
   prisma: {
     userStorageAccess: { findMany: vi.fn() },
-    fileEntry: { findMany: vi.fn() },
+    fileEntry: { findMany: vi.fn(), aggregate: vi.fn() },
   },
 }));
 
@@ -97,7 +97,7 @@ describe("storage access control", () => {
         updatedAt: new Date(),
       },
     ]);
-    vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([{ size: BigInt(50) }] as Awaited<ReturnType<typeof prisma.fileEntry.findMany>>);
+    vi.mocked(prisma.fileEntry.aggregate).mockResolvedValueOnce({ _sum: { size: BigInt(50) } } as Awaited<ReturnType<typeof prisma.fileEntry.aggregate>>);
 
     await expect(assertStorageAccess({
       session: baseSession,
@@ -106,6 +106,19 @@ describe("storage access control", () => {
       operation: "write",
       writeBytes: 55,
     })).resolves.toMatchObject({ allowed: false, reason: "写入后将超过该授权的容量配额" });
+    expect(prisma.fileEntry.aggregate).toHaveBeenCalledWith({
+      where: {
+        storageNodeId: "node-1",
+        isDeleted: false,
+        entryType: "FILE",
+        OR: [
+          { relativePath: "team-a" },
+          { relativePath: { startsWith: "team-a/" } },
+        ],
+      },
+      _sum: { size: true },
+    });
+    expect(prisma.fileEntry.findMany).not.toHaveBeenCalled();
   });
 
   it("computes per-entry capabilities from explicit storage grants", async () => {
