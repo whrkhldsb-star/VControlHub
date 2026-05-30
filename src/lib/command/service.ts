@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { prisma } from "@/lib/db";
@@ -44,11 +44,33 @@ type SshExecutionResult = {
   stderr: string;
   exitCode: number;
   timedOut?: boolean;
+  cancelled?: boolean;
 };
 
 const DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES = 256 * 1024;
 const DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS = 2 * DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
+const activeCommandChildren = new Map<string, ChildProcess>();
+const cancelledCommandTargets = new Set<string>();
+
+function registerCommandChild(targetId: string | undefined, child: ChildProcess) {
+  if (!targetId) return;
+  activeCommandChildren.set(targetId, child);
+}
+
+function unregisterCommandChild(targetId: string | undefined, child: ChildProcess) {
+  if (!targetId) return;
+  if (activeCommandChildren.get(targetId) === child) {
+    activeCommandChildren.delete(targetId);
+  }
+}
+
+function cancelActiveCommandChild(targetId: string) {
+  cancelledCommandTargets.add(targetId);
+  const child = activeCommandChildren.get(targetId);
+  if (!child) return false;
+  return child.kill("SIGTERM");
+}
 
 function getPositiveEnvNumber(name: string, fallback: number) {
   const raw = Number(process.env[name]);
@@ -81,6 +103,7 @@ async function executeCommandOverSsh(input: {
   privateKey?: string;
   password?: string;
   command: string;
+  targetId?: string;
 }): Promise<SshExecutionResult> {
   if (input.privateKey) {
     return executeCommandOverSshWithKey(
@@ -90,6 +113,7 @@ async function executeCommandOverSsh(input: {
         username: string;
         privateKey: string;
         command: string;
+        targetId?: string;
       },
     );
   } else if (input.password) {
@@ -100,6 +124,7 @@ async function executeCommandOverSsh(input: {
         username: string;
         password: string;
         command: string;
+        targetId?: string;
       },
     );
   }
@@ -112,6 +137,7 @@ async function executeCommandOverSshWithKey(input: {
   username: string;
   privateKey: string;
   command: string;
+  targetId?: string;
 }): Promise<SshExecutionResult> {
   const tempDir = await mkdtemp(join(tmpdir(), "app-ssh-"));
   const keyPath = join(tempDir, "id_key");
@@ -139,6 +165,7 @@ async function executeCommandOverSshWithKey(input: {
         stdio: ["ignore", "pipe", "pipe"],
         env: process.env,
       });
+      registerCommandChild(input.targetId, child);
 
       let stdout = "";
       let stderr = "";
@@ -161,11 +188,20 @@ async function executeCommandOverSshWithKey(input: {
 
       child.on("error", (error) => {
         clearTimeout(timeout);
+        unregisterCommandChild(input.targetId, child);
         reject(error);
       });
       child.on("close", (code) => {
         clearTimeout(timeout);
-        resolve({ stdout, stderr, exitCode: timedOut ? 124 : (code ?? 255), timedOut });
+        unregisterCommandChild(input.targetId, child);
+        const cancelled = input.targetId ? cancelledCommandTargets.delete(input.targetId) : false;
+        resolve({
+          stdout,
+          stderr: cancelled ? appendBoundedOutput(stderr, "\n命令已被取消，SSH 子进程已终止。", outputLimitBytes) : stderr,
+          exitCode: cancelled ? 130 : (timedOut ? 124 : (code ?? 255)),
+          timedOut,
+          cancelled,
+        });
       });
     });
 
@@ -181,6 +217,7 @@ async function executeCommandOverSshWithPassword(input: {
   username: string;
   password: string;
   command: string;
+  targetId?: string;
 }): Promise<SshExecutionResult> {
   const args = [
     "-p",
@@ -200,6 +237,7 @@ async function executeCommandOverSshWithPassword(input: {
       stdio: ["ignore", "pipe", "pipe"],
       env,
     });
+    registerCommandChild(input.targetId, child);
 
     let stdout = "";
     let stderr = "";
@@ -222,6 +260,7 @@ async function executeCommandOverSshWithPassword(input: {
 
     child.on("error", (err) => {
       clearTimeout(timeout);
+      unregisterCommandChild(input.targetId, child);
       if (
         err &&
         "code" in err &&
@@ -238,7 +277,15 @@ async function executeCommandOverSshWithPassword(input: {
     });
     child.on("close", (code) => {
       clearTimeout(timeout);
-      resolve({ stdout, stderr, exitCode: timedOut ? 124 : (code ?? 255), timedOut });
+      unregisterCommandChild(input.targetId, child);
+      const cancelled = input.targetId ? cancelledCommandTargets.delete(input.targetId) : false;
+      resolve({
+        stdout,
+        stderr: cancelled ? appendBoundedOutput(stderr, "\n命令已被取消，SSH 子进程已终止。", outputLimitBytes) : stderr,
+        exitCode: cancelled ? 130 : (timedOut ? 124 : (code ?? 255)),
+        timedOut,
+        cancelled,
+      });
     });
   });
 
@@ -335,7 +382,8 @@ async function executeTargets(commandRequestId: string) {
       privateKey,
       password,
       command: target.commandRequest.command,
-    }).catch((error) => ({
+      targetId: target.id,
+    }).catch((error): SshExecutionResult => ({
       stdout: "",
       stderr: error instanceof Error ? error.message : "SSH 执行失败",
       exitCode: 255,
@@ -355,9 +403,11 @@ async function executeTargets(commandRequestId: string) {
       },
     });
 
-    const summary = succeeded
-      ? `命令已在 ${target.server.name}（${target.server.host}:${target.server.port}）执行完成，退出码 0。`
-      : `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）执行失败，退出码 ${result.exitCode}。`;
+    const summary = result.cancelled
+      ? `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）已由操作员取消。`
+      : succeeded
+        ? `命令已在 ${target.server.name}（${target.server.host}:${target.server.port}）执行完成，退出码 0。`
+        : `命令在 ${target.server.name}（${target.server.host}:${target.server.port}）执行失败，退出码 ${result.exitCode}。`;
 
     await prisma.executionLog.create({
       data: {
@@ -655,6 +705,62 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
   }
 
   return { recovered };
+}
+
+export async function cancelCommandRequest(input: { commandRequestId: string; actorId: string; reason?: string }) {
+  const commandRequestId = input.commandRequestId.trim();
+  if (!commandRequestId) {
+    throw new Error("命令请求不存在");
+  }
+
+  const request = await prisma.commandRequest.findUnique({
+    where: { id: commandRequestId },
+    include: { targets: { select: { id: true, status: true } } },
+  });
+
+  if (!request) {
+    throw new Error("命令请求不存在");
+  }
+
+  if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
+    throw new Error("当前命令请求已结束，无法取消");
+  }
+
+  const cancellableTargetIds = request.targets
+    .filter((target) => ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(target.status))
+    .map((target) => target.id);
+  const killedCount = cancellableTargetIds.reduce((count, targetId) => count + (cancelActiveCommandChild(targetId) ? 1 : 0), 0);
+  const now = new Date();
+  const reason = input.reason?.trim();
+  const stderr = killedCount > 0
+    ? `命令请求已取消；已终止 ${killedCount} 个正在运行的 SSH 子进程。${reason ? `原因：${reason}` : ""}`
+    : `命令请求已取消。${reason ? `原因：${reason}` : ""}`;
+
+  await prisma.commandTarget.updateMany({
+    where: {
+      commandRequestId,
+      status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+    },
+    data: {
+      status: "CANCELLED",
+      stderr,
+      exitCode: 130,
+      finishedAt: now,
+    },
+  });
+  await prisma.commandRequest.update({
+    where: { id: commandRequestId },
+    data: { status: "CANCELLED" },
+  });
+  await prisma.executionLog.create({
+    data: {
+      commandRequestId,
+      serverId: null,
+      summary: `命令请求已由 ${input.actorId} 取消；${killedCount > 0 ? `已终止 ${killedCount} 个运行中的 SSH 子进程。` : "没有发现当前进程内仍在运行的 SSH 子进程。"}`,
+    },
+  });
+
+  return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
 }
 
 export async function createCommandRequest(input: CreateCommandInput) {

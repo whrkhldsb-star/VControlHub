@@ -51,7 +51,7 @@ vi.mock("@/lib/db", () => ({
     error instanceof Error && /P1001|Can't reach database server|PrismaClientInitializationError|database server/i.test(error.message),
 }));
 
-import { createCommandRequest, listCommandRequests, reviewCommandRequest } from "../service";
+import { createCommandRequest, listCommandRequests, reviewCommandRequest, cancelCommandRequest } from "../service";
 
 describe("command service execution flow", () => {
   beforeEach(() => {
@@ -372,6 +372,78 @@ describe("command service execution flow", () => {
         data: { status: "FAILED" },
       }),
     );
+  });
+
+  it("cancels running command requests and terminates active SSH children", async () => {
+    mockPrisma.commandRequest.findUnique
+      .mockResolvedValueOnce({ id: "req_cancel_1", targets: [{ id: "target_cancel" }] })
+      .mockResolvedValueOnce({
+        id: "req_cancel_1",
+        status: "RUNNING",
+        targets: [{ id: "target_cancel", status: "RUNNING" }],
+      });
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_cancel_1", status: "CANCELLED" });
+    mockPrisma.commandRequest.findUniqueOrThrow.mockResolvedValue({ id: "req_cancel_1", status: "CANCELLED" });
+    let runningChild!: MockChildProcess;
+    spawnMock.mockImplementationOnce(() => {
+      runningChild = new EventEmitter() as MockChildProcess;
+      runningChild.stdout = new EventEmitter();
+      runningChild.stderr = new EventEmitter();
+      runningChild.kill = vi.fn(() => {
+        runningChild.emit("close", null);
+        return true;
+      });
+      return runningChild;
+    });
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_cancel_1",
+      status: "APPROVED",
+      targets: [{ id: "target_cancel" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_cancel",
+        server: {
+          id: "srv_cancel",
+          name: "cancel-node",
+          host: "203.0.113.15",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "sleep 3600" },
+      },
+    ]);
+
+    await createCommandRequest({
+      title: "Long command",
+      command: "sleep 3600",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_cancel"],
+    });
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
+
+    await cancelCommandRequest({ commandRequestId: "req_cancel_1", actorId: "u_2", reason: "wrong window" });
+
+    expect(runningChild.kill).toHaveBeenCalledWith("SIGTERM");
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
+      where: {
+        commandRequestId: "req_cancel_1",
+        status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING"] },
+      },
+      data: expect.objectContaining({
+        status: "CANCELLED",
+        exitCode: 130,
+        stderr: expect.stringContaining("wrong window"),
+      }),
+    });
+    expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_cancel_1" },
+      data: { status: "CANCELLED" },
+    });
   });
 
   it("truncates oversized SSH output before persisting target logs", async () => {

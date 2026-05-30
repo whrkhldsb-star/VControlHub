@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     createCommandRequest: vi.fn(),
     listCommandRequests: vi.fn(),
     recoverStaleRunningCommandRequests: vi.fn(),
+    cancelCommandRequest: vi.fn(),
     auditUserAction: vi.fn(),
   },
 }));
@@ -17,6 +18,7 @@ vi.mock("@/lib/command/service", () => ({
   createCommandRequest: mocks.createCommandRequest,
   listCommandRequests: mocks.listCommandRequests,
   recoverStaleRunningCommandRequests: mocks.recoverStaleRunningCommandRequests,
+  cancelCommandRequest: mocks.cancelCommandRequest,
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 
@@ -38,6 +40,7 @@ describe("/api/commands audit coverage", () => {
       targets: [{ id: "target1" }, { id: "target2" }],
       requiresApproval: true,
     });
+    mocks.cancelCommandRequest.mockResolvedValue({ id: "cmd1", status: "CANCELLED" });
   });
 
   it("returns listed command requests for users with read permission", async () => {
@@ -142,6 +145,40 @@ describe("/api/commands audit coverage", () => {
 
     expect(response.status).toBe(400);
     expect(mocks.createCommandRequest).not.toHaveBeenCalled();
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
+  });
+
+  it("cancels a running command request for command executors", async () => {
+    const response = await route.PATCH(new Request("http://local/api/commands", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "cancel", commandRequestId: "cmd1", reason: "wrong window" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.sessionHasPermission).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1" }), "command:execute");
+    expect(mocks.cancelCommandRequest).toHaveBeenCalledWith({
+      commandRequestId: "cmd1",
+      actorId: "u1",
+      reason: "wrong window",
+    });
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.cancel", {
+      commandRequestId: "cmd1",
+      status: "CANCELLED",
+    });
+  });
+
+  it("rejects command cancellation without execute permission", async () => {
+    mocks.sessionHasPermission.mockImplementation((_session, permission) => permission !== "command:execute");
+
+    const response = await route.PATCH(new Request("http://local/api/commands", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-forwarded-for": "198.51.100.44" },
+      body: JSON.stringify({ action: "cancel", commandRequestId: "cmd1" }),
+    }));
+
+    expect(response.status).toBe(403);
+    expect(mocks.cancelCommandRequest).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
 });
