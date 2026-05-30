@@ -52,8 +52,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T04:46:30Z",
     "target": "P5 backup creation behavior",
-    "status": "verified_deployed_pending_commit",
-    "commit": null,
+    "status": "verified_deployed_committed",
+    "commit": "60bbdf7",
     "summary": "Made backup creation execute the real deploy/backup.sh artifact path immediately instead of only creating a pending record. Backup records now move through RUNNING to COMPLETED or FAILED with real artifact size or error metadata; API and server-action callers share the same execution service; Backups page and OpenAPI wording now describe create-and-execute semantics.",
     "validation": [
       "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/backups/__tests__/page.test.tsx (14/14)",
