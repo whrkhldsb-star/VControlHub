@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";
 type SystemHealthSummary = { total: number; healthy: number; warning: number; critical: number; overall: SystemHealthStatus };
@@ -121,11 +122,13 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 	const [history, setHistory] = useState<Record<string, MetricPoint[]>>({});
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
 	const [autoRefresh, setAutoRefresh] = useState(true);
+	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
+		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
+	);
 	const [lastRefresh, setLastRefresh] = useState<string>("");
 	const [loadError, setLoadError] = useState<string | null>(null);
 	const [historyErrors, setHistoryErrors] = useState<Record<string, string>>({});
 	const [isRefreshing, setIsRefreshing] = useState(false);
-	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
 
@@ -164,11 +167,19 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 	}, [fetchHealth]);
 
 	useEffect(() => {
-		if (autoRefresh) {
-			intervalRef.current = setInterval(fetchHealth, 30_000);
-			return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-		}
-	}, [autoRefresh, fetchHealth]);
+		const readSavedInterval = () => {
+			setRefreshIntervalSeconds(getRefreshIntervalFromStorage(window.localStorage, 30));
+		};
+		readSavedInterval();
+		window.addEventListener("storage", readSavedInterval);
+		return () => window.removeEventListener("storage", readSavedInterval);
+	}, []);
+
+	useEffect(() => {
+		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
+		const interval = window.setInterval(() => { void fetchHealth(); }, refreshIntervalSeconds * 1000);
+		return () => window.clearInterval(interval);
+	}, [autoRefresh, fetchHealth, refreshIntervalSeconds]);
 
 	const toggleExpand = async (serverId: string) => {
 		if (expandedServer === serverId) {
@@ -273,11 +284,15 @@ export function HealthDashboardClient({ serverCount: _serverCount, systemHealthS
 					<label className="flex items-center gap-2 text-xs text-slate-400">
 						<span>自动刷新</span>
 						<button
+							type="button"
 							onClick={() => setAutoRefresh(!autoRefresh)}
-							className={`relative w-8 h-4 rounded-full transition-colors ${autoRefresh ? "bg-cyan-500" : "bg-slate-700"}`}
+							disabled={refreshIntervalSeconds <= 0}
+							aria-label="切换健康状态自动刷新"
+							className={`relative h-4 w-8 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-slate-700"}`}
 						>
-							<span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${autoRefresh ? "translate-x-4" : ""}`} />
+							<span className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${autoRefresh ? "translate-x-4" : ""}`} />
 						</button>
+						<span>{refreshIntervalSeconds <= 0 ? "已关闭" : autoRefresh ? `每 ${getRefreshIntervalLabel(refreshIntervalSeconds)}` : `已暂停 · ${getRefreshIntervalLabel(refreshIntervalSeconds)}`}</span>
 					</label>
 				</div>
 			</div>

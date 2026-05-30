@@ -34,6 +34,7 @@ const overview = {
 describe("HealthDashboardClient", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		window.localStorage.clear();
 		vi.useRealTimers();
 		vi.mocked(csrfFetch).mockResolvedValue(overview);
 	});
@@ -90,5 +91,32 @@ describe("HealthDashboardClient", () => {
 		expect(screen.getByText(/vcontrolhub-next\.service \/ vcontrolhub-ssh-ws\.service \/ caddy\.service/)).toBeInTheDocument();
 		expect(screen.queryByText(/whrkhldsb-next\.service/)).not.toBeInTheDocument();
 		expect(screen.queryByText(/whrkhldsb-ssh-ws\.service/)).not.toBeInTheDocument();
+	});
+
+	it("uses the saved global refresh interval instead of a fixed 30 second timer", async () => {
+		window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 60 }));
+		const setIntervalSpy = vi.spyOn(window, "setInterval");
+		vi.mocked(csrfFetch).mockResolvedValue(overview);
+
+		render(<HealthDashboardClient serverCount={1} />);
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+
+		expect(screen.getByText("每 1分钟")).toBeInTheDocument();
+		expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
+	});
+
+	it("disables health auto-refresh when the global refresh preference is manual", async () => {
+		window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
+		const setIntervalSpy = vi.spyOn(window, "setInterval");
+		vi.mocked(csrfFetch).mockResolvedValue(overview);
+
+		render(<HealthDashboardClient serverCount={1} />);
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+
+		expect(screen.getByText("已关闭")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "切换健康状态自动刷新" })).toBeDisabled();
+		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
+		expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 60_000);
 	});
 });
