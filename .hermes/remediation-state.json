@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T16:12:53Z",
+  "updatedAt": "2026-05-30T16:44:54Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,15 +50,16 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted active; /api/status healthy; operation task/requests/deployment probes returned 401/307/200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T16:12:53Z",
-    "target": "P6 durable command/deployment background-worker architecture: operator-visible worker ownership/heartbeat diagnostics in Task Center",
-    "status": "completed_verified_deployed_committed",
-    "commit": "47f159b",
-    "summary": "Added workerId/workerHeartbeatAt metadata to Operation Task aggregation for command and deployment-backed tasks, rendered worker badges and heartbeat context in the Operation Tasks UI, and added service/client regressions so operators can see which in-process worker owns running command/deployment work.",
+    "finishedAt": "2026-05-30T16:44:54Z",
+    "target": "P6 durable command/deployment background-worker architecture: richer restart-surviving queue claim diagnostics/reconciliation history beyond Task Center worker ownership display",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Stale RUNNING command recovery logs now include worker ownership and heartbeat details, queued APPROVED recovery logs identify the claiming worker, and the Requests approval page renders recent execution/worker history rather than only the newest execution log.",
     "validation": [
       "read remediation backlog/state first",
       "git status before work",
-      "npx vitest run src/lib/operation-task/__tests__/service.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx passed 3/3",
+      "npx prisma generate passed after schema/client metadata refresh",
+      "npx vitest run src/lib/command/__tests__/service.test.ts src/app/requests/__tests__/page.test.tsx src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx src/lib/operation-task/__tests__/service.test.ts passed 21/21",
       "npm run typecheck passed",
       "npm run lint passed",
       "npm run build passed",
@@ -66,12 +67,12 @@
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service succeeded and both services active",
       "curl http://127.0.0.1:3000/api/status returned 200",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /api/status 200, /api/operation-tasks 401, /operation-tasks 307, /requests 307, /deployments 307",
+      "production probes: /api/status 200, /api/commands 401, /requests 307, /operation-tasks 307, /deployments 307",
       "recent production logs checked with no error/warn matches",
       "git diff --check passed"
     ],
     "deployment": "Production services restarted and smoke/route probes passed.",
-    "nextTarget": "P6 durable command/deployment background-worker architecture: richer restart-surviving queue claim diagnostics/reconciliation history beyond Task Center worker ownership display."
+    "nextTarget": "Current high-priority checklist is effectively complete; run a fresh comprehensive audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, and logs."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -86,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []
