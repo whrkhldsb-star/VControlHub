@@ -6,6 +6,7 @@ import {
   deleteServerProfile,
   listServerProfiles,
   setServerDirectGatewayEnabled,
+  updateServerProfile,
 } from "@/lib/server/service";
 import { prisma } from "@/lib/db";
 import { createRemoteDirectory } from "@/lib/ssh/client";
@@ -72,6 +73,11 @@ describe("server service", () => {
   beforeEach(() => {
     process.env.STORAGE_DIRECT_ACCESS_SECRET = "test-direct-secret";
     vi.clearAllMocks();
+    execRemoteCommandMock.mockResolvedValue({
+      stdout: "vcontrolhub-ssh-ready",
+      stderr: "",
+      exitCode: 0,
+    });
   });
 
   it("creates an ssh key from manual public/private key input", async () => {
@@ -179,6 +185,93 @@ describe("server service", () => {
         privateKeyEncryptionMode: "custom",
       }),
     ).rejects.toThrow("选择自定义加密格式时，必须填写新的私钥口令。");
+  });
+
+  it("rejects adding the same host for a different port before creating records", async () => {
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
+      id: "srv_existing",
+      name: "慈云",
+      host: "45.207.216.45",
+      port: 22,
+      username: "root",
+      enabled: true,
+    } as any);
+
+    await expect(
+      createServerProfile({
+        name: "慈云",
+        host: "45.207.216.45",
+        port: 61834,
+        username: "root",
+        connectionType: "PASSWORD",
+        password: "secret123",
+      }),
+    ).rejects.toThrow("已存在相同 IP/主机的 VPS 节点");
+
+    expect(prisma.server.create).not.toHaveBeenCalled();
+    expect(prisma.storageNode.create).not.toHaveBeenCalled();
+  });
+
+  it("verifies SSH connectivity before creating a remote VPS record", async () => {
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+    execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+
+    await expect(
+      createServerProfile({
+        name: "bad-port",
+        host: "203.0.113.44",
+        port: 61834,
+        username: "root",
+        connectionType: "PASSWORD",
+        password: "secret123",
+      }),
+    ).rejects.toThrow("无法连接目标服务器");
+
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(
+      expect.objectContaining({ command: "printf vcontrolhub-ssh-ready" }),
+    );
+    expect(prisma.server.create).not.toHaveBeenCalled();
+    expect(prisma.storageNode.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects updating a server to another server's host", async () => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_edit",
+      name: "edit-me",
+      host: "198.51.100.10",
+      port: 22,
+      username: "root",
+      description: null,
+      tags: [],
+      enabled: true,
+      connectionType: "PASSWORD",
+      sshKeyId: null,
+      password: "enc:v1:old",
+      sshKey: null,
+      storageNode: null,
+      commandTargets: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce({
+      id: "srv_other",
+      name: "慈云",
+      host: "45.207.216.45",
+      port: 22,
+      username: "root",
+      enabled: true,
+    } as any);
+
+    await expect(
+      updateServerProfile("srv_edit", {
+        host: "45.207.216.45",
+        port: 61834,
+        username: "root",
+        connectionType: "PASSWORD",
+      }),
+    ).rejects.toThrow("已存在相同 IP/主机的 VPS 节点");
+
+    expect(prisma.server.update).not.toHaveBeenCalled();
   });
 
   it("creates a server profile bound to an ssh key", async () => {
@@ -751,7 +844,13 @@ describe("server service", () => {
     vi.mocked(createRemoteDirectory).mockRejectedValueOnce(
       new Error("mkdir permission denied"),
     );
-    execRemoteCommandMock.mockRejectedValueOnce(new Error("systemctl not found"));
+    execRemoteCommandMock
+      .mockResolvedValueOnce({
+        stdout: "vcontrolhub-ssh-ready",
+        stderr: "",
+        exitCode: 0,
+      })
+      .mockRejectedValueOnce(new Error("systemctl not found"));
     vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
       id: "key_warn",
       name: "warn-key",
@@ -856,7 +955,9 @@ describe("server service", () => {
       expect.objectContaining({ remotePath: "/data/warn", recursive: true }),
     );
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
-      expect.objectContaining({ command: expect.stringContaining("/data/warn") }),
+      expect.objectContaining({
+        command: expect.stringContaining("/data/warn"),
+      }),
     );
     expect(prisma.server.update).not.toHaveBeenCalled();
     expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
@@ -881,9 +982,9 @@ describe("server service", () => {
       storageNode: { basePath: "/srv/vcontrolhub/storage", driver: "LOCAL" },
     } as any);
 
-    await expect(setServerDirectGatewayEnabled("srv_local", true)).rejects.toThrow(
-      "本机节点不需要目标服务器直连",
-    );
+    await expect(
+      setServerDirectGatewayEnabled("srv_local", true),
+    ).rejects.toThrow("本机节点不需要目标服务器直连");
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -905,9 +1006,9 @@ describe("server service", () => {
       storageNode: null,
     } as any);
 
-    await expect(setServerDirectGatewayEnabled("srv_orphan", true)).rejects.toThrow(
-      "目标服务器直连只能启用于已绑定 SFTP 存储节点",
-    );
+    await expect(
+      setServerDirectGatewayEnabled("srv_orphan", true),
+    ).rejects.toThrow("目标服务器直连只能启用于已绑定 SFTP 存储节点");
 
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prisma.server.update).not.toHaveBeenCalled();
@@ -931,7 +1032,7 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root" },
+      storageNode: { basePath: "/root", driver: "SFTP" },
     } as any);
     vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
@@ -981,7 +1082,7 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root" },
+      storageNode: { basePath: "/root", driver: "SFTP" },
     } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_1",
@@ -994,7 +1095,7 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root" },
+      storageNode: { basePath: "/root", driver: "SFTP" },
     } as any);
     vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
@@ -1023,7 +1124,7 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root" },
+      storageNode: { basePath: "/root", driver: "SFTP" },
     } as any);
     vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
       id: "srv_1",
@@ -1036,7 +1137,7 @@ describe("server service", () => {
       fileProxyPort: 31888,
       publicUrl: "http://203.0.113.10:31888",
       sshKey: { privateKey: "plain-key" },
-      storageNode: { basePath: "/root" },
+      storageNode: { basePath: "/root", driver: "SFTP" },
     } as any);
     vi.mocked(prisma.server.update).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({
@@ -1053,8 +1154,40 @@ describe("server service", () => {
     });
   });
 
+  it("skips remote gateway cleanup for local-only storage when deleting a local server", async () => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+      id: "srv_local",
+      host: "127.0.0.1",
+      port: 22,
+      username: "root",
+      password: null,
+      connectionType: "SSH_KEY",
+      sshKeyId: null,
+      fileProxyPort: 31888,
+      publicUrl: "http://127.0.0.1:31888",
+      sshKey: null,
+      storageNode: { basePath: "/srv/vcontrolhub/storage", driver: "LOCAL" },
+    } as any);
+    vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
+
+    await expect(deleteServerProfile("srv_local")).resolves.toEqual({ deleted: true });
+
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+    expect(prisma.server.delete).toHaveBeenCalledWith({
+      where: { id: "srv_local" },
+    });
+  });
+
   it("keeps the server usable when direct gateway install fails during onboarding", async () => {
-    execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
+    execRemoteCommandMock
+      .mockResolvedValueOnce({
+        stdout: "vcontrolhub-ssh-ready",
+        stderr: "",
+        exitCode: 0,
+      })
+      .mockRejectedValueOnce(new Error("connect ETIMEDOUT"));
     vi.mocked(prisma.sshKey.findUnique).mockResolvedValueOnce({
       id: "key_1",
       name: "prod-root-key",
@@ -1182,7 +1315,7 @@ describe("server service", () => {
         password: "secret123",
         tags: [],
       }),
-    ).rejects.toThrow("已存在相同主机、端口和用户名的");
+    ).rejects.toThrow("已存在相同 IP/主机的 VPS 节点");
 
     expect(prisma.server.create).not.toHaveBeenCalled();
     expect(prisma.storageNode.create).not.toHaveBeenCalled();

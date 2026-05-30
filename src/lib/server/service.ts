@@ -44,8 +44,8 @@ type ServerWithRelations = {
   host: string;
   port: number;
   username: string;
-  sshKeyId?: string | null;
-  password?: string | null;
+  sshKeyId: string | null;
+  password: string | null;
   description?: string | null;
   tags: string[];
   enabled: boolean;
@@ -72,6 +72,17 @@ type ServerWithRelations = {
   commandTargets?: ServerCommandTarget[];
   publicUrl?: string | null;
   fileProxyPort?: number | null;
+};
+
+type NormalizedServerInput = ReturnType<typeof normalizeServerInput>;
+
+type ExistingServerForDuplicateCheck = {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  username: string;
+  enabled: boolean;
 };
 
 type ServerProfileRow = Prisma.ServerGetPayload<{
@@ -131,6 +142,80 @@ function buildServerConnectionTypeLabel(
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error || "未知错误");
+}
+
+function isLocalHostLiteral(host: string) {
+  return /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(host.trim());
+}
+
+function formatServerEndpoint(
+  server: Pick<ExistingServerForDuplicateCheck, "host" | "port" | "username">,
+) {
+  return `${server.username}@${server.host}:${server.port}`;
+}
+
+function buildDuplicateServerError(existing: ExistingServerForDuplicateCheck) {
+  return `已存在相同 IP/主机的 VPS 节点：${existing.name}（${formatServerEndpoint(existing)}）。为避免同一服务器重复纳管或端口填错，请编辑现有节点或先删除旧节点后再添加。`;
+}
+
+async function assertNoDuplicateServerHost(
+  normalized: NormalizedServerInput,
+  options: { excludeId?: string } = {},
+) {
+  const duplicate = await prisma.server.findFirst({
+    where: {
+      host: normalized.host,
+      ...(options.excludeId ? { id: { not: options.excludeId } } : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      host: true,
+      port: true,
+      username: true,
+      enabled: true,
+    },
+  });
+  if (duplicate) {
+    throw new Error(buildDuplicateServerError(duplicate));
+  }
+}
+
+async function verifyServerSshConnectivity(
+  normalized: NormalizedServerInput,
+  serverLike: Pick<
+    ServerWithRelations,
+    "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId"
+  > & {
+    sshKey?: { privateKey?: string | null } | null;
+  },
+) {
+  if (isLocalHostLiteral(normalized.host)) return;
+
+  try {
+    const ssh = await buildSshParamsFromServer(
+      serverLike as ServerWithRelations,
+      serverLike.sshKey
+        ? { privateKey: serverLike.sshKey.privateKey ?? null }
+        : null,
+    );
+    const result = await execRemoteCommand({
+      ...ssh,
+      command: "printf vcontrolhub-ssh-ready",
+      timeout: 15_000,
+    });
+    if (result.exitCode !== 0) {
+      throw new Error(
+        result.stderr ||
+          result.stdout ||
+          `SSH 预检退出码 ${result.exitCode ?? "unknown"}`,
+      );
+    }
+  } catch (error) {
+    throw new Error(
+      `无法连接目标服务器 ${normalized.username}@${normalized.host}:${normalized.port}，节点未添加/未保存。请检查 IP、端口、用户名和认证信息后重试。详情：${getErrorMessage(error)}`,
+    );
+  }
 }
 
 function enrichServer(server: ServerWithRelations) {
@@ -509,33 +594,56 @@ export async function createServerProfile(input: CreateServerInput) {
   const normalized = normalizeServerInput(payload);
   const onboardingWarnings: string[] = [];
 
+  let validatedSshKey: {
+    id: string;
+    name: string;
+    fingerprint?: string | null;
+    publicKey?: string | null;
+    privateKey?: string | null;
+    createdAt?: Date | string;
+  } | null = null;
+
   if (normalized.connectionType === "SSH_KEY") {
     if (!normalized.sshKeyId) throw new Error("SSH 密钥连接方式需选择密钥");
-    const sshKey = await prisma.sshKey.findUnique({
+    validatedSshKey = await prisma.sshKey.findUnique({
       where: { id: normalized.sshKeyId },
-      select: { id: true, name: true, fingerprint: true },
+      select: {
+        id: true,
+        name: true,
+        fingerprint: true,
+        publicKey: true,
+        privateKey: true,
+        createdAt: true,
+      },
     });
-    if (!sshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
+    if (!validatedSshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
   }
 
-  const duplicate = await prisma.server.findFirst({
-    where: {
-      host: normalized.host,
-      port: normalized.port,
-      username: normalized.username,
-    },
-    select: { id: true, name: true, enabled: true },
-  });
-  if (duplicate) {
-    if (duplicate.enabled) {
-      throw new Error(
-        `已存在相同主机、端口和用户名的 VPS 节点：${duplicate.name}`,
-      );
-    }
-    throw new Error(
-      `已存在相同主机、端口和用户名的已禁用节点：${duplicate.name}。请先在 VPS 管理页面启用该节点，或删除后重新添加。`,
-    );
-  }
+  await assertNoDuplicateServerHost(normalized);
+
+  const pendingServerForPreflight: ServerWithRelations = {
+    id: "__pending__",
+    name: normalized.name,
+    host: normalized.host,
+    port: normalized.port,
+    username: normalized.username,
+    description: normalized.description ?? null,
+    tags: normalized.tags,
+    enabled: true,
+    connectionType: normalized.connectionType,
+    sshKeyId:
+      normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
+    password:
+      normalized.connectionType === "PASSWORD" && normalized.password
+        ? encryptServerPasswordIfPlain(normalized.password)
+        : null,
+    sshKey: normalized.connectionType === "SSH_KEY" ? validatedSshKey : null,
+    storageNode: null,
+    commandTargets: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  await verifyServerSshConnectivity(normalized, pendingServerForPreflight);
 
   const server = await prisma.server.create({
     data: {
@@ -547,7 +655,7 @@ export async function createServerProfile(input: CreateServerInput) {
       tags: normalized.tags,
       connectionType: normalized.connectionType,
       sshKeyId:
-        normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId : null,
+        normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
       password:
         normalized.connectionType === "PASSWORD" && normalized.password
           ? encryptServerPasswordIfPlain(normalized.password)
@@ -598,9 +706,7 @@ export async function createServerProfile(input: CreateServerInput) {
 
   // Auto-create associated storage node
   const storageNodeName = `${server.name} 存储`;
-  const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
-    normalized.host.trim(),
-  );
+  const isLocalHost = isLocalHostLiteral(normalized.host);
   const defaultCount = await prisma.storageNode.count({
     where: { isDefault: true },
   });
@@ -711,7 +817,16 @@ export async function updateServerProfile(
   const current = await prisma.server.findUnique({
     where: { id: serverId },
     include: {
-      sshKey: { select: { name: true } },
+      sshKey: {
+        select: {
+          id: true,
+          name: true,
+          fingerprint: true,
+          publicKey: true,
+          privateKey: true,
+          createdAt: true,
+        },
+      },
       commandTargets: {
         select: {
           id: true,
@@ -757,16 +872,60 @@ export async function updateServerProfile(
     description: input.description ?? current.description,
   });
 
+  let updateSshKey: {
+    id: string;
+    name: string;
+    fingerprint?: string | null;
+    publicKey?: string | null;
+    privateKey?: string | null;
+    createdAt?: Date | string;
+  } | null = current.sshKey ?? null;
+
   if (
     normalized.connectionType === "SSH_KEY" &&
     normalized.sshKeyId &&
     normalized.sshKeyId !== current.sshKeyId
   ) {
-    const sshKey = await prisma.sshKey.findUnique({
+    updateSshKey = await prisma.sshKey.findUnique({
       where: { id: normalized.sshKeyId },
-      select: { id: true },
+      select: {
+        id: true,
+        name: true,
+        fingerprint: true,
+        publicKey: true,
+        privateKey: true,
+        createdAt: true,
+      },
     });
-    if (!sshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
+    if (!updateSshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
+  }
+
+  await assertNoDuplicateServerHost(normalized, { excludeId: serverId });
+
+  const connectionChanged =
+    normalized.host !== current.host ||
+    normalized.port !== current.port ||
+    normalized.username !== current.username ||
+    normalized.connectionType !== current.connectionType ||
+    normalized.sshKeyId !== current.sshKeyId ||
+    (normalized.connectionType === "PASSWORD" && !!input.password);
+
+  const nextServerForPreflight: ServerWithRelations = {
+    ...current,
+    host: normalized.host,
+    port: normalized.port,
+    username: normalized.username,
+    connectionType: normalized.connectionType,
+    sshKeyId:
+      normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
+    password:
+      normalized.connectionType === "PASSWORD" && input.password
+        ? encryptServerPasswordIfPlain(input.password)
+        : current.password,
+    sshKey: normalized.connectionType === "SSH_KEY" ? updateSshKey : null,
+  };
+  if (connectionChanged) {
+    await verifyServerSshConnectivity(normalized, nextServerForPreflight);
   }
 
   const updated = await prisma.server.update({
@@ -778,7 +937,7 @@ export async function updateServerProfile(
       username: normalized.username,
       connectionType: normalized.connectionType,
       sshKeyId:
-        normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId : null,
+        normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
       password:
         normalized.connectionType === "PASSWORD" && normalized.password
           ? encryptServerPasswordIfPlain(normalized.password)
@@ -855,7 +1014,11 @@ export async function deleteServerProfile(serverId: string) {
   });
   if (!current) throw new Error("VPS 节点不存在或已删除");
   let cleanupSkipped = false;
-  if (current.fileProxyPort && current.fileProxyPort > 0) {
+  const shouldAttemptDirectGatewayCleanup =
+    current.fileProxyPort &&
+    current.fileProxyPort > 0 &&
+    current.storageNode?.driver === "SFTP";
+  if (shouldAttemptDirectGatewayCleanup) {
     const result = await applyServerDirectGatewayState({
       serverId,
       enabled: false,

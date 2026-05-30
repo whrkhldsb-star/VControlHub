@@ -9,6 +9,7 @@ import {
   deleteServerProfile,
   setServerDirectGatewayEnabled,
   toggleServerEnabled,
+  updateServerProfile,
 } from "@/lib/server/service";
 
 export type ServerActionState = {
@@ -73,6 +74,47 @@ export async function createServerAction(
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : "纳管节点失败",
+    } as ServerActionState;
+  }
+}
+
+export async function updateServerAction(
+  _prevState: ServerActionState | null,
+  formData: FormData,
+) {
+  await requirePermission("server:write");
+
+  try {
+    const serverId = String(formData.get("serverId") ?? "");
+    const connectionType = String(
+      formData.get("connectionType") ?? "PASSWORD",
+    ) as "SSH_KEY" | "PASSWORD";
+    const password = String(formData.get("password") ?? "");
+    const sshKeyId = String(formData.get("sshKeyId") ?? "");
+
+    await updateServerProfile(serverId, {
+      name: String(formData.get("name") ?? ""),
+      host: String(formData.get("host") ?? ""),
+      port: Number(String(formData.get("port") ?? "22")),
+      username: String(formData.get("username") ?? "") || undefined,
+      connectionType,
+      sshKeyId:
+        connectionType === "SSH_KEY" ? sshKeyId || undefined : undefined,
+      password:
+        connectionType === "PASSWORD" && password ? password : undefined,
+      description: String(formData.get("description") ?? ""),
+      tags: parseTags(String(formData.get("tags") ?? "")),
+    });
+
+    revalidatePath("/");
+    revalidatePath("/servers");
+    revalidatePath("/storage");
+    revalidatePath("/files");
+
+    return { success: "VPS 节点已更新并通过连接校验。" } as ServerActionState;
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "更新 VPS 节点失败",
     } as ServerActionState;
   }
 }
