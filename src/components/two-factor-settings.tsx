@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Step = "idle" | "setup" | "verify" | "disable";
 
 export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
+	const router = useRouter();
 	const [step, setStep] = useState<Step>("idle");
 	const [secret, setSecret] = useState("");
 	const [otpauthUrl, setOtpauthUrl] = useState("");
@@ -51,7 +53,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			});
 			if (enableData.error) { setError(enableData.error); return; }
 			setStep("idle");
-			window.location.reload();
+			router.refresh();
 		} catch (err) { setError(messageFromError(err, "请求失败")); }
 		finally { setLoading(false); }
 	};
@@ -68,7 +70,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			});
 			if (data.error) { setError(data.error); return; }
 			setStep("idle");
-			window.location.reload();
+			router.refresh();
 		} catch (err) { setError(messageFromError(err, "请求失败")); }
 		finally { setLoading(false); }
 	};

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T02:16:00Z",
+  "updatedAt": "2026-05-30T02:32:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -50,25 +50,24 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; key auth-protected APIs returned 401 without 500; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T02:16:00Z",
-    "target": "P3 Quick Services install failure visibility and cleanup state",
-    "status": "verified_deployed_committed",
-    "commit": "c729ce5",
-    "summary": "Failed async Docker installs now preserve actionable Docker stderr/stdout in QuickService.error, mark the row error, and best-effort remove partial qs-* containers while appending cleanup failure context if cleanup itself fails.",
+    "finishedAt": "2026-05-30T02:32:00Z",
+    "target": "P4 two-factor settings no-full-reload UX",
+    "status": "verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Two-factor enable/disable success now uses App Router router.refresh() instead of window.location.reload(), preserving browser/client state while refreshing server-rendered account security status.",
     "validation": [
-      "npx vitest run src/lib/quick-service/__tests__/service.test.ts (14/14)",
+      "npx vitest run src/components/__tests__/two-factor-settings.test.tsx src/app/settings/__tests__/settings-client.test.tsx (8/8)",
       "npm run typecheck",
       "npm run lint",
-      "Quick Services targeted regressions 27/27",
       "npm run build",
       "npm run build:runtime",
       "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub 19/19",
-      "HTTPS probes /api/status 200, /api/quick-services 401, /quick-services 307",
+      "HTTPS probes /api/status 200, /settings 307, POST /api/auth/2fa/setup 401",
       "recent service logs checked with no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke test passed.",
-    "nextTarget": "Continue P4 backlog: replace remaining two-factor settings window.location.reload() with router.refresh() or local state refresh."
+    "nextTarget": "Continue P4 backlog: add SFTP browser empty state for no SFTP nodes, or improve monitoring error retry UX."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -83,7 +82,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []

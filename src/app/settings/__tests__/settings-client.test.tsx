@@ -4,8 +4,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "../settings-client";
 
+const refreshMock = vi.fn();
+
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+	useRouter: () => ({ refresh: refreshMock }),
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
