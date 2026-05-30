@@ -38,5 +38,62 @@ describe("GlobalSearch", () => {
 		expect(hrefs).not.toContain("/quickservice");
 		expect(hrefs).not.toContain("/backup");
 		expect(hrefs).not.toContain("/ssh");
+		expect(hrefs).not.toContain("#password");
+		expect(hrefs).not.toContain("#2fa");
+	});
+
+	it("covers every sidebar navigation item in the global search catalog", () => {
+		const hrefs = new Set(getSearchItems().map((item) => item.href));
+		const expectedMainAndSystemHrefs = [
+			"/",
+			"/servers",
+			"/health",
+			"/traffic",
+			"/files",
+			"/downloads",
+			"/operation-tasks",
+			"/shares",
+			"/backups",
+			"/templates",
+			"/deployments",
+			"/quick-services",
+			"/snippets",
+			"/media",
+			"/image-bed",
+			"/ai",
+			"/announcements",
+			"/tickets",
+			"/requests",
+			"/scheduled-tasks",
+			"/alert-rules",
+			"/notifications",
+			"/settings",
+			"/users",
+			"/api-tokens",
+			"/status",
+			"/audit",
+		];
+
+		for (const href of expectedMainAndSystemHrefs) {
+			expect(hrefs).toContain(href);
+		}
+	});
+
+	it("routes 2FA and password actions to concrete settings anchors instead of dead modal events", async () => {
+		pushMock.mockClear();
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+		const user = userEvent.setup();
+		render(<GlobalSearch />);
+
+		act(() => {
+			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+		});
+		await user.type(await screen.findByPlaceholderText("搜索页面、操作..."), "两步验证");
+		await user.click(await screen.findByRole("button", { name: /两步验证/ }));
+
+		expect(pushMock).toHaveBeenCalledWith("/settings#2fa");
+		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "open-2fa-modal" }));
+		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/settings#password");
+		dispatchSpy.mockRestore();
 	});
 });

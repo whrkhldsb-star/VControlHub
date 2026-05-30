@@ -62,7 +62,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 			)}
 
 			{/* Account security */}
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<section id="2fa" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div>
 					<h2 className="text-lg font-semibold text-white flex items-center gap-2">🛡️ 账户安全</h2>
 					<p className="mt-1 text-xs text-slate-500">当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。</p>
@@ -79,7 +79,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 			</section>
 
 			{/* Session */}
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<section id="password" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<h2 className="text-lg font-semibold text-white flex items-center gap-2">🔐 会话与安全</h2>
 				<Field label="会话超时（秒）" value={settings["session.timeout"] ?? ""} onChange={(v) => updateField("session.timeout", v)} placeholder="86400" type="number" />
 				<Field label="密码最小长度" value={settings["password.minLength"] ?? ""} onChange={(v) => updateField("password.minLength", v)} placeholder="8" type="number" />

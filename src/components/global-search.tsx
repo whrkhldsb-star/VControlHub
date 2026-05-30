@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { mainNavItems, systemNavItems } from "./nav-items";
 
 export interface SearchItem {
 	label: string;
@@ -11,24 +12,52 @@ export interface SearchItem {
 	keywords?: string[];
 }
 
+const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> = {
+	"/": { icon: "📊", keywords: ["dashboard", "首页", "概览"] },
+	"/servers": { icon: "🖥️", keywords: ["vps", "ssh", "终端", "服务器"] },
+	"/health": { icon: "💚", keywords: ["系统自检", "系统健康", "health", "system health"] },
+	"/traffic": { icon: "📈", keywords: ["流量", "带宽", "traffic"] },
+	"/files": { icon: "📁", keywords: ["storage", "存储", "云盘", "sftp"] },
+	"/downloads": { icon: "📥", keywords: ["下载站", "远程下载", "download"] },
+	"/operation-tasks": { icon: "🧾", keywords: ["任务中心", "后台任务", "task"] },
+	"/shares": { icon: "🔗", keywords: ["分享", "外链", "share"] },
+	"/backups": { icon: "💾", keywords: ["backup", "备份迁移", "恢复", "restore"] },
+	"/templates": { icon: "🧩", keywords: ["命令模板", "template", "command"] },
+	"/deployments": { icon: "🚀", keywords: ["部署", "deploy", "发布"] },
+	"/quick-services": { icon: "⚡", keywords: ["快服务", "quick service", "quick-services", "应用商店"] },
+	"/snippets": { icon: "💻", keywords: ["代码片段", "snippet"] },
+	"/media": { icon: "🎞️", keywords: ["媒体库", "media"] },
+	"/image-bed": { icon: "🖼️", keywords: ["图床", "图片", "image"] },
+	"/ai": { icon: "🤖", keywords: ["AI 助手", "模型", "provider"] },
+	"/announcements": { icon: "📣", keywords: ["公告", "站内公告"] },
+	"/tickets": { icon: "🎫", keywords: ["工单", "请求", "ticket"] },
+	"/requests": { icon: "✅", keywords: ["审批", "approval", "requests"] },
+	"/scheduled-tasks": { icon: "⏰", keywords: ["定时任务", "计划任务", "cron"] },
+	"/alert-rules": { icon: "🚨", keywords: ["告警", "alert", "规则"] },
+	"/notifications": { icon: "🔔", keywords: ["通知", "消息", "notification"] },
+	"/settings": { icon: "⚙️", keywords: ["系统设置", "账户安全", "会话", "SMTP"] },
+	"/users": { icon: "👥", keywords: ["用户", "角色", "权限"] },
+	"/api-tokens": { icon: "🔑", keywords: ["API Token", "令牌", "token"] },
+	"/status": { icon: "📡", keywords: ["公开状态页", "status"] },
+	"/audit": { icon: "📋", keywords: ["审计", "日志", "audit"] },
+};
+
+const navigationSearchItems: SearchItem[] = [...mainNavItems, ...systemNavItems].map((item) => {
+	const metadata = searchItemMetadata[item.href] ?? {};
+	return {
+		label: item.fallbackLabel,
+		href: item.href,
+		icon: metadata.icon ?? "🔎",
+		category: item.href === "/status" ? "公开页面" : item.href === "/users" || item.href === "/api-tokens" || item.href === "/audit" ? "系统" : "页面",
+		keywords: [item.labelKey, ...(metadata.keywords ?? [])],
+	};
+});
+
 const searchItems: SearchItem[] = [
-	{ label: "仪表盘", href: "/", icon: "📊", category: "页面" },
-	{ label: "服务器管理", href: "/servers", icon: "🖥️", category: "页面" },
-	{ label: "文件管理", href: "/files", icon: "📁", category: "页面", keywords: ["storage", "存储", "云盘"] },
-	{ label: "下载站", href: "/downloads", icon: "📥", category: "页面" },
-	{ label: "健康看板", href: "/health", icon: "💚", category: "页面", keywords: ["系统自检", "系统健康", "health", "system health"] },
-	{ label: "用户管理", href: "/users", icon: "👥", category: "页面" },
-	{ label: "审计日志", href: "/audit", icon: "📋", category: "页面" },
-	{ label: "Docker 容器", href: "/docker", icon: "🐳", category: "页面" },
-	{ label: "AI 助手", href: "/ai", icon: "🤖", category: "页面" },
-	{ label: "代码片段", href: "/snippets", icon: "💻", category: "页面" },
-	{ label: "图床", href: "/image-bed", icon: "🖼️", category: "页面" },
-	{ label: "快捷服务", href: "/quick-services", icon: "⚡", category: "页面", keywords: ["快服务", "quick service", "quick-services"] },
-	{ label: "监控状态", href: "/monitoring", icon: "📡", category: "页面" },
-	{ label: "备份恢复", href: "/backups", icon: "💾", category: "页面", keywords: ["backup", "备份迁移"] },
-	{ label: "VPS 管理", href: "/servers", icon: "🔑", category: "工具", keywords: ["SSH 终端", "ssh", "服务器管理"] },
-	{ label: "修改密码", href: "#password", icon: "🔐", category: "操作" },
-	{ label: "两步验证", href: "#2fa", icon: "🛡️", category: "操作" },
+	...navigationSearchItems,
+	{ label: "SSH 终端", href: "/servers", icon: "🔑", category: "工具", keywords: ["ssh", "终端", "VPS 管理", "服务器管理"] },
+	{ label: "修改密码", href: "/settings#password", icon: "🔐", category: "操作", keywords: ["密码", "password", "账户安全"] },
+	{ label: "两步验证", href: "/settings#2fa", icon: "🛡️", category: "操作", keywords: ["2FA", "MFA", "双因素", "账户安全"] },
 ];
 
 export function getSearchItems(): SearchItem[] {
@@ -59,13 +88,7 @@ export function GlobalSearch() {
 		(item: SearchItem) => {
 			setOpen(false);
 			setQuery("");
-			if (item.href.startsWith("#")) {
-				// Dispatch custom events for modals
-				if (item.href === "#password") window.dispatchEvent(new CustomEvent("open-password-modal"));
-				if (item.href === "#2fa") window.dispatchEvent(new CustomEvent("open-2fa-modal"));
-			} else {
-				router.push(item.href);
-			}
+			router.push(item.href);
 		},
 		[router]
 	);

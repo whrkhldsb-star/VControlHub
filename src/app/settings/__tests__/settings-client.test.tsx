@@ -52,6 +52,8 @@ describe("SettingsClient", () => {
 		render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
 
 		expect(screen.getByRole("heading", { name: /账户安全/ })).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /账户安全/ }).closest("section")).toHaveAttribute("id", "2fa");
+		expect(screen.getByRole("heading", { name: /会话与安全/ }).closest("section")).toHaveAttribute("id", "password");
 		expect(screen.getByRole("heading", { name: /两步验证 \(2FA\)/ })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "开启两步验证" })).toBeInTheDocument();
 	});
