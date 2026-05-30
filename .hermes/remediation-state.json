@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-30T22:38:00Z",
     "target": "P2 reduce storage grant quota large in-memory reads",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed_pushed",
+    "commit": "25950a9",
     "summary": "Changed storage grant quota enforcement from loading matching FileEntry sizes with findMany into a database-side aggregate _sum(size), preserving per-grant quota behavior while reducing API worker memory/CPU for large storage trees.",
     "validation": [
       "read remediation backlog/state first",
@@ -74,8 +74,8 @@
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Commit/push is pending for closeout in this run.",
-    "nextTarget": "Commit/push this verified storage-performance batch, then run the required comprehensive fresh audit because the success counter has exceeded the configured threshold. Remaining backlog items include P1 storage sync taskification and P3 management-facing URL/direct-access hardening."
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed. Functional commit 25950a9 created; bookkeeping state update will be committed separately.",
+    "nextTarget": "Run the required comprehensive fresh audit because the success counter has exceeded the configured threshold. Remaining backlog items include P1 storage sync taskification and P3 management-facing URL/direct-access hardening."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
