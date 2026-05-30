@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T19:26:30Z",
+  "updatedAt": "2026-05-30T19:27:15Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -53,7 +53,7 @@
   "lastRun": {
     "finishedAt": "2026-05-30T19:24:55Z",
     "target": "P2 file manager ergonomics from fresh-audit findings",
-    "status": "completed_verified_deployed_committed_pending_push",
+    "status": "completed_verified_deployed_committed_pushed",
     "commit": "a3c6afc",
     "summary": "File manager size sorting now uses numeric bytes from page/API payloads, selected files are cleared when directory/search scope changes, sort icon buttons are accessible by label, and batch selection checkboxes are visible without hover-only discovery.",
     "validation": [
@@ -71,7 +71,7 @@
       "recent production logs checked; no new error/warn entries",
       "git diff --check passed"
     ],
-    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed.",
+    "deployment": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; smoke test passed; functional commit a3c6afc and bookkeeping commit pushed to origin/main.",
     "nextTarget": "Continue remaining fresh-audit P1 storage sync/taskification or storage/file permission UI gating."
   },
   "runPolicy": {
