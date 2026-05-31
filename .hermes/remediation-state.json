@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T10:23:23.516259Z",
     "target": "Completion-gate dashboard localization and client-boundary polish",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Converged existing dirty dashboard localization work: localized dashboard summary/recent activity/sign-out copy through the active i18n context and mapped dashboard recent activity/audit log props to JSON-safe shapes before the Server→Client boundary.",
     "validation": [
       "No overlapping remediation/build/test process detected at start",
@@ -76,7 +76,8 @@
       "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no new error/warn matches"
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, and passing smoke/probes/log checks.",
-    "nextTarget": "Commit/push this dashboard localization/client-boundary polish, then continue completion visual QA batches."
+    "nextTarget": "Commit/push this dashboard localization/client-boundary polish, then continue completion visual QA batches.",
+    "commit": "1d92fa8d59f1b8984f850f8ec2626b2b343f6f2a"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
