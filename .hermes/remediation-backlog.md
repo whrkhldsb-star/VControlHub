@@ -117,6 +117,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - [x] 2026-05-31 — Bound share-link list hydration for growing public-link history: `listShareLinks()` now caps newest-first rows at 200 while preserving storage-node/creator metadata for the Shares/API surfaces. Verification: share-link service/API regressions 7/7, typecheck, lint (existing client-effect warnings only), build, runtime build, production restart, smoke 19/19, `/shares` 307, `/api/share-links` 401, `/api/status` 200, recent logs clean.
 
 - [x] 2026-05-31 — Bound backup history list hydration for growing backup/audit surfaces: `listBackupRecords()` now caps newest-first rows at 200 while preserving creator metadata for the Backups page/API. Verification: backup service/API/restore regressions 21/21, typecheck, lint (existing client-effect warnings only), build, runtime build, production restart, smoke 19/19, `/backups` 307, `/api/backups` 401, `/api/status` 200, recent logs clean. Commit: 071eee3.
+- [x] 2026-05-31 — Bound API-token history hydration for growing integration surfaces: `listApiTokens()` now caps newest-first rows at 200, and the API Token page explicitly requests the bounded window before passing safe token metadata to the client. Verification: API-token service/route/client regressions 13/13, typecheck, lint (existing client-effect warnings only), build, runtime build, production restart, smoke 19/19, `/api-tokens` 307, `/api/api-tokens` 401, `/api/status` 200, recent logs clean. Commit: 3713cd9.
 
 ## Current blockers
 
