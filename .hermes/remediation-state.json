@@ -1,12 +1,12 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T10:23:23.516259Z",
-  "mode": "backlog_driven_autonomous_remediation_and_optimization",
-  "currentCronJobId": "b8833e83bb1f",
+  "updatedAt": "2026-05-31T10:53:59.427896Z",
+  "mode": "backlog_driven_remediation_paused_for_evaluation",
+  "currentCronJobId": null,
   "legacyPausedAuditJobId": "a8e21e83a7df",
   "jobDistinction": {
     "legacyPausedAuditJob": "Broad website issue discovery plus small automatic fixes/upgrades; currently paused.",
-    "currentRemediationJob": "Backlog-driven remediation, optimization, and upgrade loop based on .hermes/remediation-backlog.md."
+    "currentRemediationJob": "Backlog-driven remediation/optimization loop was removed at user request on 2026-05-31 after evaluation/watchdog cleanup; recreate only with the improved full-product QA prompt and completion gates."
   },
   "sourceOfTruth": ".hermes/remediation-backlog.md",
   "priorityOrder": [
@@ -96,5 +96,18 @@
     "skippedOverlapRuns": 0
   },
   "blockers": [],
-  "productDirection": "Favor exposing safe operational and UX tuning knobs in administrator settings instead of hard-coding or env-only configuration; keep secrets and truly infrastructure-only values env-only. Current checklist completion must be followed by real browser/visual QA before a new remediation round."
+  "productDirection": "Favor full-product functional availability: every cycle should balance feature completeness, real user journeys, code quality, performance, reliability, UI/UX, tests, deployment health, and production verification. Static no-500 checks are insufficient without selected real workflow actions and side-effect verification.",
+  "removedBacklogCronJobId": "b8833e83bb1f",
+  "lastRunEvaluation": {
+    "evaluatedAt": "2026-05-31T10:53:59.427896Z",
+    "scope": "2026-05-31 backlog remediation results and task/process quality",
+    "resultSummary": "Strong verification discipline and meaningful improvements landed across runtime settings, polling preferences, bounded list performance, visual/light-theme QA, SMTP disabled-state clarity, and dashboard localization/client-boundary safety. Current production baseline is healthy and git is clean.",
+    "gaps": [
+      "The active backlog cron had been removed, but repo state/backlog still referred to b8833e83bb1f as current; this was corrected.",
+      "The completion QA gate exists but remains mostly checklist-style; future runs should force real browser/user-path batches before ordinary backlog work after completion.",
+      "Recent work skewed toward settings/performance/polish; next cycle should deliberately rotate into core functional journeys such as VPS/server management, Files/SFTP/upload/download/direct access, Quick Services, Commands/Deployments, Backups/Restore, AI providers, API tokens, and image bed.",
+      "Static probes and 307/401/no-500 checks are not enough for feature completeness; future runs must exercise real UI actions and verify DB/filesystem/remote side effects where safe."
+    ],
+    "recommendedNextMode": "manual comprehensive product QA or recreated cron with full-product functional availability prompt, not a narrow architecture-only loop"
+  }
 }
