@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T21:10:57Z",
     "target": "Completion-gate QA batch 1 login/default-page authenticated public-auth-page chrome verification",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Production authenticated QA verified the login/default-page user path. An operator logged in successfully, then direct navigation back to /login showed the public login form but also rendered the protected authenticated shell around it. Fixed proxy/request-header forwarding for public auth pages and gated SidebarLoader, mobile nav, and global search behind the same public-auth-page predicate.",
     "validation": [
       "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; removed job b8833e83bb1f is not current",
@@ -85,7 +85,7 @@
     ],
     "deployment": "Deployed by rebuilding, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, browser DOM proof, QA-user cleanup, and log checks.",
     "nextTarget": "Continue completion QA batch 1 with global search result breadth, preferences/default-page real side effects, and responsive/mobile layout; then rotate to QA batch 2 VPS/server management and SSH terminal.",
-    "commit": null
+    "commit": "f635ad5"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
