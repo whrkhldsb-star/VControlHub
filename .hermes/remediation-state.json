@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T21:39:18Z",
+  "updatedAt": "2026-05-31T22:43:37Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -58,20 +58,18 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /preferences 307, /api/preferences 401, /login 200; recent service logs clean; browser QA proved successful default-page save redirected next login to /files and failed CSRF write did not change visible stored preference"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T21:39:18Z",
-    "target": "Completion-gate QA batch 1 preferences/default-page real side-effect verification",
+    "finishedAt": "2026-05-31T22:43:37Z",
+    "target": "Completion-gate/fresh-audit Health Center localization closeout",
     "status": "completed_verified_deployed_committed",
-    "summary": "Production browser QA exercised default-page preference side effects. A successful /api/preferences save persisted /files and the next login redirected to /files; a failed missing-CSRF write returned 403 without changing visible stored preference. Fixed the Preferences client so localStorage and vps-preferences-updated are published only after the server confirms the effective preference values, preventing other tabs/widgets from reacting to a preference save that never persisted.",
+    "summary": "Converged a prior dirty Health Center localization fix instead of opening a new topic. The Health/System Health client now consumes the active language for nested self-check headings, repair cards, status badges, overview controls, table labels, trend labels, and common Chinese service/API messages returned by /api/system-health, so English mode no longer shows a mixed Chinese/English Health Center.",
     "validation": [
       "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; removed job b8833e83bb1f is not current",
-      "Confirmed git/remote clean at start and no overlapping build/test/remediation process beyond running production npm services",
-      "Created temporary QA user qa_pref_5331, logged into production browser, exercised /api/preferences with real CSRF, and verified defaultPage /files persisted plus next login landed on /files",
-      "Browser console proof: successful PUT /api/preferences returned 200 with defaultPage /files; missing-CSRF PUT returned 403 and stored visible preference stayed /files",
-      "Fixed Preferences client to defer localStorage writes and vps-preferences-updated dispatch until the save API returns normalized effective values",
-      "Added client regression proving failed saves do not publish local preference side effects",
-      "Added client regression proving successful saves do publish the preference update event and localStorage value",
-      "npx vitest run src/app/preferences/__tests__/page.test.tsx passed 5/5",
-      "npx vitest run src/app/preferences/__tests__/page.test.tsx src/app/api/preferences/__tests__/route.test.ts src/app/api/login/__tests__/route.test.ts src/app/__tests__/dashboard-preference-client.test.tsx passed 12/12",
+      "Detected dirty worktree from a prior Health Center localization change and converged it before opening any new topic",
+      "Confirmed no overlapping build/test/remediation process beyond running production npm services and editor TypeScript servers",
+      "Inspected the Health Center diff and verified it localizes nested system-health UI/copy through the active i18n provider rather than only route probes",
+      "Added client regression proving English mode renders System Self-check, translated service/API messages, overview labels, refresh controls, and no Chinese system-health headings",
+      "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx passed 8/8",
+      "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx src/app/health/__tests__/page.test.tsx src/app/api/system-health/__tests__/route.test.ts src/lib/system-health/__tests__/service.test.ts passed 14/14",
       "git diff --check passed",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
@@ -79,13 +77,13 @@
       "npm run build:runtime passed",
       "Production services restarted: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /preferences 307, /api/preferences 401, /login 200, /api/status 200",
-      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches",
-      "Deleted temporary QA users matching qa_pref_5331 and qa_cron_* and verified remaining count is 0"
+      "Route probes returned /health 307, /api/health 401, /api/system-health 401, /login 200, /api/status 200",
+      "Repaired .next ownership to vcontrolhub:vcontrolhub after root build and restarted services again",
+      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches"
     ],
-    "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, QA-user cleanup, and log checks.",
-    "nextTarget": "Before opening another ordinary remediation item, run a fresh audit/checkpoint because the success counter is above the 6-run threshold; continue completion QA batch 1 with global search result breadth and responsive/mobile layout as part of that browser-driven audit, then rotate to QA batch 2 VPS/server management and SSH terminal.",
-    "commit": "8155f73"
+    "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
+    "nextTarget": "Continue the completion-gate fresh-audit posture. If the tree is clean, proceed with browser-driven QA batch 1 global-search/responsive checks or explicitly rotate to QA batch 2 VPS/server management and SSH terminal with real user-path verification.",
+    "commit": "3ea9b17"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -100,7 +98,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 11,
+    "successfulRemediationRunsSinceFreshAudit": 12,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
