@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T17:12:00Z",
+  "updatedAt": "2026-05-31T18:08:58Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,35 +51,34 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Image publish/upload/delete targeted Vitest passed: 3 files / 13 tests",
+    "tests": "AppSidebar targeted Vitest passed: 1 file / 3 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /image-bed 307, /api/images/publish-from-storage 401, /api/images/list 401, /api/images/stats 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /settings 307, /api/preferences 401, /api/notifications 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T17:12:00Z",
-    "target": "Completion-gate image-bed publish-from-storage QA",
+    "finishedAt": "2026-05-31T18:08:58Z",
+    "target": "Completion-gate QA batch 1 sidebar/shell visual polish closeout",
     "status": "completed_verified_deployed_committed",
-    "summary": "Fixed image-bed publish-from-storage consistency so publishing an existing LOCAL storage image authorizes the exact source storage path before reading and removes the written public image file if ImageUpload.create fails.",
+    "summary": "Converged the dirty QA batch 1 work from production browser visual QA: sidebar footer now keeps long account names and controls inside the shell, hides horizontal nav overflow, and gives the desktop sidebar more room.",
     "validation": [
       "Read backlog/state and confirmed active full-product QA remediation job 9e36e64a75ae, not removed job b8833e83bb1f",
-      "No overlapping remediation/build/test process detected beyond production npm start processes and TypeScript language servers",
-      "Started from clean git state and chose QA batch 5 image-bed publish-from-storage flow",
-      "Added regressions proving exact source path authorization, no read/write/index side effects on denied access, and cleanup of the public image-bed file when image record creation fails",
-      "npx vitest run src/app/api/images/publish-from-storage/__tests__/route.test.ts src/app/api/images/upload/__tests__/route.test.ts src/app/api/images/[id]/__tests__/route.test.ts passed 13/13",
+      "Detected dirty worktree from an unfinished prior QA batch 1 sidebar/shell fix and did not start a new topic",
+      "Reviewed the exact diff for AppSidebar, its regression test, and backlog update",
+      "npx vitest run src/components/__tests__/app-sidebar.test.tsx passed 3/3",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
       "Production services restarted, .next ownership repaired, and /api/status returned healthy",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /image-bed 307, /api/images/publish-from-storage 401, /api/images/list 401, /api/images/stats 401, /api/status 200",
+      "Route probes returned /login 200, / 307, /settings 307, /api/status 200, /api/preferences 401, /api/notifications 401",
       "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches"
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing smoke/probes/log checks.",
-    "nextTarget": "successfulRemediationRunsSinceFreshAudit reached 6; next run should emit/perform the configured fresh audit checkpoint before selecting another ordinary remediation batch.",
-    "commit": "fad0d88d65038f137b6e4d290f0936d89bca212c"
+    "nextTarget": "Continue completion QA batch 1: global search, notifications dropdown interactions, preferences/default-page side effects, and responsive/mobile layout. Because the success counter had reached the fresh-audit threshold before this closeout, the next ordinary run should also record the configured fresh-audit/checkpoint status before choosing more remediation.",
+    "commit": "3ce7fa4379f411f68a37227cc15af36acbd13056"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
