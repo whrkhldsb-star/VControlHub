@@ -208,6 +208,7 @@ export async function listSyncJobs() {
 			_count: { select: { syncLogs: true } },
 		},
 		orderBy: { createdAt: "desc" },
+		take: 200,
 	});
 }
 

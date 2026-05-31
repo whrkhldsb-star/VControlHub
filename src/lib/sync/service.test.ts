@@ -1,12 +1,40 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { prismaMock } = vi.hoisted(() => ({
+  prismaMock: {
+    syncJob: {
+      findMany: vi.fn(),
+    },
+  },
+}));
+
+vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import {
   buildRsyncCommand,
   buildTarSyncCommand,
   decryptSyncTargetCredentials,
   getSyncTempKeyPath,
+  listSyncJobs,
   shellQuote,
 } from "@/lib/sync/service";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("sync job listing", () => {
+  it("bounds SyncJob list queries so task-center style surfaces cannot hydrate unbounded rows", async () => {
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([]);
+
+    await listSyncJobs();
+
+    expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }));
+  });
+});
 
 describe("sync service command helpers", () => {
   it("quotes arbitrary shell values as a single POSIX token", () => {

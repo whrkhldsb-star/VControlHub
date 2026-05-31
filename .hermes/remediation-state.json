@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-30T23:35:41Z",
+  "updatedAt": "2026-05-31T00:04:30Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -41,38 +41,40 @@
     "operator guidance"
   ],
   "lastHealthyBaseline": {
-    "date": "2026-05-30",
+    "date": "2026-05-31",
     "typecheck": "passed",
-    "lint": "passed with existing client-effect warnings where applicable",
-    "tests": "full Vitest passed 176/176 files and 724/724 tests",
+    "lint": "passed with existing client-effect warnings",
+    "tests": "targeted sync service Vitest passed 9/9",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; major HTML/API probes returned 307/401/200 without 500; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /files 307, /api/storage/sftp-sync 401, /api/operation-tasks 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-30T23:35:41Z",
-    "target": "Fresh comprehensive audit checkpoint after successful remediation threshold",
-    "status": "fresh_audit_checkpoint_verified_committed_pushed",
-    "commit": "8d3103b",
-    "summary": "Ran the required broad checkpoint audit after the success counter exceeded the configured threshold. No immediate production blocker or code-level defect was found during this pass; backlog was refreshed with the carried P1 long-running storage/SFTP sync task UX item and bounded-list performance candidates.",
+    "finishedAt": "2026-05-31T00:04:30Z",
+    "target": "Bound SyncJob list hydration for growing sync/task surfaces",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Added a 200-row cap to listSyncJobs() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing SyncJob history and future sync/task UI hydration.",
     "validation": [
       "read remediation backlog/state first",
-      "checked git status and local HEAD equals origin/main at start",
-      "polled previous background build/runtime build; both passed",
-      "production services vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active",
-      "http://127.0.0.1:3000/api/status returned healthy",
-      "major production route probes returned 307/401/200 without 500",
-      "recent production logs checked; no error/warn entries",
-      "no overlapping remediation/build/test process detected beyond editor TypeScript servers",
-      "existing full Vitest baseline passed 176/176 files and 724/724 tests earlier in this audit cycle",
-      "existing typecheck and lint baselines passed earlier in this audit cycle",
-      "existing smoke test baseline passed 19/19 earlier in this audit cycle",
-      "static scans reconfirmed no shipped confirm/prompt/reload calls and no remaining internal app anchors under src/app",
-      "reviewed SFTP sync/import surface and bounded findMany candidates for next deployable batch selection"
+      "checked git status and confirmed local HEAD matched origin/main before editing",
+      "checked no overlapping remediation/build/test process",
+      "production services and /api/status healthy before work",
+      "npx vitest run src/lib/sync/service.test.ts passed 9/9",
+      "npm run typecheck passed",
+      "npm run lint passed with existing client-effect warnings only",
+      "npm run build passed",
+      "npm run build:runtime passed",
+      "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully",
+      "readiness probe /api/status returned healthy",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
+      "production probes: /files 307, /api/storage/sftp-sync 401, /api/operation-tasks 401, /api/status 200",
+      "recent vcontrolhub service logs contained no new error/warn matches",
+      "git diff --check passed"
     ],
-    "deployment": "No code/runtime change in this checkpoint-only audit; current production services were already active and healthy, so no restart was required.",
-    "nextTarget": "Implement or stage the P1 long-running storage/SFTP sync/import task UX/backgrounding item, or a smaller bounded-list performance cleanup if it is the safer deployable batch."
+    "deployment": "Production services restarted successfully and smoke/probes/log checks passed.",
+    "nextTarget": "Continue P1 long-running storage/SFTP sync/import task UX/backgrounding, or another bounded-list performance cleanup from the refreshed audit candidates."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -87,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []
