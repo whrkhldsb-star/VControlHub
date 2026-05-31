@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PreferencesPageClient from "../preferences-page-client";
@@ -53,8 +53,9 @@ describe("PreferencesPage", () => {
 		expect(screen.queryByText("侧边栏默认收起")).not.toBeInTheDocument();
 	});
 
-	it("shows an error and keeps the previous default page when saving preferences fails", async () => {
+	it("does not publish local preference side effects until the server save succeeds", async () => {
 		const user = userEvent.setup();
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 		vi.mocked(csrfFetch).mockResolvedValueOnce(serverPrefs).mockRejectedValueOnce(new Error("偏好设置保存失败"));
 
 		render(<PreferencesPageClient />);
@@ -62,15 +63,25 @@ describe("PreferencesPage", () => {
 		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "服务器管理" }));
 
-		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
-			"/api/preferences",
-			expect.objectContaining({
-				method: "PUT",
-				body: expect.stringContaining('"defaultPage":"/servers"'),
-			}),
-		));
-		expect(await screen.findByText("偏好设置保存失败")).toBeInTheDocument();
-		expect(screen.queryByText("✓ 设置已保存")).not.toBeInTheDocument();
+		expect(await screen.findByRole("alert")).toHaveTextContent("偏好设置保存失败");
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/");
+		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
+	});
+
+	it("publishes preference updates after the server save confirms them", async () => {
+		const user = userEvent.setup();
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(serverPrefs)
+			.mockResolvedValueOnce({ ...serverPrefs, defaultPage: "/servers" });
+
+		render(<PreferencesPageClient />);
+
+		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "服务器管理" }));
+
+		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
+		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");
+		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
 	});
 });

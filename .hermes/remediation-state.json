@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T21:10:57Z",
+  "updatedAt": "2026-05-31T21:39:18Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,41 +51,41 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Proxy/layout targeted Vitest passed: 2 files / 10 tests",
+    "tests": "Preferences/API/login/dashboard preference targeted Vitest passed: 4 files / 12 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, /login/verify-2fa 200, / 307, /api/preferences 401; recent service logs clean; browser DOM proved direct /login with an active session renders no sidebar/nav/global-search chrome"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /preferences 307, /api/preferences 401, /login 200; recent service logs clean; browser QA proved successful default-page save redirected next login to /files and failed CSRF write did not change visible stored preference"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T21:10:57Z",
-    "target": "Completion-gate QA batch 1 login/default-page authenticated public-auth-page chrome verification",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Production authenticated QA verified the login/default-page user path. An operator logged in successfully, then direct navigation back to /login showed the public login form but also rendered the protected authenticated shell around it. Fixed proxy/request-header forwarding for public auth pages and gated SidebarLoader, mobile nav, and global search behind the same public-auth-page predicate.",
+    "finishedAt": "2026-05-31T21:39:18Z",
+    "target": "Completion-gate QA batch 1 preferences/default-page real side-effect verification",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Production browser QA exercised default-page preference side effects. A successful /api/preferences save persisted /files and the next login redirected to /files; a failed missing-CSRF write returned 403 without changing visible stored preference. Fixed the Preferences client so localStorage and vps-preferences-updated are published only after the server confirms the effective preference values, preventing other tabs/widgets from reacting to a preference save that never persisted.",
     "validation": [
       "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; removed job b8833e83bb1f is not current",
-      "Detected dirty worktree from a previous/partial QA batch and converged that work instead of starting a new topic",
-      "Verified old behavior in production browser: authenticated direct /login rendered login form plus sidebar/nav/global-search/user controls",
-      "Fixed src/proxy.ts to forward x-vcontrolhub-public-auth-page on request headers via NextResponse.next({ request: { headers } }) so server layouts can read it",
-      "Fixed RootLayout to gate SidebarLoader, MobileNav, and GlobalSearch on shouldRenderAuthenticatedChrome",
-      "Added proxy regression proving login remains public with security headers and the auth-page marker is forwarded as middleware request override, not leaked as a response header",
-      "Added layout regression proving an active session cookie plus public-auth-page marker hides sidebar, mobile nav, and global search while normal authenticated sessions still render chrome",
-      "npx vitest run src/__tests__/proxy.test.ts src/app/__tests__/layout.test.tsx passed 10/10",
+      "Confirmed git/remote clean at start and no overlapping build/test/remediation process beyond running production npm services",
+      "Created temporary QA user qa_pref_5331, logged into production browser, exercised /api/preferences with real CSRF, and verified defaultPage /files persisted plus next login landed on /files",
+      "Browser console proof: successful PUT /api/preferences returned 200 with defaultPage /files; missing-CSRF PUT returned 403 and stored visible preference stayed /files",
+      "Fixed Preferences client to defer localStorage writes and vps-preferences-updated dispatch until the save API returns normalized effective values",
+      "Added client regression proving failed saves do not publish local preference side effects",
+      "Added client regression proving successful saves do publish the preference update event and localStorage value",
+      "npx vitest run src/app/preferences/__tests__/page.test.tsx passed 5/5",
+      "npx vitest run src/app/preferences/__tests__/page.test.tsx src/app/api/preferences/__tests__/route.test.ts src/app/api/login/__tests__/route.test.ts src/app/__tests__/dashboard-preference-client.test.tsx passed 12/12",
       "git diff --check passed",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
       "Production services restarted: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy",
-      "Production browser after restart: login -> dashboard succeeded, then direct /login with session showed login form with hasSidebar=false, navCount=0, hasGlobalSearch=false",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /login 200, /login/verify-2fa 200, / 307, /api/status 200, /api/preferences 401",
+      "Route probes returned /preferences 307, /api/preferences 401, /login 200, /api/status 200",
       "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches",
-      "Deleted temporary QA users matching qa_login_chrome_* and qa_cron_* and verified remaining count is 0"
+      "Deleted temporary QA users matching qa_pref_5331 and qa_cron_* and verified remaining count is 0"
     ],
-    "deployment": "Deployed by rebuilding, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, browser DOM proof, QA-user cleanup, and log checks.",
-    "nextTarget": "Continue completion QA batch 1 with global search result breadth, preferences/default-page real side effects, and responsive/mobile layout; then rotate to QA batch 2 VPS/server management and SSH terminal.",
-    "commit": "f635ad5"
+    "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, QA-user cleanup, and log checks.",
+    "nextTarget": "Close out the pending commit for this preferences/default-page QA slice, then continue completion QA batch 1 with global search result breadth and responsive/mobile layout before rotating to QA batch 2 VPS/server management and SSH terminal.",
+    "commit": null
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -100,7 +100,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 10,
+    "successfulRemediationRunsSinceFreshAudit": 11,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

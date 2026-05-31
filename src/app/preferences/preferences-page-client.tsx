@@ -98,8 +98,6 @@ export default function PreferencesPage() {
 	const save = async (newPrefs: Preferences) => {
 		const normalizedPrefs = normalizeUserPreferences(newPrefs);
 		setPrefs(normalizedPrefs);
-		localStorage.setItem("vps-preferences", JSON.stringify(normalizedPrefs));
-		window.dispatchEvent(new Event("vps-preferences-updated"));
 		setError("");
 		setSaved(false);
 		try {
@@ -112,12 +110,12 @@ export default function PreferencesPage() {
 			setPrefs(nextPrefs);
 			setLastSavedPrefs(nextPrefs);
 			localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
+			window.dispatchEvent(new Event("vps-preferences-updated"));
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
 		} catch (err) {
 			setPrefs(lastSavedPrefs);
 			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
-			window.dispatchEvent(new Event("vps-preferences-updated"));
 			setError(messageFromError(err, "偏好设置保存失败"));
 		}
 	};
