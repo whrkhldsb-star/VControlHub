@@ -22,6 +22,9 @@ export const SettingKey = z.union([
 	z.literal("runtime.commandExecutionHeartbeatMs"),
 	z.literal("runtime.commandReconcileIntervalMs"),
 	z.literal("runtime.sftpSyncDirectoryTimeoutMs"),
+	z.literal("runtime.sshWsHeartbeatIntervalMs"),
+	z.literal("runtime.sshKeepaliveIntervalMs"),
+	z.literal("runtime.sshKeepaliveCountMax"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -47,6 +50,9 @@ export const VALID_SETTING_KEYS: string[] = [
 	"runtime.commandExecutionHeartbeatMs",
 	"runtime.commandReconcileIntervalMs",
 	"runtime.sftpSyncDirectoryTimeoutMs",
+	"runtime.sshWsHeartbeatIntervalMs",
+	"runtime.sshKeepaliveIntervalMs",
+	"runtime.sshKeepaliveCountMax",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */

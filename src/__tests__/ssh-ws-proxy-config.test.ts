@@ -51,10 +51,14 @@ describe("resolveSshWsListenConfig", () => {
 	it("keeps idle browser SSH sessions alive with WebSocket ping/pong and tolerant SSH keepalives", async () => {
 		const source = await readFile(path.resolve(__dirname, "../ssh-ws-proxy.ts"), "utf8");
 		expect(source).toContain("SSH_WS_HEARTBEAT_INTERVAL_MS");
+		expect(source).toContain("getSshTerminalRuntimeConfig");
+		expect(source).toContain("terminalRuntimeConfig.sshKeepaliveIntervalMs");
+		expect(source).toContain("terminalRuntimeConfig.sshKeepaliveCountMax");
 		expect(source).toContain("client.ping()");
 		expect(source).toContain('ws.on("pong"');
 		expect(source).toContain("SSH_KEEPALIVE_COUNT_MAX");
 		expect(source).toContain('process.env.SSH_KEEPALIVE_COUNT_MAX || "8"');
+		expect(source).not.toContain("keepaliveInterval: SSH_KEEPALIVE_INTERVAL_MS");
 		expect(source).not.toContain("keepaliveCountMax: 3");
 	});
 });

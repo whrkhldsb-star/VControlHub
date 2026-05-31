@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 const {
   getRuntimeSettingNumber,
   getCommandRuntimeConfig,
+  getSshTerminalRuntimeConfig,
   normalizeRuntimeSettingValue,
 } = await import("./service");
 
@@ -53,5 +54,17 @@ describe("runtime settings", () => {
 
   it("rejects out-of-range runtime values", () => {
     expect(() => normalizeRuntimeSettingValue("runtime.commandExecutionTimeoutMs", "1")).toThrow(/必须在/);
+  });
+
+  it("reads SSH terminal keepalive settings from persisted runtime settings", async () => {
+    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
+      value: where.key === "runtime.sshKeepaliveCountMax" ? "12" : "15000",
+    }));
+
+    await expect(getSshTerminalRuntimeConfig()).resolves.toEqual({
+      wsHeartbeatIntervalMs: 15000,
+      sshKeepaliveIntervalMs: 15000,
+      sshKeepaliveCountMax: 12,
+    });
   });
 });

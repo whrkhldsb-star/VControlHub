@@ -55,6 +55,33 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     unit: "毫秒",
     applies: "立即生效到新启动的 SFTP 同步",
   },
+  "runtime.sshWsHeartbeatIntervalMs": {
+    env: "SSH_WS_HEARTBEAT_INTERVAL_MS",
+    defaultValue: 25_000,
+    min: 5_000,
+    max: 10 * 60 * 1000,
+    label: "SSH 终端 WebSocket 心跳间隔",
+    unit: "毫秒",
+    applies: "需要重启 SSH WebSocket 服务后生效",
+  },
+  "runtime.sshKeepaliveIntervalMs": {
+    env: "SSH_KEEPALIVE_INTERVAL_MS",
+    defaultValue: 30_000,
+    min: 5_000,
+    max: 10 * 60 * 1000,
+    label: "SSH keepalive 间隔",
+    unit: "毫秒",
+    applies: "需要重启 SSH WebSocket 服务后生效",
+  },
+  "runtime.sshKeepaliveCountMax": {
+    env: "SSH_KEEPALIVE_COUNT_MAX",
+    defaultValue: 8,
+    min: 1,
+    max: 60,
+    label: "SSH keepalive 容忍次数",
+    unit: "次",
+    applies: "需要重启 SSH WebSocket 服务后生效",
+  },
 } as const;
 
 export type RuntimeSettingKey = keyof typeof RUNTIME_SETTING_DEFINITIONS;
@@ -118,4 +145,15 @@ export async function getCommandRuntimeConfig() {
 
 export async function getSftpSyncDirectoryTimeoutMs(): Promise<number> {
   return getRuntimeSettingNumber("runtime.sftpSyncDirectoryTimeoutMs");
+}
+
+export async function getSshTerminalRuntimeConfig() {
+  const wsHeartbeatIntervalMs = await getRuntimeSettingNumber("runtime.sshWsHeartbeatIntervalMs");
+  const sshKeepaliveIntervalMs = await getRuntimeSettingNumber("runtime.sshKeepaliveIntervalMs");
+  const sshKeepaliveCountMax = await getRuntimeSettingNumber("runtime.sshKeepaliveCountMax");
+  return {
+    wsHeartbeatIntervalMs,
+    sshKeepaliveIntervalMs,
+    sshKeepaliveCountMax,
+  };
 }

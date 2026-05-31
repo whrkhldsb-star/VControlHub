@@ -18,6 +18,7 @@ import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { getAppSlug } from "./lib/branding";
 import { createLogger } from "./lib/logging";
 import { verifySshWsHandshakeToken } from "./lib/auth/ssh-ws-token";
+import { getSshTerminalRuntimeConfig } from "./lib/runtime-settings/service";
 
 const logger = createLogger("ssh-ws-proxy");
 
@@ -177,10 +178,41 @@ const server = createServer((_req, res) => {
 });
 
 const MAX_WS_CONNECTIONS = parseInt(process.env.SSH_WS_MAX_CONNECTIONS || "50", 10);
-const WS_HEARTBEAT_INTERVAL_MS = parseInt(process.env.SSH_WS_HEARTBEAT_INTERVAL_MS || "25000", 10);
-const SSH_KEEPALIVE_INTERVAL_MS = parseInt(process.env.SSH_KEEPALIVE_INTERVAL_MS || "30000", 10);
-const SSH_KEEPALIVE_COUNT_MAX = parseInt(process.env.SSH_KEEPALIVE_COUNT_MAX || "8", 10);
+const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = parseInt(process.env.SSH_WS_HEARTBEAT_INTERVAL_MS || "25000", 10);
+const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = parseInt(process.env.SSH_KEEPALIVE_INTERVAL_MS || "30000", 10);
+const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = parseInt(process.env.SSH_KEEPALIVE_COUNT_MAX || "8", 10);
 const wsHeartbeatState = new WeakMap<WebSocket, boolean>();
+let wsHeartbeatTimer: NodeJS.Timeout | null = null;
+
+async function getSshTerminalRuntimeConfigWithFallback() {
+	try {
+		return await getSshTerminalRuntimeConfig();
+	} catch (error) {
+		logger.warn("failed to load SSH terminal runtime settings; using env/default fallback", error);
+		return {
+			wsHeartbeatIntervalMs: DEFAULT_WS_HEARTBEAT_INTERVAL_MS,
+			sshKeepaliveIntervalMs: DEFAULT_SSH_KEEPALIVE_INTERVAL_MS,
+			sshKeepaliveCountMax: DEFAULT_SSH_KEEPALIVE_COUNT_MAX,
+		};
+	}
+}
+
+function startWsHeartbeat(intervalMs: number) {
+	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
+	wsHeartbeatTimer = setInterval(() => {
+		for (const client of wss.clients) {
+			if (client.readyState !== WebSocket.OPEN) continue;
+			if (wsHeartbeatState.get(client) === false) {
+				logger.warn("terminating unresponsive SSH WebSocket client");
+				client.terminate();
+				continue;
+			}
+			wsHeartbeatState.set(client, false);
+			client.ping();
+		}
+	}, intervalMs);
+	wsHeartbeatTimer.unref();
+}
 
 const wss = new WebSocketServer({
 	server,
@@ -199,19 +231,7 @@ const wss = new WebSocketServer({
 	},
 });
 
-const wsHeartbeatTimer = setInterval(() => {
-	for (const client of wss.clients) {
-		if (client.readyState !== WebSocket.OPEN) continue;
-		if (wsHeartbeatState.get(client) === false) {
-			logger.warn("terminating unresponsive SSH WebSocket client");
-			client.terminate();
-			continue;
-		}
-		wsHeartbeatState.set(client, false);
-		client.ping();
-	}
-}, WS_HEARTBEAT_INTERVAL_MS);
-wsHeartbeatTimer.unref();
+void getSshTerminalRuntimeConfigWithFallback().then((config) => startWsHeartbeat(config.wsHeartbeatIntervalMs));
 
 // ── Origin validation (WebSocket CSRF protection) ──────────────────
 
@@ -302,6 +322,7 @@ wss.on("connection", async (ws, req) => {
   }
 
 	const sshClient = new Client();
+	const terminalRuntimeConfig = await getSshTerminalRuntimeConfigWithFallback();
 	let sshStream: import("ssh2").ClientChannel | undefined;
 
   sshClient.on("ready", () => {
@@ -381,8 +402,8 @@ wss.on("connection", async (ws, req) => {
  ...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey } : { password: connParams.password }),
  readyTimeout: 15000,
  timeout: 10000,
- keepaliveInterval: SSH_KEEPALIVE_INTERVAL_MS,
- keepaliveCountMax: SSH_KEEPALIVE_COUNT_MAX,
+ keepaliveInterval: terminalRuntimeConfig.sshKeepaliveIntervalMs,
+ keepaliveCountMax: terminalRuntimeConfig.sshKeepaliveCountMax,
  });
 });
 
@@ -395,7 +416,7 @@ if (shouldStartServer) {
 }
 
 function shutdown() {
-	clearInterval(wsHeartbeatTimer);
+	if (wsHeartbeatTimer) clearInterval(wsHeartbeatTimer);
 	wss.close();
 	server.close();
 	prisma.$disconnect();

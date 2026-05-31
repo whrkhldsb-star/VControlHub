@@ -93,7 +93,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 			<section id="runtime" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div>
 					<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
-					<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行和 SFTP 同步相关项会对新任务立即生效；维护扫描间隔需要重启服务后重新安排后台定时器。</p>
+					<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行和 SFTP 同步相关项会对新任务立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。</p>
 				</div>
 				<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" />
 				<Field label="命令输出保留上限（字节）" value={settings["runtime.commandOutputLimitBytes"] ?? "262144"} onChange={(v) => updateField("runtime.commandOutputLimitBytes", v)} placeholder="262144" type="number" />
@@ -101,7 +101,10 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 				<Field label="命令执行心跳间隔（毫秒）" value={settings["runtime.commandExecutionHeartbeatMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandExecutionHeartbeatMs", v)} placeholder="60000" type="number" />
 				<Field label="命令维护扫描间隔（毫秒，需重启）" value={settings["runtime.commandReconcileIntervalMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandReconcileIntervalMs", v)} placeholder="60000" type="number" />
 				<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" />
-				<SaveButton onClick={() => handleSave("runtime", ["runtime.commandExecutionTimeoutMs", "runtime.commandOutputLimitBytes", "runtime.commandStaleRunningAfterMs", "runtime.commandExecutionHeartbeatMs", "runtime.commandReconcileIntervalMs", "runtime.sftpSyncDirectoryTimeoutMs"])} saving={saving} />
+				<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" />
+				<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" />
+				<Field label="SSH keepalive 容忍次数（需重启）" value={settings["runtime.sshKeepaliveCountMax"] ?? "8"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="8" type="number" />
+				<SaveButton onClick={() => handleSave("runtime", ["runtime.commandExecutionTimeoutMs", "runtime.commandOutputLimitBytes", "runtime.commandStaleRunningAfterMs", "runtime.commandExecutionHeartbeatMs", "runtime.commandReconcileIntervalMs", "runtime.sftpSyncDirectoryTimeoutMs", "runtime.sshWsHeartbeatIntervalMs", "runtime.sshKeepaliveIntervalMs", "runtime.sshKeepaliveCountMax"])} saving={saving} />
 			</section>
 
 			{/* SMTP */}
