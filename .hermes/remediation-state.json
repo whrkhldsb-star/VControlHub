@@ -44,36 +44,35 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "backup service/API/restore Vitest passed 21/21",
+    "tests": "SFTP sync service/API/browser Vitest passed 12/12",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /backups 307, /api/backups 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /files 307, /api/storage/sftp-sync 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T00:57:07Z",
-    "target": "Bound BackupRecord list hydration for growing backup history",
+    "finishedAt": "2026-05-31T01:28:25Z",
+    "target": "Manual SFTP scan timeout and incomplete-result visibility",
     "status": "completed_verified_deployed_committed_pending_push",
-    "commit": "071eee3",
-    "summary": "Added a 200-row newest-first cap to listBackupRecords() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing backup history while preserving creator metadata for Backups page/API surfaces.",
+    "commit": "5ae1668",
+    "summary": "Added per-directory timeout protection to SFTP scan sync, surfaced complete remote scan failures as HTTP 504 and partial sync errors as HTTP 207, and changed the Files SFTP browser to show an amber incomplete-sync alert instead of a green success banner when remote scanning fails.",
     "validation": [
       "read remediation backlog/state first",
-      "checked git status and confirmed local HEAD matched origin/main before editing",
-      "checked no overlapping remediation/build/test process",
-      "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts passed 21/21",
+      "continued dirty verified-but-uncommitted SFTP sync work instead of opening a new topic",
+      "npx vitest run src/lib/storage/__tests__/sftp-sync.test.ts src/app/api/storage/sftp-sync/__tests__/route.test.ts src/app/files/__tests__/sftp-browser.test.tsx passed 12/12",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
       "git diff --check passed",
-      "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully",
+      "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully after correcting .next ownership",
       "readiness probe /api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /backups 307, /api/backups 401, /api/status 200",
-      "recent vcontrolhub service logs contained no new error/warn matches after correcting .next ownership"
+      "production probes: /files 307, /api/storage/sftp-sync 401, /api/status 200",
+      "recent vcontrolhub service logs contained no new error/warn matches"
     ],
-    "deployment": "Production services restarted successfully and smoke/probes/log checks passed. Build artifact ownership was corrected to vcontrolhub:vcontrolhub after build to avoid prerender cache permission warnings.",
-    "nextTarget": "Continue P1 long-running storage/SFTP sync/import task UX/backgrounding, or another bounded-list performance cleanup from the refreshed audit candidates."
+    "deployment": "Production services restarted successfully and smoke/probes/log checks passed.",
+    "nextTarget": "Backlog checklist is now effectively complete; next run should perform the required comprehensive fresh audit across backend/API, frontend/UI, production behavior, performance, tests, deployment, logs, and real user journeys."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -88,7 +87,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": []
