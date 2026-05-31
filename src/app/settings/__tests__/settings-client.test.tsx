@@ -118,7 +118,22 @@ describe("SettingsClient", () => {
     expect(css).toContain("html.light .text-white\\/50");
     expect(css).toContain("html.light .text-white\\/40");
   });
+  it("makes disabled SMTP fields visually and behaviorally inactive until SMTP is enabled", async () => {
+    const user = userEvent.setup();
 
+    render(<SettingsClient settings={{ "smtp.enabled": "false", "smtp.host": "smtp.example.com", "smtp.port": "587" }} canManage />);
+
+    expect(screen.getByText("SMTP 未启用，连接参数会保留但不会被用于发送邮件。")).toBeInTheDocument();
+    const smtpHost = screen.getByLabelText("SMTP 服务器");
+    expect(smtpHost).toBeDisabled();
+    expect(smtpHost.parentElement).toHaveClass("opacity-70");
+    expect(screen.getAllByText("启用 SMTP 后可编辑").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("switch", { name: "启用 SMTP" }));
+
+    expect(screen.getByText("SMTP 已启用，保存后会用于系统通知邮件。")).toBeInTheDocument();
+    expect(screen.getByLabelText("SMTP 服务器")).toBeEnabled();
+  });
 	it("hosts account two-factor controls in system settings", () => {
 		render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
 

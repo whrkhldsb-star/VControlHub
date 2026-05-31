@@ -114,13 +114,22 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 
 			{/* SMTP */}
 			<form className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4" onSubmit={(event) => event.preventDefault()}>
-				<h2 className="text-lg font-semibold text-white flex items-center gap-2">📧 邮件通知（SMTP）</h2>
-				<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
-				<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" />
-				<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" />
-				<Field label="用户名" value={settings["smtp.user"] ?? ""} onChange={(v) => updateField("smtp.user", v)} placeholder="user@example.com" autoComplete="username" />
-				<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" autoComplete="new-password" />
-				<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" />
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div>
+						<h2 className="text-lg font-semibold text-white flex items-center gap-2">📧 邮件通知（SMTP）</h2>
+						<p className="mt-1 text-xs text-slate-500">
+							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，保存后会用于系统通知邮件。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。"}
+						</p>
+					</div>
+					<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
+				</div>
+				<div className="grid gap-4 md:grid-cols-2" aria-disabled={settings["smtp.enabled"] !== "true"}>
+					<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+					<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+					<Field label="用户名" value={settings["smtp.user"] ?? ""} onChange={(v) => updateField("smtp.user", v)} placeholder="user@example.com" autoComplete="username" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+					<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" autoComplete="new-password" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+					<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+				</div>
 				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from"])} saving={saving} />
 			</form>
 		</div>
@@ -129,12 +138,13 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 
 /* ── Sub-components ───────────────────────────────────────── */
 
-function Field({ label, value, onChange, placeholder, type = "text", autoComplete }: {
-	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string;
+function Field({ label, value, onChange, placeholder, type = "text", autoComplete, disabled = false, helperText }: {
+	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string; disabled?: boolean; helperText?: string;
 }) {
 	const inputId = useId();
+	const helperId = useId();
 	return (
-		<div className="space-y-1.5 rounded-lg border border-transparent bg-white/[0.01] p-3 light:border-slate-200 light:bg-white">
+		<div className={`space-y-1.5 rounded-lg border p-3 transition ${disabled ? "border-white/[0.04] bg-slate-950/20 opacity-70 light:border-slate-200 light:bg-slate-100/80" : "border-transparent bg-white/[0.01] light:border-slate-200 light:bg-white"}`}>
 			<label htmlFor={inputId} className="block text-xs font-semibold text-white/50 tracking-wide light:text-slate-700">{label}</label>
 			<input
 				id={inputId}
@@ -143,20 +153,26 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
 				autoComplete={autoComplete}
-				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 light:border-slate-300 light:bg-slate-50 light:text-slate-950 light:placeholder:text-slate-400"
+				disabled={disabled}
+				aria-describedby={helperText ? helperId : undefined}
+				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:border-slate-300 light:bg-slate-50 light:text-slate-950 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
 			/>
+			{helperText && <p id={helperId} className="text-xs text-white/40 light:text-slate-500">{helperText}</p>}
 		</div>
 	);
 }
 
 function SwitchField({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
 	return (
-		<div className="flex items-center justify-between">
-			<span className="text-sm text-slate-300">{label}</span>
+		<div className="flex items-center justify-between gap-3">
+			<span className="text-sm text-slate-300 light:text-slate-700">{label}</span>
 			<button
 				type="button"
+				role="switch"
+				aria-checked={value}
+				aria-label={label}
 				onClick={() => onChange(!value)}
-				className={`relative w-10 h-5 rounded-full transition-colors ${value ? "bg-cyan-500" : "bg-slate-700"}`}
+				className={`relative w-10 h-5 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${value ? "bg-cyan-500" : "bg-slate-700 light:bg-slate-300"}`}
 			>
 				<span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${value ? "translate-x-5" : ""}`} />
 			</button>
