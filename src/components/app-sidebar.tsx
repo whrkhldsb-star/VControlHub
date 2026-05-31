@@ -78,7 +78,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				</div>
 			</div>
 
-			<div className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+			<div className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-3 py-4">
 				{mainNavItems.map(renderNavLink)}
 
 				<div className="px-3.5 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600 light:text-slate-400">
@@ -109,12 +109,12 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				)}
 			</div>
 
-			<div className="space-y-0.5 border-t border-white/[0.06] px-3 py-3 light:border-slate-200">
-				<div className="flex items-center gap-2.5 px-3.5 py-2 text-sm text-slate-400 light:text-slate-600">
-					<div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold uppercase text-cyan-400 light:bg-cyan-50 light:text-cyan-700">
+			<div className="space-y-1 border-t border-white/[0.06] px-3 py-3 light:border-slate-200">
+				<div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 light:text-slate-600">
+					<div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[11px] font-semibold uppercase text-cyan-400 light:bg-cyan-50 light:text-cyan-700">
 						{iconInitial}
 					</div>
-					<span className="min-w-0 truncate">{username}</span>
+					<span className="min-w-0 flex-1 truncate" title={username}>{username}</span>
 					<SidebarControls />
 				</div>
 				<button
@@ -161,7 +161,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				{nav}
 			</aside>
 
-			<aside className="hidden h-screen w-64 shrink-0 border-r border-white/[0.06] bg-[#0a0e1a] light:border-slate-200 light:bg-white lg:sticky lg:top-0 lg:flex">
+			<aside className="hidden h-screen w-72 shrink-0 border-r border-white/[0.06] bg-[#0a0e1a] light:border-slate-200 light:bg-white lg:sticky lg:top-0 lg:flex">
 				{nav}
 			</aside>
 

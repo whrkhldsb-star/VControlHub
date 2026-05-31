@@ -35,6 +35,15 @@ describe("AppSidebar", () => {
 		expect(screen.queryByRole("link", { name: /两步验证/ })).not.toBeInTheDocument();
 	});
 
+	it("keeps long account names and controls inside the sidebar footer", () => {
+		render(<AppSidebar username="qa_cron_1780249023419" />);
+
+		const username = screen.getAllByText("qa_cron_1780249023419")[0];
+		expect(username).toHaveClass("flex-1");
+		expect(username).toHaveClass("truncate");
+		expect(username).toHaveAttribute("title", "qa_cron_1780249023419");
+	});
+
 	it("does not render without an authenticated username", () => {
 		render(<AppSidebar />);
 
