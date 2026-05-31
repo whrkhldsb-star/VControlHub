@@ -92,7 +92,9 @@ html.light .text-cyan-200 {
 }
 
 html.light .text-slate-500,
-html.light .text-cyan-200\/70 {
+html.light .text-cyan-200\/70,
+html.light .text-white\/50,
+html.light .text-white\/40 {
 	color: var(--text-muted);
 }
 

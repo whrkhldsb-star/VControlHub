@@ -95,18 +95,20 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 					<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
 					<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。</p>
 				</div>
-				<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" />
-				<Field label="命令输出保留上限（字节）" value={settings["runtime.commandOutputLimitBytes"] ?? "262144"} onChange={(v) => updateField("runtime.commandOutputLimitBytes", v)} placeholder="262144" type="number" />
-				<Field label="命令卡死判定时间（毫秒）" value={settings["runtime.commandStaleRunningAfterMs"] ?? "600000"} onChange={(v) => updateField("runtime.commandStaleRunningAfterMs", v)} placeholder="600000" type="number" />
-				<Field label="命令执行心跳间隔（毫秒）" value={settings["runtime.commandExecutionHeartbeatMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandExecutionHeartbeatMs", v)} placeholder="60000" type="number" />
-				<Field label="命令维护扫描间隔（毫秒，需重启）" value={settings["runtime.commandReconcileIntervalMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandReconcileIntervalMs", v)} placeholder="60000" type="number" />
-				<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" />
-				<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" />
-				<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" />
-				<Field label="SSH keepalive 容忍次数（需重启）" value={settings["runtime.sshKeepaliveCountMax"] ?? "8"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="8" type="number" />
-				<Field label="任务中心列表上限（条）" value={settings["runtime.operationTaskListLimit"] ?? "100"} onChange={(v) => updateField("runtime.operationTaskListLimit", v)} placeholder="100" type="number" />
-				<Field label="AI 提供商列表上限（条）" value={settings["runtime.aiProviderListLimit"] ?? "100"} onChange={(v) => updateField("runtime.aiProviderListLimit", v)} placeholder="100" type="number" />
-				<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" />
+				<div className="grid gap-4 md:grid-cols-2">
+					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" />
+					<Field label="命令输出保留上限（字节）" value={settings["runtime.commandOutputLimitBytes"] ?? "262144"} onChange={(v) => updateField("runtime.commandOutputLimitBytes", v)} placeholder="262144" type="number" />
+					<Field label="命令卡死判定时间（毫秒）" value={settings["runtime.commandStaleRunningAfterMs"] ?? "600000"} onChange={(v) => updateField("runtime.commandStaleRunningAfterMs", v)} placeholder="600000" type="number" />
+					<Field label="命令执行心跳间隔（毫秒）" value={settings["runtime.commandExecutionHeartbeatMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandExecutionHeartbeatMs", v)} placeholder="60000" type="number" />
+					<Field label="命令维护扫描间隔（毫秒，需重启）" value={settings["runtime.commandReconcileIntervalMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandReconcileIntervalMs", v)} placeholder="60000" type="number" />
+					<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" />
+					<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" />
+					<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" />
+					<Field label="SSH keepalive 容忍次数（需重启）" value={settings["runtime.sshKeepaliveCountMax"] ?? "8"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="8" type="number" />
+					<Field label="任务中心列表上限（条）" value={settings["runtime.operationTaskListLimit"] ?? "100"} onChange={(v) => updateField("runtime.operationTaskListLimit", v)} placeholder="100" type="number" />
+					<Field label="AI 提供商列表上限（条）" value={settings["runtime.aiProviderListLimit"] ?? "100"} onChange={(v) => updateField("runtime.aiProviderListLimit", v)} placeholder="100" type="number" />
+					<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" />
+				</div>
 				<SaveButton onClick={() => handleSave("runtime", ["runtime.commandExecutionTimeoutMs", "runtime.commandOutputLimitBytes", "runtime.commandStaleRunningAfterMs", "runtime.commandExecutionHeartbeatMs", "runtime.commandReconcileIntervalMs", "runtime.sftpSyncDirectoryTimeoutMs", "runtime.sshWsHeartbeatIntervalMs", "runtime.sshKeepaliveIntervalMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit", "runtime.aiProviderListLimit", "runtime.aiConversationListLimit"])} saving={saving} />
 			</section>
 
@@ -132,8 +134,8 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 }) {
 	const inputId = useId();
 	return (
-		<div className="space-y-1.5">
-			<label htmlFor={inputId} className="text-xs font-medium text-white/50 tracking-wide">{label}</label>
+		<div className="space-y-1.5 rounded-lg border border-transparent bg-white/[0.01] p-3 light:border-slate-200 light:bg-white">
+			<label htmlFor={inputId} className="block text-xs font-semibold text-white/50 tracking-wide light:text-slate-700">{label}</label>
 			<input
 				id={inputId}
 				type={type}
@@ -141,7 +143,7 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}
 				autoComplete={autoComplete}
-				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30"
+				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 light:border-slate-300 light:bg-slate-50 light:text-slate-950 light:placeholder:text-slate-400"
 			/>
 		</div>
 	);
