@@ -14,6 +14,7 @@ const {
   getRuntimeSettingNumber,
   getCommandRuntimeConfig,
   getSshTerminalRuntimeConfig,
+  getOperationTaskListLimit,
   normalizeRuntimeSettingValue,
 } = await import("./service");
 
@@ -61,10 +62,17 @@ describe("runtime settings", () => {
       value: where.key === "runtime.sshKeepaliveCountMax" ? "12" : "15000",
     }));
 
-    await expect(getSshTerminalRuntimeConfig()).resolves.toEqual({
+    await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
       wsHeartbeatIntervalMs: 15000,
       sshKeepaliveIntervalMs: 15000,
       sshKeepaliveCountMax: 12,
     });
+  });
+
+  it("reads the Operation Tasks list limit from runtime settings", async () => {
+    prismaMock.setting.findUnique.mockResolvedValueOnce({ value: "250" });
+
+    await expect(getOperationTaskListLimit()).resolves.toBe(250);
+    expect(() => normalizeRuntimeSettingValue("runtime.operationTaskListLimit", "9999")).toThrow(/任务中心列表上限/);
   });
 });

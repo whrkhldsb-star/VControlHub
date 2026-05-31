@@ -25,6 +25,7 @@ export const SettingKey = z.union([
 	z.literal("runtime.sshWsHeartbeatIntervalMs"),
 	z.literal("runtime.sshKeepaliveIntervalMs"),
 	z.literal("runtime.sshKeepaliveCountMax"),
+	z.literal("runtime.operationTaskListLimit"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -53,6 +54,7 @@ export const VALID_SETTING_KEYS: string[] = [
 	"runtime.sshWsHeartbeatIntervalMs",
 	"runtime.sshKeepaliveIntervalMs",
 	"runtime.sshKeepaliveCountMax",
+	"runtime.operationTaskListLimit",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */

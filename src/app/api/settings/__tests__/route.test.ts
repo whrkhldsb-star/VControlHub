@@ -32,7 +32,7 @@ describe("/api/settings audit coverage", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
     mocks.getAllSettingsMasked.mockResolvedValue({});
-    mocks.isValidSettingKey.mockImplementation((key: string) => ["platform.name", "smtp.pass", "runtime.commandExecutionTimeoutMs", "runtime.sshKeepaliveCountMax"].includes(key));
+    mocks.isValidSettingKey.mockImplementation((key: string) => ["platform.name", "smtp.pass", "runtime.commandExecutionTimeoutMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit"].includes(key));
     mocks.setManySettings.mockResolvedValue(undefined);
   });
 
@@ -95,6 +95,19 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.sshKeepaliveCountMax", value: "12" },
+    ]);
+  });
+
+  it("accepts bounded Operation Tasks list limit runtime settings", async () => {
+    const response = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ "runtime.operationTaskListLimit": "250.9" }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith([
+      { key: "runtime.operationTaskListLimit", value: "250" },
     ]);
   });
 

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 
 export type OperationTaskSource = "command" | "scheduled" | "download" | "sync" | "backup" | "deployment";
 export type OperationTaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused";
@@ -59,7 +60,9 @@ function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeat
 }
 
 export async function listOperationTasks(options: { limit?: number } = {}): Promise<OperationTask[]> {
-  const limit = options.limit ?? 100;
+  const configuredLimit = await getOperationTaskListLimit();
+  const requestedLimit = options.limit ?? configuredLimit;
+  const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit);
   const [commands, scheduled, downloads, syncJobs, backups, deployments] = await Promise.all([
     prisma.commandRequest.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } } } }),
     prisma.scheduledTask.findMany({ take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } }),

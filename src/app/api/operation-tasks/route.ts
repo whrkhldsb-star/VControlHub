@@ -9,13 +9,10 @@ export async function GET(request: Request) {
     request,
     { permission: "task:read", errorMessage: "获取任务列表失败" },
     async () => {
-      const limit = Number(
-        new URL(request.url).searchParams.get("limit") ?? "100",
-      );
+      const limitParam = new URL(request.url).searchParams.get("limit");
+      const limit = limitParam === null ? undefined : Number(limitParam);
       return NextResponse.json({
-        tasks: await listOperationTasks({
-          limit: Math.min(Math.max(limit || 100, 1), 200),
-        }),
+        tasks: await listOperationTasks({ limit }),
       });
     },
   );

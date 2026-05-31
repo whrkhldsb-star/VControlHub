@@ -82,6 +82,15 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     unit: "次",
     applies: "需要重启 SSH WebSocket 服务后生效",
   },
+  "runtime.operationTaskListLimit": {
+    env: "OPERATION_TASK_LIST_LIMIT",
+    defaultValue: 100,
+    min: 20,
+    max: 500,
+    label: "任务中心列表上限",
+    unit: "条",
+    applies: "立即生效到新的任务中心页面/API 查询",
+  },
 } as const;
 
 export type RuntimeSettingKey = keyof typeof RUNTIME_SETTING_DEFINITIONS;
@@ -156,4 +165,8 @@ export async function getSshTerminalRuntimeConfig() {
     sshKeepaliveIntervalMs,
     sshKeepaliveCountMax,
   };
+}
+
+export async function getOperationTaskListLimit(): Promise<number> {
+  return getRuntimeSettingNumber("runtime.operationTaskListLimit");
 }

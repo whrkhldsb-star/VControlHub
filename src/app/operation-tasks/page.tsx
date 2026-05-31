@@ -11,7 +11,7 @@ export default async function OperationTasksPage() {
 	if (!sessionHasPermission(session, "task:read")) {
 		return <PageShell maxW="max-w-7xl"><EmptyState text="你没有任务中心查看权限。" variant="boxed" /></PageShell>;
 	}
-	const tasks = await listOperationTasks({ limit: 100 });
+	const tasks = await listOperationTasks();
 	return (
 		<PageShell maxW="max-w-7xl">
 			<header className="mb-8">

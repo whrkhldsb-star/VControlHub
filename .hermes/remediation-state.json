@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T04:20:35Z",
+  "updatedAt": "2026-05-31T05:01:16Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,30 +51,30 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "runtime settings/settings/command worker/command service/SFTP sync targeted Vitest passed 36/36",
+    "tests": "runtime settings, Operation Tasks service, Settings UI/API targeted Vitest passed 21/21",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings returned 307, /api/settings /api/storage/sftp-sync /api/commands returned 401, /api/status returned 200; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings and /operation-tasks returned 307, /api/settings and /api/operation-tasks returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T04:20:35Z",
-    "target": "Expose SSH terminal runtime tuning settings",
-    "status": "completed_verified_deployed_committed",
-    "commit": "9fe5fff",
-    "summary": "Extended non-sensitive runtime tuning to SSH terminal connection stability. Admin Settings now exposes bounded SSH WebSocket heartbeat interval, SSH keepalive interval, and SSH keepalive tolerance controls; the settings API validates/normalizes them; ssh-ws-proxy reads persisted values with env/default fallback for its heartbeat timer and per-connection ssh2 keepalives.",
+    "finishedAt": "2026-05-31T05:01:16Z",
+    "target": "Expose Operation Tasks bounded-list runtime tuning",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Extended non-sensitive runtime tuning to task-center list hydration. Admin Settings now exposes bounded runtime.operationTaskListLimit (20-500, env/default fallback 100); /api/settings validates and normalizes it; /operation-tasks SSR and /api/operation-tasks use the shared runtime setting as the default and maximum list cap instead of hard-coded page/API limits.",
     "validation": [
-      "Targeted Vitest passed: runtime settings, Settings client, Settings API, SSH-WS proxy config (21/21)",
+      "Targeted Vitest passed: runtime settings, Operation Tasks service, Settings client, Settings API (21/21)",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
-      "Production services restarted and smoke test passed 19/19",
-      "Production probes for /settings, /api/settings, /api/auth/ws-token, and /api/status returned no 500s",
+      "Production services restarted after .next ownership repair and smoke test passed 19/19",
+      "Production probes for /settings, /operation-tasks, /api/settings, /api/operation-tasks, and /api/status returned no 500s",
       "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new error/warn matches"
     ],
-    "deployment": "Deployed by restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service after build/runtime build and artifact ownership repair.",
-    "nextTarget": "Continue operator-tunable runtime settings coverage for refresh/polling intervals and bounded-list limits where user-facing tuning is appropriate, or run a fresh audit when the success counter reaches threshold."
+    "deployment": "Deployed by rebuilding, repairing .next ownership, and restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service.",
+    "nextTarget": "Continue operator-tunable runtime settings coverage for refresh/polling intervals and other bounded-list limits where user-facing tuning is appropriate, or run a fresh audit when the success counter reaches threshold."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -89,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

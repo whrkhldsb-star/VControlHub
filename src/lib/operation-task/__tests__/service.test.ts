@@ -12,12 +12,17 @@ const { mockPrisma } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/runtime-settings/service", () => ({
+  getOperationTaskListLimit: vi.fn(async () => 100),
+}));
 
 const { listOperationTasks } = await import("../service");
+const { getOperationTaskListLimit } = await import("@/lib/runtime-settings/service");
 
 describe("operation task service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getOperationTaskListLimit).mockResolvedValue(100);
     mockPrisma.commandRequest.findMany.mockResolvedValue([
       {
         id: "cmd1",
@@ -45,6 +50,18 @@ describe("operation task service", () => {
     expect(tasks.map((task) => task.id)).toEqual(["download:dl1", "command:cmd1"]);
     expect(tasks[0]).toMatchObject({ source: "download", status: "running", progress: "50%" });
     expect(tasks[1]).toMatchObject({ source: "command", status: "pending", workerId: null, workerHeartbeatAt: null });
+  });
+
+  it("uses the runtime setting as the default and maximum list limit", async () => {
+    vi.mocked(getOperationTaskListLimit).mockResolvedValue(42);
+
+    await listOperationTasks();
+
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 42 }));
+    expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 42 }));
+
+    await listOperationTasks({ limit: 500 });
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 42 }));
   });
 
   it("maps active deployment command requests as running operation tasks", async () => {
