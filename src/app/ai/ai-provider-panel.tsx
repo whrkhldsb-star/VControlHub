@@ -132,9 +132,14 @@ export function AiProviderPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm max-sm:items-end">
-      <div className="w-full max-w-lg max-sm:max-w-none max-sm:rounded-b-none bg-[var(--sidebar-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ai-provider-panel-title"
+        className="w-full max-w-lg max-sm:max-w-none max-sm:rounded-b-none bg-[var(--sidebar-bg)] border border-[var(--card-border)] rounded-2xl shadow-2xl overflow-hidden"
+      >
         <div className="px-5 py-4 border-b border-[var(--card-border)] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">AI 提供商管理</h3>
+          <h3 id="ai-provider-panel-title" className="text-sm font-semibold text-[var(--text-primary)]">AI 提供商管理</h3>
           <button
             onClick={onClose}
             className="text-slate-500 hover:text-slate-300 transition"

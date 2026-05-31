@@ -167,6 +167,24 @@ describe("AiClient destructive actions", () => {
     expect(addToastMock).toHaveBeenCalledWith("success", "对话标题已更新");
   });
 
+  it("opens the provider setup as an accessible dialog when no enabled provider exists", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValue({});
+
+    render(<AiClient userId="user-1" initialProviders={[]} initialConversations={[]} />);
+
+    await user.click(screen.getAllByRole("button", { name: "+ 新对话" })[0]);
+
+    expect(addToastMock).toHaveBeenCalledWith("error", "请先添加一个 AI 提供商");
+    const dialog = screen.getByRole("dialog", { name: "AI 提供商管理" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByLabelText("关闭提供商管理")).toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalledWith(
+      "/api/ai/conversations",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("uses an in-app dialog before deleting a provider", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm");
