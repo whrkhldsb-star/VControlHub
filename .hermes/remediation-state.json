@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T05:01:16Z",
+  "updatedAt": "2026-05-31T05:20:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -58,10 +58,10 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings and /operation-tasks returned 307, /api/settings and /api/operation-tasks returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T05:01:16Z",
+    "finishedAt": "2026-05-31T05:20:00Z",
     "target": "Expose Operation Tasks bounded-list runtime tuning",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed",
+    "commit": "6c687d0",
     "summary": "Extended non-sensitive runtime tuning to task-center list hydration. Admin Settings now exposes bounded runtime.operationTaskListLimit (20-500, env/default fallback 100); /api/settings validates and normalizes it; /operation-tasks SSR and /api/operation-tasks use the shared runtime setting as the default and maximum list cap instead of hard-coded page/API limits.",
     "validation": [
       "Targeted Vitest passed: runtime settings, Operation Tasks service, Settings client, Settings API (21/21)",
