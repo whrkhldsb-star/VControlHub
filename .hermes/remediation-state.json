@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T19:38:05Z",
+  "updatedAt": "2026-05-31T19:39:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T19:38:05Z",
     "target": "Completion-gate QA batch 1 AI provider setup accessibility/user-path QA",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Production authenticated QA exercised the AI page empty state and no-provider new-conversation flow. The provider setup overlay opened correctly and avoided creating a conversation without a provider, but lacked modal dialog semantics for assistive technologies; added labelled dialog semantics and regression coverage.",
     "validation": [
       "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae, with old removed job b8833e83bb1f only recorded as removedBacklogCronJobId",
@@ -83,7 +83,7 @@
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, browser DOM proof, and log checks.",
     "nextTarget": "Continue completion QA batch 1 with notifications dropdown interactions, preferences/default-page real side effects, global search result breadth, and responsive/mobile layout before rotating to batch 2.",
-    "commit": "pending"
+    "commit": "57f9922"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
