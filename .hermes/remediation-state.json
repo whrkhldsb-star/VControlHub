@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T18:40:49Z",
+  "updatedAt": "2026-05-31T19:09:24Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T18:40:49Z",
     "target": "Completion-gate QA batch 1 dashboard analytics localization visual QA",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Production browser QA found the dashboard analytics panel stayed in Chinese after switching the shell to English; localized analytics headings, loading/error/empty states, metric labels, image totals, and chart aria labels through the active i18n context.",
     "validation": [
       "Read backlog/state and confirmed active full-product QA remediation job 9e36e64a75ae, not removed job b8833e83bb1f",
@@ -80,7 +80,7 @@
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing smoke/probes/log checks.",
     "nextTarget": "Continue completion QA batch 1: global search interactions, notifications dropdown interactions, preferences/default-page side effects, and responsive/mobile layout. Because this run is part of the completion QA gate, keep using real browser/user-path QA before rotating to batch 2.",
-    "commit": null
+    "commit": "830e4acce19634c6af7d5bd1800572e525860565"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
