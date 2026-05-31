@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { I18nProvider } from "@/lib/i18n/provider";
 import { DashboardAnalyticsPanel } from "../dashboard-analytics-panel";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
@@ -9,6 +10,14 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 }));
 
 const csrfFetchMock = vi.mocked(csrfFetch);
+
+function renderPanel(locale: "zh" | "en" = "zh") {
+  return render(
+    <I18nProvider initialLocale={locale}>
+      <DashboardAnalyticsPanel />
+    </I18nProvider>,
+  );
+}
 
 describe("DashboardAnalyticsPanel", () => {
   beforeEach(() => {
@@ -23,7 +32,7 @@ describe("DashboardAnalyticsPanel", () => {
       imageBed: [{ date: "2026-01-01", count: 4, size: 4096 }],
     });
 
-    render(<DashboardAnalyticsPanel />);
+    renderPanel();
 
     expect(screen.getByText("正在加载趋势…")).toBeInTheDocument();
 
@@ -40,8 +49,27 @@ describe("DashboardAnalyticsPanel", () => {
   it("shows an actionable inline error when the analytics API fails", async () => {
     csrfFetchMock.mockRejectedValue(new Error("analytics unavailable"));
 
-    render(<DashboardAnalyticsPanel />);
+    renderPanel();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("趋势数据暂不可用：analytics unavailable");
+    expect(await screen.findByRole("alert")).toHaveTextContent("趋势数据暂不可用: analytics unavailable");
+  });
+
+  it("uses the active locale for dashboard analytics labels", async () => {
+    csrfFetchMock.mockResolvedValue({
+      servers: [],
+      downloads: [],
+      audit: [],
+      imageBed: [],
+    });
+
+    renderPanel("en");
+
+    expect(await screen.findByText("Data Trends")).toBeInTheDocument();
+    expect(screen.getByText("VPS resource trend (24h)")).toBeInTheDocument();
+    expect(screen.getByText("No node metric snapshots yet.")).toBeInTheDocument();
+    expect(screen.getByText("Download task trend (7d)")).toBeInTheDocument();
+    expect(screen.getByText("No download tasks in the last 7 days.")).toBeInTheDocument();
+    expect(screen.queryByText("数据趋势")).not.toBeInTheDocument();
+    expect(screen.queryByText("暂无节点指标快照。")).not.toBeInTheDocument();
   });
 });

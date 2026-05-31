@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T18:08:58Z",
+  "updatedAt": "2026-05-31T18:40:49Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,34 +51,36 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "AppSidebar targeted Vitest passed: 1 file / 3 tests",
+    "tests": "Dashboard analytics targeted Vitest passed: 1 file / 3 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /settings 307, /api/preferences 401, /api/notifications 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /settings 307, /api/dashboard/analytics 401, /api/preferences 401, /api/notifications 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T18:08:58Z",
-    "target": "Completion-gate QA batch 1 sidebar/shell visual polish closeout",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Converged the dirty QA batch 1 work from production browser visual QA: sidebar footer now keeps long account names and controls inside the shell, hides horizontal nav overflow, and gives the desktop sidebar more room.",
+    "finishedAt": "2026-05-31T18:40:49Z",
+    "target": "Completion-gate QA batch 1 dashboard analytics localization visual QA",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Production browser QA found the dashboard analytics panel stayed in Chinese after switching the shell to English; localized analytics headings, loading/error/empty states, metric labels, image totals, and chart aria labels through the active i18n context.",
     "validation": [
       "Read backlog/state and confirmed active full-product QA remediation job 9e36e64a75ae, not removed job b8833e83bb1f",
-      "Detected dirty worktree from an unfinished prior QA batch 1 sidebar/shell fix and did not start a new topic",
-      "Reviewed the exact diff for AppSidebar, its regression test, and backlog update",
-      "npx vitest run src/components/__tests__/app-sidebar.test.tsx passed 3/3",
+      "Checked non-overlap state: only production npm start processes were present and no dirty worktree existed before this run",
+      "Created a temporary qa_cron_ admin user for browser QA, verified password hash/role invariants, logged into production, switched locale to English, and observed dashboard analytics still rendered Chinese labels",
+      "Added dashboard analytics i18n translations and a regression proving English locale renders English labels/empty states instead of Chinese strings",
+      "npx vitest run src/app/__tests__/dashboard-analytics-panel.test.tsx passed 3/3",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
       "Production services restarted, .next ownership repaired, and /api/status returned healthy",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /login 200, / 307, /settings 307, /api/status 200, /api/preferences 401, /api/notifications 401",
-      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches"
+      "Route probes returned /login 200, / 307, /settings 307, /api/dashboard/analytics 401, /api/preferences 401, /api/notifications 401, /api/status 200",
+      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches",
+      "Deleted all temporary qa_cron_ users and verified remaining count is 0"
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing smoke/probes/log checks.",
-    "nextTarget": "Continue completion QA batch 1: global search, notifications dropdown interactions, preferences/default-page side effects, and responsive/mobile layout. Because the success counter had reached the fresh-audit threshold before this closeout, the next ordinary run should also record the configured fresh-audit/checkpoint status before choosing more remediation.",
-    "commit": "3ce7fa4379f411f68a37227cc15af36acbd13056"
+    "nextTarget": "Continue completion QA batch 1: global search interactions, notifications dropdown interactions, preferences/default-page side effects, and responsive/mobile layout. Because this run is part of the completion QA gate, keep using real browser/user-path QA before rotating to batch 2.",
+    "commit": null
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -93,7 +95,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 6,
+    "successfulRemediationRunsSinceFreshAudit": 7,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
