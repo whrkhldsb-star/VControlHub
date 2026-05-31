@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T22:43:37Z",
+  "updatedAt": "2026-05-31T22:57:19Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -116,5 +116,51 @@
     ],
     "recommendedNextMode": "Recreated as active full-product QA remediation cron 9e36e64a75ae; first runs should prioritize completion QA batches and real user workflow verification before ordinary backlog work."
   },
-  "currentCronJobName": "VControlHub full-product QA remediation loop"
+  "currentCronJobName": "VControlHub full-product QA remediation loop",
+  "commitPolicy": {
+    "mode": "major_round_closeout",
+    "summary": "Avoid frequent GitHub commit/push noise. Bundle related remediation changes, verification, deployment proof, backlog/state updates, and roadmap/future-goal updates into one intentional major-round closeout commit whenever safe.",
+    "exceptions": [
+      "production hotfix",
+      "dirty-worktree closeout from prior run",
+      "blocked/partial verified state where preserving work is safer"
+    ]
+  },
+  "majorRoundCloseoutPolicy": {
+    "mustRunComprehensiveCheck": true,
+    "mustUpdateGithubVisibleFutureGoals": true,
+    "roadmapDocs": [
+      "docs/plans/next-ops-features-plan.md",
+      "docs/plans/2026-05-28-usability-first-modernization.md"
+    ],
+    "checks": [
+      "production health",
+      "major user-path coverage for the round",
+      "targeted/neighboring tests",
+      "typecheck/lint/build/runtime build when product code changes",
+      "service logs",
+      "git status and origin sync",
+      "backlog/state accuracy"
+    ]
+  },
+  "settingsCustomizationDirection": {
+    "priority": "near_term_product_completeness_lane",
+    "summary": "Enrich Settings as the central customization/admin-control surface for safe runtime behavior, UI/personal preferences, notification/channel behavior, polling/list limits, SSH/SFTP/command stability knobs, AI/SMTP/image-bed/API-token/integration options, feature toggles, display/theme/language defaults, and other non-secret settings that currently require code/env edits.",
+    "acceptance": [
+      "each setting has a real runtime side effect",
+      "validation and safe bounds",
+      "clear immediate-vs-restart copy",
+      "tests at settings API/UI and at least one consumer",
+      "production/user-path verification"
+    ]
+  },
+  "lastStrategyUpdate": {
+    "updatedAt": "2026-05-31T22:57:19Z",
+    "source": "user feedback in Telegram",
+    "changes": [
+      "bundle commits by major round",
+      "major-round closeout must comprehensively check and update GitHub future goals",
+      "prioritize richer Settings customization"
+    ]
+  }
 }

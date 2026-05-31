@@ -61,6 +61,15 @@
    - 第一批补充存储索引扫描服务/API，可对本地节点扫描写入/更新 `FileEntry`。
    - SFTP 深度扫描放第二批，避免长任务阻塞请求。
 
+## 当前未来目标更新（2026-06-01）
+
+根据自动维护复盘与用户反馈，后续 GitHub 上可见的未来目标需要随每个“大轮”完成而同步更新，避免仓库路线图落后于实际产品方向。当前优先级调整如下：
+
+1. **减少零碎提交**：自动清单修复不再以每个小修小补为一个 GitHub commit 的默认节奏；应把同一功能域的一组修复、测试、部署验证、backlog/state 更新和本路线图更新合并到一次“大轮完成”提交。生产紧急修复、上一轮 dirty closeout 或 blocker 保全除外。
+2. **大轮完成后全面检查**：每个大轮 closeout 必须重新检查生产健康、关键用户路径、相关测试、日志、git/origin 同步，并把新发现或优先级变化写回 `.hermes/remediation-backlog.md`、`.hermes/remediation-state.json` 和本 `docs/plans/*` 路线图。
+3. **Settings 页面丰富化**：Settings 应升级为中心化自定义/控制台，而不仅是少量管理字段。优先补齐：运行时稳定性参数、列表/轮询限制、SSH/SFTP/命令执行参数、通知渠道、SMTP/AI/image bed/API token 等集成选项、UI/主题/语言/默认页偏好、功能开关和其他安全的非敏感设置。所有设置都必须真的影响运行时行为，有校验边界、即时/需重启说明、测试和生产路径验证。
+4. **仍以真实可用为核心**：Settings 丰富化不能变成“保存但无副作用”的假功能；也不能长期挤占 VPS、Files、Downloads、Quick Services、Commands、Backups、Health 等真实功能 QA。
+
 ## 验证
 - 先写 Vitest：system-health、operation-task、share-link、backup、commands API/service。
 - 运行：`npm run prisma:generate`、`npm run typecheck`、`npm run lint`、`npm test`、`npm run build`。
