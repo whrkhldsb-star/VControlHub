@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T16:39:00Z",
     "target": "Completion-gate AI provider setup availability QA",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Fixed AI provider setup/edit consistency so blank Base URL preserves service defaults and model lists are normalized on create/update instead of persisting duplicate or blank model IDs.",
     "validation": [
       "Read backlog/state and confirmed active full-product QA remediation job 9e36e64a75ae, not removed job b8833e83bb1f",
@@ -78,7 +78,7 @@
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing smoke/probes/log checks.",
     "nextTarget": "Continue completion QA batches with real browser/user-path verification across remaining operator flows, rotating toward VPS/server, Files/SFTP, Downloads/Quick Services/Commands/Deployments, or Backups/Health/Settings flows.",
-    "commit": null
+    "commit": "7e423bc72af403748bd8747cfdf2e3119c4de8ec"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
