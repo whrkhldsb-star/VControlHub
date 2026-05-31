@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-31T02:56:23Z",
     "target": "Bound scheduled-task and command-template list hydration for growing automation surfaces",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed",
+    "commit": "2c4ab56",
     "summary": "Added explicit 200-row caps to scheduled task list hydration, command template list hydration, and deployment launch template listing. This protects automation/template pages and APIs from unbounded query growth while preserving newest-first and built-in-first ordering.",
     "validation": [
       "read remediation backlog/state first",
