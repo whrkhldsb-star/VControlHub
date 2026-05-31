@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-31T00:04:30Z",
     "target": "Bound SyncJob list hydration for growing sync/task surfaces",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed_pending_push",
+    "commit": "cae353f",
     "summary": "Added a 200-row cap to listSyncJobs() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing SyncJob history and future sync/task UI hydration.",
     "validation": [
       "read remediation backlog/state first",
