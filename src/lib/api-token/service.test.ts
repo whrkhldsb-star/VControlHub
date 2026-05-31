@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { apiToken: { create: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-const { createApiToken, hashApiToken, verifyApiToken } = await import("./service");
+const { createApiToken, hashApiToken, listApiTokens, verifyApiToken } = await import("./service");
 describe("api token service", () => {
   beforeEach(() => vi.clearAllMocks());
   it("returns plaintext token once and stores only hash plus prefix/suffix", async () => {
@@ -21,6 +21,15 @@ describe("api token service", () => {
   it("rejects unknown requested scopes instead of creating a misleading lower-privilege token", async () => {
     await expect(createApiToken({ userId: "u1", name: "cli", scopes: ["read", "admin:everything"] })).rejects.toThrow("不支持的 scope: admin:everything");
     expect(mockPrisma.apiToken.create).not.toHaveBeenCalled();
+  });
+  it("bounds token list hydration newest-first for growing token history", async () => {
+    mockPrisma.apiToken.findMany.mockResolvedValue([]);
+    await listApiTokens("u1");
+    expect(mockPrisma.apiToken.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { createdBy: "u1" },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }));
   });
   it("rejects expired, revoked, or owner-disabled tokens", async () => {
     mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t1", createdBy: "u1", scopes: ["read"], revokedAt: new Date(), expiresAt: null, creator: { id: "u1", status: "ACTIVE" } });

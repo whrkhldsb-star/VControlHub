@@ -75,6 +75,7 @@ describe("/api/api-tokens", () => {
     const res = await route.GET(new Request("http://local/api/api-tokens"));
     expect(res.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("api-token:manage");
+    expect(mocks.listApiTokens).toHaveBeenCalledWith("u1");
     const body = await res.json();
     expect(body.tokens).toHaveLength(1);
     expect(JSON.stringify(body)).not.toContain("tokenHash");

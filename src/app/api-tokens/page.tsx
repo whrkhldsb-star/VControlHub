@@ -18,7 +18,7 @@ export default async function Page() {
 			</PageShell>
 		);
 	}
-	const tokens = await listApiTokens(session.userId);
+	const tokens = await listApiTokens(session.userId, 200);
 	return (
 		<PageShell>
 			<div className="mb-8 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">

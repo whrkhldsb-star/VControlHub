@@ -66,10 +66,11 @@ export async function createApiToken(input: { userId: string; name: string; scop
   return { token, apiToken: record };
 }
 
-export async function listApiTokens(userId: string) {
+export async function listApiTokens(userId: string, limit = 200) {
   return prisma.apiToken.findMany({
     where: { createdBy: userId },
     orderBy: { createdAt: "desc" },
+    take: limit,
     select: API_TOKEN_SAFE_SELECT,
   });
 }
