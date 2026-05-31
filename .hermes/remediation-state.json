@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T00:57:07Z",
+  "updatedAt": "2026-05-31T01:24:55Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -18,7 +18,7 @@
     "P5",
     "P6"
   ],
-  "schedule": "every 20m",
+  "schedule": "every 15m",
   "nonOverlapPolicy": "If the previous remediation run is still active, skip the current tick instead of starting another fix run.",
   "freshAuditPolicy": {
     "afterSuccessfulRuns": 6,

@@ -9,7 +9,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - This remediation loop is distinct from the older paused general site-check loop:
   - Old paused job `a8e21e83a7df`: broad website issue discovery + small automatic fixes/upgrades.
   - Current job `b8833e83bb1f`: backlog-driven remediation and optimization from this stored checklist.
-- Runs are scheduled every 10 minutes, but must be non-overlapping. If the previous remediation run is still active, skip the new tick and report/record a skipped-overlap event instead of starting another fix.
+- Runs are scheduled every 15 minutes, but must be non-overlapping. If the previous remediation run is still active, skip the new tick and report/record a skipped-overlap event instead of starting another fix.
 - Keep fixes deployable. A run may do a small coherent batch, or a larger architecture/code change if it materially improves performance, availability, completeness, maintainability, or user experience and can still be verified.
 - Prefer functional availability and end-to-end correctness over cosmetic-only work, but UI/UX polish is valid when it improves usability.
 - Add or update regression tests for behavior fixes where practical.
