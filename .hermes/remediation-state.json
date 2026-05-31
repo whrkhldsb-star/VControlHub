@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T03:15:48Z",
+  "updatedAt": "2026-05-31T03:28:01Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -18,13 +18,13 @@
     "P5",
     "P6"
   ],
-  "schedule": "every 15m",
+  "schedule": "every 20m",
   "nonOverlapPolicy": "If the previous remediation run is still active, skip the current tick instead of starting another fix run.",
   "freshAuditPolicy": {
     "afterSuccessfulRuns": 6,
     "afterBacklogCompleted": true,
     "action": "Run comprehensive audit, update remediation-backlog.md with newly discovered or reprioritized issues, then continue remediation.",
-    "completionAuditDetail": "When the current checklist is completed, run a broad detailed audit like the 2026-05-30 manual review: backend/API, frontend/UI, permissions, production behavior, performance/data scale, tests, deployment, logs, navigation, accessibility, and real user journeys; update remediation-backlog.md before continuing."
+    "completionAuditDetail": "Checklist completion requires a broad audit plus software-tester-style real browser/visual QA on production before a new remediation round starts. Use browser login and click through major pages/workflows visually; split into batches if needed; record/fix/triage findings in remediation-backlog.md before continuing."
   },
   "allowedChangeScope": [
     "architecture",
@@ -51,18 +51,20 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; /scheduled-tasks and /templates returned 307, guarded automation APIs returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T03:15:48Z",
-    "target": "Record product requirement for operator-tunable runtime settings",
+    "finishedAt": "2026-05-31T03:28:01Z",
+    "target": "Update maintenance cadence and completion QA gate",
     "status": "backlog_updated_no_runtime_change",
     "commit": null,
-    "summary": "Captured the product requirement that stability/UX knobs such as SSH terminal heartbeat/keepalive, command execution limits, SFTP sync timeouts, refresh intervals, and appropriate list limits should be configurable from an administrator settings surface rather than only hidden in environment variables.",
+    "summary": "Changed both VControlHub maintenance cron jobs to 20-minute cadence, repaired cron metadata after a schedule-update tool pitfall, and recorded the user requirement that checklist completion must be followed by real browser/visual software-tester-style QA before starting a new remediation round.",
     "validation": [
-      "restored backlog/state from git after line-numbered read mistake",
-      "updated backlog with a new unchecked productization item",
-      "updated state next target; no runtime code changed"
+      "cronjob list confirmed a8e21e83a7df and b8833e83bb1f are every 20m with restored names/prompts/skills/workdir/deliver",
+      "updated remediation-backlog.md operating rules and completion audit item",
+      "updated remediation-state.json schedule and completion audit detail",
+      "production services currently active and /api/status healthy",
+      "no runtime code changed"
     ],
-    "deployment": "Not required; backlog/state metadata only.",
-    "nextTarget": "Prioritize an admin Settings/API slice for operator-tunable runtime settings, then continue backlog-driven remediation."
+    "deployment": "Not required; cron configuration and repo handoff metadata only.",
+    "nextTarget": "Prioritize operator-tunable runtime settings; when current checklist completes, run the visual real-user QA campaign before a new ordinary remediation round."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -81,5 +83,5 @@
     "skippedOverlapRuns": 0
   },
   "blockers": [],
-  "productDirection": "Favor exposing safe operational and UX tuning knobs in administrator settings instead of hard-coding or env-only configuration; keep secrets and truly infrastructure-only values env-only."
+  "productDirection": "Favor exposing safe operational and UX tuning knobs in administrator settings instead of hard-coding or env-only configuration; keep secrets and truly infrastructure-only values env-only. Current checklist completion must be followed by real browser/visual QA before a new remediation round."
 }
