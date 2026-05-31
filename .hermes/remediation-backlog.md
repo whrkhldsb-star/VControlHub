@@ -116,6 +116,8 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - [x] 2026-05-31 — Bound SyncJob list hydration for growing task/sync surfaces: `listSyncJobs()` now caps newest-first rows at 200 so future Sync UI/Task Center callers cannot accidentally hydrate unbounded sync-job history. Verification: sync service regression proves `take: 200`, targeted Vitest 9/9, typecheck, lint (existing client-effect warnings only), build, runtime build, production restart, smoke 19/19, `/files` 307, `/api/storage/sftp-sync` 401, `/api/operation-tasks` 401, `/api/status` 200, recent logs clean.
 - [x] 2026-05-31 — Bound share-link list hydration for growing public-link history: `listShareLinks()` now caps newest-first rows at 200 while preserving storage-node/creator metadata for the Shares/API surfaces. Verification: share-link service/API regressions 7/7, typecheck, lint (existing client-effect warnings only), build, runtime build, production restart, smoke 19/19, `/shares` 307, `/api/share-links` 401, `/api/status` 200, recent logs clean.
 
+- [x] 2026-05-31 — Bound backup history list hydration for growing backup/audit surfaces: `listBackupRecords()` now caps newest-first rows at 200 while preserving creator metadata for the Backups page/API. Verification: backup service/API/restore regressions 21/21, typecheck, lint (existing client-effect warnings only), build, runtime build, production restart, smoke 19/19, `/backups` 307, `/api/backups` 401, `/api/status` 200, recent logs clean. Commit: 071eee3.
+
 ## Current blockers
 
 - None recorded.

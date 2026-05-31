@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T00:30:03Z",
+  "updatedAt": "2026-05-31T00:57:07Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,36 +44,35 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "share-link service/API Vitest passed 7/7",
+    "tests": "backup service/API/restore Vitest passed 21/21",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /shares 307, /api/share-links 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /backups 307, /api/backups 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T00:30:03Z",
-    "target": "Bound ShareLink list hydration for growing public-link history",
+    "finishedAt": "2026-05-31T00:57:07Z",
+    "target": "Bound BackupRecord list hydration for growing backup history",
     "status": "completed_verified_deployed_committed_pending_push",
-    "commit": "c3935f5",
-    "summary": "Added a 200-row newest-first cap to listShareLinks() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing public share-link history while preserving storage-node and creator metadata.",
+    "commit": "071eee3",
+    "summary": "Added a 200-row newest-first cap to listBackupRecords() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing backup history while preserving creator metadata for Backups page/API surfaces.",
     "validation": [
       "read remediation backlog/state first",
       "checked git status and confirmed local HEAD matched origin/main before editing",
       "checked no overlapping remediation/build/test process",
-      "production services and /api/status healthy before work",
-      "npx vitest run src/lib/share-link/__tests__/service.test.ts src/app/api/share-links/__tests__/route.test.ts passed 7/7",
+      "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts passed 21/21",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
+      "git diff --check passed",
       "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully",
       "readiness probe /api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /shares 307, /api/share-links 401, /api/status 200",
-      "recent vcontrolhub service logs contained no new error/warn matches",
-      "git diff --check passed"
+      "production probes: /backups 307, /api/backups 401, /api/status 200",
+      "recent vcontrolhub service logs contained no new error/warn matches after correcting .next ownership"
     ],
-    "deployment": "Production services restarted successfully and smoke/probes/log checks passed.",
+    "deployment": "Production services restarted successfully and smoke/probes/log checks passed. Build artifact ownership was corrected to vcontrolhub:vcontrolhub after build to avoid prerender cache permission warnings.",
     "nextTarget": "Continue P1 long-running storage/SFTP sync/import task UX/backgrounding, or another bounded-list performance cleanup from the refreshed audit candidates."
   },
   "runPolicy": {
@@ -89,7 +88,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": []
