@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T02:32:51Z",
+  "updatedAt": "2026-05-31T02:56:23Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,37 +44,41 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "full Vitest passed 178 files / 734 tests",
+    "tests": "scheduled-task/command-template/deployment targeted Vitest passed 13/13",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; major HTML/API probes returned 307/401/200; recent service logs clean"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; /scheduled-tasks and /templates returned 307, guarded automation APIs returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T02:32:51Z",
-    "target": "Fresh audit checkpoint due after 6 successful remediation runs",
-    "status": "fresh_audit_checkpoint_completed",
-    "commit": "stateOnlyCommit",
-    "summary": "Performed the required fresh audit checkpoint instead of starting a new remediation batch because successfulRemediationRunsSinceFreshAudit reached 6. No code changes were required: backlog was already current, git/remote were clean, no overlapping remediation/build/test process was found, production services were active and healthy, quality gates passed, major route probes returned expected auth redirects/401/200, smoke passed 19/19, and recent service logs were clean.",
+    "finishedAt": "2026-05-31T02:56:23Z",
+    "target": "Bound scheduled-task and command-template list hydration for growing automation surfaces",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Added explicit 200-row caps to scheduled task list hydration, command template list hydration, and deployment launch template listing. This protects automation/template pages and APIs from unbounded query growth while preserving newest-first and built-in-first ordering.",
     "validation": [
       "read remediation backlog/state first",
-      "checked git status and recent commits; local HEAD matched origin/main at 42bbf08 before checkpoint",
+      "checked git status and recent commits",
       "checked process list; no overlapping remediation/build/test process found",
-      "production services vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active before checks",
-      "/api/status returned healthy",
-      "recent vcontrolhub service logs contained no error/warn matches",
-      "static scans: no internal app <a href=\"/ navigation, no confirm/prompt/window.location.reload under src/app",
+      "reviewed growing findMany candidates and selected a coherent automation list-bound batch",
+      "added scheduled-task list regression asserting take: 200 and creator metadata include",
+      "added command-template list regression asserting take: 200 and built-in-first ordering",
+      "updated deployment template regression asserting take: 200",
+      "npx vitest run src/lib/scheduled-task/__tests__/service.test.ts src/lib/command-template/__tests__/service.test.ts src/lib/deployment/__tests__/service.test.ts passed 13/13",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
-      "npm test passed 178 files / 734 tests",
       "npm run build passed",
       "npm run build:runtime passed",
-      "major production probes returned expected / HTML 307, guarded API 401, /api/status 200 without 500",
+      "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service",
+      "repaired .next ownership to vcontrolhub:vcontrolhub after root build and restarted services again",
+      "systemctl reported vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "post-smoke recent vcontrolhub service logs contained no error/warn matches"
+      "production probes returned /scheduled-tasks 307, /templates 307, /api/scheduled-tasks 401, /api/command-templates 401, /api/deployments 401, /api/status 200",
+      "recent vcontrolhub service logs contained no new error/warn matches",
+      "git diff --check passed"
     ],
-    "deployment": "No runtime code changed, so no production restart was required; current production services were active and smoke/probes/log checks passed.",
-    "nextTarget": "Continue backlog-driven remediation from the refreshed backlog; look for the next high-value item via audit findings such as bounded growing-list surfaces, API auth-route drift, long-running storage/SFTP background task UX, or newly discovered product gaps."
+    "deployment": "Production services restarted successfully; readiness, smoke test, route probes, and log checks passed.",
+    "nextTarget": "Continue backlog-driven remediation from current audit candidates: remaining bounded growing-list surfaces, API auth-route drift, long-running storage/SFTP background task UX, or newly discovered product gaps."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -89,7 +93,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": []
