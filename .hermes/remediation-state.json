@@ -84,7 +84,7 @@
       "Deleted temporary QA users matching qa_pref_5331 and qa_cron_* and verified remaining count is 0"
     ],
     "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, QA-user cleanup, and log checks.",
-    "nextTarget": "Continue completion QA batch 1 with global search result breadth and responsive/mobile layout before rotating to QA batch 2 VPS/server management and SSH terminal.",
+    "nextTarget": "Before opening another ordinary remediation item, run a fresh audit/checkpoint because the success counter is above the 6-run threshold; continue completion QA batch 1 with global search result breadth and responsive/mobile layout as part of that browser-driven audit, then rotate to QA batch 2 VPS/server management and SSH terminal.",
     "commit": "8155f73"
   },
   "runPolicy": {
