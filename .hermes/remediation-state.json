@@ -1,12 +1,12 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T10:53:59.427896Z",
-  "mode": "backlog_driven_remediation_paused_for_evaluation",
-  "currentCronJobId": null,
+  "updatedAt": "2026-05-31T10:57:13.591129Z",
+  "mode": "full_product_qa_remediation_active",
+  "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
   "jobDistinction": {
     "legacyPausedAuditJob": "Broad website issue discovery plus small automatic fixes/upgrades; currently paused.",
-    "currentRemediationJob": "Backlog-driven remediation/optimization loop was removed at user request on 2026-05-31 after evaluation/watchdog cleanup; recreate only with the improved full-product QA prompt and completion gates."
+    "currentRemediationJob": "Active full-product QA remediation loop (9e36e64a75ae) based on .hermes/remediation-backlog.md; requires real browser/user-path QA, functional side-effect verification, code quality, performance, UX/accessibility, reliability, tests, deployment, and production health checks."
   },
   "sourceOfTruth": ".hermes/remediation-backlog.md",
   "priorityOrder": [
@@ -96,7 +96,7 @@
     "skippedOverlapRuns": 0
   },
   "blockers": [],
-  "productDirection": "Favor full-product functional availability: every cycle should balance feature completeness, real user journeys, code quality, performance, reliability, UI/UX, tests, deployment health, and production verification. Static no-500 checks are insufficient without selected real workflow actions and side-effect verification.",
+  "productDirection": "Active full-product functional availability loop: every cycle must balance feature completeness, real user journeys, code quality, performance, reliability, UI/UX/accessibility, permissions/security, tests, deployment health, and production verification. Static no-500 checks are insufficient without selected real workflow actions and side-effect verification.",
   "removedBacklogCronJobId": "b8833e83bb1f",
   "lastRunEvaluation": {
     "evaluatedAt": "2026-05-31T10:53:59.427896Z",
@@ -108,6 +108,7 @@
       "Recent work skewed toward settings/performance/polish; next cycle should deliberately rotate into core functional journeys such as VPS/server management, Files/SFTP/upload/download/direct access, Quick Services, Commands/Deployments, Backups/Restore, AI providers, API tokens, and image bed.",
       "Static probes and 307/401/no-500 checks are not enough for feature completeness; future runs must exercise real UI actions and verify DB/filesystem/remote side effects where safe."
     ],
-    "recommendedNextMode": "manual comprehensive product QA or recreated cron with full-product functional availability prompt, not a narrow architecture-only loop"
-  }
+    "recommendedNextMode": "Recreated as active full-product QA remediation cron 9e36e64a75ae; first runs should prioritize completion QA batches and real user workflow verification before ordinary backlog work."
+  },
+  "currentCronJobName": "VControlHub full-product QA remediation loop"
 }

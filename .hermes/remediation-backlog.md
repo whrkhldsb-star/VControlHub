@@ -8,8 +8,9 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Do not rely on chat context. This file is the source of truth for remaining work.
 - This remediation loop is distinct from the older paused general site-check loop:
   - Old paused job `a8e21e83a7df`: broad website issue discovery + small automatic fixes/upgrades.
-  - Removed job `b8833e83bb1f`: backlog-driven remediation and optimization from this stored checklist; stopped at user request on 2026-05-31 after watchdog cleanup. Recreate only with the improved full-product QA prompt below.
-- Runs are scheduled every 20 minutes, but must be non-overlapping. If the previous remediation run is still active, skip the new tick and report/record a skipped-overlap event instead of starting another fix.
+  - Removed job `b8833e83bb1f`: previous backlog-driven remediation and optimization loop; stopped at user request on 2026-05-31 after watchdog cleanup.
+  - Current job `9e36e64a75ae`: full-product QA remediation loop using the improved strategy below; it must cover real user workflows, feature completeness, code quality, performance, UI/UX/accessibility, reliability, deployment/runtime health, and side-effect verification.
+- Runs are scheduled every 20 minutes under current job `9e36e64a75ae`, but must be non-overlapping. If the previous remediation run is still active, skip the new tick and report/record a skipped-overlap event instead of starting another fix.
 - Keep fixes deployable. A run may do a small coherent batch, or a larger architecture/code change if it materially improves performance, availability, completeness, maintainability, or user experience and can still be verified.
 - Prefer functional availability and end-to-end correctness over cosmetic-only work, but UI/UX polish is valid when it improves usability.
 - Add or update regression tests for behavior fixes where practical.
@@ -146,7 +147,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Result quality: today delivered real improvements in runtime configurability, bounded-list performance, notification/refresh behavior, Settings light-theme/runtime UX, SMTP disabled-state clarity, and dashboard localization/client-boundary safety, each with targeted tests plus typecheck/lint/build/runtime-build/restart/smoke/probes/log checks recorded in state/backlog.
 - Gap found: the stopped backlog cron `b8833e83bb1f` was still described as the current remediation job in repo handoff files, and the completion QA gate still needs to be enforced as real browser/user-path QA before any new ordinary backlog loop.
 - Improvement for future recreated task: broaden every cycle beyond architecture to functional completeness, code quality, performance, reliability, UI/UX/accessibility, permissions/security, tests, deployment/runtime health, and real workflow side effects. Static 307/401/no-500 probes are required but insufficient.
-- Next recommended mode: run the remaining completion QA batches manually or recreate “清单检查修复” with an explicit full-product tester prompt that cycles through VPS/server management, Files/SFTP/upload/download/direct access, Downloads, Quick Services, Commands/Requests/Deployments/Scheduled Tasks/Templates/Operation Tasks, Backups/restore, Health/Monitoring, Settings, Tickets/Announcements, API Tokens, AI providers, image bed, API docs, and audit/security-adjacent flows.
+- Next mode activated: recreated “清单检查修复” as `9e36e64a75ae` with an explicit full-product tester prompt. First runs should prioritize completion QA batches and real user workflow verification across VPS/server management, Files/SFTP/upload/download/direct access, Downloads, Quick Services, Commands/Requests/Deployments/Scheduled Tasks/Templates/Operation Tasks, Backups/restore, Health/Monitoring, Settings, Tickets/Announcements, API Tokens, AI providers, image bed, API docs, and audit/security-adjacent flows.
 
 ## Current blockers
 
