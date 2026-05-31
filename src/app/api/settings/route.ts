@@ -6,6 +6,7 @@ import {
 	isValidSettingKey,
 } from "@/lib/settings/service";
 import { SettingKey, MASKED_VALUE } from "@/lib/settings/schema";
+import { isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime-settings/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
@@ -63,6 +64,14 @@ export async function PATCH(request: Request) {
 			const entryResult = patchEntrySchema.safeParse({ key, value });
 			if (!entryResult.success) {
 				rejectedKeys.push(key);
+				continue;
+			}
+			if (isRuntimeSettingKey(key)) {
+				try {
+					entries.push({ key, value: normalizeRuntimeSettingValue(key, value) });
+				} catch {
+					rejectedKeys.push(key);
+				}
 				continue;
 			}
 			entries.push({ key, value });

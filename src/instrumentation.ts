@@ -4,7 +4,7 @@ export async function register() {
     await import("./lib/bigint-patch");
     if (process.env.VCONTROLHUB_START_COMMAND_WORKER_IN_NEXT === "true") {
       const { startCommandMaintenanceWorker } = await import("./lib/command/worker");
-      startCommandMaintenanceWorker();
+      await startCommandMaintenanceWorker();
     }
   }
 }

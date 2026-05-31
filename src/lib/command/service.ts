@@ -21,6 +21,7 @@ import {
   type CreateCommandInput,
   type ReviewCommandInput,
 } from "./schema";
+import { getCommandRuntimeConfig } from "@/lib/runtime-settings/service";
 
 function toApprovalActorType(submissionMode: "user" | "assistant") {
   return submissionMode;
@@ -48,10 +49,6 @@ type SshExecutionResult = {
   cancelled?: boolean;
 };
 
-const DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS = 5 * 60 * 1000;
-const DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES = 256 * 1024;
-const DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS = 2 * DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS;
-const DEFAULT_COMMAND_EXECUTION_HEARTBEAT_MS = 60_000;
 const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 const activeCommandChildren = new Map<string, ChildProcess>();
 const cancelledCommandTargets = new Set<string>();
@@ -75,25 +72,14 @@ function cancelActiveCommandChild(targetId: string) {
   return child.kill("SIGTERM");
 }
 
-function getPositiveEnvNumber(name: string, fallback: number) {
-  const raw = Number(process.env[name]);
-  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
-}
-
-function getCommandExecutionTimeoutMs() {
-  return getPositiveEnvNumber("COMMAND_EXECUTION_TIMEOUT_MS", DEFAULT_COMMAND_EXECUTION_TIMEOUT_MS);
-}
-
-function getCommandOutputLimitBytes() {
-  return getPositiveEnvNumber("COMMAND_OUTPUT_LIMIT_BYTES", DEFAULT_COMMAND_OUTPUT_LIMIT_BYTES);
-}
-
-function getCommandStaleRunningAfterMs() {
-  return getPositiveEnvNumber("COMMAND_STALE_RUNNING_AFTER_MS", Math.max(DEFAULT_COMMAND_STALE_RUNNING_AFTER_MS, getCommandExecutionTimeoutMs() * 2));
-}
-
-function getCommandExecutionHeartbeatMs() {
-  return getPositiveEnvNumber("COMMAND_EXECUTION_HEARTBEAT_MS", DEFAULT_COMMAND_EXECUTION_HEARTBEAT_MS);
+async function getCommandRuntimeConfigValues() {
+  const config = await getCommandRuntimeConfig();
+  return {
+    executionTimeoutMs: config.executionTimeoutMs,
+    outputLimitBytes: config.outputLimitBytes,
+    staleRunningAfterMs: Math.max(config.staleRunningAfterMs, config.executionTimeoutMs),
+    executionHeartbeatMs: config.executionHeartbeatMs,
+  };
 }
 
 function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number) {
@@ -167,6 +153,9 @@ async function executeCommandOverSshWithKey(input: {
       input.command,
     ];
 
+    const runtimeConfig = await getCommandRuntimeConfigValues();
+    const timeoutMs = runtimeConfig.executionTimeoutMs;
+    const outputLimitBytes = runtimeConfig.outputLimitBytes;
     const result = await new Promise<SshExecutionResult>((resolve, reject) => {
       const child = spawn("ssh", args, {
         stdio: ["ignore", "pipe", "pipe"],
@@ -177,8 +166,6 @@ async function executeCommandOverSshWithKey(input: {
       let stdout = "";
       let stderr = "";
       let timedOut = false;
-      const timeoutMs = getCommandExecutionTimeoutMs();
-      const outputLimitBytes = getCommandOutputLimitBytes();
       const timeout = setTimeout(() => {
         timedOut = true;
         stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
@@ -237,6 +224,9 @@ async function executeCommandOverSshWithPassword(input: {
     input.command,
   ];
 
+  const runtimeConfig = await getCommandRuntimeConfigValues();
+  const timeoutMs = runtimeConfig.executionTimeoutMs;
+  const outputLimitBytes = runtimeConfig.outputLimitBytes;
   const result = await new Promise<SshExecutionResult>((resolve, reject) => {
     // Use SSHPASS env var instead of -p flag to avoid leaking password in /proc/cmdline
     const env = { ...process.env, SSHPASS: input.password };
@@ -249,8 +239,6 @@ async function executeCommandOverSshWithPassword(input: {
     let stdout = "";
     let stderr = "";
     let timedOut = false;
-    const timeoutMs = getCommandExecutionTimeoutMs();
-    const outputLimitBytes = getCommandOutputLimitBytes();
     const timeout = setTimeout(() => {
       timedOut = true;
       stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
@@ -470,7 +458,8 @@ async function executeAndFinalizeCommand(commandRequestId: string) {
     throw new Error("命令请求不存在");
   }
 
-  const heartbeatIntervalMs = getCommandExecutionHeartbeatMs();
+  const runtimeConfig = await getCommandRuntimeConfigValues();
+  const heartbeatIntervalMs = runtimeConfig.executionHeartbeatMs;
   let heartbeat: NodeJS.Timeout | null = setInterval(() => {
     heartbeatRunningCommandRequest(commandRequestId).catch(() => {});
   }, heartbeatIntervalMs);
@@ -706,7 +695,8 @@ function mapCommandRequest(
 }
 
 export async function recoverStaleRunningCommandRequests(now = new Date()) {
-  const staleCutoff = new Date(now.getTime() - getCommandStaleRunningAfterMs());
+  const runtimeConfig = await getCommandRuntimeConfigValues();
+  const staleCutoff = new Date(now.getTime() - runtimeConfig.staleRunningAfterMs);
   const staleRequests = await prisma.commandRequest.findMany({
     where: {
       status: "RUNNING",

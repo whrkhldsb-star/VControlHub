@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T03:28:01Z",
+  "updatedAt": "2026-05-31T03:52:13Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -24,7 +24,14 @@
     "afterSuccessfulRuns": 6,
     "afterBacklogCompleted": true,
     "action": "Run comprehensive audit, update remediation-backlog.md with newly discovered or reprioritized issues, then continue remediation.",
-    "completionAuditDetail": "Checklist completion requires a broad audit plus software-tester-style real browser/visual QA on production before a new remediation round starts. Use browser login and click through major pages/workflows visually; split into batches if needed; record/fix/triage findings in remediation-backlog.md before continuing."
+    "completionAuditDetail": "Checklist completion requires a broad audit plus software-tester-style real browser/visual QA on production before a new remediation round starts. Use browser login and click through major pages/workflows visually; split into batches if needed; record/fix/triage findings in remediation-backlog.md before continuing.",
+    "completionQaBatches": [
+      "QA batch 1: login, shell/navigation, dashboard, global search, notifications, preferences/default-page behavior, responsive layout",
+      "QA batch 2: VPS/server management and SSH terminal, including Direct Gateway eligibility and idle stability",
+      "QA batch 3: Files/storage/SFTP/upload/download/direct access, including sync warnings, capabilities, share links, signed/direct access",
+      "QA batch 4: Downloads, Quick Services, Commands, Requests, Deployments, Scheduled Tasks, Templates, Operation Tasks",
+      "QA batch 5: Backups/restore, Monitoring, Health/System Health, Settings/admin runtime tuning, Tickets, Announcements/Snippets, API Tokens, AI providers, image bed, API docs, audit/security-adjacent operator flows"
+    ]
   },
   "allowedChangeScope": [
     "architecture",
@@ -43,28 +50,31 @@
   "lastHealthyBaseline": {
     "date": "2026-05-31",
     "typecheck": "passed",
-    "lint": "passed with existing client-effect warnings",
-    "tests": "scheduled-task/command-template/deployment targeted Vitest passed 13/13",
+    "lint": "passed with existing client-effect warnings only",
+    "tests": "runtime settings/settings/command worker/command service/SFTP sync targeted Vitest passed 36/36",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; /scheduled-tasks and /templates returned 307, guarded automation APIs returned 401, /api/status returned 200; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings returned 307, /api/settings /api/storage/sftp-sync /api/commands returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T03:28:01Z",
-    "target": "Update maintenance cadence and completion QA gate",
-    "status": "backlog_updated_no_runtime_change",
+    "finishedAt": "2026-05-31T03:52:13Z",
+    "target": "Productize operator-tunable runtime settings first slice",
+    "status": "completed_verified_deployed_pending_commit",
     "commit": null,
-    "summary": "Changed both VControlHub maintenance cron jobs to 20-minute cadence, repaired cron metadata after a schedule-update tool pitfall, and recorded the user requirement that checklist completion must be followed by real browser/visual software-tester-style QA before starting a new remediation round.",
+    "summary": "Added a non-sensitive runtime settings service and admin Settings UI/API fields for command execution timeout, output limit, stale-running recovery window, command heartbeat, command maintenance scan interval, and SFTP per-directory sync timeout. Command execution, maintenance worker scheduling, and SFTP sync now read these persisted settings with env/default fallback so operator changes create real side effects instead of being saved-only preferences.",
     "validation": [
-      "cronjob list confirmed a8e21e83a7df and b8833e83bb1f are every 20m with restored names/prompts/skills/workdir/deliver",
-      "updated remediation-backlog.md operating rules and completion audit item",
-      "updated remediation-state.json schedule and completion audit detail",
-      "production services currently active and /api/status healthy",
-      "no runtime code changed"
+      "Targeted Vitest passed: runtime settings, settings API/client, command worker/service, SFTP sync (36/36)",
+      "npm run typecheck passed",
+      "npm run lint passed with existing client-effect warnings only",
+      "npm run build passed",
+      "npm run build:runtime passed",
+      "Production services restarted and smoke test passed 19/19",
+      "Production probes for /settings, /api/settings, /api/storage/sftp-sync, /api/commands, and /api/status returned no 500s",
+      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new error/warn matches"
     ],
-    "deployment": "Not required; cron configuration and repo handoff metadata only.",
-    "nextTarget": "Prioritize operator-tunable runtime settings; when current checklist completes, run the visual real-user QA campaign before a new ordinary remediation round."
+    "deployment": "Deployed by restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service after build/runtime build and artifact ownership repair.",
+    "nextTarget": "Commit/push this verified runtime-settings slice, then continue with remaining runtime settings coverage or next backlog item."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -79,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

@@ -5,6 +5,7 @@ import {
 	MASKED_VALUE,
 } from "@/lib/settings/schema";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
+import { RUNTIME_SETTING_DEFINITIONS, isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime-settings/service";
 
 /* ── Safe decrypt helper ──────────────────────────────────── */
 function safeDecrypt(value: string): string {
@@ -30,6 +31,9 @@ const DEFAULTS: Record<string, string> = {
 	"smtp.pass": "",
 	"smtp.from": "",
 	"smtp.enabled": "false",
+	...Object.fromEntries(
+		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
+	),
 };
 
 /* ── Get / Set ────────────────────────────────────────────── */
@@ -63,7 +67,8 @@ export async function getAllSettingsMasked(): Promise<Record<string, string>> {
 }
 
 export async function setSetting(key: string, value: string): Promise<void> {
-	const storedValue = isSensitiveKey(key) ? encrypt(value) : value;
+	const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
+	const storedValue = isSensitiveKey(key) ? encrypt(normalizedValue) : normalizedValue;
 	await prisma.setting.upsert({
 		where: { key },
 		update: { value: storedValue },
@@ -76,7 +81,8 @@ export async function setManySettings(
 ): Promise<void> {
 	await prisma.$transaction(
 		entries.map(({ key, value }) => {
-			const storedValue = isSensitiveKey(key) ? encrypt(value) : value;
+			const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
+			const storedValue = isSensitiveKey(key) ? encrypt(normalizedValue) : normalizedValue;
 			return prisma.setting.upsert({
 				where: { key },
 				update: { value: storedValue },

@@ -16,6 +16,12 @@ export const SettingKey = z.union([
 	z.literal("smtp.pass"),
 	z.literal("smtp.from"),
 	z.literal("smtp.enabled"),
+	z.literal("runtime.commandExecutionTimeoutMs"),
+	z.literal("runtime.commandOutputLimitBytes"),
+	z.literal("runtime.commandStaleRunningAfterMs"),
+	z.literal("runtime.commandExecutionHeartbeatMs"),
+	z.literal("runtime.commandReconcileIntervalMs"),
+	z.literal("runtime.sftpSyncDirectoryTimeoutMs"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -35,6 +41,12 @@ export const VALID_SETTING_KEYS: string[] = [
 	"smtp.pass",
 	"smtp.from",
 	"smtp.enabled",
+	"runtime.commandExecutionTimeoutMs",
+	"runtime.commandOutputLimitBytes",
+	"runtime.commandStaleRunningAfterMs",
+	"runtime.commandExecutionHeartbeatMs",
+	"runtime.commandReconcileIntervalMs",
+	"runtime.sftpSyncDirectoryTimeoutMs",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */

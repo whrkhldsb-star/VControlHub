@@ -1,4 +1,5 @@
 import { createLogger } from "@/lib/logging";
+import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 
 import {
   recoverQueuedApprovedCommandRequests,
@@ -6,7 +7,6 @@ import {
 } from "./service";
 
 const logger = createLogger("command-maintenance-worker");
-const DEFAULT_COMMAND_RECONCILE_INTERVAL_MS = 60_000;
 
 type CommandMaintenanceWorkerState = {
   started: boolean;
@@ -28,13 +28,8 @@ function getWorkerState() {
   return globalState.__vcontrolhubCommandMaintenanceWorker;
 }
 
-function getPositiveEnvNumber(name: string, fallback: number) {
-  const raw = Number(process.env[name]);
-  return Number.isFinite(raw) && raw > 0 ? raw : fallback;
-}
-
-function getCommandReconcileIntervalMs() {
-  return getPositiveEnvNumber("COMMAND_RECONCILE_INTERVAL_MS", DEFAULT_COMMAND_RECONCILE_INTERVAL_MS);
+async function getCommandReconcileIntervalMs() {
+  return getRuntimeSettingNumber("runtime.commandReconcileIntervalMs");
 }
 
 async function reconcileStaleCommandsOnce(state: CommandMaintenanceWorkerState, reason: string) {
@@ -64,12 +59,12 @@ async function reconcileStaleCommandsOnce(state: CommandMaintenanceWorkerState, 
   }
 }
 
-export function startCommandMaintenanceWorker() {
+export async function startCommandMaintenanceWorker() {
   const state = getWorkerState();
   if (state.started) return state;
 
   state.started = true;
-  const intervalMs = getCommandReconcileIntervalMs();
+  const intervalMs = await getCommandReconcileIntervalMs();
 
   void reconcileStaleCommandsOnce(state, "startup");
   state.timer = setInterval(() => {

@@ -48,6 +48,30 @@ describe("SettingsClient", () => {
 		expect(screen.queryByText("✓ 设置已保存")).not.toBeInTheDocument();
 	});
 
+  it("persists edited runtime settings through the settings API", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+
+    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000" }} canManage />);
+    await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
+    await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
+    await user.click(screen.getAllByRole("button", { name: "保存" })[2]);
+
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          "runtime.commandExecutionTimeoutMs": "120000",
+          "runtime.commandOutputLimitBytes": "262144",
+          "runtime.commandStaleRunningAfterMs": "600000",
+          "runtime.commandExecutionHeartbeatMs": "60000",
+          "runtime.commandReconcileIntervalMs": "60000",
+          "runtime.sftpSyncDirectoryTimeoutMs": "60000",
+        }),
+      }));
+    });
+  });
+
 	it("hosts account two-factor controls in system settings", () => {
 		render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);
 

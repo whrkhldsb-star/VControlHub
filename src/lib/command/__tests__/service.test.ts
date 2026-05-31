@@ -28,6 +28,9 @@ const { mockPrisma, spawnMock } = vi.hoisted(() => ({
     executionLog: {
       create: vi.fn(),
     },
+    setting: {
+      findUnique: vi.fn(),
+    },
   },
   spawnMock: vi.fn(),
 }));
@@ -65,6 +68,7 @@ describe("command service execution flow", () => {
     delete process.env.COMMAND_OUTPUT_LIMIT_BYTES;
     delete process.env.COMMAND_EXECUTION_HEARTBEAT_MS;
 
+    mockPrisma.setting.findUnique.mockResolvedValue(null);
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     spawnMock.mockImplementation(() => {
       const child = new EventEmitter() as MockChildProcess;
@@ -809,6 +813,7 @@ describe("command service execution flow", () => {
 
   it("recovers stale running command requests that lost their in-process worker", async () => {
     process.env.COMMAND_STALE_RUNNING_AFTER_MS = "1000";
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "1000";
     const now = new Date("2026-05-30T08:00:00Z");
     mockPrisma.commandRequest.findMany.mockResolvedValueOnce([
       {

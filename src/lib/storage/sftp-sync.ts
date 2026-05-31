@@ -5,6 +5,7 @@ import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { getSftpSyncDirectoryTimeoutMs } from "@/lib/runtime-settings/service";
 
 type SftpSyncNode = Prisma.StorageNodeGetPayload<{
   select: {
@@ -35,14 +36,6 @@ export interface SftpSyncResult {
   updated: number;
   deleted: number;
   errors: string[];
-}
-
-const DEFAULT_DIRECTORY_TIMEOUT_MS = 60_000;
-
-function getDirectoryTimeoutMs(timeoutMs?: number): number {
-  if (timeoutMs !== undefined) return Math.max(1, timeoutMs);
-  const configured = Number.parseInt(process.env.SFTP_SYNC_DIRECTORY_TIMEOUT_MS ?? "", 10);
-  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_DIRECTORY_TIMEOUT_MS;
 }
 
 async function withDirectoryTimeout<T>(operation: Promise<T>, dirPath: string, timeoutMs: number): Promise<T> {
@@ -178,7 +171,9 @@ export async function syncSftpDirectoryEntries(input: {
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
   const result: SftpSyncResult = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [] };
-  const directoryTimeoutMs = getDirectoryTimeoutMs(input.directoryTimeoutMs);
+  const directoryTimeoutMs = input.directoryTimeoutMs !== undefined
+    ? Math.max(1, input.directoryTimeoutMs)
+    : await getSftpSyncDirectoryTimeoutMs();
 
   async function syncDirectory(dirPath: string, currentDepth: number): Promise<void> {
     let entries: SftpListEntry[];

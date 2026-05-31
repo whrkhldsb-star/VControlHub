@@ -30,7 +30,7 @@ async function main() {
 	const handle = app.getRequestHandler();
 
 	await app.prepare();
-	startCommandMaintenanceWorker();
+	await startCommandMaintenanceWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);

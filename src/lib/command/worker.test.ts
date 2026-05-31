@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequestsMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
+const { recoverStaleRunningCommandRequestsMock, recoverQueuedApprovedCommandRequestsMock, getRuntimeSettingNumberMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
   recoverStaleRunningCommandRequestsMock: vi.fn(),
   recoverQueuedApprovedCommandRequestsMock: vi.fn(),
+  getRuntimeSettingNumberMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
@@ -21,6 +22,10 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
+vi.mock("@/lib/runtime-settings/service", () => ({
+  getRuntimeSettingNumber: getRuntimeSettingNumberMock,
+}));
+
 import { startCommandMaintenanceWorker, stopCommandMaintenanceWorkerForTests } from "./worker";
 
 describe("command maintenance worker", () => {
@@ -28,6 +33,7 @@ describe("command maintenance worker", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     delete process.env.COMMAND_RECONCILE_INTERVAL_MS;
+    getRuntimeSettingNumberMock.mockResolvedValue(1000);
     recoverStaleRunningCommandRequestsMock.mockResolvedValue({ recovered: 0 });
     recoverQueuedApprovedCommandRequestsMock.mockResolvedValue({ enqueued: 0 });
     stopCommandMaintenanceWorkerForTests();
@@ -37,8 +43,8 @@ describe("command maintenance worker", () => {
     process.env.COMMAND_RECONCILE_INTERVAL_MS = "1000";
     recoverStaleRunningCommandRequestsMock.mockResolvedValueOnce({ recovered: 1 }).mockResolvedValue({ recovered: 0 });
 
-    startCommandMaintenanceWorker();
-    startCommandMaintenanceWorker();
+    await startCommandMaintenanceWorker();
+    await startCommandMaintenanceWorker();
     await Promise.resolve();
 
     expect(infoMock).toHaveBeenCalledTimes(1);
@@ -53,7 +59,7 @@ describe("command maintenance worker", () => {
   it("logs recovered queued approved commands during maintenance ticks", async () => {
     recoverQueuedApprovedCommandRequestsMock.mockResolvedValueOnce({ enqueued: 2 }).mockResolvedValue({ enqueued: 0 });
 
-    startCommandMaintenanceWorker();
+    await startCommandMaintenanceWorker();
     await Promise.resolve();
 
     expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(1);
@@ -68,7 +74,7 @@ describe("command maintenance worker", () => {
     }));
     recoverStaleRunningCommandRequestsMock.mockResolvedValue({ recovered: 0 });
 
-    startCommandMaintenanceWorker();
+    await startCommandMaintenanceWorker();
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(recoverQueuedApprovedCommandRequestsMock).toHaveBeenCalledTimes(1);
