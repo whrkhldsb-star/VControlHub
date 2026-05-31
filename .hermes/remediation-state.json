@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T05:20:00Z",
+  "updatedAt": "2026-05-31T05:40:00Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,30 +51,31 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "runtime settings, Operation Tasks service, Settings UI/API targeted Vitest passed 21/21",
+    "tests": "notification bell regressions 6/6 plus neighboring health/monitoring refresh regressions 13/13 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings and /operation-tasks returned 307, /api/settings and /api/operation-tasks returned 401, /api/status returned 200; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /notifications returned 307, /api/notifications and /api/preferences returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T05:20:00Z",
-    "target": "Expose Operation Tasks bounded-list runtime tuning",
+    "finishedAt": "2026-05-31T05:40:00Z",
+    "target": "Make notification fallback polling respect the global refresh preference",
     "status": "completed_verified_deployed_committed",
-    "commit": "6c687d0",
-    "summary": "Extended non-sensitive runtime tuning to task-center list hydration. Admin Settings now exposes bounded runtime.operationTaskListLimit (20-500, env/default fallback 100); /api/settings validates and normalizes it; /operation-tasks SSR and /api/operation-tasks use the shared runtime setting as the default and maximum list cap instead of hard-coded page/API limits.",
+    "commit": "0b7e5d6",
+    "summary": "When WebSocket realtime notifications are unavailable, Notification Bell now uses the saved global refresh preference instead of a hard-coded 30s unread-count poll, disables fallback polling for manual refresh mode, reacts to preference-change events, and labels fallback state as realtime/manual/polling cadence in the dropdown.",
     "validation": [
-      "Targeted Vitest passed: runtime settings, Operation Tasks service, Settings client, Settings API (21/21)",
+      "Targeted Vitest passed: NotificationBell 6/6",
+      "Neighboring refresh regressions passed: health dashboard and monitoring page 13/13",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
-      "Production services restarted after .next ownership repair and smoke test passed 19/19",
-      "Production probes for /settings, /operation-tasks, /api/settings, /api/operation-tasks, and /api/status returned no 500s",
+      "Production services restarted after artifact ownership repair and smoke test passed 19/19",
+      "Production probes for /notifications, /api/notifications, /api/preferences, and /api/status returned no 500s",
       "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new error/warn matches"
     ],
-    "deployment": "Deployed by rebuilding, repairing .next ownership, and restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service.",
-    "nextTarget": "Continue operator-tunable runtime settings coverage for refresh/polling intervals and other bounded-list limits where user-facing tuning is appropriate, or run a fresh audit when the success counter reaches threshold."
+    "deployment": "Deployed by rebuilding, repairing .next/dist ownership, and restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service.",
+    "nextTarget": "Continue operator-tunable runtime settings coverage for other bounded-list limits or run a fresh audit when the success counter reaches threshold."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -89,7 +90,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
