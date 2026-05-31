@@ -37,6 +37,30 @@ export interface SftpSyncResult {
   errors: string[];
 }
 
+const DEFAULT_DIRECTORY_TIMEOUT_MS = 60_000;
+
+function getDirectoryTimeoutMs(timeoutMs?: number): number {
+  if (timeoutMs !== undefined) return Math.max(1, timeoutMs);
+  const configured = Number.parseInt(process.env.SFTP_SYNC_DIRECTORY_TIMEOUT_MS ?? "", 10);
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_DIRECTORY_TIMEOUT_MS;
+}
+
+async function withDirectoryTimeout<T>(operation: Promise<T>, dirPath: string, timeoutMs: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error(`扫描 ${dirPath} 超过 ${Math.ceil(timeoutMs / 1000)} 秒，已停止本目录同步`));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function computeRelativePath(basePath: string, remotePath: string, entryName: string): string | null {
   const normalizedBase = basePath.replace(/\/+$/, "") || "/";
   const normalizedRemote = remotePath.replace(/\/+$/, "") || "/";
@@ -136,6 +160,7 @@ export async function syncSftpDirectoryEntries(input: {
   remotePath?: string;
   recursive?: boolean;
   maxDepth?: number;
+  directoryTimeoutMs?: number;
 }): Promise<SftpSyncResult> {
   const { node, remotePath, recursive = false, maxDepth = 1 } = input;
   if (node.driver !== "SFTP") {
@@ -153,18 +178,23 @@ export async function syncSftpDirectoryEntries(input: {
   const basePath = normalizeRemotePath(node.basePath);
   const normalizedStartPath = normalizeRemotePath(node.basePath, remotePath);
   const result: SftpSyncResult = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [] };
+  const directoryTimeoutMs = getDirectoryTimeoutMs(input.directoryTimeoutMs);
 
   async function syncDirectory(dirPath: string, currentDepth: number): Promise<void> {
     let entries: SftpListEntry[];
     try {
-      entries = await listRemoteDirectory({
-        host: credentials.host,
-        port: credentials.port,
-        username: credentials.username,
-        privateKey: credentials.privateKey,
-        password: credentials.password,
-        remotePath: dirPath,
-      });
+      entries = await withDirectoryTimeout(
+        listRemoteDirectory({
+          host: credentials.host,
+          port: credentials.port,
+          username: credentials.username,
+          privateKey: credentials.privateKey,
+          password: credentials.password,
+          remotePath: dirPath,
+        }),
+        dirPath,
+        directoryTimeoutMs,
+      );
     } catch (error) {
       const msg = error instanceof Error ? error.message : "未知错误";
       result.errors.push(`扫描 ${dirPath} 失败：${msg}`);

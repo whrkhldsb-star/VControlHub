@@ -182,4 +182,43 @@ describe("sftp sync service", () => {
     });
   });
 
+  it("stops a slow remote directory scan with an actionable timeout error before indexing", async () => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    const node = {
+      id: "node_1",
+      name: "remote",
+      driver: "SFTP",
+      basePath: "/data/files",
+      host: null,
+      port: null,
+      username: null,
+      server: {
+        id: "srv_1",
+        host: "203.0.113.20",
+        port: 22,
+        username: "root",
+        connectionType: "PASSWORD",
+        password: "secret",
+        sshKey: null,
+      },
+    } as const;
+    listRemoteDirectoryMock.mockReturnValueOnce(new Promise(() => {}));
+
+    const syncPromise = syncSftpDirectoryEntries({ node, directoryTimeoutMs: 25 });
+    await vi.advanceTimersByTimeAsync(25);
+    const result = await syncPromise;
+    vi.useRealTimers();
+
+    expect(result.synced).toBe(0);
+    expect(result.created).toBe(0);
+    expect(result.updated).toBe(0);
+    expect(result.deleted).toBe(0);
+    expect(result.errors).toEqual([
+      "扫描 /data/files 失败：扫描 /data/files 超过 1 秒，已停止本目录同步",
+    ]);
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
+  });
+
 });

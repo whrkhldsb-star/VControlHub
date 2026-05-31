@@ -87,10 +87,11 @@ export async function POST(request: Request) {
           recursive,
           maxDepth,
         });
+        const status = result.errors.length === 0 ? 200 : result.synced > 0 || result.created > 0 || result.updated > 0 || result.deleted > 0 ? 207 : 504;
         return NextResponse.json({
           success: result.errors.length === 0,
           ...result,
-        });
+        }, { status });
       } catch (error) {
         return NextResponse.json(
           { error: error instanceof Error ? error.message : "同步失败" },

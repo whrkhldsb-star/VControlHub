@@ -44,6 +44,7 @@ type SftpListResponse = {
 };
 
 type SyncResult = {
+  success?: boolean;
   synced: number;
   created: number;
   updated: number;
@@ -713,14 +714,19 @@ const newFullPath = joinSftpPath(remotePath, newName);
 
           {/* Sync result display */}
           {syncResult && (
-            <div className="mt-2 flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1 text-xs text-emerald-200">
-                ✅ 同步完成：新建 {syncResult.created} 个、更新 {syncResult.updated} 个、清理 {syncResult.deleted} 个
+            <div className="mt-2 flex flex-wrap items-center gap-3" role="status" aria-live="polite">
+              <span className={`rounded-full border px-3 py-1 text-xs ${syncResult.errors.length > 0 ? "border-amber-400/20 bg-amber-400/5 text-amber-200" : "border-emerald-400/20 bg-emerald-400/5 text-emerald-200"}`}>
+                {syncResult.errors.length > 0 ? "⚠️ 同步未完全完成" : "✅ 同步完成"}：扫描 {syncResult.synced} 个、新建 {syncResult.created} 个、更新 {syncResult.updated} 个、清理 {syncResult.deleted} 个
               </span>
               {syncResult.errors.length > 0 && (
-                <span className="rounded-full border border-rose-400/20 bg-rose-400/5 px-3 py-1 text-xs text-rose-200">
-                  ❌ {syncResult.errors.length} 个错误
-                </span>
+                <div className="rounded-2xl border border-rose-400/20 bg-rose-400/5 px-3 py-2 text-xs text-rose-200" role="alert">
+                  <div className="font-semibold">远端扫描返回 {syncResult.errors.length} 个错误，请检查 VPS/SFTP 连通性后重试。</div>
+                  <ul className="mt-1 list-disc space-y-1 pl-4">
+                    {syncResult.errors.slice(0, 3).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}

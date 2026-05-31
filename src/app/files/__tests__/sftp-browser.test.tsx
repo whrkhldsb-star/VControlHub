@@ -110,7 +110,7 @@ describe("SftpBrowser", () => {
         remotePath: "/logs",
         entries: [],
       })
-      .mockResolvedValueOnce({ synced: 2, created: 1, updated: 1, errors: [] });
+      .mockResolvedValueOnce({ success: true, synced: 2, created: 1, updated: 1, deleted: 0, errors: [] });
 
     render(<SftpBrowser sftpNodes={[{ id: "node_1", name: "香港媒体库", driver: "SFTP" }]} />);
 
@@ -129,5 +129,34 @@ describe("SftpBrowser", () => {
         body: JSON.stringify({ nodeId: "node_1", remotePath: "/logs", recursive: true, maxDepth: 5 }),
       });
     });
+  });
+
+  it("shows SFTP sync errors as incomplete work instead of a successful-looking completion", async () => {
+    const user = userEvent.setup();
+    csrfFetchMock
+      .mockResolvedValueOnce({
+        nodeId: "node_1",
+        nodeName: "香港媒体库",
+        remotePath: "/",
+        entries: [],
+      })
+      .mockResolvedValueOnce({
+        success: false,
+        synced: 0,
+        created: 0,
+        updated: 0,
+        deleted: 0,
+        errors: ["扫描 /data/files 失败：扫描 /data/files 超过 60 秒，已停止本目录同步"],
+      });
+
+    render(<SftpBrowser sftpNodes={[{ id: "node_1", name: "香港媒体库", driver: "SFTP" }]} />);
+
+    await user.selectOptions(screen.getByLabelText("节点"), "node_1");
+    await screen.findByText(/节点：香港媒体库/);
+    await user.click(screen.getByRole("button", { name: "扫描同步" }));
+
+    expect(await screen.findByText(/同步未完全完成/)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("超过 60 秒");
+    expect(screen.queryByText(/✅ 同步完成/)).not.toBeInTheDocument();
   });
 });
