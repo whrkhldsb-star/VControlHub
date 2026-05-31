@@ -25,14 +25,14 @@ describe("/api/operation-tasks", () => {
     ]);
   });
 
-  it("returns unified tasks with a clamped limit", async () => {
+  it("passes the caller limit to the bounded task service", async () => {
     const response = await route.GET(
       new Request("http://local/api/operation-tasks?limit=999"),
     );
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("task:read");
-    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 200 });
+    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 999 });
     await expect(response.json()).resolves.toEqual({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
     });
