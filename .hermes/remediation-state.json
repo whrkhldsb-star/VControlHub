@@ -53,8 +53,8 @@
   "lastRun": {
     "finishedAt": "2026-05-31T00:30:03Z",
     "target": "Bound ShareLink list hydration for growing public-link history",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed_pending_push",
+    "commit": "c3935f5",
     "summary": "Added a 200-row newest-first cap to listShareLinks() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing public share-link history while preserving storage-node and creator metadata.",
     "validation": [
       "read remediation backlog/state first",
