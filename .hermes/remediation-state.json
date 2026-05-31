@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T03:52:13Z",
+  "updatedAt": "2026-05-31T03:54:30Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -58,10 +58,10 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings returned 307, /api/settings /api/storage/sftp-sync /api/commands returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T03:52:13Z",
+    "finishedAt": "2026-05-31T03:54:30Z",
     "target": "Productize operator-tunable runtime settings first slice",
-    "status": "completed_verified_deployed_pending_commit",
-    "commit": null,
+    "status": "completed_verified_deployed_committed",
+    "commit": "1c345b5",
     "summary": "Added a non-sensitive runtime settings service and admin Settings UI/API fields for command execution timeout, output limit, stale-running recovery window, command heartbeat, command maintenance scan interval, and SFTP per-directory sync timeout. Command execution, maintenance worker scheduling, and SFTP sync now read these persisted settings with env/default fallback so operator changes create real side effects instead of being saved-only preferences.",
     "validation": [
       "Targeted Vitest passed: runtime settings, settings API/client, command worker/service, SFTP sync (36/36)",
@@ -74,7 +74,7 @@
       "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new error/warn matches"
     ],
     "deployment": "Deployed by restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service after build/runtime build and artifact ownership repair.",
-    "nextTarget": "Commit/push this verified runtime-settings slice, then continue with remaining runtime settings coverage or next backlog item."
+    "nextTarget": "Continue operator-tunable runtime settings coverage for SSH terminal/refresh/bounded-list settings, or rotate to the next backlog item if that slice is larger than one deployable batch."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
