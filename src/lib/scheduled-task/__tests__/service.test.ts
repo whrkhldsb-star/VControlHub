@@ -51,4 +51,16 @@ describe("scheduled task service", () => {
       data: { serverIds: ["srv1", "srv2"] },
     });
   });
+
+  it("bounds scheduled task list hydration newest-first", async () => {
+    mockPrisma.scheduledTask.findMany.mockResolvedValue([]);
+
+    await service.listScheduledTasks();
+
+    expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: { creator: { select: { username: true, displayName: true } } },
+    });
+  });
 });

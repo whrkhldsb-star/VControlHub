@@ -41,7 +41,7 @@ function assertTemplateVariables(
 
 export async function listDeploymentTemplates() {
   await seedBuiltinTemplates();
-  return prisma.commandTemplate.findMany({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }] });
+  return prisma.commandTemplate.findMany({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
 }
 
 export async function createDeploymentRunFromTemplate(input: {

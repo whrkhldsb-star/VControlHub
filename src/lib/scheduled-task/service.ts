@@ -68,9 +68,10 @@ export async function createScheduledTask(input: CreateScheduledTaskInput) {
 	});
 }
 
-export async function listScheduledTasks() {
+export async function listScheduledTasks(limit = 200) {
 	return prisma.scheduledTask.findMany({
 		orderBy: { createdAt: "desc" },
+		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
 }

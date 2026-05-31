@@ -87,7 +87,7 @@ describe("deployment service", () => {
     const templates = await listDeploymentTemplates();
     expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
     expect(commandTemplateService.seedBuiltinTemplates).toHaveBeenCalled();
-    expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }] });
+    expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
   });
 
   it("marks deployment run as rejected when its approval request is rejected", async () => {

@@ -70,10 +70,11 @@ export async function seedBuiltinTemplates() {
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
-export async function listTemplates() {
+export async function listTemplates(limit = 200) {
 	await seedBuiltinTemplates();
 	return prisma.commandTemplate.findMany({
 		orderBy: [{ isBuiltin: "desc" }, { name: "asc" }],
+		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
 }
