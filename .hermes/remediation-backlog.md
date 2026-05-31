@@ -173,3 +173,12 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 ## Last known healthy baseline
 
 - 2026-05-29 comprehensive audit: git clean, `npm run typecheck` passed, `npm run lint` passed, `npm test` passed (160 files / 612 tests), `npm run build` passed, `npm run build:runtime` passed, production services active, `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed 19/19.
+
+
+## Cron cadence update — 2026-05-31T23:03:19Z
+
+- User feedback: the automatic remediation background task felt too frequent at the previous cadence.
+- Active full-product QA remediation job: `9e36e64a75ae`.
+- New schedule: `every 30m`.
+- Policy: keep this half-hour cadence unless the user explicitly asks for a different interval. The longer interval should reduce interruption/noise and give each coherent major round more room for real QA, verification, deployment, and bundled GitHub commits.
+- Verification requirement after cadence edits: confirm the cron job still has its full name, prompt, skills, toolsets, `deliver: origin`, and `workdir: /opt/VControlHub` intact; do not leave an ID-only job after schedule updates.

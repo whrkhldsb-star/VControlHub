@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T22:57:19Z",
+  "updatedAt": "2026-05-31T23:03:19Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -162,5 +162,22 @@
       "major-round closeout must comprehensively check and update GitHub future goals",
       "prioritize richer Settings customization"
     ]
-  }
+  },
+  "cron": {
+    "currentFullProductQaJobId": "9e36e64a75ae",
+    "currentFullProductQaSchedule": "every 30m",
+    "cadenceRationale": "User requested less frequent autonomous repair runs; every 30m gives each major round more room for verification/deploy and reduces noise compared with every 20m."
+  },
+  "policies": {
+    "autonomousRepairCadence": "Run full-product QA remediation every 30 minutes unless the user explicitly requests another interval."
+  },
+  "events": [
+    {
+      "at": "2026-05-31T23:03:19Z",
+      "type": "cron_cadence_update",
+      "summary": "Changed active full-product QA remediation loop cadence from every 20m to every 30m per user feedback that prior cadence felt too frequent.",
+      "jobId": "9e36e64a75ae",
+      "schedule": "every 30m"
+    }
+  ]
 }
