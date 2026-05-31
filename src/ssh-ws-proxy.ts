@@ -177,6 +177,10 @@ const server = createServer((_req, res) => {
 });
 
 const MAX_WS_CONNECTIONS = parseInt(process.env.SSH_WS_MAX_CONNECTIONS || "50", 10);
+const WS_HEARTBEAT_INTERVAL_MS = parseInt(process.env.SSH_WS_HEARTBEAT_INTERVAL_MS || "25000", 10);
+const SSH_KEEPALIVE_INTERVAL_MS = parseInt(process.env.SSH_KEEPALIVE_INTERVAL_MS || "30000", 10);
+const SSH_KEEPALIVE_COUNT_MAX = parseInt(process.env.SSH_KEEPALIVE_COUNT_MAX || "8", 10);
+const wsHeartbeatState = new WeakMap<WebSocket, boolean>();
 
 const wss = new WebSocketServer({
 	server,
@@ -194,6 +198,20 @@ const wss = new WebSocketServer({
 		callback(true);
 	},
 });
+
+const wsHeartbeatTimer = setInterval(() => {
+	for (const client of wss.clients) {
+		if (client.readyState !== WebSocket.OPEN) continue;
+		if (wsHeartbeatState.get(client) === false) {
+			logger.warn("terminating unresponsive SSH WebSocket client");
+			client.terminate();
+			continue;
+		}
+		wsHeartbeatState.set(client, false);
+		client.ping();
+	}
+}, WS_HEARTBEAT_INTERVAL_MS);
+wsHeartbeatTimer.unref();
 
 // ── Origin validation (WebSocket CSRF protection) ──────────────────
 
@@ -215,6 +233,14 @@ function isOriginAllowed(req: import("http").IncomingMessage): boolean {
 }
 
 wss.on("connection", async (ws, req) => {
+	wsHeartbeatState.set(ws, true);
+	ws.on("pong", () => {
+		wsHeartbeatState.set(ws, true);
+	});
+	ws.on("close", () => {
+		wsHeartbeatState.delete(ws);
+	});
+
 	if (!isOriginAllowed(req)) {
 		ws.send(JSON.stringify({ type: "error", data: "Origin 不被允许" }));
 		ws.close();
@@ -355,8 +381,8 @@ wss.on("connection", async (ws, req) => {
  ...(connParams.connectionType === "SSH_KEY" ? { privateKey: connParams.privateKey } : { password: connParams.password }),
  readyTimeout: 15000,
  timeout: 10000,
- keepaliveInterval: 15000,
- keepaliveCountMax: 3,
+ keepaliveInterval: SSH_KEEPALIVE_INTERVAL_MS,
+ keepaliveCountMax: SSH_KEEPALIVE_COUNT_MAX,
  });
 });
 
@@ -368,5 +394,13 @@ if (shouldStartServer) {
   });
 }
 
-process.on("SIGTERM", () => { wss.close(); server.close(); prisma.$disconnect(); process.exit(0); });
-process.on("SIGINT", () => { wss.close(); server.close(); prisma.$disconnect(); process.exit(0); });
+function shutdown() {
+	clearInterval(wsHeartbeatTimer);
+	wss.close();
+	server.close();
+	prisma.$disconnect();
+	process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
