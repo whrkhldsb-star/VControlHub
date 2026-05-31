@@ -68,7 +68,11 @@ export async function runBackupRecord(input: { type: BackupType; createdBy?: str
 }
 
 export async function listBackupRecords() {
-  return prisma.backupRecord.findMany({ orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } });
+  return prisma.backupRecord.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    include: { creator: { select: { username: true, displayName: true } } },
+  });
 }
 
 export async function getBackupRecord(id: string) {

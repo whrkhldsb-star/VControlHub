@@ -19,6 +19,7 @@ const {
   runBackupRecord,
   updateBackupRecordStatus,
   restoreBackupRecord,
+  listBackupRecords,
 } = await import("../service");
 
 describe("backup service", () => {
@@ -32,6 +33,16 @@ describe("backup service", () => {
       cb(null, { stdout: "ok", stderr: "" });
     });
     statMock.mockResolvedValue({ size: 1234 });
+  });
+
+  it("bounds backup list queries so backup history cannot hydrate unbounded rows", async () => {
+    await listBackupRecords();
+
+    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: { creator: { select: { username: true, displayName: true } } },
+    });
   });
 
   it("creates auditable backup records with portable relative paths", async () => {
