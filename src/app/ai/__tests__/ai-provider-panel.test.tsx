@@ -55,7 +55,7 @@ describe("AiProviderPanel", () => {
           ...DEFAULT_PROV_FORM,
           name: "OpenAI",
           apiKey: "sk-test",
-          baseUrl: "https://api.openai.com/v1",
+          baseUrl: "",
           defaultModel: "",
           availableModels: "",
         }}
@@ -77,7 +77,6 @@ describe("AiProviderPanel", () => {
         body: JSON.stringify({
           type: "OPENAI_COMPATIBLE",
           apiKey: "sk-test",
-          baseUrl: "https://api.openai.com/v1",
         }),
       }));
     });
@@ -131,7 +130,7 @@ describe("AiProviderPanel", () => {
           type: "OPENAI_COMPATIBLE",
           baseUrl: "https://api.openai.com/v1",
           defaultModel: "gpt-4o",
-          availableModels: "gpt-4o-mini,gpt-4o",
+          availableModels: ["gpt-4o-mini", "gpt-4o"],
           isDefault: true,
         }),
       }));

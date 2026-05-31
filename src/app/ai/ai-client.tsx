@@ -532,6 +532,7 @@ if (data.conversation) {
       addToast("error", "名称和 API Key 不能为空");
       return;
     }
+    const baseUrl = provForm.baseUrl.trim();
     const models = provForm.availableModels
       .split(",")
       .map((m) => m.trim())
@@ -542,6 +543,7 @@ if (data.conversation) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...provForm,
+          ...(baseUrl ? { baseUrl } : {}),
           models: models.join(","),
           availableModels: models,
         }),

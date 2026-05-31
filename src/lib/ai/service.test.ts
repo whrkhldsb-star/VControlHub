@@ -4,6 +4,10 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     aiProvider: {
       findMany: vi.fn(),
+      create: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
     },
     aiConversation: {
       findMany: vi.fn(),
@@ -22,12 +26,16 @@ vi.mock("@/lib/runtime-settings/service", () => ({
   getAiConversationListLimit: vi.fn(async () => 123),
 }));
 
-const { listProviders, listConversations } = await import("./service");
+const { listProviders, listConversations, createProvider, updateProvider } = await import("./service");
 
 describe("AI service list hydration limits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.aiProvider.findMany.mockResolvedValue([]);
+    prismaMock.aiProvider.create.mockResolvedValue({ id: "p1" });
+    prismaMock.aiProvider.findFirst.mockResolvedValue({ id: "p1" });
+    prismaMock.aiProvider.update.mockResolvedValue({ id: "p1" });
+    prismaMock.aiProvider.updateMany.mockResolvedValue({ count: 0 });
     prismaMock.aiConversation.findMany.mockResolvedValue([]);
   });
 
@@ -48,6 +56,37 @@ describe("AI service list hydration limits", () => {
       where: { createdBy: "u1" },
       orderBy: { updatedAt: "desc" },
       take: 123,
+    }));
+  });
+
+  it("normalizes provider model lists and uses the default Base URL when creating providers", async () => {
+    await createProvider({
+      name: " OpenAI Compatible ",
+      apiKey: " sk-test ",
+      availableModels: [" gpt-4o ", "gpt-4o", "", " gpt-4.1 "],
+      createdBy: "u1",
+    });
+
+    expect(prismaMock.aiProvider.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        name: "OpenAI Compatible",
+        apiKey: "encrypted:sk-test",
+        baseUrl: "https://api.openai.com/v1",
+        availableModels: JSON.stringify(["gpt-4o", "gpt-4.1"]),
+      }),
+    }));
+  });
+
+  it("normalizes duplicate provider model lists on update", async () => {
+    await updateProvider("p1", "u1", {
+      availableModels: [" claude-3 ", "claude-3", "", "claude-3.5"],
+    });
+
+    expect(prismaMock.aiProvider.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "p1" },
+      data: expect.objectContaining({
+        availableModels: JSON.stringify(["claude-3", "claude-3.5"]),
+      }),
     }));
   });
 });

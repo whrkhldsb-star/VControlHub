@@ -2,13 +2,18 @@ import { prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 
-/* ── Safe decrypt helper ──────────────────────────────────── */
 function safeDecryptApiKey(stored: string): string {
 	try {
 		return isEncrypted(stored) ? decrypt(stored) : stored;
 	} catch {
 		return stored;
 	}
+}
+
+function normalizeProviderModels(models?: string[]) {
+  return Array.from(
+    new Set((models ?? []).map((model) => model.trim()).filter(Boolean)),
+  );
 }
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -85,7 +90,7 @@ export async function createProvider(input: CreateProviderInput) {
 		apiKey: encrypt(input.apiKey.trim()),
 		baseUrl: input.baseUrl?.trim() || "https://api.openai.com/v1",
       defaultModel: input.defaultModel?.trim() || "gpt-4o",
-      availableModels: JSON.stringify(input.availableModels ?? []),
+      availableModels: JSON.stringify(normalizeProviderModels(input.availableModels)),
       isDefault: input.isDefault ?? false,
       enabled: input.enabled ?? true,
       settings: JSON.stringify(input.settings ?? {}),
@@ -135,7 +140,7 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 	...(input.apiKey !== undefined && { apiKey: encrypt(input.apiKey.trim()) }),
       ...(input.baseUrl !== undefined && { baseUrl: input.baseUrl.trim() }),
       ...(input.defaultModel !== undefined && { defaultModel: input.defaultModel.trim() }),
-      ...(input.availableModels !== undefined && { availableModels: JSON.stringify(input.availableModels) }),
+      ...(input.availableModels !== undefined && { availableModels: JSON.stringify(normalizeProviderModels(input.availableModels)) }),
       ...(input.isDefault !== undefined && { isDefault: input.isDefault }),
       ...(input.enabled !== undefined && { enabled: input.enabled }),
       ...(input.settings !== undefined && { settings: JSON.stringify(input.settings) }),

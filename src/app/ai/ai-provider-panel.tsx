@@ -49,8 +49,9 @@ export function AiProviderPanel({
   }, [fetchedModels, provForm.availableModels]);
 
   const fetchProviderModels = async () => {
-    if (!provForm.apiKey.trim() || !provForm.baseUrl.trim()) {
-      addToast("error", "请先填写 API Key 和 Base URL");
+    const baseUrl = provForm.baseUrl.trim();
+    if (!provForm.apiKey.trim()) {
+      addToast("error", "请先填写 API Key；Base URL 留空时将使用服务默认值");
       return;
     }
     setModelsLoading(true);
@@ -61,7 +62,7 @@ export function AiProviderPanel({
         body: JSON.stringify({
           type: provForm.type,
           apiKey: provForm.apiKey,
-          baseUrl: provForm.baseUrl,
+          ...(baseUrl ? { baseUrl } : {}),
         }),
       });
       const models = Array.isArray(data.models) ? data.models as ModelInfo[] : [];
@@ -100,12 +101,16 @@ export function AiProviderPanel({
 
   const saveEditing = async () => {
     if (!editingProviderId || !editForm) return;
-    const patchBody: Record<string, string | boolean> = {
+    const availableModels = editForm.availableModels
+      .split(",")
+      .map((model) => model.trim())
+      .filter(Boolean);
+    const patchBody: Record<string, string | boolean | string[]> = {
       name: editForm.name.trim(),
       type: editForm.type,
       baseUrl: editForm.baseUrl.trim(),
       defaultModel: editForm.defaultModel.trim(),
-      availableModels: editForm.availableModels,
+      availableModels,
       isDefault: editForm.isDefault,
     };
     if (editForm.apiKey.trim()) patchBody.apiKey = editForm.apiKey.trim();
