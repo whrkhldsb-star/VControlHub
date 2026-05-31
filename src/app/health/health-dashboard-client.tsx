@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";
@@ -45,6 +46,209 @@ type SystemHealthReport = {
 
 type Props = { serverCount: number; initialSystemHealth?: SystemHealthReport | null };
 
+type HealthCopy = {
+	statusLabels: Record<string, string>;
+	summaryCards: { total: string; online: string; warning: string; critical: string; offline: string };
+	ui: {
+		selfCheck: string;
+		repairSuggestions: string;
+		checksSummary: (summary: SystemHealthSummary) => string;
+		auditLog: string;
+		home: string;
+		suggestedAction: string;
+		lastRefresh: string;
+		overallCritical: string;
+		overallWarning: string;
+		overallHealthy: string;
+		refreshAria: string;
+		refreshing: string;
+		refresh: string;
+		autoRefresh: string;
+		toggleAutoRefreshAria: string;
+		autoRefreshOff: string;
+		autoRefreshEvery: (label: string) => string;
+		autoRefreshPaused: (label: string) => string;
+		healthUnavailable: string;
+		retrying: string;
+		retryLoad: string;
+		node: string;
+		status: string;
+		memory: string;
+		disk: string;
+		uptime: string;
+		details: string;
+		collapse: string;
+		trend: string;
+		trendHeading: (name: string) => string;
+	};
+	repair: Record<string, Pick<RepairSuggestion, "label" | "description" | "action">>;
+};
+
+const healthCopy: Record<"zh" | "en", HealthCopy> = {
+	zh: {
+		statusLabels: { healthy: "正常", warning: "警告", critical: "严重", offline: "离线", unknown: "未知" },
+		summaryCards: { total: "节点总数", online: "在线正常", warning: "性能警告", critical: "严重告警", offline: "离线/停用" },
+		ui: {
+			selfCheck: "系统自检",
+			repairSuggestions: "修复建议",
+			checksSummary: (summary) => `${summary.total} 项检查 · ${summary.healthy} 正常 · ${summary.warning} 警告 · ${summary.critical} 严重`,
+			auditLog: "看审计日志",
+			home: "回到首页",
+			suggestedAction: "建议动作：",
+			lastRefresh: "上次刷新",
+			overallCritical: "有严重告警",
+			overallWarning: "有警告项",
+			overallHealthy: "当前整体正常",
+			refreshAria: "刷新健康状态",
+			refreshing: "正在刷新...",
+			refresh: "🔄 刷新",
+			autoRefresh: "自动刷新",
+			toggleAutoRefreshAria: "切换健康状态自动刷新",
+			autoRefreshOff: "已关闭",
+			autoRefreshEvery: (label) => `每 ${label}`,
+			autoRefreshPaused: (label) => `已暂停 · ${label}`,
+			healthUnavailable: "健康状态暂不可用",
+			retrying: "正在重试...",
+			retryLoad: "重试加载健康状态",
+			node: "节点",
+			status: "状态",
+			memory: "内存",
+			disk: "磁盘",
+			uptime: "运行时间",
+			details: "详情",
+			collapse: "收起 ▲",
+			trend: "趋势 ▼",
+			trendHeading: (name) => `${name} — 过去 24h 趋势`,
+		},
+		repair: {
+			db: {
+				label: "检查数据库连接",
+				description: "数据库状态正常，可继续关注业务层告警。",
+				action: "验证 DATABASE_URL、数据库进程和 Prisma 连接",
+			},
+			runtime: {
+				label: "确认运行目录",
+				description: "运行目录基线已就绪。",
+				action: "检查 storage / uploads / downloads / backups / logs / tmp",
+			},
+			services: {
+				label: "核对核心服务",
+				description: "核心服务在线，可继续检查业务功能。",
+				action: "验证 vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
+			},
+			git: {
+				label: "核对 GitHub 同步",
+				description: "本地提交与 origin/main 保持一致。",
+				action: "比对本地 HEAD 与 origin/main",
+			},
+			audit: {
+				label: "复查审计高风险动作",
+				description: "可快速查看最近的命令执行、删除、权限和令牌操作。",
+				action: "查看 command.execute / storage.file_delete / api_token.create",
+			},
+		},
+	},
+	en: {
+		statusLabels: { healthy: "Healthy", warning: "Warning", critical: "Critical", offline: "Offline", unknown: "Unknown" },
+		summaryCards: { total: "Total Nodes", online: "Online Healthy", warning: "Performance Warnings", critical: "Critical Alerts", offline: "Offline/Disabled" },
+		ui: {
+			selfCheck: "System Self-check",
+			repairSuggestions: "Repair Suggestions",
+			checksSummary: (summary) => `${summary.total} checks · ${summary.healthy} healthy · ${summary.warning} warnings · ${summary.critical} critical`,
+			auditLog: "View Audit Log",
+			home: "Back Home",
+			suggestedAction: "Suggested action: ",
+			lastRefresh: "Last refresh",
+			overallCritical: "critical alerts present",
+			overallWarning: "warnings present",
+			overallHealthy: "overall healthy",
+			refreshAria: "Refresh health status",
+			refreshing: "Refreshing...",
+			refresh: "🔄 Refresh",
+			autoRefresh: "Auto refresh",
+			toggleAutoRefreshAria: "Toggle health auto refresh",
+			autoRefreshOff: "Off",
+			autoRefreshEvery: (label) => `Every ${label}`,
+			autoRefreshPaused: (label) => `Paused · ${label}`,
+			healthUnavailable: "Health status is temporarily unavailable",
+			retrying: "Retrying...",
+			retryLoad: "Retry loading health status",
+			node: "Node",
+			status: "Status",
+			memory: "Memory",
+			disk: "Disk",
+			uptime: "Uptime",
+			details: "Details",
+			collapse: "Collapse ▲",
+			trend: "Trend ▼",
+			trendHeading: (name) => `${name} — last 24h trend`,
+		},
+		repair: {
+			db: {
+				label: "Check database connection",
+				description: "Database checks are healthy; continue watching business-level alerts.",
+				action: "Verify DATABASE_URL, database process, and Prisma connectivity",
+			},
+			runtime: {
+				label: "Confirm runtime directories",
+				description: "Runtime directory baseline is ready.",
+				action: "Check storage / uploads / downloads / backups / logs / tmp",
+			},
+			services: {
+				label: "Verify core services",
+				description: "Core services are online; continue checking product workflows.",
+				action: "Verify vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
+			},
+			git: {
+				label: "Check GitHub sync",
+				description: "Local commits match origin/main.",
+				action: "Compare local HEAD with origin/main",
+			},
+			audit: {
+				label: "Review high-risk audit actions",
+				description: "Quickly inspect recent command execution, deletion, permission, and token actions.",
+				action: "Open command.execute / storage.file_delete / api_token.create",
+			},
+		},
+	},
+};
+
+function translateSystemHealthText(value: string, locale: "zh" | "en") {
+	if (locale !== "en") return value;
+	return value
+		.replace(/^数据库连接$/, "Database Connection")
+		.replace(/^数据库可查询$/, "Database is queryable")
+		.replace(/^数据库不可用$/, "Database is unavailable")
+		.replace(/^VPS 节点资产$/, "VPS Node Inventory")
+		.replace(/^已纳管 (\d+) 个 VPS 节点$/, "Managed $1 VPS nodes")
+		.replace(/^无法读取 VPS 节点$/, "Unable to read VPS nodes")
+		.replace(/^云盘存储节点$/, "Cloud Storage Nodes")
+		.replace(/^已配置 (\d+) 个存储节点$/, "Configured $1 storage nodes")
+		.replace(/^尚未配置存储节点$/, "No storage nodes configured")
+		.replace(/^运行目录基线$/, "Runtime Directory Baseline")
+		.replace(/^(\d+)\/(\d+) 个运行目录可用$/, "$1/$2 runtime directories available")
+		.replace(/^运行目录 (.+)$/, "Runtime directory $1")
+		.replace(/^目录存在$/, "Directory exists")
+		.replace(/^目录不存在，部署脚本会自动创建$/, "Directory is missing; deployment scripts will create it automatically")
+		.replace(/^Next\.js 服务$/, "Next.js Service")
+		.replace(/^SSH WebSocket 服务$/, "SSH WebSocket Service")
+		.replace(/^Caddy 反代服务$/, "Caddy Reverse Proxy Service")
+		.replace(/^(.+\.service) 正在运行$/, "$1 is running")
+		.replace(/^(.+\.service) 当前状态为 (.+)$/, "$1 is currently $2")
+		.replace(/^(.+\.service) 状态暂不可读$/, "$1 status is temporarily unreadable")
+		.replace(/^数据库环境变量$/, "Database Environment Variable")
+		.replace(/^DATABASE_URL 已配置$/, "DATABASE_URL is configured")
+		.replace(/^DATABASE_URL 未配置或仍是占位符$/, "DATABASE_URL is missing or still a placeholder")
+		.replace(/^通知渠道配置$/, "Notification Channel Configuration")
+		.replace(/^已保存 (\d+) 项通知渠道配置$/, "Saved $1 notification channel settings")
+		.replace(/^可在系统设置中配置通知渠道$/, "Configure notification channels in Settings")
+		.replace(/^GitHub 同步状态$/, "GitHub Sync Status")
+		.replace(/^本地提交 ([a-f0-9]+) 与 origin\/main 一致$/, "Local commit $1 matches origin/main")
+		.replace(/^本地 ([a-f0-9]+) 与 origin\/main ([a-f0-9]+) 不一致$/, "Local $1 differs from origin/main $2")
+		.replace(/^当前提交 ([a-f0-9]+)，远端状态暂不可确认$/, "Current commit $1; remote status is temporarily unavailable")
+		.replace(/^当前目录不是可识别的 Git 仓库或无法读取 HEAD$/, "Current directory is not a recognized Git repository or HEAD cannot be read");
+}
+
 function isSystemHealthReport(value: unknown): value is SystemHealthReport {
 	return Boolean(
 		value
@@ -64,42 +268,49 @@ type RepairSuggestion = {
 	href?: string;
 };
 
-const repairSuggestions = (summary?: SystemHealthSummary | null): RepairSuggestion[] => {
+const repairSuggestions = (summary: SystemHealthSummary | null | undefined, locale: "zh" | "en"): RepairSuggestion[] => {
 	if (!summary) return [];
+	const copy = healthCopy[locale];
+	const zh = locale === "zh";
 	return [
 		{
 			id: "db",
-			label: "检查数据库连接",
-			description: summary.critical > 0 ? "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。" : "数据库状态正常，可继续关注业务层告警。",
-			action: "验证 DATABASE_URL、数据库进程和 Prisma 连接",
+			...copy.repair.db,
+			description: summary.critical > 0
+				? zh ? "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。" : "First confirm the database and environment variables, then reload services and inspect logs if needed."
+				: copy.repair.db.description,
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{
 			id: "runtime",
-			label: "确认运行目录",
-			description: summary.warning > 0 ? "部署目录或缓存目录可能缺失，建议补齐并复查权限。" : "运行目录基线已就绪。",
-			action: "检查 storage / uploads / downloads / backups / logs / tmp",
+			...copy.repair.runtime,
+			description: summary.warning > 0
+				? zh ? "部署目录或缓存目录可能缺失，建议补齐并复查权限。" : "Deployment or cache directories may be missing; create them and recheck ownership."
+				: copy.repair.runtime.description,
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
 			id: "services",
-			label: "核对核心服务",
-			description: summary.critical > 0 ? "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。" : "核心服务在线，可继续检查业务功能。",
-			action: "验证 vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
+			...copy.repair.services,
+			description: summary.critical > 0
+				? zh ? "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。" : "First confirm Next.js, SSH WS, and Caddy are all running."
+				: copy.repair.services.description,
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{
 			id: "git",
-			label: "核对 GitHub 同步",
-			description: summary.warning > 0 ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "本地提交与 origin/main 保持一致。",
-			action: "比对本地 HEAD 与 origin/main",
+			...copy.repair.git,
+			description: summary.warning > 0
+				? zh ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "Local and remote refs may differ; confirm the latest push completed."
+				: copy.repair.git.description,
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
 			id: "audit",
-			label: "复查审计高风险动作",
-			description: summary.critical > 0 ? "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。" : "可快速查看最近的命令执行、删除、权限和令牌操作。",
-			action: "查看 command.execute / storage.file_delete / api_token.create",
+			...copy.repair.audit,
+			description: summary.critical > 0
+				? zh ? "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。" : "Critical alerts are present; use the audit page to identify recent high-risk operations first."
+				: copy.repair.audit.description,
 			href: "/audit?action=command.execute",
 			status: summary.critical > 0 ? "critical" : "warning",
 		},
@@ -115,12 +326,12 @@ const repairToneClasses: Record<SystemHealthStatus, { border: string; bg: string
 
 /* ── Status helpers ───────────────────────────────────────── */
 
-const statusConfig: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-	healthy: { bg: "border-emerald-400/20 bg-emerald-400/10", text: "text-emerald-200", dot: "bg-emerald-400", label: "正常" },
-	warning: { bg: "border-amber-400/20 bg-amber-400/10", text: "text-amber-200", dot: "bg-amber-400", label: "警告" },
-	critical: { bg: "border-rose-400/20 bg-rose-400/10", text: "text-rose-200", dot: "bg-rose-400", label: "严重" },
-	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-200", dot: "bg-slate-500", label: "离线" },
-	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-400", dot: "bg-slate-600", label: "未知" },
+const statusToneClasses: Record<string, { bg: string; text: string; dot: string }> = {
+	healthy: { bg: "border-emerald-400/20 bg-emerald-400/10", text: "text-emerald-200", dot: "bg-emerald-400" },
+	warning: { bg: "border-amber-400/20 bg-amber-400/10", text: "text-amber-200", dot: "bg-amber-400" },
+	critical: { bg: "border-rose-400/20 bg-rose-400/10", text: "text-rose-200", dot: "bg-rose-400" },
+	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-200", dot: "bg-slate-500" },
+	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-400", dot: "bg-slate-600" },
 };
 
 function usageColor(val: number | undefined, warn = 80, crit = 95): string {
@@ -141,6 +352,9 @@ function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 
 export function HealthDashboardClient({ serverCount: _serverCount, initialSystemHealth }: Props) {
 	void _serverCount;
+	const { locale } = useI18n();
+	const copy = healthCopy[locale];
+	const browserLocale = locale === "zh" ? "zh-CN" : "en-US";
 	const [overview, setOverview] = useState<HealthOverview | null>(null);
 	const [systemHealth, setSystemHealth] = useState<SystemHealthReport | null>(initialSystemHealth ?? null);
 	const [loading, setLoading] = useState(true);
@@ -163,14 +377,14 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			const data = await csrfFetch("/api/health") as HealthOverview;
 			setOverview(data);
 			setLoadError(null);
-			setLastRefresh(new Date().toLocaleTimeString("zh-CN"));
+			setLastRefresh(new Date().toLocaleTimeString(browserLocale));
 		} catch (error) {
-			setLoadError(getErrorMessage(error, "加载健康状态失败"));
+			setLoadError(getErrorMessage(error, locale === "zh" ? "加载健康状态失败" : "Failed to load health status"));
 		} finally {
 			setLoading(false);
 			setIsRefreshing(false);
 		}
-	}, []);
+	}, [browserLocale, locale]);
 
 	const fetchSystemHealth = useCallback(async () => {
 		try {
@@ -191,9 +405,9 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 				return next;
 			});
 		} catch (error) {
-			setHistoryErrors((prev) => ({ ...prev, [serverId]: getErrorMessage(error, "加载历史指标失败") }));
+			setHistoryErrors((prev) => ({ ...prev, [serverId]: getErrorMessage(error, locale === "zh" ? "加载历史指标失败" : "Failed to load metric history") }));
 		}
-	}, []);
+	}, [locale]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => {
@@ -245,14 +459,14 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 	if (!overview) {
 		return (
 			<div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">
-				<div>{loadError ?? "健康状态暂不可用"}</div>
+				<div>{loadError ?? copy.ui.healthUnavailable}</div>
 				<button
 					type="button"
 					onClick={fetchHealth}
 					disabled={isRefreshing}
 					className="mt-3 rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-60"
 				>
-					{isRefreshing ? "正在重试..." : "重试加载健康状态"}
+					{isRefreshing ? copy.ui.retrying : copy.ui.retryLoad}
 				</button>
 			</div>
 		);
@@ -272,19 +486,19 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 					<section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
 			<div className="flex items-center justify-between gap-3">
 				<div>
-					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">系统自检</p>
-					<h2 className="mt-1 text-lg font-semibold text-white">修复建议</h2>
+					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
+					<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
 					<p className="mt-1 text-xs text-slate-400">
-						{systemHealth.summary.total} 项检查 · {systemHealth.summary.healthy} 正常 · {systemHealth.summary.warning} 警告 · {systemHealth.summary.critical} 严重
+						{copy.ui.checksSummary(systemHealth.summary)}
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
-					<Link href="/audit" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">看审计日志</Link>
-					<Link href="/" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">回到首页</Link>
+					<Link href="/audit" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
+					<Link href="/" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
 				</div>
 			</div>
 						<div className="grid gap-3 lg:grid-cols-3">
-							{repairSuggestions(systemHealth.summary).map((item) => {
+							{repairSuggestions(systemHealth.summary, locale).map((item) => {
 								const tone = repairToneClasses[item.status];
 								return (
 									<article key={item.id} className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
@@ -293,22 +507,22 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}>{item.status}</span>
 										</div>
 										<p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
-									<p className="mt-3 text-xs text-slate-400">建议动作：{item.href ? <Link href={item.href} className="text-cyan-200 transition hover:text-cyan-100">{item.action}</Link> : item.action}</p>
+									<p className="mt-3 text-xs text-slate-400">{copy.ui.suggestedAction}{item.href ? <Link href={item.href} className="text-cyan-200 transition hover:text-cyan-100">{item.action}</Link> : item.action}</p>
 								</article>
 							);
 						})}
 						</div>
 						<div className="grid gap-2 md:grid-cols-2">
 							{systemHealth.checks.map((check) => {
-								const sc = statusConfig[check.status] ?? statusConfig.unknown;
+								const sc = statusToneClasses[check.status] ?? statusToneClasses.unknown;
 								return (
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
-											<div className="text-sm font-medium text-white">{check.label}</div>
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{statusConfig[check.status]?.label ?? check.status}</span>
+											<div className="text-sm font-medium text-white">{translateSystemHealthText(check.label, locale)}</div>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{copy.statusLabels[check.status] ?? check.status}</span>
 										</div>
-										<p className="mt-1 text-xs text-slate-300">{check.message}</p>
-										{check.detail && <p className="mt-1 break-all text-[11px] text-slate-500">{check.detail}</p>}
+										<p className="mt-1 text-xs text-slate-300">{translateSystemHealthText(check.message, locale)}</p>
+										{check.detail && <p className="mt-1 break-all text-[11px] text-slate-500">{translateSystemHealthText(check.detail, locale)}</p>}
 									</div>
 								);
 							})}
@@ -318,39 +532,39 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			)}
 
 			<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-				<SummaryCard label="节点总数" value={total} color="slate" />
-				<SummaryCard label="在线正常" value={online} color="emerald" />
-				<SummaryCard label="性能警告" value={warning} color="amber" />
-				<SummaryCard label="严重告警" value={critical} color="rose" />
-				<SummaryCard label="离线/停用" value={offline} color="slate" />
+				<SummaryCard label={copy.summaryCards.total} value={total} color="slate" />
+				<SummaryCard label={copy.summaryCards.online} value={online} color="emerald" />
+				<SummaryCard label={copy.summaryCards.warning} value={warning} color="amber" />
+				<SummaryCard label={copy.summaryCards.critical} value={critical} color="rose" />
+				<SummaryCard label={copy.summaryCards.offline} value={offline} color="slate" />
 			</section>
 			<div className="flex items-center justify-between">
 				<div className="text-xs text-slate-500">
-					上次刷新：{lastRefresh || "—"}
-					{overview.critical > 0 ? " · 有严重告警" : overview.warning > 0 ? " · 有警告项" : " · 当前整体正常"}
+					{copy.ui.lastRefresh}: {lastRefresh || "—"}
+					{overview.critical > 0 ? ` · ${copy.ui.overallCritical}` : overview.warning > 0 ? ` · ${copy.ui.overallWarning}` : ` · ${copy.ui.overallHealthy}`}
 				</div>
 				<div className="flex items-center gap-3">
 					<button
 						type="button"
 						onClick={fetchHealth}
 						disabled={isRefreshing}
-						aria-label="刷新健康状态"
+						aria-label={copy.ui.refreshAria}
 						className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{isRefreshing ? "正在刷新..." : "🔄 刷新"}
+						{isRefreshing ? copy.ui.refreshing : copy.ui.refresh}
 					</button>
 					<label className="flex items-center gap-2 text-xs text-slate-400">
-						<span>自动刷新</span>
+						<span>{copy.ui.autoRefresh}</span>
 						<button
 							type="button"
 							onClick={() => setAutoRefresh(!autoRefresh)}
 							disabled={refreshIntervalSeconds <= 0}
-							aria-label="切换健康状态自动刷新"
+							aria-label={copy.ui.toggleAutoRefreshAria}
 							className={`relative h-4 w-8 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-slate-700"}`}
 						>
 							<span className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${autoRefresh ? "translate-x-4" : ""}`} />
 						</button>
-						<span>{refreshIntervalSeconds <= 0 ? "已关闭" : autoRefresh ? `每 ${getRefreshIntervalLabel(refreshIntervalSeconds)}` : `已暂停 · ${getRefreshIntervalLabel(refreshIntervalSeconds)}`}</span>
+						<span>{refreshIntervalSeconds <= 0 ? copy.ui.autoRefreshOff : autoRefresh ? copy.ui.autoRefreshEvery(getRefreshIntervalLabel(refreshIntervalSeconds)) : copy.ui.autoRefreshPaused(getRefreshIntervalLabel(refreshIntervalSeconds))}</span>
 					</label>
 				</div>
 			</div>
@@ -361,18 +575,18 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 					<table className="w-full text-sm">
 						<thead>
 							<tr className="border-b border-white/[0.06] bg-white/[0.02]">
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">节点</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">状态</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.node}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.status}</th>
 								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">CPU</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">内存</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">磁盘</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">运行时间</th>
-								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">详情</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.memory}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.disk}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.uptime}</th>
+								<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.details}</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/[0.04]">
 							{overview.servers.map((server) => {
-								const sc = statusConfig[server.status] ?? statusConfig.unknown;
+								const sc = statusToneClasses[server.status] ?? statusToneClasses.unknown;
 								return (
 									<tr key={server.serverId} className={`hover:bg-white/[0.03] transition ${server.status === "critical" ? "bg-rose-500/[0.04]" : ""}`}>
 										<td className="px-4 py-3">
@@ -386,7 +600,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 										</td>
 										<td className="px-4 py-3">
 											<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${sc.bg} ${sc.text}`}>
-												{sc.label}
+												{copy.statusLabels[server.status] ?? server.status}
 											</span>
 										</td>
 										<td className="px-4 py-3">
@@ -406,7 +620,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 												onClick={() => toggleExpand(server.serverId)}
 												className="text-[11px] text-cyan-400/70 hover:text-cyan-300 transition"
 											>
-												{expandedServer === server.serverId ? "收起 ▲" : "趋势 ▼"}
+												{expandedServer === server.serverId ? copy.ui.collapse : copy.ui.trend}
 											</button>
 										</td>
 									</tr>
@@ -421,14 +635,14 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
 				<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 					<h3 className="text-sm font-medium text-white/80 mb-4">
-						{overview.servers.find((s) => s.serverId === expandedServer)?.serverName} — 过去 24h 趋势
+						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
 					</h3>
 					{historyErrors[expandedServer] ? (
 						<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
 							{historyErrors[expandedServer]}
 						</div>
 					) : (
-						<SparklineChart data={history[expandedServer] ?? []} />
+						<SparklineChart data={history[expandedServer] ?? []} locale={locale} />
 					)}
 				</section>
 			)}
@@ -469,8 +683,9 @@ function UsageCell({ value }: { value: number | undefined }) {
 
 /* ── Simple sparkline chart (SVG) ─────────────────────────── */
 
-function SparklineChart({ data }: { data: MetricPoint[] }) {
-	if (data.length === 0) return <div className="text-xs text-slate-500">暂无历史数据</div>;
+function SparklineChart({ data, locale }: { data: MetricPoint[]; locale: "zh" | "en" }) {
+	const labels = locale === "zh" ? { memory: "内存", disk: "磁盘", localeCode: "zh-CN" } : { memory: "Memory", disk: "Disk", localeCode: "en-US" };
+	if (data.length === 0) return <div className="text-xs text-slate-500">{locale === "zh" ? "暂无历史数据" : "No history data yet"}</div>;
 
 	const W = 700;
 	const H = 200;
@@ -516,14 +731,14 @@ function SparklineChart({ data }: { data: MetricPoint[] }) {
 				{/* Time labels */}
 				{data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 6)) === 0).map((d) => (
 					<text key={d.t} x={toX(new Date(d.t).getTime())} y={H - padY + 14} textAnchor="middle" fill="rgba(148,163,184,0.4)" fontSize={9}>
-						{new Date(d.t).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+						{new Date(d.t).toLocaleTimeString(labels.localeCode, { hour: "2-digit", minute: "2-digit" })}
 					</text>
 				))}
 			</svg>
 			<div className="flex items-center gap-4 mt-2 text-[11px]">
 				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-emerald-400 rounded" /> CPU</span>
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-blue-400 rounded" /> 内存</span>
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-amber-400 rounded" /> 磁盘</span>
+				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-blue-400 rounded" /> {labels.memory}</span>
+				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-amber-400 rounded" /> {labels.disk}</span>
 			</div>
 		</div>
 	);

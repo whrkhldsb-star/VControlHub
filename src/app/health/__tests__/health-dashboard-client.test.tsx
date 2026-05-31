@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { I18nProvider } from "@/lib/i18n/provider";
 import { HealthDashboardClient } from "../health-dashboard-client";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
@@ -31,6 +32,12 @@ const overview = {
 	],
 };
 
+const renderHealthDashboard = (locale: "zh" | "en" = "zh", props: React.ComponentProps<typeof HealthDashboardClient> = { serverCount: 1 }) => render(
+	<I18nProvider initialLocale={locale}>
+		<HealthDashboardClient {...props} />
+	</I18nProvider>,
+);
+
 describe("HealthDashboardClient", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -42,7 +49,7 @@ describe("HealthDashboardClient", () => {
 	it("surfaces health overview load failures instead of rendering a blank panel", async () => {
 		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("健康检查接口不可用"));
 
-		render(<HealthDashboardClient serverCount={1} />);
+		renderHealthDashboard();
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("健康检查接口不可用");
 		expect(screen.getByRole("button", { name: "重试加载健康状态" })).toBeEnabled();
@@ -56,7 +63,7 @@ describe("HealthDashboardClient", () => {
 			.mockResolvedValueOnce(overview)
 			.mockRejectedValueOnce(new Error("刷新健康状态失败"));
 
-		render(<HealthDashboardClient serverCount={1} />);
+		renderHealthDashboard();
 
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "刷新健康状态" }));
@@ -72,7 +79,7 @@ describe("HealthDashboardClient", () => {
 			.mockResolvedValueOnce(overview)
 			.mockRejectedValueOnce(new Error("历史指标读取失败"));
 
-		render(<HealthDashboardClient serverCount={1} />);
+		renderHealthDashboard();
 
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "趋势 ▼" }));
@@ -82,18 +89,16 @@ describe("HealthDashboardClient", () => {
 	});
 
 	it("shows current VControlHub service units in repair guidance", async () => {
-		render(
-			<HealthDashboardClient
-				serverCount={1}
-				initialSystemHealth={{
-					generatedAt: "2026-05-30T00:00:00.000Z",
-					summary: { total: 4, healthy: 3, warning: 0, critical: 0, overall: "healthy" },
-					checks: [
-						{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
-					],
-				}}
-			/>,
-		);
+		renderHealthDashboard("zh", {
+			serverCount: 1,
+			initialSystemHealth: {
+				generatedAt: "2026-05-30T00:00:00.000Z",
+				summary: { total: 4, healthy: 3, warning: 0, critical: 0, overall: "healthy" },
+				checks: [
+					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+				],
+			},
+		});
 
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 		expect(screen.getByText(/vcontrolhub-next\.service \/ vcontrolhub-ssh-ws\.service \/ caddy\.service/)).toBeInTheDocument();
@@ -106,7 +111,7 @@ describe("HealthDashboardClient", () => {
 		const setIntervalSpy = vi.spyOn(window, "setInterval");
 		vi.mocked(csrfFetch).mockResolvedValue(overview);
 
-		render(<HealthDashboardClient serverCount={1} />);
+		renderHealthDashboard();
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 
 		expect(screen.getByText("每 1分钟")).toBeInTheDocument();
@@ -119,7 +124,7 @@ describe("HealthDashboardClient", () => {
 		const setIntervalSpy = vi.spyOn(window, "setInterval");
 		vi.mocked(csrfFetch).mockResolvedValue(overview);
 
-		render(<HealthDashboardClient serverCount={1} />);
+		renderHealthDashboard();
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 
 		expect(screen.getByText("已关闭")).toBeInTheDocument();
@@ -140,7 +145,7 @@ describe("HealthDashboardClient", () => {
 				],
 			});
 
-		render(<HealthDashboardClient serverCount={1} />);
+		renderHealthDashboard();
 
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 		expect(csrfFetch).toHaveBeenCalledWith("/api/health");
@@ -148,5 +153,33 @@ describe("HealthDashboardClient", () => {
 		expect(screen.getByText("2 项检查 · 1 正常 · 1 警告 · 0 严重")).toBeInTheDocument();
 		expect(screen.getByText("GitHub 同步状态")).toBeInTheDocument();
 		expect(screen.getByText("本地与远端不一致")).toBeInTheDocument();
+	});
+
+	it("localizes nested system health and overview controls in English", async () => {
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(overview)
+			.mockResolvedValueOnce({
+				generatedAt: "2026-05-30T00:00:00.000Z",
+				summary: { total: 2, healthy: 1, warning: 1, critical: 0, overall: "warning" },
+				checks: [
+					{ id: "database", label: "数据库连接", status: "healthy", message: "数据库可查询" },
+					{ id: "git-sync", label: "GitHub 同步状态", status: "warning", message: "当前提交 abc123，远端状态暂不可确认" },
+				],
+			});
+
+		renderHealthDashboard("en");
+
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+		expect(screen.getByText("System Self-check")).toBeInTheDocument();
+		expect(screen.getByText("2 checks · 1 healthy · 1 warnings · 0 critical")).toBeInTheDocument();
+		expect(screen.getByText("Database Connection")).toBeInTheDocument();
+		expect(screen.getByText("Database is queryable")).toBeInTheDocument();
+		expect(screen.getByText("GitHub Sync Status")).toBeInTheDocument();
+		expect(screen.getByText("Current commit abc123; remote status is temporarily unavailable")).toBeInTheDocument();
+		expect(screen.getByText("Total Nodes")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Refresh health status" })).toBeInTheDocument();
+		expect(screen.getByText("Auto refresh")).toBeInTheDocument();
+		expect(screen.queryByText("系统自检")).not.toBeInTheDocument();
+		expect(screen.queryByText("节点总数")).not.toBeInTheDocument();
 	});
 });
