@@ -76,11 +76,15 @@ describe("proxy auth guard", () => {
     });
   });
 
-  it("allows public login requests through with security headers", () => {
+  it("allows public login requests through with forwarded auth-page marker and security headers", () => {
     const response = proxy(makeRequest("/login"));
 
     expect(response.status).toBe(200);
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(response.headers.get("x-vcontrolhub-public-auth-page")).toBeNull();
+    expect(response.headers.get("x-middleware-override-headers")).toContain(
+      "x-vcontrolhub-public-auth-page",
+    );
   });
 
   it("lets anonymous browsers reach image file GET routes so public image links can render", () => {

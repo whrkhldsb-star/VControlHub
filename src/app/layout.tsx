@@ -12,7 +12,7 @@ import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { type Locale } from "@/lib/i18n/translations";
 import { type Theme } from "@/lib/theme/use-theme";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -35,7 +35,10 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }>) {
 	const cookieStore = await cookies();
+	const headerStore = await headers();
 	const hasSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
+	const isPublicAuthPage = headerStore.get("x-vcontrolhub-public-auth-page") === "1";
+	const shouldRenderAuthenticatedChrome = hasSessionCookie && !isPublicAuthPage;
 	const localeCookie = cookieStore.get("vps-locale")?.value;
 	const themeCookie = cookieStore.get("vps-theme")?.value;
 	const initialLocale: Locale = localeCookie === "en" ? "en" : "zh";
@@ -54,12 +57,12 @@ export default async function RootLayout({
 				<ThemeProvider initialTheme={initialTheme}>
 					<I18nProvider initialLocale={initialLocale}>
 						<ToastProvider>
-							<SidebarLoader />
+							{shouldRenderAuthenticatedChrome && <SidebarLoader />}
 							<main className="flex-1 min-w-0 min-h-screen overflow-x-clip pb-24 md:pb-0">
 								{children}
 							</main>
-							{hasSessionCookie && <MobileNav />}
-							{hasSessionCookie && <GlobalSearch />}
+							{shouldRenderAuthenticatedChrome && <MobileNav />}
+							{shouldRenderAuthenticatedChrome && <GlobalSearch />}
 						</ToastProvider>
 					</I18nProvider>
 				</ThemeProvider>

@@ -131,6 +131,19 @@ export function proxy(request: NextRequest) {
       .toLowerCase()
       .startsWith("bearer ") ?? false;
 
+  // Login is public, but authenticated operators can still navigate there
+  // (for example after changing default-page preferences) and should not see
+  // the protected shell/sidebar behind the sign-in form. Server layouts read
+  // request headers, so forward the marker on the request, not only the response.
+  if (pathname === "/login" || pathname === "/login/verify-2fa") {
+    const forwardedHeaders = new Headers(request.headers);
+    forwardedHeaders.set("x-vcontrolhub-public-auth-page", "1");
+    const response = NextResponse.next({
+      request: { headers: forwardedHeaders },
+    });
+    return addSecurityHeaders(response, request);
+  }
+
   // 1) Allow public paths through
   if (isPublicPath(pathname, request.method)) {
     return addSecurityHeaders(NextResponse.next(), request);
