@@ -32,7 +32,7 @@ describe("/api/settings audit coverage", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
     mocks.getAllSettingsMasked.mockResolvedValue({});
-    mocks.isValidSettingKey.mockImplementation((key: string) => ["platform.name", "smtp.pass", "runtime.commandExecutionTimeoutMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit"].includes(key));
+    mocks.isValidSettingKey.mockImplementation((key: string) => ["platform.name", "smtp.pass", "runtime.commandExecutionTimeoutMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit", "runtime.aiProviderListLimit", "runtime.aiConversationListLimit"].includes(key));
     mocks.setManySettings.mockResolvedValue(undefined);
   });
 
@@ -108,6 +108,23 @@ describe("/api/settings audit coverage", () => {
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.operationTaskListLimit", value: "250" },
+    ]);
+  });
+
+  it("accepts bounded AI list limit runtime settings", async () => {
+    const response = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        "runtime.aiProviderListLimit": "80.9",
+        "runtime.aiConversationListLimit": "350.2",
+      }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith([
+      { key: "runtime.aiProviderListLimit", value: "80" },
+      { key: "runtime.aiConversationListLimit", value: "350" },
     ]);
   });
 

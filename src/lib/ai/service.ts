@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
+import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 
 /* ── Safe decrypt helper ──────────────────────────────────── */
 function safeDecryptApiKey(stored: string): string {
@@ -94,10 +95,11 @@ export async function createProvider(input: CreateProviderInput) {
 }
 
 export async function listProviders(userId: string) {
+	const limit = await getAiProviderListLimit();
 	const providers = await prisma.aiProvider.findMany({
 		where: { createdBy: userId },
 		orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
-		take: 100,
+		take: limit,
 	});
   // Mask API keys for listing — only show last 4 chars
   return providers.map((p) => ({
@@ -173,11 +175,12 @@ export async function createConversation(input: CreateConversationInput) {
 }
 
 export async function listConversations(userId: string) {
+	const limit = await getAiConversationListLimit();
 	return prisma.aiConversation.findMany({
 		where: { createdBy: userId },
 		orderBy: { updatedAt: "desc" },
 		include: { provider: { select: { id: true, name: true, type: true } } },
-		take: 200,
+		take: limit,
 	});
 }
 

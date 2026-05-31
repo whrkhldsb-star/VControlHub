@@ -91,6 +91,24 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     unit: "条",
     applies: "立即生效到新的任务中心页面/API 查询",
   },
+  "runtime.aiProviderListLimit": {
+    env: "AI_PROVIDER_LIST_LIMIT",
+    defaultValue: 100,
+    min: 10,
+    max: 500,
+    label: "AI 提供商列表上限",
+    unit: "条",
+    applies: "立即生效到新的 AI 提供商页面/API 查询",
+  },
+  "runtime.aiConversationListLimit": {
+    env: "AI_CONVERSATION_LIST_LIMIT",
+    defaultValue: 200,
+    min: 20,
+    max: 1000,
+    label: "AI 对话列表上限",
+    unit: "条",
+    applies: "立即生效到新的 AI 对话页面/API 查询",
+  },
 } as const;
 
 export type RuntimeSettingKey = keyof typeof RUNTIME_SETTING_DEFINITIONS;
@@ -169,4 +187,12 @@ export async function getSshTerminalRuntimeConfig() {
 
 export async function getOperationTaskListLimit(): Promise<number> {
   return getRuntimeSettingNumber("runtime.operationTaskListLimit");
+}
+
+export async function getAiProviderListLimit(): Promise<number> {
+  return getRuntimeSettingNumber("runtime.aiProviderListLimit");
+}
+
+export async function getAiConversationListLimit(): Promise<number> {
+  return getRuntimeSettingNumber("runtime.aiConversationListLimit");
 }

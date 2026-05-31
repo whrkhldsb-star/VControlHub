@@ -15,6 +15,8 @@ const {
   getCommandRuntimeConfig,
   getSshTerminalRuntimeConfig,
   getOperationTaskListLimit,
+  getAiProviderListLimit,
+  getAiConversationListLimit,
   normalizeRuntimeSettingValue,
 } = await import("./service");
 
@@ -74,5 +76,16 @@ describe("runtime settings", () => {
 
     await expect(getOperationTaskListLimit()).resolves.toBe(250);
     expect(() => normalizeRuntimeSettingValue("runtime.operationTaskListLimit", "9999")).toThrow(/任务中心列表上限/);
+  });
+
+  it("reads AI list limits from runtime settings", async () => {
+    prismaMock.setting.findUnique
+      .mockResolvedValueOnce({ value: "80" })
+      .mockResolvedValueOnce({ value: "350" });
+
+    await expect(getAiProviderListLimit()).resolves.toBe(80);
+    await expect(getAiConversationListLimit()).resolves.toBe(350);
+    expect(() => normalizeRuntimeSettingValue("runtime.aiProviderListLimit", "1")).toThrow(/AI 提供商列表上限/);
+    expect(() => normalizeRuntimeSettingValue("runtime.aiConversationListLimit", "5000")).toThrow(/AI 对话列表上限/);
   });
 });
