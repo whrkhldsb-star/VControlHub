@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T01:50:04Z",
+  "updatedAt": "2026-05-31T02:11:55Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,23 +44,23 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "API-token service/route/client regressions passed 13/13",
+    "tests": "deployment/download page regressions passed 3/3",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /api-tokens 307, /api/api-tokens 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /deployments 307, /downloads 307, /api/deployments 401, /api/downloads 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T01:50:04Z",
-    "target": "API-token list hydration bound",
+    "finishedAt": "2026-05-31T02:11:55Z",
+    "target": "Deployment/download target-server hydration bounds",
     "status": "completed_verified_deployed_committed",
-    "commit": "3713cd9",
-    "summary": "Bound API-token history hydration for growing integration surfaces by adding a newest-first take: 200 cap to listApiTokens() and explicitly using the bounded window from the API Token page before rendering safe token metadata.",
+    "commit": "e1439b5",
+    "summary": "Bound growing VPS target selector hydration on Deployments and Downloads pages by adding take: 200 to enabled server findMany queries while preserving existing ordering and selected safe fields.",
     "validation": [
       "read remediation backlog/state first",
-      "checked git status/remote and process list; no overlapping remediation/build/test process or dirty carry-over found",
+      "checked git status and process list; no overlapping remediation/build/test process or dirty carry-over found",
       "production services active and /api/status healthy before changes",
-      "npx vitest run src/lib/api-token/service.test.ts src/app/api/api-tokens/__tests__/route.test.ts src/app/api-tokens/__tests__/api-token-manager-client.test.tsx passed 13/13",
+      "npx vitest run src/app/deployments/__tests__/page.test.tsx src/app/downloads/__tests__/page.test.tsx passed 3/3",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
@@ -69,11 +69,11 @@
       "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully",
       "readiness probe /api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /api/status 200, /api/api-tokens 401, /api/preferences 401, /api/operation-tasks 401, /api/system-health 401, /api-tokens 307, /preferences 307, /health 307",
+      "production probes: /api/status 200, /deployments 307, /downloads 307, /api/deployments 401, /api/downloads 401",
       "recent vcontrolhub service logs contained no new error/warn matches"
     ],
     "deployment": "Production services restarted successfully and smoke/probes/log checks passed.",
-    "nextTarget": "Continue bounded growing-list cleanup or perform fresh audit when the success counter reaches the configured threshold."
+    "nextTarget": "Fresh audit is due because the success counter reached the configured threshold of 6; run a comprehensive audit before the next remediation batch."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -88,7 +88,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 5,
+    "successfulRemediationRunsSinceFreshAudit": 6,
     "skippedOverlapRuns": 0
   },
   "blockers": []
