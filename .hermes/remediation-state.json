@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T00:04:30Z",
+  "updatedAt": "2026-05-31T00:30:03Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -44,24 +44,24 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings",
-    "tests": "targeted sync service Vitest passed 9/9",
+    "tests": "share-link service/API Vitest passed 7/7",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /files 307, /api/storage/sftp-sync 401, /api/operation-tasks 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws restarted and active; /api/status healthy; /shares 307, /api/share-links 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T00:04:30Z",
-    "target": "Bound SyncJob list hydration for growing sync/task surfaces",
-    "status": "completed_verified_deployed_committed_pending_push",
-    "commit": "cae353f",
-    "summary": "Added a 200-row cap to listSyncJobs() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing SyncJob history and future sync/task UI hydration.",
+    "finishedAt": "2026-05-31T00:30:03Z",
+    "target": "Bound ShareLink list hydration for growing public-link history",
+    "status": "completed_verified_deployed_pending_commit",
+    "commit": null,
+    "summary": "Added a 200-row newest-first cap to listShareLinks() and a regression proving the Prisma findMany query remains bounded, reducing memory/query risk for growing public share-link history while preserving storage-node and creator metadata.",
     "validation": [
       "read remediation backlog/state first",
       "checked git status and confirmed local HEAD matched origin/main before editing",
       "checked no overlapping remediation/build/test process",
       "production services and /api/status healthy before work",
-      "npx vitest run src/lib/sync/service.test.ts passed 9/9",
+      "npx vitest run src/lib/share-link/__tests__/service.test.ts src/app/api/share-links/__tests__/route.test.ts passed 7/7",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
@@ -69,7 +69,7 @@
       "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully",
       "readiness probe /api/status returned healthy",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes: /files 307, /api/storage/sftp-sync 401, /api/operation-tasks 401, /api/status 200",
+      "production probes: /shares 307, /api/share-links 401, /api/status 200",
       "recent vcontrolhub service logs contained no new error/warn matches",
       "git diff --check passed"
     ],
@@ -89,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": []

@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    shareLink: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    shareLink: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -11,7 +11,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: vi.fn(async () => ({ allowed: true })),
 }));
 
-const { createShareLink, normalizeSharePath, resolveShareToken } = await import("../service");
+const { createShareLink, listShareLinks, normalizeSharePath, resolveShareToken } = await import("../service");
 
 describe("share link service", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -30,6 +30,17 @@ describe("share link service", () => {
     expect(result.token).toHaveLength(48);
     expect(mockPrisma.shareLink.create.mock.calls[0][0].data.tokenHash).not.toBe(result.token);
     expect(mockPrisma.shareLink.create.mock.calls[0][0].data.path).toBe("docs/report.pdf");
+  });
+
+  it("bounds share-link list hydration for growing public-link history", async () => {
+    mockPrisma.shareLink.findMany.mockResolvedValueOnce([]);
+
+    await listShareLinks();
+
+    expect(mockPrisma.shareLink.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }));
   });
 
   it("normalizes share paths and rejects traversal or unsafe absolute paths", () => {

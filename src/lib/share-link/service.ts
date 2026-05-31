@@ -66,7 +66,14 @@ export async function createShareLink(input: {
 }
 
 export async function listShareLinks() {
-  return prisma.shareLink.findMany({ orderBy: { createdAt: "desc" }, include: { storageNode: { select: { id: true, name: true, driver: true } }, creator: { select: { username: true, displayName: true } } } });
+  return prisma.shareLink.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    include: {
+      storageNode: { select: { id: true, name: true, driver: true } },
+      creator: { select: { username: true, displayName: true } },
+    },
+  });
 }
 
 export async function revokeShareLink(id: string) {
