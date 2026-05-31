@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T07:38:01.943Z",
+  "updatedAt": "2026-05-31T10:23:23.516259Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,35 +51,32 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "settings-client targeted Vitest passed: 1 file / 9 tests",
+    "tests": "dashboard-localized/dashboard-analytics/mobile-nav targeted Vitest passed: 3 files / 10 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings 307, /api/settings 401, /api/status 200; recent service logs clean; browser light-theme Settings visual check confirmed runtime labels and disabled SMTP fields are readable"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /settings 307, /api/dashboard/analytics 401; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T07:37:41.968Z",
-    "target": "Visual-QA-derived Settings SMTP disabled-state polish",
-    "status": "completed_verified_deployed_committed",
-    "summary": "During the required real browser visual QA gate, SMTP settings still looked active when SMTP was disabled. SMTP connection fields now become disabled with clear helper text and readable light-theme styling until the SMTP toggle is enabled; Settings switches now expose role=switch labels for accessibility.",
+    "finishedAt": "2026-05-31T10:23:23.516259Z",
+    "target": "Completion-gate dashboard localization and client-boundary polish",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Converged existing dirty dashboard localization work: localized dashboard summary/recent activity/sign-out copy through the active i18n context and mapped dashboard recent activity/audit log props to JSON-safe shapes before the Server→Client boundary.",
     "validation": [
       "No overlapping remediation/build/test process detected at start",
-      "Git and origin/main were aligned at start",
-      "Browser login and Settings visual QA observed SMTP disabled fields looked active before the fix",
-      "SettingsClient regression passed: SMTP fields are disabled/readable until enabled and become enabled after toggling SMTP on",
-      "npx vitest run src/app/settings/__tests__/settings-client.test.tsx passed 9/9",
+      "Git and origin/main were aligned at start; existing dirty files were inspected and continued instead of starting a new topic",
+      "npx vitest run src/app/__tests__/dashboard-localized-sections.test.tsx src/app/__tests__/dashboard-analytics-panel.test.tsx src/components/__tests__/mobile-nav.test.tsx passed 10/10",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
-      "Production services restarted and /api/status returned healthy",
+      "Production services restarted with .next ownership repair and /api/status returned healthy",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /settings 307, /api/settings 401, /api/status 200",
-      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no new error/warn matches",
-      "Post-deploy browser light-theme visual check confirmed disabled SMTP fields and runtime labels are readable"
+      "Route probes returned /login 200, / 307, /settings 307, /api/dashboard/analytics 401, /api/status 200",
+      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no new error/warn matches"
     ],
-    "deployment": "Deployed by rebuilding, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, and passing smoke/probes/log checks.",
-    "nextTarget": "Commit/push this Settings visual-QA SMTP disabled-state fix, then continue checklist completion visual QA batches."
+    "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, and passing smoke/probes/log checks.",
+    "nextTarget": "Commit/push this dashboard localization/client-boundary polish, then continue completion visual QA batches."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -94,7 +91,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
