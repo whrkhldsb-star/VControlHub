@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T11:04:13Z",
     "target": "Completion-gate API-token operator-flow QA",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Fixed API Token destructive revoke UX so failed revoke API calls keep the confirmation dialog open with an inline backend error instead of closing the dialog and implying success while the token remains active.",
     "validation": [
       "Read backlog/state and confirmed active full-product QA remediation job 9e36e64a75ae, not removed job b8833e83bb1f",
@@ -77,8 +77,8 @@
       "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches"
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing smoke/probes/log checks.",
-    "nextTarget": "Commit/push this API-token revoke failure UX fix, then continue completion QA batches with real browser/user-path verification across remaining operator flows.",
-    "commit": null
+    "nextTarget": "Continue completion QA batches with real browser/user-path verification across remaining operator flows.",
+    "commit": "1cf78e168e8bd321b01c398591197aecea9586f7"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
