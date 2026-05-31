@@ -4,7 +4,7 @@
  * Body: { storageNodeId, relativePath, filename?, album? }
  */
 import * as crypto from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -18,6 +18,8 @@ import {
   mimeTypeFromExt,
   UPLOAD_DIR,
 } from "@/lib/image-bed/constants";
+import { logError } from "@/lib/logging";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
 const publishSchema = z.object({
@@ -79,7 +81,17 @@ export async function POST(request: Request) {
           { status: 400 },
         );
 
-      // Read file from storage
+      const readAccess = await assertStorageAccess({
+        session,
+        storageNodeId,
+        relativePath,
+        operation: "read",
+      });
+      if (!readAccess.allowed) {
+        return NextResponse.json({ error: readAccess.reason }, { status: 403 });
+      }
+
+      // Read file from storage after the exact storage path has been authorized.
       const buffer = await readFile(sourcePath);
       const originalName = filename || path.basename(relativePath);
       const storageKey = `${crypto.randomUUID()}${ext}`;
@@ -97,25 +109,36 @@ export async function POST(request: Request) {
         });
       }
 
-      // Save to image-bed directory
+      // Save to image-bed directory before creating the index row. If the DB
+      // write fails, compensate by deleting the just-written served file so the
+      // API cannot return upload failure while leaving an orphan public object.
       await mkdir(UPLOAD_DIR, { recursive: true });
-      await writeFile(path.join(UPLOAD_DIR, storageKey), buffer);
+      const imagePath = path.join(UPLOAD_DIR, storageKey);
+      await writeFile(imagePath, buffer);
 
       // Create DB record
-      const image = await prisma.imageUpload.create({
-        data: {
-          filename: originalName,
-          storageKey,
-          mimeType: mimeTypeFromExt(ext),
-          sizeBytes: buffer.byteLength,
-          checksum,
-          album: album?.trim() || undefined,
-          isPublic: true,
-          storageNodeId,
-          relativePath,
-          userId: session.userId,
-        },
-      });
+      let image;
+      try {
+        image = await prisma.imageUpload.create({
+          data: {
+            filename: originalName,
+            storageKey,
+            mimeType: mimeTypeFromExt(ext),
+            sizeBytes: buffer.byteLength,
+            checksum,
+            album: album?.trim() || undefined,
+            isPublic: true,
+            storageNodeId,
+            relativePath,
+            userId: session.userId,
+          },
+        });
+      } catch (error) {
+        await rm(imagePath, { force: true }).catch((cleanupError) => {
+          logError("image-bed:publish-from-storage-cleanup", cleanupError);
+        });
+        throw error;
+      }
 
       return NextResponse.json(
         {
