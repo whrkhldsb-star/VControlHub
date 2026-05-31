@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
+import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
@@ -21,6 +22,9 @@ export function NotificationBell() {
 
 	// Fallback: poll if WS not connected
 	const [polledUnread, setPolledUnread] = useState(0);
+	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
+		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
+	);
 	const effectiveUnread = wsConnected ? unreadCount : polledUnread;
 
 	const fetchUnread = useCallback(async () => {
@@ -45,11 +49,21 @@ export function NotificationBell() {
 
 	// Poll fallback when WS not connected
 	useEffect(() => {
-		if (wsConnected) return;
+		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(window.localStorage, 30));
+		window.addEventListener("storage", onStorage);
+		window.addEventListener("vps-preferences-updated", onStorage);
+		return () => {
+			window.removeEventListener("storage", onStorage);
+			window.removeEventListener("vps-preferences-updated", onStorage);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (wsConnected || refreshIntervalSeconds <= 0) return;
 		const timer = window.setTimeout(() => { void fetchUnread(); }, 0);
-		const interval = setInterval(fetchUnread, 30_000);
+		const interval = setInterval(fetchUnread, refreshIntervalSeconds * 1000);
 		return () => { window.clearTimeout(timer); clearInterval(interval); };
-	}, [fetchUnread, wsConnected]);
+	}, [fetchUnread, wsConnected, refreshIntervalSeconds]);
 
 	// Toast effect when new notification arrives via WS
 	useEffect(() => {
@@ -137,7 +151,13 @@ export function NotificationBell() {
 					<div className="sticky top-0 bg-slate-950/90 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
 						<span className="text-sm font-medium text-white">通知</span>
 						<div className="flex items-center gap-2">
-							{wsConnected && <span className="text-[10px] text-emerald-400/70">实时</span>}
+							{wsConnected ? (
+								<span className="text-[10px] text-emerald-400/70">实时</span>
+							) : refreshIntervalSeconds <= 0 ? (
+								<span className="text-[10px] text-slate-500">手动</span>
+							) : (
+								<span className="text-[10px] text-slate-500">轮询 {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
+							)}
 							{effectiveUnread > 0 && (
 								<button onClick={markAllRead} className="text-[11px] text-cyan-400/80 hover:text-cyan-300 transition">
 									全部已读

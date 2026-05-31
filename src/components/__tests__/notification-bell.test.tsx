@@ -2,6 +2,7 @@ import type React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 import { NotificationBell } from "../notification-bell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -31,6 +32,7 @@ describe("NotificationBell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
+    window.localStorage.clear();
     wsState.connected = false;
     wsState.lastNotification = null;
     wsState.unreadCount = 0;
@@ -101,6 +103,31 @@ describe("NotificationBell", () => {
 
     const notificationLink = (await screen.findByText("危险通知入口")).closest("a");
     expect(notificationLink).toHaveAttribute("href", "/notifications");
+  });
+
+  it("uses the saved global refresh interval for fallback polling", async () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 60 }));
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+
+    render(<NotificationBell />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+    expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
+  });
+
+  it("disables fallback unread-count polling when the saved refresh preference is manual", async () => {
+    vi.useFakeTimers();
+    window.localStorage.setItem("vps-preferences", JSON.stringify({ autoRefreshInterval: 0 }));
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+
+    render(<NotificationBell />);
+
+    expect(setIntervalSpy).not.toHaveBeenCalledWith(expect.any(Function), 30_000);
+    expect(csrfFetch).not.toHaveBeenCalled();
   });
 
   it("uses client-side Next links for notification navigation targets", async () => {
