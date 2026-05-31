@@ -48,9 +48,11 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { prisma } from "@/lib/db";
 import DeploymentsPage from "../page";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
+const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
 describe("DeploymentsPage", () => {
   beforeEach(() => {
@@ -87,5 +89,16 @@ describe("DeploymentsPage", () => {
     expect(await screen.findByText("vcontrolhub-portable")).toBeInTheDocument();
     expect(screen.getByText("env.production.example")).toBeInTheDocument();
     expect(screen.getByText("deploy.sh")).toBeInTheDocument();
+  });
+
+  it("bounds enabled target server hydration for the deployment form", async () => {
+    render(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { enabled: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: { id: true, name: true, host: true, username: true },
+    }));
   });
 });

@@ -17,6 +17,7 @@ export default async function DownloadsPage() {
 
 	const servers = await prisma.server.findMany({
 		where: { enabled: true },
+		take: 200,
 		select: {
 			id: true,
 			name: true,

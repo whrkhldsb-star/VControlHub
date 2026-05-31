@@ -27,7 +27,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const [runs, templates, servers] = await Promise.all([
 		listDeploymentRuns(),
 		listDeploymentTemplates(),
-		prisma.server.findMany({ where: { enabled: true }, orderBy: { createdAt: "desc" }, select: { id: true, name: true, host: true, username: true } }),
+		prisma.server.findMany({ where: { enabled: true }, orderBy: { createdAt: "desc" }, take: 200, select: { id: true, name: true, host: true, username: true } }),
 	]);
 	const latestRun = runs[0];
 	return (
