@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T02:56:23Z",
+  "updatedAt": "2026-05-31T03:15:48Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,34 +51,18 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; /api/status healthy; /scheduled-tasks and /templates returned 307, guarded automation APIs returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T02:56:23Z",
-    "target": "Bound scheduled-task and command-template list hydration for growing automation surfaces",
-    "status": "completed_verified_deployed",
-    "commit": "2c4ab56",
-    "summary": "Added explicit 200-row caps to scheduled task list hydration, command template list hydration, and deployment launch template listing. This protects automation/template pages and APIs from unbounded query growth while preserving newest-first and built-in-first ordering.",
+    "finishedAt": "2026-05-31T03:15:48Z",
+    "target": "Record product requirement for operator-tunable runtime settings",
+    "status": "backlog_updated_no_runtime_change",
+    "commit": null,
+    "summary": "Captured the product requirement that stability/UX knobs such as SSH terminal heartbeat/keepalive, command execution limits, SFTP sync timeouts, refresh intervals, and appropriate list limits should be configurable from an administrator settings surface rather than only hidden in environment variables.",
     "validation": [
-      "read remediation backlog/state first",
-      "checked git status and recent commits",
-      "checked process list; no overlapping remediation/build/test process found",
-      "reviewed growing findMany candidates and selected a coherent automation list-bound batch",
-      "added scheduled-task list regression asserting take: 200 and creator metadata include",
-      "added command-template list regression asserting take: 200 and built-in-first ordering",
-      "updated deployment template regression asserting take: 200",
-      "npx vitest run src/lib/scheduled-task/__tests__/service.test.ts src/lib/command-template/__tests__/service.test.ts src/lib/deployment/__tests__/service.test.ts passed 13/13",
-      "npm run typecheck passed",
-      "npm run lint passed with existing client-effect warnings only",
-      "npm run build passed",
-      "npm run build:runtime passed",
-      "restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service",
-      "repaired .next ownership to vcontrolhub:vcontrolhub after root build and restarted services again",
-      "systemctl reported vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "production probes returned /scheduled-tasks 307, /templates 307, /api/scheduled-tasks 401, /api/command-templates 401, /api/deployments 401, /api/status 200",
-      "recent vcontrolhub service logs contained no new error/warn matches",
-      "git diff --check passed"
+      "restored backlog/state from git after line-numbered read mistake",
+      "updated backlog with a new unchecked productization item",
+      "updated state next target; no runtime code changed"
     ],
-    "deployment": "Production services restarted successfully; readiness, smoke test, route probes, and log checks passed.",
-    "nextTarget": "Continue backlog-driven remediation from current audit candidates: remaining bounded growing-list surfaces, API auth-route drift, long-running storage/SFTP background task UX, or newly discovered product gaps."
+    "deployment": "Not required; backlog/state metadata only.",
+    "nextTarget": "Prioritize an admin Settings/API slice for operator-tunable runtime settings, then continue backlog-driven remediation."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -96,5 +80,6 @@
     "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
-  "blockers": []
+  "blockers": [],
+  "productDirection": "Favor exposing safe operational and UX tuning knobs in administrator settings instead of hard-coding or env-only configuration; keep secrets and truly infrastructure-only values env-only."
 }
