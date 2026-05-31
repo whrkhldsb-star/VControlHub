@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T19:39:30Z",
+  "updatedAt": "2026-05-31T20:07:47Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,39 +51,39 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Dashboard analytics targeted Vitest passed: 1 file / 3 tests",
+    "tests": "Notification Bell targeted Vitest passed: 1 file / 7 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /settings 307, /api/dashboard/analytics 401, /api/preferences 401, /api/notifications 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /notifications 307, /api/notifications 401, /api/preferences 401; recent service logs clean; browser DOM proved accessible notification popover semantics"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T19:38:05Z",
-    "target": "Completion-gate QA batch 1 AI provider setup accessibility/user-path QA",
+    "finishedAt": "2026-05-31T20:07:47Z",
+    "target": "Completion-gate QA batch 1 notification dropdown light-theme/accessibility/user-path QA",
     "status": "completed_verified_deployed_committed",
-    "summary": "Production authenticated QA exercised the AI page empty state and no-provider new-conversation flow. The provider setup overlay opened correctly and avoided creating a conversation without a provider, but lacked modal dialog semantics for assistive technologies; added labelled dialog semantics and regression coverage.",
+    "summary": "Production authenticated QA exercised the dashboard notification dropdown in dark and light themes. The light-theme dropdown rendered as a mixed dark/light popover with weak empty-state contrast and lacked explicit popover/dialog semantics; added accessible popover attributes, Escape dismissal, semantic notification list markup, and light-theme contrast improvements.",
     "validation": [
-      "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae, with old removed job b8833e83bb1f only recorded as removedBacklogCronJobId",
-      "Checked non-overlap state and started from a clean worktree with only production npm start processes present",
-      "Created a temporary qa_cron_ admin user for production browser QA, logged into /login, opened /ai, clicked + 新对话 in the no-provider empty state, and observed the provider setup panel",
-      "Added labelled role=dialog/aria-modal semantics to AiProviderPanel",
-      "Added regression proving no enabled provider opens the accessible setup dialog and does not POST /api/ai/conversations",
-      "npx vitest run src/app/ai/__tests__/ai-client-destructive-actions.test.tsx passed 5/5",
+      "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; old removed job b8833e83bb1f remains only as removedBacklogCronJobId, not current state",
+      "Checked non-overlap state and started from a clean worktree with no active build/test/remediation process",
+      "Created temporary qa_cron_ admin user for production browser QA, logged in to /login, opened the notification dropdown in dark and light themes, and visually confirmed the light-theme dropdown used a mixed dark/light surface with weak empty-state contrast and no popover semantics",
+      "Added notification trigger aria-haspopup/aria-expanded/aria-controls, labelled role=dialog popover semantics, Escape-to-close behavior, semantic notification list markup, stronger empty-state contrast, and light-theme panel/body/footer classes",
+      "Added regression proving the dropdown exposes an accessible dialog, keeps trigger expanded state accurate, improves empty-state contrast class, and closes with Escape",
+      "npx vitest run src/components/__tests__/notification-bell.test.tsx passed 7/7",
       "git diff --check passed",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
       "Production services restarted after repairing .next ownership, and /api/status returned healthy",
-      "Production browser DOM after restart proved the AI provider panel has role=dialog, aria-modal=true, and accessible name AI 提供商管理",
+      "Production browser DOM after restart proved #notification-popover has role=dialog, aria-modal=false, labelled title 通知, trigger popover attributes, and stronger empty-state classes",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /login 200, / 307, /ai 307, /api/ai/providers 401, /api/status 200",
+      "Route probes returned /login 200, / 307, /notifications 307, /api/notifications 401, /api/preferences 401, /api/status 200",
       "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches",
       "Deleted all temporary qa_cron_ users and verified remaining count is 0"
     ],
     "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, browser DOM proof, and log checks.",
-    "nextTarget": "Continue completion QA batch 1 with notifications dropdown interactions, preferences/default-page real side effects, global search result breadth, and responsive/mobile layout before rotating to batch 2.",
-    "commit": "57f9922"
+    "nextTarget": "Continue completion QA batch 1 with global search result breadth, preferences/default-page real side effects, and responsive/mobile layout before rotating to batch 2.",
+    "commit": "c4933ab"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -98,7 +98,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 8,
+    "successfulRemediationRunsSinceFreshAudit": 9,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
