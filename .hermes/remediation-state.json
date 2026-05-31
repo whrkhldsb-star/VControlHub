@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T21:39:18Z",
     "target": "Completion-gate QA batch 1 preferences/default-page real side-effect verification",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Production browser QA exercised default-page preference side effects. A successful /api/preferences save persisted /files and the next login redirected to /files; a failed missing-CSRF write returned 403 without changing visible stored preference. Fixed the Preferences client so localStorage and vps-preferences-updated are published only after the server confirms the effective preference values, preventing other tabs/widgets from reacting to a preference save that never persisted.",
     "validation": [
       "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; removed job b8833e83bb1f is not current",
@@ -84,8 +84,8 @@
       "Deleted temporary QA users matching qa_pref_5331 and qa_cron_* and verified remaining count is 0"
     ],
     "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, QA-user cleanup, and log checks.",
-    "nextTarget": "Close out the pending commit for this preferences/default-page QA slice, then continue completion QA batch 1 with global search result breadth and responsive/mobile layout before rotating to QA batch 2 VPS/server management and SSH terminal.",
-    "commit": null
+    "nextTarget": "Continue completion QA batch 1 with global search result breadth and responsive/mobile layout before rotating to QA batch 2 VPS/server management and SSH terminal.",
+    "commit": "8155f73"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
