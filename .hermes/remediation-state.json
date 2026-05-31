@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T20:07:47Z",
+  "updatedAt": "2026-05-31T21:10:57Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,39 +51,41 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Notification Bell targeted Vitest passed: 1 file / 7 tests",
+    "tests": "Proxy/layout targeted Vitest passed: 2 files / 10 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /notifications 307, /api/notifications 401, /api/preferences 401; recent service logs clean; browser DOM proved accessible notification popover semantics"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, /login/verify-2fa 200, / 307, /api/preferences 401; recent service logs clean; browser DOM proved direct /login with an active session renders no sidebar/nav/global-search chrome"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T20:07:47Z",
-    "target": "Completion-gate QA batch 1 notification dropdown light-theme/accessibility/user-path QA",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Production authenticated QA exercised the dashboard notification dropdown in dark and light themes. The light-theme dropdown rendered as a mixed dark/light popover with weak empty-state contrast and lacked explicit popover/dialog semantics; added accessible popover attributes, Escape dismissal, semantic notification list markup, and light-theme contrast improvements.",
+    "finishedAt": "2026-05-31T21:10:57Z",
+    "target": "Completion-gate QA batch 1 login/default-page authenticated public-auth-page chrome verification",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Production authenticated QA verified the login/default-page user path. An operator logged in successfully, then direct navigation back to /login showed the public login form but also rendered the protected authenticated shell around it. Fixed proxy/request-header forwarding for public auth pages and gated SidebarLoader, mobile nav, and global search behind the same public-auth-page predicate.",
     "validation": [
-      "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; old removed job b8833e83bb1f remains only as removedBacklogCronJobId, not current state",
-      "Checked non-overlap state and started from a clean worktree with no active build/test/remediation process",
-      "Created temporary qa_cron_ admin user for production browser QA, logged in to /login, opened the notification dropdown in dark and light themes, and visually confirmed the light-theme dropdown used a mixed dark/light surface with weak empty-state contrast and no popover semantics",
-      "Added notification trigger aria-haspopup/aria-expanded/aria-controls, labelled role=dialog popover semantics, Escape-to-close behavior, semantic notification list markup, stronger empty-state contrast, and light-theme panel/body/footer classes",
-      "Added regression proving the dropdown exposes an accessible dialog, keeps trigger expanded state accurate, improves empty-state contrast class, and closes with Escape",
-      "npx vitest run src/components/__tests__/notification-bell.test.tsx passed 7/7",
+      "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; removed job b8833e83bb1f is not current",
+      "Detected dirty worktree from a previous/partial QA batch and converged that work instead of starting a new topic",
+      "Verified old behavior in production browser: authenticated direct /login rendered login form plus sidebar/nav/global-search/user controls",
+      "Fixed src/proxy.ts to forward x-vcontrolhub-public-auth-page on request headers via NextResponse.next({ request: { headers } }) so server layouts can read it",
+      "Fixed RootLayout to gate SidebarLoader, MobileNav, and GlobalSearch on shouldRenderAuthenticatedChrome",
+      "Added proxy regression proving login remains public with security headers and the auth-page marker is forwarded as middleware request override, not leaked as a response header",
+      "Added layout regression proving an active session cookie plus public-auth-page marker hides sidebar, mobile nav, and global search while normal authenticated sessions still render chrome",
+      "npx vitest run src/__tests__/proxy.test.ts src/app/__tests__/layout.test.tsx passed 10/10",
       "git diff --check passed",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
-      "Production services restarted after repairing .next ownership, and /api/status returned healthy",
-      "Production browser DOM after restart proved #notification-popover has role=dialog, aria-modal=false, labelled title 通知, trigger popover attributes, and stronger empty-state classes",
+      "Production services restarted: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy",
+      "Production browser after restart: login -> dashboard succeeded, then direct /login with session showed login form with hasSidebar=false, navCount=0, hasGlobalSearch=false",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /login 200, / 307, /notifications 307, /api/notifications 401, /api/preferences 401, /api/status 200",
+      "Route probes returned /login 200, /login/verify-2fa 200, / 307, /api/status 200, /api/preferences 401",
       "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches",
-      "Deleted all temporary qa_cron_ users and verified remaining count is 0"
+      "Deleted temporary QA users matching qa_login_chrome_* and qa_cron_* and verified remaining count is 0"
     ],
-    "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, browser DOM proof, and log checks.",
-    "nextTarget": "Continue completion QA batch 1 with global search result breadth, preferences/default-page real side effects, and responsive/mobile layout before rotating to batch 2.",
-    "commit": "c4933ab"
+    "deployment": "Deployed by rebuilding, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing readiness, smoke, route probes, browser DOM proof, QA-user cleanup, and log checks.",
+    "nextTarget": "Continue completion QA batch 1 with global search result breadth, preferences/default-page real side effects, and responsive/mobile layout; then rotate to QA batch 2 VPS/server management and SSH terminal.",
+    "commit": null
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -98,7 +100,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 9,
+    "successfulRemediationRunsSinceFreshAudit": 10,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
