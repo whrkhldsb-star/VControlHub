@@ -90,13 +90,13 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
   };
 
   const revokeToken = async (token: SafeApiToken) => {
-    setTokenPendingRevoke(null);
     setRevokingId(token.id);
     setError(null);
-try {
- const data = await csrfFetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
- setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
- } catch (err) {
+    try {
+      const data = await csrfFetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
+      setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
+      setTokenPendingRevoke(null);
+    } catch (err) {
       setError(err instanceof Error ? err.message : "撤销 Token 失败");
     } finally {
       setRevokingId(null);

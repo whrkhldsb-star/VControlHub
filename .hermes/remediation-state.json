@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T10:57:13.591129Z",
+  "updatedAt": "2026-05-31T11:04:13Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,33 +51,34 @@
     "date": "2026-05-31",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "dashboard-localized/dashboard-analytics/mobile-nav targeted Vitest passed: 3 files / 10 tests",
+    "tests": "API-token client/API/service targeted Vitest passed: 3 files / 14 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /login 200, / 307, /settings 307, /api/dashboard/analytics 401; recent service logs clean"
+    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /api-tokens 307, /api/api-tokens 401, /login 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T10:23:23.516259Z",
-    "target": "Completion-gate dashboard localization and client-boundary polish",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Converged existing dirty dashboard localization work: localized dashboard summary/recent activity/sign-out copy through the active i18n context and mapped dashboard recent activity/audit log props to JSON-safe shapes before the Server→Client boundary.",
+    "finishedAt": "2026-05-31T11:04:13Z",
+    "target": "Completion-gate API-token operator-flow QA",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Fixed API Token destructive revoke UX so failed revoke API calls keep the confirmation dialog open with an inline backend error instead of closing the dialog and implying success while the token remains active.",
     "validation": [
-      "No overlapping remediation/build/test process detected at start",
-      "Git and origin/main were aligned at start; existing dirty files were inspected and continued instead of starting a new topic",
-      "npx vitest run src/app/__tests__/dashboard-localized-sections.test.tsx src/app/__tests__/dashboard-analytics-panel.test.tsx src/components/__tests__/mobile-nav.test.tsx passed 10/10",
+      "Read backlog/state and confirmed active full-product QA remediation job 9e36e64a75ae, not removed job b8833e83bb1f",
+      "No overlapping remediation/build/test process detected beyond production npm start and editor TypeScript servers",
+      "Started from clean git state and chose QA batch 5 API Token operator flow",
+      "npx vitest run src/app/api-tokens/__tests__/api-token-manager-client.test.tsx src/app/api/api-tokens/__tests__/route.test.ts src/lib/api-token/service.test.ts passed 14/14",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
-      "Production services restarted with .next ownership repair and /api/status returned healthy",
+      "Production services restarted, .next ownership repaired, and /api/status returned healthy",
       "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /login 200, / 307, /settings 307, /api/dashboard/analytics 401, /api/status 200",
-      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no new error/warn matches"
+      "Route probes returned /api-tokens 307, /api/api-tokens 401, /login 200, /api/status 200",
+      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches"
     ],
-    "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, and passing smoke/probes/log checks.",
-    "nextTarget": "Commit/push this dashboard localization/client-boundary polish, then continue completion visual QA batches.",
-    "commit": "1d92fa8d59f1b8984f850f8ec2626b2b343f6f2a"
+    "deployment": "Deployed by rebuilding, repairing .next ownership, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then passing smoke/probes/log checks.",
+    "nextTarget": "Commit/push this API-token revoke failure UX fix, then continue completion QA batches with real browser/user-path verification across remaining operator flows.",
+    "commit": null
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -92,7 +93,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

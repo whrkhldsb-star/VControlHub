@@ -67,6 +67,24 @@ describe("ApiTokenManagerClient", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
+	it("keeps the revoke dialog open with an inline error when the API revoke fails", async () => {
+		const fetchMock = vi.fn().mockResolvedValue({
+			ok: false,
+			status: 500,
+			json: async () => ({ error: "数据库暂时不可用" }),
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(<ApiTokenManagerClient initialTokens={[token]} allowedScopes={["read", "health:read"]} />);
+		fireEvent.click(screen.getByRole("button", { name: "撤销 CLI" }));
+		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "确认撤销" }));
+
+		expect(await screen.findByText("数据库暂时不可用")).toBeInTheDocument();
+		expect(screen.getByRole("dialog", { name: "确认撤销 API Token" })).toBeInTheDocument();
+		expect(within(dialog).queryByText("已撤销")).not.toBeInTheDocument();
+	});
+
 	it("revokes an API token after in-app confirmation and updates the list", async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
