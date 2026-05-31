@@ -108,6 +108,16 @@ export function NotificationBell() {
 		return () => document.removeEventListener("mousedown", handleClick);
 	}, []);
 
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				setIsOpen(false);
+			}
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, []);
+
 	const togglePanel = async () => {
 		if (!isOpen) await fetchList();
 		setIsOpen(!isOpen);
@@ -131,6 +141,9 @@ export function NotificationBell() {
 				onClick={togglePanel}
 				className="relative flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition"
 				aria-label="通知"
+				aria-haspopup="dialog"
+				aria-expanded={isOpen}
+				aria-controls="notification-popover"
 			>
 				<svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -147,9 +160,15 @@ export function NotificationBell() {
 			</button>
 
 			{isOpen && (
-				<div className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.08] bg-slate-950/95 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto">
-					<div className="sticky top-0 bg-slate-950/90 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
-						<span className="text-sm font-medium text-white">通知</span>
+				<div
+					id="notification-popover"
+					role="dialog"
+					aria-modal="false"
+					aria-labelledby="notification-popover-title"
+					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.12] bg-slate-950/98 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto light:border-slate-200 light:bg-white"
+				>
+					<div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between light:border-slate-200 light:bg-white/95">
+						<span id="notification-popover-title" className="text-sm font-medium text-white light:text-slate-900">通知</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
 								<span className="text-[10px] text-emerald-400/70">实时</span>
@@ -166,31 +185,32 @@ export function NotificationBell() {
 						</div>
 					</div>
 					{feedback && (
-						<div role="alert" className="border-b border-rose-400/10 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+						<div role="alert" className="border-b border-rose-400/10 bg-rose-500/10 px-4 py-2 text-xs text-rose-200 light:text-rose-700">
 							{feedback.message}
 						</div>
 					)}
 					{notifications.length === 0 && !feedback ? (
-						<div className="p-6 text-center text-xs text-slate-500">暂无通知</div>
+						<div className="p-6 text-center text-xs text-slate-400 light:text-slate-600">暂无通知</div>
 					) : notifications.length > 0 ? (
-						<div className="divide-y divide-white/[0.04]">
+						<ul className="divide-y divide-white/[0.04] light:divide-slate-200" aria-label="最近通知">
 							{notifications.slice(0, 10).map((n) => (
-								<Link
-									key={n.id}
-									href={getSafeNotificationActionUrl(n.actionUrl)}
-									className={`block px-4 py-3 hover:bg-white/[0.04] transition ${n.isRead ? "opacity-60" : ""}`}
-								>
-									<div className="flex items-center gap-2">
-										{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0" />}
-										<span className={`text-xs font-medium truncate ${n.isRead ? "text-slate-500" : "text-white"}`}>{n.title}</span>
-									</div>
-									<p className="mt-1 text-[11px] text-slate-600 truncate">{n.message}</p>
-								</Link>
+								<li key={n.id}>
+									<Link
+										href={getSafeNotificationActionUrl(n.actionUrl)}
+										className={`block px-4 py-3 hover:bg-white/[0.04] transition light:hover:bg-slate-100 ${n.isRead ? "opacity-70" : ""}`}
+									>
+										<div className="flex items-center gap-2">
+											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0" />}
+											<span className={`text-xs font-medium truncate ${n.isRead ? "text-slate-400 light:text-slate-600" : "text-white light:text-slate-900"}`}>{n.title}</span>
+										</div>
+										<p className="mt-1 text-[11px] text-slate-500 light:text-slate-600 truncate">{n.message}</p>
+									</Link>
+								</li>
 							))}
-						</div>
+						</ul>
 					) : null}
-					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/90">
-						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition">
+					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/95 light:border-slate-200 light:bg-white/95">
+						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:text-cyan-700 light:hover:text-cyan-800">
 							查看全部通知 →
 						</Link>
 					</div>

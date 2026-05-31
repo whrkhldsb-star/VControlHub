@@ -130,6 +130,29 @@ describe("NotificationBell", () => {
     expect(csrfFetch).not.toHaveBeenCalled();
   });
 
+  it("renders the dropdown as an accessible popover and closes it with Escape", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ unreadCount: 0 })
+      .mockResolvedValueOnce({ unreadCount: 0, notifications: [] });
+
+    render(<NotificationBell />);
+    const trigger = screen.getByRole("button", { name: "通知" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(trigger);
+
+    expect(await screen.findByRole("dialog", { name: "通知" })).toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("暂无通知")).toHaveClass("text-slate-400");
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "通知" })).not.toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("uses client-side Next links for notification navigation targets", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch)
