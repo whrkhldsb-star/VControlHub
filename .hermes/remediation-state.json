@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T03:54:30Z",
+  "updatedAt": "2026-05-31T04:20:35Z",
   "mode": "backlog_driven_autonomous_remediation_and_optimization",
   "currentCronJobId": "b8833e83bb1f",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -58,23 +58,23 @@
     "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /settings returned 307, /api/settings /api/storage/sftp-sync /api/commands returned 401, /api/status returned 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T03:54:30Z",
-    "target": "Productize operator-tunable runtime settings first slice",
+    "finishedAt": "2026-05-31T04:20:35Z",
+    "target": "Expose SSH terminal runtime tuning settings",
     "status": "completed_verified_deployed_committed",
-    "commit": "1c345b5",
-    "summary": "Added a non-sensitive runtime settings service and admin Settings UI/API fields for command execution timeout, output limit, stale-running recovery window, command heartbeat, command maintenance scan interval, and SFTP per-directory sync timeout. Command execution, maintenance worker scheduling, and SFTP sync now read these persisted settings with env/default fallback so operator changes create real side effects instead of being saved-only preferences.",
+    "commit": "9fe5fff",
+    "summary": "Extended non-sensitive runtime tuning to SSH terminal connection stability. Admin Settings now exposes bounded SSH WebSocket heartbeat interval, SSH keepalive interval, and SSH keepalive tolerance controls; the settings API validates/normalizes them; ssh-ws-proxy reads persisted values with env/default fallback for its heartbeat timer and per-connection ssh2 keepalives.",
     "validation": [
-      "Targeted Vitest passed: runtime settings, settings API/client, command worker/service, SFTP sync (36/36)",
+      "Targeted Vitest passed: runtime settings, Settings client, Settings API, SSH-WS proxy config (21/21)",
       "npm run typecheck passed",
       "npm run lint passed with existing client-effect warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
       "Production services restarted and smoke test passed 19/19",
-      "Production probes for /settings, /api/settings, /api/storage/sftp-sync, /api/commands, and /api/status returned no 500s",
+      "Production probes for /settings, /api/settings, /api/auth/ws-token, and /api/status returned no 500s",
       "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new error/warn matches"
     ],
     "deployment": "Deployed by restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service after build/runtime build and artifact ownership repair.",
-    "nextTarget": "Continue operator-tunable runtime settings coverage for SSH terminal/refresh/bounded-list settings, or rotate to the next backlog item if that slice is larger than one deployable batch."
+    "nextTarget": "Continue operator-tunable runtime settings coverage for refresh/polling intervals and bounded-list limits where user-facing tuning is appropriate, or run a fresh audit when the success counter reaches threshold."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -89,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
