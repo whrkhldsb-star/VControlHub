@@ -1,11 +1,11 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T08:57:38Z",
+  "updatedAt": "2026-06-01T23:50:40Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
-  "legacyPausedAuditJobId": "a8e21e83a7df",
+  "removedLegacyAuditJobId": "a8e21e83a7df",
   "jobDistinction": {
-    "legacyPausedAuditJob": "Broad website issue discovery plus small automatic fixes/upgrades; currently paused.",
+    "removedLegacyAuditJob": "Former broad website issue discovery plus small automatic fixes/upgrades job; removed at user request on 2026-06-01. Do not restore or recreate it.",
     "currentRemediationJob": "Active full-product QA remediation loop (9e36e64a75ae) based on .hermes/remediation-backlog.md; requires real browser/user-path QA, functional side-effect verification, code quality, performance, UX/accessibility, reliability, tests, deployment, and production health checks."
   },
   "sourceOfTruth": ".hermes/remediation-backlog.md",
@@ -121,6 +121,109 @@
   "blockers": [],
   "productDirection": "Active full-product functional availability loop: every cycle must balance feature completeness, real user journeys, code quality, performance, reliability, UI/UX/accessibility, permissions/security, tests, deployment health, and production verification. Static no-500 checks are insufficient without selected real workflow actions and side-effect verification.",
   "removedBacklogCronJobId": "b8833e83bb1f",
+  "qaControlSystem": {
+    "createdAt": "2026-06-01T23:50:40Z",
+    "purpose": "Structure the two remaining cron jobs as a closed-loop QA control system: the main job executes one concrete user-path repair, while the daily auditor scores recent runs and may write a directive the main job must obey.",
+    "nextQaPathQueue": [
+      {
+        "id": "batch3-sftp-upload-download-direct-access",
+        "batch": "QA batch 3",
+        "path": "Files/storage/SFTP upload -> verify remote/local file -> DB/index consistency -> preview/download/direct-access/share permission -> cleanup",
+        "priority": "high",
+        "status": "pending",
+        "requiredEvidenceProfile": "files_sftp"
+      },
+      {
+        "id": "batch4-download-task-lifecycle",
+        "batch": "QA batch 4",
+        "path": "Downloads create/pause/resume/cancel/delete -> task row, process/output, storage target, UI status, and logs stay consistent",
+        "priority": "high",
+        "status": "pending",
+        "requiredEvidenceProfile": "background_task"
+      },
+      {
+        "id": "batch4-quick-services-real-side-effects",
+        "batch": "QA batch 4",
+        "path": "Quick Services install/start/stop/uninstall/failure cleanup -> Docker/container side effects, task status, operator error visibility, and DB state match",
+        "priority": "high",
+        "status": "pending",
+        "requiredEvidenceProfile": "background_task"
+      },
+      {
+        "id": "batch5-backup-restore-guardrails",
+        "batch": "QA batch 5",
+        "path": "Backups create/restore guarded flow -> real artifact, confirmation boundary, restore failure visibility, DB/task/log consistency",
+        "priority": "medium_high",
+        "status": "pending",
+        "requiredEvidenceProfile": "background_task"
+      },
+      {
+        "id": "batch5-settings-runtime-effect",
+        "batch": "QA batch 5",
+        "path": "Settings runtime/customization knob -> save validation -> persisted value -> real runtime/UI consumer effect -> rollback/cleanup",
+        "priority": "medium_high",
+        "status": "pending",
+        "requiredEvidenceProfile": "settings_runtime"
+      }
+    ],
+    "evidenceProfiles": {
+      "files_sftp": [
+        "browser",
+        "api",
+        "filesystem_or_sftp",
+        "db_or_index",
+        "regression",
+        "log"
+      ],
+      "background_task": [
+        "api",
+        "background_task",
+        "db",
+        "log",
+        "regression",
+        "production"
+      ],
+      "settings_runtime": [
+        "browser",
+        "api",
+        "db_or_persisted_config",
+        "runtime_or_ui_side_effect",
+        "regression"
+      ],
+      "permissions": [
+        "allowed_path",
+        "forbidden_path",
+        "api",
+        "regression",
+        "log"
+      ],
+      "visual_or_accessibility": [
+        "browser_or_dom",
+        "regression",
+        "production_probe",
+        "log"
+      ]
+    },
+    "lowValueChangeBrake": {
+      "defaultAction": "record_candidate_not_fix",
+      "examples": [
+        "pure wording preference",
+        "minor color/spacing mismatch without readability or workflow impact",
+        "static-scan-only suggestion without production reproduction",
+        "non-blocking aria polish unrelated to the selected path",
+        "code tidy with no user-path risk or behavior gain"
+      ],
+      "mayFixOnlyIf": [
+        "directly blocks the selected QA path",
+        "causes misleading success/failure/risk state",
+        "breaks keyboard/screen-reader access on the active workflow",
+        "is required to verify or safely complete the selected side effect"
+      ]
+    },
+    "dailyAuditorDirective": null,
+    "directiveSemantics": "If dailyAuditorDirective is non-null, the main job must satisfy it before taking another normal queue item, or record a concrete blocker/skip reason. Directives expire according to expiresAfterRuns or when marked resolved by the daily auditor.",
+    "trendWindowDays": 7
+  },
   "lastRunEvaluation": {
     "evaluatedAt": "2026-05-31T10:53:59.427896Z",
     "scope": "2026-05-31 backlog remediation results and task/process quality",

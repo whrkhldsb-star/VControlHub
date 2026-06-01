@@ -175,6 +175,13 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - [x] 2026-06-01 — Incorporated user feedback into the autonomous remediation process: reduce GitHub commit noise by bundling related work into major-round closeout commits instead of pushing every tiny successful tick; each major round must finish with a comprehensive check and update GitHub-visible future goals/roadmap docs when priorities shift, including the GitHub homepage `README.md` roadmap plus `docs/plans/next-ops-features-plan.md` and `docs/plans/2026-05-28-usability-first-modernization.md`; Settings should become a richer customization/control surface for safe runtime, UI, notification, integration, and feature behavior rather than a narrow admin form.
 - Next execution rule: the active full-product QA remediation loop should treat Settings customization as a near-term product-completeness lane, but still rotate through real user-path QA batches and avoid endless Settings-only polish.
 
+## Process improvement — 2026-06-01 precision control loop
+
+- [x] 2026-06-01 — Upgraded the two remaining cron jobs into a closed-loop QA control system. The main remediation job must now consult `.hermes/remediation-state.json` `qaControlSystem.nextQaPathQueue`, honor any `dailyAuditorDirective`, and bind each run to a concrete QA path plus evidence profile. The daily review job must score precision/target clarity/side effects/rotation/noise/safety, inspect a 7-day trend window, and write a structured directive when the main loop drifts.
+- Next QA queue priority starts with deep side-effect paths rather than easy polish: SFTP upload/download/direct access, download task lifecycle, Quick Services Docker/task side effects, backup/restore guardrails, and Settings runtime-effect verification.
+- Evidence profiles are now feature-type specific: Files/SFTP requires browser + API + real filesystem/SFTP + DB/index evidence; background-task surfaces require API + task/process + DB + logs + regressions + production checks; Settings requires persisted config plus real runtime/UI effect. Pure 307/401/200 probes remain insufficient.
+- Low-value change brake: pure wording, minor spacing/color, static-scan-only candidates, unrelated aria polish, and no-behavior code tidying should be recorded as candidates rather than fixed immediately unless they directly block the selected path or create misleading success/failure/risk states.
+
 ## Current blockers
 
 - None recorded.
