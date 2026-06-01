@@ -51,6 +51,17 @@ function RateBadge({ label, value, color }: { label: string; value: string; colo
 	return <div className={`rounded-xl px-4 py-3 ${styles}`}><div className="text-[11px] opacity-70">{label}</div><div className="mt-1 text-lg font-semibold tabular-nums">{value}</div></div>;
 }
 
+function formatStorageHealthStatus(status: string) {
+	const normalized = status.trim().toUpperCase();
+	if (normalized === "HEALTHY" || normalized === "ONLINE") return "在线";
+	if (normalized === "WARNING") return "需关注";
+	if (normalized === "CRITICAL" || normalized === "OFFLINE") return "异常";
+	if (normalized === "UNKNOWN" || normalized === "") return "未采样";
+	return status;
+}
+
+export { formatStorageHealthStatus };
+
 export default function TrafficPage() {
 	const [summary, setSummary] = useState<TrafficSummary | null>(null);
 	const [selectedIface, setSelectedIface] = useState("");
@@ -154,7 +165,7 @@ export default function TrafficPage() {
 
 					<Card title="存储节点流量来源">
 						<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{node.healthStatus}</span></div><div className="mt-3 text-xs text-slate-400">{node.trafficSourceDetail}</div></div>)}
+							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{formatStorageHealthStatus(node.healthStatus)}</span></div><div className="mt-3 text-xs text-slate-400">{node.trafficSourceDetail}</div></div>)}
 							{summary.storageNodes.length === 0 && <div className="text-sm text-slate-500">暂无存储节点</div>}
 						</div>
 					</Card>
