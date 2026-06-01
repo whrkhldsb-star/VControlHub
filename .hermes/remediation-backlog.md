@@ -164,7 +164,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## Process improvement — 2026-06-01
 
-- [x] 2026-06-01 — Incorporated user feedback into the autonomous remediation process: reduce GitHub commit noise by bundling related work into major-round closeout commits instead of pushing every tiny successful tick; each major round must finish with a comprehensive check and update GitHub-visible future goals/roadmap docs when priorities shift; Settings should become a richer customization/control surface for safe runtime, UI, notification, integration, and feature behavior rather than a narrow admin form.
+- [x] 2026-06-01 — Incorporated user feedback into the autonomous remediation process: reduce GitHub commit noise by bundling related work into major-round closeout commits instead of pushing every tiny successful tick; each major round must finish with a comprehensive check and update GitHub-visible future goals/roadmap docs when priorities shift, including the GitHub homepage `README.md` roadmap plus `docs/plans/next-ops-features-plan.md` and `docs/plans/2026-05-28-usability-first-modernization.md`; Settings should become a richer customization/control surface for safe runtime, UI, notification, integration, and feature behavior rather than a narrow admin form.
 - Next execution rule: the active full-product QA remediation loop should treat Settings customization as a near-term product-completeness lane, but still rotate through real user-path QA batches and avoid endless Settings-only polish.
 
 ## Current blockers
