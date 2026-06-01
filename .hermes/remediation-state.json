@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-06-01T08:57:38Z",
     "target": "QA batch 3 Files/Media/Traffic real-path closeout",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Closed the dirty Files preview sanitizer handoff and expanded it into a coherent Files/Media/Traffic availability slice. Files tree grouping now keeps configured storage-node roots visible across SSR and SPA refresh, including empty LOCAL roots. Media classification and previewability now infer image/audio/video from file extension when MIME is blank/generic; Media Library cards expose preview/download/source actions; Traffic Center storage-node source labels now explain local, bound-server, and remote-SFTP origins instead of relying on blank/ambiguous values.",
     "validation": [
       "Production browser login with temporary qa_cron_fm_0601 admin succeeded; post-deploy cleanup deleted qa_cron_* users and remaining count is 0.",
@@ -80,7 +80,7 @@
     ],
     "deployment": "Deployed: build and runtime bundle succeeded, services restarted, smoke passed, post-deploy browser/API verification succeeded, logs clean.",
     "nextTarget": "Commit/push this Files/Media/Traffic closeout, then continue QA batch 3 with safe Files/storage/SFTP upload/download/direct-access user-path testing. Also consider a later Traffic UI polish to translate healthStatus UNKNOWN into operator-friendly localized status copy, distinct from the now-fixed traffic-source labels.",
-    "commit": null,
+    "commit": "f88ac20",
     "files": [
       "src/lib/files/tree.ts",
       "src/app/files/page.tsx",
@@ -281,6 +281,13 @@
       "type": "major_round_slice_verified_deployed_pending_commit",
       "summary": "Files/Media/Traffic real-path availability closeout verified and deployed; pending commit/push.",
       "jobId": "9e36e64a75ae"
+    },
+    {
+      "at": "2026-06-01T08:57:38Z",
+      "type": "major_round_slice_committed",
+      "summary": "Files/Media/Traffic real-path closeout verified, deployed, committed, and ready to push.",
+      "jobId": "9e36e64a75ae",
+      "commit": "f88ac20"
     }
   ]
 }
