@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-06-01T01:35:11Z",
     "target": "QA batch 2 — SSH terminal modal accessibility and light-theme readability",
-    "status": "completed_verified_deployed_ready_for_major_round_commit",
+    "status": "completed_verified_deployed_committed_pushed",
     "summary": "Production browser QA opened a real VPS SSH terminal session, found missing modal semantics and weak light-theme header/control affordance, then fixed SshTerminalModal accessibility/readability and verified it in production.",
     "validation": [
       "git diff --check: passed",
@@ -78,7 +78,7 @@
     ],
     "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, browser QA, and log checks.",
     "nextTarget": "Continue QA batch 2 with production browser checks for VPS edit/delete-safe paths, Direct Gateway eligibility/failure recovery guidance, service health badges, and SSH terminal idle stability; then close out the remaining QA batch 2 findings or rotate to QA batch 3 if no VPS/server issues remain.",
-    "commit": null,
+    "commit": "b2df492",
     "files": [
       "src/components/ssh-terminal-modal.tsx",
       "src/components/__tests__/ssh-terminal-modal.test.tsx",
@@ -87,7 +87,7 @@
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Commit and push this verified major-round slice together with backlog/state/roadmap closeout, then continue browser-driven QA batch 2 in the next tick.",
+    "nextAction": "Continue browser-driven QA batch 2 in the next tick: VPS edit/delete-safe paths, Direct Gateway eligibility/failure recovery guidance, service health badges, and SSH terminal idle stability.",
     "completedAt": "2026-06-01T01:35:11Z"
   },
   "runPolicy": {
@@ -196,6 +196,13 @@
       "summary": "Global Search localization closeout is committed and pushed as 7beb73c; origin/main matches local HEAD and the lightweight watchdog exits silently.",
       "jobId": "9e36e64a75ae",
       "commit": "7beb73c"
+    },
+    {
+      "at": "2026-06-01T01:35:11Z",
+      "type": "major_round_slice_committed",
+      "summary": "QA batch 2 SSH terminal modal accessibility/light-theme slice verified, deployed, and committed with backlog/state/roadmap updates.",
+      "jobId": "9e36e64a75ae",
+      "commit": "b2df492"
     }
   ]
 }
