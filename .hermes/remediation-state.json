@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T00:17:40Z",
+  "updatedAt": "2026-06-01T01:35:11Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -48,39 +48,47 @@
     "operator guidance"
   ],
   "lastHealthyBaseline": {
-    "date": "2026-05-31",
+    "date": "2026-06-01",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Preferences/API/login/dashboard preference targeted Vitest passed: 4 files / 12 tests",
+    "tests": "SSH terminal modal/url + server controls targeted Vitest passed: 3 files / 7 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next and vcontrolhub-ssh-ws active after restart; /api/status healthy; /preferences 307, /api/preferences 401, /login 200; recent service logs clean; browser QA proved successful default-page save redirected next login to /files and failed CSRF write did not change visible stored preference"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean; originating browser QA proved connected SSH terminal dialog semantics and light-theme readability"
   },
   "lastRun": {
-    "finishedAt": "2026-05-31T22:43:37Z",
-    "target": "Global Search English localization closeout",
-    "status": "completed_verified_deployed_committed_pushed",
-    "summary": "Localized Global Search dialog/results/categories/keyboard hints using current locale and added regression coverage; cleaned temporary QA users and re-ran targeted tests, typecheck, lint, production status, and smoke.",
+    "finishedAt": "2026-06-01T01:35:11Z",
+    "target": "QA batch 2 — SSH terminal modal accessibility and light-theme readability",
+    "status": "completed_verified_deployed_ready_for_major_round_commit",
+    "summary": "Production browser QA opened a real VPS SSH terminal session, found missing modal semantics and weak light-theme header/control affordance, then fixed SshTerminalModal accessibility/readability and verified it in production.",
     "validation": [
-      "npx vitest run src/components/__tests__/global-search.test.tsx: 7/7 passed",
+      "git diff --check: passed",
+      "npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx src/components/__tests__/ssh-terminal-url.test.ts src/app/servers/__tests__/direct-gateway-controls.test.tsx: 7/7 passed",
       "npm run typecheck: passed",
       "npm run lint: passed with existing warnings only",
-      "Production services vcontrolhub-next/vcontrolhub-ssh-ws/caddy active",
-      "/api/status healthy 3/3",
+      "npm run build: passed",
+      "npm run build:runtime: passed",
+      "Production services vcontrolhub-next/vcontrolhub-ssh-ws/caddy active after restart and .next ownership repair",
+      "/servers 307, /api/auth/ws-token 401, /login 200, /api/status 200",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed",
+      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches",
+      "Production browser DOM proof from originating QA showed SSH terminal role=dialog, aria-modal=true, labelled title, described host, status, close label, and visible connected prompt",
       "Temporary qa_cron_* users removed; remaining count 0"
     ],
-    "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
-    "nextTarget": "Continue the completion-gate fresh-audit posture. If the tree is clean, proceed with browser-driven QA batch 1 global-search/responsive checks or explicitly rotate to QA batch 2 VPS/server management and SSH terminal with real user-path verification.",
-    "commit": "7beb73c",
+    "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, browser QA, and log checks.",
+    "nextTarget": "Continue QA batch 2 with production browser checks for VPS edit/delete-safe paths, Direct Gateway eligibility/failure recovery guidance, service health badges, and SSH terminal idle stability; then close out the remaining QA batch 2 findings or rotate to QA batch 3 if no VPS/server issues remain.",
+    "commit": null,
     "files": [
-      "src/components/global-search.tsx",
-      "src/components/__tests__/global-search.test.tsx",
-      "src/lib/i18n/translations.ts"
+      "src/components/ssh-terminal-modal.tsx",
+      "src/components/__tests__/ssh-terminal-modal.test.tsx",
+      "docs/plans/next-ops-features-plan.md",
+      "docs/plans/2026-05-28-usability-first-modernization.md",
+      ".hermes/remediation-backlog.md",
+      ".hermes/remediation-state.json"
     ],
-    "nextAction": "Continue the completion-gate fresh-audit posture. With the tree clean and watchdog silent, proceed with browser-driven QA batch 1 responsive/global-search follow-up or explicitly rotate to QA batch 2 VPS/server management and SSH terminal with real user-path verification.",
-    "completedAt": "2026-06-01T00:17:40Z"
+    "nextAction": "Commit and push this verified major-round slice together with backlog/state/roadmap closeout, then continue browser-driven QA batch 2 in the next tick.",
+    "completedAt": "2026-06-01T01:35:11Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -95,7 +103,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 12,
+    "successfulRemediationRunsSinceFreshAudit": 13,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

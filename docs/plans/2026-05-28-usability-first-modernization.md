@@ -94,6 +94,18 @@
 
 ---
 
+## Phase 6.5：VPS / SSH / Direct Gateway 真实可用性
+
+**问题：**
+- VPS 管理、Direct Gateway 和浏览器 SSH 终端都是高频真实运维路径，不能只停留在页面可加载或 API 无 500。
+- 终端、健康状态、网关启用/失败恢复等 UI 需要清楚表达连接状态、失败原因和下一步操作，并保持 light/dark theme 与可访问性一致。
+
+**任务：**
+1. 持续用生产浏览器验证 `/servers` 的真实卡片、展开态、Direct Gateway 文案/资格/恢复提示和 SSH 终端连接/空闲稳定性。
+2. 保持终端 modal 的 `role="dialog"`、`aria-modal`、标题/描述/status/关闭按钮语义，以及 light-theme 可读性。
+3. 对编辑/删除/重试/网关启停等高影响操作补齐安全确认、真实远端/DB 副作用验证和回归测试。
+4. 将服务健康 badge、恢复指导和复制命令文案与实际 production unit/网关状态保持一致。
+
 ---
 
 ## Phase 7：Settings 自定义能力与产品控制面

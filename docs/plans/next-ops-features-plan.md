@@ -69,6 +69,7 @@
 2. **大轮完成后全面检查**：每个大轮 closeout 必须重新检查生产健康、关键用户路径、相关测试、日志、git/origin 同步，并把新发现或优先级变化写回 `.hermes/remediation-backlog.md`、`.hermes/remediation-state.json` 和本 `docs/plans/*` 路线图。
 3. **Settings 页面丰富化**：Settings 应升级为中心化自定义/控制台，而不仅是少量管理字段。优先补齐：运行时稳定性参数、列表/轮询限制、SSH/SFTP/命令执行参数、通知渠道、SMTP/AI/image bed/API token 等集成选项、UI/主题/语言/默认页偏好、功能开关和其他安全的非敏感设置。所有设置都必须真的影响运行时行为，有校验边界、即时/需重启说明、测试和生产路径验证。
 4. **仍以真实可用为核心**：Settings 丰富化不能变成“保存但无副作用”的假功能；也不能长期挤占 VPS、Files、Downloads、Quick Services、Commands、Backups、Health 等真实功能 QA。
+5. **VPS/SSH 可用性 QA 方向**：完成 SSH 终端基础可访问性/light-theme 修复后，下一步继续用生产浏览器验证 VPS 管理的真实用户路径：编辑/删除的安全边界、Direct Gateway 资格/失败恢复提示、服务健康 badge、终端空闲稳定性和复制/重试/恢复指导，确保“按钮可点”对应真实连接、配置或清晰失败状态。
 
 ## 验证
 - 先写 Vitest：system-health、operation-task、share-link、backup、commands API/service。

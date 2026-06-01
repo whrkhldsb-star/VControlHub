@@ -281,34 +281,39 @@ const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="w-full max-w-5xl rounded-3xl border border-white/10 bg-slate-900 shadow-2xl flex flex-col max-h-[92vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`ssh-terminal-title-${serverId}`}
+        aria-describedby={`ssh-terminal-host-${serverId}`}
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl light:text-slate-950 dark:border-white/10 dark:bg-slate-900 dark:text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-white/10">
           <div className="flex items-center gap-3">
-            <span className="text-xl">💻</span>
+            <span className="text-xl" aria-hidden="true">💻</span>
             <div>
-              <h3 className="text-lg font-semibold text-white">SSH 终端 — {serverName}</h3>
-              <p className="text-xs text-slate-400">{host}</p>
+              <h3 id={`ssh-terminal-title-${serverId}`} className="text-lg font-semibold text-slate-950 dark:text-white">SSH 终端 — {serverName}</h3>
+              <p id={`ssh-terminal-host-${serverId}`} className="text-xs text-slate-600 dark:text-slate-400">{host}</p>
             </div>
           </div>
 				<div className="flex items-center gap-3">
-					<span className={`rounded-full px-3 py-1 text-xs ${
+					<span role="status" aria-live="polite" className={`rounded-full px-3 py-1 text-xs ${
 						status === "connected"
-							? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+							? "border border-emerald-400/40 bg-emerald-500/15 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200"
 							: status === "connecting"
-							? "border border-amber-400/30 bg-amber-400/10 text-amber-200"
-							: "border border-rose-400/30 bg-rose-400/10 text-rose-200"
+							? "border border-amber-400/40 bg-amber-500/15 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200"
+							: "border border-rose-400/40 bg-rose-500/15 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200"
 					}`}>
 						{status === "connected" ? "已连接" : status === "connecting" ? "连接中" : status === "error" ? "连接失败" : "已断开"}
 					</span>
 					<button
 						type="button"
-					onClick={() => setShowSidePanel(!showSidePanel)}
-						className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+						onClick={() => setShowSidePanel(!showSidePanel)}
+						aria-expanded={showSidePanel}
+						className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100" : "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"}`}
 						title="命令面板"
 					>
 						📋 命令面板
@@ -317,7 +322,7 @@ const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 						<button
 							type="button"
 							onClick={handleReconnect}
-							className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20 transition"
+							className="rounded-full border border-cyan-500/40 bg-cyan-500/15 px-4 py-1.5 text-xs text-cyan-700 transition hover:bg-cyan-500/25 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-100 dark:hover:bg-cyan-400/20"
 						>
 							重连
 						</button>
@@ -325,7 +330,8 @@ const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 hover:bg-white/10 transition"
+						aria-label="关闭 SSH 终端"
+						className="rounded-full border border-slate-300 bg-slate-100 px-4 py-1.5 text-xs text-slate-700 transition hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
 					>
 						关闭
 					</button>
