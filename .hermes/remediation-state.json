@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-06-01T06:28:19Z",
     "target": "QA batch 2 — VPS edit/delete-safe paths",
-    "status": "completed_verified_deployed_pending_major_round_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Improved destructive VPS deletion safety: the server action now verifies the current persisted VPS name before calling deleteServerProfile, and the server card renders an accessible alertdialog with typed-name confirmation, storage/direct-gateway impact guidance, and light-theme readable edit/toggle/delete states.",
     "validation": [
       "git diff --check: passed",
@@ -76,7 +76,7 @@
     ],
     "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
     "nextTarget": "Continue QA batch 2 with SSH terminal idle stability; then rotate to QA batch 3 Files/storage/SFTP upload/download/direct-access user-path testing.",
-    "commit": null,
+    "commit": "76c8470",
     "files": [
       "src/app/servers/actions.ts",
       "src/app/servers/server-card-actions.tsx",
@@ -85,7 +85,7 @@
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Close out this verified/deployed dirty worktree as the current major-round slice: review diff, update roadmap docs if needed, commit/push exact files, record the functional commit hash in state, and verify origin sync before starting SSH terminal or Files QA work.",
+    "nextAction": "Continue QA batch 2 with SSH terminal idle stability; then rotate to QA batch 3 Files/storage/SFTP upload/download/direct-access user-path testing.",
     "completedAt": "2026-06-01T06:28:19Z"
   },
   "runPolicy": {
@@ -257,9 +257,10 @@
     },
     {
       "at": "2026-06-01T06:28:19Z",
-      "type": "major_round_slice_verified_deployed_pending_commit",
-      "summary": "QA batch 2 destructive VPS delete/edit-path safety slice verified and deployed: typed-name confirmation is enforced server-side before deleteServerProfile, the card delete confirmation is an accessible alertdialog with impact guidance, and edit/toggle/delete feedback is light-theme readable. Worktree remains dirty for the next closeout commit per major-round low-noise policy.",
-      "jobId": "9e36e64a75ae"
+      "type": "major_round_slice_committed",
+      "summary": "QA batch 2 destructive VPS delete/edit-path safety slice verified, deployed, and committed as 76c8470: typed-name confirmation is enforced server-side before deleteServerProfile, the card delete confirmation is an accessible alertdialog with impact guidance, and edit/toggle/delete feedback is light-theme readable.",
+      "jobId": "9e36e64a75ae",
+      "commit": "76c8470"
     }
   ]
 }
