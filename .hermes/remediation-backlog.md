@@ -198,3 +198,4 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
   - `https://whrkhldsb.qzz.io/api/status` — healthy 3/3.
   - `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` — 19/19 passed.
 - Closeout rule: commit/push these verified functional changes and state updates together, then run the lightweight watchdog directly to confirm it is silent.
+- Final closeout: committed and pushed as `7beb73c` (`fix: localize global search overlay`); `main` matches `origin/main` at that commit. The lightweight watchdog was rerun with `python3 /root/.hermes/scripts/vcontrolhub_watchdog.py` and exited silently. State file was corrected to the current `every 30m` cadence and the completed/pushed commit hash.

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T00:06:09Z",
+  "updatedAt": "2026-06-01T00:17:40Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -18,7 +18,7 @@
     "P5",
     "P6"
   ],
-  "schedule": "every 20m",
+  "schedule": "every 30m",
   "nonOverlapPolicy": "If the previous remediation run is still active, skip the current tick instead of starting another fix run.",
   "freshAuditPolicy": {
     "afterSuccessfulRuns": 6,
@@ -60,7 +60,7 @@
   "lastRun": {
     "finishedAt": "2026-05-31T22:43:37Z",
     "target": "Global Search English localization closeout",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed_pushed",
     "summary": "Localized Global Search dialog/results/categories/keyboard hints using current locale and added regression coverage; cleaned temporary QA users and re-ran targeted tests, typecheck, lint, production status, and smoke.",
     "validation": [
       "npx vitest run src/components/__tests__/global-search.test.tsx: 7/7 passed",
@@ -73,14 +73,14 @@
     ],
     "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
     "nextTarget": "Continue the completion-gate fresh-audit posture. If the tree is clean, proceed with browser-driven QA batch 1 global-search/responsive checks or explicitly rotate to QA batch 2 VPS/server management and SSH terminal with real user-path verification.",
-    "commit": "3ea9b17",
+    "commit": "7beb73c",
     "files": [
       "src/components/global-search.tsx",
       "src/components/__tests__/global-search.test.tsx",
       "src/lib/i18n/translations.ts"
     ],
-    "nextAction": "Commit and push the verified Global Search closeout, then update this state with the commit hash if a bookkeeping update is needed.",
-    "completedAt": "2026-06-01T00:06:09Z"
+    "nextAction": "Continue the completion-gate fresh-audit posture. With the tree clean and watchdog silent, proceed with browser-driven QA batch 1 responsive/global-search follow-up or explicitly rotate to QA batch 2 VPS/server management and SSH terminal with real user-path verification.",
+    "completedAt": "2026-06-01T00:17:40Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -179,8 +179,15 @@
     {
       "at": "2026-06-01T00:06:09Z",
       "type": "dirty_worktree_closeout",
-      "summary": "Watchdog dirty-worktree alert traced to prior full-product QA cron run that completed Global Search localization but hit tool limit before cleanup/state/commit. Manual closeout cleaned QA users and revalidated before commit.",
+      "summary": "Watchdog dirty-worktree alert traced to prior full-product QA cron run that completed Global Search localization but hit tool limit before cleanup/state/commit. Manual closeout cleaned QA users, revalidated, committed and pushed functional closeout commit 7beb73c, and reran the watchdog silently.",
       "jobId": "9e36e64a75ae"
+    },
+    {
+      "at": "2026-06-01T00:17:40Z",
+      "type": "dirty_worktree_closeout_committed",
+      "summary": "Global Search localization closeout is committed and pushed as 7beb73c; origin/main matches local HEAD and the lightweight watchdog exits silently.",
+      "jobId": "9e36e64a75ae",
+      "commit": "7beb73c"
     }
   ]
 }
