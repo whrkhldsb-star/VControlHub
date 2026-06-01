@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T05:44:00Z",
+  "updatedAt": "2026-06-01T06:28:19Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,20 +51,20 @@
     "date": "2026-06-01",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Server page + Direct Gateway neighboring regressions 11/11 passed",
+    "tests": "Server action/page/Direct Gateway neighboring regressions 16/16 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-06-01T05:44:00Z",
-    "target": "QA batch 2 — Server card status/readability and service-health guidance",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Improved server-management cards so enable/disable state is an accessible status badge, the details toggle controls a named per-VPS details region, expanded details include truthful guidance that management status is not proof of SSH/file/direct-gateway health, and light-theme detail cards remain readable.",
+    "finishedAt": "2026-06-01T06:28:19Z",
+    "target": "QA batch 2 — VPS edit/delete-safe paths",
+    "status": "completed_verified_deployed_pending_major_round_commit",
+    "summary": "Improved destructive VPS deletion safety: the server action now verifies the current persisted VPS name before calling deleteServerProfile, and the server card renders an accessible alertdialog with typed-name confirmation, storage/direct-gateway impact guidance, and light-theme readable edit/toggle/delete states.",
     "validation": [
       "git diff --check: passed",
-      "npx vitest run src/app/servers/__tests__/page.test.tsx src/app/servers/__tests__/direct-gateway-controls.test.tsx: 11/11 passed",
+      "npx vitest run src/app/servers/__tests__/actions.test.ts src/app/servers/__tests__/direct-gateway-controls.test.tsx src/app/servers/__tests__/page.test.tsx: 16/16 passed",
       "npm run typecheck: passed",
       "npm run lint: passed with existing warnings only",
       "npm run build: passed",
@@ -72,23 +72,21 @@
       "Production services vcontrolhub-next/vcontrolhub-ssh-ws/caddy active after restart and .next ownership repair",
       "/servers 307, /api/auth/ws-token 401, /login 200, /api/status 200",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed",
-      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches",
-      "README.md and docs/plans roadmap/future-goal docs updated for the VPS/server QA major-round direction"
+      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches"
     ],
     "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
-    "nextTarget": "Continue QA batch 2 with VPS edit/delete-safe paths and SSH terminal idle stability; then rotate to QA batch 3 deeper Files/storage/SFTP upload/download/direct-access user-path testing.",
-    "commit": "b223b4f",
+    "nextTarget": "Continue QA batch 2 with SSH terminal idle stability; then rotate to QA batch 3 Files/storage/SFTP upload/download/direct-access user-path testing.",
+    "commit": null,
     "files": [
-      "src/app/servers/server-overview-card.tsx",
-      "src/app/servers/__tests__/page.test.tsx",
-      "README.md",
-      "docs/plans/next-ops-features-plan.md",
-      "docs/plans/2026-05-28-usability-first-modernization.md",
+      "src/app/servers/actions.ts",
+      "src/app/servers/server-card-actions.tsx",
+      "src/app/servers/__tests__/actions.test.ts",
+      "src/app/servers/__tests__/direct-gateway-controls.test.tsx",
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Continue browser-driven QA batch 2 with VPS edit/delete-safe paths/SSH terminal idle stability, then rotate into QA batch 3 Files/storage/SFTP real user-path verification. Commit this slice at the next coherent major-round closeout unless a dirty-worktree closeout is required.",
-    "completedAt": "2026-06-01T05:44:00Z"
+    "nextAction": "Close out this verified/deployed dirty worktree as the current major-round slice: review diff, update roadmap docs if needed, commit/push exact files, record the functional commit hash in state, and verify origin sync before starting SSH terminal or Files QA work.",
+    "completedAt": "2026-06-01T06:28:19Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -256,6 +254,12 @@
       "summary": "QA batch 2 server-management status/readability slice verified, deployed, roadmap-updated, and committed.",
       "jobId": "9e36e64a75ae",
       "commit": "b223b4f"
+    },
+    {
+      "at": "2026-06-01T06:28:19Z",
+      "type": "major_round_slice_verified_deployed_pending_commit",
+      "summary": "QA batch 2 destructive VPS delete/edit-path safety slice verified and deployed: typed-name confirmation is enforced server-side before deleteServerProfile, the card delete confirmation is an accessible alertdialog with impact guidance, and edit/toggle/delete feedback is light-theme readable. Worktree remains dirty for the next closeout commit per major-round low-noise policy.",
+      "jobId": "9e36e64a75ae"
     }
   ]
 }

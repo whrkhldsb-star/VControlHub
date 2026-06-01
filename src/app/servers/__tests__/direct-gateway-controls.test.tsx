@@ -276,6 +276,32 @@ describe("server direct gateway controls", () => {
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
+  it("requires typed VPS name confirmation before destructive delete", async () => {
+    actionStateOverrides.push(
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
+      { error: undefined, success: undefined, relatedStorageCount: 2 },
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
+    );
+
+    render(
+      <ServerCardActions
+        serverId="srv_1"
+        serverName="prod"
+        host="203.0.113.10"
+        port={22}
+        enabled={true}
+        sessionToken="token"
+        canManageServers
+      />,
+    );
+
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleName("确认删除「prod」？");
+    expect(
+      screen.getByLabelText("输入 VPS 名称「prod」确认删除"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/删除成功后节点会从 VPS 列表移除/)).toBeInTheDocument();
+  });
+
   it("offers an edit form for managed VPS nodes", async () => {
     const user = userEvent.setup();
     render(

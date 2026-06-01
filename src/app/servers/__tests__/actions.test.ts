@@ -2,11 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   createServerProfileMock,
+  deleteServerProfileMock,
+  prismaServerFindUniqueMock,
+  prismaStorageNodeCountMock,
   updateServerProfileMock,
   requirePermissionMock,
   revalidatePathMock,
 } = vi.hoisted(() => ({
   createServerProfileMock: vi.fn(),
+  deleteServerProfileMock: vi.fn(),
+  prismaServerFindUniqueMock: vi.fn(),
+  prismaStorageNodeCountMock: vi.fn(),
   updateServerProfileMock: vi.fn(),
   requirePermissionMock: vi.fn(),
   revalidatePathMock: vi.fn(),
@@ -23,16 +29,25 @@ vi.mock("@/lib/auth/authorization", () => ({
 vi.mock("@/lib/server/service", () => ({
   createServerProfile: createServerProfileMock,
   createSshKey: vi.fn(),
-  deleteServerProfile: vi.fn(),
+  deleteServerProfile: deleteServerProfileMock,
   setServerDirectGatewayEnabled: vi.fn(),
   toggleServerEnabled: vi.fn(),
   updateServerProfile: updateServerProfileMock,
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    server: { findUnique: prismaServerFindUniqueMock },
+    storageNode: { count: prismaStorageNodeCountMock },
+  },
 }));
 
 describe("server actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     requirePermissionMock.mockResolvedValue({ userId: "user_1" });
+    prismaServerFindUniqueMock.mockResolvedValue({ name: "prod" });
+    prismaStorageNodeCountMock.mockResolvedValue(0);
   });
 
   it("returns a success message with onboarding warnings when direct setup needs retry", async () => {
@@ -100,5 +115,38 @@ describe("server actions", () => {
       }),
     );
     expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
+  });
+
+  it("refuses to delete a VPS until the current node name is typed", async () => {
+    const { deleteServerAction } = await import("../actions");
+    const formData = new FormData();
+    formData.set("serverId", "srv_1");
+    formData.set("confirmDelete", "true");
+    formData.set("confirmName", "wrong-name");
+
+    const result = await deleteServerAction(null, formData);
+
+    expect(result).toEqual({
+      relatedStorageCount: 0,
+      error: "请输入 VPS 名称「prod」以确认删除。",
+    });
+    expect(deleteServerProfileMock).not.toHaveBeenCalled();
+  });
+
+  it("deletes a VPS only after typed-name confirmation matches the current node", async () => {
+    deleteServerProfileMock.mockResolvedValueOnce({ deleted: true });
+    const { deleteServerAction } = await import("../actions");
+    const formData = new FormData();
+    formData.set("serverId", "srv_1");
+    formData.set("confirmDelete", "true");
+    formData.set("confirmName", "prod");
+
+    const result = await deleteServerAction(null, formData);
+
+    expect(result.error).toBeUndefined();
+    expect(result.success).toBe("节点已删除。");
+    expect(deleteServerProfileMock).toHaveBeenCalledWith("srv_1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/servers");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/storage");
   });
 });

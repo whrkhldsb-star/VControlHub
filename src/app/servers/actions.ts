@@ -250,8 +250,16 @@ export async function deleteServerAction(
     const serverId = String(formData.get("serverId") ?? "");
     const confirmDelete = formData.get("confirmDelete") === "true";
 
-    // Query related storage nodes count
     const { prisma } = await import("@/lib/db");
+    const current = await prisma.server.findUnique({
+      where: { id: serverId },
+      select: { name: true },
+    });
+    if (!current) {
+      return { error: "VPS 节点不存在或已删除" } as ServerActionState;
+    }
+
+    // Query related storage nodes count
     const relatedStorageCount = await prisma.storageNode.count({
       where: { serverId },
     });
@@ -259,6 +267,14 @@ export async function deleteServerAction(
     if (!confirmDelete) {
       return {
         relatedStorageCount,
+      } as ServerActionState;
+    }
+
+    const confirmName = String(formData.get("confirmName") ?? "").trim();
+    if (confirmName !== current.name) {
+      return {
+        relatedStorageCount,
+        error: `请输入 VPS 名称「${current.name}」以确认删除。`,
       } as ServerActionState;
     }
 
