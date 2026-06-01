@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T02:24:00Z",
+  "updatedAt": "2026-06-01T02:40:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -176,12 +176,13 @@
     "currentFullProductQaSchedule": "every 30m",
     "cadenceRationale": "User requested less frequent autonomous repair runs; every 30m gives each major round more room for verification/deploy and reduces noise compared with every 20m.",
     "watchdogJobId": "b2f7b030a16f",
-    "watchdogSchedule": "paused; triggered manually after each remediation/daily-review round",
-    "watchdogTriggerPolicy": "Do not run watchdog every 10 minutes. The remediation loop and daily quality review must run /root/.hermes/scripts/vcontrolhub_watchdog.py directly at the end of each round and treat non-empty output as an alert/blocker."
+    "watchdogSchedule": "paused; semantics fused into each remediation/daily-review closeout health check",
+    "watchdogTriggerPolicy": "Do not run watchdog every 10 minutes, and do not run a duplicate watchdog script after the round has already checked the same conditions. Each remediation/daily-review closeout performs one unified health check covering service active state, /api/status healthy, git worktree/origin status, critical cron states, and recent service logs; only fill missing probes."
   },
   "policies": {
     "autonomousRepairCadence": "Run full-product QA remediation every 30 minutes unless the user explicitly requests another interval.",
-    "watchdogCadence": "paused interval cron; run after each round completion instead of periodic polling"
+    "watchdogCadence": "paused interval cron; watchdog semantics fused into the single round closeout health check",
+    "unifiedCloseoutHealthCheck": "One closeout check per round: service active, /api/status healthy, git worktree/origin, critical cron states, recent service logs. Avoid duplicate probes if already completed during deploy verification."
   },
   "events": [
     {
@@ -222,6 +223,12 @@
       "type": "watchdog_trigger_policy_update",
       "summary": "Paused lightweight watchdog interval cron b2f7b030a16f per user request. Remediation and daily review prompts now require direct watchdog script execution after each completed round instead of every-10-minute polling.",
       "jobId": "b2f7b030a16f"
+    },
+    {
+      "at": "2026-06-01T02:40:00Z",
+      "type": "watchdog_health_check_fusion",
+      "summary": "Per user clarification, fused watchdog semantics into the normal per-round health check so each round performs one unified closeout check instead of running a separate duplicate watchdog pass.",
+      "jobId": "9e36e64a75ae"
     }
   ]
 }
