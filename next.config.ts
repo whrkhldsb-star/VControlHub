@@ -14,8 +14,11 @@ const nextConfig: NextConfig = {
 	},
 	// Performance: enable gzip/brotli compression
 	compress: true,
-	// Optimize output: standalone for smaller deployments
-	output: "standalone",
+	// Custom production server (src/server.ts) attaches WebSocket handlers and
+	// command-maintenance workers directly. It intentionally runs against the
+	// full Next.js app output instead of .next/standalone/server.js, so do not
+	// enable output: "standalone" here; Next.js warns at runtime when custom
+	// servers call next({ dev: false }) with standalone output enabled.
 	// Add cache headers to static assets
 	async headers() {
 		return [
