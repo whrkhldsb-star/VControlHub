@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T02:00:00Z",
+  "updatedAt": "2026-06-01T02:24:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -174,10 +174,14 @@
   "cron": {
     "currentFullProductQaJobId": "9e36e64a75ae",
     "currentFullProductQaSchedule": "every 30m",
-    "cadenceRationale": "User requested less frequent autonomous repair runs; every 30m gives each major round more room for verification/deploy and reduces noise compared with every 20m."
+    "cadenceRationale": "User requested less frequent autonomous repair runs; every 30m gives each major round more room for verification/deploy and reduces noise compared with every 20m.",
+    "watchdogJobId": "b2f7b030a16f",
+    "watchdogSchedule": "paused; triggered manually after each remediation/daily-review round",
+    "watchdogTriggerPolicy": "Do not run watchdog every 10 minutes. The remediation loop and daily quality review must run /root/.hermes/scripts/vcontrolhub_watchdog.py directly at the end of each round and treat non-empty output as an alert/blocker."
   },
   "policies": {
-    "autonomousRepairCadence": "Run full-product QA remediation every 30 minutes unless the user explicitly requests another interval."
+    "autonomousRepairCadence": "Run full-product QA remediation every 30 minutes unless the user explicitly requests another interval.",
+    "watchdogCadence": "paused interval cron; run after each round completion instead of periodic polling"
   },
   "events": [
     {
@@ -212,6 +216,12 @@
       "type": "process_policy_update",
       "summary": "Updated autonomous remediation and daily review policy so every major-round comprehensive check includes GitHub README.md project goals/roadmap alongside docs/plans roadmap files.",
       "jobId": "9e36e64a75ae"
+    },
+    {
+      "at": "2026-06-01T02:24:00Z",
+      "type": "watchdog_trigger_policy_update",
+      "summary": "Paused lightweight watchdog interval cron b2f7b030a16f per user request. Remediation and daily review prompts now require direct watchdog script execution after each completed round instead of every-10-minute polling.",
+      "jobId": "b2f7b030a16f"
     }
   ]
 }
