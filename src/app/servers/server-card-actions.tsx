@@ -97,9 +97,10 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={handleOpenTerminal}
-            className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 flex items-center justify-center gap-2"
+            aria-label={`打开 ${serverName} SSH 终端`}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-900 light:hover:bg-cyan-100"
           >
-            <span>💻</span>
+            <span aria-hidden="true">💻</span>
             <span>SSH 终端</span>
           </button>
         )}
@@ -107,7 +108,8 @@ export function ServerCardActions({
         {canManageServers && directGateway ? (
           <form
             action={directAction}
-            className="space-y-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-3"
+            aria-label="目标服务器直连网关控制"
+            className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-3 light:border-cyan-700/20 light:bg-cyan-50/80"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input
@@ -115,33 +117,64 @@ export function ServerCardActions({
               name="enabledDirectGateway"
               value={directGateway.enabled ? "false" : "true"}
             />
-            <div className="text-xs text-slate-300">
-              直连状态：{directGateway.statusLabel}
+            <div className="space-y-1" role="status" aria-live="polite">
+              <div className="text-xs font-medium text-slate-200 light:text-slate-800">
+                直连状态：{directGateway.statusLabel}
+              </div>
+              {directGateway.publicUrl ? (
+                <a
+                  href={directGateway.publicUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:text-cyan-800 light:hover:text-cyan-950"
+                >
+                  {directGateway.publicUrl}
+                </a>
+              ) : (
+                <div className="text-[11px] text-slate-500 light:text-slate-600">
+                  当前上传、下载、在线浏览默认走网站中转。
+                </div>
+              )}
             </div>
-            {directGateway.publicUrl ? (
-              <div className="break-all text-[11px] text-slate-500">
-                {directGateway.publicUrl}
-              </div>
-            ) : (
-              <div className="text-[11px] text-slate-500">
-                当前上传、下载、在线浏览默认走网站中转。
-              </div>
-            )}
+            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15 light:bg-white/70 light:text-slate-700">
+              {directGateway.enabled ? (
+                <>
+                  <p className="font-medium text-cyan-100 light:text-cyan-900">
+                    直连服务已声明启用。
+                  </p>
+                  <p>
+                    若文件预览/下载异常，请先确认目标 VPS 上 Direct Gateway
+                    进程仍在监听 {directGateway.port || "配置端口"}，并检查防火墙是否放行该端口；切回网站中转会先尝试卸载远端服务，成功后再更新数据库状态。
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium text-cyan-100 light:text-cyan-900">
+                    启用前检查：VPS 必须绑定 SFTP 存储节点且不是本机地址。
+                  </p>
+                  <p>
+                    点击启用会通过 SSH 安装目标服务器 Direct Gateway；如果远端安装失败，页面会保留网站中转并显示错误，不会把直连标记成成功。
+                  </p>
+                </>
+              )}
+            </div>
             <SubmitButton
               pendingLabel={
                 directGateway.enabled ? "删除服务中..." : "安装服务中..."
               }
-              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:text-cyan-900 light:hover:bg-cyan-200"
             >
               {directGateway.enabled
                 ? "切回网站中转并删除直连服务"
                 : "启用目标直连"}
             </SubmitButton>
             {directState.error ? (
-              <div className="text-xs text-rose-200">{directState.error}</div>
+              <div role="alert" className="text-xs text-rose-200 light:text-rose-700">
+                {directState.error}
+              </div>
             ) : null}
             {directState.success ? (
-              <div className="text-xs text-emerald-200">
+              <div role="status" className="text-xs text-emerald-200 light:text-emerald-700">
                 {directState.success}
               </div>
             ) : null}

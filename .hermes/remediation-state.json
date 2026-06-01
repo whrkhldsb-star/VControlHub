@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T02:52:00Z",
+  "updatedAt": "2026-06-01T03:09:58Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,20 +51,20 @@
     "date": "2026-06-01",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "SSH terminal modal/url + server controls targeted Vitest passed: 3 files / 7 tests",
+    "tests": "Direct Gateway/server/SSH neighboring Vitest passed: 4 files / 12 tests",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean; originating browser QA proved connected SSH terminal dialog semantics and light-theme readability"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean; browser light-theme QA proved Direct Gateway recovery guidance/link/button readable; temporary QA users remaining 0"
   },
   "lastRun": {
-    "finishedAt": "2026-06-01T01:35:11Z",
-    "target": "QA batch 2 — SSH terminal modal accessibility and light-theme readability",
-    "status": "completed_verified_deployed_committed_pushed",
-    "summary": "Production browser QA opened a real VPS SSH terminal session, found missing modal semantics and weak light-theme header/control affordance, then fixed SshTerminalModal accessibility/readability and verified it in production.",
+    "finishedAt": "2026-06-01T03:09:58Z",
+    "target": "QA batch 2 — Direct Gateway recovery guidance and light-theme operator clarity",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Production browser QA inspected a real VPS Direct Gateway control, found recovery/switch-back consequences under-explained, then added accessible status labelling, a public URL probe link, light-theme readable guidance, and focus-visible affordances.",
     "validation": [
       "git diff --check: passed",
-      "npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx src/components/__tests__/ssh-terminal-url.test.ts src/app/servers/__tests__/direct-gateway-controls.test.tsx: 7/7 passed",
+      "npx vitest run src/app/servers/__tests__/direct-gateway-controls.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/components/__tests__/ssh-terminal-url.test.ts src/app/servers/__tests__/page.test.tsx: 12/12 passed",
       "npm run typecheck: passed",
       "npm run lint: passed with existing warnings only",
       "npm run build: passed",
@@ -73,22 +73,20 @@
       "/servers 307, /api/auth/ws-token 401, /login 200, /api/status 200",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed",
       "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches",
-      "Production browser DOM proof from originating QA showed SSH terminal role=dialog, aria-modal=true, labelled title, described host, status, close label, and visible connected prompt",
+      "Production browser light-theme visual proof showed Direct Gateway guidance, public URL link, and switch-back/uninstall button readable",
       "Temporary qa_cron_* users removed; remaining count 0"
     ],
-    "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, browser QA, and log checks.",
-    "nextTarget": "Continue QA batch 2 with production browser checks for VPS edit/delete-safe paths, Direct Gateway eligibility/failure recovery guidance, service health badges, and SSH terminal idle stability; then close out the remaining QA batch 2 findings or rotate to QA batch 3 if no VPS/server issues remain.",
-    "commit": "b2df492",
+    "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, browser light-theme QA, and log checks.",
+    "nextTarget": "Continue QA batch 2 with VPS edit/delete-safe paths, service health badges, and SSH terminal idle stability; rotate to QA batch 3 Files/storage/SFTP once remaining VPS/server issues are covered.",
+    "commit": null,
     "files": [
-      "src/components/ssh-terminal-modal.tsx",
-      "src/components/__tests__/ssh-terminal-modal.test.tsx",
-      "docs/plans/next-ops-features-plan.md",
-      "docs/plans/2026-05-28-usability-first-modernization.md",
+      "src/app/servers/server-card-actions.tsx",
+      "src/app/servers/__tests__/direct-gateway-controls.test.tsx",
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Continue browser-driven QA batch 2 in the next tick: VPS edit/delete-safe paths, Direct Gateway eligibility/failure recovery guidance, service health badges, and SSH terminal idle stability.",
-    "completedAt": "2026-06-01T01:35:11Z"
+    "nextAction": "Continue browser-driven QA batch 2 or rotate to QA batch 3 after this Direct Gateway recovery-guidance slice is committed.",
+    "completedAt": "2026-06-01T03:09:58Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -103,7 +101,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 13,
+    "successfulRemediationRunsSinceFreshAudit": 14,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -235,6 +233,12 @@
       "type": "watchdog_cron_removed",
       "summary": "Removed standalone lightweight watchdog cron b2f7b030a16f per user request after fusing its health-check semantics into the normal per-round closeout check.",
       "jobId": "b2f7b030a16f"
+    },
+    {
+      "at": "2026-06-01T03:09:58Z",
+      "type": "qa_batch_2_direct_gateway_recovery_guidance_verified",
+      "summary": "Direct Gateway recovery guidance/light-theme operator clarity slice verified and deployed; pending commit hash closeout.",
+      "jobId": "9e36e64a75ae"
     }
   ]
 }

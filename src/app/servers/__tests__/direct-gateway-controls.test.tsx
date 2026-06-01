@@ -163,6 +163,94 @@ describe("server direct gateway controls", () => {
     ).toHaveAttribute("value", "false");
   });
 
+  it("shows direct gateway eligibility and recovery guidance with accessible status", () => {
+    render(
+      <ServerCardActions
+        serverId="srv_1"
+        serverName="prod"
+        host="203.0.113.10"
+        port={22}
+        enabled={true}
+        sessionToken="token"
+        canManageServers
+        directGateway={{
+          enabled: false,
+          statusLabel: "网站中转",
+          publicUrl: null,
+          port: 0,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("form", { name: "目标服务器直连网关控制" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("直连状态：网站中转");
+    expect(screen.getByText(/VPS 必须绑定 SFTP 存储节点/)).toBeInTheDocument();
+    expect(screen.getByText(/不会把直连标记成成功/)).toBeInTheDocument();
+  });
+
+  it("shows direct gateway public URL as a probe link and recovery guidance when enabled", () => {
+    render(
+      <ServerCardActions
+        serverId="srv_1"
+        serverName="prod"
+        host="203.0.113.10"
+        port={22}
+        enabled={true}
+        sessionToken="token"
+        canManageServers
+        directGateway={{
+          enabled: true,
+          statusLabel: "目标直连",
+          publicUrl: "http://203.0.113.10:31888",
+          port: 31888,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("直连状态：目标直连");
+    expect(
+      screen.getByRole("link", { name: "http://203.0.113.10:31888" }),
+    ).toHaveAttribute("href", "http://203.0.113.10:31888");
+    expect(screen.getByText(/进程仍在监听 31888/)).toBeInTheDocument();
+  });
+
+  it("announces direct gateway action errors without implying success", () => {
+    actionStateOverrides.push(
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
+      {
+        error: "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。",
+        success: undefined,
+        relatedStorageCount: undefined,
+      },
+    );
+
+    render(
+      <ServerCardActions
+        serverId="srv_1"
+        serverName="prod"
+        host="203.0.113.10"
+        port={22}
+        enabled={true}
+        sessionToken="token"
+        canManageServers
+        directGateway={{
+          enabled: false,
+          statusLabel: "网站中转",
+          publicUrl: null,
+          port: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。",
+    );
+    expect(screen.queryByText(/已启用目标服务器直连/)).not.toBeInTheDocument();
+  });
+
   it("cancels delete confirmation by refreshing current route instead of reloading the whole page", async () => {
     const user = userEvent.setup();
     actionStateOverrides.push(
