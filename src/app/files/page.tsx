@@ -57,24 +57,19 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const filteredEntries = nodeIdFilter
     ? storage.entries.filter((e) => e.storageNode.id === nodeIdFilter)
     : storage.entries;
-  const virtualNodeDirectories = storage.nodes.map((node) => ({
-    path: `${node.name}__${node.id.slice(0, 8)}`,
-    name: node.name,
-    storageNodeId: node.id,
-    storageNodeName: node.name,
-    storageNodeDriver: node.driver,
-    fileCount: 0,
-    itemCount: 0,
-    totalSize: BigInt(0),
-  }));
   const filteredDirectories = nodeIdFilter
     ? storage.remoteDirectories.filter((d) => d.storageNodeId === nodeIdFilter)
-    : [...virtualNodeDirectories, ...storage.remoteDirectories];
+    : storage.remoteDirectories;
 
   // When no specific node is selected, group entries by node to avoid
   // mixing SFTP root directories with LOCAL directories at root level
   const groupByNode = !nodeIdFilter;
-  const tree = buildFileTree(filteredEntries, filteredDirectories, groupByNode);
+  const tree = buildFileTree(
+    filteredEntries,
+    filteredDirectories,
+    groupByNode,
+    storage.nodes,
+  );
   const currentNode = findFileTreeNode(tree, currentPath) ?? tree;
   let folders = [...currentNode.folders.values()].sort((a, b) =>
     a.name.localeCompare(b.name, "zh-CN"),

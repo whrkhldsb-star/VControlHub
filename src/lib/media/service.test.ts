@@ -12,4 +12,28 @@ describe("media service", () => {
     expect(res.upserted).toBe(1);
     expect(mockPrisma.mediaItem.upsert.mock.calls[0][0].create.mediaType).toBe("image");
   });
+
+  it("upserts mp4 media even when the persisted MIME is generic", async () => {
+    mockPrisma.fileEntry.findMany.mockResolvedValue([
+      {
+        id: "f_mp4",
+        name: "movie.mp4",
+        relativePath: "uploads/movie.mp4",
+        storageNodeId: "n1",
+        mimeType: "application/octet-stream",
+        size: BigInt(99),
+      },
+    ]);
+    mockPrisma.mediaItem.upsert.mockResolvedValue({});
+
+    const res = await scanMediaFromFileEntries("u1");
+
+    expect(res).toEqual({ scanned: 1, upserted: 1 });
+    expect(mockPrisma.mediaItem.upsert.mock.calls[0][0].create).toMatchObject({
+      fileEntryId: "f_mp4",
+      mediaType: "video",
+      mimeType: "video/mp4",
+      relativePath: "uploads/movie.mp4",
+    });
+  });
 });

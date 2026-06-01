@@ -35,6 +35,9 @@ type TrafficSummary = {
 		port?: number | null;
 		healthStatus: string;
 		trafficSource: string;
+		trafficSourceLabel: string;
+		trafficSourceDetail: string;
+		server?: { id: string; name: string; host: string; port: number } | null;
 	}>;
 	servers: Array<{ id: string; name: string; host: string; port: number }>;
 };
@@ -151,7 +154,7 @@ export default function TrafficPage() {
 
 					<Card title="存储节点流量来源">
 						<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSource}</div></div><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{node.healthStatus}</span></div><div className="mt-3 text-xs text-slate-400">{node.driver === "LOCAL" ? "使用当前服务器网卡统计" : node.serverId ? "可通过绑定服务器采样远端流量" : `${node.host ?? "未配置主机"}:${node.port ?? 22}`}</div></div>)}
+							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">{node.healthStatus}</span></div><div className="mt-3 text-xs text-slate-400">{node.trafficSourceDetail}</div></div>)}
 							{summary.storageNodes.length === 0 && <div className="text-sm text-slate-500">暂无存储节点</div>}
 						</div>
 					</Card>

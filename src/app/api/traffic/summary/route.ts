@@ -53,6 +53,39 @@ function summarizeInterface(targetKey: string, sample: NetworkDeviceStats) {
   };
 }
 
+function describeStorageTrafficSource(node: {
+  driver: string;
+  serverId: string | null;
+  host: string | null;
+  port: number | null;
+  server?: { id: string; name: string; host: string; port: number } | null;
+}) {
+  if (node.driver === "LOCAL") {
+    return {
+      trafficSource: "当前服务器",
+      trafficSourceLabel: "当前服务器网卡",
+      trafficSourceDetail: "使用当前服务器网卡统计，下载和上传会计入本机流量。",
+    };
+  }
+
+  if (node.server) {
+    return {
+      trafficSource: "绑定服务器",
+      trafficSourceLabel: `绑定服务器：${node.server.name}`,
+      trafficSourceDetail: `${node.server.name}（${node.server.host}:${node.server.port}）可用于远端网卡采样。`,
+    };
+  }
+
+  const host = node.host?.trim();
+  return {
+    trafficSource: "远程 SFTP 主机",
+    trafficSourceLabel: host ? `远程 SFTP：${host}` : "远程 SFTP：未配置主机",
+    trafficSourceDetail: host
+      ? `${host}:${node.port ?? 22} 的流量发生在目标服务器；当前页面只展示连接来源。`
+      : "该 SFTP 节点尚未配置主机，无法定位远端流量来源。",
+  };
+}
+
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
@@ -75,6 +108,9 @@ export async function GET(req: NextRequest) {
           host: true,
           port: true,
           healthStatus: true,
+          server: {
+            select: { id: true, name: true, host: true, port: true },
+          },
         },
         orderBy: [{ isDefault: "desc" }, { name: "asc" }],
         take: 100,
@@ -100,21 +136,20 @@ export async function GET(req: NextRequest) {
             summarizeInterface(`local:${item.iface}`, item),
           ),
         },
-        storageNodes: storageNodes.map((node) => ({
-          id: node.id,
-          name: node.name,
-          driver: node.driver,
-          serverId: node.serverId,
-          host: node.host,
-          port: node.port,
-          healthStatus: node.healthStatus,
-          trafficSource:
-            node.driver === "LOCAL"
-              ? "当前服务器"
-              : node.serverId
-                ? "绑定服务器"
-                : "远程 SFTP 主机",
-        })),
+        storageNodes: storageNodes.map((node) => {
+          const source = describeStorageTrafficSource(node);
+          return {
+            id: node.id,
+            name: node.name,
+            driver: node.driver,
+            serverId: node.serverId,
+            server: node.server,
+            host: node.host,
+            port: node.port,
+            healthStatus: node.healthStatus,
+            ...source,
+          };
+        }),
         servers,
       });
     },

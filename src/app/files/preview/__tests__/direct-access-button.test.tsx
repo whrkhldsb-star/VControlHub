@@ -67,7 +67,7 @@ describe("DirectAccessButton", () => {
       />,
     );
 
-    expect(screen.getByText(/播放流量/)).toBeInTheDocument();
+    expect(screen.getByText(/播放路径/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "直连目标服务器播放 demo.mp4" }));
 
     await waitFor(() => {
@@ -79,7 +79,7 @@ describe("DirectAccessButton", () => {
         body: JSON.stringify({ nodeId: "node_1", relativePath: "movies/demo.mp4" }),
       }),
     );
-    expect(screen.getByText("✅ 当前：目标服务器直连播放")).toBeInTheDocument();
+    expect(screen.getByText(/目标服务器直连播放/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "经网站服务器播放 demo.mp4" }));
 
@@ -88,7 +88,7 @@ describe("DirectAccessButton", () => {
         "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
       );
     });
-    expect(screen.getByText("✅ 当前：网站服务器中转播放")).toBeInTheDocument();
+    expect(screen.getByText(/网站服务器中转播放/)).toBeInTheDocument();
   });
 
   it("does not render for non-SFTP storage drivers", () => {

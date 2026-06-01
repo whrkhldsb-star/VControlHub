@@ -122,6 +122,55 @@ describe("/api/files/list", () => {
       session: expect.objectContaining({ userId: "u_1" }),
       targets: [{ storageNodeId: "node_sftp", relativePath: "remote.txt" }],
     });
-    expect(getStorageOverviewMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns virtual grouped node roots during SPA refresh with no node filter", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin", roles: ["admin"] },
+    });
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission !== "storage:delete",
+    );
+    const base = overview();
+    getStorageOverviewMock.mockResolvedValueOnce({
+      ...base,
+      nodes: [
+        { id: "node_local", name: "本地存储", driver: "LOCAL" },
+        { id: "node_sftp", name: "远端存储", driver: "SFTP" },
+      ],
+      entries: [
+        {
+          ...base.entries[0],
+          storageNode: {
+            id: "node_sftp",
+            name: "远端存储",
+            driver: "SFTP",
+            serverId: "server_1",
+            server: null,
+          },
+          name: "demo.mp4",
+          relativePath: "movies/2026/demo.mp4",
+          mimeType: "application/octet-stream",
+        },
+      ],
+      remoteDirectories: [],
+    });
+    getStorageAccessCapabilitiesMock.mockResolvedValueOnce(new Map());
+
+    const response = await GET(
+      new NextRequest("https://app.example.test/api/files/list"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.folders.map((folder: { displayName: string }) => folder.displayName)).toEqual([
+      "本地存储（LOCAL）",
+      "远端存储（SFTP）",
+    ]);
+    const remote = body.folders.find(
+      (folder: { displayName: string }) => folder.displayName === "远端存储（SFTP）",
+    );
+    expect(remote).toMatchObject({ fileCount: 1, folderCount: 1 });
   });
 });

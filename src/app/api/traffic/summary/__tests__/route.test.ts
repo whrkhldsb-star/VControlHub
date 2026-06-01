@@ -19,9 +19,30 @@ vi.mock("@/lib/db", () => ({
           name: "本地存储",
           driver: "LOCAL",
           serverId: null,
+          server: null,
           host: null,
           port: null,
           healthStatus: "HEALTHY",
+        },
+        {
+          id: "bound-sftp",
+          name: "绑定 SFTP",
+          driver: "SFTP",
+          serverId: "srv",
+          server: { id: "srv", name: "主机", host: "127.0.0.1", port: 22 },
+          host: "127.0.0.1",
+          port: 22,
+          healthStatus: "HEALTHY",
+        },
+        {
+          id: "bare-sftp",
+          name: "裸 SFTP",
+          driver: "SFTP",
+          serverId: null,
+          server: null,
+          host: "10.0.0.8",
+          port: 2022,
+          healthStatus: "UNKNOWN",
         },
       ]),
     },
@@ -65,6 +86,20 @@ describe("traffic summary route", () => {
     expect(body.storageNodes[0]).toMatchObject({
       id: "local-storage",
       trafficSource: "当前服务器",
+      trafficSourceLabel: "当前服务器网卡",
+      trafficSourceDetail: expect.stringContaining("本机流量"),
+    });
+    expect(body.storageNodes[1]).toMatchObject({
+      id: "bound-sftp",
+      trafficSource: "绑定服务器",
+      trafficSourceLabel: "绑定服务器：主机",
+      trafficSourceDetail: expect.stringContaining("127.0.0.1:22"),
+    });
+    expect(body.storageNodes[2]).toMatchObject({
+      id: "bare-sftp",
+      trafficSource: "远程 SFTP 主机",
+      trafficSourceLabel: "远程 SFTP：10.0.0.8",
+      trafficSourceDetail: expect.stringContaining("10.0.0.8:2022"),
     });
     expect(body.servers[0]).toMatchObject({ id: "srv", host: "127.0.0.1" });
   });

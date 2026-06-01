@@ -92,6 +92,20 @@ export const IMAGE_MIME_SET = new Set([
 	"image/x-icon",
 ]);
 
+export const IMAGE_EXTENSIONS = new Set([
+	".jpg",
+	".jpeg",
+	".png",
+	".gif",
+	".webp",
+	".avif",
+	".svg",
+	".bmp",
+	".ico",
+	".tif",
+	".tiff",
+]);
+
 /* ── Audio ─────────────────────────────────────────────────── */
 export const AUDIO_MIME_SET = new Set([
 	"audio/mpeg",
@@ -103,6 +117,17 @@ export const AUDIO_MIME_SET = new Set([
 	"audio/webm",
 ]);
 
+export const AUDIO_EXTENSIONS = new Set([
+	".mp3",
+	".ogg",
+	".oga",
+	".wav",
+	".flac",
+	".aac",
+	".m4a",
+	".weba",
+]);
+
 /* ── Video ─────────────────────────────────────────────────── */
 export const VIDEO_MIME_SET = new Set([
 	"video/mp4",
@@ -111,6 +136,16 @@ export const VIDEO_MIME_SET = new Set([
 	"video/x-matroska",
 	"video/quicktime",
 	"video/x-msvideo",
+]);
+
+export const VIDEO_EXTENSIONS = new Set([
+	".mp4",
+	".m4v",
+	".webm",
+	".ogv",
+	".mkv",
+	".mov",
+	".avi",
 ]);
 
 /* ── Composite helpers ─────────────────────────────────────── */
@@ -130,6 +165,31 @@ export function isDocumentMime(mime: string): boolean {
 /** Is the MIME type a media file (image / audio / video)? */
 export function isMediaMime(mime: string): boolean {
 	return IMAGE_MIME_SET.has(mime) || AUDIO_MIME_SET.has(mime) || VIDEO_MIME_SET.has(mime);
+}
+
+function getLowercaseExtension(nameOrPath?: string | null) {
+	if (!nameOrPath) return "";
+	const trimmed = nameOrPath.trim().toLowerCase();
+	const basename = trimmed.split(/[\\/]/).at(-1) ?? trimmed;
+	const index = basename.lastIndexOf(".");
+	return index > 0 ? basename.slice(index) : "";
+}
+
+export function classifyMediaKind(input: {
+	mimeType?: string | null;
+	name?: string | null;
+	relativePath?: string | null;
+}): "image" | "audio" | "video" | null {
+	const mime = input.mimeType?.trim().toLowerCase() ?? "";
+	if (mime.startsWith("image/") || IMAGE_MIME_SET.has(mime)) return "image";
+	if (mime.startsWith("audio/") || AUDIO_MIME_SET.has(mime)) return "audio";
+	if (mime.startsWith("video/") || VIDEO_MIME_SET.has(mime)) return "video";
+
+	const extension = getLowercaseExtension(input.name) || getLowercaseExtension(input.relativePath);
+	if (IMAGE_EXTENSIONS.has(extension)) return "image";
+	if (AUDIO_EXTENSIONS.has(extension)) return "audio";
+	if (VIDEO_EXTENSIONS.has(extension)) return "video";
+	return null;
 }
 
 /** Is the MIME type of an editable text file (code, config, data)? */
@@ -165,4 +225,12 @@ export function isPreviewableMime(mime: string | null | undefined): boolean {
 		isMediaMime(mime) ||
 		isDocumentMime(mime)
 	);
+}
+
+export function isPreviewableFile(input: {
+	mimeType?: string | null;
+	name?: string | null;
+	relativePath?: string | null;
+}): boolean {
+	return isPreviewableMime(input.mimeType) || classifyMediaKind(input) !== null;
 }

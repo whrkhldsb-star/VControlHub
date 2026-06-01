@@ -27,7 +27,7 @@ import {
   EDITABLE_TEXT_MIME_TYPES,
   EDITABLE_TEXT_EXTENSIONS,
   MAX_EDITABLE_FILE_SIZE_BYTES,
-  isPreviewableMime,
+  isPreviewableFile,
 } from "./mime-constants";
 
 type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
@@ -823,7 +823,11 @@ export async function listFileEntries(storageNodeId?: string) {
           name: entry.name,
           mimeType: entry.mimeType,
         }),
-      previewable: isPreviewableMime(entry.mimeType),
+      previewable: isPreviewableFile({
+        mimeType: entry.mimeType,
+        name: entry.name,
+        relativePath: entry.relativePath,
+      }),
     };
   });
 }

@@ -53,6 +53,7 @@ export function buildFileTree(
 	entries: StorageEntryForTree[],
 	directories: StorageDirectoryForTree[],
 	groupByNode = false,
+	nodes: Array<{ id: string; name: string; driver: string }> = [],
 ) {
 	const root = createNode("全部文件", "");
 
@@ -74,6 +75,15 @@ export function buildFileTree(
 
 	if (groupByNode) {
 		const nodeGroupMap = new Map<string, { groupKey: string; groupLabel: string }>();
+
+		for (const node of nodes) {
+			if (!nodeGroupMap.has(node.id)) {
+				nodeGroupMap.set(node.id, {
+					groupKey: `${node.name}__${node.id.slice(0, 8)}`,
+					groupLabel: `${node.name}（${node.driver}）`,
+				});
+			}
+		}
 
 		for (const entry of entries) {
 			const nodeId = entry.storageNode.id;
@@ -204,6 +214,12 @@ export function getFileTreeDisplayName(node: FileTreeNode) {
 	return node.name.includes("__") && node.sources.size === 1 ? [...node.sources.values()][0] : node.name;
 }
 
+function getDeepFileCount(node: FileTreeNode): number {
+	let total = node.files.length;
+	for (const child of node.folders.values()) total += getDeepFileCount(child);
+	return total;
+}
+
 export function serializeFileTreeNode(node: FileTreeNode, depth = 0): SerializedTreeNode[] {
 	if (depth > 10) return [];
 
@@ -216,7 +232,7 @@ export function serializeFileTreeNode(node: FileTreeNode, depth = 0): Serialized
 			entryId: child.entryId ?? null,
 			storageNodeId: child.storageNodeId ?? null,
 			relativePath: child.relativePath ?? null,
-			fileCount: child.files.length,
+			fileCount: getDeepFileCount(child),
 			folderCount: child.folders.size,
 			sourceKeys: [...child.sources.keys()],
 			sourceValues: [...child.sources.values()],
@@ -255,7 +271,7 @@ export function serializeFileTreeFolder(node: FileTreeNode) {
 		entryId: node.entryId ?? null,
 		storageNodeId: node.storageNodeId ?? null,
 		relativePath: node.relativePath ?? null,
-		fileCount: node.files.length,
+		fileCount: getDeepFileCount(node),
 		folderCount: node.folders.size,
 		sourceKeys: [...node.sources.keys()],
 		sourceValues: [...node.sources.values()],

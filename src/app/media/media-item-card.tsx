@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { Star, Tag } from "lucide-react";
+import { Star, Tag, Eye, Download, FolderOpen } from "lucide-react";
+import {
+  appendDownloadFlag,
+  buildProxyDownloadHref,
+  buildSearchHref,
+  getPreviewHref,
+  toStorageEntry,
+  type FileProp,
+} from "@/app/files/file-entry-utils";
 
 export interface MediaItem {
   id: string;
@@ -12,7 +20,16 @@ export interface MediaItem {
   size: bigint | number | null;
   favorite: boolean;
   tags: string[];
-  storageNode?: { name: string; basePath: string; server?: { name: string } | null } | null;
+  mimeType: string;
+  storageNode?: {
+    id: string;
+    name: string;
+    basePath: string;
+    driver: string;
+    directAccessMode?: string | null;
+    publicBaseUrl?: string | null;
+    server?: { name: string } | null;
+  } | null;
 }
 
 function formatSize(bytes: bigint | number | null) {
@@ -29,6 +46,43 @@ function storageLabel(m: MediaItem) {
   if (!node) return "未知存储";
   const serverName = node.server?.name ?? "本地";
   return `${serverName} · ${node.basePath}`;
+}
+
+function createStorageEntry(item: MediaItem) {
+  const node = item.storageNode;
+  if (!node) return null;
+
+  const file: FileProp = {
+    id: item.id,
+    name: item.name,
+    entryType: "FILE",
+    mimeType: item.mimeType,
+    relativePath: item.relativePath,
+    sizeBytes: item.size == null ? null : Number(item.size),
+    sizeLabel: formatSize(item.size),
+    previewable: true,
+    directAccessMode: node.directAccessMode ?? "managed-download",
+    directAccessHref:
+      node.directAccessMode === "direct-url" && node.publicBaseUrl
+        ? `${node.publicBaseUrl.replace(/\/$/, "")}/${item.relativePath
+            .split("/")
+            .map(encodeURIComponent)
+            .join("/")}`
+        : null,
+    directAccessDescription:
+      node.directAccessMode === "direct-url" ? "目标服务器直连" : "网站中转",
+    storageNodeId: node.id,
+    storageNodeName: node.name,
+    storageNodeDriver: node.driver,
+    updatedAt: null,
+  };
+  return toStorageEntry(file);
+}
+
+function containingFolderPath(relativePath: string) {
+  const segments = relativePath.split("/").filter(Boolean);
+  segments.pop();
+  return segments.join("/");
 }
 
 export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage: boolean }) {
@@ -83,6 +137,16 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
     }
   };
 
+  const storageEntry = createStorageEntry(item);
+  const previewHref = storageEntry ? getPreviewHref(storageEntry) : null;
+  const downloadHref = storageEntry ? appendDownloadFlag(buildProxyDownloadHref(storageEntry)) : null;
+  const sourceHref = item.storageNode
+    ? buildSearchHref(containingFolderPath(item.relativePath), {
+        nodeId: item.storageNode.id,
+        q: item.name,
+      })
+    : null;
+
   return (
     <div className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12] light:border-slate-200 light:bg-slate-50">
       <div className="flex items-start justify-between gap-2">
@@ -107,6 +171,33 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
           </button>
         )}
         {!canManage && fav && <span className="text-amber-400 text-sm">⭐</span>}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        {previewHref ? (
+          <a
+            href={previewHref}
+            className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1.5 text-cyan-200 hover:bg-cyan-400/20 light:text-cyan-700"
+          >
+            <Eye size={13} /> 预览/播放
+          </a>
+        ) : null}
+        {downloadHref ? (
+          <a
+            href={downloadHref}
+            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:border-slate-200 light:text-slate-700 light:hover:bg-white"
+          >
+            <Download size={13} /> 下载
+          </a>
+        ) : null}
+        {sourceHref ? (
+          <a
+            href={sourceHref}
+            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:border-slate-200 light:text-slate-700 light:hover:bg-white"
+          >
+            <FolderOpen size={13} /> 源文件
+          </a>
+        ) : null}
       </div>
 
       {canManage && (

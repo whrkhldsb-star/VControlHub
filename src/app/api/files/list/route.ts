@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
         filteredEntries,
         filteredDirectories,
         groupByNode,
+        storage.nodes,
       );
       const currentNode = findFileTreeNode(tree, currentPath) ?? tree;
 

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T06:28:19Z",
+  "updatedAt": "2026-06-01T08:57:38Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,42 +51,56 @@
     "date": "2026-06-01",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Server action/page/Direct Gateway neighboring regressions 16/16 passed",
+    "tests": "Files tree/API, media service/card, preview direct-access, and traffic summary regressions 14/14 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-06-01T06:28:19Z",
-    "target": "QA batch 2 — VPS edit/delete-safe paths",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Improved destructive VPS deletion safety: the server action now verifies the current persisted VPS name before calling deleteServerProfile, and the server card renders an accessible alertdialog with typed-name confirmation, storage/direct-gateway impact guidance, and light-theme readable edit/toggle/delete states.",
+    "finishedAt": "2026-06-01T08:57:38Z",
+    "target": "QA batch 3 Files/Media/Traffic real-path closeout",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Closed the dirty Files preview sanitizer handoff and expanded it into a coherent Files/Media/Traffic availability slice. Files tree grouping now keeps configured storage-node roots visible across SSR and SPA refresh, including empty LOCAL roots. Media classification and previewability now infer image/audio/video from file extension when MIME is blank/generic; Media Library cards expose preview/download/source actions; Traffic Center storage-node source labels now explain local, bound-server, and remote-SFTP origins instead of relying on blank/ambiguous values.",
     "validation": [
-      "git diff --check: passed",
-      "npx vitest run src/app/servers/__tests__/actions.test.ts src/app/servers/__tests__/direct-gateway-controls.test.tsx src/app/servers/__tests__/page.test.tsx: 16/16 passed",
-      "npm run typecheck: passed",
-      "npm run lint: passed with existing warnings only",
-      "npm run build: passed",
-      "npm run build:runtime: passed",
-      "Production services vcontrolhub-next/vcontrolhub-ssh-ws/caddy active after restart and .next ownership repair",
-      "/servers 307, /api/auth/ws-token 401, /login 200, /api/status 200",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed",
-      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches"
+      "Production browser login with temporary qa_cron_fm_0601 admin succeeded; post-deploy cleanup deleted qa_cron_* users and remaining count is 0.",
+      "Logged-in /api/files/list returned grouped roots: 31.22.111.48 SFTP, 45.207.216.45 SFTP, empty 本机默认存储 LOCAL, and test SFTP with file/folder counts.",
+      "Logged-in /api/media returned 3 real image media items; /media page rendered preview/download/source links for each item.",
+      "Logged-in /api/traffic/summary and /traffic page rendered storage traffic source labels/details for 当前服务器网卡 and 绑定服务器 sources; no blank/unknown source labels were present.",
+      "Database QA query confirmed current media index has real image items and no generic-MIME media candidate remains unindexed in the sampled production data.",
+      "npx vitest run src/lib/files/__tests__/tree.test.ts src/app/api/files/list/__tests__/route.test.ts src/lib/media/service.test.ts src/app/media/__tests__/media-item-card.test.tsx src/app/files/preview/__tests__/direct-access-button.test.tsx src/app/api/traffic/summary/__tests__/route.test.ts: 14/14 passed.",
+      "npm run typecheck: passed.",
+      "npm run lint: passed with existing client-effect warnings only.",
+      "npm run build: passed.",
+      "npm run build:runtime: passed.",
+      "Production restart of vcontrolhub-next.service and vcontrolhub-ssh-ws.service completed; .next ownership repaired; services plus caddy active.",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed.",
+      "Unauth probes: /files /media /traffic /files/preview => 307; /api/files/list /api/media /api/traffic/summary => 401; /api/status => 200.",
+      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs after deploy contained no error/warn/EACCES/DOMPurify/sanitize matches."
     ],
-    "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
-    "nextTarget": "Continue QA batch 2 with SSH terminal idle stability; then rotate to QA batch 3 Files/storage/SFTP upload/download/direct-access user-path testing.",
-    "commit": "76c8470",
+    "deployment": "Deployed: build and runtime bundle succeeded, services restarted, smoke passed, post-deploy browser/API verification succeeded, logs clean.",
+    "nextTarget": "Commit/push this Files/Media/Traffic closeout, then continue QA batch 3 with safe Files/storage/SFTP upload/download/direct-access user-path testing. Also consider a later Traffic UI polish to translate healthStatus UNKNOWN into operator-friendly localized status copy, distinct from the now-fixed traffic-source labels.",
+    "commit": null,
     "files": [
-      "src/app/servers/actions.ts",
-      "src/app/servers/server-card-actions.tsx",
-      "src/app/servers/__tests__/actions.test.ts",
-      "src/app/servers/__tests__/direct-gateway-controls.test.tsx",
+      "src/lib/files/tree.ts",
+      "src/app/files/page.tsx",
+      "src/app/api/files/list/route.ts",
+      "src/lib/storage/mime-constants.ts",
+      "src/lib/storage/service.ts",
+      "src/lib/media/service.ts",
+      "src/app/media/media-item-card.tsx",
+      "src/app/files/preview/markdown-preview-client.tsx",
+      "src/app/files/preview/text-preview-client.tsx",
+      "src/app/files/preview/media-preview-client.tsx",
+      "src/app/files/preview/direct-access-button.tsx",
+      "src/app/api/traffic/summary/route.ts",
+      "src/app/traffic/traffic-page-client.tsx",
+      "related tests",
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Continue QA batch 2 with SSH terminal idle stability; then rotate to QA batch 3 Files/storage/SFTP upload/download/direct-access user-path testing.",
-    "completedAt": "2026-06-01T06:28:19Z"
+    "nextAction": "Commit and push the verified deployed closeout; then update lastRun.commit if a follow-up bookkeeping commit is needed.",
+    "completedAt": "2026-06-01T08:57:38Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -101,7 +115,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 16,
+    "successfulRemediationRunsSinceFreshAudit": 17,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -261,6 +275,12 @@
       "summary": "QA batch 2 destructive VPS delete/edit-path safety slice verified, deployed, and committed as 76c8470: typed-name confirmation is enforced server-side before deleteServerProfile, the card delete confirmation is an accessible alertdialog with impact guidance, and edit/toggle/delete feedback is light-theme readable.",
       "jobId": "9e36e64a75ae",
       "commit": "76c8470"
+    },
+    {
+      "at": "2026-06-01T08:57:38Z",
+      "type": "major_round_slice_verified_deployed_pending_commit",
+      "summary": "Files/Media/Traffic real-path availability closeout verified and deployed; pending commit/push.",
+      "jobId": "9e36e64a75ae"
     }
   ]
 }

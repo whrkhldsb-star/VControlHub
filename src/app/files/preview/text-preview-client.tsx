@@ -1,15 +1,28 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import DOMPurify from "dompurify";
+import createDOMPurify from "dompurify";
+import type { Config } from "dompurify";
+
+const HIGHLIGHT_SANITIZE_CONFIG: Config = {
+	ALLOWED_TAGS: ["span", "br"],
+	ALLOWED_ATTR: ["class"],
+	ALLOW_DATA_ATTR: false,
+};
+
+function purifyHtml(html: string, config: Config): string {
+	const purifier = typeof createDOMPurify.sanitize === "function"
+		? createDOMPurify
+		: typeof window !== "undefined"
+			? createDOMPurify(window)
+			: null;
+
+	return purifier?.sanitize(html, config) ?? html;
+}
 
 /** Sanitize syntax-highlighted HTML — allow span tags for color classes */
 function sanitizeHighlightHtml(html: string): string {
-	return DOMPurify.sanitize(html, {
-		ALLOWED_TAGS: ["span", "br"],
-		ALLOWED_ATTR: ["class"],
-		ALLOW_DATA_ATTR: false,
-	});
+	return purifyHtml(html, HIGHLIGHT_SANITIZE_CONFIG);
 }
 
 type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };

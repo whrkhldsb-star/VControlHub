@@ -20,7 +20,9 @@ export function MediaPreviewClient({
 }) {
 	const isVideo = mimeType.startsWith("video/");
 	const isAudio = mimeType.startsWith("audio/");
-	const [streamUrl, setStreamUrl] = useState<string | null>(null);
+	const [streamUrl, setStreamUrl] = useState<string | null>(() =>
+		driver === "SFTP" ? href : null,
+	);
 	const src = streamUrl ?? href;
 	const handleStreamUrl = (url: string) => {
 		setStreamUrl(url);
@@ -62,7 +64,7 @@ export function MediaPreviewClient({
 
 			{/* Status indicator */}
 			{streamUrl ? (
-				<span className="text-xs text-cyan-300">🎛️ 已切换播放流量路径</span>
+				<span className="text-xs text-cyan-300 light:text-cyan-700">已使用当前播放路径</span>
 			) : driver === "SFTP" ? (
 				<span className="text-xs text-slate-500">
 					默认通过网站服务器中转播放；可在上方切换为目标服务器直连，适合大视频/音频。

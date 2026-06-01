@@ -81,35 +81,57 @@ export function DirectAccessButton({
   const isLoading = loadingMode !== null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2">
-      <span className="text-xs text-slate-400">播放流量</span>
-      <button
-        type="button"
-        onClick={() => requestAccess("proxy")}
-        disabled={isLoading}
-        aria-label={`经网站服务器播放 ${fileName}`}
-        className="rounded-full border border-slate-500/40 bg-slate-800 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700 disabled:opacity-50"
-      >
-        {loadingMode === "proxy" ? "正在准备网站中转…" : "网站"}
-      </button>
-      <button
-        type="button"
-        onClick={() => requestAccess("direct")}
-        disabled={isLoading}
-        aria-label={`直连目标服务器播放 ${fileName}`}
-        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50"
-      >
-        {loadingMode === "direct" ? "正在准备直连…" : "直连"}
-      </button>
-      {activeMode ? (
-        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100">
-          ✅ 当前：{activeMode === "direct-url" ? "目标服务器直连播放" : "网站服务器中转播放"}
-        </span>
-      ) : null}
-      {fallbackUrl && activeMode === "direct-url" ? (
-        <span className="text-[11px] text-slate-500">可随时切回网站中转</span>
-      ) : null}
-      {error ? <span className="text-xs text-red-300">{error}</span> : null}
+    <div className="w-full max-w-3xl rounded-2xl border border-white/10 bg-slate-950/70 p-3 shadow-sm light:border-slate-200 light:bg-white">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-medium text-slate-300 light:text-slate-700">
+            播放路径
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500 light:text-slate-500">
+            网站中转更稳定；直连依赖目标服务器公网网关。
+          </p>
+        </div>
+        <div className="inline-flex overflow-hidden rounded-xl border border-white/10 bg-slate-900 p-1 light:border-slate-200 light:bg-slate-100">
+          <button
+            type="button"
+            onClick={() => requestAccess("proxy")}
+            disabled={isLoading}
+            aria-pressed={activeMode === "managed-download"}
+            aria-label={`经网站服务器播放 ${fileName}`}
+            className={`rounded-lg px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+              activeMode === "managed-download"
+                ? "bg-cyan-500 text-white shadow-sm"
+                : "text-slate-300 hover:bg-white/10 hover:text-white light:text-slate-700 light:hover:bg-white"
+            }`}
+          >
+            {loadingMode === "proxy" ? "准备中" : "网站中转"}
+          </button>
+          <button
+            type="button"
+            onClick={() => requestAccess("direct")}
+            disabled={isLoading}
+            aria-pressed={activeMode === "direct-url"}
+            aria-label={`直连目标服务器播放 ${fileName}`}
+            className={`rounded-lg px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+              activeMode === "direct-url"
+                ? "bg-cyan-500 text-white shadow-sm"
+                : "text-slate-300 hover:bg-white/10 hover:text-white light:text-slate-700 light:hover:bg-white"
+            }`}
+          >
+            {loadingMode === "direct" ? "准备中" : "目标直连"}
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 min-h-5 text-xs">
+        {activeMode ? (
+          <span className="text-cyan-200 light:text-cyan-700">
+            当前：{activeMode === "direct-url" ? "目标服务器直连播放" : "网站服务器中转播放"}
+          </span>
+        ) : fallbackUrl ? (
+          <span className="text-slate-500">可随时切回网站中转</span>
+        ) : null}
+        {error ? <span className="text-red-300 light:text-red-700">{error}</span> : null}
+      </div>
     </div>
   );
 }

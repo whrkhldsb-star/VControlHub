@@ -66,6 +66,38 @@ describe("file tree helpers", () => {
     expect(rootFolders.every((folder) => folder.path.includes("__"))).toBe(true);
   });
 
+  it("groups configured storage nodes even when a node only has nested media files", () => {
+    const tree = buildFileTree(
+      [
+        entry({
+          id: "video_file",
+          relativePath: "movies/2026/demo.mp4",
+          nodeId: "sftp_1",
+          nodeName: "远端",
+          driver: "SFTP",
+          mimeType: "application/octet-stream",
+        }),
+      ],
+      [],
+      true,
+      [
+        { id: "local_1", name: "本地", driver: "LOCAL" },
+        { id: "sftp_1", name: "远端", driver: "SFTP" },
+      ],
+    );
+
+    const rootFolders = serializeFileTreeNode(tree);
+    expect(rootFolders.map((folder) => folder.displayName).sort()).toEqual([
+      "本地（LOCAL）",
+      "远端（SFTP）",
+    ]);
+    const remote = rootFolders.find((folder) => folder.displayName === "远端（SFTP）");
+    expect(remote?.fileCount).toBe(1);
+    expect(remote?.folderCount).toBe(1);
+    const movies = remote?.children.find((folder) => folder.name === "movies");
+    expect(movies?.fileCount).toBe(1);
+  });
+
   it("finds, serializes and searches folders/files consistently", () => {
     const tree = buildFileTree(
       [

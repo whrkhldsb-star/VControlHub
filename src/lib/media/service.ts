@@ -1,10 +1,50 @@
 import { prisma } from "@/lib/db";
+import { classifyMediaKind } from "@/lib/storage/mime-constants";
 
-export function classifyMedia(mimeType?: string | null) {
-  if (!mimeType) return null;
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("video/")) return "video";
-  return null;
+export function classifyMedia(
+  mimeType?: string | null,
+  nameOrPath?: string | null,
+) {
+  const kind = classifyMediaKind({
+    mimeType,
+    name: nameOrPath,
+    relativePath: nameOrPath,
+  });
+  return kind === "audio" ? null : kind;
+}
+
+function extensionOf(nameOrPath?: string | null) {
+  const basename = (nameOrPath ?? "").trim().toLowerCase().split(/[\\/]/).at(-1) ?? "";
+  const index = basename.lastIndexOf(".");
+  return index > 0 ? basename.slice(index) : "";
+}
+
+function inferMediaMimeType(entry: {
+  mimeType?: string | null;
+  name?: string | null;
+  relativePath?: string | null;
+  mediaType: "image" | "video";
+}) {
+  const mime = entry.mimeType?.trim().toLowerCase();
+  if (mime && mime !== "application/octet-stream") return mime;
+
+  const extension = extensionOf(entry.name) || extensionOf(entry.relativePath);
+  const byExtension: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".svg": "image/svg+xml",
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".webm": "video/webm",
+    ".mkv": "video/x-matroska",
+    ".mov": "video/quicktime",
+    ".avi": "video/x-msvideo",
+  };
+  return byExtension[extension] ?? `${entry.mediaType}/*`;
 }
 
 export async function listMediaItems(
@@ -44,6 +84,8 @@ export async function listMediaItems(
           name: true,
           basePath: true,
           driver: true,
+          directAccessMode: true,
+          publicBaseUrl: true,
           serverId: true,
           server: {
             select: { id: true, name: true, host: true },
@@ -62,6 +104,18 @@ export async function scanMediaFromFileEntries(userId?: string) {
       OR: [
         { mimeType: { startsWith: "image/" } },
         { mimeType: { startsWith: "video/" } },
+        { name: { endsWith: ".jpg", mode: "insensitive" } },
+        { name: { endsWith: ".jpeg", mode: "insensitive" } },
+        { name: { endsWith: ".png", mode: "insensitive" } },
+        { name: { endsWith: ".gif", mode: "insensitive" } },
+        { name: { endsWith: ".webp", mode: "insensitive" } },
+        { name: { endsWith: ".avif", mode: "insensitive" } },
+        { name: { endsWith: ".mp4", mode: "insensitive" } },
+        { name: { endsWith: ".m4v", mode: "insensitive" } },
+        { name: { endsWith: ".webm", mode: "insensitive" } },
+        { name: { endsWith: ".mkv", mode: "insensitive" } },
+        { name: { endsWith: ".mov", mode: "insensitive" } },
+        { name: { endsWith: ".avi", mode: "insensitive" } },
       ],
     },
     take: 1000,
@@ -79,15 +133,21 @@ export async function scanMediaFromFileEntries(userId?: string) {
 
   let upserted = 0;
   for (const entry of entries) {
-    const mediaType = classifyMedia(entry.mimeType);
+    const mediaType = classifyMedia(entry.mimeType, entry.name || entry.relativePath);
     if (!mediaType) continue;
+    const indexedMimeType = inferMediaMimeType({
+      mimeType: entry.mimeType,
+      name: entry.name,
+      relativePath: entry.relativePath,
+      mediaType,
+    });
 
     await prisma.mediaItem.upsert({
       where: { fileEntryId: entry.id },
       update: {
         name: entry.name,
         relativePath: entry.relativePath,
-        mimeType: entry.mimeType ?? "application/octet-stream",
+        mimeType: indexedMimeType,
         mediaType,
         size: entry.size ?? null,
         storageNodeId: entry.storageNodeId,
@@ -97,7 +157,7 @@ export async function scanMediaFromFileEntries(userId?: string) {
         storageNodeId: entry.storageNodeId,
         name: entry.name,
         relativePath: entry.relativePath,
-        mimeType: entry.mimeType ?? "application/octet-stream",
+        mimeType: indexedMimeType,
         mediaType,
         size: entry.size ?? null,
         tags: [],
