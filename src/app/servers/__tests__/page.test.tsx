@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 const serviceMocks = vi.hoisted(() => ({
@@ -126,6 +127,12 @@ describe("ServersPage", () => {
     expect(
       screen.getByRole("button", { name: /查看详情/ }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /查看详情/ })).toHaveAttribute(
+      "aria-controls",
+      "server-details-srv_1",
+    );
+    expect(screen.getByRole("status", { name: "节点状态：已启用" })).toHaveTextContent("启用");
+    expect(screen.queryByRole("region", { name: "hk-prod-1 VPS 详情" })).not.toBeInTheDocument();
     expect(screen.queryByText("连接与状态")).not.toBeInTheDocument();
     expect(screen.queryByText("最近命令投递")).not.toBeInTheDocument();
     expect(screen.queryByText("操作与资源")).not.toBeInTheDocument();
@@ -141,6 +148,22 @@ describe("ServersPage", () => {
     expect(
       screen.getByRole("button", { name: "批量操作" }),
     ).toBeInTheDocument();
+  });
+
+  it("expands a VPS details region with service-health guidance and readable status context", async () => {
+    const user = userEvent.setup();
+    serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
+
+    render(await ServersPage());
+    await user.click(screen.getByRole("button", { name: /查看详情/ }));
+
+    expect(
+      screen.getByRole("region", { name: "hk-prod-1 VPS 详情" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("连接与状态")).toBeInTheDocument();
+    expect(screen.getByText(/状态徽章表示 VControlHub 是否允许该 VPS 接收操作/)).toBeInTheDocument();
+    expect(screen.getByText(/直连访问异常/)).toBeInTheDocument();
+    expect(screen.getAllByText("prod-root-key").length).toBeGreaterThan(1);
   });
 
   it("renders password-connected server without ssh key metadata", async () => {

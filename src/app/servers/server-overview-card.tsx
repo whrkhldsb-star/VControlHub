@@ -49,9 +49,11 @@ export function ServerOverviewCard({
 }: ServerOverviewCardProps) {
   const [expanded, setExpanded] = useState(false);
   const directLabel = server.directGateway?.statusLabel ?? "网站中转";
+  const detailsId = `server-details-${server.id}`;
+  const managedStatusLabel = server.enabled ? "已启用" : "已停用";
 
   return (
-    <article className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04]">
+    <article className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04] light:border-slate-200 light:bg-white light:shadow-sm light:hover:bg-slate-50">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -59,22 +61,24 @@ export function ServerOverviewCard({
               className={`h-2 w-2 shrink-0 rounded-full ${server.enabled ? "bg-emerald-400" : "bg-slate-500"}`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold text-white">
+            <h2 className="truncate text-sm font-semibold text-white light:text-slate-950">
               {server.name}
             </h2>
           </div>
-          <p className="mt-1 truncate text-[11px] text-slate-500">
+          <p className="mt-1 truncate text-[11px] text-slate-500 light:text-slate-600">
             {server.username}@{server.host}:{server.port}
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${server.enabled ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200" : "border-slate-400/20 bg-slate-400/10 text-slate-400"}`}
+          role="status"
+          aria-label={`节点状态：${managedStatusLabel}`}
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${server.enabled ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/25 light:bg-emerald-50 light:text-emerald-800" : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:border-slate-300 light:bg-slate-100 light:text-slate-700"}`}
         >
           {server.enabled ? "启用" : "停用"}
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400 light:text-slate-700">
         <CompactField label="连接" value={server.connectionTypeLabel} />
         <CompactField
           label="密钥"
@@ -108,16 +112,22 @@ export function ServerOverviewCard({
           type="button"
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
-          className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/[0.08]"
+          aria-controls={detailsId}
+          className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-slate-300 light:bg-white light:text-slate-800 light:hover:bg-slate-100"
         >
           {expanded ? "收起详情" : "查看详情"}
         </button>
       </div>
 
       {expanded ? (
-        <div className="mt-4 space-y-3 border-t border-white/[0.06] pt-4">
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
-            <h3 className="mb-3 text-sm font-medium text-white/80">
+        <div
+          id={detailsId}
+          role="region"
+          aria-label={`${server.name} VPS 详情`}
+          className="mt-4 space-y-3 border-t border-white/[0.06] pt-4 light:border-slate-200"
+        >
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
+            <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
               连接与状态
             </h3>
             <div className="grid gap-2 text-sm">
@@ -130,8 +140,12 @@ export function ServerOverviewCard({
                 value={server.sshKey ? server.sshKey.name : "未配置"}
               />
             </div>
+            <p className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/5 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50 light:text-slate-700">
+              状态徽章表示 VControlHub 是否允许该 VPS 接收操作；若 SSH
+              终端、文件中转或直连访问异常，请结合下方连接摘要、直连模式和最近命令状态定位真实服务健康。
+            </p>
             {server.sshKey?.fingerprint ? (
-              <p className="mt-2 truncate text-[11px] text-slate-600">
+              <p className="mt-2 truncate text-[11px] text-slate-600 light:text-slate-500">
                 指纹：{server.sshKey.fingerprint}
               </p>
             ) : null}
@@ -140,7 +154,7 @@ export function ServerOverviewCard({
                 {(server.tags ?? []).map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400"
+                    className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400 light:border-slate-200 light:bg-white light:text-slate-700"
                   >
                     #{tag}
                   </span>
@@ -149,8 +163,8 @@ export function ServerOverviewCard({
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
-            <h3 className="mb-3 text-sm font-medium text-white/80">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
+            <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
               操作与资源
             </h3>
             <div className="space-y-2 text-sm">
@@ -190,30 +204,32 @@ export function ServerOverviewCard({
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
-            <h3 className="mb-3 text-sm font-medium text-white/80">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
+            <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
               最近命令投递
             </h3>
             {server.latestCommands.length === 0 ? (
-              <p className="text-xs text-slate-500">暂无命令投递记录。</p>
+              <p className="text-xs text-slate-500 light:text-slate-600">
+                暂无命令投递记录。
+              </p>
             ) : (
               <div className="space-y-2">
                 {server.latestCommands.map((command) => (
                   <div
                     key={command.id}
-                    className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"
+                    className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3 light:border-slate-200 light:bg-white"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-white">
+                      <span className="truncate text-sm font-medium text-white light:text-slate-900">
                         {command.title}
                       </span>
-                      <span className="shrink-0 text-[11px] text-slate-500">
+                      <span className="shrink-0 text-[11px] text-slate-500 light:text-slate-600">
                         {command.initiatedByType === "ASSISTANT"
                           ? "助手"
                           : "用户"}
                       </span>
                     </div>
-                    <div className="mt-1 text-[11px] text-slate-500">
+                    <div className="mt-1 text-[11px] text-slate-500 light:text-slate-600">
                       {command.requestStatus} · {command.targetStatus}
                     </div>
                   </div>
@@ -229,9 +245,9 @@ export function ServerOverviewCard({
 
 function CompactField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5">
-      <div className="text-[10px] text-slate-600">{label}</div>
-      <div className="truncate text-[11px] text-slate-200">{value}</div>
+    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5 light:border-slate-200 light:bg-slate-50">
+      <div className="text-[10px] text-slate-600 light:text-slate-500">{label}</div>
+      <div className="truncate text-[11px] text-slate-200 light:text-slate-800">{value}</div>
     </div>
   );
 }
@@ -239,8 +255,8 @@ function CompactField({ label, value }: { label: string; value: string }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3">
-      <span className="w-[88px] shrink-0 text-xs text-slate-500">{label}</span>
-      <span className="truncate text-sm text-white">{value}</span>
+      <span className="w-[88px] shrink-0 text-xs text-slate-500 light:text-slate-600">{label}</span>
+      <span className="truncate text-sm text-white light:text-slate-900">{value}</span>
     </div>
   );
 }
