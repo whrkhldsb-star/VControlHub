@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T03:09:58Z",
+  "updatedAt": "2026-06-01T03:22:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -58,9 +58,9 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean; browser light-theme QA proved Direct Gateway recovery guidance/link/button readable; temporary QA users remaining 0"
   },
   "lastRun": {
-    "finishedAt": "2026-06-01T03:09:58Z",
+    "finishedAt": "2026-06-01T03:22:00Z",
     "target": "QA batch 2 — Direct Gateway recovery guidance and light-theme operator clarity",
-    "status": "completed_verified_deployed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Production browser QA inspected a real VPS Direct Gateway control, found recovery/switch-back consequences under-explained, then added accessible status labelling, a public URL probe link, light-theme readable guidance, and focus-visible affordances.",
     "validation": [
       "git diff --check: passed",
@@ -78,15 +78,15 @@
     ],
     "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, browser light-theme QA, and log checks.",
     "nextTarget": "Continue QA batch 2 with VPS edit/delete-safe paths, service health badges, and SSH terminal idle stability; rotate to QA batch 3 Files/storage/SFTP once remaining VPS/server issues are covered.",
-    "commit": null,
+    "commit": "1d3b1da",
     "files": [
       "src/app/servers/server-card-actions.tsx",
       "src/app/servers/__tests__/direct-gateway-controls.test.tsx",
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Continue browser-driven QA batch 2 or rotate to QA batch 3 after this Direct Gateway recovery-guidance slice is committed.",
-    "completedAt": "2026-06-01T03:09:58Z"
+    "nextAction": "Continue browser-driven QA batch 2 with VPS edit/delete-safe paths, service health badges, and SSH terminal idle stability, or rotate to QA batch 3 Files/storage/SFTP once remaining VPS/server issues are covered.",
+    "completedAt": "2026-06-01T03:22:00Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -237,8 +237,9 @@
     {
       "at": "2026-06-01T03:09:58Z",
       "type": "qa_batch_2_direct_gateway_recovery_guidance_verified",
-      "summary": "Direct Gateway recovery guidance/light-theme operator clarity slice verified and deployed; pending commit hash closeout.",
-      "jobId": "9e36e64a75ae"
+      "summary": "Direct Gateway recovery guidance/light-theme operator clarity slice verified and deployed; committed as 1d3b1da with roadmap/backlog/state updates.",
+      "jobId": "9e36e64a75ae",
+      "commit": "1d3b1da"
     }
   ]
 }
