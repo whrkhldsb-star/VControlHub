@@ -177,6 +177,16 @@ const translations: Record<Locale, Record<string, string>> = {
 		// Search
 		"search.placeholder": "搜索页面、操作...",
 		"search.no-results": "未找到结果",
+		"search.dialog": "全局搜索",
+		"search.input-label": "搜索页面和操作",
+		"search.category.page": "页面",
+		"search.category.system": "系统",
+		"search.category.public": "公开页面",
+		"search.category.tool": "工具",
+		"search.category.action": "操作",
+		"search.shortcut-select": "↑↓ 选择",
+		"search.shortcut-confirm": "↵ 确认",
+		"search.shortcut-close": "ESC 关闭",
 	},
 	en: {
 		// Navigation
@@ -348,6 +358,16 @@ const translations: Record<Locale, Record<string, string>> = {
 		// Search
 		"search.placeholder": "Search pages, actions...",
 		"search.no-results": "No results found",
+		"search.dialog": "Global search",
+		"search.input-label": "Search pages and actions",
+		"search.category.page": "Page",
+		"search.category.system": "System",
+		"search.category.public": "Public page",
+		"search.category.tool": "Tool",
+		"search.category.action": "Action",
+		"search.shortcut-select": "↑↓ Select",
+		"search.shortcut-confirm": "↵ Confirm",
+		"search.shortcut-close": "ESC Close",
 	},
 };
 

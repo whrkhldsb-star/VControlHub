@@ -182,3 +182,19 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - New schedule: `every 30m`.
 - Policy: keep this half-hour cadence unless the user explicitly asks for a different interval. The longer interval should reduce interruption/noise and give each coherent major round more room for real QA, verification, deployment, and bundled GitHub commits.
 - Verification requirement after cadence edits: confirm the cron job still has its full name, prompt, skills, toolsets, `deliver: origin`, and `workdir: /opt/VControlHub` intact; do not leave an ID-only job after schedule updates.
+
+
+## Dirty worktree closeout — Global Search localization — 2026-06-01T00:06:09Z
+
+- Watchdog alert cause: full-product QA remediation job `9e36e64a75ae` completed a Global Search localization fix and production verification but hit the tool limit before final cleanup/state/commit, leaving the worktree dirty.
+- Product fix: Global Search now localizes dialog title, combobox label, placeholder, result labels/categories, empty state, and shortcut footer using the active locale. English mode no longer shows Chinese search labels such as `仪表盘`.
+- Regression: `src/components/__tests__/global-search.test.tsx` now renders through `I18nProvider` and covers English locale search UI plus `/quick-services` navigation.
+- Cleanup: removed all temporary `qa_cron_*` users; remaining count verified as 0.
+- Verification rerun during closeout:
+  - `npx vitest run src/components/__tests__/global-search.test.tsx` — 7/7 passed.
+  - `npm run typecheck` — passed.
+  - `npm run lint` — passed with existing warnings only.
+  - Production services `vcontrolhub-next.service`, `vcontrolhub-ssh-ws.service`, and `caddy.service` — active.
+  - `https://whrkhldsb.qzz.io/api/status` — healthy 3/3.
+  - `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` — 19/19 passed.
+- Closeout rule: commit/push these verified functional changes and state updates together, then run the lightweight watchdog directly to confirm it is silent.

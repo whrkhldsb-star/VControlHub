@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-05-31T23:03:19Z",
+  "updatedAt": "2026-06-01T00:06:09Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -59,31 +59,28 @@
   },
   "lastRun": {
     "finishedAt": "2026-05-31T22:43:37Z",
-    "target": "Completion-gate/fresh-audit Health Center localization closeout",
-    "status": "completed_verified_deployed_committed",
-    "summary": "Converged a prior dirty Health Center localization fix instead of opening a new topic. The Health/System Health client now consumes the active language for nested self-check headings, repair cards, status badges, overview controls, table labels, trend labels, and common Chinese service/API messages returned by /api/system-health, so English mode no longer shows a mixed Chinese/English Health Center.",
+    "target": "Global Search English localization closeout",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Localized Global Search dialog/results/categories/keyboard hints using current locale and added regression coverage; cleaned temporary QA users and re-ran targeted tests, typecheck, lint, production status, and smoke.",
     "validation": [
-      "Read backlog/state and confirmed current full-product QA remediation job 9e36e64a75ae; removed job b8833e83bb1f is not current",
-      "Detected dirty worktree from a prior Health Center localization change and converged it before opening any new topic",
-      "Confirmed no overlapping build/test/remediation process beyond running production npm services and editor TypeScript servers",
-      "Inspected the Health Center diff and verified it localizes nested system-health UI/copy through the active i18n provider rather than only route probes",
-      "Added client regression proving English mode renders System Self-check, translated service/API messages, overview labels, refresh controls, and no Chinese system-health headings",
-      "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx passed 8/8",
-      "npx vitest run src/app/health/__tests__/health-dashboard-client.test.tsx src/app/health/__tests__/page.test.tsx src/app/api/system-health/__tests__/route.test.ts src/lib/system-health/__tests__/service.test.ts passed 14/14",
-      "git diff --check passed",
-      "npm run typecheck passed",
-      "npm run lint passed with existing client-effect warnings only",
-      "npm run build passed",
-      "npm run build:runtime passed",
-      "Production services restarted: vcontrolhub-next.service and vcontrolhub-ssh-ws.service active; /api/status healthy",
-      "deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 19/19",
-      "Route probes returned /health 307, /api/health 401, /api/system-health 401, /login 200, /api/status 200",
-      "Repaired .next ownership to vcontrolhub:vcontrolhub after root build and restarted services again",
-      "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs contained no error/warn matches"
+      "npx vitest run src/components/__tests__/global-search.test.tsx: 7/7 passed",
+      "npm run typecheck: passed",
+      "npm run lint: passed with existing warnings only",
+      "Production services vcontrolhub-next/vcontrolhub-ssh-ws/caddy active",
+      "/api/status healthy 3/3",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed",
+      "Temporary qa_cron_* users removed; remaining count 0"
     ],
     "deployment": "Deployed by rebuilding, rebuilding runtime bundle, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
     "nextTarget": "Continue the completion-gate fresh-audit posture. If the tree is clean, proceed with browser-driven QA batch 1 global-search/responsive checks or explicitly rotate to QA batch 2 VPS/server management and SSH terminal with real user-path verification.",
-    "commit": "3ea9b17"
+    "commit": "3ea9b17",
+    "files": [
+      "src/components/global-search.tsx",
+      "src/components/__tests__/global-search.test.tsx",
+      "src/lib/i18n/translations.ts"
+    ],
+    "nextAction": "Commit and push the verified Global Search closeout, then update this state with the commit hash if a bookkeeping update is needed.",
+    "completedAt": "2026-06-01T00:06:09Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -178,6 +175,12 @@
       "summary": "Changed active full-product QA remediation loop cadence from every 20m to every 30m per user feedback that prior cadence felt too frequent.",
       "jobId": "9e36e64a75ae",
       "schedule": "every 30m"
+    },
+    {
+      "at": "2026-06-01T00:06:09Z",
+      "type": "dirty_worktree_closeout",
+      "summary": "Watchdog dirty-worktree alert traced to prior full-product QA cron run that completed Global Search localization but hit tool limit before cleanup/state/commit. Manual closeout cleaned QA users and revalidated before commit.",
+      "jobId": "9e36e64a75ae"
     }
   ]
 }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { GlobalSearch, getSearchItems } from "../global-search";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 const pushMock = vi.fn();
 
@@ -10,11 +11,19 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ push: pushMock }),
 }));
 
+function renderGlobalSearch(locale: "zh" | "en" = "zh") {
+	return render(
+		<I18nProvider initialLocale={locale}>
+			<GlobalSearch />
+		</I18nProvider>,
+	);
+}
+
 describe("GlobalSearch", () => {
 	it("routes to existing application pages from search results", async () => {
 		pushMock.mockClear();
 		const user = userEvent.setup();
-		render(<GlobalSearch />);
+		renderGlobalSearch();
 
 		act(() => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
@@ -27,7 +36,7 @@ describe("GlobalSearch", () => {
 
 	it("exposes the search overlay as a labelled dialog and combobox listbox", async () => {
 		const user = userEvent.setup();
-		render(<GlobalSearch />);
+		renderGlobalSearch();
 
 		act(() => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
@@ -100,7 +109,7 @@ describe("GlobalSearch", () => {
 		pushMock.mockClear();
 		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 		const user = userEvent.setup();
-		render(<GlobalSearch />);
+		renderGlobalSearch();
 
 		act(() => {
 			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
@@ -112,5 +121,26 @@ describe("GlobalSearch", () => {
 		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "open-2fa-modal" }));
 		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/settings#password");
 		dispatchSpy.mockRestore();
+	});
+
+	it("localizes the visible search dialog when the operator switches to English", async () => {
+		pushMock.mockClear();
+		const user = userEvent.setup();
+		renderGlobalSearch("en");
+
+		act(() => {
+			window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+		});
+
+		expect(await screen.findByRole("dialog", { name: "Global search" })).toBeInTheDocument();
+		const input = screen.getByRole("combobox", { name: "Search pages and actions" });
+		expect(input).toHaveAttribute("placeholder", "Search pages, actions...");
+		expect(screen.getByRole("option", { name: /Dashboard.*Page/ })).toBeInTheDocument();
+		expect(screen.queryByText("仪表盘")).not.toBeInTheDocument();
+		expect(screen.getByText("↑↓ Select")).toBeInTheDocument();
+
+		await user.type(input, "Quick Services");
+		await user.click(await screen.findByRole("button", { name: /Quick Services/ }));
+		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
 });

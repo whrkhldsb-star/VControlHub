@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { mainNavItems, systemNavItems } from "./nav-items";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { t as translate, type Locale } from "@/lib/i18n/translations";
 
 export interface SearchItem {
 	label: string;
@@ -42,26 +44,45 @@ const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> 
 	"/audit": { icon: "📋", keywords: ["审计", "日志", "audit"] },
 };
 
-const navigationSearchItems: SearchItem[] = [...mainNavItems, ...systemNavItems].map((item) => {
+type SearchItemDefinition = Omit<SearchItem, "label" | "category"> & {
+	labelKey: string;
+	fallbackLabel: string;
+	categoryKey: string;
+	fallbackCategory: string;
+};
+
+const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...systemNavItems].map((item) => {
 	const metadata = searchItemMetadata[item.href] ?? {};
 	return {
-		label: item.fallbackLabel,
+		labelKey: item.labelKey,
+		fallbackLabel: item.fallbackLabel,
 		href: item.href,
 		icon: metadata.icon ?? "🔎",
-		category: item.href === "/status" ? "公开页面" : item.href === "/users" || item.href === "/api-tokens" || item.href === "/audit" ? "系统" : "页面",
+		categoryKey: item.href === "/status" ? "search.category.public" : item.href === "/users" || item.href === "/api-tokens" || item.href === "/audit" ? "search.category.system" : "search.category.page",
+		fallbackCategory: item.href === "/status" ? "公开页面" : item.href === "/users" || item.href === "/api-tokens" || item.href === "/audit" ? "系统" : "页面",
 		keywords: [item.labelKey, ...(metadata.keywords ?? [])],
 	};
 });
 
-const searchItems: SearchItem[] = [
+const searchItemDefinitions: SearchItemDefinition[] = [
 	...navigationSearchItems,
-	{ label: "SSH 终端", href: "/servers", icon: "🔑", category: "工具", keywords: ["ssh", "终端", "VPS 管理", "服务器管理"] },
-	{ label: "修改密码", href: "/settings#password", icon: "🔐", category: "操作", keywords: ["密码", "password", "账户安全"] },
-	{ label: "两步验证", href: "/settings#2fa", icon: "🛡️", category: "操作", keywords: ["2FA", "MFA", "双因素", "账户安全"] },
+	{ labelKey: "nav.ssh", fallbackLabel: "SSH 终端", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "工具", keywords: ["ssh", "终端", "VPS 管理", "服务器管理"] },
+	{ labelKey: "auth.change-password", fallbackLabel: "修改密码", href: "/settings#password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["密码", "password", "账户安全"] },
+	{ labelKey: "auth.two-factor", fallbackLabel: "两步验证", href: "/settings#2fa", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["2FA", "MFA", "双因素", "账户安全"] },
 ];
 
-export function getSearchItems(): SearchItem[] {
-	return searchItems;
+function localizeSearchItems(locale: Locale): SearchItem[] {
+	return searchItemDefinitions.map((item) => ({
+		label: translate(item.labelKey, locale) === item.labelKey ? item.fallbackLabel : translate(item.labelKey, locale),
+		href: item.href,
+		icon: item.icon,
+		category: translate(item.categoryKey, locale) === item.categoryKey ? item.fallbackCategory : translate(item.categoryKey, locale),
+		keywords: item.keywords,
+	}));
+}
+
+export function getSearchItems(locale: Locale = "zh"): SearchItem[] {
+	return localizeSearchItems(locale);
 }
 
 export function GlobalSearch() {
@@ -70,6 +91,8 @@ export function GlobalSearch() {
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const router = useRouter();
+	const { locale, t } = useI18n();
+	const searchItems = useMemo(() => localizeSearchItems(locale), [locale]);
 
 	const filtered = query
 		? searchItems.filter(
@@ -141,7 +164,7 @@ export function GlobalSearch() {
 			<div
 				role="dialog"
 				aria-modal="true"
-				aria-label="全局搜索"
+				aria-label={t("search.dialog")}
 				className="w-full max-w-lg mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
 				onClick={(e) => e.stopPropagation()}
 			>
@@ -153,7 +176,7 @@ export function GlobalSearch() {
 						ref={inputRef}
 						type="text"
 						role="combobox"
-						aria-label="搜索页面和操作"
+						aria-label={t("search.input-label")}
 						aria-expanded="true"
 						aria-controls="global-search-results"
 						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}` : undefined}
@@ -161,14 +184,14 @@ export function GlobalSearch() {
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						onKeyDown={handleKeyDown}
-						placeholder="搜索页面、操作..."
+						placeholder={t("search.placeholder")}
 						className="flex-1 bg-transparent px-3 py-3.5 text-sm text-white placeholder-slate-600 focus:outline-none"
 					/>
 					<kbd className="text-[10px] text-slate-600 bg-white/[0.05] rounded px-1.5 py-0.5">ESC</kbd>
 				</div>
 				<ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2">
 					{filtered.length === 0 && (
-						<li className="px-4 py-6 text-center text-sm text-slate-600">未找到结果</li>
+						<li className="px-4 py-6 text-center text-sm text-slate-600">{t("search.no-results")}</li>
 					)}
 					{filtered.map((item, i) => (
 						<li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
@@ -186,9 +209,9 @@ export function GlobalSearch() {
 					))}
 				</ul>
 				<div className="border-t border-white/[0.06] px-4 py-2 flex items-center gap-4 text-[10px] text-slate-600">
-					<span>↑↓ 选择</span>
-					<span>↵ 确认</span>
-					<span>ESC 关闭</span>
+					<span>{t("search.shortcut-select")}</span>
+					<span>{t("search.shortcut-confirm")}</span>
+					<span>{t("search.shortcut-close")}</span>
 				</div>
 			</div>
 		</div>
