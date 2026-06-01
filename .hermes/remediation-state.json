@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-01T03:22:00Z",
+  "updatedAt": "2026-06-01T04:27:25Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "legacyPausedAuditJobId": "a8e21e83a7df",
@@ -51,42 +51,41 @@
     "date": "2026-06-01",
     "typecheck": "passed",
     "lint": "passed with existing client-effect warnings only",
-    "tests": "Direct Gateway/server/SSH neighboring Vitest passed: 4 files / 12 tests",
+    "tests": "Files batch toolbar regression 12/12 plus neighboring Files/storage regressions 14/14 passed",
     "build": "passed",
     "runtimeBuild": "passed",
     "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /servers 307, /api/auth/ws-token 401, /login 200; recent service logs clean; browser light-theme QA proved Direct Gateway recovery guidance/link/button readable; temporary QA users remaining 0"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files 307, /api/files/list 401, /api/storage/sftp 401, /login 200; recent service logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-06-01T03:22:00Z",
-    "target": "QA batch 2 — Direct Gateway recovery guidance and light-theme operator clarity",
+    "finishedAt": "2026-06-01T04:27:25Z",
+    "target": "Dirty-worktree closeout — Files batch operation accessibility",
     "status": "completed_verified_deployed_committed",
-    "summary": "Production browser QA inspected a real VPS Direct Gateway control, found recovery/switch-back consequences under-explained, then added accessible status labelling, a public URL probe link, light-theme readable guidance, and focus-visible affordances.",
+    "summary": "Converged prior dirty Files/file-manager accessibility changes: batch toolbar is a named region with selected-count description, partial batch failures are labelled alerts, and batch move target input is labelled by role/name rather than placeholder only.",
     "validation": [
       "git diff --check: passed",
-      "npx vitest run src/app/servers/__tests__/direct-gateway-controls.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/components/__tests__/ssh-terminal-url.test.ts src/app/servers/__tests__/page.test.tsx: 12/12 passed",
+      "npx vitest run src/app/files/__tests__/file-list-client.test.tsx: 12/12 passed",
+      "npx vitest run src/app/files/__tests__/page.test.tsx src/app/api/files/list/__tests__/route.test.ts src/lib/storage/__tests__/access-control.test.ts: 14/14 passed",
       "npm run typecheck: passed",
       "npm run lint: passed with existing warnings only",
       "npm run build: passed",
       "npm run build:runtime: passed",
       "Production services vcontrolhub-next/vcontrolhub-ssh-ws/caddy active after restart and .next ownership repair",
-      "/servers 307, /api/auth/ws-token 401, /login 200, /api/status 200",
+      "/files 307, /api/files/list 401, /api/storage/sftp 401, /login 200, /api/status 200",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 19/19 passed",
-      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches",
-      "Production browser light-theme visual proof showed Direct Gateway guidance, public URL link, and switch-back/uninstall button readable",
-      "Temporary qa_cron_* users removed; remaining count 0"
+      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no new warning/error matches"
     ],
-    "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, browser light-theme QA, and log checks.",
-    "nextTarget": "Continue QA batch 2 with VPS edit/delete-safe paths, service health badges, and SSH terminal idle stability; rotate to QA batch 3 Files/storage/SFTP once remaining VPS/server issues are covered.",
-    "commit": "1d3b1da",
+    "deployment": "Deployed by running full build/runtime build, restarting vcontrolhub-next.service and vcontrolhub-ssh-ws.service, repairing .next ownership, restarting again, then passing readiness, smoke, route probes, and log checks.",
+    "nextTarget": "Continue QA batch 2 with VPS edit/delete-safe paths, service health badges, and SSH terminal idle stability; then rotate to QA batch 3 deeper Files/storage/SFTP upload/download/direct-access user-path testing.",
+    "commit": "dcbc628",
     "files": [
-      "src/app/servers/server-card-actions.tsx",
-      "src/app/servers/__tests__/direct-gateway-controls.test.tsx",
+      "src/app/files/file-list-client.tsx",
+      "src/app/files/__tests__/file-list-client.test.tsx",
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Continue browser-driven QA batch 2 with VPS edit/delete-safe paths, service health badges, and SSH terminal idle stability, or rotate to QA batch 3 Files/storage/SFTP once remaining VPS/server issues are covered.",
-    "completedAt": "2026-06-01T03:22:00Z"
+    "nextAction": "Continue browser-driven QA batch 2 with VPS edit/delete-safe paths/service health badges/SSH terminal idle stability, then rotate into QA batch 3 Files/storage/SFTP real user-path verification.",
+    "completedAt": "2026-06-01T04:27:25Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -101,7 +100,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 14,
+    "successfulRemediationRunsSinceFreshAudit": 15,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -240,6 +239,13 @@
       "summary": "Direct Gateway recovery guidance/light-theme operator clarity slice verified and deployed; committed as 1d3b1da with roadmap/backlog/state updates.",
       "jobId": "9e36e64a75ae",
       "commit": "1d3b1da"
+    },
+    {
+      "at": "2026-06-01T04:27:25Z",
+      "type": "dirty_worktree_closeout_committed",
+      "summary": "Files batch operation accessibility dirty worktree closeout verified, deployed, committed, and ready to push.",
+      "jobId": "9e36e64a75ae",
+      "commit": "dcbc628"
     }
   ]
 }

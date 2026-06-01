@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useTransition, useMemo } from "react";
+import { useState, useCallback, useEffect, useTransition, useMemo, useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -72,6 +72,10 @@ export function FileListClient({
   onRefresh,
 }: FileListClientProps) {
   const router = useRouter();
+  const fileListId = useId();
+  const batchToolbarTitleId = `${fileListId}-batch-toolbar-title`;
+  const batchToolbarDescriptionId = `${fileListId}-batch-toolbar-description`;
+  const batchErrorTitleId = `${fileListId}-batch-error-title`;
 
   /** Navigate to a folder path */
   const navigateToFolder = useCallback(
@@ -1324,8 +1328,12 @@ export function FileListClient({
       </div>
 
       {progress.errors.length > 0 || moveProgress.errors.length > 0 ? (
-        <div className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-amber-400/30 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-2xl">
-          <p className="font-medium">
+        <div
+          role="alert"
+          aria-labelledby={batchErrorTitleId}
+          className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-amber-400/30 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-2xl"
+        >
+          <p id={batchErrorTitleId} className="font-medium">
             批量操作完成，{progress.errors.length + moveProgress.errors.length}{" "}
             个失败
           </p>
@@ -1339,7 +1347,18 @@ export function FileListClient({
 
       {/* Batch action toolbar (all view modes) */}
       {selectedIds.size > 0 ? (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur border border-white/10 rounded-2xl shadow-2xl px-5 py-3">
+        <div
+          role="region"
+          aria-labelledby={batchToolbarTitleId}
+          aria-describedby={batchToolbarDescriptionId}
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur border border-white/10 rounded-2xl shadow-2xl px-5 py-3"
+        >
+          <span id={batchToolbarTitleId} className="sr-only">
+            文件批量操作
+          </span>
+          <span id={batchToolbarDescriptionId} className="sr-only">
+            已选择 {selectedIds.size} 个文件，可取消选择或执行当前权限允许的批量操作。
+          </span>
           {batchAction === "confirm-delete" ? (
             <>
               <span className="text-sm text-rose-200">
@@ -1391,6 +1410,7 @@ export function FileListClient({
                 value={moveTargetDir}
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || "目标路径"}
+                aria-label="批量移动目标路径"
                 className="w-40 rounded-2xl border border-white/10 bg-slate-950 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (

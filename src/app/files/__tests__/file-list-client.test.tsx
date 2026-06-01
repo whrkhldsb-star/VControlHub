@@ -323,7 +323,10 @@ describe("FileListClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
     await waitFor(() => expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByText(/1 个失败/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("alert", { name: /批量操作完成/ })).toBeInTheDocument());
+    expect(screen.getByRole("region", { name: "文件批量操作" })).toHaveAccessibleDescription(
+      "已选择 2 个文件，可取消选择或执行当前权限允许的批量操作。",
+    );
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(screen.getByText("已选 2 个文件")).toBeInTheDocument();
     expect(screen.getByText(/节点不可写/)).toBeInTheDocument();
@@ -342,11 +345,14 @@ describe("FileListClient", () => {
     fireEvent.click(firstFileCheckbox("archive.zip"));
     fireEvent.click(firstFileCheckbox("report.pdf"));
     fireEvent.click(screen.getByRole("button", { name: "批量移动" }));
-    fireEvent.change(screen.getByPlaceholderText("目标路径"), { target: { value: "archive" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "批量移动目标路径" }), { target: { value: "archive" } });
     fireEvent.click(screen.getByRole("button", { name: "确认移动" }));
 
     await waitFor(() => expect(moveFileActionMock).toHaveBeenCalledTimes(3));
-    await waitFor(() => expect(screen.getByText(/1 个失败/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("alert", { name: /批量操作完成/ })).toBeInTheDocument());
+    expect(screen.getByRole("region", { name: "文件批量操作" })).toHaveAccessibleDescription(
+      "已选择 3 个文件，可取消选择或执行当前权限允许的批量操作。",
+    );
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(screen.getByText("已选 3 个文件")).toBeInTheDocument();
     expect(screen.getByText(/archive\.zip: 目标目录不存在/)).toBeInTheDocument();
