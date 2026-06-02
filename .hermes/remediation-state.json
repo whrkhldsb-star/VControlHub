@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T08:05:09Z",
+  "updatedAt": "2026-06-02T09:13:12Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,66 +58,55 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-02T08:05:09Z",
-    "finishedAt": "2026-06-02T08:05:09Z",
-    "target": "downloads-lifecycle-canary",
-    "status": "completed_verified_deployed_committed_pushed",
-    "summary": "Completed the Downloads lifecycle canary closeout for the manual-refresh truthfulness gap. PATCH /api/downloads now returns the same refreshed byte counters/file size that it persists during aria2 and direct refresh, so the Downloads page can immediately update the visible row without waiting for a later poll. The product fix was committed/pushed by an overlapping closeout as 0759b58; this run verified regressions, typecheck, lint, build, runtime build, production readiness, smoke, logs after restart, browser baseline, DB cleanup, and HEAD == origin/main.",
+    "startedAt": "2026-06-02T09:13:12Z",
+    "finishedAt": "2026-06-02T09:13:12Z",
+    "target": "login-shell-preferences-canary",
+    "status": "completed_verified_no_code_change",
+    "summary": "Completed a production canary for login shell preferences/default-page behavior. The saved preferences API persisted normalized values with CSRF, rejected a missing-CSRF write without changing state, and the next login honored defaultPage=/files. No product defect was found and no code change was needed.",
     "changeContract": {
-      "qaPathId": "downloads-lifecycle-canary",
+      "qaPathId": "login-shell-preferences-canary",
       "role": "temporary admin QA user",
-      "entry": "/downloads page and PATCH /api/downloads manual refresh action",
-      "userAction": "Operator refreshes a running/completed download task and expects the visible row to update immediately from the refresh response.",
+      "entry": "/login, dashboard shell, /api/preferences, logout/login redirect",
+      "userAction": "Operator logs in, saves default-page/notification/refresh preferences, verifies failed save does not mutate, logs out, logs in again, and expects redirect to the saved default page.",
       "expectedSideEffects": [
-        "API refresh reconciles task state",
-        "DownloadTask byte counters/fileSize persist in DB",
-        "PATCH response carries the same counters",
-        "Downloads UI merges the response and immediately displays the new completed size/progress"
+        "Preferences persist in User.preferences",
+        "CSRF failure leaves persisted preferences unchanged",
+        "Login with no explicit next redirects to saved defaultPage",
+        "Temporary QA user is removed after verification"
       ],
       "outOfScope": [
-        "new download creation semantics",
-        "Quick Services",
-        "Commands",
-        "Backups"
+        "global search",
+        "notification dropdown behavior",
+        "mobile responsive layout",
+        "server/files/download side-effect workflows"
       ],
-      "evidenceProfile": "background_task"
+      "evidenceProfile": "login_shell_preferences"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Logged into production with a temporary QA user and opened /downloads; page rendered the Downloads user path and showed the current empty-state baseline (no production download tasks).",
-      "api": "PATCH /api/downloads refresh response contract fixed in code and covered by route regressions for aria2 and direct branches.",
-      "db_or_persisted_config": "Production DB inspected with project Prisma adapter: enabled SFTP target servers exist, DownloadTask list was empty, temporary qa_cron user count was 0 before QA and 0 after cleanup.",
-      "filesystem_or_sftp": "Available SFTP storage nodes verified for future full lifecycle canary; no live file was created because no production task existed to refresh and the safe fix was contract-level.",
-      "background_task_or_process": "Route tests cover aria2 tellStatus and direct remote PID exit probing refresh paths; production services restarted at 03:57:58 local time and listened normally at 03:58:01.",
-      "runtime_or_ui_side_effect": "DownloadsClient regression proves PATCH response byte/fileSize fields are applied immediately and the visible row shows 📦 2.0 KB without waiting for a follow-up poll.",
-      "permissions": "Temporary admin QA account was used for browser baseline and then deleted; touched route tests continue to cover task ownership/cross-user control boundaries.",
+      "browser_or_dom": "Production browser logged in with temporary qa_cron_pref_canary admin user, opened dashboard shell, saved preferences, logged out, logged back in, and landed on /files due to persisted defaultPage; DOM proof showed Files heading/sidebar/current user.",
+      "api": "Authenticated GET /api/preferences returned defaults; CSRF PUT /api/preferences returned 200 with normalized effective values; a missing-CSRF PUT returned 403 and did not change persisted preferences.",
+      "db_or_persisted_config": "Prisma adapter inspection showed qa_cron_pref_canary preferences persisted as defaultPage /files, dashboardWidgets [server-status], notificationSound false, autoRefreshInterval 0, notificationsEnabled true before cleanup.",
+      "runtime_or_ui_side_effect": "Logout/login redirected to /files without explicit next target, proving the persisted defaultPage preference has a real login-entry side effect; no code change was needed.",
+      "permissions": "Temporary admin QA account used only for the canary and deleted at closeout; unauth/protected smoke checks still passed.",
       "regression": [
-        "npx vitest run src/app/api/downloads/__tests__/route.test.ts src/app/downloads/__tests__/downloads-client.test.tsx --reporter=dot: 22/22 passed",
-        "npx vitest run src/app/api/files/list/__tests__/route.test.ts src/lib/files/__tests__/tree.test.ts --reporter=dot: 9/9 passed for neighboring previously dirty Files slice"
+        "No product code changed; relied on existing preferences/API/login regressions from prior fixes plus production canary evidence."
       ],
-      "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED; /api/status healthy 3/3; unauthenticated /downloads redirects with 307 as expected.",
-      "logs": "Recent journal showed old manifest errors before 03:57:58 restart; after restart, logs show normal command worker/WebSocket/server listening messages and no new error lines in the checked window.",
-      "cleanup": "Deleted temporary qa_cron_* user; verification returned remaining 0."
+      "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED; services active and /api/status healthy before the canary.",
+      "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 20-minute window showed no error/warn/failed matches.",
+      "cleanup": "Deleted temporary qa_cron_* user with Prisma; remaining count 0. Removed the temporary helper script from .hermes."
     },
     "validation": [
-      "git diff --check: passed",
-      "downloads targeted Vitest: 22/22 passed",
-      "neighboring Files tests: 9/9 passed",
-      "npm run typecheck: passed",
-      "npm run lint: passed with 5 existing react-hooks/set-state-in-effect warnings and 0 errors",
-      "npm run build: passed",
-      "npm run build:runtime: passed",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 24/24 passed",
-      "HEAD equals origin/main at 0759b58 before bookkeeping"
+      "production browser canary passed",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24",
+      "recent service log grep clean",
+      "git status clean before state update"
     ],
-    "deployment": "Product fix committed and pushed as 0759b58 by overlapping closeout; services restarted at 03:57:58 local time and smoke/probes passed after restart.",
+    "deployment": "No deploy/restart required because no product code changed; production services were already active/healthy.",
     "commit": "0759b58bbbb1710a34de820099cb553fa3c448b7",
     "files": [
-      "src/app/api/downloads/route.ts",
-      "src/app/api/downloads/__tests__/route.test.ts",
-      "src/app/downloads/__tests__/downloads-client.test.tsx",
       ".hermes/remediation-state.json"
     ],
-    "nextTarget": "Continue the next pending qaControlSystem path after this bookkeeping commit; downloads canary is partially completed for refresh truthfulness but still needs a future safe create/pause/resume/cancel live-task canary when a clean tree and safe target are available."
+    "nextTarget": "Continue the next pending qaControlSystem path; high-priority queue still includes deeper servers/files/downloads/Quick Services side-effect canaries."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -132,7 +121,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 18,
+    "successfulRemediationRunsSinceFreshAudit": 19,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -168,9 +157,22 @@
         "batch": "QA batch 1",
         "path": "Login/session -> dashboard shell -> global search -> notifications -> preferences/default page/theme/language/refresh -> logout/login redirect -> responsive/mobile shell",
         "priority": "high",
-        "status": "pending",
+        "status": "partially_completed",
         "requiredEvidenceProfile": "login_shell_preferences",
-        "lastCompletedAt": null
+        "lastCompletedAt": "2026-06-02T09:13:12Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser logged in with temporary qa_cron_pref_canary admin user, opened dashboard shell, saved preferences, logged out, logged back in, and landed on /files due to persisted defaultPage; DOM proof showed Files heading/sidebar/current user.",
+          "api": "Authenticated GET /api/preferences returned defaults; CSRF PUT /api/preferences returned 200 with normalized effective values; a missing-CSRF PUT returned 403 and did not change persisted preferences.",
+          "db_or_persisted_config": "Prisma adapter inspection showed qa_cron_pref_canary preferences persisted as defaultPage /files, dashboardWidgets [server-status], notificationSound false, autoRefreshInterval 0, notificationsEnabled true before cleanup.",
+          "runtime_or_ui_side_effect": "Logout/login redirected to /files without explicit next target, proving the persisted defaultPage preference has a real login-entry side effect; no code change was needed.",
+          "permissions": "Temporary admin QA account used only for the canary and deleted at closeout; unauth/protected smoke checks still passed.",
+          "regression": [
+            "No product code changed; relied on existing preferences/API/login regressions from prior fixes plus production canary evidence."
+          ],
+          "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED; services active and /api/status healthy before the canary.",
+          "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 20-minute window showed no error/warn/failed matches.",
+          "cleanup": "Deleted temporary qa_cron_* user with Prisma; remaining count 0. Removed the temporary helper script from .hermes."
+        }
       },
       {
         "id": "servers-ssh-gateway-canary",
@@ -589,6 +591,12 @@
       "target": "downloads-lifecycle-canary",
       "commit": "0759b58bbbb1710a34de820099cb553fa3c448b7",
       "summary": "Completed the Downloads lifecycle canary closeout for the manual-refresh truthfulness gap. PATCH /api/downloads now returns the same refreshed byte counters/file size that it persists during aria2 and direct refresh, so the Downloads page can immediately update the visible row without waiting for a later poll. The product fix was committed/pushed by an overlapping closeout as 0759b58; this run verified regressions, typecheck, lint, build, runtime build, production readiness, smoke, logs after restart, browser baseline, DB cleanup, and HEAD == origin/main."
+    },
+    {
+      "at": "2026-06-02T09:13:12Z",
+      "type": "canary_evidence_no_code_change",
+      "summary": "login-shell-preferences canary verified preferences persistence, CSRF failure non-mutation, and default-page login redirect in production; no code change required.",
+      "jobId": "9e36e64a75ae"
     }
   ]
 }
