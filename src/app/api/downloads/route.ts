@@ -542,7 +542,13 @@ export async function PATCH(request: Request) {
               downloadSpeed: st.downloadSpeed,
             },
           });
-          return NextResponse.json({ status: newStatus, progress });
+          return NextResponse.json({
+            status: newStatus,
+            progress,
+            completedBytes: st.completedLength,
+            totalBytes: st.totalLength,
+            downloadSpeed: st.downloadSpeed,
+          });
         } catch (err) {
           logError("[DownloadAPI] aria2 refresh failed:", err);
           return NextResponse.json({
@@ -598,7 +604,13 @@ export async function PATCH(request: Request) {
                   : {}),
               };
               await prisma.downloadTask.update({ where: { id: taskId }, data });
-              return NextResponse.json({ status: data.status, progress: data.progress });
+              return NextResponse.json({
+                status: data.status,
+                progress: data.progress,
+                ...(size
+                  ? { fileSize: size, totalBytes: size, completedBytes: size }
+                  : {}),
+              });
             }
             if (remoteState === "FAILED") {
               const data = {

@@ -72,7 +72,14 @@ describe("DownloadsClient", () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch)
       .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null })
-      .mockResolvedValueOnce({ status: "COMPLETED", progress: "下载完成" });
+      .mockResolvedValueOnce({
+        status: "COMPLETED",
+        progress: "下载完成",
+        fileSize: "2048",
+        totalBytes: "2048",
+        completedBytes: "2048",
+        downloadSpeed: "0",
+      });
 
     render(<DownloadsClient servers={servers} canManage />);
 
@@ -81,6 +88,7 @@ describe("DownloadsClient", () => {
     await actor.click(screen.getByRole("button", { name: "🔄 刷新" }));
 
     await screen.findAllByText("已完成");
+    expect(screen.getByText("📦 2.0 KB")).toBeInTheDocument();
     expect(screen.queryByText("0.1% ·")).not.toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(2);
   });

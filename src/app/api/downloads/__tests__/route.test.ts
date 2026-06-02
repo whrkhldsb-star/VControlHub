@@ -393,7 +393,13 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ status: "COMPLETED", progress: "下载完成" });
+    await expect(response.json()).resolves.toMatchObject({
+      status: "COMPLETED",
+      progress: "下载完成",
+      fileSize: "2048",
+      totalBytes: "2048",
+      completedBytes: "2048",
+    });
     expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({
       command: expect.stringContaining("app-dl-task_direct.pid.exit"),
     }));
@@ -405,6 +411,48 @@ describe("/api/downloads", () => {
         fileSize: "2048",
         totalBytes: "2048",
         completedBytes: "2048",
+      }),
+    }));
+  });
+
+  it("returns aria2 refresh byte counters so the Downloads page can update immediately", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_relay",
+      createdBy: "u_1",
+      status: "RUNNING",
+      progress: "下载中",
+      aria2Gid: "gid_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
+      server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
+    });
+    tellStatusMock.mockResolvedValueOnce({
+      gid: "gid_1",
+      status: "complete",
+      completedLength: "4096",
+      totalLength: "4096",
+      downloadSpeed: "0",
+    });
+
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH",
+      body: JSON.stringify({ taskId: "task_relay", action: "refresh" }),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      status: "COMPLETED",
+      progress: "完成 · 4096 B",
+      completedBytes: "4096",
+      totalBytes: "4096",
+      downloadSpeed: "0",
+    });
+    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay" },
+      data: expect.objectContaining({
+        status: "COMPLETED",
+        completedBytes: "4096",
+        totalBytes: "4096",
+        downloadSpeed: "0",
       }),
     }));
   });
