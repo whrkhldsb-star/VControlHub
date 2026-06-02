@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T06:18:59Z",
+  "updatedAt": "2026-06-02T06:42:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -109,90 +109,228 @@
     "skippedOverlapRuns": 0
   },
   "blockers": [],
-  "productDirection": "Active full-product functional availability loop: every cycle must balance feature completeness, real user journeys, code quality, performance, reliability, UI/UX/accessibility, permissions/security, tests, deployment health, and production verification. Static no-500 checks are insufficient without selected real workflow actions and side-effect verification.",
+  "productDirection": "Active full-product canary evidence QA loop: each cycle must prove a selected real user journey works with browser/API/DB/filesystem-or-SFTP/process/log/regression/production evidence as applicable. Static route probes are only supporting evidence, never sufficient proof of functional availability.",
   "removedBacklogCronJobId": "b8833e83bb1f",
   "qaControlSystem": {
     "createdAt": "2026-06-01T23:50:40Z",
-    "purpose": "Structure the two remaining cron jobs as a closed-loop QA control system: the main job executes one concrete user-path repair, while the daily auditor scores recent runs and may write a directive the main job must obey.",
+    "upgradedAt": "2026-06-02T06:42:30Z",
+    "version": "canary-evidence-v2",
+    "purpose": "Run VControlHub maintenance as a closed-loop canary QA control system: the main job executes one concrete user journey with evidence matrix and fixes blockers; the daily auditor only audits precision/coverage and writes directives.",
+    "mainJobId": "9e36e64a75ae",
+    "dailyAuditorJobId": "d42e2078d544",
+    "changeContractRequired": true,
+    "dirtyWorktreePolicy": "If worktree is dirty at start, do not open a new QA path. Classify the diff, validate/deploy/commit/push or safely revert only the current dirty slice, then update state. Dirty worktree alerts are closeout work, not a new feature lane.",
+    "nonOverlapPolicy": "If another remediation/build/test/deploy process is active, skip the tick and record skippedOverlapRuns instead of concurrently editing or deploying.",
+    "evidenceMatrixFields": [
+      "browser_or_dom",
+      "api",
+      "db_or_persisted_config",
+      "filesystem_or_sftp",
+      "background_task_or_process",
+      "runtime_or_ui_side_effect",
+      "permissions",
+      "regression",
+      "production",
+      "logs",
+      "cleanup"
+    ],
     "nextQaPathQueue": [
       {
-        "id": "batch3-sftp-upload-download-direct-access",
-        "batch": "QA batch 3",
-        "path": "Files/storage/SFTP upload -> verify remote/local file -> DB/index consistency -> preview/download/direct-access/share permission -> cleanup",
+        "id": "login-shell-preferences-canary",
+        "canary": "login_shell_preferences",
+        "batch": "QA batch 1",
+        "path": "Login/session -> dashboard shell -> global search -> notifications -> preferences/default page/theme/language/refresh -> logout/login redirect -> responsive/mobile shell",
         "priority": "high",
-        "status": "completed_verified_deployed_pending_commit",
-        "requiredEvidenceProfile": "files_sftp",
+        "status": "pending",
+        "requiredEvidenceProfile": "login_shell_preferences",
+        "lastCompletedAt": null
+      },
+      {
+        "id": "servers-ssh-gateway-canary",
+        "canary": "servers_ssh_gateway",
+        "batch": "QA batch 2",
+        "path": "VPS/server management add/edit/toggle/delete-safe paths -> SSH terminal connect/idle -> Direct Gateway eligibility/recovery -> service/status copy accuracy",
+        "priority": "high",
+        "status": "partially_completed",
+        "requiredEvidenceProfile": "servers_ssh_gateway",
+        "lastCompletedAt": null
+      },
+      {
+        "id": "files-storage-sftp-canary",
+        "canary": "files_storage_sftp",
+        "batch": "QA batch 3",
+        "path": "LOCAL/SFTP upload -> sync/index -> preview -> download -> direct/proxy strategy -> rename/move/delete -> share/permission -> cleanup",
+        "priority": "high",
+        "status": "partially_completed",
+        "requiredEvidenceProfile": "files_storage_sftp",
         "lastCompletedAt": "2026-06-02T02:58:23Z"
       },
       {
-        "id": "batch4-download-task-lifecycle",
+        "id": "downloads-lifecycle-canary",
+        "canary": "downloads_lifecycle",
         "batch": "QA batch 4",
-        "path": "Downloads create/pause/resume/cancel/delete -> task row, process/output, storage target, UI status, and logs stay consistent",
+        "path": "Downloads create -> pause -> resume -> refresh -> cancel/delete -> remote process/storage target/task row/UI/log consistency",
         "priority": "high",
         "status": "pending",
         "requiredEvidenceProfile": "background_task"
       },
       {
-        "id": "batch4-quick-services-real-side-effects",
+        "id": "quick-services-docker-canary",
+        "canary": "quick_services_docker",
         "batch": "QA batch 4",
-        "path": "Quick Services install/start/stop/uninstall/failure cleanup -> Docker/container side effects, task status, operator error visibility, and DB state match",
+        "path": "Quick Services install -> Docker/container side effect -> start/stop -> uninstall -> failure cleanup -> task/DB/UI/log consistency",
         "priority": "high",
         "status": "pending",
         "requiredEvidenceProfile": "background_task"
       },
       {
-        "id": "batch5-backup-restore-guardrails",
+        "id": "commands-deployments-tasks-canary",
+        "canary": "commands_deployments_tasks",
+        "batch": "QA batch 4",
+        "path": "Commands/Requests/Deployments/Scheduled Tasks/Templates/Operation Tasks -> target selection -> approval/execution/cancel -> worker heartbeat/recovery -> UI truthfulness",
+        "priority": "high",
+        "status": "pending",
+        "requiredEvidenceProfile": "background_task"
+      },
+      {
+        "id": "backups-restore-canary",
+        "canary": "backups_restore",
         "batch": "QA batch 5",
-        "path": "Backups create/restore guarded flow -> real artifact, confirmation boundary, restore failure visibility, DB/task/log consistency",
+        "path": "Backups create real artifact -> guarded restore boundary -> failure visibility -> permission/log/task consistency -> safe cleanup",
         "priority": "medium_high",
         "status": "pending",
         "requiredEvidenceProfile": "background_task"
       },
       {
-        "id": "batch5-settings-runtime-effect",
+        "id": "settings-runtime-canary",
+        "canary": "settings_runtime",
         "batch": "QA batch 5",
-        "path": "Settings runtime/customization knob -> save validation -> persisted value -> real runtime/UI consumer effect -> rollback/cleanup",
+        "path": "Settings runtime knob -> save validation -> persisted value -> real runtime/UI consumer effect -> rollback/cleanup -> immediate-vs-restart copy",
         "priority": "medium_high",
         "status": "pending",
         "requiredEvidenceProfile": "settings_runtime"
+      },
+      {
+        "id": "monitoring-health-status-canary",
+        "canary": "monitoring_health_status",
+        "batch": "QA batch 5",
+        "path": "Monitoring/Health/System Health -> refresh/error/stale states -> service names/status accuracy -> repair guidance -> logs/API consistency",
+        "priority": "medium",
+        "status": "pending",
+        "requiredEvidenceProfile": "observability"
+      },
+      {
+        "id": "integrations-media-security-canary",
+        "canary": "integrations_media_security",
+        "batch": "QA batch 5",
+        "path": "Tickets/Announcements/Snippets/API Tokens/AI providers/Image bed/API docs/Audit -> CRUD/probe/revoke/publish/list permissions -> real side effects and cleanup",
+        "priority": "medium",
+        "status": "pending",
+        "requiredEvidenceProfile": "integrations_media_security"
       }
     ],
     "evidenceProfiles": {
-      "files_sftp": [
-        "browser",
-        "api",
-        "filesystem_or_sftp",
-        "db_or_index",
-        "regression",
-        "log"
-      ],
-      "background_task": [
-        "api",
-        "background_task",
-        "db",
-        "log",
-        "regression",
-        "production"
-      ],
-      "settings_runtime": [
-        "browser",
+      "login_shell_preferences": [
+        "browser_or_dom",
         "api",
         "db_or_persisted_config",
         "runtime_or_ui_side_effect",
-        "regression"
-      ],
-      "permissions": [
-        "allowed_path",
-        "forbidden_path",
-        "api",
+        "permissions",
         "regression",
-        "log"
+        "production",
+        "logs",
+        "cleanup"
       ],
-      "visual_or_accessibility": [
+      "servers_ssh_gateway": [
         "browser_or_dom",
+        "api",
+        "db_or_persisted_config",
+        "background_task_or_process",
+        "permissions",
         "regression",
-        "production_probe",
-        "log"
+        "production",
+        "logs",
+        "cleanup"
+      ],
+      "files_storage_sftp": [
+        "browser_or_dom",
+        "api",
+        "filesystem_or_sftp",
+        "db_or_persisted_config",
+        "permissions",
+        "regression",
+        "production",
+        "logs",
+        "cleanup"
+      ],
+      "background_task": [
+        "browser_or_dom",
+        "api",
+        "background_task_or_process",
+        "db_or_persisted_config",
+        "filesystem_or_sftp",
+        "permissions",
+        "regression",
+        "production",
+        "logs",
+        "cleanup"
+      ],
+      "settings_runtime": [
+        "browser_or_dom",
+        "api",
+        "db_or_persisted_config",
+        "runtime_or_ui_side_effect",
+        "regression",
+        "production",
+        "logs",
+        "cleanup"
+      ],
+      "observability": [
+        "browser_or_dom",
+        "api",
+        "runtime_or_ui_side_effect",
+        "regression",
+        "production",
+        "logs"
+      ],
+      "integrations_media_security": [
+        "browser_or_dom",
+        "api",
+        "db_or_persisted_config",
+        "filesystem_or_sftp",
+        "permissions",
+        "regression",
+        "production",
+        "logs",
+        "cleanup"
+      ]
+    },
+    "dailyAuditorDirective": null,
+    "directiveSemantics": "If dailyAuditorDirective is active, the main job must satisfy it before normal queue work or write a blocker/skipReason. Directives expire by expiresAfterRuns or when marked resolved by the daily auditor.",
+    "dailyAuditorPolicy": {
+      "enabled": true,
+      "schedule": "0 18 * * *",
+      "noProductCodeChanges": true,
+      "mayCommitOnlyStateAndBacklog": true,
+      "scores": [
+        "targetClarity",
+        "evidenceQuality",
+        "realSideEffectCoverage",
+        "canaryRotation",
+        "fixValue",
+        "regressionCoverage",
+        "deploymentCloseout",
+        "commitNoise",
+        "blockerHonesty"
+      ],
+      "mustWriteDirectiveWhen": [
+        "static-route-probes-only",
+        "missing-side-effect-proof",
+        "dirty-worktree-left-open",
+        "same-symptom-repeated",
+        "low-value-polish-drift",
+        "critical-canary-stale-more-than-7-days",
+        "user-priority-not-reflected"
       ]
     },
     "lowValueChangeBrake": {
@@ -211,9 +349,8 @@
         "is required to verify or safely complete the selected side effect"
       ]
     },
-    "dailyAuditorDirective": null,
-    "directiveSemantics": "If dailyAuditorDirective is non-null, the main job must satisfy it before taking another normal queue item, or record a concrete blocker/skip reason. Directives expire according to expiresAfterRuns or when marked resolved by the daily auditor.",
-    "trendWindowDays": 7
+    "trendWindowDays": 7,
+    "coverageSlo": "Every high-priority canary should receive real evidence within a 7-day window unless a higher-priority blocker/directive is recorded."
   },
   "lastRunEvaluation": {
     "evaluatedAt": "2026-05-31T10:53:59.427896Z",
@@ -227,7 +364,7 @@
     ],
     "recommendedNextMode": "Recreated as active full-product QA remediation cron 9e36e64a75ae; first runs should prioritize completion QA batches and real user workflow verification before ordinary backlog work."
   },
-  "currentCronJobName": "VControlHub full-product QA remediation loop",
+  "currentCronJobName": "VControlHub full-product QA remediation loop — canary evidence QA",
   "commitPolicy": {
     "mode": "major_round_closeout",
     "summary": "Avoid frequent GitHub commit/push noise. Bundle related remediation changes, verification, deployment proof, backlog/state updates, and roadmap/future-goal updates into one intentional major-round closeout commit whenever safe.",
@@ -283,7 +420,11 @@
     "cadenceRationale": "User requested less frequent autonomous repair runs; every 30m gives each major round more room for verification/deploy and reduces noise compared with every 20m.",
     "watchdogSchedule": "removed; semantics fused into each remediation/daily-review closeout health check",
     "watchdogTriggerPolicy": "The standalone lightweight watchdog cron was removed per user request. Do not recreate or schedule it unless explicitly asked. Each remediation/daily-review closeout performs one unified health check covering service active state, /api/status healthy, git worktree/origin status, critical cron states, and recent service logs; only fill missing probes.",
-    "removedWatchdogJobId": "b2f7b030a16f"
+    "removedWatchdogJobId": "b2f7b030a16f",
+    "currentFullProductQaJobName": "VControlHub full-product QA remediation loop — canary evidence QA",
+    "dailyPrecisionAuditorJobId": "d42e2078d544",
+    "dailyPrecisionAuditorSchedule": "0 18 * * *",
+    "dailyPrecisionAuditorState": "enabled"
   },
   "policies": {
     "autonomousRepairCadence": "Run full-product QA remediation every 30 minutes unless the user explicitly requests another interval.",
@@ -389,6 +530,13 @@
       "summary": "Office preview/CSP/smoke dirty slice was already committed and pushed by an overlapping closeout as 742f02f. This run revalidated targeted tests, typecheck, lint, build, runtime build, production service restart timestamps, current /api/status, security headers, smoke 24/24, logs, and origin sync; no blocker remains.",
       "jobId": "9e36e64a75ae",
       "commit": "742f02f"
+    },
+    {
+      "at": "2026-06-02T06:42:30Z",
+      "type": "canary_control_system_upgrade",
+      "summary": "Upgraded autonomous maintenance to a full-function canary evidence QA system: main cron prompt now requires Change Contract/Evidence Matrix/dirty closeout and daily precision auditor is enabled to audit coverage and write directives.",
+      "jobId": "9e36e64a75ae",
+      "auditorJobId": "d42e2078d544"
     }
   ]
 }
