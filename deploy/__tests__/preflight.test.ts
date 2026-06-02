@@ -401,6 +401,7 @@ describe("deploy/preflight.sh", () => {
       "npm",
       "npx",
       "systemd-analyze",
+      "systemctl",
     ]) {
       let body = "#!/usr/bin/env bash\nexit 0\n";
       if (command === "id")
@@ -496,6 +497,7 @@ describe("deploy/install.sh", () => {
       "git",
       "sleep",
       "systemd-analyze",
+      "systemctl",
       "systemctl",
       "node",
       "npm",
@@ -756,6 +758,7 @@ describe("deploy/install.sh", () => {
       "npm",
       "npx",
       "systemd-analyze",
+      "systemctl",
     ]) {
       let body = "#!/usr/bin/env bash\nexit 0\n";
       if (command === "id")
@@ -817,6 +820,7 @@ describe("deploy/install.sh", () => {
       "npm",
       "npx",
       "systemd-analyze",
+      "systemctl",
     ]) {
       let body = "#!/usr/bin/env bash\nexit 0\n";
       if (command === "id")
@@ -896,6 +900,7 @@ describe("deploy/install.sh", () => {
       "git",
       "sleep",
       "systemd-analyze",
+      "systemctl",
       "node",
       "npm",
       "npx",

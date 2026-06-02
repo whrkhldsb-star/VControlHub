@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -28,7 +29,8 @@ describe("resolveSshWsListenConfig", () => {
 		expect(source).not.toContain('url.searchParams.get("secret")');
 	});
 
-	it("loads SSH runtime env files when the process starts with a minimal environment", () => {
+	it("loads SSH runtime env files when the process starts with a minimal environment", async () => {
+		const tempDir = await mkdtemp(path.join(os.tmpdir(), "ssh-ws-env-"));
 		const previousSecret = process.env.SSH_WS_SECRET;
 		const previousOrigins = process.env.SSH_WS_ALLOWED_ORIGINS;
 
@@ -36,11 +38,16 @@ describe("resolveSshWsListenConfig", () => {
 		delete process.env.SSH_WS_ALLOWED_ORIGINS;
 
 		try {
-			loadSshWsRuntimeEnv(path.resolve(__dirname, "../.."));
+			await writeFile(
+				path.join(tempDir, ".env.runtime"),
+				'SSH_WS_SECRET="runtime-secret"\nSSH_WS_ALLOWED_ORIGINS="https://ci.example.test,http://localhost:3000"\n',
+			);
+			loadSshWsRuntimeEnv(tempDir);
 
-			expect(process.env.SSH_WS_SECRET).toBeTruthy();
-			expect(process.env.SSH_WS_ALLOWED_ORIGINS).toContain("whrkhldsb.qzz.io");
+			expect(process.env.SSH_WS_SECRET).toBe("runtime-secret");
+			expect(process.env.SSH_WS_ALLOWED_ORIGINS).toContain("ci.example.test");
 		} finally {
+			await rm(tempDir, { force: true, recursive: true });
 			if (previousSecret === undefined) delete process.env.SSH_WS_SECRET;
 			else process.env.SSH_WS_SECRET = previousSecret;
 			if (previousOrigins === undefined) delete process.env.SSH_WS_ALLOWED_ORIGINS;

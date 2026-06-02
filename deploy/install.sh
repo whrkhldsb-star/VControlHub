@@ -56,6 +56,7 @@ warn() { printf '\033[1;33m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*" >&2; }
 fail() { printf '\033[1;31m[%s]\033[0m %s\n' "$(date -Iseconds)" "$*" >&2; exit 1; }
 need_root() {
  local uid
+ [ -n "${DESTDIR}" ] && return 0
  uid="$(id -u 2>/dev/null || printf '1')"
  [ "${uid}" = "0" ] || fail "Please run as root (or via sudo)."
 }
@@ -556,6 +557,17 @@ auto_generate_env_secrets() {
  fi
 }
 
+validate_install_scope() {
+	if [ "${SKIP_SYSTEMD}" = "1" ] && [ -z "${DESTDIR}" ]; then
+		fail "SKIP_SYSTEMD=1 is only allowed together with DESTDIR for isolated installer tests. Use SKIP_RESTART=1 for live dry-runs."
+	fi
+	if [ -z "${DESTDIR}" ]; then
+		case "${APP_DIR}" in
+			/tmp/*|/var/tmp/*) fail "Refusing to install live systemd units from temporary APP_DIR=${APP_DIR}. Use DESTDIR for isolated installer tests." ;;
+		esac
+	fi
+}
+
 create_runtime_dirs() {
   log "Creating runtime directories"
   local storage_root download_root backup_root
@@ -739,7 +751,6 @@ PY
 
 install_systemd() {
 	if [ "${SKIP_SYSTEMD}" = "1" ]; then
-		[ -n "${DESTDIR}" ] || fail "SKIP_SYSTEMD=1 is only allowed together with DESTDIR for isolated installer tests. Use SKIP_RESTART=1 for live dry-runs."
 		warn "Skipping systemd unit installation"
 		return
 	fi
@@ -942,6 +953,7 @@ main() {
  sync_installer_env_overrides
  auto_generate_env_secrets
  setup_postgres
+ validate_install_scope
  validate_env
  if [ -x "${APP_DIR}/deploy/preflight.sh" ]; then
  APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" NEXT_HOST="${NEXT_HOST}" NEXT_PORT="${NEXT_PORT}" SSH_WS_PORT="${SSH_WS_PORT}" "${APP_DIR}/deploy/preflight.sh"
