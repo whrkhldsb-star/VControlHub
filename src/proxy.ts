@@ -103,7 +103,7 @@ function addSecurityHeaders(
         "font-src 'self' data: https://fonts.scalar.com", // Scalar API docs load Inter/mono fonts from its CDN
         "connect-src 'self' ws: wss:", // WebSocket for SSH terminal
         "media-src 'self' blob:", // Files preview streams audio/video through same-origin managed routes
-        "frame-src 'self' https://view.officeapps.live.com", // PDF/Office preview iframes
+        "frame-src 'self'", // File previews stay on same-origin managed routes
         "frame-ancestors 'self'", // equivalent to X-Frame-Options SAMEORIGIN
         "object-src 'self'",
         "base-uri 'self'",

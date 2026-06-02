@@ -42,6 +42,7 @@ FAIL=0
 PROXY_SERVICE="apache2"
 PROXY_LABEL="Apache"
 PROXY_PUBLIC_URL="http://${TARGET}"
+SMOKE_READY_TIMEOUT_SECONDS="${SMOKE_READY_TIMEOUT_SECONDS:-30}"
 if systemctl list-unit-files caddy.service >/dev/null 2>&1; then
     PROXY_SERVICE="caddy"
     PROXY_LABEL="Caddy"
@@ -64,6 +65,25 @@ check() {
     fi
 }
 
+wait_for_readiness() {
+    local deadline=$((SECONDS + SMOKE_READY_TIMEOUT_SECONDS))
+    local local_code="000"
+    local public_status=""
+
+    while [ "${SECONDS}" -le "${deadline}" ]; do
+        local_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 "http://localhost:${NEXT_PORT}/login" 2>/dev/null || true)"
+        public_status="$(curl -sSk --max-time 2 "${PROXY_PUBLIC_URL}/api/status" 2>/dev/null || true)"
+        if [ "${local_code}" = "200" ] && printf '%s' "${public_status}" | grep -q healthy; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    printf "Timed out after %ss (local /login=%s, public /api/status=%s)" \
+        "${SMOKE_READY_TIMEOUT_SECONDS}" "${local_code}" "${public_status:-empty}"
+    return 1
+}
+
 echo "═══════════════════════════════════════════════"
 echo " 🚀 Post-Deploy Smoke Test — Target: ${TARGET}"
 echo "═══════════════════════════════════════════════"
@@ -74,6 +94,10 @@ check "${APP_SLUG}-next service"   "systemctl is-active ${APP_SLUG}-next" 0
 check "${APP_SLUG}-ssh-ws service" "systemctl is-active ${APP_SLUG}-ssh-ws" 0
 check "${PROXY_LABEL} service"      "systemctl is-active ${PROXY_SERVICE}" 0
 check "PostgreSQL service"         "systemctl is-active postgresql" 0
+
+echo ""
+echo "── 1b. Readiness Wait ──"
+check "Next.js and public status ready" "wait_for_readiness" 0
 
 echo ""
 echo "── 2. Port Binding ──"
@@ -108,6 +132,7 @@ check "Security headers present"   "grep -i X-Content-Type-Options \"${SECURITY_
 check "Frame header is not DENY"    "! grep -iq '^x-frame-options:.*DENY' \"${SECURITY_HEADERS}\"" 0
 check "Preview CSP allows same-origin media" "grep -i '^content-security-policy:' \"${SECURITY_HEADERS}\" | grep -q \"media-src 'self' blob:\"" 0
 check "Preview CSP allows frames" "grep -i '^content-security-policy:' \"${SECURITY_HEADERS}\" | grep -q \"frame-src 'self'\"" 0
+check "Preview CSP avoids external Office frames" "! grep -iq 'view.officeapps.live.com' \"${SECURITY_HEADERS}\"" 0
 
 echo ""
 echo "── 6. SSH-WS Proxy ──"
