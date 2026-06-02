@@ -38,6 +38,7 @@ ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
 RUNTIME_ENV_FILE="${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"
 ENV_TEMPLATE="${ENV_TEMPLATE:-${APP_DIR}/deploy/env.production.example}"
 SKIP_PACKAGES="${SKIP_PACKAGES:-0}"
+SKIP_DOCKER="${SKIP_DOCKER:-0}"
 SKIP_CADDY="${SKIP_CADDY:-0}"
 SKIP_DB_SETUP="${SKIP_DB_SETUP:-0}"
 PG_AUTO_SETUP="${PG_AUTO_SETUP:-1}"
@@ -109,6 +110,7 @@ Important variables:
   SERVICE_PREFIX=vcontrolhub      systemd service prefix
   DOMAIN=your.example.com         Public domain for reverse proxy/allowed origins
   REPO_URL=https://...            Optional custom Git repository
+  SKIP_DOCKER=1                   Skip Docker Engine auto-install/enablement for hosts that do not use Quick Services
 
 After install/upgrade:
   deploy/check.sh
@@ -205,6 +207,34 @@ is_placeholder_value() {
       return 1
       ;;
   esac
+}
+
+install_docker() {
+	[ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping Docker Engine installation (SKIP_PACKAGES=1); Quick Services will show Docker as unavailable until installed manually."; return; }
+	[ "${SKIP_DOCKER}" = "1" ] && { warn "Skipping Docker Engine installation (SKIP_DOCKER=1); Quick Services will show Docker as unavailable until installed manually."; return; }
+	[ -n "${DESTDIR}" ] && { warn "Skipping Docker Engine installation for DESTDIR isolated install"; return; }
+
+	log "Checking Docker Engine for Quick Services..."
+	if have_cmd docker; then
+		log "  ✓ Docker CLI already installed: $(docker --version 2>/dev/null || echo 'present')"
+	else
+		log "  ✗ Docker missing — installing docker.io"
+		apt-get update
+		apt-get install -y docker.io
+	fi
+
+	if command -v systemctl >/dev/null 2>&1; then
+		log "Enabling Docker service for Quick Services"
+		systemctl enable --now docker || warn "Docker service could not be started automatically; Quick Services readiness banner will show the Docker error until it is started."
+	fi
+
+	if have_cmd docker; then
+		if docker info >/dev/null 2>&1; then
+			log "  ✓ Docker daemon is running; Quick Services can create containers"
+		else
+			warn "Docker CLI is installed but daemon is not ready yet. Run: systemctl status docker"
+		fi
+	fi
 }
 
 install_packages() {
@@ -954,6 +984,7 @@ main() {
 
  need_root
  install_packages
+ install_docker
  prepare_app_user
  sync_source
  write_env_if_missing

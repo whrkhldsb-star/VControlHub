@@ -456,6 +456,20 @@ describe("deploy/preflight.sh", () => {
 });
 
 describe("deploy/install.sh", () => {
+  it("installs and enables Docker Engine during normal first install unless explicitly skipped", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+
+    expect(script).toContain('SKIP_DOCKER="${SKIP_DOCKER:-0}"');
+    expect(script).toContain("install_docker() {");
+    expect(script).toContain("apt-get install -y docker.io");
+    expect(script).toContain("systemctl enable --now docker");
+    expect(script).toContain("docker info");
+    expect(script).toContain("Skipping Docker Engine installation (SKIP_DOCKER=1)");
+    expect(script).toContain("Skipping Docker Engine installation for DESTDIR isolated install");
+    expect(script).toMatch(/need_root\s+install_packages\s+install_docker\s+prepare_app_user/);
+  });
+
   it("syncs generated env identity and database settings with installer overrides", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
