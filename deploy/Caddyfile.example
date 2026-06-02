@@ -11,7 +11,8 @@ http://your-domain.example, https://your-domain.example {
 
     header {
         X-Content-Type-Options nosniff
-        X-Frame-Options DENY
+        # Do not set X-Frame-Options here. The app emits SAMEORIGIN plus CSP
+        # frame-src/media-src rules so authenticated PDF/media previews can render.
         Referrer-Policy strict-origin-when-cross-origin
     }
 

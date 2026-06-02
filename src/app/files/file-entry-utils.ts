@@ -126,12 +126,9 @@ export function getPreviewHref(entry: StorageEntry) {
     ARCHIVE_MIME_SET.has(mime) ||
     EXTENDED_PREVIEW_MIMES.has(mime);
   if (isPreviewableMime) {
-    const downloadHref =
-      entry.directAccess.mode === "managed-download" && entry.directAccess.href
-        ? entry.directAccess.href
-        : buildDownloadHref(entry);
+    const previewHref = buildProxyDownloadHref(entry);
     const params = new URLSearchParams({
-      href: downloadHref,
+      href: previewHref,
       name: entry.name,
       type: mime,
       driver: entry.storageNode.driver,
@@ -160,13 +157,7 @@ export function formatDate(date: Date | string): string {
 export function getThumbnailUrl(entry: StorageEntry): string | null {
   const mime = entry.mimeType ?? "";
   if (!mime.startsWith("image/")) return null;
-  if (
-    entry.directAccess.mode === "managed-download" &&
-    entry.directAccess.href
-  ) {
-    return entry.directAccess.href;
-  }
-  return buildDownloadHref(entry);
+  return buildProxyDownloadHref(entry);
 }
 
 export function toStorageEntry(file: FileProp): StorageEntry {

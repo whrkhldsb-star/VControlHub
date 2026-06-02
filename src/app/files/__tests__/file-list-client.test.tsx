@@ -167,7 +167,7 @@ describe("FileListClient", () => {
     expect(container.querySelector('[data-testid="folder-thumbnail-overlay"]')).not.toBeInTheDocument();
     expect(container.querySelector('[data-testid="file-thumbnail-overlay"] img')).toHaveAttribute(
       "src",
-      "/api/storage/local?path=photos%2Fcover.jpg",
+      "/api/storage/local?path=photos%2Fcover.jpg&nodeId=node_1",
     );
   });
 

@@ -34,6 +34,9 @@ describe("proxy auth guard", () => {
       "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
     );
     expect(csp).toContain("font-src 'self' data: https://fonts.scalar.com");
+    expect(csp).toContain("media-src 'self' blob:");
+    expect(csp).toContain("frame-src 'self' https://view.officeapps.live.com");
+    expect(csp).toContain("frame-ancestors 'self'");
 
     if (originalNodeEnv === undefined) vi.unstubAllEnvs();
     else vi.stubEnv("NODE_ENV", originalNodeEnv);

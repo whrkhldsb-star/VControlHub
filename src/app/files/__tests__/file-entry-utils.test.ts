@@ -44,7 +44,7 @@ describe("file-entry-utils", () => {
 
 	it("builds proxy and direct download URLs by storage driver", () => {
 		const localEntry = toStorageEntry(baseFile);
-		expect(buildProxyDownloadHref(localEntry)).toBe("/api/storage/local?path=docs%2Freport.pdf");
+		expect(buildProxyDownloadHref(localEntry)).toBe("/api/storage/local?path=docs%2Freport.pdf&nodeId=node_local");
 		expect(buildDirectDownloadHref(localEntry)).toBeNull();
 
 		const sftpEntry = toStorageEntry({
@@ -73,7 +73,38 @@ describe("file-entry-utils", () => {
 			name: "photo.jpg",
 			mimeType: "image/jpeg",
 			directAccessHref: "/api/storage/local?path=photo.jpg",
+			relativePath: "photo.jpg",
 		});
-		expect(getThumbnailUrl(imageEntry)).toBe("/api/storage/local?path=photo.jpg");
+		expect(getThumbnailUrl(imageEntry)).toBe("/api/storage/local?path=photo.jpg&nodeId=node_local");
+	});
+
+	it("uses managed same-origin routes for previews and thumbnails even when downloads are direct", () => {
+		const entry = toStorageEntry({
+			...baseFile,
+			storageNodeId: "node_sftp",
+			storageNodeDriver: "SFTP",
+			directAccessMode: "direct-url",
+			directAccessHref: "https://cdn.example.com/report.pdf",
+		});
+
+		expect(buildDirectDownloadHref(entry)).toBe("https://cdn.example.com/report.pdf");
+		expect(getPreviewHref(entry)).toContain("/files/preview?");
+		expect(getPreviewHref(entry)).toContain(
+			"href=%2Fapi%2Fstorage%2Fsftp-download%3FnodeId%3Dnode_sftp%26path%3Ddocs%252Freport.pdf",
+		);
+
+		const imageEntry = toStorageEntry({
+			...baseFile,
+			name: "photo.jpg",
+			mimeType: "image/jpeg",
+			storageNodeId: "node_sftp",
+			storageNodeDriver: "SFTP",
+			directAccessMode: "direct-url",
+			directAccessHref: "https://cdn.example.com/photo.jpg",
+			relativePath: "photo.jpg",
+		});
+		expect(getThumbnailUrl(imageEntry)).toBe(
+			"/api/storage/sftp-download?nodeId=node_sftp&path=photo.jpg",
+		);
 	});
 });
