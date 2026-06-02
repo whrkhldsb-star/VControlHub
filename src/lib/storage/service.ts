@@ -8,7 +8,6 @@ import { prisma } from "@/lib/db";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
-import { getStorageFileListLimit } from "@/lib/runtime-settings/service";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import {
@@ -766,12 +765,10 @@ export async function listFileEntries(storageNodeId?: string) {
     isDeleted: false,
     ...(storageNodeId ? { storageNodeId } : {}),
   };
-  const limit = await getStorageFileListLimit();
 
   const entries = await prisma.fileEntry.findMany({
     where,
     orderBy: [{ entryType: "asc" }, { relativePath: "asc" }],
-    take: limit,
     include: {
       storageNode: {
         select: {
@@ -840,12 +837,10 @@ export async function listDeletedFileEntries(storageNodeId?: string) {
     isDeleted: true,
     ...(storageNodeId ? { storageNodeId } : {}),
   };
-  const limit = await getStorageFileListLimit();
 
   const entries = await prisma.fileEntry.findMany({
     where,
     orderBy: [{ updatedAt: "desc" }],
-    take: limit,
     include: {
       storageNode: {
         select: {

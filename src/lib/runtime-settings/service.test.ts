@@ -15,7 +15,6 @@ const {
   getCommandRuntimeConfig,
   getSshTerminalRuntimeConfig,
   getOperationTaskListLimit,
-  getStorageFileListLimit,
   getAiProviderListLimit,
   getAiConversationListLimit,
   normalizeRuntimeSettingValue,
@@ -87,13 +86,6 @@ describe("runtime settings", () => {
 
     await expect(getOperationTaskListLimit()).resolves.toBe(250);
     expect(() => normalizeRuntimeSettingValue("runtime.operationTaskListLimit", "9999")).toThrow(/任务中心列表上限/);
-  });
-
-  it("reads the Storage file list limit from runtime settings", async () => {
-    prismaMock.setting.findUnique.mockResolvedValueOnce({ value: "1500" });
-
-    await expect(getStorageFileListLimit()).resolves.toBe(1500);
-    expect(() => normalizeRuntimeSettingValue("runtime.storageFileListLimit", "50")).toThrow(/文件索引列表上限/);
   });
 
   it("reads AI list limits from runtime settings", async () => {

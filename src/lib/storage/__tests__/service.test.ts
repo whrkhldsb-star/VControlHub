@@ -39,9 +39,6 @@ vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
   decryptServerPassword: (value: string) => `decrypted:${value}`,
   decryptSshPrivateKey: (value: string) => `decrypted:${value}`,
 }));
-vi.mock("@/lib/runtime-settings/service", () => ({
-  getStorageFileListLimit: vi.fn(async () => 1000),
-}));
 import {
   createFileEntry,
   createStorageNode,
@@ -177,12 +174,6 @@ describe("storage service", () => {
       "/api/storage/direct-access",
     );
     expect(result[0]?.sizeLabel).toBe("1.0 KB");
-    expect(prisma.fileEntry.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        take: 1000,
-        orderBy: [{ entryType: "asc" }, { relativePath: "asc" }],
-      }),
-    );
   });
 
   it("builds storage overview stats", async () => {

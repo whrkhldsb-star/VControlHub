@@ -26,7 +26,6 @@ export const SettingKey = z.union([
 	z.literal("runtime.sshKeepaliveIntervalMs"),
 	z.literal("runtime.sshKeepaliveCountMax"),
 	z.literal("runtime.operationTaskListLimit"),
-	z.literal("runtime.storageFileListLimit"),
 	z.literal("runtime.aiProviderListLimit"),
 	z.literal("runtime.aiConversationListLimit"),
 ]);
@@ -58,7 +57,6 @@ export const VALID_SETTING_KEYS: string[] = [
 	"runtime.sshKeepaliveIntervalMs",
 	"runtime.sshKeepaliveCountMax",
 	"runtime.operationTaskListLimit",
-	"runtime.storageFileListLimit",
 	"runtime.aiProviderListLimit",
 	"runtime.aiConversationListLimit",
 ];
