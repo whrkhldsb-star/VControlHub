@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         const selectedNode = storage.nodes.find(
           (node) => node.id === nodeIdFilter,
         );
-        if (selectedNode?.driver === "SFTP" && canEditLocalFiles) {
+        if (selectedNode?.driver === "SFTP") {
           const syncNode = await getSftpSyncNode(nodeIdFilter);
           if (syncNode?.driver === "SFTP") {
             const syncResult = await syncSftpDirectoryEntries({

@@ -81,26 +81,6 @@ function splitPath(path: string) {
   return path ? path.split("/").filter(Boolean) : [];
 }
 
-function getFolderLabel(path: string) {
-  const segments = splitPath(path);
-  if (segments.length === 0) return "全部文件";
-  const lastSegment = segments[segments.length - 1];
-  // If last segment is a node group key (name__id), extract just the name part
-  if (lastSegment.includes("__")) {
-    return lastSegment.split("__")[0];
-  }
-  return lastSegment;
-}
-
-function getCurrentPathLabel(path: string) {
-  if (!path) return "/";
-  const segments = splitPath(path);
-  return (
-    "/" +
-    segments.map((s) => (s.includes("__") ? s.split("__")[0] : s)).join("/")
-  );
-}
-
 function treePathMatchesCurrentPath(treePath: string, currentPath: string) {
   const normalizedTreePath = treePath.replace(/^\/+|\/+$/g, "");
   const normalizedCurrentPath = currentPath.replace(/^\/+|\/+$/g, "");
@@ -138,6 +118,55 @@ function getInitialExpandedTreePaths(tree: TreeRootNode, currentPath: string) {
 }
 
 type NodeOption = { id: string; name: string; driver: string };
+
+function parseNodeGroupSegment(segment: string) {
+  const [label, idPrefix] = segment.split("__");
+  return idPrefix ? { label, idPrefix } : null;
+}
+
+function isNodeGroupSegment(segment: string) {
+  return parseNodeGroupSegment(segment) !== null;
+}
+
+function getNodeById(nodes: NodeOption[], nodeId: string) {
+  return nodes.find((node) => node.id === nodeId);
+}
+
+function getNodeFromGroupSegment(nodes: NodeOption[], segment: string) {
+  const group = parseNodeGroupSegment(segment);
+  if (!group) return null;
+  return nodes.find((node) => node.id.startsWith(group.idPrefix)) ?? null;
+}
+
+function getDisplaySegment(segment: string, nodes: NodeOption[] = []) {
+  const group = parseNodeGroupSegment(segment);
+  if (!group) return segment;
+  const node = getNodeFromGroupSegment(nodes, segment);
+  return node ? node.name : group.label;
+}
+
+function getCurrentPathDisplay(path: string, nodes: NodeOption[], nodeIdFilter: string) {
+  const selectedNode = getNodeById(nodes, nodeIdFilter);
+  const segments = splitPath(path);
+  const groupSegment = segments.find(isNodeGroupSegment);
+  const groupNode = groupSegment ? getNodeFromGroupSegment(nodes, groupSegment) : null;
+  const remotePathSegments = selectedNode
+    ? segments
+    : segments.filter((segment) => !isNodeGroupSegment(segment));
+  const remotePath = remotePathSegments.map((segment) => getDisplaySegment(segment, nodes)).join("/");
+  const nodeLabel = selectedNode
+    ? `${selectedNode.name}（${selectedNode.driver}）`
+    : groupNode
+      ? `${groupNode.name}（${groupNode.driver}）`
+      : groupSegment
+        ? getDisplaySegment(groupSegment, nodes)
+        : "全部节点";
+  return {
+    title: selectedNode?.name ?? groupNode?.name ?? (remotePath || "全部文件"),
+    label: `${nodeLabel}：/${remotePath}`,
+    uploadPathLabel: `/${remotePath}`,
+  };
+}
 
 function getNodeIcon(driver: string) {
   return driver === "SFTP" ? "🖥" : "💾";
@@ -327,9 +356,11 @@ function FolderTreeClient({
 
 function BreadcrumbsClient({
   path,
+  nodes,
   onNavigate,
 }: {
   path: string;
+  nodes: NodeOption[];
   onNavigate: (path: string) => void;
 }) {
   const segments = splitPath(path);
@@ -349,10 +380,7 @@ function BreadcrumbsClient({
       {segments.map((segment, index) => {
         const nextPath = segments.slice(0, index + 1).join("/");
         const isLast = index === segments.length - 1;
-        // For node group keys (name__id), show just the name part
-        const displaySegment = segment.includes("__")
-          ? segment.split("__")[0]
-          : segment;
+        const displaySegment = getDisplaySegment(segment, nodes);
         return (
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
@@ -478,7 +506,13 @@ export function FilesBrowserSpa({
   const uploadNodes = data.nodes.filter(
     (n) => n.driver === "LOCAL" || n.driver === "SFTP",
   );
-  const currentPathLabel = getCurrentPathLabel(data.currentPath);
+  const currentPathDisplay = getCurrentPathDisplay(
+    data.currentPath,
+    data.nodes,
+    data.nodeIdFilter,
+  );
+  const selectedNode = getNodeById(data.nodes, data.nodeIdFilter);
+  const refreshLabel = selectedNode?.driver === "SFTP" ? "刷新远端文件" : "刷新列表";
   const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(() =>
     getInitialExpandedTreePaths(initialData.tree, initialData.currentPath),
   );
@@ -583,7 +617,7 @@ export function FilesBrowserSpa({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-white">
-                {getFolderLabel(data.currentPath)}
+                {currentPathDisplay.title}
                 {loading ? (
                   <span className="ml-2 text-sm text-cyan-300 animate-pulse">
                     加载中…
@@ -591,13 +625,12 @@ export function FilesBrowserSpa({
                 ) : null}
               </h2>
               <p className="mt-2 text-sm leading-7 text-slate-300">
-                {data.currentPath
-                  ? `当前路径：/${data.currentPath}`
-                  : "当前路径：根目录"}
+                {currentPathDisplay.label ? `当前路径：${currentPathDisplay.label}` : "当前路径：全部节点：/"}
               </p>
             </div>
             <BreadcrumbsClient
               path={data.currentPath}
+              nodes={data.nodes}
               onNavigate={navigateToFolder}
             />
           </div>
@@ -659,9 +692,7 @@ export function FilesBrowserSpa({
                   当前目录操作
                 </h3>
                 <p className="mt-2 text-sm text-slate-300">
-                  {data.currentPath
-                    ? `当前路径：/${data.currentPath}`
-                    : "当前路径：/"}
+                  当前路径：{currentPathDisplay.label}
                 </p>
                 <p className="mt-1 text-sm text-slate-300">
                   项目数 {data.stats.totalItems}
@@ -671,6 +702,21 @@ export function FilesBrowserSpa({
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    fetchFiles(
+                      data.currentPath,
+                      data.searchQuery,
+                      data.searchScope,
+                      data.nodeIdFilter,
+                    )
+                  }
+                  disabled={loading}
+                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loading ? "刷新中…" : `↻ ${refreshLabel}`}
+                </button>
                 {data.permissions.canEditLocalFiles ? (
                   <a
                     href="#upload-section"
@@ -730,7 +776,7 @@ export function FilesBrowserSpa({
               initialNodeId={uploadNodes[0]?.id ?? data.nodes[0]?.id}
               initialRelativeDir={data.currentPath}
               uploadDir={data.currentPath}
-              title={`上传到当前目录 ${currentPathLabel}`}
+              title={`上传到当前目录 ${currentPathDisplay.uploadPathLabel}`}
               description="选择目标存储节点和上传目录路径。"
               submitLabel="拖拽文件到这里，或点击选择本地文件"
               pathLabel="上传目录路径"

@@ -124,6 +124,57 @@ describe("/api/files/list", () => {
     });
   });
 
+  it("syncs selected SFTP nodes even for read-only file browsing", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_readonly", username: "viewer", roles: ["viewer"] },
+    });
+    sessionHasPermissionMock.mockReturnValue(false);
+    getStorageOverviewMock
+      .mockResolvedValueOnce(overview())
+      .mockResolvedValueOnce({
+        ...overview(),
+        entries: [
+          {
+            ...overview().entries[0],
+            id: "file_fresh",
+            name: "fresh-remote.txt",
+            relativePath: "fresh-remote.txt",
+          },
+        ],
+      });
+    getSftpSyncNodeMock.mockResolvedValueOnce({
+      id: "node_sftp",
+      driver: "SFTP",
+    });
+    syncSftpDirectoryEntriesMock.mockResolvedValueOnce({
+      created: 1,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+    });
+    getStorageAccessCapabilitiesMock.mockResolvedValueOnce(new Map());
+
+    const response = await GET(
+      new NextRequest(
+        "https://app.example.test/api/files/list?nodeId=node_sftp&path=logs",
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(syncSftpDirectoryEntriesMock).toHaveBeenCalledWith({
+      node: { id: "node_sftp", driver: "SFTP" },
+      remotePath: "logs",
+      recursive: false,
+      maxDepth: 1,
+    });
+    expect(body.files).toEqual([
+      expect.objectContaining({ id: "file_fresh", name: "fresh-remote.txt" }),
+    ]);
+    expect(body.permissions.canEditLocalFiles).toBe(false);
+  });
+
   it("returns virtual grouped node roots during SPA refresh with no node filter", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({
