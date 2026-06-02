@@ -175,6 +175,78 @@ describe("/api/files/list", () => {
     expect(body.permissions.canEditLocalFiles).toBe(false);
   });
 
+  it("resolves grouped SFTP paths without nodeId before syncing and listing", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin", roles: ["admin"] },
+    });
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission !== "storage:delete",
+    );
+    const base = overview();
+    const nodes = [
+      { id: "node_sftp_abcdef", name: "45.207.216.45 存储", driver: "SFTP" },
+    ];
+    getStorageOverviewMock
+      .mockResolvedValueOnce({ ...base, nodes, entries: [], remoteDirectories: [] })
+      .mockResolvedValueOnce({
+        ...base,
+        nodes,
+        entries: [
+          {
+            ...base.entries[0],
+            id: "dir_new",
+            name: "new-folder",
+            entryType: "DIRECTORY",
+            mimeType: "inode/directory",
+            relativePath: "new-folder",
+            storageNode: {
+              id: "node_sftp_abcdef",
+              name: "45.207.216.45 存储",
+              driver: "SFTP",
+              serverId: "server_1",
+              server: null,
+            },
+          },
+        ],
+        remoteDirectories: [],
+      });
+    getSftpSyncNodeMock.mockResolvedValueOnce({
+      id: "node_sftp_abcdef",
+      driver: "SFTP",
+    });
+    syncSftpDirectoryEntriesMock.mockResolvedValueOnce({
+      created: 1,
+      updated: 0,
+      skipped: 0,
+      errors: [],
+    });
+    getStorageAccessCapabilitiesMock.mockResolvedValueOnce(new Map());
+
+    const response = await GET(
+      new NextRequest(
+        "https://app.example.test/api/files/list?path=45.207.216.45%20%E5%AD%98%E5%82%A8__node_sft",
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(getSftpSyncNodeMock).toHaveBeenCalledWith("node_sftp_abcdef");
+    expect(syncSftpDirectoryEntriesMock).toHaveBeenCalledWith({
+      node: { id: "node_sftp_abcdef", driver: "SFTP" },
+      remotePath: "",
+      recursive: false,
+      maxDepth: 1,
+    });
+    expect(body).toMatchObject({
+      currentPath: "",
+      nodeIdFilter: "node_sftp_abcdef",
+    });
+    expect(body.folders).toEqual([
+      expect.objectContaining({ name: "new-folder", displayName: "new-folder" }),
+    ]);
+  });
+
   it("returns virtual grouped node roots during SPA refresh with no node filter", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({

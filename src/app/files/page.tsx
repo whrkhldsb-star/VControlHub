@@ -12,6 +12,7 @@ import {
   findFileTreeNode,
   isDirectoryEntry,
   normalizeFilePath,
+  resolveStorageNodeGroupedPath,
   searchFileTree,
   serializeFileTreeFolder,
   serializeFileTreeNode,
@@ -55,14 +56,18 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   let storage = initialStorage;
   let syncWarning: string | null = null;
 
-  if (nodeIdFilter) {
-    const selectedNode = storage.nodes.find((node) => node.id === nodeIdFilter);
+  const groupedPath = resolveStorageNodeGroupedPath(currentPath, storage.nodes);
+  const effectiveNodeId = nodeIdFilter || groupedPath?.node.id || "";
+  const effectiveSyncPath = nodeIdFilter ? currentPath : groupedPath?.remotePath ?? currentPath;
+
+  if (effectiveNodeId) {
+    const selectedNode = storage.nodes.find((node) => node.id === effectiveNodeId);
     if (selectedNode?.driver === "SFTP") {
-      const syncNode = await getSftpSyncNode(nodeIdFilter);
+      const syncNode = await getSftpSyncNode(effectiveNodeId);
       if (syncNode?.driver === "SFTP") {
         const syncResult = await syncSftpDirectoryEntries({
           node: syncNode,
-          remotePath: currentPath,
+          remotePath: effectiveSyncPath,
           recursive: false,
           maxDepth: 1,
         });
@@ -75,24 +80,26 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     }
   }
 
-  // Filter entries by nodeId if specified
-  const filteredEntries = nodeIdFilter
-    ? storage.entries.filter((e) => e.storageNode.id === nodeIdFilter)
+  // Filter entries by explicit nodeId or grouped node path if specified
+  const filteredEntries = effectiveNodeId
+    ? storage.entries.filter((e) => e.storageNode.id === effectiveNodeId)
     : storage.entries;
-  const filteredDirectories = nodeIdFilter
-    ? storage.remoteDirectories.filter((d) => d.storageNodeId === nodeIdFilter)
+  const filteredDirectories = effectiveNodeId
+    ? storage.remoteDirectories.filter((d) => d.storageNodeId === effectiveNodeId)
     : storage.remoteDirectories;
 
-  // When no specific node is selected, group entries by node to avoid
+  // When no specific node/path group is selected, group entries by node to avoid
   // mixing SFTP root directories with LOCAL directories at root level
-  const groupByNode = !nodeIdFilter;
+  const groupByNode = !effectiveNodeId;
   const tree = buildFileTree(
     filteredEntries,
     filteredDirectories,
     groupByNode,
     storage.nodes,
   );
-  const currentNode = findFileTreeNode(tree, currentPath) ?? tree;
+  const responseCurrentPath = effectiveNodeId ? effectiveSyncPath : currentPath;
+  const responseNodeIdFilter = effectiveNodeId;
+  const currentNode = findFileTreeNode(tree, responseCurrentPath) ?? tree;
   let folders = [...currentNode.folders.values()].sort((a, b) =>
     a.name.localeCompare(b.name, "zh-CN"),
   );
@@ -134,8 +141,8 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
   // Build initial data for SPA component (same format as API response)
   const initialData = {
-    currentPath,
-    nodeIdFilter,
+    currentPath: responseCurrentPath,
+    nodeIdFilter: responseNodeIdFilter,
     folders: folders.map((folder) => {
       const serialized = serializeFileTreeFolder(folder);
       const capabilityKey = serialized.storageNodeId

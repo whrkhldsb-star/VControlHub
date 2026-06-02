@@ -45,6 +45,26 @@ export function splitFilePath(path: string) {
 	return path ? path.split("/").filter(Boolean) : [];
 }
 
+export function getStorageNodeGroupKey(node: { id: string; name: string }) {
+	return `${node.name}__${node.id.slice(0, 8)}`;
+}
+
+export function resolveStorageNodeGroupedPath(
+	path: string,
+	nodes: Array<{ id: string; name: string; driver: string }>,
+) {
+	const segments = splitFilePath(path);
+	const [firstSegment, ...rest] = segments;
+	if (!firstSegment) return null;
+	const node = nodes.find((candidate) => getStorageNodeGroupKey(candidate) === firstSegment);
+	if (!node) return null;
+	return {
+		node,
+		groupPath: firstSegment,
+		remotePath: rest.join("/"),
+	};
+}
+
 function createNode(name: string, path: string): FileTreeNode {
 	return { name, path, folders: new Map(), files: [], sources: new Map() };
 }
@@ -79,7 +99,7 @@ export function buildFileTree(
 		for (const node of nodes) {
 			if (!nodeGroupMap.has(node.id)) {
 				nodeGroupMap.set(node.id, {
-					groupKey: `${node.name}__${node.id.slice(0, 8)}`,
+					groupKey: getStorageNodeGroupKey(node),
 					groupLabel: `${node.name}（${node.driver}）`,
 				});
 			}
@@ -89,7 +109,7 @@ export function buildFileTree(
 			const nodeId = entry.storageNode.id;
 			if (!nodeGroupMap.has(nodeId)) {
 				nodeGroupMap.set(nodeId, {
-					groupKey: `${entry.storageNode.name}__${entry.storageNode.id.slice(0, 8)}`,
+					groupKey: getStorageNodeGroupKey(entry.storageNode),
 					groupLabel: `${entry.storageNode.name}（${entry.storageNode.driver}）`,
 				});
 			}
@@ -99,7 +119,7 @@ export function buildFileTree(
 			const nodeId = directory.storageNodeId;
 			if (!nodeGroupMap.has(nodeId)) {
 				nodeGroupMap.set(nodeId, {
-					groupKey: `${directory.storageNodeName}__${directory.storageNodeId.slice(0, 8)}`,
+					groupKey: getStorageNodeGroupKey({ id: directory.storageNodeId, name: directory.storageNodeName }),
 					groupLabel: `${directory.storageNodeName}（${directory.storageNodeDriver}）`,
 				});
 			}
