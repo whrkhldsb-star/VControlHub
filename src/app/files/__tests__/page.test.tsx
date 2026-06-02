@@ -481,7 +481,7 @@ describe("FilesPage", () => {
     expect(
       screen.getByRole("button", { name: "打开 releases" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText(/当前路径：\/archives/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/当前路径：全部节点：\/archives/)[0]).toBeInTheDocument();
     expect(
       screen.getAllByRole("button", { name: "打开" }).length,
     ).toBeGreaterThan(0);

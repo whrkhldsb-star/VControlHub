@@ -113,8 +113,16 @@ const csrfFetchMock = vi.mocked(csrfFetch);
 
 describe("Home", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     csrfFetchMock.mockReset();
-    csrfFetchMock.mockResolvedValue({ servers: [], downloads: [], audit: [], imageBed: [] });
+    csrfFetchMock.mockImplementation(async (url) => {
+      if (String(url) === "/api/preferences") {
+        return {
+          dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+        };
+      }
+      return { servers: [], downloads: [], audit: [], imageBed: [] };
+    });
   });
 
   it("renders dashboard sections for servers and storage overview", async () => {
@@ -133,10 +141,7 @@ describe("Home", () => {
     expect(screen.getByText("远程下载")).toBeInTheDocument();
     expect(screen.getByText("审批中心")).toBeInTheDocument();
     expect(screen.getByText("最近审批活动")).toBeInTheDocument();
-    expect(screen.getByText("数据趋势")).toBeInTheDocument();
-    expect(screen.getByText("正在加载趋势…")).toBeInTheDocument();
-    expect(screen.getByText(/来自 \/api\/dashboard\/analytics/)).toBeInTheDocument();
-    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/dashboard/analytics?type=all"));
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();
     expect(screen.getByText("server.updated")).toBeInTheDocument();
     expect(screen.getByText("2026/05/27 16:30:00")).toBeInTheDocument();

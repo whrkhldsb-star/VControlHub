@@ -558,6 +558,10 @@ auto_generate_env_secrets() {
 
 create_runtime_dirs() {
   log "Creating runtime directories"
+  local storage_root download_root backup_root
+  storage_root="${STORAGE_ROOT:-${DESTDIR}/var/lib/${APP_SLUG}/storage}"
+  download_root="${DOWNLOAD_ROOT:-${DESTDIR}/var/lib/${APP_SLUG}/downloads}"
+  backup_root="${BACKUP_DIR:-${DESTDIR}/var/backups/${APP_SLUG}}"
   mkdir -p \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \
@@ -565,9 +569,9 @@ create_runtime_dirs() {
     "${APP_DIR}/downloads" \
     "${APP_DIR}/backups" \
     "${APP_DIR}/logs" \
-    "${STORAGE_ROOT:-/var/lib/${APP_SLUG}/storage}" \
-    "${DOWNLOAD_ROOT:-/var/lib/${APP_SLUG}/downloads}" \
-    "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+    "${storage_root}" \
+    "${download_root}" \
+    "${backup_root}"
   chown -R "${APP_USER}:${APP_USER}" \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \
@@ -575,9 +579,9 @@ create_runtime_dirs() {
     "${APP_DIR}/downloads" \
     "${APP_DIR}/backups" \
     "${APP_DIR}/logs" \
-    "${STORAGE_ROOT:-/var/lib/${APP_SLUG}/storage}" \
-    "${DOWNLOAD_ROOT:-/var/lib/${APP_SLUG}/downloads}" \
-    "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+    "${storage_root}" \
+    "${download_root}" \
+    "${backup_root}"
 }
 
 setup_postgres() {
