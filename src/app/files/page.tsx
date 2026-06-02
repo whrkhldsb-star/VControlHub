@@ -18,6 +18,7 @@ import {
 } from "@/lib/files/tree";
 
 import { getStorageFormOptions } from "@/app/storage/actions";
+import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
@@ -45,12 +46,34 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const searchScope = resolvedSearchParams.scope === "all" ? "all" : "current";
   const nodeIdFilter = resolvedSearchParams.nodeId ?? "";
 
-  const [storage, formOptions] = await Promise.all([
+  const [initialStorage, formOptions] = await Promise.all([
     getStorageOverview(),
     canManageNodes || canEditLocalFiles
       ? getStorageFormOptions()
       : Promise.resolve({ servers: [], nodes: [] }),
   ]);
+  let storage = initialStorage;
+  let syncWarning: string | null = null;
+
+  if (nodeIdFilter) {
+    const selectedNode = storage.nodes.find((node) => node.id === nodeIdFilter);
+    if (selectedNode?.driver === "SFTP" && canEditLocalFiles) {
+      const syncNode = await getSftpSyncNode(nodeIdFilter);
+      if (syncNode?.driver === "SFTP") {
+        const syncResult = await syncSftpDirectoryEntries({
+          node: syncNode,
+          remotePath: currentPath,
+          recursive: false,
+          maxDepth: 1,
+        });
+        if (syncResult.errors.length > 0) {
+          syncWarning = syncResult.errors[0] ?? "远端目录同步失败，已显示本地索引";
+        } else {
+          storage = await getStorageOverview();
+        }
+      }
+    }
+  }
 
   // Filter entries by nodeId if specified
   const filteredEntries = nodeIdFilter
@@ -165,6 +188,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     sourceSummary,
     searchQuery,
     searchScope: searchScope as "current" | "all",
+    syncWarning,
     permissions: {
       canEditLocalFiles,
       canDelete,
@@ -176,8 +200,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       driver: n.driver,
     })),
   };
-
-  const sftpNodes = storage.nodes.filter((n) => n.driver === "SFTP");
 
   return (
     <PageShell maxW="max-w-7xl">
@@ -290,13 +312,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
       <FilesBrowserSpa
         initialData={initialData}
-        sftpNodes={sftpNodes.map((n) => ({
-          id: n.id,
-          name: n.name,
-          driver: n.driver,
-          serverId: n.serverId ?? null,
-          serverName: n.server?.name ?? null,
-        }))}
         deletedEntries={storage.deletedEntries.map((d) => ({
           id: d.id,
           name: d.name,

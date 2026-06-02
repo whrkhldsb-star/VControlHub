@@ -101,6 +101,8 @@ const {
   getStorageOverviewMock,
   listStorageNodesMock,
   getStorageAccessCapabilitiesMock,
+  getSftpSyncNodeMock,
+  syncSftpDirectoryEntriesMock,
   refreshMock,
   pushMock,
   replaceMock,
@@ -115,6 +117,8 @@ const {
   getStorageOverviewMock: vi.fn(),
   listStorageNodesMock: vi.fn(),
   getStorageAccessCapabilitiesMock: vi.fn(),
+  getSftpSyncNodeMock: vi.fn(),
+  syncSftpDirectoryEntriesMock: vi.fn(),
   refreshMock: vi.fn(),
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
@@ -138,6 +142,11 @@ vi.mock("@/lib/storage/access-control", () => ({
   getStorageAccessCapabilities: getStorageAccessCapabilitiesMock,
   getStorageAccessCapabilityKey: ({ storageNodeId, relativePath }: { storageNodeId: string; relativePath?: string | null }) =>
     `${storageNodeId}:${relativePath ?? ""}`,
+}));
+
+vi.mock("@/lib/storage/sftp-sync", () => ({
+  getSftpSyncNode: getSftpSyncNodeMock,
+  syncSftpDirectoryEntries: syncSftpDirectoryEntriesMock,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -289,6 +298,14 @@ beforeEach(() => {
     structuredClone(baseStorageOverview.nodes),
   );
   getStorageAccessCapabilitiesMock.mockResolvedValue(new Map());
+  getSftpSyncNodeMock.mockResolvedValue(null);
+  syncSftpDirectoryEntriesMock.mockResolvedValue({
+    synced: 0,
+    created: 0,
+    updated: 0,
+    deleted: 0,
+    errors: [],
+  });
 });
 
 describe("FilesPage", () => {
@@ -307,10 +324,10 @@ describe("FilesPage", () => {
     ).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "docs" })).toBeInTheDocument();
     expect(
-      screen.getAllByRole("link", { name: "经网站服务器下载 notes.txt" })[0],
+      screen.getAllByRole("link", { name: "下载 notes.txt" })[0],
     ).toHaveAttribute(
       "href",
-      "/api/storage/local?path=docs%2Fnotes.txt&download=1",
+      "/api/storage/local?path=docs%2Fnotes.txt&nodeId=node_1&download=1",
     );
     expect(screen.getByRole("heading", { name: /回收站/ })).toBeInTheDocument();
   });
@@ -362,6 +379,48 @@ describe("FilesPage", () => {
         { storageNodeId: "node_1", relativePath: "docs/notes.txt" },
       ]),
     });
+  });
+
+  it("syncs the selected SFTP node before rendering the unified file list", async () => {
+    const initialOverview = structuredClone(baseStorageOverview);
+    const syncedOverview = structuredClone(baseStorageOverview);
+    syncedOverview.entries = [
+      {
+        id: "file_synced",
+        name: "live.log",
+        mimeType: "text/plain",
+        relativePath: "logs/live.log",
+        sizeLabel: "2.0 KB",
+        previewable: true,
+        localEditable: false,
+        directAccess: {
+          mode: "managed-download" as const,
+          description: "远端文件经管理端 SFTP 代理中转下载。",
+          href: "/api/storage/sftp-download?nodeId=node_2&path=",
+        },
+        storageNode: { id: "node_2", name: "香港媒体库", driver: "SFTP" },
+        entryType: "FILE" as const,
+      },
+    ];
+    getStorageOverviewMock
+      .mockResolvedValueOnce(initialOverview)
+      .mockResolvedValueOnce(syncedOverview);
+    getSftpSyncNodeMock.mockResolvedValueOnce({ id: "node_2", driver: "SFTP" });
+
+    render(
+      await FilesPage({
+        searchParams: Promise.resolve({ path: "logs", nodeId: "node_2" }),
+      }),
+    );
+
+    expect(syncSftpDirectoryEntriesMock).toHaveBeenCalledWith({
+      node: { id: "node_2", driver: "SFTP" },
+      remotePath: "logs",
+      recursive: false,
+      maxDepth: 1,
+    });
+    expect(screen.queryByText("SFTP 远端浏览")).not.toBeInTheDocument();
+    expect(screen.getAllByText("live.log").length).toBeGreaterThan(0);
   });
 
   it("renders remote registered directories in the tree and file list", async () => {

@@ -246,6 +246,59 @@ describe("FilesBrowserSpa", () => {
     );
   });
 
+  it("uses the unified file list for SFTP nodes instead of rendering a separate SFTP browser", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...baseData,
+        currentPath: "",
+        nodeIdFilter: "node_sftp_1",
+        files: [
+          {
+            ...baseData.files[0],
+            id: "file_sftp_1",
+            name: "remote.log",
+            relativePath: "remote.log",
+            storageNodeId: "node_sftp_1",
+            storageNodeName: "香港 VPS",
+            storageNodeDriver: "SFTP",
+          },
+        ],
+        nodes: [
+          { id: "node_1", name: "本机存储", driver: "LOCAL" },
+          { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+        ],
+      }),
+    } as Response);
+
+    render(
+      <FilesBrowserSpa
+        initialData={{
+          ...baseData,
+          nodes: [
+            { id: "node_1", name: "本机存储", driver: "LOCAL" },
+            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+          ],
+        }}
+        deletedEntries={[]}
+      />,
+    );
+
+    expect(screen.queryByText("SFTP 远端浏览")).not.toBeInTheDocument();
+    fireEvent.change(screen.getAllByLabelText("选择存储节点")[0], {
+      target: { value: "node_sftp_1" },
+    });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/files/list?nodeId=node_sftp_1",
+        expect.any(Object),
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("remote.log")).toBeInTheDocument());
+  });
+
   it("keeps nested directory tree collapsed until a folder is expanded", () => {
     render(
       <FilesBrowserSpa
