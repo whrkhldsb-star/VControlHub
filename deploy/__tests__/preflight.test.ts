@@ -270,6 +270,12 @@ describe("deploy/preflight.sh", () => {
       path.join(binDir, "rsync"),
       `#!/usr/bin/env bash\nprintf 'rsync %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`,
     );
+    await writeFile(
+      path.join(binDir, "id"),
+      '#!/usr/bin/env bash\nif [ "$1" = "-u" ]; then printf \'0\\n\'; else exit 0; fi\n',
+    );
+    await writeFile(path.join(binDir, "useradd"), "#!/usr/bin/env bash\nexit 0\n");
+    await writeFile(path.join(binDir, "chown"), "#!/usr/bin/env bash\nexit 0\n");
     await mkdir(path.join(appDir, "scripts"), { recursive: true });
     await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
     await mkdir(path.join(appDir, "deploy"), { recursive: true });
@@ -324,6 +330,9 @@ describe("deploy/preflight.sh", () => {
       "du",
       "find",
       "rsync",
+      "id",
+      "useradd",
+      "chown",
       "npm",
       "systemctl",
       "install",
