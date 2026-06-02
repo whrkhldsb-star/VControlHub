@@ -465,9 +465,16 @@ describe("deploy/install.sh", () => {
     expect(script).toContain("apt-get install -y docker.io");
     expect(script).toContain("systemctl enable --now docker");
     expect(script).toContain("docker info");
+    expect(script).toContain("add_app_user_to_docker_group() {");
+    expect(script).toContain('usermod -aG docker "${APP_USER}"');
+    expect(script).toContain("prepare_quick_service_storage() {");
+    expect(script).toContain("quick_service_host_paths() {");
+    expect(script).toContain("/opt/filebrowser/db");
+    expect(script).toContain("/opt/dufs/data");
+    expect(script).toContain("quick_service_read_write_paths");
     expect(script).toContain("Skipping Docker Engine installation (SKIP_DOCKER=1)");
     expect(script).toContain("Skipping Docker Engine installation for DESTDIR isolated install");
-    expect(script).toMatch(/need_root\s+install_packages\s+install_docker\s+prepare_app_user/);
+    expect(script).toMatch(/need_root\s+install_packages\s+install_docker\s+prepare_app_user\s+add_app_user_to_docker_group\s+prepare_quick_service_storage/);
   });
 
   it("syncs generated env identity and database settings with installer overrides", async () => {

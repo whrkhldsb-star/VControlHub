@@ -237,6 +237,90 @@ install_docker() {
 	fi
 }
 
+quick_service_host_paths() {
+	# Keep in sync with src/lib/quick-service/catalog.ts. These are the host-side
+	# data directories Quick Services creates before docker run. The Next.js app
+	# runs as APP_USER under ProtectSystem=strict, so both filesystem ownership and
+	# systemd ReadWritePaths must include them on first install.
+	cat <<'EOF'
+/opt/adguardhome/conf
+/opt/adguardhome/work
+/opt/affine/data
+/opt/alist/data
+/opt/beszel/data
+/opt/changedetection/data
+/opt/code-server/config
+/opt/davos/config
+/opt/davos/downloads
+/opt/dufs/data
+/opt/emby/config
+/opt/emby/data
+/opt/filebrowser/config
+/opt/filebrowser/db
+/opt/frps/config
+/opt/ghost/content
+/opt/gitea/data
+/opt/gladys/data
+/opt/halo/data
+/opt/hedgedoc/uploads
+/opt/immich/upload
+/opt/jellyfin/cache
+/opt/jellyfin/config
+/opt/jellyfin/media
+/opt/komga/books
+/opt/komga/config
+/opt/linkwarden/data
+/opt/maxkb/data
+/opt/memos/data
+/opt/metube/downloads
+/opt/minio/data
+/opt/n8n/data
+/opt/navidrome/data
+/opt/navidrome/music
+/opt/outline/data
+/opt/photoprism/originals
+/opt/photoprism/storage
+/opt/pihole/etc-dnsmasq
+/opt/pihole/etc-pihole
+/opt/portainer/data
+/opt/speedtest/config
+/opt/stirling-pdf/data
+/opt/tianji/data
+/opt/typecho/data
+/opt/uptime-kuma/data
+/opt/vaultwarden/data
+/opt/wallabag/data
+/opt/wallabag/images
+/opt/wordpress/data
+/srv
+EOF
+}
+
+prepare_quick_service_storage() {
+	[ -n "${DESTDIR}" ] && return 0
+	[ "${SKIP_DOCKER}" = "1" ] && return 0
+	log "Preparing Quick Services Docker data directories"
+	local path
+	while IFS= read -r path; do
+		[ -n "${path}" ] || continue
+		mkdir -p "${path}"
+		chown -R "${APP_USER}:${APP_USER}" "${path}" 2>/dev/null || true
+	done <<EOF
+$(quick_service_host_paths)
+EOF
+}
+
+add_app_user_to_docker_group() {
+	[ -n "${DESTDIR}" ] && return 0
+	[ "${SKIP_DOCKER}" = "1" ] && return 0
+	[ "${APP_USER}" = "root" ] && return 0
+	if getent group docker >/dev/null 2>&1; then
+		usermod -aG docker "${APP_USER}" || warn "Could not add ${APP_USER} to docker group; Quick Services may not access Docker until permissions are fixed."
+	else
+		warn "docker group not found; Quick Services may not access Docker until Docker is installed correctly."
+	fi
+}
+
 install_packages() {
 	[ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping OS package installation"; return; }
 
@@ -805,10 +889,14 @@ install_systemd() {
 		esac
 	fi
 	local node_bin npm_bin npx_bin systemd_path
+	local quick_service_read_write_paths=""
 	node_bin="$(resolve_node_tool node)"
 	npm_bin="$(resolve_node_tool npm)"
 	npx_bin="$(resolve_node_tool npx)"
 	systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
+	if [ "${SKIP_DOCKER}" != "1" ]; then
+		quick_service_read_write_paths=" $(quick_service_host_paths | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+	fi
 	local svc
 	for svc in next ssh-ws; do
 		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
@@ -849,6 +937,7 @@ sed \
 			-e "s|{{SSH_WS_PORT}}|${SSH_WS_PORT}|g" \
 			-e "s|{{APP_USER}}|${APP_USER}|g" \
 			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
+			-e "s|{{QUICK_SERVICE_READ_WRITE_PATHS}}|${quick_service_read_write_paths}|g" \
 			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
 			"${src}" > "${dst}"
 		chmod 0644 "${dst}"
@@ -986,6 +1075,8 @@ main() {
  install_packages
  install_docker
  prepare_app_user
+ add_app_user_to_docker_group
+ prepare_quick_service_storage
  sync_source
  write_env_if_missing
  sync_installer_env_overrides
