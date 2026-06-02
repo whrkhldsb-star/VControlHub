@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T06:42:30Z",
+  "updatedAt": "2026-06-02T08:05:09Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,39 +58,66 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-06-02T06:18:59Z",
-    "target": "dirty-closeout-office-preview-external-frame-hardening",
+    "startedAt": "2026-06-02T08:05:09Z",
+    "finishedAt": "2026-06-02T08:05:09Z",
+    "target": "downloads-lifecycle-canary",
     "status": "completed_verified_deployed_committed_pushed",
-    "summary": "Closed an overlapping dirty worktree safely instead of opening a new QA path. The Office preview/CSP/smoke slice was committed and pushed by an overlapping closeout as 742f02f, removes Microsoft Office Online iframe embedding for protected Files preview URLs, tightens global CSP to same-origin frames only, and extends the deploy smoke test so preview CSP cannot regress to external Office frames. This run revalidated tests/builds/current production health, confirmed services were restarted at 2026-06-02T06:12Z, smoke passed, and local HEAD equals origin/main at the functional commit.",
+    "summary": "Completed the Downloads lifecycle canary closeout for the manual-refresh truthfulness gap. PATCH /api/downloads now returns the same refreshed byte counters/file size that it persists during aria2 and direct refresh, so the Downloads page can immediately update the visible row without waiting for a later poll. The product fix was committed/pushed by an overlapping closeout as 0759b58; this run verified regressions, typecheck, lint, build, runtime build, production readiness, smoke, logs after restart, browser baseline, DB cleanup, and HEAD == origin/main.",
+    "changeContract": {
+      "qaPathId": "downloads-lifecycle-canary",
+      "role": "temporary admin QA user",
+      "entry": "/downloads page and PATCH /api/downloads manual refresh action",
+      "userAction": "Operator refreshes a running/completed download task and expects the visible row to update immediately from the refresh response.",
+      "expectedSideEffects": [
+        "API refresh reconciles task state",
+        "DownloadTask byte counters/fileSize persist in DB",
+        "PATCH response carries the same counters",
+        "Downloads UI merges the response and immediately displays the new completed size/progress"
+      ],
+      "outOfScope": [
+        "new download creation semantics",
+        "Quick Services",
+        "Commands",
+        "Backups"
+      ],
+      "evidenceProfile": "background_task"
+    },
+    "evidenceMatrix": {
+      "browser_or_dom": "Logged into production with a temporary QA user and opened /downloads; page rendered the Downloads user path and showed the current empty-state baseline (no production download tasks).",
+      "api": "PATCH /api/downloads refresh response contract fixed in code and covered by route regressions for aria2 and direct branches.",
+      "db_or_persisted_config": "Production DB inspected with project Prisma adapter: enabled SFTP target servers exist, DownloadTask list was empty, temporary qa_cron user count was 0 before QA and 0 after cleanup.",
+      "filesystem_or_sftp": "Available SFTP storage nodes verified for future full lifecycle canary; no live file was created because no production task existed to refresh and the safe fix was contract-level.",
+      "background_task_or_process": "Route tests cover aria2 tellStatus and direct remote PID exit probing refresh paths; production services restarted at 03:57:58 local time and listened normally at 03:58:01.",
+      "runtime_or_ui_side_effect": "DownloadsClient regression proves PATCH response byte/fileSize fields are applied immediately and the visible row shows 📦 2.0 KB without waiting for a follow-up poll.",
+      "permissions": "Temporary admin QA account was used for browser baseline and then deleted; touched route tests continue to cover task ownership/cross-user control boundaries.",
+      "regression": [
+        "npx vitest run src/app/api/downloads/__tests__/route.test.ts src/app/downloads/__tests__/downloads-client.test.tsx --reporter=dot: 22/22 passed",
+        "npx vitest run src/app/api/files/list/__tests__/route.test.ts src/lib/files/__tests__/tree.test.ts --reporter=dot: 9/9 passed for neighboring previously dirty Files slice"
+      ],
+      "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED; /api/status healthy 3/3; unauthenticated /downloads redirects with 307 as expected.",
+      "logs": "Recent journal showed old manifest errors before 03:57:58 restart; after restart, logs show normal command worker/WebSocket/server listening messages and no new error lines in the checked window.",
+      "cleanup": "Deleted temporary qa_cron_* user; verification returned remaining 0."
+    },
     "validation": [
-      "Dirty worktree found at start: deploy/smoke-test.sh, src/__tests__/proxy.test.ts, src/app/files/preview/office-preview-client.tsx, src/proxy.ts, and new src/app/files/__tests__/office-preview-client.test.tsx. Per closeout policy, no new QA path was opened.",
-      "Change Contract: protected Files Office preview must not expose private storage URLs to Microsoft Office Online or require external iframe CSP; operators should receive a truthful download-first fallback, and smoke tests should fail if preview CSP re-allows the external Office viewer.",
-      "Regression tests cover OfficePreviewClient rendering no iframe for protected SFTP preview URLs, adding a managed download link, and proxy CSP excluding view.officeapps.live.com.",
-      "npx vitest run src/app/files/__tests__/office-preview-client.test.tsx src/__tests__/proxy.test.ts --reporter=dot: 8/8 passed across 2 files.",
-      "bash -n deploy/smoke-test.sh and git diff --check: passed.",
-      "npm run typecheck: passed.",
-      "npm run lint: passed with existing react-hooks/set-state-in-effect warnings only; no errors.",
-      "npm run build: passed.",
-      "npm run build:runtime: passed.",
-      "A concurrent/overlapping closeout committed and pushed the product files as 742f02f (fix: stabilize office preview and smoke readiness); local HEAD equals origin/main at that commit.",
-      "Production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service show ActiveEnterTimestamp Tue 2026-06-02 02:12:43 EDT, after the 742f02f commit time; caddy is active.",
-      "Current production checks: /api/status reports healthy 3/3; direct /login headers show content-security-policy frame-src 'self' with no view.officeapps.live.com; recent two-hour service logs show normal restarts/listening messages and no error/failed/exception/EACCES/500/office/preview matches.",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED, including the new Preview CSP avoids external Office frames check."
+      "git diff --check: passed",
+      "downloads targeted Vitest: 22/22 passed",
+      "neighboring Files tests: 9/9 passed",
+      "npm run typecheck: passed",
+      "npm run lint: passed with 5 existing react-hooks/set-state-in-effect warnings and 0 errors",
+      "npm run build: passed",
+      "npm run build:runtime: passed",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: 24/24 passed",
+      "HEAD equals origin/main at 0759b58 before bookkeeping"
     ],
-    "deployment": "Completed by overlapping closeout: functional commit 742f02f is pushed to origin/main; production services were restarted after the commit, current production health and smoke are green, and recent logs are clean.",
-    "nextTarget": "Continue the next pending qaControlSystem path: batch4-download-task-lifecycle, unless a new dirty worktree appears first.",
-    "commit": "742f02f",
+    "deployment": "Product fix committed and pushed as 0759b58 by overlapping closeout; services restarted at 03:57:58 local time and smoke/probes passed after restart.",
+    "commit": "0759b58bbbb1710a34de820099cb553fa3c448b7",
     "files": [
-      "deploy/smoke-test.sh",
-      "src/__tests__/proxy.test.ts",
-      "src/app/files/preview/office-preview-client.tsx",
-      "src/app/files/__tests__/office-preview-client.test.tsx",
-      "src/proxy.ts",
-      ".hermes/remediation-backlog.md",
+      "src/app/api/downloads/route.ts",
+      "src/app/api/downloads/__tests__/route.test.ts",
+      "src/app/downloads/__tests__/downloads-client.test.tsx",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Bookkeeping-only closeout should commit/push this state update if needed, then proceed to batch4-download-task-lifecycle on the next remediation tick.",
-    "completedAt": "2026-06-02T06:18:59Z"
+    "nextTarget": "Continue the next pending qaControlSystem path after this bookkeeping commit; downloads canary is partially completed for refresh truthfulness but still needs a future safe create/pause/resume/cancel live-task canary when a clean tree and safe target are available."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -105,7 +132,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 17,
+    "successfulRemediationRunsSinceFreshAudit": 18,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -171,8 +198,26 @@
         "batch": "QA batch 4",
         "path": "Downloads create -> pause -> resume -> refresh -> cancel/delete -> remote process/storage target/task row/UI/log consistency",
         "priority": "high",
-        "status": "pending",
-        "requiredEvidenceProfile": "background_task"
+        "status": "partially_completed",
+        "requiredEvidenceProfile": "background_task",
+        "lastCompletedAt": "2026-06-02T08:05:09Z",
+        "lastCommit": "0759b58bbbb1710a34de820099cb553fa3c448b7",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Logged into production with a temporary QA user and opened /downloads; page rendered the Downloads user path and showed the current empty-state baseline (no production download tasks).",
+          "api": "PATCH /api/downloads refresh response contract fixed in code and covered by route regressions for aria2 and direct branches.",
+          "db_or_persisted_config": "Production DB inspected with project Prisma adapter: enabled SFTP target servers exist, DownloadTask list was empty, temporary qa_cron user count was 0 before QA and 0 after cleanup.",
+          "filesystem_or_sftp": "Available SFTP storage nodes verified for future full lifecycle canary; no live file was created because no production task existed to refresh and the safe fix was contract-level.",
+          "background_task_or_process": "Route tests cover aria2 tellStatus and direct remote PID exit probing refresh paths; production services restarted at 03:57:58 local time and listened normally at 03:58:01.",
+          "runtime_or_ui_side_effect": "DownloadsClient regression proves PATCH response byte/fileSize fields are applied immediately and the visible row shows 📦 2.0 KB without waiting for a follow-up poll.",
+          "permissions": "Temporary admin QA account was used for browser baseline and then deleted; touched route tests continue to cover task ownership/cross-user control boundaries.",
+          "regression": [
+            "npx vitest run src/app/api/downloads/__tests__/route.test.ts src/app/downloads/__tests__/downloads-client.test.tsx --reporter=dot: 22/22 passed",
+            "npx vitest run src/app/api/files/list/__tests__/route.test.ts src/lib/files/__tests__/tree.test.ts --reporter=dot: 9/9 passed for neighboring previously dirty Files slice"
+          ],
+          "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED; /api/status healthy 3/3; unauthenticated /downloads redirects with 307 as expected.",
+          "logs": "Recent journal showed old manifest errors before 03:57:58 restart; after restart, logs show normal command worker/WebSocket/server listening messages and no new error lines in the checked window.",
+          "cleanup": "Deleted temporary qa_cron_* user; verification returned remaining 0."
+        }
       },
       {
         "id": "quick-services-docker-canary",
@@ -537,6 +582,13 @@
       "summary": "Upgraded autonomous maintenance to a full-function canary evidence QA system: main cron prompt now requires Change Contract/Evidence Matrix/dirty closeout and daily precision auditor is enabled to audit coverage and write directives.",
       "jobId": "9e36e64a75ae",
       "auditorJobId": "d42e2078d544"
+    },
+    {
+      "at": "2026-06-02T08:05:09Z",
+      "type": "completed",
+      "target": "downloads-lifecycle-canary",
+      "commit": "0759b58bbbb1710a34de820099cb553fa3c448b7",
+      "summary": "Completed the Downloads lifecycle canary closeout for the manual-refresh truthfulness gap. PATCH /api/downloads now returns the same refreshed byte counters/file size that it persists during aria2 and direct refresh, so the Downloads page can immediately update the visible row without waiting for a later poll. The product fix was committed/pushed by an overlapping closeout as 0759b58; this run verified regressions, typecheck, lint, build, runtime build, production readiness, smoke, logs after restart, browser baseline, DB cleanup, and HEAD == origin/main."
     }
   ]
 }
