@@ -100,8 +100,14 @@ fi
 
 echo ""
 echo "── 5. Security ──"
+SECURITY_HEADERS="$(mktemp)"
+trap 'rm -f "${SECURITY_HEADERS}"' EXIT
+curl -sSk -D "${SECURITY_HEADERS}" -o /dev/null "${PROXY_PUBLIC_URL}/login" || true
 check "No direct public Next.js access"      "! ss -tlnp | grep -q '0.0.0.0:${NEXT_PORT}'" 0
-check "Security headers present"   "curl -sSk -D- ${PROXY_PUBLIC_URL}/login | grep -i X-Content-Type-Options" 0
+check "Security headers present"   "grep -i X-Content-Type-Options \"${SECURITY_HEADERS}\"" 0
+check "Frame header is not DENY"    "! grep -iq '^x-frame-options:.*DENY' \"${SECURITY_HEADERS}\"" 0
+check "Preview CSP allows same-origin media" "grep -i '^content-security-policy:' \"${SECURITY_HEADERS}\" | grep -q \"media-src 'self' blob:\"" 0
+check "Preview CSP allows frames" "grep -i '^content-security-policy:' \"${SECURITY_HEADERS}\" | grep -q \"frame-src 'self'\"" 0
 
 echo ""
 echo "── 6. SSH-WS Proxy ──"
