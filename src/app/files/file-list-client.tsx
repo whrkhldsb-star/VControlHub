@@ -12,8 +12,8 @@ import { MoveInlineForm } from "./move-inline-form";
 import { DownloadIcon, FileTypeIcon, PreviewIcon } from "./file-entry-icons";
 import {
   appendDownloadFlag,
-  buildDirectDownloadHref,
-  buildProxyDownloadHref,
+  buildArchiveDownloadHref,
+  buildDownloadHref,
   buildSearchHref,
   formatDate,
   getPreviewHref,
@@ -373,65 +373,58 @@ export function FileListClient({
   /* helper to render file actions for any view */
   function renderDownloadActions(
     entry: StorageEntry,
-    proxyDownloadUrl: string,
-    directDownloadUrl: string | null,
+    downloadUrl: string,
     compact = false,
   ) {
     if (!entryCanRead(entry)) {
       return null;
     }
 
-    if (!directDownloadUrl || directDownloadUrl === proxyDownloadUrl) {
-      return (
-        <Link
-          href={proxyDownloadUrl}
-          title="经网站服务器下载"
-          aria-label={`经网站服务器下载 ${entry.name}`}
-          download
-          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-        >
-          <DownloadIcon />
-        </Link>
-      );
-    }
-
-    const buttonClass = compact
-      ? "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[10px] transition"
-      : "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition";
     return (
-      <div
-        className="flex flex-wrap items-center gap-1"
-        aria-label={`下载流量选择 ${entry.name}`}
+      <Link
+        href={downloadUrl}
+        title="下载"
+        aria-label={`下载 ${entry.name}`}
+        download={downloadUrl.startsWith("/") ? true : undefined}
+        target={downloadUrl.startsWith("/") ? undefined : "_blank"}
+        rel={downloadUrl.startsWith("/") ? undefined : "noopener noreferrer"}
+        className={compact
+          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white"}
       >
-        <span className="text-[10px] text-slate-500">下载流量</span>
-        <Link
-          href={proxyDownloadUrl}
-          title="经网站服务器下载"
-          aria-label={`经网站服务器下载 ${entry.name}`}
-          download
-          className={`${buttonClass} border-white/10 bg-white/5 text-slate-200 hover:bg-white/10 hover:text-white`}
-        >
-          网站
-        </Link>
-        <Link
-          href={directDownloadUrl}
-          title="直连目标服务器下载"
-          aria-label={`直连目标服务器下载 ${entry.name}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${buttonClass} border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20`}
-        >
-          直连
-        </Link>
-      </div>
+        <DownloadIcon />
+        {compact ? null : <span>下载</span>}
+      </Link>
+    );
+  }
+
+  function renderFolderDownloadAction(folder: FolderProp, compact = false) {
+    if (!entryCanRead(folder)) return null;
+    const href = buildArchiveDownloadHref({
+      storageNodeId: folder.storageNodeId ?? folder.sourceKeys[0],
+      relativePath: folder.relativePath ?? folder.path,
+    });
+    if (!href) return null;
+    return (
+      <Link
+        href={href}
+        title="下载目录归档"
+        aria-label={`下载目录 ${folder.displayName ?? folder.name}`}
+        download
+        className={compact
+          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"}
+      >
+        <DownloadIcon />
+        {compact ? null : <span>下载</span>}
+      </Link>
     );
   }
 
   /* helper to render file actions for any view */
   function renderFileActions(
     entry: StorageEntry,
-    proxyDownloadUrl: string,
-    directDownloadUrl: string | null,
+    downloadUrl: string,
     previewHref: string,
     compact = false,
   ) {
@@ -446,12 +439,7 @@ export function FileListClient({
             <PreviewIcon />
           </Link>
         ) : null}
-        {renderDownloadActions(
-          entry,
-          proxyDownloadUrl,
-          directDownloadUrl,
-          compact,
-        )}
+        {renderDownloadActions(entry, downloadUrl, compact)}
         {entryCanWrite(entry) ? (
           <RenameInlineForm
             fileEntryId={entry.id}
@@ -535,9 +523,7 @@ export function FileListClient({
         {sortedFiles.map((fileProp) => {
           const entry = toStorageEntry(fileProp);
           const thumbUrl = getThumbnailUrl(entry);
-          const proxyDownloadHref = buildProxyDownloadHref(entry);
-          const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
-          const directDownloadUrl = buildDirectDownloadHref(entry);
+          const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
           const previewHref = getPreviewHref(entry);
           const isChecked = selectedIds.has(fileProp.id);
 
@@ -615,12 +601,7 @@ export function FileListClient({
                     <PreviewIcon />
                   </Link>
                 ) : null}
-                {renderDownloadActions(
-                  entry,
-                  proxyDownloadUrl,
-                  directDownloadUrl,
-                  true,
-                )}
+                {renderDownloadActions(entry, downloadUrl, true)}
                 {entryCanWrite(entry) ? (
                   <RenameInlineForm
                     fileEntryId={entry.id}
@@ -722,6 +703,7 @@ export function FileListClient({
                   onRefresh={onRefresh}
                 />
               ) : null}
+              {renderFolderDownloadAction(folder)}
               {folderCanWrite(folder) && folder.entryId ? (
                 <MoveInlineForm
                   fileEntryId={folder.entryId}
@@ -739,9 +721,7 @@ export function FileListClient({
         {/* Details file rows */}
         {sortedFiles.map((fileProp) => {
           const entry = toStorageEntry(fileProp);
-          const proxyDownloadHref = buildProxyDownloadHref(entry);
-          const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
-          const directDownloadUrl = buildDirectDownloadHref(entry);
+          const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
           const previewHref = getPreviewHref(entry);
           const thumbUrl = getThumbnailUrl(entry);
           const isChecked = selectedIds.has(fileProp.id);
@@ -808,12 +788,7 @@ export function FileListClient({
 
               {/* Actions — prominent buttons */}
               <div className="shrink-0">
-                {renderFileActions(
-                  entry,
-                  proxyDownloadUrl,
-                  directDownloadUrl,
-                  previewHref,
-                )}
+                {renderFileActions(entry, downloadUrl, previewHref)}
               </div>
             </div>
           );
@@ -932,6 +907,7 @@ export function FileListClient({
                         onRefresh={onRefresh}
                       />
                     ) : null}
+                    {renderFolderDownloadAction(folder, true)}
                     {folderCanWrite(folder) && folder.entryId ? (
                       <MoveInlineForm
                         fileEntryId={folder.entryId}
@@ -948,9 +924,7 @@ export function FileListClient({
 
               {sortedFiles.map((fileProp) => {
                 const entry = toStorageEntry(fileProp);
-                const proxyDownloadHref = buildProxyDownloadHref(entry);
-                const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
-                const directDownloadUrl = buildDirectDownloadHref(entry);
+                const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
                 const previewHref = getPreviewHref(entry);
                 const isChecked = selectedIds.has(fileProp.id);
 
@@ -1007,12 +981,7 @@ export function FileListClient({
                           <PreviewIcon />
                         </Link>
                       ) : null}
-                      {renderDownloadActions(
-                        entry,
-                        proxyDownloadUrl,
-                        directDownloadUrl,
-                        true,
-                      )}
+                      {renderDownloadActions(entry, downloadUrl, true)}
                       {entryCanWrite(entry) ? (
                         <RenameInlineForm
                           fileEntryId={entry.id}
@@ -1085,16 +1054,19 @@ export function FileListClient({
                   打开
                 </button>
               </div>
-              {folderCanWrite(folder) ? (
+              {entryCanRead(folder) || folderCanWrite(folder) ? (
                 <div className="mt-2 flex flex-wrap gap-1 pl-9">
-                  <RenameInlineForm
-                    fileEntryId={folder.entryId ?? ""}
-                    currentName={folder.displayName ?? folder.name}
-                    currentPath={folder.path}
-                    entryType="DIRECTORY"
-                    onRefresh={onRefresh}
-                  />
-                  {folder.entryId ? (
+                  {renderFolderDownloadAction(folder, true)}
+                  {folderCanWrite(folder) ? (
+                    <RenameInlineForm
+                      fileEntryId={folder.entryId ?? ""}
+                      currentName={folder.displayName ?? folder.name}
+                      currentPath={folder.path}
+                      entryType="DIRECTORY"
+                      onRefresh={onRefresh}
+                    />
+                  ) : null}
+                  {folderCanWrite(folder) && folder.entryId ? (
                     <MoveInlineForm
                       fileEntryId={folder.entryId}
                       name={folder.displayName ?? folder.name}
@@ -1111,9 +1083,7 @@ export function FileListClient({
 
           {sortedFiles.map((fileProp) => {
             const entry = toStorageEntry(fileProp);
-            const proxyDownloadHref = buildProxyDownloadHref(entry);
-            const proxyDownloadUrl = appendDownloadFlag(proxyDownloadHref);
-            const directDownloadUrl = buildDirectDownloadHref(entry);
+            const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
             const previewHref = getPreviewHref(entry);
             const isChecked = selectedIds.has(fileProp.id);
 
@@ -1167,12 +1137,7 @@ export function FileListClient({
                       <PreviewIcon />
                     </Link>
                   ) : null}
-                  {renderDownloadActions(
-                    entry,
-                    proxyDownloadUrl,
-                    directDownloadUrl,
-                    true,
-                  )}
+                  {renderDownloadActions(entry, downloadUrl, true)}
                   {entryCanWrite(entry) ? (
                     <RenameInlineForm
                       fileEntryId={entry.id}

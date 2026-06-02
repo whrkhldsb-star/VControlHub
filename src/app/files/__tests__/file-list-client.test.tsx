@@ -52,6 +52,8 @@ const folder: FolderProp = {
   displayName: "photos",
   path: "photos",
   entryId: "dir_1",
+  storageNodeId: "node_1",
+  relativePath: "photos",
   fileCount: 2,
   folderCount: 1,
   sourceKeys: ["node_1"],
@@ -260,17 +262,26 @@ describe("FileListClient", () => {
     expect(firstFileCheckbox("cover.jpg")).not.toBeChecked();
   });
 
-  it("lets users choose website proxy or target-server direct traffic for downloads", () => {
-    renderFileList({ files: [sftpDirectFile] });
+  it("renders one effective download action instead of website and direct choices", () => {
+    renderFileList({ files: [sftpDirectFile], folders: [] });
 
-    expect(screen.getAllByText(/下载流量/).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("link", { name: "经网站服务器下载 movie.mp4" })[0]).toHaveAttribute(
+    expect(screen.queryByText("下载流量")).not.toBeInTheDocument();
+    expect(screen.queryByText("网站")).not.toBeInTheDocument();
+    expect(screen.queryByText("直连")).not.toBeInTheDocument();
+    const downloadLinks = screen.getAllByRole("link", { name: "下载 movie.mp4" });
+    expect(downloadLinks[0]).toHaveAttribute(
       "href",
-      "/api/storage/sftp-download?nodeId=node_sftp&path=media%2Fmovie.mp4&download=1",
+      "https://cdn.example.com/media/movie.mp4?signature=abc&download=1",
     );
-    expect(screen.getAllByRole("link", { name: "直连目标服务器下载 movie.mp4" })[0]).toHaveAttribute(
+    expect(downloadLinks[0]).toHaveAttribute("target", "_blank");
+  });
+
+  it("renders archive download actions for readable folders", () => {
+    renderFileList({ files: [], folders: [folder] });
+
+    expect(screen.getAllByRole("link", { name: "下载目录 photos" })[0]).toHaveAttribute(
       "href",
-      "https://cdn.example.com/media/movie.mp4?signature=abc",
+      "/api/storage/archive-download?nodeId=node_1&path=photos",
     );
   });
 

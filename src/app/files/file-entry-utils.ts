@@ -76,7 +76,23 @@ export function buildProxyDownloadHref(entry: StorageEntry) {
     });
     return `/api/storage/sftp-download?${params.toString()}`;
   }
-  return `/api/storage/local?path=${encodeURIComponent(entry.relativePath)}`;
+  const params = new URLSearchParams({
+    path: entry.relativePath,
+    ...(entry.storageNode.id ? { nodeId: entry.storageNode.id } : {}),
+  });
+  return `/api/storage/local?${params.toString()}`;
+}
+
+export function buildArchiveDownloadHref(input: {
+  storageNodeId?: string | null;
+  relativePath?: string | null;
+}) {
+  if (!input.storageNodeId || !input.relativePath) return null;
+  const params = new URLSearchParams({
+    nodeId: input.storageNodeId,
+    path: input.relativePath,
+  });
+  return `/api/storage/archive-download?${params.toString()}`;
 }
 
 export function buildDirectDownloadHref(entry: StorageEntry) {
