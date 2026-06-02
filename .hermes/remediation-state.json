@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T09:13:12Z",
+  "updatedAt": "2026-06-02T09:57:10Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,55 +58,63 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-02T09:13:12Z",
-    "finishedAt": "2026-06-02T09:13:12Z",
-    "target": "login-shell-preferences-canary",
-    "status": "completed_verified_no_code_change",
-    "summary": "Completed a production canary for login shell preferences/default-page behavior. The saved preferences API persisted normalized values with CSRF, rejected a missing-CSRF write without changing state, and the next login honored defaultPage=/files. No product defect was found and no code change was needed.",
+    "startedAt": "2026-06-02T09:46:10Z",
+    "finishedAt": "2026-06-02T09:57:10Z",
+    "target": "quick-services-docker-canary / deploy-test-closeout",
+    "status": "completed_verified_ci_fix_no_product_deploy",
+    "summary": "The intended Quick Services Docker canary found Docker unavailable on this production host, so a real container lifecycle canary could not safely run. While checking the overlapping GitHub Actions process, the latest pushed commit was failing CI in deploy/__tests__/preflight.test.ts because DESTDIR installer tests still reached host useradd. Fixed deploy/install.sh so DESTDIR/fake-root installer runs never create or mutate host users, and strengthened the regression by making the fake useradd fail if called.",
     "changeContract": {
-      "qaPathId": "login-shell-preferences-canary",
-      "role": "temporary admin QA user",
-      "entry": "/login, dashboard shell, /api/preferences, logout/login redirect",
-      "userAction": "Operator logs in, saves default-page/notification/refresh preferences, verifies failed save does not mutate, logs out, logs in again, and expects redirect to the saved default page.",
+      "qaPathId": "quick-services-docker-canary",
+      "role": "admin/operator QA user",
+      "entry": "/quick-services, /api/quick-services, deploy/upgrade.sh DESTDIR test path",
+      "userAction": "Operator would verify Docker readiness and Quick Services lifecycle; because docker is not installed on this host, the run pivoted to the CI/deploy-test blocker that directly affected production-maintenance confidence.",
       "expectedSideEffects": [
-        "Preferences persist in User.preferences",
-        "CSRF failure leaves persisted preferences unchanged",
-        "Login with no explicit next redirects to saved defaultPage",
-        "Temporary QA user is removed after verification"
+        "No Docker/container side effects were attempted because docker is unavailable",
+        "DESTDIR installer tests should render into fake roots without host useradd side effects",
+        "Existing production services remain healthy"
       ],
       "outOfScope": [
-        "global search",
-        "notification dropdown behavior",
-        "mobile responsive layout",
-        "server/files/download side-effect workflows"
+        "Live Quick Services install/start/stop/uninstall container lifecycle until Docker is available or a Docker-capable canary host is used"
       ],
-      "evidenceProfile": "login_shell_preferences"
+      "evidenceProfile": "background_task"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in with temporary qa_cron_pref_canary admin user, opened dashboard shell, saved preferences, logged out, logged back in, and landed on /files due to persisted defaultPage; DOM proof showed Files heading/sidebar/current user.",
-      "api": "Authenticated GET /api/preferences returned defaults; CSRF PUT /api/preferences returned 200 with normalized effective values; a missing-CSRF PUT returned 403 and did not change persisted preferences.",
-      "db_or_persisted_config": "Prisma adapter inspection showed qa_cron_pref_canary preferences persisted as defaultPage /files, dashboardWidgets [server-status], notificationSound false, autoRefreshInterval 0, notificationsEnabled true before cleanup.",
-      "runtime_or_ui_side_effect": "Logout/login redirected to /files without explicit next target, proving the persisted defaultPage preference has a real login-entry side effect; no code change was needed.",
-      "permissions": "Temporary admin QA account used only for the canary and deleted at closeout; unauth/protected smoke checks still passed.",
+      "browser_or_dom": "Not executed for Quick Services UI because Docker binary is unavailable on this host and the run focused on closing the CI/deploy-test blocker discovered before starting product QA.",
+      "api": "Unauthenticated production probes: /quick-services returned 307 and /api/quick-services returned 401, with /api/status 200; no 500s.",
+      "background_task_or_process": "Detected prior GitHub Actions polling process, waited until it exited, then inspected the latest Actions run. Run 26811715129 failed in the Test job only at deploy/preflight.sh upgrade fake-root path due to useradd Permission denied.",
+      "db_or_persisted_config": "No DB mutation or temporary QA account was created in this run.",
+      "filesystem_or_sftp": "No file/SFTP product side effects. Installer regression uses isolated temp APP_DIR/DESTDIR and now asserts fake useradd is not called.",
+      "permissions": "No privileged Docker or host user creation was attempted. The deploy/install.sh fix explicitly avoids host user mutation for DESTDIR isolated tests while preserving live install user creation when DESTDIR is absent.",
       "regression": [
-        "No product code changed; relied on existing preferences/API/login regressions from prior fixes plus production canary evidence."
+        "npx vitest run deploy/__tests__/preflight.test.ts --reporter=dot: 23/23 passed",
+        "npm test: 188 files / 802 tests passed"
       ],
-      "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED; services active and /api/status healthy before the canary.",
-      "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 20-minute window showed no error/warn/failed matches.",
-      "cleanup": "Deleted temporary qa_cron_* user with Prisma; remaining count 0. Removed the temporary helper script from .hermes."
+      "production": "typecheck passed; lint passed with the known 5 existing react-hooks/set-state-in-effect warnings; npm run build passed; npm run build:runtime passed; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24. No service restart was required because only deploy/test files changed and production runtime code was not modified.",
+      "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 15-minute window returned no error/warn/failed matches.",
+      "cleanup": "No temporary QA users/resources were created; git diff only contains deploy/install.sh, deploy preflight regression, and state update before commit."
     },
     "validation": [
-      "production browser canary passed",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24",
-      "recent service log grep clean",
-      "git status clean before state update"
+      "git status clean at start and HEAD matched origin/main",
+      "GitHub Actions latest head 9cb9787 failed in deploy/preflight test before fix",
+      "git diff --check passed",
+      "deploy preflight targeted test passed 23/23",
+      "typecheck passed",
+      "lint passed with known warnings only",
+      "build passed",
+      "build:runtime passed",
+      "full npm test passed 188/188 files, 802/802 tests",
+      "smoke test passed 24/24",
+      "production quick-services probes 307/401 and /api/status 200",
+      "recent service log grep clean"
     ],
-    "deployment": "No deploy/restart required because no product code changed; production services were already active/healthy.",
-    "commit": "0759b58bbbb1710a34de820099cb553fa3c448b7",
+    "deployment": "No restart/deploy needed for this slice; deploy/test scripts changed only. Existing production services remained active/healthy and smoke passed.",
+    "commit": null,
     "files": [
+      "deploy/install.sh",
+      "deploy/__tests__/preflight.test.ts",
       ".hermes/remediation-state.json"
     ],
-    "nextTarget": "Continue the next pending qaControlSystem path; high-priority queue still includes deeper servers/files/downloads/Quick Services side-effect canaries."
+    "nextTarget": "Retry quick-services-docker-canary as a Docker readiness/API/UI canary. Since docker is missing on this host, first verify the Quick Services readiness banner/API preflight and record whether a Docker-capable environment is required before attempting install/start/stop/uninstall lifecycle."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",

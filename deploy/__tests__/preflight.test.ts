@@ -274,7 +274,10 @@ describe("deploy/preflight.sh", () => {
       path.join(binDir, "id"),
       '#!/usr/bin/env bash\nif [ "$1" = "-u" ]; then printf \'0\\n\'; else exit 0; fi\n',
     );
-    await writeFile(path.join(binDir, "useradd"), "#!/usr/bin/env bash\nexit 0\n");
+    await writeFile(
+      path.join(binDir, "useradd"),
+      `#!/usr/bin/env bash\nprintf 'unexpected useradd %s\\n' "$*" >> ${JSON.stringify(logFile)}\nexit 99\n`,
+    );
     await writeFile(path.join(binDir, "chown"), "#!/usr/bin/env bash\nexit 0\n");
     await mkdir(path.join(appDir, "scripts"), { recursive: true });
     await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });

@@ -301,6 +301,13 @@ install_packages() {
 }
 
 prepare_app_user() {
+  if [ -n "${DESTDIR}" ]; then
+    # DESTDIR runs are isolated installer tests. Never create or mutate host
+    # users while rendering into a fake root; the generated unit may still name
+    # APP_USER, but ownership/user existence belongs to the live install path.
+    mkdir -p "${APP_DIR}"
+    return
+  fi
   if ! id "${APP_USER}" >/dev/null 2>&1; then
     useradd --system --home "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
   fi
