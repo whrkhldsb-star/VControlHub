@@ -21,7 +21,6 @@ import { getStorageFormOptions } from "@/app/storage/actions";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
-import { SftpBrowser } from "./sftp-browser";
 
 export const dynamic = "force-dynamic";
 
@@ -289,7 +288,8 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         canManageNodes={canManageNodes}
       />
 
-      <SftpBrowser
+      <FilesBrowserSpa
+        initialData={initialData}
         sftpNodes={sftpNodes.map((n) => ({
           id: n.id,
           name: n.name,
@@ -297,10 +297,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           serverId: n.serverId ?? null,
           serverName: n.server?.name ?? null,
         }))}
-      />
-
-      <FilesBrowserSpa
-        initialData={initialData}
         deletedEntries={storage.deletedEntries.map((d) => ({
           id: d.id,
           name: d.name,

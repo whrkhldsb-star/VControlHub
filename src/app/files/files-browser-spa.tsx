@@ -13,6 +13,7 @@ import { SearchScopeToggle } from "./search-scope-toggle";
 import { FileUploadDropzone } from "@/components/storage/file-upload-dropzone";
 import { CreateFolderForm } from "./create-folder-form";
 import { RecycleBinSectionClient } from "./recycle-bin-section-client";
+import { SftpBrowser } from "./sftp-browser";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -73,6 +74,14 @@ type DeletedEntryProp = {
   entryType: string;
   relativePath: string;
   size: number | bigint | null;
+};
+
+type SftpNodeProp = {
+  id: string;
+  name: string;
+  driver: string;
+  serverId?: string | null;
+  serverName?: string | null;
 };
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -381,9 +390,11 @@ function BreadcrumbsClient({
 export function FilesBrowserSpa({
   initialData,
   deletedEntries,
+  sftpNodes = [],
 }: {
   initialData: FilesApiResponse;
   deletedEntries: DeletedEntryProp[];
+  sftpNodes?: SftpNodeProp[];
 }) {
   const [data, setData] = useState<FilesApiResponse>(initialData);
   const [loading, setLoading] = useState(false);
@@ -500,6 +511,22 @@ export function FilesBrowserSpa({
     [fetchFiles, data.searchQuery, data.searchScope],
   );
 
+  const handleSftpDirectoryChange = useCallback(
+    ({ nodeId, remotePath }: { nodeId: string; remotePath: string }) => {
+      const normalizedPath = remotePath === "/" ? "" : remotePath.replace(/^\/+/, "");
+      fetchFiles(normalizedPath, data.searchQuery, data.searchScope, nodeId);
+      setExpandedTreePaths((current) => {
+        const next = new Set(current);
+        if (normalizedPath) {
+          const segments = splitPath(normalizedPath);
+          segments.forEach((_, index) => next.add(segments.slice(0, index + 1).join("/")));
+        }
+        return next;
+      });
+    },
+    [fetchFiles, data.searchQuery, data.searchScope],
+  );
+
   return (
     <section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
       {/* Sidebar: Directory tree */}
@@ -557,6 +584,12 @@ export function FilesBrowserSpa({
 
       {/* Main content area */}
       <section className="space-y-8">
+        <SftpBrowser
+          sftpNodes={sftpNodes}
+          onDirectoryChange={handleSftpDirectoryChange}
+          embedded
+        />
+
         {/* VPS Node Selector - searchable */}
         {data.nodes.length > 1 ? (
           <article className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5 light:border-cyan-500/20 light:bg-cyan-50">

@@ -48,6 +48,65 @@ export function getSftpEntryIcon(type: SftpListEntryType): string {
   }
 }
 
+const SFTP_PREVIEW_MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+  bmp: "image/bmp",
+  ico: "image/x-icon",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  flac: "audio/flac",
+  pdf: "application/pdf",
+  csv: "text/csv",
+  md: "text/markdown",
+  mdx: "text/markdown",
+  markdown: "text/markdown",
+  json: "application/json",
+  xml: "application/xml",
+  yaml: "application/yaml",
+  yml: "application/yaml",
+  toml: "application/toml",
+  sql: "application/sql",
+};
+
+function getSftpExtension(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower === "dockerfile" || lower === "makefile" || lower === ".gitignore") return lower.replace(/^\./, "");
+  return lower.includes(".") ? lower.split(".").pop() ?? "" : "";
+}
+
+export function getSftpPreviewMimeType(name: string): string | null {
+  const lower = name.toLowerCase();
+  if (isViewableSftpTextFile(lower)) return SFTP_PREVIEW_MIME_BY_EXTENSION[getSftpExtension(lower)] ?? "text/plain";
+  return SFTP_PREVIEW_MIME_BY_EXTENSION[getSftpExtension(lower)] ?? null;
+}
+
+export function isPreviewableSftpFile(name: string): boolean {
+  return getSftpPreviewMimeType(name) !== null;
+}
+
+export function buildSftpPreviewUrl(nodeId: string, remotePath: string, name: string): string {
+  const href = buildSftpDownloadHref(nodeId, remotePath);
+  const mimeType = getSftpPreviewMimeType(name) ?? "";
+  const params = new URLSearchParams({
+    href,
+    name,
+    type: mimeType,
+    driver: "SFTP",
+    nodeId,
+    relativePath: remotePath,
+  });
+  return `/files/preview?${params.toString()}`;
+}
+
 export function buildSftpDownloadHref(nodeId: string, remotePath: string): string {
   const params = new URLSearchParams({ nodeId, path: remotePath });
   return `/api/storage/sftp-download?${params.toString()}`;
@@ -55,6 +114,30 @@ export function buildSftpDownloadHref(nodeId: string, remotePath: string): strin
 
 export function buildSftpDownloadUrl(nodeId: string, remotePath: string): string {
   return `${buildSftpDownloadHref(nodeId, remotePath)}&download=1`;
+}
+
+export function buildSftpDirectProxyUrl(input: {
+  publicUrl: string;
+  port: number;
+  remotePath: string;
+  accessToken: string;
+}): string {
+  const trimmedBase = input.publicUrl.trim();
+  const base = trimmedBase || "http://localhost";
+  const url = new URL(base.endsWith("/") ? base : `${base}/`);
+  if (input.port > 0) {
+    url.port = String(input.port);
+  }
+  url.pathname = input.remotePath
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  if (!url.pathname.startsWith("/")) {
+    url.pathname = `/${url.pathname}`;
+  }
+  url.searchParams.set("token", input.accessToken);
+  return url.toString();
 }
 
 export function guessSftpFileIcon(name: string): string {

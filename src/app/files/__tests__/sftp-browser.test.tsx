@@ -93,6 +93,86 @@ describe("SftpBrowser", () => {
     expect(screen.queryByRole("button", { name: "直连模式 ON" })).not.toBeInTheDocument();
   });
 
+  it("builds usable Direct Gateway download links without duplicating the proxy port", async () => {
+    const user = userEvent.setup();
+    csrfFetchMock
+      .mockResolvedValueOnce({ status: "stopped" })
+      .mockResolvedValueOnce({
+        nodeId: "node_1",
+        nodeName: "香港媒体库",
+        remotePath: "/",
+        entries: [
+          { name: "demo file.mp4", longname: "-rw-r--r-- demo file.mp4", type: "file", size: 128, modifyTime: 1_700_000_000_000, accessTime: 1_700_000_000_000 },
+        ],
+      })
+      .mockResolvedValueOnce({ status: "running", proxy: { port: 31888, accessToken: "token value", publicUrl: "http://203.0.113.10:31888" } });
+
+    render(
+      <SftpBrowser
+        sftpNodes={[{ id: "node_1", name: "香港媒体库", driver: "SFTP", serverId: "srv_1", serverName: "香港一号" }]}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("节点"), "node_1");
+    await waitFor(() => {
+      expect(screen.getAllByText(/demo file\.mp4/).length).toBeGreaterThan(0);
+    });
+    await user.click(screen.getByRole("button", { name: "直连模式" }));
+    await screen.findByRole("button", { name: "直连模式 ON" });
+
+    const downloadLinks = screen.getAllByRole("link", { name: "下载" });
+    expect(downloadLinks[0]).toHaveAttribute(
+      "href",
+      "http://203.0.113.10:31888/demo%20file.mp4?token=token+value",
+    );
+    expect(downloadLinks[0].getAttribute("href")).not.toContain(":31888:31888");
+  });
+
+  it("notifies the unified file list when the SFTP directory changes", async () => {
+    const user = userEvent.setup();
+    const onDirectoryChange = vi.fn();
+    csrfFetchMock
+      .mockResolvedValueOnce({
+        nodeId: "node_1",
+        nodeName: "香港媒体库",
+        remotePath: "/",
+        entries: [
+          { name: "logs", longname: "drwxr-xr-x logs", type: "directory", size: 0, modifyTime: 1_700_000_000_000, accessTime: 1_700_000_000_000 },
+        ],
+      })
+      .mockResolvedValueOnce({ nodeId: "node_1", nodeName: "香港媒体库", remotePath: "/logs", entries: [] });
+
+    render(<SftpBrowser sftpNodes={[{ id: "node_1", name: "香港媒体库", driver: "SFTP" }]} onDirectoryChange={onDirectoryChange} />);
+
+    await user.selectOptions(screen.getByLabelText("节点"), "node_1");
+    await waitFor(() => expect(onDirectoryChange).toHaveBeenCalledWith({ nodeId: "node_1", remotePath: "/" }));
+    await user.click((await screen.findAllByRole("button", { name: /logs/ }))[0]);
+
+    await waitFor(() => expect(onDirectoryChange).toHaveBeenLastCalledWith({ nodeId: "node_1", remotePath: "/logs" }));
+  });
+
+  it("renders real preview links for previewable remote SFTP files", async () => {
+    const user = userEvent.setup();
+    csrfFetchMock.mockResolvedValueOnce({
+      nodeId: "node_1",
+      nodeName: "香港媒体库",
+      remotePath: "/媒体",
+      entries: [
+        { name: "demo file.mp4", longname: "-rw-r--r-- demo file.mp4", type: "file", size: 128, modifyTime: 1_700_000_000_000, accessTime: 1_700_000_000_000 },
+      ],
+    });
+
+    render(<SftpBrowser sftpNodes={[{ id: "node_1", name: "香港媒体库", driver: "SFTP" }]} />);
+
+    await user.selectOptions(screen.getByLabelText("节点"), "node_1");
+
+    const previewLinks = await screen.findAllByRole("link", { name: "预览" });
+    expect(previewLinks[0]).toHaveAttribute(
+      "href",
+      "/files/preview?href=%2Fapi%2Fstorage%2Fsftp-download%3FnodeId%3Dnode_1%26path%3D%252F%25E5%25AA%2592%25E4%25BD%2593%252Fdemo%2Bfile.mp4&name=demo+file.mp4&type=video%2Fmp4&driver=SFTP&nodeId=node_1&relativePath=%2F%E5%AA%92%E4%BD%93%2Fdemo+file.mp4",
+    );
+  });
+
   it("passes current remote path and recursive options when syncing SFTP entries", async () => {
     const user = userEvent.setup();
     csrfFetchMock

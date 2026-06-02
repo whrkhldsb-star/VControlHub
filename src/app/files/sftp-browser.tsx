@@ -5,11 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import {
+  buildSftpDirectProxyUrl,
   buildSftpDownloadUrl,
+  buildSftpPreviewUrl,
   formatSftpFileSize,
   formatSftpTimestamp,
   getSftpEntryIcon,
   guessSftpFileIcon,
+  isPreviewableSftpFile,
   isViewableSftpTextFile,
   joinSftpPath,
   splitSftpPath,
@@ -54,6 +57,8 @@ type SyncResult = {
 
 type SftpBrowserProps = {
   sftpNodes: SftpNode[];
+  onDirectoryChange?: (selection: { nodeId: string; remotePath: string }) => void;
+  embedded?: boolean;
 };
 
 /* ------------------------------------------------------------------ */
@@ -296,7 +301,7 @@ function InlineDeleteConfirm({
 /* Main Component */
 /* ------------------------------------------------------------------ */
 
-export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
+export function SftpBrowser({ sftpNodes, onDirectoryChange, embedded = false }: SftpBrowserProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string>("");
   const [remotePath, setRemotePath] = useState<string>("/");
   const [entries, setEntries] = useState<SftpListEntry[]>([]);
@@ -339,6 +344,7 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  setEntries(data.entries);
  setNodeName(data.nodeName);
  setRemotePath(data.remotePath);
+ onDirectoryChange?.({ nodeId, remotePath: data.remotePath });
  } catch (err) {
  setError(err instanceof Error ? err.message : "未知错误");
  setEntries([]);
@@ -346,7 +352,7 @@ export function SftpBrowser({ sftpNodes }: SftpBrowserProps) {
  setLoading(false);
  }
  },
- [],
+ [onDirectoryChange],
  );
 
  /* ── Direct connect proxy management ──────────────────────── */
@@ -564,13 +570,13 @@ const newFullPath = joinSftpPath(remotePath, newName);
   const TABLE_COLS = "grid-cols-[minmax(280px,2fr)_100px_110px_150px_minmax(220px,1fr)]";
 
   return (
-    <article className="rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+    <article className={embedded ? "rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-6" : "rounded-3xl border border-white/10 bg-slate-900/60 p-6"}>
       {/* Header */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-white">🔌 SFTP 远端浏览</h2>
           <p className="mt-2 text-sm leading-7 text-slate-300">
-            选择 SFTP 存储节点，实时查看远端文件列表，支持重命名、删除与在线编辑。
+            选择 SFTP 存储节点，实时查看远端文件列表；当前目录会同步到下方全部文件视图，支持下载、在线预览、文本编辑、重命名和删除。
           </p>
         </div>
 
@@ -804,6 +810,8 @@ const newFullPath = joinSftpPath(remotePath, newName);
                   const isFile = entry.type === "file";
                   const isDir = entry.type === "directory";
                   const canView = isFile && isViewableSftpTextFile(entry.name);
+                  const canPreview = isFile && isPreviewableSftpFile(entry.name);
+                  const previewUrl = canPreview ? buildSftpPreviewUrl(selectedNodeId, fullPath, entry.name) : null;
 
                   return (
                     <div key={entryKey}>
@@ -864,19 +872,33 @@ const newFullPath = joinSftpPath(remotePath, newName);
                           />
                         ) : (
                           <>
- {isFile && (
- <a
- href={directConnect && proxyInfo
- ? `${proxyInfo.publicUrl}:${proxyInfo.port}${fullPath}?token=${proxyInfo.accessToken}`
- : buildSftpDownloadUrl(selectedNodeId, fullPath)
- }
- target={directConnect && proxyInfo ? "_blank" : undefined}
- rel={directConnect ? "noopener noreferrer" : undefined}
- className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
- >
- 下载
- </a>
- )}
+                            {isFile && (
+                              <a
+                                href={
+                                  directConnect && proxyInfo
+                                    ? buildSftpDirectProxyUrl({
+                                        publicUrl: proxyInfo.publicUrl,
+                                        port: proxyInfo.port,
+                                        remotePath: fullPath,
+                                        accessToken: proxyInfo.accessToken,
+                                      })
+                                    : buildSftpDownloadUrl(selectedNodeId, fullPath)
+                                }
+                                target={directConnect && proxyInfo ? "_blank" : undefined}
+                                rel={directConnect ? "noopener noreferrer" : undefined}
+                                className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
+                              >
+                                下载
+                              </a>
+                            )}
+                            {previewUrl && (
+                              <Link
+                                href={previewUrl}
+                                className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] text-emerald-100 hover:bg-emerald-400/20"
+                              >
+                                预览
+                              </Link>
+                            )}
                             {canView && (
                               <button
                                 type="button"
@@ -949,14 +971,26 @@ const newFullPath = joinSftpPath(remotePath, newName);
                             <>
                               {isFile && (
                                 <a
-                                  href={directConnect && proxyInfo
-                                    ? `${proxyInfo.publicUrl}:${proxyInfo.port}${fullPath}?token=${proxyInfo.accessToken}`
-                                    : buildSftpDownloadUrl(selectedNodeId, fullPath)
+                                  href={
+                                    directConnect && proxyInfo
+                                      ? buildSftpDirectProxyUrl({
+                                          publicUrl: proxyInfo.publicUrl,
+                                          port: proxyInfo.port,
+                                          remotePath: fullPath,
+                                          accessToken: proxyInfo.accessToken,
+                                        })
+                                      : buildSftpDownloadUrl(selectedNodeId, fullPath)
                                   }
                                   target={directConnect && proxyInfo ? "_blank" : undefined}
                                   rel={directConnect ? "noopener noreferrer" : undefined}
                                   className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2.5 py-1 text-[10px] text-cyan-100 hover:bg-cyan-400/20"
                                 >下载</a>
+                              )}
+                              {previewUrl && (
+                                <Link
+                                  href={previewUrl}
+                                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[10px] text-emerald-100 hover:bg-emerald-400/20"
+                                >预览</Link>
                               )}
                               {canView && (
                                 <button

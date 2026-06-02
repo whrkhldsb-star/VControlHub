@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildSftpDirectProxyUrl,
   buildSftpDownloadHref,
   buildSftpDownloadUrl,
+  buildSftpPreviewUrl,
   formatSftpFileSize,
   getSftpEntryIcon,
+  getSftpPreviewMimeType,
   guessSftpFileIcon,
+  isPreviewableSftpFile,
   isViewableSftpTextFile,
   joinSftpPath,
   splitSftpPath,
@@ -29,6 +33,37 @@ describe("SFTP file helpers", () => {
   it("builds encoded download endpoints", () => {
     expect(buildSftpDownloadHref("node 1", "/var/log/app.log")).toBe("/api/storage/sftp-download?nodeId=node+1&path=%2Fvar%2Flog%2Fapp.log");
     expect(buildSftpDownloadUrl("node 1", "/var/log/app.log")).toBe("/api/storage/sftp-download?nodeId=node+1&path=%2Fvar%2Flog%2Fapp.log&download=1");
+  });
+
+  it("builds preview URLs for real-time SFTP files", () => {
+    expect(getSftpPreviewMimeType("demo file.mp4")).toBe("video/mp4");
+    expect(getSftpPreviewMimeType("Dockerfile")).toBe("text/plain");
+    expect(isPreviewableSftpFile("archive.bin")).toBe(false);
+    expect(buildSftpPreviewUrl("node_1", "/媒体/demo file.mp4", "demo file.mp4")).toBe(
+      "/files/preview?href=%2Fapi%2Fstorage%2Fsftp-download%3FnodeId%3Dnode_1%26path%3D%252F%25E5%25AA%2592%25E4%25BD%2593%252Fdemo%2Bfile.mp4&name=demo+file.mp4&type=video%2Fmp4&driver=SFTP&nodeId=node_1&relativePath=%2F%E5%AA%92%E4%BD%93%2Fdemo+file.mp4",
+    );
+  });
+
+  it("builds direct proxy URLs without duplicating ports or leaking raw path segments", () => {
+    expect(
+      buildSftpDirectProxyUrl({
+        publicUrl: "http://203.0.113.10:31888",
+        port: 31888,
+        remotePath: "/媒体/demo file.mp4",
+        accessToken: "token value",
+      }),
+    ).toBe("http://203.0.113.10:31888/%E5%AA%92%E4%BD%93/demo%20file.mp4?token=token+value");
+  });
+
+  it("adds the proxy port when the server public URL is host-only", () => {
+    expect(
+      buildSftpDirectProxyUrl({
+        publicUrl: "http://203.0.113.10",
+        port: 31888,
+        remotePath: "/movie.mp4",
+        accessToken: "token",
+      }),
+    ).toBe("http://203.0.113.10:31888/movie.mp4?token=token");
   });
 
   it("classifies entry and file icons plus editable text files", () => {
