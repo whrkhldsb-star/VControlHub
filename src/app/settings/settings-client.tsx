@@ -93,7 +93,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 			<section id="runtime" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div>
 					<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
-					<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。</p>
+					<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。</p>
 				</div>
 				<div className="grid gap-4 md:grid-cols-2">
 					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" />
@@ -104,7 +104,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 					<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" />
 					<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" />
 					<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" />
-					<Field label="SSH keepalive 容忍次数（需重启）" value={settings["runtime.sshKeepaliveCountMax"] ?? "8"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="8" type="number" />
+					<Field label="SSH keepalive 容忍次数（需重启，默认强保活）" value={settings["runtime.sshKeepaliveCountMax"] ?? "60"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="60" type="number" />
 					<Field label="任务中心列表上限（条）" value={settings["runtime.operationTaskListLimit"] ?? "100"} onChange={(v) => updateField("runtime.operationTaskListLimit", v)} placeholder="100" type="number" />
 					<Field label="AI 提供商列表上限（条）" value={settings["runtime.aiProviderListLimit"] ?? "100"} onChange={(v) => updateField("runtime.aiProviderListLimit", v)} placeholder="100" type="number" />
 					<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" />

@@ -57,7 +57,7 @@ describe("resolveSshWsListenConfig", () => {
 		expect(source).toContain("client.ping()");
 		expect(source).toContain('ws.on("pong"');
 		expect(source).toContain("SSH_KEEPALIVE_COUNT_MAX");
-		expect(source).toContain('process.env.SSH_KEEPALIVE_COUNT_MAX || "8"');
+		expect(source).toContain('process.env.SSH_KEEPALIVE_COUNT_MAX || "60"');
 		expect(source).not.toContain("keepaliveInterval: SSH_KEEPALIVE_INTERVAL_MS");
 		expect(source).not.toContain("keepaliveCountMax: 3");
 	});

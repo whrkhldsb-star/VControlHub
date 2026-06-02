@@ -180,7 +180,7 @@ const server = createServer((_req, res) => {
 const MAX_WS_CONNECTIONS = parseInt(process.env.SSH_WS_MAX_CONNECTIONS || "50", 10);
 const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = parseInt(process.env.SSH_WS_HEARTBEAT_INTERVAL_MS || "25000", 10);
 const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = parseInt(process.env.SSH_KEEPALIVE_INTERVAL_MS || "30000", 10);
-const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = parseInt(process.env.SSH_KEEPALIVE_COUNT_MAX || "8", 10);
+const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = parseInt(process.env.SSH_KEEPALIVE_COUNT_MAX || "60", 10);
 const wsHeartbeatState = new WeakMap<WebSocket, boolean>();
 let wsHeartbeatTimer: NodeJS.Timeout | null = null;
 

@@ -75,7 +75,7 @@ export const RUNTIME_SETTING_DEFINITIONS = {
   },
   "runtime.sshKeepaliveCountMax": {
     env: "SSH_KEEPALIVE_COUNT_MAX",
-    defaultValue: 8,
+    defaultValue: 60,
     min: 1,
     max: 60,
     label: "SSH keepalive 容忍次数",

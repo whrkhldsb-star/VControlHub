@@ -55,7 +55,7 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "8", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
+    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "60", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
     await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
     await user.click(screen.getAllByRole("button", { name: "保存" })[2]);
@@ -72,7 +72,7 @@ describe("SettingsClient", () => {
           "runtime.sftpSyncDirectoryTimeoutMs": "60000",
           "runtime.sshWsHeartbeatIntervalMs": "25000",
           "runtime.sshKeepaliveIntervalMs": "30000",
-          "runtime.sshKeepaliveCountMax": "8",
+          "runtime.sshKeepaliveCountMax": "60",
           "runtime.operationTaskListLimit": "100",
           "runtime.aiProviderListLimit": "100",
           "runtime.aiConversationListLimit": "200",
@@ -99,8 +99,9 @@ describe("SettingsClient", () => {
 
     expect(screen.getByLabelText("SSH WebSocket 心跳间隔（毫秒，需重启）")).toHaveValue(25000);
     expect(screen.getByLabelText("SSH keepalive 间隔（毫秒，需重启）")).toHaveValue(30000);
-    expect(screen.getByLabelText("SSH keepalive 容忍次数（需重启）")).toHaveValue(8);
+    expect(screen.getByLabelText("SSH keepalive 容忍次数（需重启，默认强保活）")).toHaveValue(60);
     expect(screen.getByText(/SSH 终端连接保活参数需要重启对应服务后生效/)).toBeInTheDocument();
+    expect(screen.getByText(/只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开/)).toBeInTheDocument();
   });
 
   it("surfaces Operation Tasks and AI list limits as immediately applied runtime settings", () => {

@@ -71,6 +71,16 @@ describe("runtime settings", () => {
     });
   });
 
+  it("defaults SSH terminal keepalive tolerance to strong idle persistence", async () => {
+    prismaMock.setting.findUnique.mockResolvedValue(null);
+
+    await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
+      wsHeartbeatIntervalMs: 25000,
+      sshKeepaliveIntervalMs: 30000,
+      sshKeepaliveCountMax: 60,
+    });
+  });
+
   it("reads the Operation Tasks list limit from runtime settings", async () => {
     prismaMock.setting.findUnique.mockResolvedValueOnce({ value: "250" });
 
