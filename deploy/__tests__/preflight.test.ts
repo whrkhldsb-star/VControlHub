@@ -700,14 +700,14 @@ describe("deploy/install.sh", () => {
       const wsUnit = await readFile(wsUnitPath, "utf8");
       expect(nextUnit).toContain(`Environment=PATH=${customNodeDir}`);
       expect(nextUnit).toContain(
-        `ExecStart=${path.join(customNodeDir, "npm")} run start`,
+        `ExecStart=${path.join(customNodeDir, "node")} ${appDir}/dist/server.js`,
       );
       expect(nextUnit).toContain(
         "Description=自定义控制台 Next.js application",
       );
       expect(wsUnit).toContain(`Environment=PATH=${customNodeDir}`);
       expect(wsUnit).toContain(
-        `ExecStart=${path.join(customNodeDir, "npm")} run start:ssh-ws`,
+        `ExecStart=${path.join(customNodeDir, "node")} ${appDir}/dist/ssh-ws-proxy.js`,
       );
       expect(nextUnit).toContain(
         `EnvironmentFile=${path.join(appDir, ".env.runtime")}`,

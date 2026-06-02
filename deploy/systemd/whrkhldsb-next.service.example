@@ -12,7 +12,7 @@ EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=NODE_ENV=production
 Environment=PORT={{NEXT_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
-ExecStart={{NPM_BIN}} run start
+ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/server.js
 Restart=always
 RestartSec=5
 User={{APP_USER}}

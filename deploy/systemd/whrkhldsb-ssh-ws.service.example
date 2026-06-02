@@ -12,7 +12,7 @@ EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=NODE_ENV=production
 Environment=SSH_WS_PORT={{SSH_WS_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
-ExecStart={{NPM_BIN}} run start:ssh-ws
+ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/ssh-ws-proxy.js
 Restart=always
 RestartSec=5
 User={{APP_USER}}

@@ -91,6 +91,15 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     unit: "条",
     applies: "立即生效到新的任务中心页面/API 查询",
   },
+  "runtime.storageFileListLimit": {
+    env: "STORAGE_FILE_LIST_LIMIT",
+    defaultValue: 1000,
+    min: 100,
+    max: 5000,
+    label: "文件索引列表上限",
+    unit: "条",
+    applies: "立即生效到新的文件/存储页面查询，防止大文件库一次性载入过多索引撑高内存",
+  },
   "runtime.aiProviderListLimit": {
     env: "AI_PROVIDER_LIST_LIMIT",
     defaultValue: 100,
@@ -187,6 +196,10 @@ export async function getSshTerminalRuntimeConfig() {
 
 export async function getOperationTaskListLimit(): Promise<number> {
   return getRuntimeSettingNumber("runtime.operationTaskListLimit");
+}
+
+export async function getStorageFileListLimit(): Promise<number> {
+  return getRuntimeSettingNumber("runtime.storageFileListLimit");
 }
 
 export async function getAiProviderListLimit(): Promise<number> {

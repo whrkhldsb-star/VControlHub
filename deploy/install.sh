@@ -790,6 +790,7 @@ sed \
 			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
 			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
 			-e "s|{{SYSTEMD_PATH}}|${systemd_path}|g" \
+			-e "s|{{NODE_BIN}}|${node_bin}|g" \
 			-e "s|{{NPM_BIN}}|${npm_bin}|g" \
 			-e "s|{{NPX_BIN}}|${npx_bin}|g" \
 			-e "s|{{NEXT_PORT}}|${NEXT_PORT}|g" \
