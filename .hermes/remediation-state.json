@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T02:58:23Z",
+  "updatedAt": "2026-06-02T06:18:59Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,40 +58,39 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "finishedAt": "2026-06-02T02:58:23Z",
-    "target": "batch3-sftp-upload-download-direct-access",
-    "status": "completed_verified_deployed_committed_pending_push",
-    "summary": "Closed the Files/SFTP page split by embedding realtime SFTP browsing into the unified Files SPA. Remote SFTP directory selection now refreshes the lower indexed file list with the selected node/path, Direct Gateway download URLs are normalized/encoded centrally, and previewable remote SFTP files expose working /files/preview links.",
+    "finishedAt": "2026-06-02T06:18:59Z",
+    "target": "dirty-closeout-office-preview-external-frame-hardening",
+    "status": "completed_verified_deployed_committed_pushed",
+    "summary": "Closed an overlapping dirty worktree safely instead of opening a new QA path. The Office preview/CSP/smoke slice was committed and pushed by an overlapping closeout as 742f02f, removes Microsoft Office Online iframe embedding for protected Files preview URLs, tightens global CSP to same-origin frames only, and extends the deploy smoke test so preview CSP cannot regress to external Office frames. This run revalidated tests/builds/current production health, confirmed services were restarted at 2026-06-02T06:12Z, smoke passed, and local HEAD equals origin/main at the functional commit.",
     "validation": [
-      "Required QA path selected from qaControlSystem.nextQaPathQueue: batch3-sftp-upload-download-direct-access; required evidence profile: files_sftp.",
-      "Regression tests cover Direct Gateway URL normalization with publicUrl that already includes the proxy port, host-only publicUrl requiring the proxy port, encoded Chinese/space path segments, token query encoding, SFTP directory change notifications to the unified Files SPA, and preview links backed by /api/storage/sftp-download.",
-      "npx vitest run src/lib/files/__tests__/sftp.test.ts src/app/files/__tests__/sftp-browser.test.tsx src/app/files/__tests__/page.test.tsx src/app/files/__tests__/files-browser-spa.test.tsx --reporter=dot: 27/27 passed across 4 files.",
+      "Dirty worktree found at start: deploy/smoke-test.sh, src/__tests__/proxy.test.ts, src/app/files/preview/office-preview-client.tsx, src/proxy.ts, and new src/app/files/__tests__/office-preview-client.test.tsx. Per closeout policy, no new QA path was opened.",
+      "Change Contract: protected Files Office preview must not expose private storage URLs to Microsoft Office Online or require external iframe CSP; operators should receive a truthful download-first fallback, and smoke tests should fail if preview CSP re-allows the external Office viewer.",
+      "Regression tests cover OfficePreviewClient rendering no iframe for protected SFTP preview URLs, adding a managed download link, and proxy CSP excluding view.officeapps.live.com.",
+      "npx vitest run src/app/files/__tests__/office-preview-client.test.tsx src/__tests__/proxy.test.ts --reporter=dot: 8/8 passed across 2 files.",
+      "bash -n deploy/smoke-test.sh and git diff --check: passed.",
       "npm run typecheck: passed.",
       "npm run lint: passed with existing react-hooks/set-state-in-effect warnings only; no errors.",
-      "npm run build: passed after retrying a transient concurrent-build lock.",
+      "npm run build: passed.",
       "npm run build:runtime: passed.",
-      "git diff --check: passed.",
-      "Production restart of vcontrolhub-next.service and vcontrolhub-ssh-ws.service completed; services plus caddy active and .next/dist ownership repaired.",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 19 CHECKS PASSED.",
-      "Logged-in browser QA on /files verified the SFTP browser is embedded in the unified Files workspace; selecting 45.207.216.45 SFTP changed the left tree/current node and lower list while showing realtime SFTP entries.",
-      "Logged-in browser QA verified preview links render for remote SFTP PDF/text files and text preview opened successfully via /files/preview with no page error.",
-      "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs after deploy contained no error/failed/exception/500/SFTP/preview matches."
+      "A concurrent/overlapping closeout committed and pushed the product files as 742f02f (fix: stabilize office preview and smoke readiness); local HEAD equals origin/main at that commit.",
+      "Production services vcontrolhub-next.service and vcontrolhub-ssh-ws.service show ActiveEnterTimestamp Tue 2026-06-02 02:12:43 EDT, after the 742f02f commit time; caddy is active.",
+      "Current production checks: /api/status reports healthy 3/3; direct /login headers show content-security-policy frame-src 'self' with no view.officeapps.live.com; recent two-hour service logs show normal restarts/listening messages and no error/failed/exception/EACCES/500/office/preview matches.",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub: ALL 24 CHECKS PASSED, including the new Preview CSP avoids external Office frames check."
     ],
-    "deployment": "Deployed: build and runtime bundle succeeded, services restarted after approval, .next ownership repaired, smoke passed, logged-in browser Files/SFTP preview verification succeeded, and recent service logs were clean.",
-    "nextTarget": "Commit and push this verified deployed SFTP/Files closeout; then continue QA batch 3 deeper Files/storage/SFTP upload/download/direct-access/share permission testing.",
-    "commit": null,
+    "deployment": "Completed by overlapping closeout: functional commit 742f02f is pushed to origin/main; production services were restarted after the commit, current production health and smoke are green, and recent logs are clean.",
+    "nextTarget": "Continue the next pending qaControlSystem path: batch4-download-task-lifecycle, unless a new dirty worktree appears first.",
+    "commit": "742f02f",
     "files": [
-      "src/lib/files/sftp.ts",
-      "src/lib/files/__tests__/sftp.test.ts",
-      "src/app/files/sftp-browser.tsx",
-      "src/app/files/__tests__/sftp-browser.test.tsx",
-      "src/app/files/files-browser-spa.tsx",
-      "src/app/files/page.tsx",
+      "deploy/smoke-test.sh",
+      "src/__tests__/proxy.test.ts",
+      "src/app/files/preview/office-preview-client.tsx",
+      "src/app/files/__tests__/office-preview-client.test.tsx",
+      "src/proxy.ts",
       ".hermes/remediation-backlog.md",
       ".hermes/remediation-state.json"
     ],
-    "nextAction": "Commit and push the verified deployed closeout, then continue the remaining QA batch 3 queue.",
-    "completedAt": "2026-06-02T02:58:23Z"
+    "nextAction": "Bookkeeping-only closeout should commit/push this state update if needed, then proceed to batch4-download-task-lifecycle on the next remediation tick.",
+    "completedAt": "2026-06-02T06:18:59Z"
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -383,6 +382,13 @@
       "summary": "Files/Media/Traffic real-path closeout verified, deployed, committed, and ready to push.",
       "jobId": "9e36e64a75ae",
       "commit": "f88ac20"
+    },
+    {
+      "at": "2026-06-02T06:18:59Z",
+      "type": "overlapping_dirty_worktree_closeout_verified",
+      "summary": "Office preview/CSP/smoke dirty slice was already committed and pushed by an overlapping closeout as 742f02f. This run revalidated targeted tests, typecheck, lint, build, runtime build, production service restart timestamps, current /api/status, security headers, smoke 24/24, logs, and origin sync; no blocker remains.",
+      "jobId": "9e36e64a75ae",
+      "commit": "742f02f"
     }
   ]
 }
