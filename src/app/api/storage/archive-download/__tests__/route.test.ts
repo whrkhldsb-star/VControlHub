@@ -10,7 +10,9 @@ const {
   execMock,
   endMock,
 } = vi.hoisted(() => ({
-  assertStorageAccessMock: vi.fn(() => Promise.resolve({ allowed: true })),
+  assertStorageAccessMock: vi.fn<(...args: unknown[]) => Promise<{ allowed: boolean; reason?: string }>>(
+    () => Promise.resolve({ allowed: true }),
+  ),
   prismaMock: {
     fileEntry: {
       findFirst: vi.fn(),
@@ -120,7 +122,7 @@ describe("/api/storage/archive-download", () => {
       expect.objectContaining({ storageNodeId: "node_1", relativePath: "photos", operation: "read" }),
     );
     expect(statMock).toHaveBeenCalledWith("/srv/storage/photos");
-    expect(spawnMock).toHaveBeenCalledWith("tar", ["-czf", "-", "-C", "/srv/storage", "photos"], expect.any(Object));
+    expect(spawnMock).toHaveBeenCalledWith("tar", ["-czf", "-", "-C", "/srv/storage", "--", "photos"], expect.any(Object));
     expect(response.headers.get("content-disposition")).toContain("photos.tar.gz");
   });
 
@@ -134,6 +136,34 @@ describe("/api/storage/archive-download", () => {
     expect(response.status).toBe(400);
     expect(spawnMock).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toMatchObject({ error: "目标不是目录" });
+  });
+
+  it("rejects denied read access before touching local disk", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(localDirectoryEntry());
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: false, reason: "forbidden" } as unknown as never);
+
+    const response = await GET(
+      new Request("https://example.com/api/storage/archive-download?nodeId=node_1&path=photos"),
+    );
+
+    expect(response.status).toBe(403);
+    expect(statMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(connectMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toMatchObject({ error: "forbidden" });
+  });
+
+  it("rejects unsafe directory paths before lookup or side effects", async () => {
+    const response = await GET(
+      new Request("https://example.com/api/storage/archive-download?nodeId=node_1&path=../photos"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
+    expect(assertStorageAccessMock).not.toHaveBeenCalled();
+    expect(statMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(connectMock).not.toHaveBeenCalled();
   });
 
   it("streams an SFTP directory through remote tar over SSH", async () => {
@@ -165,7 +195,7 @@ describe("/api/storage/archive-download", () => {
 
     expect(response.status).toBe(200);
     expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ host: "203.0.113.20", port: 2222 }));
-    expect(execMock).toHaveBeenCalledWith("tar -czf - -C '/data/files' 'photos'");
+    expect(execMock).toHaveBeenCalledWith("tar -czf - -C '/data/files' -- 'photos'");
     expect(spawnMock).not.toHaveBeenCalled();
   });
 });

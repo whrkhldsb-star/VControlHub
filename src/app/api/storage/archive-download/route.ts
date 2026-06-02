@@ -54,7 +54,7 @@ function isDirectoryEntry(entry: DirectoryEntry) {
 }
 
 function streamLocalTarGz(directoryPath: string, entryName: string) {
-  const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), entryName], {
+  const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), "--", entryName], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   tar.stderr.on("data", (chunk) => {
@@ -80,7 +80,7 @@ function streamRemoteTarGz(client: Client, remoteDirectoryPath: string) {
   return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
     const parent = path.posix.dirname(remoteDirectoryPath);
     const name = path.posix.basename(remoteDirectoryPath);
-    const command = `tar -czf - -C ${shellQuote(parent)} ${shellQuote(name)}`;
+    const command = `tar -czf - -C ${shellQuote(parent)} -- ${shellQuote(name)}`;
     client.exec(command, (err, stream) => {
       if (err) return reject(err);
       stream.stderr.on("data", (chunk: Buffer) => {
