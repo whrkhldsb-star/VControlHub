@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T09:59:08Z",
+  "updatedAt": "2026-06-02T10:37:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,63 +58,64 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-02T09:46:10Z",
-    "finishedAt": "2026-06-02T09:59:08Z",
-    "target": "quick-services-docker-canary / deploy-test-closeout",
-    "status": "completed_verified_ci_fix_no_product_deploy",
-    "summary": "The intended Quick Services Docker canary found Docker unavailable on this production host, so a real container lifecycle canary could not safely run. While checking the overlapping GitHub Actions process, the latest pushed commit was failing CI in deploy/__tests__/preflight.test.ts because DESTDIR installer tests still reached host useradd. Fixed deploy/install.sh so DESTDIR/fake-root installer runs never create or mutate host users, and strengthened the regression by making the fake useradd fail if called.",
+    "startedAt": "2026-06-02T10:20:00Z",
+    "finishedAt": "2026-06-02T10:37:00Z",
+    "target": "quick-services-docker-canary / Docker-unavailable readiness path",
+    "status": "completed_no_code_change_lifecycle_blocked_by_missing_docker",
+    "summary": "Quick Services canary verified the production no-Docker path truthfully fails closed: the UI shows Docker not installed, GET /api/quick-services reports docker.available=false, POST install returns an actionable Docker-not-installed error, and the DB remains without misleading QuickService records. A real container install/start/stop/uninstall lifecycle remains blocked until a Docker-capable canary environment is available.",
     "changeContract": {
       "qaPathId": "quick-services-docker-canary",
-      "role": "admin/operator QA user",
-      "entry": "/quick-services, /api/quick-services, deploy/upgrade.sh DESTDIR test path",
-      "userAction": "Operator would verify Docker readiness and Quick Services lifecycle; because docker is not installed on this host, the run pivoted to the CI/deploy-test blocker that directly affected production-maintenance confidence.",
+      "role": "temporary admin QA user",
+      "entry": "/quick-services, /api/quick-services, install recommended AList action/API",
+      "userAction": "Open Quick Services, inspect Docker readiness, attempt a safe AList install POST with CSRF, verify failure is truthful when Docker is absent.",
       "expectedSideEffects": [
-        "No Docker/container side effects were attempted because docker is unavailable",
-        "DESTDIR installer tests should render into fake roots without host useradd side effects",
-        "Existing production services remain healthy"
+        "When Docker is absent, UI must show a clear not-ready banner instead of offering fake lifecycle success",
+        "Install POST must fail before DB/container side effects",
+        "QuickService table must not gain an installing/running record",
+        "No Docker container/process/filesystem side effect should be attempted on this host"
       ],
       "outOfScope": [
-        "Live Quick Services install/start/stop/uninstall container lifecycle until Docker is available or a Docker-capable canary host is used"
+        "Actual Docker install/start/stop/uninstall lifecycle until Docker exists on production or a dedicated Docker-capable canary host is provided"
       ],
       "evidenceProfile": "background_task"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Not executed for Quick Services UI because Docker binary is unavailable on this host and the run focused on closing the CI/deploy-test blocker discovered before starting product QA.",
-      "api": "Unauthenticated production probes: /quick-services returned 307 and /api/quick-services returned 401, with /api/status 200; no 500s.",
-      "background_task_or_process": "Detected prior GitHub Actions polling process, waited until it exited, then inspected the latest Actions run. Run 26811715129 failed in the Test job only at deploy/preflight.sh upgrade fake-root path due to useradd Permission denied.",
-      "db_or_persisted_config": "No DB mutation or temporary QA account was created in this run.",
-      "filesystem_or_sftp": "No file/SFTP product side effects. Installer regression uses isolated temp APP_DIR/DESTDIR and now asserts fake useradd is not called.",
-      "permissions": "No privileged Docker or host user creation was attempted. The deploy/install.sh fix explicitly avoids host user mutation for DESTDIR isolated tests while preserving live install user creation when DESTDIR is absent.",
+      "browser_or_dom": "Production browser logged in with temporary qa_cron_qs_canary admin user, opened /quick-services, and saw the real Quick Services page fail closed with the Docker readiness banner: 'Docker 环境未就绪，快捷服务安装已暂停', message 'Docker 未安装', install guidance, 0 running/stopped/error services, 44 installable catalog items, port summary, and app-source empty state.",
+      "api": "Authenticated GET /api/quick-services returned 200 with docker.available=false, docker.message='Docker 未安装', 44 local catalog entries, installed=[], remoteCatalog=[], and used port data. Authenticated CSRF POST /api/quick-services for alist:5244 returned HTTP 500 with a clear Docker-not-installed error before creating a QuickService row. Unauthenticated production probes: /quick-services 307, /api/quick-services 401, /api/status healthy 200.",
+      "background_task_or_process": "Host Docker canary preflight proved Docker binary is absent, so no install/start/stop/uninstall container lifecycle was attempted. Quick Services service/API/client regressions cover the Docker lifecycle and unavailable-daemon failure cleanup paths; current production canary verified the no-Docker readiness path instead of inventing container evidence.",
+      "db_or_persisted_config": "After the failed install POST, Prisma inspection of QuickService rows returned []: no record-only or misleading installing row was created while Docker was unavailable.",
+      "filesystem_or_sftp": "No Docker/container filesystem side effect was attempted because Docker is unavailable; no file/SFTP product mutation occurred. This is the expected fail-closed behavior for a non-Docker-capable host.",
+      "permissions": "Temporary admin QA user was created only for this browser/API canary and deleted at closeout; remaining qa_cron_* count verified 0. Quick Services API remains guarded: unauthenticated /api/quick-services returned 401.",
       "regression": [
-        "npx vitest run deploy/__tests__/preflight.test.ts --reporter=dot: 23/23 passed",
-        "npm test: 188 files / 802 tests passed"
+        "npx vitest run src/lib/quick-service/__tests__/service.test.ts src/app/api/quick-services/__tests__/route.test.ts src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot: 3 files / 28 tests passed",
+        "npm run typecheck: passed",
+        "npm run lint: passed with the known 5 existing react-hooks/set-state-in-effect warnings"
       ],
-      "production": "typecheck passed; lint passed with the known 5 existing react-hooks/set-state-in-effect warnings; npm run build passed; npm run build:runtime passed; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24. No service restart was required because only deploy/test files changed and production runtime code was not modified.",
-      "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 15-minute window returned no error/warn/failed matches.",
-      "cleanup": "No temporary QA users/resources were created; git diff only contains deploy/install.sh, deploy preflight regression, and state update before commit."
+      "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24. Production /api/status returned healthy overall. No restart/deploy was required because no product code changed.",
+      "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 30-minute window returned no error/warn/failed matches.",
+      "cleanup": "Deleted temporary qa_cron_qs_canary/qa_cron_* user; remaining count 0. Removed the temporary .hermes/create-quick-services-qa-user.ts helper before closeout."
     },
     "validation": [
-      "git status clean at start and HEAD matched origin/main",
-      "GitHub Actions latest head 9cb9787 failed in deploy/preflight test before fix",
-      "git diff --check passed",
-      "deploy preflight targeted test passed 23/23",
+      "git clean and HEAD matched origin/main at start",
+      "No overlapping npm/vitest/next/prisma/smoke processes beyond Hermes gateway/LSP",
+      "Docker binary absent on host",
+      "Production browser Quick Services readiness banner verified",
+      "Authenticated Quick Services GET and install POST evidence captured",
+      "QuickService DB rows remained empty after failed install",
+      "Targeted Quick Services tests passed 28/28",
       "typecheck passed",
       "lint passed with known warnings only",
-      "build passed",
-      "build:runtime passed",
-      "full npm test passed 188/188 files, 802/802 tests",
       "smoke test passed 24/24",
-      "production quick-services probes 307/401 and /api/status 200",
-      "recent service log grep clean"
+      "production route/API/status probes returned 307/401/200 without 500 except intentional authenticated install failure",
+      "recent service log grep clean",
+      "temporary QA user cleanup verified remaining 0"
     ],
-    "deployment": "No restart/deploy needed for this slice; deploy/test scripts changed only. Existing production services remained active/healthy and smoke passed.",
-    "commit": "9b1b4407c7094a345d1787820b23619eb41fba2d",
+    "deployment": "No restart/deploy needed for this no-code canary. Existing production services remained active/healthy and smoke passed.",
+    "commit": null,
     "files": [
-      "deploy/install.sh",
-      "deploy/__tests__/preflight.test.ts",
       ".hermes/remediation-state.json"
     ],
-    "nextTarget": "Retry quick-services-docker-canary as a Docker readiness/API/UI canary. Since docker is missing on this host, first verify the Quick Services readiness banner/API preflight and record whether a Docker-capable environment is required before attempting install/start/stop/uninstall lifecycle."
+    "nextTarget": "Rotate to commands-deployments-tasks-canary or backups-restore-canary for a real background-task side-effect path; revisit Quick Services full lifecycle only when Docker is available or a Docker-capable canary host is assigned."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -129,10 +130,18 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 19,
+    "successfulRemediationRunsSinceFreshAudit": 20,
     "skippedOverlapRuns": 0
   },
-  "blockers": [],
+  "blockers": [
+    {
+      "at": "2026-06-02T10:37:00Z",
+      "target": "quick-services-docker-canary",
+      "type": "environment_blocker",
+      "summary": "Production host has no Docker binary, so Quick Services real install/start/stop/uninstall lifecycle cannot be proven here. The no-Docker UI/API/DB fail-closed path was verified instead.",
+      "next": "Use a Docker-capable canary host/environment or install Docker before rerunning the full lifecycle canary."
+    }
+  ],
   "productDirection": "Active full-product canary evidence QA loop: each cycle must prove a selected real user journey works with browser/API/DB/filesystem-or-SFTP/process/log/regression/production evidence as applicable. Static route probes are only supporting evidence, never sufficient proof of functional availability.",
   "removedBacklogCronJobId": "b8833e83bb1f",
   "qaControlSystem": {
@@ -235,8 +244,26 @@
         "batch": "QA batch 4",
         "path": "Quick Services install -> Docker/container side effect -> start/stop -> uninstall -> failure cleanup -> task/DB/UI/log consistency",
         "priority": "high",
-        "status": "pending",
-        "requiredEvidenceProfile": "background_task"
+        "status": "partially_completed",
+        "requiredEvidenceProfile": "background_task",
+        "lastCompletedAt": "2026-06-02T10:37:00Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser logged in with temporary qa_cron_qs_canary admin user, opened /quick-services, and saw the real Quick Services page fail closed with the Docker readiness banner: 'Docker 环境未就绪，快捷服务安装已暂停', message 'Docker 未安装', install guidance, 0 running/stopped/error services, 44 installable catalog items, port summary, and app-source empty state.",
+          "api": "Authenticated GET /api/quick-services returned 200 with docker.available=false, docker.message='Docker 未安装', 44 local catalog entries, installed=[], remoteCatalog=[], and used port data. Authenticated CSRF POST /api/quick-services for alist:5244 returned HTTP 500 with a clear Docker-not-installed error before creating a QuickService row. Unauthenticated production probes: /quick-services 307, /api/quick-services 401, /api/status healthy 200.",
+          "background_task_or_process": "Host Docker canary preflight proved Docker binary is absent, so no install/start/stop/uninstall container lifecycle was attempted. Quick Services service/API/client regressions cover the Docker lifecycle and unavailable-daemon failure cleanup paths; current production canary verified the no-Docker readiness path instead of inventing container evidence.",
+          "db_or_persisted_config": "After the failed install POST, Prisma inspection of QuickService rows returned []: no record-only or misleading installing row was created while Docker was unavailable.",
+          "filesystem_or_sftp": "No Docker/container filesystem side effect was attempted because Docker is unavailable; no file/SFTP product mutation occurred. This is the expected fail-closed behavior for a non-Docker-capable host.",
+          "permissions": "Temporary admin QA user was created only for this browser/API canary and deleted at closeout; remaining qa_cron_* count verified 0. Quick Services API remains guarded: unauthenticated /api/quick-services returned 401.",
+          "regression": [
+            "npx vitest run src/lib/quick-service/__tests__/service.test.ts src/app/api/quick-services/__tests__/route.test.ts src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot: 3 files / 28 tests passed",
+            "npm run typecheck: passed",
+            "npm run lint: passed with the known 5 existing react-hooks/set-state-in-effect warnings"
+          ],
+          "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24. Production /api/status returned healthy overall. No restart/deploy was required because no product code changed.",
+          "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 30-minute window returned no error/warn/failed matches.",
+          "cleanup": "Deleted temporary qa_cron_qs_canary/qa_cron_* user; remaining count 0. Removed the temporary .hermes/create-quick-services-qa-user.ts helper before closeout."
+        },
+        "blocker": "Docker binary is not installed on the production host; full container lifecycle canary requires a Docker-capable environment."
       },
       {
         "id": "commands-deployments-tasks-canary",
@@ -605,6 +632,12 @@
       "type": "canary_evidence_no_code_change",
       "summary": "login-shell-preferences canary verified preferences persistence, CSRF failure non-mutation, and default-page login redirect in production; no code change required.",
       "jobId": "9e36e64a75ae"
+    },
+    {
+      "at": "2026-06-02T10:37:00Z",
+      "type": "canary_evidence_no_code_change_environment_blocker",
+      "target": "quick-services-docker-canary",
+      "summary": "Verified Quick Services Docker-unavailable readiness/fail-closed path in production browser/API/DB; full Docker lifecycle remains blocked by missing Docker binary."
     }
   ]
 }
