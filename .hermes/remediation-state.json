@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T09:57:10Z",
+  "updatedAt": "2026-06-02T09:59:08Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -59,7 +59,7 @@
   },
   "lastRun": {
     "startedAt": "2026-06-02T09:46:10Z",
-    "finishedAt": "2026-06-02T09:57:10Z",
+    "finishedAt": "2026-06-02T09:59:08Z",
     "target": "quick-services-docker-canary / deploy-test-closeout",
     "status": "completed_verified_ci_fix_no_product_deploy",
     "summary": "The intended Quick Services Docker canary found Docker unavailable on this production host, so a real container lifecycle canary could not safely run. While checking the overlapping GitHub Actions process, the latest pushed commit was failing CI in deploy/__tests__/preflight.test.ts because DESTDIR installer tests still reached host useradd. Fixed deploy/install.sh so DESTDIR/fake-root installer runs never create or mutate host users, and strengthened the regression by making the fake useradd fail if called.",
@@ -108,7 +108,7 @@
       "recent service log grep clean"
     ],
     "deployment": "No restart/deploy needed for this slice; deploy/test scripts changed only. Existing production services remained active/healthy and smoke passed.",
-    "commit": null,
+    "commit": "9b1b4407c7094a345d1787820b23619eb41fba2d",
     "files": [
       "deploy/install.sh",
       "deploy/__tests__/preflight.test.ts",
