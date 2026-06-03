@@ -247,10 +247,53 @@ describe("command service execution flow", () => {
 
     await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledWith(
       "sshpass",
-      expect.arrayContaining(["-e", "ssh"]),
+      expect.arrayContaining(["-e", "ssh", "-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"]),
       expect.objectContaining({
         env: expect.objectContaining({ SSHPASS: "plain-secret" }),
       }),
+    ));
+  });
+
+  it("routes SSH execution through a non-persistent known-hosts file", async () => {
+    mockPrisma.commandRequest.create.mockResolvedValue({
+      id: "req_known_hosts_1",
+      status: "APPROVED",
+      targets: [{ id: "target_known_hosts_1" }],
+    });
+    mockPrisma.commandTarget.findMany.mockResolvedValue([
+      {
+        id: "target_known_hosts_1",
+        server: {
+          id: "srv_known_hosts_1",
+          name: "prod-node",
+          host: "203.0.113.20",
+          port: 22,
+          username: "root",
+          connectionType: "SSH_KEY",
+          password: null,
+          sshKey: { privateKey: "TEST_SSH_PRIVATE_KEY_PLACEHOLDER" },
+        },
+        commandRequest: { command: "uptime" },
+      },
+    ]);
+    mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_known_hosts_1", status: "RUNNING" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_known_hosts_1", targets: [{ id: "target_known_hosts_1" }] });
+
+    await createCommandRequest({
+      title: "Run uptime",
+      command: "uptime",
+      requesterId: "u_1",
+      submissionMode: "user",
+      serverIds: ["srv_known_hosts_1"],
+    });
+
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledWith(
+      "ssh",
+      expect.arrayContaining(["-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR"]),
+      expect.any(Object),
+    ));
+    await vi.waitFor(() => expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "target_known_hosts_1" } }),
     ));
   });
 
@@ -419,25 +462,23 @@ describe("command service execution flow", () => {
       },
     ]);
     let slowChild!: MockChildProcess;
-    spawnMock
-      .mockImplementationOnce(() => {
-        slowChild = new EventEmitter() as MockChildProcess;
-        slowChild.stdout = new EventEmitter();
-        slowChild.stderr = new EventEmitter();
-        slowChild.kill = vi.fn(() => true);
-        return slowChild;
-      })
-      .mockImplementationOnce(() => {
-        const child = new EventEmitter() as MockChildProcess;
-        child.stdout = new EventEmitter();
-        child.stderr = new EventEmitter();
-        child.kill = vi.fn(() => true);
-        queueMicrotask(() => {
-          child.stdout.emit("data", Buffer.from("fast ok\n"));
-          child.emit("close", 0);
-        });
+    spawnMock.mockImplementation((_, args) => {
+      const child = new EventEmitter() as MockChildProcess;
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = vi.fn(() => true);
+
+      if (Array.isArray(args) && args.includes("root@203.0.113.21")) {
+        slowChild = child;
         return child;
+      }
+
+      queueMicrotask(() => {
+        child.stdout.emit("data", Buffer.from("fast ok\n"));
+        child.emit("close", 0);
       });
+      return child;
+    });
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_parallel_1", status: "RUNNING" });
     mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_parallel_1", targets: [{ id: "target_slow" }, { id: "target_fast" }] });
 
@@ -449,7 +490,6 @@ describe("command service execution flow", () => {
       serverIds: ["srv_slow", "srv_fast"],
     });
 
-    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalledTimes(2));
     await vi.waitFor(() =>
       expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -457,6 +497,11 @@ describe("command service execution flow", () => {
           data: expect.objectContaining({ status: "COMPLETED" }),
         }),
       ),
+    );
+    expect(mockPrisma.commandTarget.update.mock.calls.map(([call]) => call)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ where: { id: "target_slow" } }),
+      ]),
     );
     expect(mockPrisma.commandRequest.update).not.toHaveBeenCalledWith({
       where: { id: "req_parallel_1" },
@@ -466,6 +511,14 @@ describe("command service execution flow", () => {
     slowChild.stdout.emit("data", Buffer.from("slow ok\n"));
     slowChild.emit("close", 0);
 
+    await vi.waitFor(() =>
+      expect(mockPrisma.commandTarget.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "target_slow" },
+          data: expect.objectContaining({ status: "COMPLETED" }),
+        }),
+      ),
+    );
     await vi.waitFor(() =>
       expect(mockPrisma.commandRequest.update).toHaveBeenCalledWith({
         where: { id: "req_parallel_1" },

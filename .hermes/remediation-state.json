@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-02T10:37:00Z",
+  "updatedAt": "2026-06-03T03:40:35Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,64 +58,74 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-02T10:20:00Z",
-    "finishedAt": "2026-06-02T10:37:00Z",
-    "target": "quick-services-docker-canary / Docker-unavailable readiness path",
-    "status": "completed_no_code_change_lifecycle_blocked_by_missing_docker",
-    "summary": "Quick Services canary verified the production no-Docker path truthfully fails closed: the UI shows Docker not installed, GET /api/quick-services reports docker.available=false, POST install returns an actionable Docker-not-installed error, and the DB remains without misleading QuickService records. A real container install/start/stop/uninstall lifecycle remains blocked until a Docker-capable canary environment is available.",
+    "startedAt": "2026-06-03T03:24:00Z",
+    "finishedAt": "2026-06-03T03:40:35Z",
+    "target": "commands-deployments-tasks-canary",
+    "status": "completed_verified_deployed_pending_commit",
+    "summary": "Closed the Commands/Operation Tasks SSH known_hosts dirty slice. Added LogLevel=ERROR to both key-based and password-based command SSH invocations while preserving StrictHostKeyChecking=accept-new and UserKnownHostsFile=/dev/null, so the production service user no longer tries to write known_hosts and operators no longer see routine “Permanently added … known hosts” noise in command stderr. Verified with a real post-restart authenticated command canary against 45.207.216.45:61834: request cmpxio93m0001f9v22tlxfn16 completed, target cmpxio93o0002f9v2g3axope1 exitCode 0, stdout vcontrolhub-knownhosts-postfixLinux, stderr null, and three execution logs showed queued/target-completed/aggregate-completed states.",
     "changeContract": {
-      "qaPathId": "quick-services-docker-canary",
-      "role": "temporary admin QA user",
-      "entry": "/quick-services, /api/quick-services, install recommended AList action/API",
-      "userAction": "Open Quick Services, inspect Docker readiness, attempt a safe AList install POST with CSRF, verify failure is truthful when Docker is absent.",
+      "qaPathId": "commands-deployments-tasks-canary",
+      "role": "temporary admin QA user through production browser/API",
+      "entry": "/login authenticated shell -> POST /api/commands -> command worker SSH execution -> Operation Tasks/command persisted state",
+      "userAction": "Submit a real command to an enabled VPS after deploying the known_hosts fix, then verify API response, command DB rows, target stdout/stderr, execution logs, service logs, smoke tests, and cleanup.",
       "expectedSideEffects": [
-        "When Docker is absent, UI must show a clear not-ready banner instead of offering fake lifecycle success",
-        "Install POST must fail before DB/container side effects",
-        "QuickService table must not gain an installing/running record",
-        "No Docker container/process/filesystem side effect should be attempted on this host"
+        "CommandRequest and one normalized CommandTarget are persisted and complete",
+        "Real SSH process executes against the selected VPS and returns the stdout marker with exitCode 0",
+        "No known_hosts filesystem warning or Permanently-added banner appears in persisted stderr or logs",
+        "Temporary QA users are deleted before commit",
+        "Production services are restarted and smoke/probes/logs are healthy"
       ],
       "outOfScope": [
-        "Actual Docker install/start/stop/uninstall lifecycle until Docker exists on production or a dedicated Docker-capable canary host is provided"
+        "No new QA lane beyond Commands/Operation Tasks closeout; no unrelated UI polish or broad canary rotation."
       ],
       "evidenceProfile": "background_task"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in with temporary qa_cron_qs_canary admin user, opened /quick-services, and saw the real Quick Services page fail closed with the Docker readiness banner: 'Docker 环境未就绪，快捷服务安装已暂停', message 'Docker 未安装', install guidance, 0 running/stopped/error services, 44 installable catalog items, port summary, and app-source empty state.",
-      "api": "Authenticated GET /api/quick-services returned 200 with docker.available=false, docker.message='Docker 未安装', 44 local catalog entries, installed=[], remoteCatalog=[], and used port data. Authenticated CSRF POST /api/quick-services for alist:5244 returned HTTP 500 with a clear Docker-not-installed error before creating a QuickService row. Unauthenticated production probes: /quick-services 307, /api/quick-services 401, /api/status healthy 200.",
-      "background_task_or_process": "Host Docker canary preflight proved Docker binary is absent, so no install/start/stop/uninstall container lifecycle was attempted. Quick Services service/API/client regressions cover the Docker lifecycle and unavailable-daemon failure cleanup paths; current production canary verified the no-Docker readiness path instead of inventing container evidence.",
-      "db_or_persisted_config": "After the failed install POST, Prisma inspection of QuickService rows returned []: no record-only or misleading installing row was created while Docker was unavailable.",
-      "filesystem_or_sftp": "No Docker/container filesystem side effect was attempted because Docker is unavailable; no file/SFTP product mutation occurred. This is the expected fail-closed behavior for a non-Docker-capable host.",
-      "permissions": "Temporary admin QA user was created only for this browser/API canary and deleted at closeout; remaining qa_cron_* count verified 0. Quick Services API remains guarded: unauthenticated /api/quick-services returned 401.",
+      "browser_or_dom": "Production browser logged in as temporary admin qa_cron_cmdkh through /login after restart; the authenticated shell rendered as that user. The command was submitted from that browser session with the readable CSRF cookie and duplicate/blank serverIds to exercise the real operator API path.",
+      "api": "Authenticated CSRF POST /api/commands returned 201 for “QA command known_hosts post-fix canary 2026-06-03T03:38:36.900Z” with status APPROVED and one normalized target. Unauthenticated probes remained guarded via smoke: /api auth blocks unauth and root redirects to login.",
+      "db_or_persisted_config": "Prisma adapter inspection of CommandRequest cmpxio93m0001f9v22tlxfn16 showed status COMPLETED, workerId/workerHeartbeatAt null, one target cmpxio93o0002f9v2g3axope1 COMPLETED, exitCode 0, stdout “vcontrolhub-knownhosts-postfixLinux\\n”, stderr null, and ExecutionLog rows for queue, target completion, and aggregate completion.",
+      "filesystem_or_sftp": "No product file/SFTP mutation was intended. Build initially recreated .next/server as root:root; repaired with chown -R vcontrolhub:vcontrolhub /opt/VControlHub/.next before restart and verified .next/.next/server ownership. The post-fix command produced no known_hosts filesystem/write warning in persisted stderr or recent service logs.",
+      "background_task_or_process": "The in-process command worker executed a real password-based SSH command against enabled VPS 45.207.216.45:61834 and completed in about 0.5s after restart. Services vcontrolhub-next.service and vcontrolhub-ssh-ws.service were restarted successfully and remained active with caddy.service.",
+      "runtime_or_ui_side_effect": "Operator-visible command output is now clean: the persisted target stderr is null after adding LogLevel=ERROR, whereas the prior canary exposed “Warning: Permanently added … to the list of known hosts.” The command stdout marker remained visible/persisted.",
+      "permissions": "Temporary admin QA user qa_cron_cmdkh was used only for this browser/API canary. Duplicate/trimmed/blank serverIds normalized to one command target. /api/commands remains covered by route permission tests and smoke unauth checks.",
       "regression": [
-        "npx vitest run src/lib/quick-service/__tests__/service.test.ts src/app/api/quick-services/__tests__/route.test.ts src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot: 3 files / 28 tests passed",
-        "npm run typecheck: passed",
-        "npm run lint: passed with the known 5 existing react-hooks/set-state-in-effect warnings"
+        "npx vitest run src/lib/command/__tests__/service.test.ts: 18/18 passed",
+        "Neighboring Commands/Requests/Deployments/Operation Tasks tests: npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/__tests__/schema.test.ts src/app/api/commands/__tests__/route.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/operation-tasks/__tests__/route.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx src/lib/deployment/__tests__/service.test.ts src/app/deployments/__tests__/deployment-launch-form.test.tsx src/app/servers/__tests__/command-create-form.test.tsx src/app/requests/__tests__/page.test.tsx: 49/49 passed",
+        "git diff --check passed",
+        "npm run typecheck passed",
+        "npm run lint passed with the known 5 existing react-hooks/set-state-in-effect warnings only",
+        "npm run build passed",
+        "npm run build:runtime passed"
       ],
-      "production": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24. Production /api/status returned healthy overall. No restart/deploy was required because no product code changed.",
-      "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 30-minute window returned no error/warn/failed matches.",
-      "cleanup": "Deleted temporary qa_cron_qs_canary/qa_cron_* user; remaining count 0. Removed the temporary .hermes/create-quick-services-qa-user.ts helper before closeout."
+      "production": "After ownership repair and restart, /api/status returned healthy 3/3 at 2026-06-03T03:33:35.341Z and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks. vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service were active.",
+      "logs": "Post-restart/canary journal grep for error|warn|failed|EACCES|known_hosts|Could not create directory|Failed to add the host|Permanently added over the checked 15-minute window returned no matches.",
+      "cleanup": "Deleted temporary qa_cron_cmdkh and the stale prior qa_cron_cmdfix user; final Prisma cleanup count for username startsWith qa_cron_ returned 0. Removed temporary .hermes helper scripts before closeout."
     },
     "validation": [
-      "git clean and HEAD matched origin/main at start",
-      "No overlapping npm/vitest/next/prisma/smoke processes beyond Hermes gateway/LSP",
-      "Docker binary absent on host",
-      "Production browser Quick Services readiness banner verified",
-      "Authenticated Quick Services GET and install POST evidence captured",
-      "QuickService DB rows remained empty after failed install",
-      "Targeted Quick Services tests passed 28/28",
-      "typecheck passed",
-      "lint passed with known warnings only",
-      "smoke test passed 24/24",
-      "production route/API/status probes returned 307/401/200 without 500 except intentional authenticated install failure",
-      "recent service log grep clean",
-      "temporary QA user cleanup verified remaining 0"
+      "No overlapping npm/vitest/next/prisma/smoke process detected before closeout",
+      "git diff --check passed",
+      "Targeted command service test passed 18/18",
+      "Neighboring command/API/deployment/operation-task tests passed 49/49",
+      "npm run typecheck passed",
+      "npm run lint passed with known 5 existing warnings only after removing a stale temporary helper",
+      "npm run build passed",
+      "npm run build:runtime passed",
+      "Repaired .next/server ownership from root:root to vcontrolhub:vcontrolhub before restart",
+      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; caddy remained active",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24",
+      "Post-fix command canary cmpxio93m0001f9v22tlxfn16 completed with stderr null",
+      "Post-canary logs contained no known_hosts/EACCES/error/warn matches",
+      "All qa_cron_* users removed; remaining count 0"
     ],
-    "deployment": "No restart/deploy needed for this no-code canary. Existing production services remained active/healthy and smoke passed.",
+    "deployment": "Activated successfully: repaired .next ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed /api/status healthy 3/3, ran smoke 24/24, and proved the post-fix command canary on production.",
     "commit": null,
     "files": [
-      ".hermes/remediation-state.json"
+      "src/lib/command/service.ts",
+      "src/lib/command/__tests__/service.test.ts",
+      ".hermes/remediation-state.json",
+      ".hermes/remediation-backlog.md"
     ],
-    "nextTarget": "Rotate to commands-deployments-tasks-canary or backups-restore-canary for a real background-task side-effect path; revisit Quick Services full lifecycle only when Docker is available or a Docker-capable canary host is assigned."
+    "nextTarget": "After commit/push, clear the old dailyAuditorDirective and resume the canary queue; next ordinary target can rotate to the highest-priority pending/partially_completed canary lane."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -271,8 +281,30 @@
         "batch": "QA batch 4",
         "path": "Commands/Requests/Deployments/Scheduled Tasks/Templates/Operation Tasks -> target selection -> approval/execution/cancel -> worker heartbeat/recovery -> UI truthfulness",
         "priority": "high",
-        "status": "pending",
-        "requiredEvidenceProfile": "background_task"
+        "status": "completed_verified_deployed_pending_commit",
+        "requiredEvidenceProfile": "background_task",
+        "lastCompletedAt": "2026-06-03T03:40:35Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser logged in as temporary admin qa_cron_cmdkh through /login after restart; the authenticated shell rendered as that user. The command was submitted from that browser session with the readable CSRF cookie and duplicate/blank serverIds to exercise the real operator API path.",
+          "api": "Authenticated CSRF POST /api/commands returned 201 for “QA command known_hosts post-fix canary 2026-06-03T03:38:36.900Z” with status APPROVED and one normalized target. Unauthenticated probes remained guarded via smoke: /api auth blocks unauth and root redirects to login.",
+          "db_or_persisted_config": "Prisma adapter inspection of CommandRequest cmpxio93m0001f9v22tlxfn16 showed status COMPLETED, workerId/workerHeartbeatAt null, one target cmpxio93o0002f9v2g3axope1 COMPLETED, exitCode 0, stdout “vcontrolhub-knownhosts-postfixLinux\\n”, stderr null, and ExecutionLog rows for queue, target completion, and aggregate completion.",
+          "filesystem_or_sftp": "No product file/SFTP mutation was intended. Build initially recreated .next/server as root:root; repaired with chown -R vcontrolhub:vcontrolhub /opt/VControlHub/.next before restart and verified .next/.next/server ownership. The post-fix command produced no known_hosts filesystem/write warning in persisted stderr or recent service logs.",
+          "background_task_or_process": "The in-process command worker executed a real password-based SSH command against enabled VPS 45.207.216.45:61834 and completed in about 0.5s after restart. Services vcontrolhub-next.service and vcontrolhub-ssh-ws.service were restarted successfully and remained active with caddy.service.",
+          "runtime_or_ui_side_effect": "Operator-visible command output is now clean: the persisted target stderr is null after adding LogLevel=ERROR, whereas the prior canary exposed “Warning: Permanently added … to the list of known hosts.” The command stdout marker remained visible/persisted.",
+          "permissions": "Temporary admin QA user qa_cron_cmdkh was used only for this browser/API canary. Duplicate/trimmed/blank serverIds normalized to one command target. /api/commands remains covered by route permission tests and smoke unauth checks.",
+          "regression": [
+            "npx vitest run src/lib/command/__tests__/service.test.ts: 18/18 passed",
+            "Neighboring Commands/Requests/Deployments/Operation Tasks tests: npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/__tests__/schema.test.ts src/app/api/commands/__tests__/route.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/operation-tasks/__tests__/route.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx src/lib/deployment/__tests__/service.test.ts src/app/deployments/__tests__/deployment-launch-form.test.tsx src/app/servers/__tests__/command-create-form.test.tsx src/app/requests/__tests__/page.test.tsx: 49/49 passed",
+            "git diff --check passed",
+            "npm run typecheck passed",
+            "npm run lint passed with the known 5 existing react-hooks/set-state-in-effect warnings only",
+            "npm run build passed",
+            "npm run build:runtime passed"
+          ],
+          "production": "After ownership repair and restart, /api/status returned healthy 3/3 at 2026-06-03T03:33:35.341Z and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks. vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service were active.",
+          "logs": "Post-restart/canary journal grep for error|warn|failed|EACCES|known_hosts|Could not create directory|Failed to add the host|Permanently added over the checked 15-minute window returned no matches.",
+          "cleanup": "Deleted temporary qa_cron_cmdkh and the stale prior qa_cron_cmdfix user; final Prisma cleanup count for username startsWith qa_cron_ returned 0. Removed temporary .hermes helper scripts before closeout."
+        }
       },
       {
         "id": "backups-restore-canary",
@@ -387,7 +419,62 @@
         "cleanup"
       ]
     },
-    "dailyAuditorDirective": null,
+    "dailyAuditorDirective": {
+      "id": "closeout-commands-restart-blocker-2026-06-02",
+      "createdAt": "2026-06-02T22:24:54Z",
+      "targetQaPathId": "commands-deployments-tasks-canary",
+      "priority": "high",
+      "reason": "24-hour trend drift: 14 of the last 19 recorded events targeted the same approval-blocked Commands/Operation Tasks dirty closeout. The evidence chain for this slice is already strong, but deployment closeout and canary rotation degraded because the unchanged diff kept rerunning under the same restart-approval blocker.",
+      "requiredEvidenceProfile": "background_task",
+      "requiredProof": [
+        "Before any new QA path, confirm the dirty command diff is unchanged and perform at most one production activation retry for the existing SSH known_hosts fix.",
+        "If restart approval is granted, restart vcontrolhub-next.service and vcontrolhub-ssh-ws.service, then run one fresh real command execution canary and capture API/DB/process/log proof that the command still completes and no .ssh/known_hosts read-only write warning remains.",
+        "If restart approval is still blocked, record one blocker/skip event plus current service health/origin status, preserve the dirty slice unchanged, and stop without widening scope."
+      ],
+      "avoidUntilResolved": [
+        "Do not open a new canary or rotate the queue while src/lib/command/service.ts and its closeout files remain the only intentional dirty diff.",
+        "Do not rerun full typecheck/lint/build/runtime-build on an unchanged diff solely to rediscover the same approval blocker unless code changes or runtime ownership drift require it.",
+        "Do not treat 307/401/200 liveness probes alone as fresh completion evidence for this slice; activation requires a post-restart real command execution proof chain."
+      ],
+      "expiresAfterRuns": 4,
+      "status": "resolved_pending_commit",
+      "resolvedAt": "2026-06-03T03:40:35Z",
+      "resolution": "Production activation, smoke, real command canary, clean stderr proof, log scan, and QA cleanup completed for the Commands/Operation Tasks known_hosts slice."
+    },
+    "dailyAuditorLastRun": {
+      "ranAt": "2026-06-02T22:24:54Z",
+      "auditorJobId": "d42e2078d544",
+      "mainJobId": "9e36e64a75ae",
+      "inspectedWindowHours": 24,
+      "trendWindowDays": 7,
+      "summary": "Daily precision audit found strong Change Contract/Evidence Matrix discipline on the selected canaries, but the main loop drifted into repeated approval-blocked dirty-closeout retries on commands-deployments-tasks-canary. Evidence quality and blocker honesty remain good; rotation and deployment closeout need correction.",
+      "scores": {
+        "targetClarity": 4,
+        "evidenceQuality": 4,
+        "realSideEffectCoverage": 4,
+        "canaryRotation": 2,
+        "fixValue": 3,
+        "regressionCoverage": 4,
+        "deploymentCloseout": 1,
+        "commitNoise": 2,
+        "blockerHonesty": 5
+      },
+      "recentTargetCounts24h": {
+        "commands-deployments-tasks-canary": 14,
+        "downloads-lifecycle-canary": 1,
+        "quick-services-docker-canary": 1,
+        "untargeted_control_events": 3
+      },
+      "serviceHealth": {
+        "vcontrolhub-next.service": "active",
+        "vcontrolhub-ssh-ws.service": "active",
+        "caddy.service": "active",
+        "apiStatus": "healthy 3/3",
+        "recentCriticalLogMatches": 0,
+        "originSync": "HEAD == origin/main"
+      },
+      "directiveId": "closeout-commands-restart-blocker-2026-06-02"
+    },
     "directiveSemantics": "If dailyAuditorDirective is active, the main job must satisfy it before normal queue work or write a blocker/skipReason. Directives expire by expiresAfterRuns or when marked resolved by the daily auditor.",
     "dailyAuditorPolicy": {
       "enabled": true,
@@ -435,16 +522,26 @@
     "coverageSlo": "Every high-priority canary should receive real evidence within a 7-day window unless a higher-priority blocker/directive is recorded."
   },
   "lastRunEvaluation": {
-    "evaluatedAt": "2026-05-31T10:53:59.427896Z",
-    "scope": "2026-05-31 backlog remediation results and task/process quality",
-    "resultSummary": "Strong verification discipline and meaningful improvements landed across runtime settings, polling preferences, bounded list performance, visual/light-theme QA, SMTP disabled-state clarity, and dashboard localization/client-boundary safety. Current production baseline is healthy and git is clean.",
+    "evaluatedAt": "2026-06-02T22:24:54Z",
+    "scope": "Daily precision audit of main remediation job 9e36e64a75ae over the last 24 hours with 7-day trend context",
+    "resultSummary": "The canary evidence QA system is producing real Change Contract and Evidence Matrix proof on selected runs, but the loop is currently stuck in a repeated approval-blocked dirty closeout for commands-deployments-tasks-canary. Evidence quality and blocker honesty are strong; canary rotation and deployment closeout quality drifted because 14 of the last 19 recent events targeted the same blocked slice.",
+    "scores": {
+      "targetClarity": 4,
+      "evidenceQuality": 4,
+      "realSideEffectCoverage": 4,
+      "canaryRotation": 2,
+      "fixValue": 3,
+      "regressionCoverage": 4,
+      "deploymentCloseout": 1,
+      "commitNoise": 2,
+      "blockerHonesty": 5
+    },
     "gaps": [
-      "The active backlog cron had been removed, but repo state/backlog still referred to b8833e83bb1f as current; this was corrected.",
-      "The completion QA gate exists but remains mostly checklist-style; future runs should force real browser/user-path batches before ordinary backlog work after completion.",
-      "Recent work skewed toward settings/performance/polish; next cycle should deliberately rotate into core functional journeys such as VPS/server management, Files/SFTP/upload/download/direct access, Quick Services, Commands/Deployments, Backups/Restore, AI providers, API tokens, and image bed.",
-      "Static probes and 307/401/no-500 checks are not enough for feature completeness; future runs must exercise real UI actions and verify DB/filesystem/remote side effects where safe."
+      "The main job is correctly preserving an approval-blocked dirty slice, but 14 of the last 19 recent events were repeated retries on the same commands closeout, so queue rotation stalled.",
+      "Because the diff is unchanged and restart approval remains blocked, rerunning typecheck/lint/build/runtime-build on every retry now has low marginal value and violates the lowValueChangeBrake intent unless ownership drift or code changes occur.",
+      "The daily precision auditor state itself had not been refreshed since 2026-05-31; this run restores dailyAuditorLastRun/directive bookkeeping so future drift is explicit."
     ],
-    "recommendedNextMode": "Recreated as active full-product QA remediation cron 9e36e64a75ae; first runs should prioritize completion QA batches and real user workflow verification before ordinary backlog work."
+    "recommendedNextMode": "Honor dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02: treat the next main-job ticks as minimal command closeout-only retries until restart approval is granted or the blocker is explicitly preserved, and do not broaden into a new canary while the dirty slice remains unchanged."
   },
   "currentCronJobName": "VControlHub full-product QA remediation loop — canary evidence QA",
   "commitPolicy": {
@@ -638,6 +735,145 @@
       "type": "canary_evidence_no_code_change_environment_blocker",
       "target": "quick-services-docker-canary",
       "summary": "Verified Quick Services Docker-unavailable readiness/fail-closed path in production browser/API/DB; full Docker lifecycle remains blocked by missing Docker binary."
+    },
+    {
+      "at": "2026-06-02T11:25:07Z",
+      "type": "canary_code_verified_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Commands/Operation Tasks canary verified real SSH execution and patched command SSH known_hosts handling; deploy/commit deferred pending restart approval."
+    },
+    {
+      "at": "2026-06-02T12:39:00Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Second closeout retry reran targeted command tests 27/27, typecheck, lint, build, runtime build, smoke, service/status/log probes, and QA cleanup; restart approval remains blocked so commit/push deferred."
+    },
+    {
+      "at": "2026-06-02T13:14:30Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Third closeout retry reran targeted command tests 27/27, typecheck, lint, build, runtime build, /api/status, smoke 24/24, service/status/log probes, and QA cleanup; restart approval remains blocked so commit/push deferred."
+    },
+    {
+      "at": "2026-06-02T14:44:06Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Fourth closeout retry reran command regressions, typecheck, lint, build, runtime build, /api/status, smoke 24/24, service/status/log probes, and QA cleanup; restart approval remains blocked so commit/push deferred."
+    },
+    {
+      "at": "2026-06-02T15:20:27Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Fifth closeout retry fixed a regression-test isolation issue in the known_hosts test, reran command and neighboring tests, typecheck, lint, build, runtime build, /api/status, smoke 24/24, service/status/log probes; restart approval remains blocked so commit/push deferred."
+    },
+    {
+      "at": "2026-06-02T15:56:06Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Sixth closeout retry reran command regressions, typecheck, lint, build, runtime build, /api/status, smoke 24/24, service/status/log probes, and verified origin/main sync; restart approval remains blocked so commit/push is still deferred."
+    },
+    {
+      "at": "2026-06-02T16:31:44Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Seventh closeout retry confirmed the dirty diff and origin/main sync, reran narrow command service/API/Operation Tasks regressions 30/30 plus /api/status, smoke 24/24, and service/log checks, then hit the same approval-blocked production service-control restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T17:41:32Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Eighth closeout retry tightened the parallel-target regression to bind the slow SSH child by host/args instead of spawn order, reran command service/API/Operation Tasks regressions 30/30 plus typecheck, lint, build, runtime build, /api/status, smoke 24/24, service/log/origin checks, and then hit approval_pending again on the required .next ownership repair plus production service restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T18:20:10Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Ninth closeout retry reran command service/API/Operation Tasks regressions 30/30 plus typecheck, lint, build, runtime build, git diff --check, origin/main sync, /api/status, smoke 24/24, service/log checks, and reconfirmed .next/server remained root:root after the build; approval_pending again blocked the required ownership repair plus production service restart, so commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T18:56:15Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Tenth closeout retry reran command service/API/Operation Tasks regressions 30/30, rechecked origin/main sync, reconfirmed /api/status healthy, smoke 24/24, and recent service logs clean, then confirmed .next/server was still root:root and hit approval_pending again on the required ownership repair plus production service restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T19:43:58Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Eleventh closeout retry reran command service/API/Operation Tasks regressions 30/30, reconfirmed /api/status healthy, smoke 24/24, service status/log checks, repaired .next runtime ownership back to vcontrolhub:vcontrolhub, and then hit approval_pending again on the required production service-control restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T20:20:09Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Twelfth closeout retry confirmed the dirty diff was unchanged, reran command service/API/Operation Tasks regressions 30/30, reconfirmed .next runtime ownership stayed vcontrolhub:vcontrolhub, rechecked origin/main sync, /api/status healthy, smoke 24/24, and recent service logs clean, then hit approval_pending again on the required production service-control restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T20:59:24Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Thirteenth closeout retry confirmed the dirty diff was unchanged, reran command service/API/Operation Tasks regressions 30/30 plus typecheck, lint, build, and runtime build, reconfirmed local HEAD == origin/main and .next runtime ownership stayed vcontrolhub:vcontrolhub, verified local /api/status healthy via direct Python probe, reran smoke 24/24, confirmed service/log health, and then hit approval_pending again on the required production service-control restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T21:53:18Z",
+      "type": "dirty_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Fifteenth closeout retry reran command service/API/Operation Tasks regressions 30/30 plus typecheck, lint, build, runtime build, /api/status, smoke 24/24, service/log checks, origin/main sync, and QA cleanup, re-repaired .next runtime ownership after the build reverted .next/server to root:root again, and then hit approval_pending again on the required production service-control restart; commit/push remains deferred."
+    },
+    {
+      "at": "2026-06-02T22:24:54Z",
+      "type": "daily_precision_audit_directive_issued",
+      "target": "commands-deployments-tasks-canary",
+      "jobId": "d42e2078d544",
+      "summary": "Daily canary precision audit found strong evidence quality but poor rotation/deployment closeout because 14 of the last 19 recent events were repeated approval-blocked command closeout retries. Issued directive closeout-commands-restart-blocker-2026-06-02 to force closeout-only handling, one narrow activation retry per tick, and no broadened canary work until this dirty slice is resolved or explicitly preserved."
+    },
+    {
+      "at": "2026-06-02T22:40:18Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02: confirmed the dirty command known_hosts diff was unchanged, HEAD still matched origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and /api/status were healthy, recent logs were clean, and one narrow activation retry still returned approval_pending for the production service-control restart. Scope was not widened."
+    },
+    {
+      "at": "2026-06-02T23:17:48Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the dirty command known_hosts diff was unchanged, HEAD still matched origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and local /api/status were healthy, recent logs were clean, and one narrow activation retry still returned approval_pending for the production service-control restart. Scope was not widened."
+    },
+    {
+      "at": "2026-06-02T23:51:15Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 once more: confirmed the dirty command known_hosts diff was unchanged, git fetch kept HEAD == origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and local /api/status were healthy, recent logs were clean, and one narrow activation retry still returned approval_pending for the production service-control restart. Scope was not widened."
+    },
+    {
+      "at": "2026-06-03T00:24:57Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the dirty command known_hosts diff was unchanged, git fetch kept HEAD == origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and local /api/status were healthy, recent logs were clean, and one narrow activation retry still returned approval_pending for the production service-control restart. Scope was not widened."
+    },
+    {
+      "at": "2026-06-03T01:01:16Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the command known_hosts product diff was unchanged, git fetch kept HEAD == origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and local /api/status were healthy (generatedAt 2026-06-03T01:00:49.594Z), recent logs were clean, and one narrow activation retry still returned approval_pending for the production service-control restart. Scope was not widened."
+    },
+    {
+      "at": "2026-06-03T01:35:36Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the command known_hosts product diff was unchanged, git fetch kept HEAD == origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and local /api/status were healthy (generatedAt 2026-06-03T01:35:07.439Z), recent logs were clean, and one narrow activation retry still returned approval_pending for the production service-control restart. Scope was not widened."
+    },
+    {
+      "at": "2026-06-03T02:09:35Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the command known_hosts product diff was unchanged, git fetch kept HEAD == origin/main, `.next` ownership remained vcontrolhub:vcontrolhub, services and local /api/status were healthy (generatedAt 2026-06-03T02:09:12.508Z), recent logs were clean, and one narrow service-control activation retry still returned approval_pending. Scope was not widened."
+    },
+    {
+      "at": "2026-06-03T02:42:08Z",
+      "type": "directive_closeout_retry_deploy_blocked",
+      "target": "commands-deployments-tasks-canary",
+      "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the command known_hosts product diff was unchanged, git fetch kept HEAD == origin/main, repaired .next/server ownership drift back to vcontrolhub:vcontrolhub, services and local /api/status were healthy (generatedAt 2026-06-03T02:42:06.635Z), recent logs were clean, and one narrow service-control activation retry still returned approval_pending. Scope was not widened."
     }
   ]
 }
