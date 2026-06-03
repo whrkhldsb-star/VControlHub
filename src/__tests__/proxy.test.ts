@@ -91,6 +91,16 @@ describe("proxy auth guard", () => {
     );
   });
 
+  it("lets anonymous browsers reach app icon assets", () => {
+    for (const pathname of ["/favicon.ico", "/icon.png", "/apple-icon.png"]) {
+      const response = proxy(makeRequest(pathname));
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    }
+  });
+
   it("lets anonymous browsers reach image file GET routes so public image links can render", () => {
     const response = proxy(makeRequest("/api/images/img_1/file"));
 

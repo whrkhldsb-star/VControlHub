@@ -41,6 +41,8 @@ describe("session auth helpers", () => {
     expect(shouldBypassAuth("/login")).toBe(true);
     expect(shouldBypassAuth("/_next/static/chunk.js")).toBe(true);
     expect(shouldBypassAuth("/favicon.ico")).toBe(true);
+    expect(shouldBypassAuth("/icon.png")).toBe(true);
+    expect(shouldBypassAuth("/apple-icon.png")).toBe(true);
     expect(shouldBypassAuth("/status")).toBe(true);
     expect(shouldBypassAuth("/api/status")).toBe(true);
     expect(shouldBypassAuth("/servers")).toBe(false);

@@ -30,6 +30,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/_next", // static assets
   "/api/public", // public API endpoints
   "/favicon.ico",
+  "/icon.png",
+  "/apple-icon.png",
   "/share/", // share token pages (validated server-side)
 ];
 

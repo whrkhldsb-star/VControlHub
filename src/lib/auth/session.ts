@@ -27,7 +27,14 @@ export function getSessionTtlSeconds(remember = false) {
   const envName = remember ? "AUTH_REMEMBER_SESSION_TTL_SECONDS" : "AUTH_SESSION_TTL_SECONDS";
   return readPositiveIntEnv(envName, fallback);
 }
-const AUTH_BYPASS_PREFIXES = ["/_next", "/api/public", "/api/status", "/favicon.ico"];
+const AUTH_BYPASS_PREFIXES = [
+  "/_next",
+  "/api/public",
+  "/api/status",
+  "/favicon.ico",
+  "/icon.png",
+  "/apple-icon.png",
+];
 const AUTH_BYPASS_EXACT = new Set(["/login", "/login/verify-2fa", "/api/login", "/api/auth/2fa/verify-login", "/status"]);
 
 export type SessionPayload = {
