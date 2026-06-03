@@ -354,6 +354,30 @@ describe("SFTP file entry actions", () => {
     });
   });
 
+  it("permanent SFTP delete tolerates an already-missing remote file and still removes the recycle-bin row", async () => {
+    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    deleteRemoteFileMock.mockRejectedValueOnce(
+      Object.assign(new Error("No such file"), { code: "ENOENT" }),
+    );
+    prismaMock.fileEntry.delete.mockResolvedValueOnce({ id: "entry-1" });
+
+    const result = await permanentDeleteFileEntryAction(
+      null,
+      entryForm("entry-1"),
+    );
+
+    expect(result).toEqual({ success: "已永久删除 old.txt" });
+    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/root/docs/old.txt",
+        isDirectory: false,
+      }),
+    );
+    expect(prismaMock.fileEntry.delete).toHaveBeenCalledWith({
+      where: { id: "entry-1" },
+    });
+  });
+
   it("renames the remote SFTP file before updating indexed paths", async () => {
     prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);

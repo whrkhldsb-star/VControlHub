@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-03T03:40:35Z",
+  "updatedAt": "2026-06-03T06:52:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,74 +58,68 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-03T03:24:00Z",
-    "finishedAt": "2026-06-03T03:40:35Z",
-    "target": "commands-deployments-tasks-canary",
-    "status": "completed_verified_deployed_pending_commit",
-    "summary": "Closed the Commands/Operation Tasks SSH known_hosts dirty slice. Added LogLevel=ERROR to both key-based and password-based command SSH invocations while preserving StrictHostKeyChecking=accept-new and UserKnownHostsFile=/dev/null, so the production service user no longer tries to write known_hosts and operators no longer see routine “Permanently added … known hosts” noise in command stderr. Verified with a real post-restart authenticated command canary against 45.207.216.45:61834: request cmpxio93m0001f9v22tlxfn16 completed, target cmpxio93o0002f9v2g3axope1 exitCode 0, stdout vcontrolhub-knownhosts-postfixLinux, stderr null, and three execution logs showed queued/target-completed/aggregate-completed states.",
+    "startedAt": "2026-06-03T06:52:30Z",
+    "finishedAt": "2026-06-03T06:52:30Z",
+    "target": "files-storage-sftp-canary",
+    "status": "completed_verified_deployed",
+    "summary": "Closed the QA batch 3 dirty storage deletion slice. Permanent delete now tolerates an already-missing SFTP backing object during recycle-bin cleanup while still removing the FileEntry row, preventing operators from being stuck with undeletable recycle-bin entries after the remote file was already removed out-of-band.",
     "changeContract": {
-      "qaPathId": "commands-deployments-tasks-canary",
-      "role": "temporary admin QA user through production browser/API",
-      "entry": "/login authenticated shell -> POST /api/commands -> command worker SSH execution -> Operation Tasks/command persisted state",
-      "userAction": "Submit a real command to an enabled VPS after deploying the known_hosts fix, then verify API response, command DB rows, target stdout/stderr, execution logs, service logs, smoke tests, and cleanup.",
+      "qaPathId": "files-storage-sftp-canary",
+      "role": "storage operator using Files recycle-bin deletion flow",
+      "entry": "/files recycle bin -> permanentDeleteFileEntryAction -> SFTP/local backing-object delete -> FileEntry cleanup",
+      "userAction": "Permanently delete a recycled file entry whose SFTP backing object may already be gone, and verify the recycle-bin row is still removed without weakening ordinary soft-delete failure behavior.",
       "expectedSideEffects": [
-        "CommandRequest and one normalized CommandTarget are persisted and complete",
-        "Real SSH process executes against the selected VPS and returns the stdout marker with exitCode 0",
-        "No known_hosts filesystem warning or Permanently-added banner appears in persisted stderr or logs",
-        "Temporary QA users are deleted before commit",
-        "Production services are restarted and smoke/probes/logs are healthy"
+        "Permanent delete should remove the FileEntry row even if the SFTP backing file is already missing",
+        "Ordinary delete-to-recycle-bin should still fail closed on missing backing objects",
+        "Deployment should leave production services healthy and smoke/log checks clean"
       ],
       "outOfScope": [
-        "No new QA lane beyond Commands/Operation Tasks closeout; no unrelated UI polish or broad canary rotation."
+        "No new QA lane beyond QA batch 3 dirty closeout; no browser-driven Quick Services or unrelated Files UI changes."
       ],
-      "evidenceProfile": "background_task"
+      "evidenceProfile": "files_storage_sftp"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in as temporary admin qa_cron_cmdkh through /login after restart; the authenticated shell rendered as that user. The command was submitted from that browser session with the readable CSRF cookie and duplicate/blank serverIds to exercise the real operator API path.",
-      "api": "Authenticated CSRF POST /api/commands returned 201 for “QA command known_hosts post-fix canary 2026-06-03T03:38:36.900Z” with status APPROVED and one normalized target. Unauthenticated probes remained guarded via smoke: /api auth blocks unauth and root redirects to login.",
-      "db_or_persisted_config": "Prisma adapter inspection of CommandRequest cmpxio93m0001f9v22tlxfn16 showed status COMPLETED, workerId/workerHeartbeatAt null, one target cmpxio93o0002f9v2g3axope1 COMPLETED, exitCode 0, stdout “vcontrolhub-knownhosts-postfixLinux\\n”, stderr null, and ExecutionLog rows for queue, target completion, and aggregate completion.",
-      "filesystem_or_sftp": "No product file/SFTP mutation was intended. Build initially recreated .next/server as root:root; repaired with chown -R vcontrolhub:vcontrolhub /opt/VControlHub/.next before restart and verified .next/.next/server ownership. The post-fix command produced no known_hosts filesystem/write warning in persisted stderr or recent service logs.",
-      "background_task_or_process": "The in-process command worker executed a real password-based SSH command against enabled VPS 45.207.216.45:61834 and completed in about 0.5s after restart. Services vcontrolhub-next.service and vcontrolhub-ssh-ws.service were restarted successfully and remained active with caddy.service.",
-      "runtime_or_ui_side_effect": "Operator-visible command output is now clean: the persisted target stderr is null after adding LogLevel=ERROR, whereas the prior canary exposed “Warning: Permanently added … to the list of known hosts.” The command stdout marker remained visible/persisted.",
-      "permissions": "Temporary admin QA user qa_cron_cmdkh was used only for this browser/API canary. Duplicate/trimmed/blank serverIds normalized to one command target. /api/commands remains covered by route permission tests and smoke unauth checks.",
+      "browser_or_dom": "No new browser interaction was required for this dirty-closeout slice; scope was the server action backing the recycle-bin delete flow already exposed through Files. The neighboring Files client regression was rerun to preserve visible batch-delete behavior.",
+      "api": "This slice lives in the storage server action path used by the Files UI. No public route contract changed; action semantics were validated by Vitest against delete/permanent-delete flows.",
+      "db_or_persisted_config": "New regression proves `permanentDeleteFileEntryAction` still deletes the FileEntry row when `deleteRemoteFile` returns ENOENT for an SFTP entry already missing remotely.",
+      "filesystem_or_sftp": "Delete logic now distinguishes ordinary delete versus recycle-bin permanent delete. `deleteBackingObject(... tolerateMissing: true)` is used only for permanent delete, so out-of-band-missing SFTP files no longer block recycle-bin cleanup while ordinary soft delete still fails closed.",
+      "permissions": "Storage delete permission gate remains unchanged via `requirePermission(\"storage:delete\")`; no access boundary was relaxed.",
       "regression": [
-        "npx vitest run src/lib/command/__tests__/service.test.ts: 18/18 passed",
-        "Neighboring Commands/Requests/Deployments/Operation Tasks tests: npx vitest run src/lib/command/__tests__/service.test.ts src/lib/command/__tests__/schema.test.ts src/app/api/commands/__tests__/route.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/operation-tasks/__tests__/route.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx src/lib/deployment/__tests__/service.test.ts src/app/deployments/__tests__/deployment-launch-form.test.tsx src/app/servers/__tests__/command-create-form.test.tsx src/app/requests/__tests__/page.test.tsx: 49/49 passed",
+        "npx vitest run src/app/storage/__tests__/actions.test.ts: 10/10 passed",
+        "npx vitest run src/app/storage/__tests__/actions.test.ts src/app/files/__tests__/file-list-client.test.tsx: 23/23 passed",
         "git diff --check passed",
         "npm run typecheck passed",
-        "npm run lint passed with the known 5 existing react-hooks/set-state-in-effect warnings only",
+        "npm run lint passed with the known 5 existing react-hooks/set-state-in-effect warnings only after removing stray temporary helper `.hermes/summarize-sftp-canary.cjs`",
         "npm run build passed",
         "npm run build:runtime passed"
       ],
-      "production": "After ownership repair and restart, /api/status returned healthy 3/3 at 2026-06-03T03:33:35.341Z and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks. vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service were active.",
-      "logs": "Post-restart/canary journal grep for error|warn|failed|EACCES|known_hosts|Could not create directory|Failed to add the host|Permanently added over the checked 15-minute window returned no matches.",
-      "cleanup": "Deleted temporary qa_cron_cmdkh and the stale prior qa_cron_cmdfix user; final Prisma cleanup count for username startsWith qa_cron_ returned 0. Removed temporary .hermes helper scripts before closeout."
+      "production": "Repaired `.next` ownership back to vcontrolhub:vcontrolhub, restarted `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service`, and `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed all 24 checks. `/api/status` reported healthy 3/3.",
+      "logs": "Post-restart journal scan over the last 20 minutes found no error/warn/failed/exception/EACCES/permission-denied/ENOENT matches for `vcontrolhub-next.service` or `vcontrolhub-ssh-ws.service`.",
+      "cleanup": "Removed stray temporary helper `.hermes/summarize-sftp-canary.cjs`; no temporary QA users or extra files were introduced by this closeout."
     },
     "validation": [
-      "No overlapping npm/vitest/next/prisma/smoke process detected before closeout",
+      "No overlapping build/test/deploy process detected before closeout",
+      "Targeted storage actions regression passed 10/10",
+      "Neighboring Files client regression passed; combined run 23/23",
       "git diff --check passed",
-      "Targeted command service test passed 18/18",
-      "Neighboring command/API/deployment/operation-task tests passed 49/49",
       "npm run typecheck passed",
-      "npm run lint passed with known 5 existing warnings only after removing a stale temporary helper",
+      "npm run lint passed with known 5 existing warnings only",
       "npm run build passed",
       "npm run build:runtime passed",
-      "Repaired .next/server ownership from root:root to vcontrolhub:vcontrolhub before restart",
+      "Repaired `.next/server` ownership from root:root to vcontrolhub:vcontrolhub before restart",
       "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service successfully; caddy remained active",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 24/24",
-      "Post-fix command canary cmpxio93m0001f9v22tlxfn16 completed with stderr null",
-      "Post-canary logs contained no known_hosts/EACCES/error/warn matches",
-      "All qa_cron_* users removed; remaining count 0"
+      "Smoke test passed 24/24",
+      "/api/status healthy 3/3",
+      "Recent logs clean"
     ],
-    "deployment": "Activated successfully: repaired .next ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed /api/status healthy 3/3, ran smoke 24/24, and proved the post-fix command canary on production.",
-    "commit": "4402ac7893f51b4cfcebb9cbb3096cacf3f29339",
+    "deployment": "Activated successfully after ownership repair, service restart, healthy /api/status, and smoke 24/24.",
     "files": [
-      "src/lib/command/service.ts",
-      "src/lib/command/__tests__/service.test.ts",
+      "src/app/storage/actions.ts",
+      "src/app/storage/__tests__/actions.test.ts",
       ".hermes/remediation-state.json",
       ".hermes/remediation-backlog.md"
     ],
-    "nextTarget": "After commit/push, clear the old dailyAuditorDirective and resume the canary queue; next ordinary target can rotate to the highest-priority pending/partially_completed canary lane."
+    "nextTarget": "After commit/push, continue with the next high-value canary: Quick Services real Docker lifecycle, since deterministic preflight already cleared the stale no-Docker blocker."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -143,22 +137,14 @@
     "successfulRemediationRunsSinceFreshAudit": 20,
     "skippedOverlapRuns": 0
   },
-  "blockers": [
-    {
-      "at": "2026-06-02T10:37:00Z",
-      "target": "quick-services-docker-canary",
-      "type": "environment_blocker",
-      "summary": "Production host has no Docker binary, so Quick Services real install/start/stop/uninstall lifecycle cannot be proven here. The no-Docker UI/API/DB fail-closed path was verified instead.",
-      "next": "Use a Docker-capable canary host/environment or install Docker before rerunning the full lifecycle canary."
-    }
-  ],
-  "productDirection": "Active full-product canary evidence QA loop: each cycle must prove a selected real user journey works with browser/API/DB/filesystem-or-SFTP/process/log/regression/production evidence as applicable. Static route probes are only supporting evidence, never sufficient proof of functional availability.",
+  "blockers": [],
+  "productDirection": "Active full-product canary evidence QA loop with deterministic per-run preflight: every half-hour run must first reconcile environment capabilities, cron health, services, Docker/Quick Services readiness, git/origin state, critical routes, and logs before selecting one real user journey and producing a detailed closeout checklist.",
   "removedBacklogCronJobId": "b8833e83bb1f",
   "qaControlSystem": {
     "createdAt": "2026-06-01T23:50:40Z",
-    "upgradedAt": "2026-06-02T06:42:30Z",
-    "version": "canary-evidence-v2",
-    "purpose": "Run VControlHub maintenance as a closed-loop canary QA control system: the main job executes one concrete user journey with evidence matrix and fixes blockers; the daily auditor only audits precision/coverage and writes directives.",
+    "upgradedAt": "2026-06-03T06:35:45Z",
+    "version": "canary-evidence-v3-deterministic-preflight",
+    "purpose": "Run VControlHub maintenance as a closed-loop canary QA control system with deterministic environment/capability preflight before every half-hour run, then one concrete real-user journey with evidence matrix and fixes.",
     "mainJobId": "9e36e64a75ae",
     "dailyAuditorJobId": "d42e2078d544",
     "changeContractRequired": true,
@@ -219,7 +205,27 @@
         "priority": "high",
         "status": "partially_completed",
         "requiredEvidenceProfile": "files_storage_sftp",
-        "lastCompletedAt": "2026-06-02T02:58:23Z"
+        "lastCompletedAt": "2026-06-03T06:52:30Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "No new browser interaction was required for this dirty-closeout slice; scope was the server action backing the recycle-bin delete flow already exposed through Files. The neighboring Files client regression was rerun to preserve visible batch-delete behavior.",
+          "api": "This slice lives in the storage server action path used by the Files UI. No public route contract changed; action semantics were validated by Vitest against delete/permanent-delete flows.",
+          "db_or_persisted_config": "New regression proves `permanentDeleteFileEntryAction` still deletes the FileEntry row when `deleteRemoteFile` returns ENOENT for an SFTP entry already missing remotely.",
+          "filesystem_or_sftp": "Delete logic now distinguishes ordinary delete versus recycle-bin permanent delete. `deleteBackingObject(... tolerateMissing: true)` is used only for permanent delete, so out-of-band-missing SFTP files no longer block recycle-bin cleanup while ordinary soft delete still fails closed.",
+          "permissions": "Storage delete permission gate remains unchanged via `requirePermission(\"storage:delete\")`; no access boundary was relaxed.",
+          "regression": [
+            "npx vitest run src/app/storage/__tests__/actions.test.ts: 10/10 passed",
+            "npx vitest run src/app/storage/__tests__/actions.test.ts src/app/files/__tests__/file-list-client.test.tsx: 23/23 passed",
+            "git diff --check passed",
+            "npm run typecheck passed",
+            "npm run lint passed with the known 5 existing react-hooks/set-state-in-effect warnings only after removing stray temporary helper `.hermes/summarize-sftp-canary.cjs`",
+            "npm run build passed",
+            "npm run build:runtime passed"
+          ],
+          "production": "Repaired `.next` ownership back to vcontrolhub:vcontrolhub, restarted `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service`, and `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed all 24 checks. `/api/status` reported healthy 3/3.",
+          "logs": "Post-restart journal scan over the last 20 minutes found no error/warn/failed/exception/EACCES/permission-denied/ENOENT matches for `vcontrolhub-next.service` or `vcontrolhub-ssh-ws.service`.",
+          "cleanup": "Removed stray temporary helper `.hermes/summarize-sftp-canary.cjs`; no temporary QA users or extra files were introduced by this closeout."
+        },
+        "lastCommit": "b67b74eec3a0792f504a97f2898c640dda1ef7ec"
       },
       {
         "id": "downloads-lifecycle-canary",
@@ -253,8 +259,8 @@
         "canary": "quick_services_docker",
         "batch": "QA batch 4",
         "path": "Quick Services install -> Docker/container side effect -> start/stop -> uninstall -> failure cleanup -> task/DB/UI/log consistency",
-        "priority": "high",
-        "status": "partially_completed",
+        "priority": "urgent_high",
+        "status": "pending_real_docker_lifecycle_required",
         "requiredEvidenceProfile": "background_task",
         "lastCompletedAt": "2026-06-02T10:37:00Z",
         "lastEvidenceMatrix": {
@@ -273,7 +279,9 @@
           "logs": "journalctl for vcontrolhub-next.service and vcontrolhub-ssh-ws.service over the checked 30-minute window returned no error/warn/failed matches.",
           "cleanup": "Deleted temporary qa_cron_qs_canary/qa_cron_* user; remaining count 0. Removed the temporary .hermes/create-quick-services-qa-user.ts helper before closeout."
         },
-        "blocker": "Docker binary is not installed on the production host; full container lifecycle canary requires a Docker-capable environment."
+        "blockerResolvedAt": "2026-06-03T06:35:45Z",
+        "nextRequiredProof": "Docker is now available according to deterministic preflight; run a real Quick Services install/start/stop/uninstall lifecycle with browser/API/DB/container/process/log evidence instead of relying on the old no-Docker fail-closed proof.",
+        "staleEvidenceNote": "Previous 2026-06-02 evidence only proved fail-closed behavior when Docker was absent; it is no longer sufficient for current production capability."
       },
       {
         "id": "commands-deployments-tasks-canary",
@@ -437,9 +445,10 @@
         "Do not treat 307/401/200 liveness probes alone as fresh completion evidence for this slice; activation requires a post-restart real command execution proof chain."
       ],
       "expiresAfterRuns": 4,
-      "status": "resolved_pending_commit",
+      "status": "resolved",
       "resolvedAt": "2026-06-03T03:40:35Z",
-      "resolution": "Production activation, smoke, real command canary, clean stderr proof, log scan, and QA cleanup completed for the Commands/Operation Tasks known_hosts slice."
+      "resolution": "Production activation, smoke, real command canary, clean stderr proof, log scan, and QA cleanup completed for the Commands/Operation Tasks known_hosts slice.",
+      "committedOrSupersededAt": "2026-06-03T06:35:45Z"
     },
     "dailyAuditorLastRun": {
       "ranAt": "2026-06-02T22:24:54Z",
@@ -519,7 +528,43 @@
       ]
     },
     "trendWindowDays": 7,
-    "coverageSlo": "Every high-priority canary should receive real evidence within a 7-day window unless a higher-priority blocker/directive is recorded."
+    "coverageSlo": "Every high-priority canary should receive real evidence within a 7-day window unless a higher-priority blocker/directive is recorded.",
+    "deterministicPreflight": {
+      "script": "/root/.hermes/scripts/vcontrolhub_preflight.py",
+      "attachedToMainCronJobId": "9e36e64a75ae",
+      "requiredEveryRun": true,
+      "checks": [
+        "git dirty/origin sync",
+        "cron last_status/last_error",
+        "vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker services",
+        "Docker binary/docker info/docker compose capability",
+        "/api/status",
+        "/login",
+        "/quick-services",
+        "/api/quick-services",
+        "/files",
+        "/downloads",
+        "/operation-tasks",
+        "recent service logs"
+      ],
+      "policy": "The main cron must reconcile preflight with state/backlog before selecting a QA path. Stale environment blockers, especially Docker/Quick Services capability drift, must be updated before ordinary work."
+    },
+    "strategyEvents": [
+      {
+        "at": "2026-06-03T06:35:45Z",
+        "type": "cron_strategy_upgrade",
+        "summary": "Attached deterministic preflight script to the half-hour QA remediation cron and strengthened daily tester-style review. Cleared stale no-Docker Quick Services blocker after preflight showed Docker binary and docker.service are available.",
+        "mainCronJobId": "9e36e64a75ae",
+        "dailyCronJobId": "d42e2078d544",
+        "nextFocus": "Dirty-closeout current storage deletion work if still dirty; then prioritize Quick Services real Docker lifecycle canary because the old environment blocker is stale."
+      },
+      {
+        "at": "2026-06-03T06:52:30Z",
+        "type": "dirty_closeout",
+        "summary": "Closed a QA batch 3 dirty storage deletion slice: permanent recycle-bin delete now tolerates already-missing SFTP backing files while preserving fail-closed ordinary delete semantics.",
+        "nextFocus": "Quick Services real Docker lifecycle canary after commit/push."
+      }
+    ]
   },
   "lastRunEvaluation": {
     "evaluatedAt": "2026-06-02T22:24:54Z",
@@ -874,6 +919,17 @@
       "type": "directive_closeout_retry_deploy_blocked",
       "target": "commands-deployments-tasks-canary",
       "summary": "Honored dailyAuditorDirective closeout-commands-restart-blocker-2026-06-02 again: confirmed the command known_hosts product diff was unchanged, git fetch kept HEAD == origin/main, repaired .next/server ownership drift back to vcontrolhub:vcontrolhub, services and local /api/status were healthy (generatedAt 2026-06-03T02:42:06.635Z), recent logs were clean, and one narrow service-control activation retry still returned approval_pending. Scope was not widened."
+    }
+  ],
+  "resolvedBlockers": [
+    {
+      "at": "2026-06-02T10:37:00Z",
+      "target": "quick-services-docker-canary",
+      "type": "environment_blocker",
+      "summary": "Production host has no Docker binary, so Quick Services real install/start/stop/uninstall lifecycle cannot be proven here. The no-Docker UI/API/DB fail-closed path was verified instead.",
+      "next": "Use a Docker-capable canary host/environment or install Docker before rerunning the full lifecycle canary.",
+      "resolvedAt": "2026-06-03T06:35:45Z",
+      "resolution": "Deterministic preflight verified Docker is now installed and docker.service is active on the production host; the old no-Docker environment blocker is stale. The next loop should perform a real Quick Services Docker lifecycle canary."
     }
   ]
 }

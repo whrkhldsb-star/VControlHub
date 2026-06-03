@@ -168,6 +168,44 @@ async function runLocalFilesystemDelete(input: {
   }
 }
 
+function isMissingBackingObjectError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const code = (error as { code?: unknown }).code;
+  if (code === "ENOENT" || code === 2) return true;
+  return /no such file|not found|does not exist|不存在|no_such_file/i.test(
+    error.message,
+  );
+}
+
+async function deleteBackingObject(input: {
+  storageNode: {
+    driver: string;
+    basePath: string;
+    host?: string | null;
+    port?: number | null;
+    username?: string | null;
+    server?: {
+      host?: string | null;
+      port?: number | null;
+      username?: string | null;
+      connectionType?: string | null;
+      password?: string | null;
+      sshKey?: { privateKey?: string | null } | null;
+    } | null;
+  };
+  relativePath: string;
+  isDirectory: boolean;
+  tolerateMissing: boolean;
+}) {
+  try {
+    await runSftpRemoteDelete(input);
+    await runLocalFilesystemDelete(input);
+  } catch (error) {
+    if (input.tolerateMissing && isMissingBackingObjectError(error)) return;
+    throw error;
+  }
+}
+
 async function runLocalFilesystemRename(input: {
   storageNode: { driver: string; basePath: string };
   oldRelativePath: string;
@@ -485,15 +523,11 @@ export async function deleteFileEntryAction(
       return { error: "文件条目不存在" } satisfies StorageActionState;
     }
 
-    await runSftpRemoteDelete({
+    await deleteBackingObject({
       storageNode: entry.storageNode,
       relativePath: entry.relativePath,
       isDirectory: entry.entryType === "DIRECTORY",
-    });
-    await runLocalFilesystemDelete({
-      storageNode: entry.storageNode,
-      relativePath: entry.relativePath,
-      isDirectory: entry.entryType === "DIRECTORY",
+      tolerateMissing: false,
     });
 
     if (entry.entryType === "DIRECTORY") {
@@ -636,15 +670,11 @@ export async function permanentDeleteFileEntryAction(
       return { error: "文件条目不存在" } satisfies StorageActionState;
     }
 
-    await runSftpRemoteDelete({
+    await deleteBackingObject({
       storageNode: entry.storageNode,
       relativePath: entry.relativePath,
       isDirectory: entry.entryType === "DIRECTORY",
-    });
-    await runLocalFilesystemDelete({
-      storageNode: entry.storageNode,
-      relativePath: entry.relativePath,
-      isDirectory: entry.entryType === "DIRECTORY",
+      tolerateMissing: true,
     });
 
     if (entry.entryType === "DIRECTORY") {
