@@ -118,7 +118,7 @@
       "All qa_cron_* users removed; remaining count 0"
     ],
     "deployment": "Activated successfully: repaired .next ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed /api/status healthy 3/3, ran smoke 24/24, and proved the post-fix command canary on production.",
-    "commit": null,
+    "commit": "4402ac7893f51b4cfcebb9cbb3096cacf3f29339",
     "files": [
       "src/lib/command/service.ts",
       "src/lib/command/__tests__/service.test.ts",
