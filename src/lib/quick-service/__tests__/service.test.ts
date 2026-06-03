@@ -26,7 +26,7 @@ vi.mock("child_process", () => ({
 	execFile: execFileMock,
 }));
 
-import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, uninstallService } from "../service";
+import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, syncServiceStatus, uninstallService } from "../service";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -312,5 +312,24 @@ describe("quick service docker lifecycle", () => {
 		expect(checkPort(12345)).toEqual({ available: false, usedBy: "node server.js" });
 		expect(execFileSyncMock).toHaveBeenCalledWith("ss", ["-tlnpH"], expect.any(Object));
 		expect(execFileSyncMock).not.toHaveBeenCalledWith(expect.stringContaining("grep"), expect.anything(), expect.anything());
+	});
+
+	it("treats missing quick-service containers as stopped during status sync instead of surfacing docker inspect noise", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-sync", slug: "demo" });
+		execFileSyncMock.mockImplementationOnce(() => {
+			throw Object.assign(new Error("Command failed: docker inspect --format={{.State.Status}} qs-demo\nError: No such object: qs-demo\n"), {
+				stderr: "Error: No such object: qs-demo\n",
+				stdout: "",
+			});
+		});
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await expect(syncServiceStatus("demo")).resolves.toBe("stopped");
+		expect(execFileSyncMock).toHaveBeenCalledWith(
+			"docker",
+			["inspect", "--format={{.State.Status}}", "qs-demo"],
+			expect.objectContaining({ timeout: 10_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
+		);
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "stopped" } });
 	});
 });

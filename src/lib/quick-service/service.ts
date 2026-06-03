@@ -145,7 +145,7 @@ function resolveEnvValue(value: string) {
 }
 
 function dockerExecSync(args: string[], timeout = 30_000) {
-	return execFileSync("docker", args, { timeout, encoding: "utf8" });
+	return execFileSync("docker", args, { timeout, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
 function dockerErrorMessage(error: unknown): string {
