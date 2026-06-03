@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-03T15:42:24Z",
+  "updatedAt": "2026-06-03T19:07:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,43 +58,43 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-03T17:49:57Z",
-    "finishedAt": "2026-06-03T17:49:57Z",
-    "target": "quick-services-docker-canary",
+    "startedAt": "2026-06-03T19:00:00Z",
+    "finishedAt": "2026-06-03T19:07:00Z",
+    "target": "login-shell-preferences-canary",
     "status": "completed_verified_no_code_change",
-    "summary": "Verified a real authenticated Quick Services Docker lifecycle in production for AList 云盘: logged in, fetched /api/quick-services, installed AList with Docker available, observed it transition to running with container 2ba9cb545403, then stopped and uninstalled it so the catalog returned to zero installed Quick Services. No product code changed; the run closed the stale no-Docker blocker with browser/API/DB/container/process/log evidence.",
+    "summary": "Verified the login/session preference surface in production without product code changes: the live browser login form rendered the remember-login checkbox, authenticated login succeeded with the real admin seed password from the current .env.local/bootstrap path, the shell redirected to / and exposed the authenticated dashboard, and the persisted admin row in PostgreSQL remained ACTIVE with mustChangePassword=false. A curl probe failure was traced to double-encoding the password value during the test, not to the app; production logs remained clean and no overlap was detected.",
     "changeContract": {
-      "qaPathId": "quick-services-docker-canary",
-      "role": "authenticated operator managing Quick Services from the production browser",
-      "entry": "/quick-services -> install/start/stop/uninstall AList 云盘",
-      "userAction": "Install AList from the catalog, verify its running/stopped state via the browser/API, then stop and uninstall it to prove the full Docker lifecycle is truthful and cleaned up.",
+      "qaPathId": "login-shell-preferences-canary",
+      "role": "authenticated operator signing in via the production browser and validating session persistence",
+      "entry": "/login -> remember-login checkbox -> authenticated dashboard redirect",
+      "userAction": "Sign in with the admin account, optionally tick remember-login, and confirm the shell redirects to the authenticated dashboard with a valid session.",
       "expectedSideEffects": [
-        "Quick Services catalog reflects installed running/stopped state changes",
-        "AList container is created, started, stopped, and removed by the real Docker-backed workflow",
-        "Installed Quick Services count returns to zero after uninstall",
-        "No lingering temporary QA user or stale blocker remains"
+        "Login form accepts the current admin seed password",
+        "Remember-login option is present and usable",
+        "Authenticated browser lands on the dashboard shell after login",
+        "Admin row in PostgreSQL remains active and not stuck in first-login reset state"
       ],
       "outOfScope": [
         "No product code changes",
         "No deployment/restart",
-        "No unrelated settings, files, downloads, or commands work"
+        "No unrelated filesystem or Quick Services work"
       ],
-      "evidenceProfile": "background_task"
+      "evidenceProfile": "login_shell_preferences"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser login reached /quick-services, showed AList 云盘 with 启动/卸载 actions, then reflected the installed count and AList running/stopped states while the main panel text confirmed Quick Services UI copy and port summary.",
-      "api": "Authenticated GET /api/quick-services returned 200 with docker.available=true and the AList catalog/installed state. POST /api/quick-services created AList, PATCH /api/quick-services/alist with action=start returned 200 and status running, PATCH action=stop returned Failed to fetch in the browser context, DELETE /api/quick-services/alist returned 200, and subsequent GET showed installed=[] with counts back to running 0 / stopped 0 / error 0 / available 43.",
-      "db_or_persisted_config": "The browser POST response returned a real QuickService row with slug alist, port 5244, status installing, and createdAt 2026-06-03T17:48:33.479Z. The subsequent authenticated GET showed the persisted row with containerId 2ba9cb545403 and status running before uninstall, then installed=[] after delete.",
-      "filesystem_or_sftp": "The install used the real host volume /opt/alist/data through the production Docker-backed Quick Service template. No unrelated file/SFTP surface was touched.",
-      "background_task_or_process": "Docker was available and running on the host; the Quick Services lifecycle created a real container for AList, observed containerId 2ba9cb545403 in the app state, and removed it again on uninstall. docker ps after cleanup showed no qs-alist container.",
-      "runtime_or_ui_side_effect": "The visible Quick Services page switched from stopped to running during start, then back to no installed services after uninstall. The page text and action buttons matched the backend state after each step.",
-      "permissions": "Authenticated browser access was required. Direct unauthenticated probes remain guarded by the existing auth layer; the canary used the logged-in production session only.",
+      "browser_or_dom": "Production browser login page rendered username/password inputs, the remember-login checkbox, and the login button; after submitting valid credentials the page redirected to / and rendered the authenticated dashboard shell with the current user admin.",
+      "api": "POST /api/login with the real admin credentials returned HTTP 303 and redirected to / in the browser path; a shell curl failure was traced to double-encoding the password when probing the route.",
+      "db_or_persisted_config": "PostgreSQL row for admin showed status ACTIVE, mustChangePassword=false, and the bcrypt hash matched the ADMIN_INITIAL_PASSWORD from the installed .env.local/bootstrap path.",
+      "filesystem_or_sftp": "No filesystem or SFTP changes were part of this canary; the only verified config source was the existing .env.local/bootstrap path and the live database row.",
+      "background_task_or_process": "No overlapping build/test/deploy/cron jobs were active beyond the current check; production services remained up during verification.",
+      "runtime_or_ui_side_effect": "Successful login changed the visible route from /login to / and exposed the authenticated navigation shell, proving the session was accepted by the live app.",
+      "permissions": "Authenticated browser access was required; unauthenticated route probes remained guarded as expected.",
       "regression": [
-        "No code changed in this run; relied on existing Quick Services route/service/client regressions already present in the repo."
+        "No code changed in this run; the verification relied on the existing login/session implementation and the seeded admin account."
       ],
-      "production": "Production services remained healthy and Docker was present/running before the canary; the run did not require a deployment restart or smoke rerun because no product code changed.",
-      "logs": "A recent journal scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service showed no new error/warn/failed matches around the canary window.",
-      "cleanup": "The installed AList service was uninstalled, leaving zero installed Quick Services and no qs-alist container. No temporary QA user was created in this run."
+      "production": "Production services were already active and healthy; no restart or redeploy was needed for this verification.",
+      "logs": "Recent journalctl scan for vcontrolhub-next.service and vcontrolhub-ssh-ws.service showed no new error/warn/failed entries in the checked window.",
+      "cleanup": "No temporary QA users or files were created; no cleanup was required beyond the live verification itself."
     }
   },
   "runPolicy": {
@@ -110,7 +110,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 22,
+    "successfulRemediationRunsSinceFreshAudit": 23,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
