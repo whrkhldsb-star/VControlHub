@@ -219,10 +219,52 @@ describe("/api/storage/sftp-ops", () => {
         operation: "write",
       }),
     );
+    expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/files/allowed",
+        recursive: true,
+      }),
+    );
     expect(renameRemoteFileMock).toHaveBeenCalled();
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_1", relativePath: "allowed/a.txt" },
       data: { relativePath: "allowed/b.txt", name: "b.txt", isDeleted: false },
+    });
+  });
+
+  it("creates the destination directory before renaming a SFTP file into a nested new path", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce({
+      userId: "u_1",
+      username: "alice",
+    });
+    mockSftpNode();
+
+    const response = await POST(
+      request({
+        action: "rename",
+        nodeId: "node_1",
+        path: "allowed/a.txt",
+        newPath: "nested/path/b.txt",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(createRemoteDirectoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remotePath: "/data/files/nested/path",
+        recursive: true,
+      }),
+    );
+    expect(renameRemoteFileMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oldPath: "/data/files/allowed/a.txt",
+        newPath: "/data/files/nested/path/b.txt",
+      }),
+    );
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", relativePath: "allowed/a.txt" },
+      data: { relativePath: "nested/path/b.txt", name: "b.txt", isDeleted: false },
     });
   });
 

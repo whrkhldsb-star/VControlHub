@@ -83,7 +83,12 @@ export default function MonitoringPage() {
     };
   }, []);
 
-  useEffect(() => { void fetchStats(); }, [fetchStats]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchStats();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchStats]);
   useEffect(() => {
     if (!autoRefresh || refreshIntervalSeconds <= 0) return;
     const id = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);

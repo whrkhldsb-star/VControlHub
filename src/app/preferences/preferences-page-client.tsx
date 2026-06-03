@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
@@ -14,7 +14,30 @@ import {
 
 type Preferences = UserPreferences;
 
+type InitialPreferencesState = {
+	prefs: Preferences;
+	hasStoredPrefs: boolean;
+};
+
 const defaultPrefs: Preferences = defaultUserPreferences;
+
+function readInitialPreferencesState(): InitialPreferencesState {
+	if (typeof window === "undefined") {
+		return { prefs: defaultPrefs, hasStoredPrefs: false };
+	}
+	const local = window.localStorage.getItem("vps-preferences");
+	if (!local) {
+		return { prefs: defaultPrefs, hasStoredPrefs: false };
+	}
+	try {
+		return {
+			prefs: normalizeUserPreferences({ ...defaultPrefs, ...JSON.parse(local) }),
+			hasStoredPrefs: true,
+		};
+	} catch {
+		return { prefs: defaultPrefs, hasStoredPrefs: false };
+	}
+}
 
 const pageOptions = [
 	{ label: "仪表盘", value: "/" },
@@ -63,40 +86,62 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 }
 
 export default function PreferencesPage() {
-	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
-	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(defaultPrefs);
+	const [{ prefs: initialPrefs, hasStoredPrefs }] = useState<InitialPreferencesState>(
+		() => readInitialPreferencesState(),
+	);
+	const [prefs, setPrefs] = useState<Preferences>(initialPrefs);
+	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(() => initialPrefs);
 	const [saved, setSaved] = useState(false);
 	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState(() => !hasStoredPrefs);
+	const activeLoadRequestIdRef = useRef(0);
+	const latestSaveRequestIdRef = useRef(0);
 
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
 	useEffect(() => {
-		// Try localStorage first for instant load, then sync from server
-		const local = localStorage.getItem("vps-preferences");
-		if (local) {
-
-			try { setPrefs(normalizeUserPreferences({ ...defaultPrefs, ...JSON.parse(local) })); } catch {}
-		}
-		csrfFetch("/api/preferences")
-			
-			.then((data) => {
-				if (!data.error) {
-					const nextPrefs = normalizeUserPreferences({ ...defaultPrefs, ...data });
-					setPrefs(nextPrefs);
-					setLastSavedPrefs(nextPrefs);
-					localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
-					setError("");
-				} else {
-					setError(typeof data.error === "string" ? data.error : "偏好设置加载失败");
-				}
-			})
-			.catch((err) => setError(messageFromError(err, "偏好设置加载失败")))
-			.finally(() => setLoading(false));
+		const loadRequestId = activeLoadRequestIdRef.current + 1;
+		activeLoadRequestIdRef.current = loadRequestId;
+		const timer = window.setTimeout(() => {
+			csrfFetch("/api/preferences")
+				.then((data) => {
+					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
+						return;
+					}
+					if (!data.error) {
+						const nextPrefs = normalizeUserPreferences({ ...defaultPrefs, ...data });
+						setPrefs(nextPrefs);
+						setLastSavedPrefs(nextPrefs);
+						localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
+						setError("");
+					} else {
+						setError(typeof data.error === "string" ? data.error : "偏好设置加载失败");
+					}
+				})
+				.catch((err) => {
+					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
+						return;
+					}
+					setError(messageFromError(err, "偏好设置加载失败"));
+				})
+				.finally(() => {
+					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
+						return;
+					}
+					setLoading(false);
+				});
+		}, 0);
+		return () => {
+			activeLoadRequestIdRef.current += 1;
+			window.clearTimeout(timer);
+		};
 	}, []);
 
 	const save = async (newPrefs: Preferences) => {
 		const normalizedPrefs = normalizeUserPreferences(newPrefs);
+		const saveRequestId = latestSaveRequestIdRef.current + 1;
+		latestSaveRequestIdRef.current = saveRequestId;
+		activeLoadRequestIdRef.current = Math.max(activeLoadRequestIdRef.current, saveRequestId);
 		setPrefs(normalizedPrefs);
 		setError("");
 		setSaved(false);

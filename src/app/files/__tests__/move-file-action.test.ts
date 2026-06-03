@@ -36,6 +36,7 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 vi.mock("@/lib/ssh/client", () => ({
+  createRemoteDirectory: vi.fn(),
   renameRemoteFile: vi.fn(),
 }));
 
@@ -47,7 +48,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
 const { prisma } = await import("@/lib/db");
 const { assertStorageAccess } = await import("@/lib/storage/access-control");
 const { mkdir, rename } = await import("node:fs/promises");
-const { renameRemoteFile } = await import("@/lib/ssh/client");
+const { createRemoteDirectory, renameRemoteFile } = await import("@/lib/ssh/client");
 
 const baseEntry = {
   id: "file-1",
@@ -173,6 +174,13 @@ describe("moveFileAction", () => {
     const result = await moveFileAction(null, formData);
 
     expect(result).toEqual({ success: "已移动到 /team-b/a.txt" });
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.10",
+        remotePath: "/srv/storage/team-b",
+        recursive: true,
+      }),
+    );
     expect(renameRemoteFile).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "203.0.113.10",
@@ -184,6 +192,46 @@ describe("moveFileAction", () => {
       expect.objectContaining({
         where: { id: "file-1" },
         data: { relativePath: "team-b/a.txt" },
+      }),
+    );
+  });
+
+  it("creates the destination directory before moving SFTP files into a new nested path", async () => {
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
+      baseEntry as unknown as Awaited<
+        ReturnType<typeof prisma.fileEntry.findUnique>
+      >,
+    );
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
+      id: "file-1",
+    } as never);
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "team-b/nested");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result).toEqual({ success: "已移动到 /team-b/nested/a.txt" });
+    expect(createRemoteDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: "203.0.113.10",
+        remotePath: "/srv/storage/team-b/nested",
+        recursive: true,
+      }),
+    );
+    expect(renameRemoteFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        oldPath: "/srv/storage/team-a/a.txt",
+        newPath: "/srv/storage/team-b/nested/a.txt",
+      }),
+    );
+    expect(prisma.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "file-1" },
+        data: { relativePath: "team-b/nested/a.txt" },
       }),
     );
   });

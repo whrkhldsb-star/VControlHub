@@ -248,11 +248,19 @@ function NodeFilterSelect({
 /* ── Navigation hook ────────────────────────────────────────────── */
 
 function useFolderNavigation(
-  fetchFiles: (path: string, q?: string, scope?: string) => void,
+  fetchFiles: (
+    path: string,
+    q?: string,
+    scope?: string,
+    nodeId?: string,
+    options?: { resetSelection?: boolean },
+  ) => Promise<void>,
 ) {
   const navigateToFolder = useCallback(
     (path: string) => {
-      fetchFiles(path);
+      fetchFiles(path, undefined, undefined, undefined, {
+        resetSelection: true,
+      });
     },
     [fetchFiles],
   );
@@ -416,17 +424,25 @@ export function FilesBrowserSpa({
   const [data, setData] = useState<FilesApiResponse>(initialData);
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [selectionEpoch, setSelectionEpoch] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // Fetch files for a given path — SPA navigation, no page reload
   const fetchFiles = useCallback(
-    async (path: string, q?: string, scope?: string, nodeId?: string) => {
+    async (
+      path: string,
+      q?: string,
+      scope?: string,
+      nodeId?: string,
+      options?: { resetSelection?: boolean },
+    ) => {
       // Cancel previous request
       if (abortRef.current) {
         abortRef.current.abort();
       }
       const controller = new AbortController();
       abortRef.current = controller;
+      const shouldResetSelection = options?.resetSelection ?? false;
 
       setLoading(true);
       setListError(null);
@@ -442,6 +458,9 @@ export function FilesBrowserSpa({
         const json = await csrfFetch(url, { signal: controller.signal });
         const nextData = json as FilesApiResponse;
         setData(nextData);
+        if (shouldResetSelection) {
+          setSelectionEpoch((current) => current + 1);
+        }
         if (nextData.syncWarning) {
           setListError(nextData.syncWarning);
         }
@@ -480,6 +499,7 @@ export function FilesBrowserSpa({
         searchInput,
         data.searchScope,
         data.nodeIdFilter,
+        { resetSelection: true },
       );
     },
     [
@@ -498,6 +518,7 @@ export function FilesBrowserSpa({
         data.searchQuery,
         newScope,
         data.nodeIdFilter,
+        { resetSelection: true },
       );
     },
     [fetchFiles, data.currentPath, data.searchQuery, data.nodeIdFilter],
@@ -529,7 +550,9 @@ export function FilesBrowserSpa({
   const handleNodeFilterChange = useCallback(
     (newNodeId: string) => {
       // Reset to root path when switching nodes
-      fetchFiles("", data.searchQuery, data.searchScope, newNodeId);
+      fetchFiles("", data.searchQuery, data.searchScope, newNodeId, {
+        resetSelection: true,
+      });
     },
     [fetchFiles, data.searchQuery, data.searchScope],
   );
@@ -757,6 +780,7 @@ export function FilesBrowserSpa({
             </div>
           ) : null}
           <FileListClient
+            selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
             folders={data.folders}
             files={data.files}
             canEditLocalFiles={data.permissions.canEditLocalFiles}
@@ -764,7 +788,14 @@ export function FilesBrowserSpa({
             currentPath={data.currentPath}
             searchQuery={data.searchQuery}
             onFolderClick={navigateToFolder}
-            onRefresh={() => fetchFiles(data.currentPath)}
+            onRefresh={() =>
+              fetchFiles(
+                data.currentPath,
+                data.searchQuery,
+                data.searchScope,
+                data.nodeIdFilter,
+              )
+            }
           />
         </article>
 
@@ -797,7 +828,14 @@ export function FilesBrowserSpa({
         <RecycleBinSectionClient
           deletedEntries={deletedEntries}
           canDelete={data.permissions.canDelete}
-          onRefresh={() => fetchFiles(data.currentPath)}
+          onRefresh={() =>
+            fetchFiles(
+              data.currentPath,
+              data.searchQuery,
+              data.searchScope,
+              data.nodeIdFilter,
+            )
+          }
         />
       </section>
     </section>

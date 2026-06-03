@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useTransition, useMemo, useId } from "react";
+import { useState, useCallback, useTransition, useMemo, useId } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -50,9 +50,11 @@ type FileListClientProps = {
   canDelete: boolean;
   currentPath: string;
   searchQuery: string;
+  selectionScopeSeed?: string;
   onFolderClick?: (path: string) => void;
   onRefresh?: () => void;
 };
+
 
 /* ── view mode type ───────────────────────────────────────────────── */
 
@@ -68,9 +70,11 @@ export function FileListClient({
   canDelete,
   currentPath,
   searchQuery,
+  selectionScopeSeed,
   onFolderClick,
   onRefresh,
 }: FileListClientProps) {
+
   const router = useRouter();
   const fileListId = useId();
   const batchToolbarTitleId = `${fileListId}-batch-toolbar-title`;
@@ -149,6 +153,8 @@ export function FileListClient({
       ),
     [files],
   );
+  const currentSelectionScopeKey =
+    selectionScopeSeed ?? `${currentPath}\u0000${searchQuery}`;
   const entryCanRead = useCallback(
     (entry: { capabilities?: FileProp["capabilities"] }) =>
       entry.capabilities?.canRead ?? true,
@@ -212,6 +218,9 @@ export function FileListClient({
 
   // Selection state (list view only)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedScopeKey, setSelectedScopeKey] = useState(
+    () => currentSelectionScopeKey,
+  );
   const [batchAction, setBatchAction] = useState<
     "none" | "confirm-delete" | "deleting" | "moving"
   >("none");
@@ -229,27 +238,54 @@ export function FileListClient({
   const [isPending, startTransition] = useTransition();
 
   const allFileIds = selectableFiles.map((f) => f.id);
-  const selectedFileEntries = useMemo(
-    () => visibleFiles.filter((file) => selectedIds.has(file.id)),
-    [visibleFiles, selectedIds],
+  const selectableFileIdSet = useMemo(() => new Set(allFileIds), [allFileIds]);
+  const selectedScopeMatches = selectedScopeKey === currentSelectionScopeKey;
+  const effectiveSelectedIds = useMemo(
+    () =>
+      selectedScopeMatches
+        ? [...selectedIds].filter((id) => selectableFileIdSet.has(id))
+        : [],
+    [selectedIds, selectableFileIdSet, selectedScopeMatches],
   );
-  const selectedEntriesCanDelete = selectedFileEntries.every(entryCanDelete);
-  const selectedEntriesCanMove = selectedFileEntries.every(entryCanWrite);
+  const effectiveSelectedIdSet = useMemo(
+    () => new Set(effectiveSelectedIds),
+    [effectiveSelectedIds],
+  );
+  const selectedCount = effectiveSelectedIds.length;
+  const selectedFileEntries = useMemo(
+    () => visibleFiles.filter((file) => effectiveSelectedIdSet.has(file.id)),
+    [visibleFiles, effectiveSelectedIdSet],
+  );
+  const selectedEntriesCanDelete =
+    selectedCount > 0 && selectedFileEntries.every(entryCanDelete);
+  const selectedEntriesCanMove =
+    selectedCount > 0 && selectedFileEntries.every(entryCanWrite);
   const allSelected =
-    selectableFiles.length > 0 && allFileIds.every((id) => selectedIds.has(id));
-  const someSelected = selectedIds.size > 0 && !allSelected;
+    selectableFiles.length > 0 && allFileIds.every((id) => effectiveSelectedIdSet.has(id));
+  const someSelected = selectedCount > 0 && !allSelected;
 
   const toggleAll = useCallback(() => {
+    setSelectedScopeKey(currentSelectionScopeKey);
+    setBatchAction("none");
+    setMoveTargetDir("");
+    setProgress({ done: 0, total: 0, errors: [] });
+    setMoveProgress({ done: 0, total: 0, errors: [] });
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
       setSelectedIds(new Set(allFileIds));
     }
-  }, [allSelected, allFileIds]);
+  }, [allSelected, allFileIds, currentSelectionScopeKey]);
 
   const toggleOne = useCallback((id: string) => {
+    setSelectedScopeKey(currentSelectionScopeKey);
+    setBatchAction("none");
+    setMoveTargetDir("");
+    setProgress({ done: 0, total: 0, errors: [] });
+    setMoveProgress({ done: 0, total: 0, errors: [] });
     setSelectedIds((prev) => {
-      const next = new Set(prev);
+      const base = selectedScopeMatches ? prev : new Set<string>();
+      const next = new Set(base);
       if (next.has(id)) {
         next.delete(id);
       } else {
@@ -257,22 +293,20 @@ export function FileListClient({
       }
       return next;
     });
-  }, []);
+  }, [currentSelectionScopeKey, selectedScopeMatches]);
 
   const clearSelection = useCallback(() => {
+    setSelectedScopeKey(currentSelectionScopeKey);
     setSelectedIds(new Set());
     setBatchAction("none");
     setProgress({ done: 0, total: 0, errors: [] });
     setMoveProgress({ done: 0, total: 0, errors: [] });
-  }, []);
-
-  useEffect(() => {
-    clearSelection();
-  }, [currentPath, searchQuery, clearSelection]);
+    setMoveTargetDir("");
+  }, [currentSelectionScopeKey]);
 
   const handleBatchDelete = useCallback(() => {
     setBatchAction("deleting");
-    const ids = [...selectedIds];
+    const ids = [...effectiveSelectedIds];
     setProgress({ done: 0, total: ids.length, errors: [] });
     let completed = 0;
     const errors: string[] = [];
@@ -302,10 +336,11 @@ export function FileListClient({
         return;
       }
       setBatchAction("none");
+      setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
       setProgress({ done: completed, total: ids.length, errors: [...errors] });
     });
-  }, [selectedIds, files, router, clearSelection, onRefresh]);
+  }, [effectiveSelectedIds, files, router, clearSelection, onRefresh, currentSelectionScopeKey]);
 
   const handleBatchMove = useCallback(() => {
     setBatchAction("moving");
@@ -314,7 +349,7 @@ export function FileListClient({
   }, []);
 
   const submitBatchMove = useCallback(() => {
-    const ids = [...selectedIds];
+    const ids = [...effectiveSelectedIds];
     const targetDir = moveTargetDir.trim();
     if (!targetDir || ids.length === 0) return;
     setMoveProgress({ done: 0, total: ids.length, errors: [] });
@@ -357,6 +392,7 @@ export function FileListClient({
         return;
       }
       setBatchAction("none");
+      setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
       setMoveProgress({
         done: completed,
@@ -364,7 +400,7 @@ export function FileListClient({
         errors: [...errors],
       });
     });
-  }, [selectedIds, moveTargetDir, files, router, clearSelection, onRefresh]);
+  }, [effectiveSelectedIds, moveTargetDir, files, router, clearSelection, onRefresh, currentSelectionScopeKey]);
 
   const emptyMessage = searchQuery
     ? `未找到匹配 "${searchQuery}" 的文件。`
@@ -525,7 +561,7 @@ export function FileListClient({
           const thumbUrl = getThumbnailUrl(entry);
           const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
           const previewHref = getPreviewHref(entry);
-          const isChecked = selectedIds.has(fileProp.id);
+          const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 
           return (
             <div
@@ -537,7 +573,7 @@ export function FileListClient({
                 {entryCanWrite(entry) || entryCanDelete(entry) ? (
                   <input
                     type="checkbox"
-                    checked={selectedIds.has(entry.id)}
+                    checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
                     className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
@@ -724,7 +760,7 @@ export function FileListClient({
           const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
           const previewHref = getPreviewHref(entry);
           const thumbUrl = getThumbnailUrl(entry);
-          const isChecked = selectedIds.has(fileProp.id);
+          const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 
           return (
             <div
@@ -736,7 +772,7 @@ export function FileListClient({
                 {entryCanWrite(entry) || entryCanDelete(entry) ? (
                   <input
                     type="checkbox"
-                    checked={selectedIds.has(entry.id)}
+                    checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
                     className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
@@ -926,7 +962,7 @@ export function FileListClient({
                 const entry = toStorageEntry(fileProp);
                 const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
                 const previewHref = getPreviewHref(entry);
-                const isChecked = selectedIds.has(fileProp.id);
+                const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 
                 return (
                   <div
@@ -937,7 +973,7 @@ export function FileListClient({
                       {entryCanWrite(entry) || entryCanDelete(entry) ? (
                         <input
                           type="checkbox"
-                          checked={selectedIds.has(entry.id)}
+                          checked={effectiveSelectedIdSet.has(entry.id)}
                           onChange={() => toggleOne(entry.id)}
                           aria-label={`选择 ${entry.name}`}
                           className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
@@ -1085,7 +1121,7 @@ export function FileListClient({
             const entry = toStorageEntry(fileProp);
             const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
             const previewHref = getPreviewHref(entry);
-            const isChecked = selectedIds.has(fileProp.id);
+            const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 
             return (
               <div
@@ -1096,7 +1132,7 @@ export function FileListClient({
                   {entryCanWrite(entry) || entryCanDelete(entry) ? (
                     <input
                       type="checkbox"
-                      checked={selectedIds.has(entry.id)}
+                      checked={effectiveSelectedIdSet.has(entry.id)}
                       onChange={() => toggleOne(entry.id)}
                       aria-label={`选择 ${entry.name}`}
                       className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
@@ -1185,9 +1221,9 @@ export function FileListClient({
         <div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-white/[0.06]">
           <div className="flex items-center gap-2 text-sm text-slate-400">
             <span>{sortedFolders.length + sortedFiles.length} 项</span>
-            {selectedIds.size > 0 ? (
+            {selectedCount > 0 ? (
               <span className="text-cyan-300 font-medium">
-                · 已选 {selectedIds.size} 个
+                · 已选 {selectedCount} 个
               </span>
             ) : null}
           </div>
@@ -1292,7 +1328,8 @@ export function FileListClient({
             : renderDetailsView()}
       </div>
 
-      {progress.errors.length > 0 || moveProgress.errors.length > 0 ? (
+      {selectedScopeMatches &&
+      (progress.errors.length > 0 || moveProgress.errors.length > 0) ? (
         <div
           role="alert"
           aria-labelledby={batchErrorTitleId}
@@ -1311,7 +1348,7 @@ export function FileListClient({
       ) : null}
 
       {/* Batch action toolbar (all view modes) */}
-      {selectedIds.size > 0 ? (
+      {selectedCount > 0 ? (
         <div
           role="region"
           aria-labelledby={batchToolbarTitleId}
@@ -1322,12 +1359,12 @@ export function FileListClient({
             文件批量操作
           </span>
           <span id={batchToolbarDescriptionId} className="sr-only">
-            已选择 {selectedIds.size} 个文件，可取消选择或执行当前权限允许的批量操作。
+            已选择 {selectedCount} 个文件，可取消选择或执行当前权限允许的批量操作。
           </span>
           {batchAction === "confirm-delete" ? (
             <>
               <span className="text-sm text-rose-200">
-                确认删除 {selectedIds.size} 个文件？
+                确认删除 {selectedCount} 个文件？
               </span>
               <button
                 type="button"
@@ -1412,7 +1449,7 @@ export function FileListClient({
           ) : (
             <>
               <span className="text-sm text-slate-200">
-                已选 {selectedIds.size} 个文件
+                已选 {selectedCount} 个文件
               </span>
               <button
                 type="button"

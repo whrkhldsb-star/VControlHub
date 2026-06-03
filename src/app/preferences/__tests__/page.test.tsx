@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PreferencesPageClient from "../preferences-page-client";
@@ -38,6 +38,26 @@ describe("PreferencesPage", () => {
 		expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
 	});
 
+	it("applies saved local preferences before the server round trip", () => {
+		vi.mocked(csrfFetch).mockImplementation(() => new Promise(() => {}));
+		localStorage.setItem(
+			"vps-preferences",
+			JSON.stringify({
+				defaultPage: "/files",
+				dashboardWidgets: ["server-status"],
+				notificationsEnabled: true,
+				notificationSound: false,
+				autoRefreshInterval: 0,
+			}),
+		);
+
+		render(<PreferencesPageClient />);
+
+		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-cyan-500/50");
+		expect(screen.getByRole("switch", { name: "服务器状态" })).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByRole("switch", { name: "快捷入口" })).toHaveAttribute("aria-checked", "false");
+	});
+
 	it("renders dashboard widget toggles as accessible switches", async () => {
 		render(<PreferencesPageClient />);
 
@@ -56,7 +76,9 @@ describe("PreferencesPage", () => {
 	it("does not publish local preference side effects until the server save succeeds", async () => {
 		const user = userEvent.setup();
 		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
-		vi.mocked(csrfFetch).mockResolvedValueOnce(serverPrefs).mockRejectedValueOnce(new Error("偏好设置保存失败"));
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(serverPrefs)
+			.mockRejectedValueOnce(new Error("偏好设置保存失败"));
 
 		render(<PreferencesPageClient />);
 
@@ -66,6 +88,43 @@ describe("PreferencesPage", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent("偏好设置保存失败");
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/");
 		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
+	});
+
+	it("ignores a stale initial load response after the user saves newer preferences", async () => {
+		const user = userEvent.setup();
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+		localStorage.setItem(
+			"vps-preferences",
+			JSON.stringify({
+				defaultPage: "/files",
+				dashboardWidgets: ["server-status"],
+				notificationsEnabled: true,
+				notificationSound: false,
+				autoRefreshInterval: 0,
+			}),
+		);
+		let resolveInitialLoad: ((value: typeof serverPrefs) => void) | undefined;
+		vi.mocked(csrfFetch).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveInitialLoad = resolve as (value: typeof serverPrefs) => void;
+				}),
+		);
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ ...serverPrefs, defaultPage: "/servers" });
+
+		render(<PreferencesPageClient />);
+
+		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-cyan-500/50");
+		await user.click(screen.getByRole("button", { name: "服务器管理" }));
+		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
+
+		resolveInitialLoad?.(serverPrefs);
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "服务器管理" })).toHaveClass("border-cyan-500/50");
+		});
+		expect(screen.getByRole("button", { name: "仪表盘" })).not.toHaveClass("border-cyan-500/50");
+		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");
+		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
 	});
 
 	it("publishes preference updates after the server save confirms them", async () => {

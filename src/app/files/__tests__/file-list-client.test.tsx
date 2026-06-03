@@ -143,6 +143,7 @@ function renderFileList(overrides: Partial<React.ComponentProps<typeof FileListC
       canDelete={overrides.canDelete ?? true}
       currentPath={overrides.currentPath ?? ""}
       searchQuery={overrides.searchQuery ?? ""}
+      selectionScopeSeed={overrides.selectionScopeSeed ?? `${overrides.currentPath ?? ""}\u0000${overrides.searchQuery ?? ""}`}
       onFolderClick={overrides.onFolderClick ?? vi.fn()}
       onRefresh={overrides.onRefresh ?? vi.fn()}
     />,
@@ -228,38 +229,42 @@ describe("FileListClient", () => {
     expect(fileNames.slice(0, 3)).toEqual(["report.pdf", "cover.jpg", "archive.zip"]);
   });
 
-  it("clears selected files when path or search filters change", () => {
+  it("clears effective selection when path or search filters change while preserving sort state", () => {
     const { rerender } = render(
       <FileListClient
         folders={[]}
-        files={[imageFile, archiveFile]}
+        files={[imageFile, archiveFile, docFile]}
         canEditLocalFiles={true}
         canDelete={true}
         currentPath="photos"
         searchQuery=""
+        selectionScopeSeed="photos\u0000"
         onFolderClick={vi.fn()}
         onRefresh={vi.fn()}
       />,
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "按大小排序" }));
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     expect(screen.getByText("· 已选 1 个")).toBeInTheDocument();
 
     rerender(
       <FileListClient
         folders={[]}
-        files={[imageFile, archiveFile]}
+        files={[docFile]}
         canEditLocalFiles={true}
         canDelete={true}
         currentPath="docs"
-        searchQuery=""
+        searchQuery="report"
+        selectionScopeSeed="docs\u0000report"
         onFolderClick={vi.fn()}
         onRefresh={vi.fn()}
       />,
     );
 
     expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
-    expect(firstFileCheckbox("cover.jpg")).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "按大小排序" })).toHaveTextContent("↑");
+    expect(screen.getAllByRole("link", { name: "report.pdf" })[0]).toBeInTheDocument();
   });
 
   it("renders one effective download action instead of website and direct choices", () => {
@@ -367,6 +372,50 @@ describe("FileListClient", () => {
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(screen.getByText("已选 3 个文件")).toBeInTheDocument();
     expect(screen.getByText(/archive\.zip: 目标目录不存在/)).toBeInTheDocument();
+  });
+
+  it("drops stale batch UI when the selection scope seed changes", async () => {
+    const onRefresh = vi.fn();
+    deleteFileEntryActionMock.mockResolvedValueOnce({ error: "节点不可写" });
+    const { rerender } = render(
+      <FileListClient
+        folders={[]}
+        files={[imageFile]}
+        canEditLocalFiles={true}
+        canDelete={true}
+        currentPath="photos"
+        searchQuery=""
+        selectionScopeSeed="epoch0\u0000photos\u0000"
+        onFolderClick={vi.fn()}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
+    fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+
+    await waitFor(() => expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("alert", { name: /批量操作完成/ })).toBeInTheDocument());
+    expect(screen.getByText(/节点不可写/)).toBeInTheDocument();
+
+    rerender(
+      <FileListClient
+        folders={[]}
+        files={[docFile]}
+        canEditLocalFiles={true}
+        canDelete={true}
+        currentPath="photos"
+        searchQuery=""
+        selectionScopeSeed="epoch1\u0000photos\u0000"
+        onFolderClick={vi.fn()}
+        onRefresh={onRefresh}
+      />,
+    );
+
+    expect(screen.queryByRole("region", { name: "文件批量操作" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert", { name: /批量操作完成/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/节点不可写/)).not.toBeInTheDocument();
   });
 
 });

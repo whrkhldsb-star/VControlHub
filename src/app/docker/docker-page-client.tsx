@@ -157,7 +157,10 @@ export default function DockerPage() {
 	};
 
 	useEffect(() => {
-		fetchContainers();
+		const timer = window.setTimeout(() => {
+			void fetchContainers();
+		}, 0);
+		return () => window.clearTimeout(timer);
 	}, []);
 
 	const runningContainers = useMemo(() => containers.filter((container) => container.State === "running").slice(0, 12), [containers]);

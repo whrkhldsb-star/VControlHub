@@ -158,7 +158,8 @@ export async function moveFileAction(
     }
 
     if (entry.storageNode.driver === "SFTP") {
-      const { renameRemoteFile } = await import("@/lib/ssh/client");
+      const { createRemoteDirectory, renameRemoteFile } = await import("@/lib/ssh/client");
+      const path = await import("node:path");
       let oldPath: string;
       let newPath: string;
       try {
@@ -178,6 +179,18 @@ export async function moveFileAction(
 
       try {
         const credentials = resolveStorageSshCredentials(entry.storageNode);
+        const targetParentDirectory = path.posix.dirname(newPath);
+        if (
+          targetParentDirectory &&
+          targetParentDirectory !== "." &&
+          targetParentDirectory !== "/"
+        ) {
+          await createRemoteDirectory({
+            ...credentials,
+            remotePath: targetParentDirectory,
+            recursive: true,
+          });
+        }
         await renameRemoteFile({ ...credentials, oldPath, newPath });
       } catch (error) {
         return {

@@ -109,7 +109,12 @@ export default function ImageBedPage() {
 		}
 	};
 
-	useEffect(() => { fetchImages(1); }, [fetchImages]);
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			void fetchImages(1);
+		}, 0);
+		return () => window.clearTimeout(timer);
+	}, [fetchImages]);
 
 	const handleUpload = async (files: FileList | File[]) => {
 		const uploadItems = Array.from(files);

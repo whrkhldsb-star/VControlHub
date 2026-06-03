@@ -323,6 +323,18 @@ async function handlePost(request: Request, session: SessionPayload) {
           );
         }
 
+        const targetParentDirectory = path.posix.dirname(normalizedNewPath);
+        if (
+          targetParentDirectory &&
+          targetParentDirectory !== "." &&
+          targetParentDirectory !== "/"
+        ) {
+          await createRemoteDirectory({
+            ...connParams,
+            remotePath: targetParentDirectory,
+            recursive: true,
+          });
+        }
         await renameRemoteFile({
           ...connParams,
           oldPath: normalizedRemotePath,
