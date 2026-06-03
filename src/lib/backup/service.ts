@@ -7,6 +7,14 @@ import { prisma } from "@/lib/db";
 
 const runFile = promisify(execFile);
 
+function getBackupStorageRoot(projectRoot: string) {
+  const configured = process.env.BACKUP_DIR?.trim();
+  if (configured) return configured;
+  const slug = process.env.APP_SLUG?.trim();
+  if (slug) return `/var/backups/${slug}`;
+  return join(projectRoot, "backups");
+}
+
 export const RESTORE_CONFIRM_TEXT = "RESTORE";
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
@@ -121,7 +129,7 @@ export function buildBackupRestoreCommand(input: { projectRoot: string; backupPa
 
 export function resolveBackupPath(projectRoot: string, filePath: string) {
   const portablePath = assertPortableBackupPath(filePath);
-  return join(projectRoot, portablePath);
+  return join(getBackupStorageRoot(projectRoot), portablePath);
 }
 
 function buildRestoreExecution(record: { type: string; filePath: string }, projectRoot: string) {

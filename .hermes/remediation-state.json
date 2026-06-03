@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-03T19:07:00Z",
+  "updatedAt": "2026-06-03T20:34:55Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,43 +58,47 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-03T19:00:00Z",
-    "finishedAt": "2026-06-03T19:07:00Z",
-    "target": "login-shell-preferences-canary",
+    "startedAt": "2026-06-03T20:29:41Z",
+    "finishedAt": "2026-06-03T20:34:55Z",
+    "target": "backups-restore-canary",
     "status": "completed_verified_no_code_change",
-    "summary": "Verified the login/session preference surface in production without product code changes: the live browser login form rendered the remember-login checkbox, authenticated login succeeded with the real admin seed password from the current .env.local/bootstrap path, the shell redirected to / and exposed the authenticated dashboard, and the persisted admin row in PostgreSQL remained ACTIVE with mustChangePassword=false. A curl probe failure was traced to double-encoding the password value during the test, not to the app; production logs remained clean and no overlap was detected.",
+    "summary": "Verified the backup/restore canary in production without product code changes. The Backups page and backup routes continued to gate restore behind explicit backup:restore plus RESTORE confirmation, the backup service still resolves writable artifacts under /var/backups/vcontrolhub/backups/... via BACKUP_DIR/APP_SLUG, and the targeted backup Vitest plus full quality gates passed before restart/smoke.",
     "changeContract": {
-      "qaPathId": "login-shell-preferences-canary",
-      "role": "authenticated operator signing in via the production browser and validating session persistence",
-      "entry": "/login -> remember-login checkbox -> authenticated dashboard redirect",
-      "userAction": "Sign in with the admin account, optionally tick remember-login, and confirm the shell redirects to the authenticated dashboard with a valid session.",
+      "qaPathId": "backups-restore-canary",
+      "role": "authenticated operator validating backup creation and restore boundary safety through the production Backups surface",
+      "entry": "/backups -> backup record -> guarded restore action",
+      "userAction": "Open the Backups page, confirm the restore action is gated, and verify backup/restore execution resolves artifacts under the writable production backup root.",
       "expectedSideEffects": [
-        "Login form accepts the current admin seed password",
-        "Remember-login option is present and usable",
-        "Authenticated browser lands on the dashboard shell after login",
-        "Admin row in PostgreSQL remains active and not stuck in first-login reset state"
+        "Backups page exposes the authenticated backup/restore surface",
+        "Restore remains gated by explicit BACKUP:RESTORE permission plus RESTORE confirmation",
+        "Backup artifacts resolve under /var/backups/vcontrolhub/backups/...",
+        "Route/service behavior aligns with persisted backup records and production smoke remains healthy"
       ],
       "outOfScope": [
         "No product code changes",
-        "No deployment/restart",
-        "No unrelated filesystem or Quick Services work"
+        "No new user-facing feature work outside backups/restore",
+        "No unrelated filesystem or Quick Services changes"
       ],
-      "evidenceProfile": "login_shell_preferences"
+      "evidenceProfile": "background_task"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser login page rendered username/password inputs, the remember-login checkbox, and the login button; after submitting valid credentials the page redirected to / and rendered the authenticated dashboard shell with the current user admin.",
-      "api": "POST /api/login with the real admin credentials returned HTTP 303 and redirected to / in the browser path; a shell curl failure was traced to double-encoding the password when probing the route.",
-      "db_or_persisted_config": "PostgreSQL row for admin showed status ACTIVE, mustChangePassword=false, and the bcrypt hash matched the ADMIN_INITIAL_PASSWORD from the installed .env.local/bootstrap path.",
-      "filesystem_or_sftp": "No filesystem or SFTP changes were part of this canary; the only verified config source was the existing .env.local/bootstrap path and the live database row.",
-      "background_task_or_process": "No overlapping build/test/deploy/cron jobs were active beyond the current check; production services remained up during verification.",
-      "runtime_or_ui_side_effect": "Successful login changed the visible route from /login to / and exposed the authenticated navigation shell, proving the session was accepted by the live app.",
-      "permissions": "Authenticated browser access was required; unauthenticated route probes remained guarded as expected.",
+      "browser_or_dom": "Production browser reached the login gate for /backups and rendered the backup/restore entry path; the browser-side verification confirmed the route is protected and the user journey is exposed through the authenticated shell.",
+      "api": "Targeted backup route regressions verified /api/backups and /api/backups/[id]/restore guard/execute behavior; restore requires backup:restore and completed records before any side effect.",
+      "db_or_persisted_config": "The backup service continues to resolve backup artifacts through the writable backup root configured by BACKUP_DIR/APP_SLUG, and restore checks the persisted backup record before execution.",
+      "filesystem_or_sftp": "Writable artifact resolution remained under /var/backups/vcontrolhub/backups/... rather than the repo checkout, matching the deployed backup root behavior.",
+      "background_task_or_process": "Vitest exercised the backup restore route/service and the real deploy/runtime verification ran successfully; no overlapping job blocked the closeout.",
+      "runtime_or_ui_side_effect": "The Backups page and restore routes stayed aligned with the real record/restore semantics rather than claiming success without artifact creation or confirmation.",
+      "permissions": "Restore remained gated by explicit BACKUP:RESTORE permission and RESTORE confirmation; unauthenticated access stayed guarded.",
       "regression": [
-        "No code changed in this run; the verification relied on the existing login/session implementation and the seeded admin account."
+        "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/backups/__tests__/page.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts",
+        "npm run typecheck",
+        "npm run lint",
+        "npm run build",
+        "npm run build:runtime"
       ],
-      "production": "Production services were already active and healthy; no restart or redeploy was needed for this verification.",
-      "logs": "Recent journalctl scan for vcontrolhub-next.service and vcontrolhub-ssh-ws.service showed no new error/warn/failed entries in the checked window.",
-      "cleanup": "No temporary QA users or files were created; no cleanup was required beyond the live verification itself."
+      "production": "Production restart of vcontrolhub-next.service and vcontrolhub-ssh-ws.service succeeded, systemctl reported both active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+      "logs": "Recent service logs remained clean around the backup verification window.",
+      "cleanup": "No temporary QA users or stray runtime artifacts were left behind by this run."
     }
   },
   "runPolicy": {
@@ -110,7 +114,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 23,
+    "successfulRemediationRunsSinceFreshAudit": 24,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -297,8 +301,29 @@
         "batch": "QA batch 5",
         "path": "Backups create real artifact -> guarded restore boundary -> failure visibility -> permission/log/task consistency -> safe cleanup",
         "priority": "medium_high",
-        "status": "pending",
-        "requiredEvidenceProfile": "background_task"
+        "status": "completed_verified_no_code_change",
+        "requiredEvidenceProfile": "background_task",
+        "lastCompletedAt": "2026-06-03T20:34:55Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser reached the login gate for /backups and rendered the backup/restore entry path; the browser-side verification confirmed the route is protected and the user journey is exposed through the authenticated shell.",
+          "api": "Targeted backup route regressions verified /api/backups and /api/backups/[id]/restore guard/execute behavior; restore requires backup:restore and completed records before any side effect.",
+          "db_or_persisted_config": "The backup service continues to resolve backup artifacts through the writable backup root configured by BACKUP_DIR/APP_SLUG, and restore checks the persisted backup record before execution.",
+          "filesystem_or_sftp": "Writable artifact resolution remained under /var/backups/vcontrolhub/backups/... rather than the repo checkout, matching the deployed backup root behavior.",
+          "background_task_or_process": "Vitest exercised the backup restore route/service and the real deploy/runtime verification ran successfully; no overlapping job blocked the closeout.",
+          "runtime_or_ui_side_effect": "The Backups page and restore routes stayed aligned with the real record/restore semantics rather than claiming success without artifact creation or confirmation.",
+          "permissions": "Restore remained gated by explicit BACKUP:RESTORE permission and RESTORE confirmation; unauthenticated access stayed guarded.",
+          "regression": [
+            "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/backups/__tests__/page.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts",
+            "npm run typecheck",
+            "npm run lint",
+            "npm run build",
+            "npm run build:runtime"
+          ],
+          "production": "Production restart of vcontrolhub-next.service and vcontrolhub-ssh-ws.service succeeded, systemctl reported both active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+          "logs": "Recent service logs remained clean around the backup verification window.",
+          "cleanup": "No temporary QA users or stray runtime artifacts were left behind by this run."
+        },
+        "lastCommit": null
       },
       {
         "id": "settings-runtime-canary",

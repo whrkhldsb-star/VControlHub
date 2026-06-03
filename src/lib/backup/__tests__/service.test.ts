@@ -25,6 +25,7 @@ const {
 describe("backup service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.BACKUP_DIR = "/var/backups/vcontrolhub";
     mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     mockPrisma.backupRecord.findUnique.mockResolvedValue({ id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz" });
@@ -58,7 +59,7 @@ describe("backup service", () => {
     const record = await runBackupRecord({ type: "FULL", createdBy: "u1", note: "before upgrade", projectRoot: "/opt/app" });
 
     expect(runFileMock.mock.calls[0][0]).toBe("bash");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["deploy/backup.sh", "--full", expect.stringMatching(/\/opt\/app\/backups\/full-.*\.tar\.gz$/)]);
+    expect(runFileMock.mock.calls[0][1]).toEqual(["deploy/backup.sh", "--full", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/)]);
     expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }));
     expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(1, { where: { id: "bak1" }, data: { status: "RUNNING" } });
     expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(2, {
@@ -74,7 +75,7 @@ describe("backup service", () => {
     const record = await runBackupRecord({ type: "FILES", createdBy: "u1", projectRoot: "/opt/app" });
 
     expect(runFileMock.mock.calls[0][0]).toBe("bash");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["deploy/backup.sh", "--files", expect.stringMatching(/\/opt\/app\/backups\/files-.*\.tar\.gz$/)]);
+    expect(runFileMock.mock.calls[0][1]).toEqual(["deploy/backup.sh", "--files", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/files-.*\.tar\.gz$/)]);
     expect(record.status).toBe("FAILED");
     expect(record.errorMessage).toContain("tar failed");
     expect(statMock).not.toHaveBeenCalled();
@@ -112,7 +113,7 @@ describe("backup service", () => {
     for (const unsafe of ["/tmp/app.dump", "../app.dump", "backups/../app.dump", "backups//app.dump", "backups/app\\evil.dump", "", "."]) {
       expect(() => resolveBackupPath("/opt/whrkhldsb", unsafe)).toThrow("备份路径必须是可移植的相对路径");
     }
-    expect(resolveBackupPath("/opt/whrkhldsb", "backups/app.dump")).toBe("/opt/whrkhldsb/backups/app.dump");
+    expect(resolveBackupPath("/opt/whrkhldsb", "backups/app.dump")).toBe("/var/backups/vcontrolhub/backups/app.dump");
   });
 
   it("updates status metadata without requiring callers to know prisma fields", async () => {
@@ -154,9 +155,9 @@ describe("backup service", () => {
     const result = await restoreBackupRecord({ id: "bak1", confirm: "RESTORE", projectRoot: "/opt/app" });
 
     expect(mockPrisma.backupRecord.findUnique).toHaveBeenCalledWith({ where: { id: "bak1" } });
-    expect(statMock).toHaveBeenCalledWith("/opt/app/backups/database.sql.gz");
+    expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/database.sql.gz");
     expect(runFileMock.mock.calls[0][0]).toBe("bash");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["scripts/restore-db.sh", "/opt/app/backups/database.sql.gz"]);
+    expect(runFileMock.mock.calls[0][1]).toEqual(["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/database.sql.gz"]);
     expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }));
     expect(result).toMatchObject({ id: "bak1", type: "DATABASE", filePath: "backups/database.sql.gz" });
   });
@@ -166,9 +167,9 @@ describe("backup service", () => {
 
     await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
 
-    expect(statMock).toHaveBeenCalledWith("/opt/app/backups/files.tar.gz");
+    expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/files.tar.gz");
     expect(runFileMock.mock.calls[0][0]).toBe("tar");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["-xzf", "/opt/app/backups/files.tar.gz", "-C", "/opt/app"]);
+    expect(runFileMock.mock.calls[0][1]).toEqual(["-xzf", "/var/backups/vcontrolhub/backups/files.tar.gz", "-C", "/opt/app"]);
     expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app" }));
   });
 
