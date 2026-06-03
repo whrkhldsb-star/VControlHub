@@ -319,6 +319,53 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
+## 🔎 2026-06-03 全面审查发现（待修复）
+
+> 审查方式：以软件测试工程师/真实用户视角进行只读检查，覆盖生产健康、已登录核心页面、关键 API、部署脚本、Docker/Compose、README/部署文档、静态代码、`npm run verify`。本轮未改产品代码，仅记录已核实问题。
+>
+> 当前基线：生产服务 `vcontrolhub-next` / `vcontrolhub-ssh-ws` / `caddy` / `postgresql` 均为 active；`/api/status` 为 healthy；管理员登录后 `/`、`/servers`、`/files`、`/storage`、`/quick-services`、`/docker`、`/monitoring`、`/ai`、`/settings`、`/users`、`/api-docs`、`/health`、`/traffic` 均返回 200；`npm run verify` 通过（188 个测试文件 / 805 个测试通过），但存在 5 条 React lint warning。
+
+### P0 / P1 — 会影响新部署或核心可用性的缺陷
+
+- [ ] **无域名一键安装的文档承诺与脚本实际不一致，可能没有公网反向代理。**  
+  README 写明“无域名时自动配置 Apache/IP 直连模式”，但 `deploy/bootstrap.sh:101-111` 只是把 `DOMAIN` 原样传给 `deploy/install.sh`；`deploy/install.sh:949-951` 在 `DOMAIN` 为空时跳过 Caddy；`deploy/install.sh:978-983` 只有 `SKIP_CADDY=1` 才配置 Apache。也就是说用户按 README 省略 `DOMAIN` 时，默认路径会跳过 Caddy 且不会进入 Apache IP 直连配置，fresh install 可能只在 `127.0.0.1:3000/3001` 本地启动而无法通过公网 IP 访问。
+
+- [ ] **手动部署指南缺少 `npm run build:runtime`，按文档启动会找不到 `dist/server.js`。**  
+  `docs/deploy-vps.md:71-82` 只执行 `npm run build` 后直接 `npm run start`，并用 `npx tsx src/ssh-ws-proxy.ts` 启 SSH-WS；但 `package.json:7-10` 中 `start` 是 `node dist/server.js`，`dist/server.js` 和 `dist/ssh-ws-proxy.js` 只有 `npm run build:runtime` 生成。主安装脚本 `deploy/install.sh` 已正确执行 build + build:runtime，手动文档落后。
+
+- [ ] **`.env.example` 缺少生产必需的 `ENCRYPTION_KEY`，且仍包含已弃用的 `NEXT_PUBLIC_SSH_WS_SECRET`。**  
+  `docs/deploy-vps.md:41-56` 引导 `cp .env.example .env.local`，但 `.env.example:1-60` 没有 `ENCRYPTION_KEY`；而 `deploy/preflight.sh:99-101`、`deploy/check.sh:65-67` 都要求它，生产环境缺少时会影响凭据加密路径。同时 `.env.example:36-37` 仍暴露 `NEXT_PUBLIC_SSH_WS_SECRET`，但 `deploy/install.sh` 已有逻辑移除该 deprecated browser-exposed secret；模板与安全策略不一致。
+
+- [ ] **Docker Compose 部署缺少首次管理员 seed 与加密密钥配置，容器可能启动但无法完成真实可用初始化。**  
+  `docker-compose.yml:25-36` 仅配置 `DATABASE_URL`、`AUTH_SESSION_SECRET`、`SSH_WS_SECRET` 等，缺少 `ADMIN_INITIAL_PASSWORD` 与 `ENCRYPTION_KEY`；`docker-entrypoint.sh:4-11` 只执行 `prisma migrate deploy` 并启动两个进程，没有执行 `npm run db:seed` / `prisma:seed`。systemd 安装路径会 seed 初始化管理员，但 Compose 路径没有等价流程，空库场景可能没有可登录管理员，且涉及 SSH/存储凭据加密的生产路径会缺密钥。
+
+### P1 / P2 — 运维、质量门禁和长期维护风险
+
+- [ ] **`deploy/smoke-test.sh` 对部署形态假设过强，容易在外部数据库、Docker、IP-only 或 Caddy 未配置场景误报。**  
+  它默认根据系统是否有 `caddy.service` 推断公网 URL，强制检查 `${APP_SLUG}-next`、`${APP_SLUG}-ssh-ws`、代理服务、`postgresql` 均 active，并绑定 `/api/users` 未登录文案、首页 307 等具体响应。实际可用部署若使用外部 PostgreSQL、Compose 或自定义反代，可能被 smoke 误判失败。建议把 smoke 拆成“systemd 本机模式”和“HTTP 黑盒模式”，并减少对本地化文案的硬编码。
+
+- [ ] **`npm run verify` 未覆盖部署资产校验。**  
+  `package.json:21` 的 verify 包含 Prisma generate、typecheck、lint、test、build、build:runtime，但没有 `bash -n deploy/*.sh`、`systemd-analyze verify`、`caddy validate`、`docker compose config`、`package.sh` dry-run 等。部署脚本或模板损坏时，应用测试全绿也可能无法安装。审查中手动执行了相关语法/测试命令并通过，但它们未进入统一质量门禁。
+
+- [ ] **备份/恢复脚本仍硬编码旧品牌 `whrkhldsb`，与 VControlHub 可品牌化部署不一致。**  
+  `scripts/backup-db.sh:2-7`、`scripts/restore-db.sh:2-3` 注释仍是旧路径/旧品牌；`scripts/backup-db.sh:25`、`scripts/restore-db.sh:29` 默认数据库名仍为 `whrkhldsb`；`scripts/backup-db.sh:45` 默认备份文件名和 `scripts/backup-db.sh:63` 清理规则也固定 `whrkhldsb_*.sql.gz`。多实例或自定义 `APP_SLUG` 部署时容易混淆备份与保留策略。
+
+- [ ] **Makefile 运维入口默认值固定生产域名和 `vcontrolhub` service prefix，自定义部署容易误操作。**  
+  `Makefile:1-3` 默认 `DOMAIN=whrkhldsb.qzz.io`、`SERVICE_PREFIX=vcontrolhub`；而 README/deploy 文档强调支持自定义品牌、目录和服务前缀。用户在其他实例直接运行 `make smoke` / `make restart` 可能打到错误域名或错误 systemd 服务。
+
+- [ ] **README 项目规模统计已经过期，应改为自动生成或移除固定数字。**  
+  README 当前写 `35 页面 + 66 API`、`43 模型`、`~44,700 行`，但本轮扫描 `src/app` 已有 37 个 `page.tsx` 和 74 个 API route。易过期数字会降低项目首页可信度。
+
+### P2 — 已通过但需要排队清理的质量问题
+
+- [ ] **`npm run lint` 通过但有 5 条 React `set-state-in-effect` warning。**  
+  涉及 `src/app/docker/docker-page-client.tsx:160`、`src/app/files/file-list-client.tsx:270`、`src/app/image-bed/image-bed-page-client.tsx:112`、`src/app/monitoring/monitoring-page-client.tsx:86`、`src/app/preferences/preferences-page-client.tsx:79`。目前不阻塞构建，但会造成级联渲染/性能风险，建议后续集中清理。
+
+- [ ] **测试输出仍包含若干 React/HTML 警告，说明 mock 或组件属性边界有噪声。**  
+  `npm test` 通过，但输出中出现 `Received true for a non-boolean attribute jsx/fill/unoptimized`、`<html> cannot be a child of <div>` 等测试环境警告。它们不是生产 P0，但会降低测试信号质量，容易掩盖未来真实 warning。
+
+---
+
 ## 🗺️ 路线图
 
 > 基于生产浏览器 QA、后台巡检和用户反馈动态调整优先级。✅ 标注已完成项；每个 major round 收尾时同步更新本 GitHub 首页路线图与 `docs/plans/*` 计划文档。
