@@ -193,7 +193,7 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 ## Current blockers
 
-- 2026-06-03 — No active environment blocker remains for Quick Services: deterministic preflight and live checks both show `/usr/bin/docker`, `docker.service` active/enabled, and `docker info` succeeding on the production host. The blocker now is evidence debt: the old no-Docker fail-closed proof is stale, so the next clean-repo high-priority run must execute a real authenticated Quick Services install/start/stop/uninstall lifecycle canary with browser/API/DB/container/process/log cleanup evidence.
+- 2026-06-03 — Quick Services Docker lifecycle blocker resolved by a real authenticated AList 云盘 install/start/stop/uninstall canary: Docker is available and the stale no-Docker proof has been superseded. No active blocker remains for this lane; next focus should rotate to the next backlog canary.
 
 ## Last known healthy baseline
 
