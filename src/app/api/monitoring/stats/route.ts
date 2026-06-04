@@ -46,7 +46,7 @@ export async function GET(request: Request) {
         const usedDisk = totalDisk - freeDisk;
         const usedPercent =
           totalDisk > 0 ? ((usedDisk / totalDisk) * 100).toFixed(0) : "0";
-        diskInfo = `${formatBytes(totalDisk)}/${formatBytes(usedDisk)} (${usedPercent}% used)`;
+        diskInfo = `${formatBytes(usedDisk)}/${formatBytes(totalDisk)} (${usedPercent}% used)`;
       } catch {
         // ok
       }
@@ -130,6 +130,7 @@ function getTopProcesses(): {
   try {
     const entries = readdirSync("/proc");
     const clockTick = 100; // CLK_TCK on Linux, typically 100
+    const totalMemKb = Math.max(os.totalmem() / 1024, 1);
 
     for (const entry of entries) {
       const pid = Number(entry);
@@ -137,16 +138,19 @@ function getTopProcesses(): {
       try {
         const stat = readFileSync(`/proc/${pid}/stat`, "utf-8");
         // Format: pid (comm) state ppid pgrp session tty_nr tpgid flags ...
-        // Field indices (0-based after split): 0=pid, 1=comm, 2=state,
-        // 11=utime, 12=stime, 23=rss (pages)
-        const match = stat.match(
-          /^\d+\s+\(([^)]+)\)\s+\w\s+(-?\d+\s+){8}(\d+)\s+(\d+)\s+(?:-?\d+\s+){10}(\d+)/,
-        );
-        if (!match) continue;
-        const [, cmd, utimeStr, stimeStr, rssStr] = match;
-        const utime = Number(utimeStr);
-        const stime = Number(stimeStr);
-        const rss = Number(rssStr); // in pages
+        // The command name may contain spaces or parentheses, so split only
+        // after the final ")" and then use documented proc_stat(5) positions:
+        // remaining fields are 3=state, 14=utime, 15=stime, 24=rss.
+        const openParenIndex = stat.indexOf("(");
+        const closeParenIndex = stat.lastIndexOf(")");
+        if (openParenIndex === -1 || closeParenIndex === -1) continue;
+        const cmd = stat.slice(openParenIndex + 1, closeParenIndex);
+        const fieldsFromState = stat.slice(closeParenIndex + 2).trim().split(/\s+/);
+        if (fieldsFromState.length < 22) continue;
+        const utime = Number(fieldsFromState[11]);
+        const stime = Number(fieldsFromState[12]);
+        const rss = Number(fieldsFromState[21]); // in pages
+        if (![utime, stime, rss].every(Number.isFinite)) continue;
         const memKb = rss * (4096 / 1024); // page size 4096 → KB
         procs.push({ pid, memKb, cmd: cmd.slice(0, 40), utime, stime });
       } catch {
@@ -161,7 +165,7 @@ function getTopProcesses(): {
     return top5.map((proc) => ({
       pid: String(proc.pid),
       cpu: ((proc.utime + proc.stime) / clockTick).toFixed(1),
-      mem: `${proc.memKb.toFixed(0)}M`,
+      mem: `${((proc.memKb / totalMemKb) * 100).toFixed(1)}%`,
       cmd: proc.cmd,
     }));
   } catch {

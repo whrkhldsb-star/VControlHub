@@ -43,8 +43,19 @@ describe("monitoring stats route", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(body.cpu.usage).toMatch(/^\d+(?:\.\d)?%$|^N\/A%$/);
-    expect(body.disk).toContain("used");
+    expect(body.disk).toMatch(/^\d+(?:\.\d)? [KMGT]B\/\d+(?:\.\d)? [KMGT]B \(\d+% used\)$/);
     expect(Array.isArray(body.network)).toBe(true);
     expect(body.timestamp).toEqual(expect.any(String));
+  });
+
+  it("reports top-process memory as a bounded percent instead of raw rss pages", async () => {
+    const response = await GET(new Request("http://local/api/monitoring/stats"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    if (body.topProcesses.length > 0) {
+      expect(body.topProcesses[0].mem).toMatch(/^\d+(?:\.\d)?%$/);
+      expect(body.topProcesses[0].mem).not.toMatch(/M$/);
+    }
   });
 });

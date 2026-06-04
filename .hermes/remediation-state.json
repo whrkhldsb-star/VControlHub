@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T06:11:42Z",
+  "updatedAt": "2026-06-04T06:52:38Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,44 +58,48 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-04T06:07:12Z",
-    "finishedAt": "2026-06-04T06:11:42Z",
-    "target": "settings-runtime-canary",
-    "status": "completed_verified_no_code_change",
-    "summary": "Verified the Settings runtime canary in production without product code changes: runtime.operationTaskListLimit required authenticated CSRF to mutate, persisted to the DB, was visible in the Settings UI, was consumable by the Operation Tasks page/API, and was rolled back to 100 with QA user cleanup and clean production health.",
+    "startedAt": "2026-06-04T06:43:29Z",
+    "finishedAt": "2026-06-04T06:52:38Z",
+    "target": "monitoring-health-status-canary",
+    "status": "completed_verified_deployed",
+    "summary": "Verified and fixed the Monitoring/Health observability canary: Health Center and health APIs were live, but Monitoring showed misleading disk order and impossible process MEM% units. The stats API now reports disk as used/total and process memory as bounded percentages, with production deploy, smoke, logs, and QA cleanup complete.",
     "changeContract": {
-      "qaPathId": "settings-runtime-canary",
-      "role": "authenticated admin/operator validating runtime Settings persistence and a real Operation Tasks consumer effect",
-      "entry": "/settings runtime parameters -> /api/settings -> /operation-tasks Task Center consumer",
-      "userAction": "Log in, inspect runtime.operationTaskListLimit, prove missing-CSRF writes fail closed, save a bounded new value, open Task Center/API to prove the runtime setting is consumable, then roll back and clean up.",
+      "qaPathId": "monitoring-health-status-canary",
+      "role": "authenticated admin/operator checking observability truthfulness",
+      "entry": "/health Health Center -> /api/system-health and /api/health -> /monitoring -> /api/monitoring/stats",
+      "userAction": "Log in, inspect Health Center self-check/refresh state, call authenticated health/system-health APIs, open Monitoring and verify resource cards/process table match API output, then fix misleading metrics and redeploy.",
       "expectedSideEffects": [
-        "/settings renders the runtime Operation Tasks limit control with current persisted value",
-        "CSRF-protected PATCH persists a bounded runtime.operationTaskListLimit value",
-        "/operation-tasks and /api/operation-tasks continue to hydrate through the runtime setting consumer",
-        "Missing-CSRF mutation fails without persisting",
-        "The setting is rolled back and temporary QA user removed"
+        "Health Center renders authenticated self-checks and node health summary",
+        "/api/system-health and /api/health return authenticated observability payloads",
+        "/monitoring renders host resource cards and process table from /api/monitoring/stats",
+        "Monitoring disk and process memory values are truthful enough for operator triage rather than swapped/unbounded units"
       ],
       "outOfScope": [
-        "No product code changes",
-        "No restart-only runtime knobs",
-        "No unrelated Quick Services, file/SFTP, or UI polish work"
+        "No unrelated monitoring UX polish",
+        "No alert-rule CRUD",
+        "No changes to health permission model"
       ],
-      "evidenceProfile": "settings_runtime"
+      "evidenceProfile": "observability"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in as temporary admin qa_cron_settings_canary, opened /settings, and the runtime settings panel visibly rendered the Operation Tasks list limit spinbutton at 100, then 123 after save, then back to 100 after rollback. /operation-tasks rendered the authenticated Task Center list with 7 visible task cards after the changed setting.",
-      "api": "Authenticated browser fetch GET /api/settings showed runtime.operationTaskListLimit=100. A PATCH without X-CSRF-Token returned 403 with CSRF token 验证失败 and did not mutate the setting. A CSRF-protected PATCH changed runtime.operationTaskListLimit to 123 with 200 {success:true}; a final CSRF PATCH restored it to 100. Authenticated GET /api/operation-tasks returned 200 with tasks array length 7.",
-      "db_or_persisted_config": "Production Prisma inspection after rollback showed Setting runtime.operationTaskListLimit persisted as value 100 with updatedAt 2026-06-04T06:10:38.106Z, and qa_cron_* user count was 0 after cleanup.",
-      "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended. Temporary helper scripts under .hermes were removed; no storage/SFTP surface was touched.",
-      "background_task_or_process": "Operation Tasks/runtime settings neighboring regressions ran in-process via Vitest: runtime settings service, settings API, operation-task service/API/client passed 21/21. No overlapping build/test/deploy job was found beyond TypeScript server/editor processes and the current check.",
-      "runtime_or_ui_side_effect": "The changed runtime Operation Tasks list limit was consumed by the live Task Center path: after saving 123, /operation-tasks loaded normally and /api/operation-tasks returned the task list under the updated persisted runtime setting. The setting was rolled back to 100 after proof.",
-      "permissions": "Settings mutation required an authenticated admin session plus CSRF; the missing-CSRF write failed with 403 and left the persisted value unchanged. The temporary qa_cron_settings_canary admin user was deleted during cleanup.",
+      "browser_or_dom": "Production browser logged in as qa_cron_monitoring_canary, opened /health and saw Health Center with 16 system checks, 15 healthy / 1 warning / 0 critical, managed nodes count 3, service/GitHub checks, and Health refresh controls. After deploy, /monitoring rendered disk as 15.7 GB/39.3 GB (40% used) and Top process MEM% cells such as 27.3%, 14.2%, 8.2% instead of impossible raw megabyte/page values.",
+      "api": "Authenticated browser fetches returned /api/system-health 200 with total=16, healthy=15, critical=0 and git-sync healthy at 813273c; /api/health 200 with 3 server health rows; /api/monitoring/stats 200 after deploy with disk=\"15.7 GB/39.3 GB (40% used)\" and topProcesses mem values formatted as percentages.",
+      "db_or_persisted_config": "Temporary admin qa_cron_monitoring_canary was created only for the canary and cleanup Prisma deleteMany left qa_cron_* remaining=0. No persistent product config was changed.",
+      "filesystem_or_sftp": "No product storage/SFTP path was intended. Build artifacts .next and dist were regenerated, ownership repaired to vcontrolhub:vcontrolhub, and temporary .hermes helper scripts were removed.",
+      "background_task_or_process": "Monitoring stats API reads live host /proc/stat, /proc/net/dev, /proc/[pid]/stat and statfs data. The selected side effect exposed a process-table parsing defect in production: before fix the browser showed MEM% values like 3128084M and disk as total/used despite “used” copy; after fix process RSS is bounded against os.totalmem and disk renders used/total.",
+      "runtime_or_ui_side_effect": "The live Monitoring UI now presents operator-triage resource metrics truthfully: disk usage order matches the used label, and the process table MEM% column is a percent rather than mislabeled raw RSS/page-derived megabytes.",
+      "permissions": "Unauthenticated preflight still showed guarded /files,/downloads,/operation-tasks 307 and /api/quick-services 401. This canary used an authenticated admin session; health APIs remain protected by health:read/API guard and smoke confirmed API auth blocks unauthenticated requests.",
       "regression": [
-        "npx vitest run src/lib/runtime-settings/service.test.ts src/app/api/settings/__tests__/route.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/operation-tasks/__tests__/route.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx --reporter=dot: 5 files / 21 tests passed"
+        "npx vitest run src/app/api/monitoring/stats/__tests__/route.test.ts src/app/api/health/__tests__/route.test.ts src/app/api/system-health/__tests__/route.test.ts --reporter=dot: 2 files / 10 tests passed",
+        "git diff --check passed",
+        "npm run typecheck passed",
+        "npm run lint passed",
+        "npm run build passed",
+        "npm run build:runtime passed"
       ],
-      "production": "No product code changed, so no restart/deploy was required. Production closeout confirmed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active; /api/status responded with 3 checks at 2026-06-04T06:11:35.603Z; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
-      "logs": "journalctl scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for the last 20 minutes found no error/warn/failed/exception/EACCES/permission-denied/settings/operation-tasks matches.",
-      "cleanup": "Restored runtime.operationTaskListLimit to 100, deleted all qa_cron_* users (remaining 0), removed temporary .hermes helper scripts, left no Quick Services containers or storage artifacts, and confirmed git HEAD == origin/main."
+      "production": "Repaired .next/dist ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+      "logs": "Post-restart journal scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for the last 10 minutes found no error/warn/failed/exception/EACCES/permission-denied/monitoring/system-health matches.",
+      "cleanup": "Deleted temporary qa_cron_monitoring_canary (remaining qa_cron_* count 0), removed temporary .hermes helper scripts, left no Quick Services containers/storage artifacts, and prepared state/backlog closeout."
     }
   },
   "runPolicy": {
@@ -111,7 +115,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 25,
+    "successfulRemediationRunsSinceFreshAudit": 26,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -354,8 +358,30 @@
         "batch": "QA batch 5",
         "path": "Monitoring/Health/System Health -> refresh/error/stale states -> service names/status accuracy -> repair guidance -> logs/API consistency",
         "priority": "medium",
-        "status": "pending",
-        "requiredEvidenceProfile": "observability"
+        "status": "completed_verified_deployed",
+        "requiredEvidenceProfile": "observability",
+        "lastCompletedAt": "2026-06-04T06:52:38Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser logged in as qa_cron_monitoring_canary, opened /health and saw Health Center with 16 system checks, 15 healthy / 1 warning / 0 critical, managed nodes count 3, service/GitHub checks, and Health refresh controls. After deploy, /monitoring rendered disk as 15.7 GB/39.3 GB (40% used) and Top process MEM% cells such as 27.3%, 14.2%, 8.2% instead of impossible raw megabyte/page values.",
+          "api": "Authenticated browser fetches returned /api/system-health 200 with total=16, healthy=15, critical=0 and git-sync healthy at 813273c; /api/health 200 with 3 server health rows; /api/monitoring/stats 200 after deploy with disk=\"15.7 GB/39.3 GB (40% used)\" and topProcesses mem values formatted as percentages.",
+          "db_or_persisted_config": "Temporary admin qa_cron_monitoring_canary was created only for the canary and cleanup Prisma deleteMany left qa_cron_* remaining=0. No persistent product config was changed.",
+          "filesystem_or_sftp": "No product storage/SFTP path was intended. Build artifacts .next and dist were regenerated, ownership repaired to vcontrolhub:vcontrolhub, and temporary .hermes helper scripts were removed.",
+          "background_task_or_process": "Monitoring stats API reads live host /proc/stat, /proc/net/dev, /proc/[pid]/stat and statfs data. The selected side effect exposed a process-table parsing defect in production: before fix the browser showed MEM% values like 3128084M and disk as total/used despite “used” copy; after fix process RSS is bounded against os.totalmem and disk renders used/total.",
+          "runtime_or_ui_side_effect": "The live Monitoring UI now presents operator-triage resource metrics truthfully: disk usage order matches the used label, and the process table MEM% column is a percent rather than mislabeled raw RSS/page-derived megabytes.",
+          "permissions": "Unauthenticated preflight still showed guarded /files,/downloads,/operation-tasks 307 and /api/quick-services 401. This canary used an authenticated admin session; health APIs remain protected by health:read/API guard and smoke confirmed API auth blocks unauthenticated requests.",
+          "regression": [
+            "npx vitest run src/app/api/monitoring/stats/__tests__/route.test.ts src/app/api/health/__tests__/route.test.ts src/app/api/system-health/__tests__/route.test.ts --reporter=dot: 2 files / 10 tests passed",
+            "git diff --check passed",
+            "npm run typecheck passed",
+            "npm run lint passed",
+            "npm run build passed",
+            "npm run build:runtime passed"
+          ],
+          "production": "Repaired .next/dist ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+          "logs": "Post-restart journal scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for the last 10 minutes found no error/warn/failed/exception/EACCES/permission-denied/monitoring/system-health matches.",
+          "cleanup": "Deleted temporary qa_cron_monitoring_canary (remaining qa_cron_* count 0), removed temporary .hermes helper scripts, left no Quick Services containers/storage artifacts, and prepared state/backlog closeout."
+        },
+        "lastCommit": null
       },
       {
         "id": "integrations-media-security-canary",
@@ -591,6 +617,12 @@
         "type": "settings_runtime_canary_completed_no_code_change",
         "summary": "Authenticated Settings runtime canary verified operationTaskListLimit CSRF guard, persistence, Operation Tasks consumer behavior, rollback, cleanup, smoke, and logs without product code changes.",
         "nextFocus": "Rotate to monitoring-health-status-canary or integrations-media-security-canary unless the fresh-audit threshold triggers a broader tester pass."
+      },
+      {
+        "at": "2026-06-04T06:52:38Z",
+        "type": "monitoring_health_status_canary_completed_deployed",
+        "summary": "Authenticated Health/Monitoring canary fixed misleading Monitoring disk/process memory metrics and deployed with smoke/log/cleanup proof.",
+        "nextFocus": "Rotate to integrations-media-security-canary or run fresh comprehensive audit because successful canary count is above threshold."
       }
     ]
   },
@@ -967,6 +999,12 @@
       "type": "settings_runtime_canary_completed_no_code_change",
       "target": "settings-runtime-canary",
       "summary": "Runtime Settings canary completed in production: operationTaskListLimit was changed with CSRF, observed in UI/API/DB and Operation Tasks consumer path, rolled back to 100, and QA user cleanup verified 0 remaining."
+    },
+    {
+      "at": "2026-06-04T06:52:38Z",
+      "type": "canary_code_verified_deployed",
+      "target": "monitoring-health-status-canary",
+      "summary": "Monitoring/Health canary completed: /health and health APIs verified, /monitoring metric truthfulness defect fixed, quality gates/build/restart/smoke/logs/cleanup completed."
     }
   ],
   "resolvedBlockers": [
