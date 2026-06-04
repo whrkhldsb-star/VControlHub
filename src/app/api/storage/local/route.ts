@@ -10,7 +10,10 @@ import { prisma } from "@/lib/db";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
-import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
+import {
+  expandStorageBasePath,
+  normalizeStorageRelativePath,
+} from "@/lib/storage/path-utils";
 import {
   createRemoteDirectory,
   deleteRemoteFile,
@@ -46,7 +49,7 @@ function resolveManagedLocalPath(basePath: string, relativePath: string) {
   }
 
   const normalizedRelativePath = normalizedPath.path;
-  const allowedRoot = path.resolve(basePath);
+  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
   const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 

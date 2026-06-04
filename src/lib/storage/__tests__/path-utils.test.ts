@@ -8,6 +8,7 @@ import {
   normalizeStorageTargetDirectory,
   sanitizeArchiveEntries,
   resolveStoragePathWithinBase,
+  expandStorageBasePath,
 } from "../path-utils";
 
 describe("storage path utils", () => {
@@ -53,6 +54,26 @@ describe("storage path utils", () => {
     expect(resolved).toEqual({ ok: true, path: "/srv/storage/team-a/docs/a.txt" });
     expect(resolveStoragePathWithinBase("/srv/storage", "../secret.png").ok).toBe(false);
     expect(resolveStoragePathWithinBase("/srv/storage", "/etc/passwd").ok).toBe(false);
+  });
+
+  it("expands portable app slug placeholders before resolving local storage roots", () => {
+    const previousSlug = process.env.APP_SLUG;
+    process.env.APP_SLUG = "vcontrolhub";
+    try {
+      expect(expandStorageBasePath("/var/lib/${APP_SLUG:-vcontrolhub}/storage")).toBe(
+        "/var/lib/vcontrolhub/storage",
+      );
+      expect(resolveStoragePathWithinBase(
+        "/var/lib/${APP_SLUG:-vcontrolhub}/storage",
+        "uploads/a.txt",
+      )).toEqual({ ok: true, path: "/var/lib/vcontrolhub/storage/uploads/a.txt" });
+    } finally {
+      if (previousSlug === undefined) {
+        delete process.env.APP_SLUG;
+      } else {
+        process.env.APP_SLUG = previousSlug;
+      }
+    }
   });
 
   it("detects archive entries that could escape during extraction", () => {

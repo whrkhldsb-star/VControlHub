@@ -1,5 +1,23 @@
 import path from "node:path";
 
+function getAppSlugForPathExpansion() {
+  return process.env.APP_SLUG?.trim() || "vcontrolhub";
+}
+
+/**
+ * Expand the portable shell-style placeholders that deployment templates store in
+ * default storage roots. systemd/dotenv do not expand `${APP_SLUG:-...}` inside
+ * EnvironmentFile values before the app reads them, so runtime file operations
+ * must normalize the persisted base path before resolving child paths.
+ */
+export function expandStorageBasePath(basePath: string) {
+  const appSlug = getAppSlugForPathExpansion();
+  return basePath
+    .replace(/\$\{APP_SLUG:-([^}]+)\}/g, (_match, fallback: string) => appSlug || fallback)
+    .replace(/\$\{APP_SLUG\}/g, appSlug)
+    .replace(/\$APP_SLUG\b/g, appSlug);
+}
+
 export type StoragePathResult =
   | { ok: true; path: string }
   | { ok: false; reason: string };
@@ -104,7 +122,7 @@ export function resolveStoragePathWithinBase(basePath: string, relativePath: str
     return normalizedPath;
   }
 
-  const allowedRoot = path.resolve(basePath);
+  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
   const absolutePath = path.resolve(allowedRoot, normalizedPath.path);
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
