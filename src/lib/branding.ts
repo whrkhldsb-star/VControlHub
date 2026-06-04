@@ -24,7 +24,14 @@ function normalizeToken(value: string) {
 function isInstallDomainLabel(value: string, env: NodeJS.ProcessEnv) {
   const slug = getAppSlug(env).toLowerCase();
   const host = value.trim().toLowerCase();
-  return host === slug || host.startsWith(`${slug}.`);
+  const configuredDomains = [env.APP_DOMAIN, env.DOMAIN]
+    .map((item) => item?.trim().toLowerCase())
+    .filter((item): item is string => Boolean(item));
+  return (
+    host === slug ||
+    host.startsWith(`${slug}.`) ||
+    configuredDomains.includes(host)
+  );
 }
 
 export function getAppName(env: NodeJS.ProcessEnv = process.env) {

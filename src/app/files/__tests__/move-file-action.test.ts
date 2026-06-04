@@ -155,6 +155,44 @@ describe("moveFileAction", () => {
     expect(prisma.fileEntry.update).not.toHaveBeenCalled();
   });
 
+  it("moves LOCAL files using expanded app slug storage roots before DB update", async () => {
+    const localEntry = {
+      ...baseEntry,
+      storageNode: {
+        driver: "LOCAL" as const,
+        basePath: "/var/lib/${APP_SLUG:-vcontrolhub}/storage",
+      },
+    };
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
+      localEntry as unknown as Awaited<
+        ReturnType<typeof prisma.fileEntry.findUnique>
+      >,
+    );
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true });
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce(null);
+    vi.mocked(mkdir).mockResolvedValueOnce(undefined);
+    vi.mocked(rename).mockResolvedValueOnce(undefined);
+    vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({ id: "file-1" } as never);
+
+    const formData = new FormData();
+    formData.set("fileEntryId", "file-1");
+    formData.set("targetDir", "team-b");
+
+    const result = await moveFileAction(null, formData);
+
+    expect(result).toEqual({ success: "已移动到 /team-b/a.txt" });
+    expect(rename).toHaveBeenCalledWith(
+      "/var/lib/vcontrolhub/storage/team-a/a.txt",
+      "/var/lib/vcontrolhub/storage/team-b/a.txt",
+    );
+    expect(prisma.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "file-1" },
+        data: { relativePath: "team-b/a.txt" },
+      }),
+    );
+  });
+
   it("moves SFTP files on the remote server before updating the DB index", async () => {
     vi.mocked(prisma.fileEntry.findUnique).mockResolvedValue(
       baseEntry as unknown as Awaited<

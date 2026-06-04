@@ -16,6 +16,7 @@ describe("branding helpers", () => {
 			NODE_ENV: "test",
 			APP_NAME: "WHRKHLDsb",
 			APP_SLUG: "whrkhldsb",
+			DOMAIN: "whrkhldsb.qzz.io",
 			NEXT_PUBLIC_APP_PUBLIC_LABEL: "WHRKHLDsb",
 		} as NodeJS.ProcessEnv;
 

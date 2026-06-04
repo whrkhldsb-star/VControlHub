@@ -29,6 +29,7 @@ import {
   MAX_EDITABLE_FILE_SIZE_BYTES,
   isPreviewableFile,
 } from "./mime-constants";
+import { expandStorageBasePath } from "./path-utils";
 
 type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
   include: {
@@ -143,7 +144,7 @@ function buildDirectAccessStrategy(input: {
 
 function resolveLocalAbsolutePath(basePath: string, relativePath: string) {
   const normalizedRelativePath = relativePath.replace(/^\/+/, "");
-  const allowedRoot = path.resolve(basePath);
+  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
   const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
@@ -306,11 +307,12 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
 
   try {
     if (node.driver === "LOCAL") {
-      const baseStat = await stat(node.basePath);
+      const expandedBasePath = expandStorageBasePath(node.basePath);
+      const baseStat = await stat(expandedBasePath);
       if (!baseStat.isDirectory()) {
         throw new Error("本机存储根路径不是目录");
       }
-      await access(node.basePath, fsConstants.R_OK | fsConstants.W_OK);
+      await access(expandedBasePath, fsConstants.R_OK | fsConstants.W_OK);
     } else if (node.driver === "SFTP") {
       const credentials = resolveStorageSshCredentials(node);
 

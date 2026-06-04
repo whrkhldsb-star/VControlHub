@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
+  expandStorageBasePath,
   joinStoragePath,
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
@@ -123,17 +124,17 @@ export async function moveFileAction(
     if (entry.storageNode.driver === "LOCAL") {
       const { rename, mkdir } = await import("node:fs/promises");
       const path = await import("node:path");
+      const allowedRoot = path.resolve(expandStorageBasePath(entry.storageNode.basePath));
 
       const oldAbsolutePath = path.resolve(
-        entry.storageNode.basePath,
+        allowedRoot,
         normalizedCurrentPath.path,
       );
       const newAbsolutePath = path.resolve(
-        entry.storageNode.basePath,
+        allowedRoot,
         newRelativePath,
       );
 
-      const allowedRoot = path.resolve(entry.storageNode.basePath);
       const oldRelativeToRoot = path.relative(allowedRoot, oldAbsolutePath);
       const newRelativeToRoot = path.relative(allowedRoot, newAbsolutePath);
 

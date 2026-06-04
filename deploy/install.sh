@@ -523,7 +523,7 @@ sync_installer_env_overrides() {
  set_env_var BACKUP_DIR "${BACKUP_DIR_OVERRIDE:-/var/backups/${APP_SLUG}}"
  set_env_var ARIA2_RPC_DIR "${ARIA2_RPC_DIR_OVERRIDE:-/var/lib/${APP_SLUG}/aria2}"
  if [ -n "${DOMAIN}" ]; then
-  set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${DOMAIN}"
+  set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${SITE_NAME}"
   set_env_var SSH_WS_ALLOWED_ORIGINS "https://${DOMAIN},http://${DOMAIN}"
  else
   set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL ""
@@ -604,15 +604,15 @@ auto_generate_env_secrets() {
 
  # ── NEXT_PUBLIC_APP_PUBLIC_LABEL ─────────────────────────────────
  if is_placeholder_value "${NEXT_PUBLIC_APP_PUBLIC_LABEL:-}"; then
- if [ -n "${DOMAIN:-}" ]; then
- set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${DOMAIN}"
- log "Auto-set NEXT_PUBLIC_APP_PUBLIC_LABEL=${DOMAIN}"
+ if [ -n "${SITE_NAME:-}" ]; then
+ set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${SITE_NAME}"
+ log "Auto-set NEXT_PUBLIC_APP_PUBLIC_LABEL=${SITE_NAME}"
  changed=1
  else
- # DOMAIN not set — clear the placeholder so validate_env won't reject it
+ # No explicit site name — clear the placeholder so validate_env won't reject it
  set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL ""
  NEXT_PUBLIC_APP_PUBLIC_LABEL=""
- warn "DOMAIN not set; cleared NEXT_PUBLIC_APP_PUBLIC_LABEL placeholder"
+ warn "SITE_NAME not set; cleared NEXT_PUBLIC_APP_PUBLIC_LABEL placeholder"
  fi
  fi
 

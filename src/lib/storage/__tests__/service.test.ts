@@ -42,6 +42,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
 import {
   createFileEntry,
   createStorageNode,
+  checkStorageNodeHealth,
   getLocalEditableFileDraft,
   getStorageOverview,
   listFileEntries,
@@ -480,6 +481,93 @@ describe("storage service", () => {
       });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("loads editable local file drafts from local storage roots with app slug placeholders", async () => {
+    vi.clearAllMocks();
+    const previousSlug = process.env.APP_SLUG;
+    const tempParent = await mkdtemp(path.join(tmpdir(), "storage-editable-expanded-"));
+    process.env.APP_SLUG = "vcontrolhub";
+    const tempRoot = path.join(tempParent, "vcontrolhub", "storage");
+    const relativePath = "docs/notes.txt";
+    const absolutePath = path.join(tempRoot, relativePath);
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFileToDisk(absolutePath, "expanded hello", "utf8");
+
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+      id: "file_expanded",
+      name: "notes.txt",
+      entryType: "FILE",
+      mimeType: "text/plain",
+      size: BigInt(14),
+      checksumSha256: null,
+      relativePath,
+      storageNodeId: "node_1",
+      parentId: null,
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date("2026-04-20T01:02:03.000Z"),
+      storageNode: {
+        id: "node_1",
+        name: "主控本机",
+        driver: "LOCAL",
+        basePath: path.join(tempParent, "${APP_SLUG:-vcontrolhub}", "storage"),
+      },
+    } as any);
+
+    try {
+      const result = await getLocalEditableFileDraft("file_expanded");
+      expect(result.content).toBe("expanded hello");
+      expect(result.relativePath).toBe(relativePath);
+    } finally {
+      if (previousSlug === undefined) {
+        delete process.env.APP_SLUG;
+      } else {
+        process.env.APP_SLUG = previousSlug;
+      }
+      await rm(tempParent, { recursive: true, force: true });
+    }
+  });
+
+  it("checks local storage health against expanded app slug roots", async () => {
+    vi.clearAllMocks();
+    const previousSlug = process.env.APP_SLUG;
+    const tempParent = await mkdtemp(path.join(tmpdir(), "storage-health-expanded-"));
+    process.env.APP_SLUG = "vcontrolhub";
+    const tempRoot = path.join(tempParent, "vcontrolhub", "storage");
+    await mkdir(tempRoot, { recursive: true });
+
+    vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+      id: "node_health_expanded",
+      driver: "LOCAL",
+      basePath: path.join(tempParent, "${APP_SLUG:-vcontrolhub}", "storage"),
+      server: null,
+    } as any);
+    vi.mocked(prisma.storageNode.update).mockResolvedValueOnce({
+      id: "node_health_expanded",
+      healthStatus: "HEALTHY",
+      lastHealthCheckAt: new Date("2026-06-04T00:00:00.000Z"),
+      lastHealthError: null,
+      lastHealthLatencyMs: 3,
+    } as any);
+
+    try {
+      const result = await checkStorageNodeHealth("node_health_expanded");
+      expect(result.healthStatus).toBe("HEALTHY");
+      expect(prisma.storageNode.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "node_health_expanded" },
+          data: expect.objectContaining({ healthStatus: "HEALTHY" }),
+        }),
+      );
+    } finally {
+      if (previousSlug === undefined) {
+        delete process.env.APP_SLUG;
+      } else {
+        process.env.APP_SLUG = previousSlug;
+      }
+      await rm(tempParent, { recursive: true, force: true });
     }
   });
 

@@ -17,6 +17,7 @@ import { listServerProfiles } from "@/lib/server/service";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import {
+  expandStorageBasePath,
   joinStoragePath,
   normalizeStorageEntryName,
   normalizeStorageTargetDirectory,
@@ -138,7 +139,7 @@ async function resolveManagedLocalEntryPath(input: {
 }) {
   const path = await import("node:path");
   const normalizedRelativePath = input.relativePath.replace(/^\/+/, "");
-  const allowedRoot = path.resolve(input.basePath);
+  const allowedRoot = path.resolve(expandStorageBasePath(input.basePath));
   const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
@@ -400,14 +401,10 @@ export async function createFolderAction(
     let folderCreated = false;
     if (storageNode.driver === "LOCAL") {
       const { mkdir } = await import("node:fs/promises");
-      const path = await import("node:path");
-      const allowedRoot = path.resolve(storageNode.basePath);
-      const absolutePath = path.resolve(allowedRoot, relativePath);
-      const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-      if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-        return { error: "非法路径" } satisfies StorageActionState;
-      }
+      const { absolutePath } = await resolveManagedLocalEntryPath({
+        basePath: storageNode.basePath,
+        relativePath,
+      });
 
       await mkdir(absolutePath, { recursive: false });
       folderCreated = true;
