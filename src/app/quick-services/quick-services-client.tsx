@@ -113,7 +113,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [syncing, setSyncing] = useState<string | null>(null);
 	// Search
 	const [search, setSearch] = useState("");
-	const [origin, setOrigin] = useState("");
+	const [hostName, setHostName] = useState("");
 
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -142,7 +142,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	useEffect(() => { fetchCatalog(); fetchSources(); }, [fetchCatalog, fetchSources]);
 	useEffect(() => {
-		if (typeof window !== "undefined") setOrigin(window.location.origin);
+		if (typeof window !== "undefined") {
+			setHostName(window.location.hostname);
+		}
 	}, []);
 
 	// Auto-dismiss message
@@ -463,7 +465,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					</div>
 					<div className="mt-4 grid gap-2 sm:grid-cols-2">
 						{runningItems.slice(0, 4).map((item) => (
-							<a key={item.slug} href={origin ? `${origin}:${item.port ?? item.defaultPort}` : "#"} target="_blank" rel="noreferrer" className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
+							<a key={item.slug} href={hostName ? `http://${hostName}:${item.port ?? item.defaultPort}` : "#"} target="_blank" rel="noreferrer" className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
 								<div className="flex items-center justify-between gap-2">
 									<span className="truncate text-sm font-medium text-white">{item.icon} {item.name}</span>
 									<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>

@@ -83,12 +83,13 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 		try {
 			await csrfFetch("/api/alert-rules", { method: "PUT" });
 			addToast("success", "告警检测已触发");
+			await refresh();
 		} catch (error) {
 			setActionError(getErrorMessage(error, "告警检测启动失败"));
 		} finally {
 			setBusyAction(null);
 		}
-	}, [addToast]);
+	}, [addToast, refresh]);
 
 	return (
 		<div className="space-y-6">

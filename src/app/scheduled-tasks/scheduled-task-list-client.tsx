@@ -48,12 +48,17 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	}, []);
 
 	const toggleTask = useCallback(async (id: string) => {
-		await csrfFetch("/api/scheduled-tasks", {
-			method: "PATCH",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ toggleId: id }),
-		});
-		void refresh();
+		setActionError(null);
+		try {
+			await csrfFetch("/api/scheduled-tasks", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ toggleId: id }),
+			});
+			void refresh();
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : "切换定时任务状态失败");
+		}
 	}, [refresh]);
 
 	const deleteTask = useCallback(async (task: Task) => {

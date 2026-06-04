@@ -16,9 +16,16 @@ export async function listSnippets(input: { userId?: string; q?: string; languag
  });
 }
 
-export async function updateSnippet(id: string, input: { title?: string; content?: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean }) {
+export async function updateSnippet(
+  id: string,
+  input: { title?: string; content?: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean },
+  actor?: { userId?: string | null; canManageAll?: boolean },
+) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
   if (!existing) throw new Error("代码片段不存在");
+  if (actor && !actor.canManageAll && existing.createdBy && existing.createdBy !== actor.userId) {
+    throw new Error("无权修改他人的代码片段");
+  }
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) data.title = input.title.trim();
   if (input.content !== undefined) data.content = input.content;
@@ -30,8 +37,11 @@ export async function updateSnippet(id: string, input: { title?: string; content
   return prisma.snippet.update({ where: { id }, data });
 }
 
-export async function deleteSnippet(id: string) {
+export async function deleteSnippet(id: string, actor?: { userId?: string | null; canManageAll?: boolean }) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
   if (!existing) throw new Error("代码片段不存在");
+  if (actor && !actor.canManageAll && existing.createdBy && existing.createdBy !== actor.userId) {
+    throw new Error("无权删除他人的代码片段");
+  }
   return prisma.snippet.delete({ where: { id } });
 }

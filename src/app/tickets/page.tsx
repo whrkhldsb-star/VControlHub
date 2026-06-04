@@ -31,7 +31,7 @@ const statusLabels: Record<string, string> = {
 export default async function Page() {
 	const session = await requireSession("/tickets");
 	const canManage = sessionHasPermission(session, "ticket:manage");
-	const canCreate = sessionHasPermission(session, "ticket:manage");
+	const canCreate = sessionHasPermission(session, "ticket:create");
 	const tickets = await listTickets(canManage ? undefined : session.userId);
 	return (
 		<PageShell maxW="max-w-4xl">

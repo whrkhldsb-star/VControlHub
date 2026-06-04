@@ -164,6 +164,10 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 				await csrfFetch(`/api/downloads?taskId=${taskId}`, { method: "DELETE" });
 				setMessage({ type: "success", text: "任务已取消" });
 				void fetchTasks();
+			} else if (action === "purge") {
+				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
+				setTasks((current) => current.filter((task) => task.id !== taskId));
+				setMessage({ type: "success", text: "任务记录已删除" });
 			} else {
 				const result = await csrfFetch("/api/downloads", {
 					method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -464,6 +468,13 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 									>
 										🔄 刷新
 									</button>
+									{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
+										<button type="button" onClick={() => handleAction(task.id, "purge")}
+											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
+										>
+											🗑 删除记录
+										</button>
+									)}
 								</div>
 							</article>
 						);

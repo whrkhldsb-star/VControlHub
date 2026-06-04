@@ -16,7 +16,23 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [expiresIn, setExpiresIn] = useState("");
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ token: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+
+  const shareUrl = result
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/${result.token}`
+    : "";
+
+  const handleCopy = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard 不可用时静默，用户仍可手动复制下方文本 */
+    }
+  };
 
   const handleCreate = async () => {
     setSaving(true);
@@ -84,7 +100,16 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           {result && (
             <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
               <p className="text-xs text-emerald-300 font-medium">✅ 分享链接已创建</p>
-              <code className="mt-1 block break-all text-xs text-emerald-200/80">/share/{result.token}</code>
+              <div className="mt-2 flex items-center gap-2">
+                <code className="block flex-1 break-all text-xs text-emerald-200/80">{shareUrl || `/share/${result.token}`}</code>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+                >
+                  {copied ? "已复制 ✓" : "复制链接"}
+                </button>
+              </div>
               <p className="mt-1 text-[10px] text-slate-500">请妥善保存 token，数据库仅存储哈希，无法再次查看。</p>
             </div>
           )}

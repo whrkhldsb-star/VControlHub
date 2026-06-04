@@ -47,7 +47,7 @@ function statusLabel(status: string) {
   return status;
 }
 
-export function UserManagementClient() {
+export function UserManagementClient({ canManage = false }: { canManage?: boolean }) {
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -146,13 +146,15 @@ export function UserManagementClient() {
       {/* Create button */}
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-lg font-medium text-white">用户列表</h2>
-        <button
-          type="button"
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
-        >
-          {showCreateForm ? "取消" : "+ 创建用户"}
-        </button>
+        {canManage ? (
+          <button
+            type="button"
+            onClick={() => setShowCreateForm(!showCreateForm)}
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+          >
+            {showCreateForm ? "取消" : "+ 创建用户"}
+          </button>
+        ) : null}
       </div>
 
       {/* Create form */}
@@ -253,29 +255,35 @@ export function UserManagementClient() {
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setEditingPermissionsUser(user)}
-                    className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20 transition"
-                  >
-                    权限配置
-                  </button>
-                  {user.status !== "DISABLED" ? (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                      className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/20 transition"
-                    >
-                      禁用
-                    </button>
+                  {canManage ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPermissionsUser(user)}
+                        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20 transition"
+                      >
+                        权限配置
+                      </button>
+                      {user.status !== "DISABLED" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(user.id, user.status, user.username)}
+                          className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/20 transition"
+                        >
+                          禁用
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleStatus(user.id, user.status, user.username)}
+                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 transition"
+                        >
+                          启用
+                        </button>
+                      )}
+                    </>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                      className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 transition"
-                    >
-                      启用
-                    </button>
+                    <span className="text-xs text-slate-500">只读</span>
                   )}
                 </div>
               </div>

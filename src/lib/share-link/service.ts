@@ -87,3 +87,14 @@ export async function resolveShareToken(token: string) {
   await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   return share;
 }
+
+/**
+ * 只读解析分享 token，用于落地页展示，不递增访问计数。
+ * 真正的下载（/api/share/[token]）才会通过 resolveShareToken 计数。
+ */
+export async function peekShareToken(token: string) {
+  const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: { storageNode: true } });
+  if (!share || share.revokedAt) throw new Error("分享链接不存在或已撤销");
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new Error("分享链接已过期");
+  return share;
+}

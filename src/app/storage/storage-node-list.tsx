@@ -75,7 +75,7 @@ function StorageNodeCard({
 	canManageNodes: boolean;
 }) {
 	const [editing, setEditing] = useState(false);
-	const [message, setMessage] = useState<string | null>(null);
+	const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 	const [isPending, startTransition] = useTransition();
 	const health = getHealthPresentation(node.healthStatus);
 
@@ -83,7 +83,11 @@ function StorageNodeCard({
 		setMessage(null);
 		startTransition(async () => {
 			const result = await checkStorageNodeHealthAction(node.id);
-			setMessage(result.success ?? result.error ?? null);
+			if (result.success) {
+				setMessage({ text: result.success, ok: true });
+			} else if (result.error) {
+				setMessage({ text: result.error, ok: false });
+			}
 		});
 	}
 
@@ -115,7 +119,15 @@ function StorageNodeCard({
 					) : null}
 				</div>
 			</div>
-			<p className="mt-3 text-sm text-cyan-100">{node.directAccess.description}</p>
+			<p className="mt-3 text-sm text-cyan-100">
+				{node.directAccess.href ? (
+					<a href={node.directAccess.href} target="_blank" rel="noopener noreferrer" className="underline decoration-cyan-400/40 underline-offset-2 hover:text-cyan-50">
+						{node.directAccess.description}
+					</a>
+				) : (
+					node.directAccess.description
+				)}
+			</p>
 			<div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/40 p-4 text-sm text-slate-300">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
@@ -135,7 +147,7 @@ function StorageNodeCard({
 					) : null}
 				</div>
 				{node.lastHealthError ? <p className="mt-2 text-xs text-amber-200">{node.lastHealthError}</p> : null}
-				{message ? <p className="mt-2 text-xs text-emerald-200">{message}</p> : null}
+				{message ? <p className={`mt-2 text-xs ${message.ok ? "text-emerald-200" : "text-rose-200"}`}>{message.text}</p> : null}
 			</div>
 			<p className="mt-2 text-xs text-slate-400">已登记文件：{node.fileCount}</p>
 

@@ -758,6 +758,11 @@ export function FilesBrowserSpa({
                     type="button"
                     disabled
                     aria-disabled="true"
+                    title={
+                      !data.permissions.canEditLocalFiles
+                        ? "没有文件编辑权限，无法新建文件夹"
+                        : "当前没有可用的存储节点，无法新建文件夹"
+                    }
                     className="cursor-not-allowed rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-400"
                   >
                     新建文件夹

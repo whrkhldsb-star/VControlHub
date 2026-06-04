@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { type MoveFileActionState, moveFileAction } from "./move-file-action";
@@ -38,9 +38,15 @@ export function MoveInlineForm({
  setTargetDir("");
  }
 
- if (state.success) {
- if (onRefresh) { onRefresh(); } else { router.refresh(); }
- }
+ useEffect(() => {
+ 	if (!state.success) return;
+ 	// Surface the success message briefly, then close + refresh.
+ 	const t = setTimeout(() => {
+ 		setEditing(false);
+ 		if (onRefresh) { onRefresh(); } else { router.refresh(); }
+ 	}, 700);
+ 	return () => clearTimeout(t);
+ }, [state.success, onRefresh, router]);
 
 	if (!editing) {
 		return (

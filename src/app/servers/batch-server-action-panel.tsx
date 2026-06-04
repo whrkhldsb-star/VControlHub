@@ -109,7 +109,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 					{selectedServers.map((server) => (
 						<input key={server.id} type="hidden" name="serverIds" value={server.id} />
 					))}
-					<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2 text-sm text-emerald-100 transition hover:bg-emerald-400/20">
+					<SubmitButton pendingLabel="处理中..." disabled={disabledSelectedCount === 0} className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2 text-sm text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50">
 						批量启用所选节点
 					</SubmitButton>
 				</form>

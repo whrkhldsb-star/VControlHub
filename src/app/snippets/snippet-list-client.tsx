@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { SnippetEditModal } from "./snippet-edit-modal";
-import { Pencil, Trash2, Copy, Check, Search } from "lucide-react";
+import { CreateSnippetModal } from "./create-snippet-modal";
+import { Pencil, Trash2, Copy, Check, Search, Plus } from "lucide-react";
 
 interface Snippet {
   id: string;
@@ -24,6 +25,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [langFilter, setLangFilter] = useState("ALL");
 
@@ -92,6 +94,12 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           ))}
         </select>
         <span className="text-xs text-slate-500">{filtered.length} 条</span>
+        <button
+          onClick={() => setCreating(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+        >
+          <Plus size={14} /> 新建片段
+        </button>
       </div>
 
       <div className="grid gap-3">
@@ -132,6 +140,16 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           </div>
         )}
       </div>
+
+      {creating && (
+        <CreateSnippetModal
+          onClose={() => setCreating(false)}
+          onCreated={(created) => {
+            setItems((prev) => [created, ...prev]);
+            addToast("success", "代码片段已创建");
+          }}
+        />
+      )}
 
       {editing && (
         <SnippetEditModal

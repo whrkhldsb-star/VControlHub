@@ -51,6 +51,9 @@ function createStorageEntry(item: MediaItem) {
   const node = item.storageNode;
   if (!node) return null;
 
+  const rawMode = String(node.directAccessMode ?? "PROXY");
+  const isDirectAccess = rawMode === "DIRECT" || rawMode === "direct-url";
+
   const file: FileProp = {
     id: item.id,
     name: item.name,
@@ -60,16 +63,15 @@ function createStorageEntry(item: MediaItem) {
     sizeBytes: item.size == null ? null : Number(item.size),
     sizeLabel: formatSize(item.size),
     previewable: true,
-    directAccessMode: node.directAccessMode ?? "managed-download",
+    directAccessMode: isDirectAccess ? "direct-url" : "managed-download",
     directAccessHref:
-      node.directAccessMode === "direct-url" && node.publicBaseUrl
+      isDirectAccess && node.publicBaseUrl
         ? `${node.publicBaseUrl.replace(/\/$/, "")}/${item.relativePath
             .split("/")
             .map(encodeURIComponent)
             .join("/")}`
         : null,
-    directAccessDescription:
-      node.directAccessMode === "direct-url" ? "目标服务器直连" : "网站中转",
+    directAccessDescription: isDirectAccess ? "目标服务器直连" : "网站中转",
     storageNodeId: node.id,
     storageNodeName: node.name,
     storageNodeDriver: node.driver,

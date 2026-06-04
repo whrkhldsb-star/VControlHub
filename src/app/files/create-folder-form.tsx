@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createFolderAction, type StorageActionState } from "../storage/actions";
@@ -46,9 +46,15 @@ export function CreateFolderForm({
     setFolderName("");
   }
 
-  if (state.success) {
-    router.refresh();
-  }
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (state.success) {
+      router.refresh();
+      setExpanded(false);
+      setFolderName("");
+    }
+  }, [state.success, router]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!expanded) {
     return (
@@ -66,7 +72,6 @@ export function CreateFolderForm({
 
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
-      <input type="hidden" name="storageNodeId" value={selectedNodeId} />
       <input type="hidden" name="currentPath" value={currentPath} />
       {storageNodes.length > 1 ? (
         <label className="grid gap-1 text-sm text-slate-300">
@@ -84,7 +89,9 @@ export function CreateFolderForm({
             ))}
           </select>
         </label>
-      ) : null}
+      ) : (
+        <input type="hidden" name="storageNodeId" value={selectedNodeId} />
+      )}
       <label className="grid gap-1 text-sm text-slate-300">
         <span className="sr-only">文件夹名称</span>
         <input

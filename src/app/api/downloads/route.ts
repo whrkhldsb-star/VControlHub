@@ -664,6 +664,23 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: "没有该下载任务的取消权限" }, { status: 403 });
       }
 
+      // Purge: hard-delete a terminal-state task row from history.
+      const purge = searchParams.get("purge") === "1";
+      if (purge) {
+        if (task.status === "RUNNING" || task.status === "PENDING") {
+          return NextResponse.json(
+            { error: "请先取消正在进行的任务，再删除记录" },
+            { status: 409 },
+          );
+        }
+        await prisma.downloadTask.delete({ where: { id: taskId } });
+        auditUserAction(session.userId, "download.purge", {
+          taskId,
+          url: task.url,
+        });
+        return NextResponse.json({ success: true, purged: true });
+      }
+
       if (task.aria2Gid) {
         try {
           await removeDownload(task.aria2Gid, true);

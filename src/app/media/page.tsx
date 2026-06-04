@@ -38,6 +38,22 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
         <p className="mt-1.5 text-sm text-slate-500">聚合各 VPS 云盘中的图片和视频，按服务器分组显示。支持收藏和标签。</p>
       </header>
 
+      <form method="GET" action="/media" className="mb-4 flex items-center gap-2">
+        {mediaType && <input type="hidden" name="type" value={mediaType} />}
+        {favorite && <input type="hidden" name="favorite" value="1" />}
+        <input
+          type="search"
+          name="q"
+          defaultValue={q ?? ""}
+          placeholder="搜索文件名、路径、标签…"
+          className="w-full max-w-sm rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600"
+        />
+        <button type="submit" className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500">搜索</button>
+        {q && (
+          <Link href={`/media${mediaType ? `?type=${mediaType}` : favorite ? "?favorite=1" : ""}`} className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5">清除</Link>
+        )}
+      </form>
+
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
         <Link href="/media" className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-cyan-200 hover:bg-cyan-400/10">共 {media.length} 项</Link>
         <Link href="/media?type=image" className="rounded-full border border-blue-400/20 bg-blue-400/[0.06] px-3 py-1 text-blue-200 hover:bg-blue-400/10">图片 {imageCount}</Link>

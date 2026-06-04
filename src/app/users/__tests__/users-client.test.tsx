@@ -53,7 +53,7 @@ describe("UserManagementClient", () => {
       .mockResolvedValueOnce({ users: [user] })
       .mockRejectedValueOnce(new Error("禁用失败"));
 
-    render(<UserManagementClient />);
+    render(<UserManagementClient canManage />);
     expect(await screen.findByText("Alice")).toBeInTheDocument();
 
     await actor.click(screen.getByRole("button", { name: "禁用" }));
@@ -61,5 +61,17 @@ describe("UserManagementClient", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("禁用失败");
     expect(screen.getByText("Alice")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "禁用" })).toBeInTheDocument();
+  });
+
+  it("hides write actions for read-only users (user:read without user:manage)", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue({ users: [user] });
+
+    render(<UserManagementClient canManage={false} />);
+    expect(await screen.findByText("Alice")).toBeInTheDocument();
+
+    expect(screen.queryByRole("button", { name: "+ 创建用户" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "禁用" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "权限配置" })).not.toBeInTheDocument();
+    expect(screen.getByText("只读")).toBeInTheDocument();
   });
 });

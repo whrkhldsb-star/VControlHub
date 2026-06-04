@@ -35,7 +35,7 @@ function auditTemplateDetail(template: { id: string; name?: string | null; isBui
 }
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "command:create", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
+	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: "服务器错误" }, async () => {
 		const templates = await listTemplates();
 		const serialized = templates.map((t) => ({
 			id: t.id, name: t.name, description: t.description,
