@@ -479,6 +479,17 @@ describe("deploy/install.sh", () => {
     expect(script).toMatch(/need_root\s+install_packages\s+install_docker\s+prepare_app_user\s+add_app_user_to_docker_group\s+prepare_quick_service_storage/);
   });
 
+  it("derives PostgreSQL default identifiers safely from dashed app slugs", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const script = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+
+    expect(script).toContain("pg_identifier_from_slug() {");
+    expect(script).toContain("PG_DB_NAME=\"${PG_DB_NAME:-$(pg_identifier_from_slug \"${APP_SLUG}\")}\"");
+    expect(script).toContain("PG_DB_USER=\"${PG_DB_USER:-$(pg_identifier_from_slug \"${APP_SLUG}\")}\"");
+    expect(script).toContain("sed -E 's/[^a-z0-9_]+/_/g; s/^_+//; s/_+$//'");
+    expect(script).toContain('[0-9]*) ident="app_${ident}" ;;');
+  });
+
   it("syncs generated env identity and database settings with installer overrides", async () => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();

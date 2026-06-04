@@ -8,6 +8,21 @@ slugify() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
+pg_identifier_from_slug() {
+  # PostgreSQL user/database names are later used as unquoted identifiers in
+  # psql commands. Keep the default derived identifiers portable even when an
+  # operator chooses an APP_SLUG containing dashes (valid for services/paths but
+  # invalid unquoted in PostgreSQL). Explicit PG_DB_NAME/PG_DB_USER values are
+  # still honored as-is for advanced installs.
+  local ident
+  ident="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_]+/_/g; s/^_+//; s/_+$//')"
+  [ -n "${ident}" ] || ident="vcontrolhub"
+  case "${ident}" in
+    [0-9]*) ident="app_${ident}" ;;
+  esac
+  printf '%s' "${ident}"
+}
+
 APP_NAME="${APP_NAME:-VControlHub}"
 APP_SLUG="${APP_SLUG:-$(slugify "${APP_NAME}")}"
 [ -n "${APP_SLUG}" ] || APP_SLUG="vcontrolhub"
@@ -42,8 +57,8 @@ SKIP_DOCKER="${SKIP_DOCKER:-0}"
 SKIP_CADDY="${SKIP_CADDY:-0}"
 SKIP_DB_SETUP="${SKIP_DB_SETUP:-0}"
 PG_AUTO_SETUP="${PG_AUTO_SETUP:-1}"
-PG_DB_NAME="${PG_DB_NAME:-${APP_SLUG}}"
-PG_DB_USER="${PG_DB_USER:-${APP_SLUG}}"
+PG_DB_NAME="${PG_DB_NAME:-$(pg_identifier_from_slug "${APP_SLUG}")}"
+PG_DB_USER="${PG_DB_USER:-$(pg_identifier_from_slug "${APP_SLUG}")}"
 PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
 DATABASE_URL_OVERRIDE="${DATABASE_URL:-}"
 STORAGE_ROOT_OVERRIDE="${STORAGE_ROOT:-}"

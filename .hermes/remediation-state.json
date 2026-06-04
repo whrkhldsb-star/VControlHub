@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T09:45:58Z",
+  "updatedAt": "2026-06-04T10:16:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -59,10 +59,10 @@
   },
   "lastRun": {
     "startedAt": "2026-06-04T09:45:58Z",
-    "finishedAt": "2026-06-04T09:45:58Z",
+    "finishedAt": "2026-06-04T10:16:00Z",
     "target": "servers-ssh-gateway-canary",
     "status": "completed_verified_no_code_change_with_cleanup",
-    "summary": "Authenticated Servers/SSH/Gateway canary verified the production VPS management page, server detail/direct-gateway guidance, real SSH terminal connected state, DB server/storage metadata, smoke/service/log health, and cleaned a stale Quick Services AList container/row from a previous canary without product code changes.",
+    "summary": "Authenticated Servers/SSH/Gateway canary verified the production VPS management page, server detail/direct-gateway guidance, real SSH terminal connected state, DB server/storage metadata, smoke/service/log health, and cleaned a stale Quick Services AList container/row from a previous canary without product code changes. Follow-up audit also fixed dashed APP_SLUG defaults by deriving safe PostgreSQL identifiers with underscores for PG_DB_NAME/PG_DB_USER.",
     "changeContract": {
       "qaPathId": "servers-ssh-gateway-canary",
       "role": "authenticated admin/operator managing VPS nodes and opening SSH terminal",
@@ -91,6 +91,7 @@
       "permissions": "A temporary admin QA user was created only for the canary; the SSH terminal and server page required the authenticated shell. Protected unauthenticated route behavior remained guarded by deterministic preflight and smoke auth checks.",
       "regression": [
         "npx vitest run src/app/servers/__tests__/page.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/app/servers/__tests__/server-actions.test.ts --reporter=dot: 2 files / 4 tests passed",
+        "Follow-up dashed APP_SLUG PostgreSQL identifier regression added; installer/aria2 regressions now 34/34 passed",
         "No product code changed, so typecheck/lint/build/build:runtime and production restart were not required for this run."
       ],
       "production": "Preflight showed clean git/origin sync, main/daily cron last_status ok, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, Docker 20.10.24 available, /api/status and /login 200, protected pages 307, /api/quick-services 401 unauth. Closeout confirmed /api/status 200, services active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
