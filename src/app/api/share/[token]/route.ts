@@ -6,6 +6,7 @@ import path from "node:path";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { resolveShareToken } from "@/lib/share-link/service";
+import { expandStorageBasePath } from "@/lib/storage/path-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export async function GET(
 		);
 	}
 
-	const allowedRoot = path.resolve(node.basePath);
+	const allowedRoot = path.resolve(expandStorageBasePath(node.basePath));
 	const absolutePath = path.resolve(allowedRoot, share.path);
 	const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
