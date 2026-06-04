@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T09:07:02Z",
+  "updatedAt": "2026-06-04T09:45:58Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,48 +58,44 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-04T09:07:02Z",
-    "finishedAt": "2026-06-04T09:07:02Z",
-    "target": "one-click-installer-env-and-proxy-readiness",
-    "status": "completed_verified_no_runtime_restart_required",
-    "summary": "Audited and fixed one-click installer environment generation and proxy branch logic: IP-only/no-domain installs now consistently use Apache instead of installing/restarting Caddy, DESTDIR renders units/proxy configs without mutating host service managers, installer overrides sync HOSTNAME/public origins/runtime data paths/DATABASE_URL, aria2 env template coverage was completed, and skipped package installs now fail clearly when the required reverse proxy is absent.",
+    "startedAt": "2026-06-04T09:45:58Z",
+    "finishedAt": "2026-06-04T09:45:58Z",
+    "target": "servers-ssh-gateway-canary",
+    "status": "completed_verified_no_code_change_with_cleanup",
+    "summary": "Authenticated Servers/SSH/Gateway canary verified the production VPS management page, server detail/direct-gateway guidance, real SSH terminal connected state, DB server/storage metadata, smoke/service/log health, and cleaned a stale Quick Services AList container/row from a previous canary without product code changes.",
     "changeContract": {
-      "qaPathId": "one-click-installer-env-and-proxy-readiness",
-      "role": "operator running one-click install or isolated installer validation",
-      "entry": "deploy/bootstrap.sh -> deploy/install.sh -> generated .env.local/systemd/proxy assets",
-      "userAction": "Run installer in domain and IP-only/no-domain modes with either normal package installation or explicit SKIP_PACKAGES/DESTDIR validation.",
+      "qaPathId": "servers-ssh-gateway-canary",
+      "role": "authenticated admin/operator managing VPS nodes and opening SSH terminal",
+      "entry": "Production /servers page -> VPS status cards -> details expansion -> SSH terminal button -> SSH WebSocket token/proxy",
+      "userAction": "Log in, open VPS Management, inspect real server status/storage/direct-gateway details, launch a real SSH terminal to an enabled VPS, wait for connected state, then close out permissions/logs/cleanup.",
       "expectedSideEffects": [
-        "Fresh .env.local contains concrete runtime paths and correct host/origin/DB settings",
-        "IP-only installs render/use Apache instead of Caddy",
-        "DESTDIR installs render files only and do not mutate host systemctl/Apache/Caddy state",
-        "Package-skipped installs fail clearly if the required reverse proxy is absent"
+        "/servers hydrates real server/storage state",
+        "/api/auth/ws-token issues an authenticated token for the selected server",
+        "vcontrolhub-ssh-ws establishes a browser SSH session and UI shows connected state",
+        "no DB/server configuration is mutated",
+        "temporary QA user and stale Quick Services container state are removed"
       ],
       "outOfScope": [
-        "No production runtime code changed",
-        "No live service restart required"
+        "No add/edit/delete/toggle mutation of real VPS rows",
+        "No product code change or production restart unless the journey exposes a blocker"
       ],
-      "evidenceProfile": "deployment_installer"
+      "evidenceProfile": "servers_ssh_gateway"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Not applicable: this slice targets headless one-click install/deploy assets rather than a browser user page.",
-      "api": "Production /api/status returned healthy after changes; no API contract changed.",
-      "db_or_persisted_config": "Installer now writes DATABASE_URL overrides when supplied, syncs PG_DB_NAME/PG_DB_USER, concretes STORAGE_ROOT/DOWNLOAD_ROOT/BACKUP_DIR/ARIA2_RPC_DIR, and clears/regenerates SSH_WS_ALLOWED_ORIGINS based on DOMAIN/IP-only mode instead of preserving stale template domains.",
-      "filesystem_or_sftp": "DESTDIR IP-only dry run rendered systemd units and Apache next-proxy.conf under the fake root; aria2 runtime directory is created/chowned alongside storage/download/backup dirs.",
-      "background_task_or_process": "DESTDIR path now skips host systemctl daemon-reload/enable and host Apache/Caddy enable/configtest/port-owner changes; package-skip path fails explicitly when apache2/caddy is missing.",
-      "runtime_or_ui_side_effect": "Future one-click installs without DOMAIN now consistently use Apache/IP-direct reverse proxy, while DOMAIN installs retain Caddy. Existing production runtime was not restarted because changes affect installer/assets only.",
-      "permissions": "No application permission boundary changed; installer isolation reduces accidental host side effects in validation runs.",
+      "browser_or_dom": "Production browser logged in as temporary admin qa_cron_servers_canary, opened /servers, verified the VPS Management page with 3 enabled nodes/3 bound storage nodes, expanded 45.207.216.45 details, saw connection summary root@45.207.216.45:61834 using password, Direct Gateway status/link/guidance, and opened a real SSH terminal modal. DOM proof showed role=dialog, aria-modal=true, labelled title/description, terminal input, and status text 已连接 after an idle wait.",
+      "api": "Authenticated browser resource timing showed /api/servers returned during page hydration and /api/auth/ws-token completed for the SSH terminal token; unauthenticated preflight still guarded protected routes (/files,/downloads,/operation-tasks 307 and /api/quick-services 401). Authenticated /api/quick-services returned docker.available=true and also exposed a stale AList installed row before cleanup.",
+      "db_or_persisted_config": "Production Prisma inspection showed three enabled Server rows: test 31.59.111.31:22 SSH_KEY with storage /root, 31.22.111.48:22 SSH_KEY with storage /root, and 45.207.216.45:61834 PASSWORD with storage /root/drive plus publicUrl http://45.207.216.45:31888/fileProxyPort 31888. Final cleanup verified qa_cron_* count 0 and QuickService rows [].",
+      "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended for this servers/SSH journey. The canary only read server/storage metadata and opened a WebSocket SSH terminal; temporary password/cookie files under /tmp were removed. Cleanup also discovered and removed the leftover qs-alist Docker container/QuickService row from a prior Quick Services run, leaving no qs-* containers.",
+      "background_task_or_process": "vcontrolhub-ssh-ws.service accepted the real browser SSH terminal flow and the UI reached 已连接. systemctl/curl closeout showed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active with /api/status 200. docker ps after cleanup showed no qs-* containers.",
+      "runtime_or_ui_side_effect": "The operator-visible VPS journey remained functional: details expansion surfaced truthful connection/storage/direct-gateway guidance and the SSH terminal reached an active connected state rather than only rendering a static modal. The prior stale AList container side effect was cleaned so Quick Services sidebar/API state no longer claims an installed service.",
+      "permissions": "A temporary admin QA user was created only for the canary; the SSH terminal and server page required the authenticated shell. Protected unauthenticated route behavior remained guarded by deterministic preflight and smoke auth checks.",
       "regression": [
-        "bash -n deploy/install.sh deploy/bootstrap.sh deploy/preflight.sh deploy/check.sh deploy/smoke-test.sh deploy/verify-assets.sh passed",
-        "npm test -- --run deploy/__tests__/preflight.test.ts src/lib/aria2/__tests__/service.test.ts: 33/33 passed",
-        "npm run verify:deploy-assets passed",
-        "npm run typecheck passed",
-        "npm run lint passed",
-        "npm run build passed",
-        "npm run build:runtime passed"
+        "npx vitest run src/app/servers/__tests__/page.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/app/servers/__tests__/server-actions.test.ts --reporter=dot: 2 files / 4 tests passed",
+        "No product code changed, so typecheck/lint/build/build:runtime and production restart were not required for this run."
       ],
-      "production": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active; /api/status healthy. No runtime restart required for installer-only changes.",
-      "logs": "No new runtime logs required beyond health check because production services were not restarted for installer-only changes.",
-      "cleanup": "Temporary DESTDIR/fakeroot installer dry-run directories were removed; no QA users or production artifacts were introduced."
+      "production": "Preflight showed clean git/origin sync, main/daily cron last_status ok, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, Docker 20.10.24 available, /api/status and /login 200, protected pages 307, /api/quick-services 401 unauth. Closeout confirmed /api/status 200, services active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+      "logs": "Preflight recent log scan was clean. Post-canary journal scan found no SSH/WebSocket errors; it captured one expected cleanup race log from DELETE /api/quick-services/alist returning 服务不存在 after the row/container had already been removed, with no continuing failures afterward.",
+      "cleanup": "Deleted qa_cron_servers_canary and verified qa_cron_* remaining 0; removed /tmp QA password/cookie files; removed stale qs-alist container/QuickService row left from prior evidence; final Prisma QuickService list [] and docker ps no qs-* containers; git stayed clean and HEAD == origin/main 6ce39b9."
     }
   },
   "runPolicy": {
@@ -115,7 +111,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 27,
+    "successfulRemediationRunsSinceFreshAudit": 28,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -174,9 +170,27 @@
         "batch": "QA batch 2",
         "path": "VPS/server management add/edit/toggle/delete-safe paths -> SSH terminal connect/idle -> Direct Gateway eligibility/recovery -> service/status copy accuracy",
         "priority": "high",
-        "status": "partially_completed",
+        "status": "completed_verified_no_code_change",
         "requiredEvidenceProfile": "servers_ssh_gateway",
-        "lastCompletedAt": null
+        "lastCompletedAt": "2026-06-04T09:45:58Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser logged in as temporary admin qa_cron_servers_canary, opened /servers, verified the VPS Management page with 3 enabled nodes/3 bound storage nodes, expanded 45.207.216.45 details, saw connection summary root@45.207.216.45:61834 using password, Direct Gateway status/link/guidance, and opened a real SSH terminal modal. DOM proof showed role=dialog, aria-modal=true, labelled title/description, terminal input, and status text 已连接 after an idle wait.",
+          "api": "Authenticated browser resource timing showed /api/servers returned during page hydration and /api/auth/ws-token completed for the SSH terminal token; unauthenticated preflight still guarded protected routes (/files,/downloads,/operation-tasks 307 and /api/quick-services 401). Authenticated /api/quick-services returned docker.available=true and also exposed a stale AList installed row before cleanup.",
+          "db_or_persisted_config": "Production Prisma inspection showed three enabled Server rows: test 31.59.111.31:22 SSH_KEY with storage /root, 31.22.111.48:22 SSH_KEY with storage /root, and 45.207.216.45:61834 PASSWORD with storage /root/drive plus publicUrl http://45.207.216.45:31888/fileProxyPort 31888. Final cleanup verified qa_cron_* count 0 and QuickService rows [].",
+          "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended for this servers/SSH journey. The canary only read server/storage metadata and opened a WebSocket SSH terminal; temporary password/cookie files under /tmp were removed. Cleanup also discovered and removed the leftover qs-alist Docker container/QuickService row from a prior Quick Services run, leaving no qs-* containers.",
+          "background_task_or_process": "vcontrolhub-ssh-ws.service accepted the real browser SSH terminal flow and the UI reached 已连接. systemctl/curl closeout showed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active with /api/status 200. docker ps after cleanup showed no qs-* containers.",
+          "runtime_or_ui_side_effect": "The operator-visible VPS journey remained functional: details expansion surfaced truthful connection/storage/direct-gateway guidance and the SSH terminal reached an active connected state rather than only rendering a static modal. The prior stale AList container side effect was cleaned so Quick Services sidebar/API state no longer claims an installed service.",
+          "permissions": "A temporary admin QA user was created only for the canary; the SSH terminal and server page required the authenticated shell. Protected unauthenticated route behavior remained guarded by deterministic preflight and smoke auth checks.",
+          "regression": [
+            "npx vitest run src/app/servers/__tests__/page.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/app/servers/__tests__/server-actions.test.ts --reporter=dot: 2 files / 4 tests passed",
+            "No product code changed, so typecheck/lint/build/build:runtime and production restart were not required for this run."
+          ],
+          "production": "Preflight showed clean git/origin sync, main/daily cron last_status ok, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, Docker 20.10.24 available, /api/status and /login 200, protected pages 307, /api/quick-services 401 unauth. Closeout confirmed /api/status 200, services active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+          "logs": "Preflight recent log scan was clean. Post-canary journal scan found no SSH/WebSocket errors; it captured one expected cleanup race log from DELETE /api/quick-services/alist returning 服务不存在 after the row/container had already been removed, with no continuing failures afterward.",
+          "cleanup": "Deleted qa_cron_servers_canary and verified qa_cron_* remaining 0; removed /tmp QA password/cookie files; removed stale qs-alist container/QuickService row left from prior evidence; final Prisma QuickService list [] and docker ps no qs-* containers; git stayed clean and HEAD == origin/main 6ce39b9."
+        },
+        "lastCommit": null,
+        "nextRequiredProof": "Rotate to QA batch 3 deeper Files/storage/SFTP upload/download/direct-access or QA batch 4 background-task lifecycle paths; rerun Servers/SSH only if SSH/WebSocket/gateway regressions return."
       },
       {
         "id": "files-storage-sftp-canary",
@@ -646,6 +660,12 @@
         "type": "monitoring_health_status_canary_completed_deployed",
         "summary": "Authenticated Health/Monitoring canary fixed misleading Monitoring disk/process memory metrics and deployed with smoke/log/cleanup proof.",
         "nextFocus": "Rotate to integrations-media-security-canary or run fresh comprehensive audit because successful canary count is above threshold."
+      },
+      {
+        "at": "2026-06-04T09:45:58Z",
+        "type": "servers_ssh_gateway_canary_completed_no_code_change",
+        "summary": "Servers/SSH/Gateway canary completed with real browser SSH terminal connected-state proof and no code change. A stale AList Quick Services row/container from prior canary was cleaned up.",
+        "nextFocus": "Rotate to QA batch 3 deep Files/storage/SFTP upload/download/direct-access user-path testing or QA batch 4 Downloads lifecycle."
       }
     ],
     "events": [
@@ -654,6 +674,12 @@
         "type": "integrations_media_security_canary_completed_deployed",
         "summary": "API Token + image-bed canary fixed missing systemd runtime upload write path; production token upload/list/file/delete lifecycle, tests, build, restart, smoke, logs, and cleanup completed.",
         "nextFocus": "Fresh audit threshold remains above policy; otherwise rotate to the next unverified QA batch/user journey rather than repeating image-bed."
+      },
+      {
+        "at": "2026-06-04T09:45:58Z",
+        "type": "servers_ssh_gateway_canary_completed_no_code_change",
+        "target": "servers-ssh-gateway-canary",
+        "summary": "Production Servers/SSH/Gateway canary verified VPS page hydration, real server detail/direct-gateway guidance, SSH terminal connected state, DB metadata, smoke/log health, qa user cleanup, and stale Quick Services container cleanup."
       }
     ]
   },
