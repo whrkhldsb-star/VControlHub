@@ -45,6 +45,11 @@ PG_AUTO_SETUP="${PG_AUTO_SETUP:-1}"
 PG_DB_NAME="${PG_DB_NAME:-${APP_SLUG}}"
 PG_DB_USER="${PG_DB_USER:-${APP_SLUG}}"
 PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
+DATABASE_URL_OVERRIDE="${DATABASE_URL:-}"
+STORAGE_ROOT_OVERRIDE="${STORAGE_ROOT:-}"
+DOWNLOAD_ROOT_OVERRIDE="${DOWNLOAD_ROOT:-}"
+BACKUP_DIR_OVERRIDE="${BACKUP_DIR:-}"
+ARIA2_RPC_DIR_OVERRIDE="${ARIA2_RPC_DIR:-}"
 SKIP_SEED="${SKIP_SEED:-0}"
 SKIP_RESTART="${SKIP_RESTART:-0}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
@@ -377,7 +382,9 @@ install_packages() {
 
 	# ── Phase 3: Caddy ───────────────────────────────────────────────
 	if [ "${SKIP_CADDY}" = "1" ]; then
-		log " ○ Caddy: skipped (SKIP_CADDY=1)"
+		log " ○ Caddy: skipped (SKIP_CADDY=1); Apache reverse proxy will be used"
+	elif [ -z "${DOMAIN}" ]; then
+		log " ○ Caddy: skipped (DOMAIN is empty); Apache IP/direct reverse proxy will be used"
 	elif have_cmd caddy; then
 		log " ✓ Caddy already installed: $(caddy version 2>/dev/null || echo 'present')"
 	else
@@ -486,12 +493,27 @@ sync_installer_env_overrides() {
  set_env_var APP_SLUG "${APP_SLUG}"
  set_env_var SITE_NAME "${SITE_NAME}"
  set_env_var NEXT_HOST "${NEXT_HOST}"
+ set_env_var HOSTNAME "${NEXT_HOST}"
  set_env_var NEXT_PORT "${NEXT_PORT}"
  set_env_var PORT "${NEXT_PORT}"
  set_env_var SSH_WS_HOST "${SSH_WS_HOST}"
  set_env_var SSH_WS_PORT "${SSH_WS_PORT}"
  set_env_var PG_DB_NAME "${PG_DB_NAME}"
  set_env_var PG_DB_USER "${PG_DB_USER}"
+ if [ -n "${DATABASE_URL_OVERRIDE}" ] && ! is_placeholder_value "${DATABASE_URL_OVERRIDE}"; then
+  set_env_var DATABASE_URL "${DATABASE_URL_OVERRIDE}"
+ fi
+ set_env_var STORAGE_ROOT "${STORAGE_ROOT_OVERRIDE:-/var/lib/${APP_SLUG}/storage}"
+ set_env_var DOWNLOAD_ROOT "${DOWNLOAD_ROOT_OVERRIDE:-/var/lib/${APP_SLUG}/downloads}"
+ set_env_var BACKUP_DIR "${BACKUP_DIR_OVERRIDE:-/var/backups/${APP_SLUG}}"
+ set_env_var ARIA2_RPC_DIR "${ARIA2_RPC_DIR_OVERRIDE:-/var/lib/${APP_SLUG}/aria2}"
+ if [ -n "${DOMAIN}" ]; then
+  set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL "${DOMAIN}"
+  set_env_var SSH_WS_ALLOWED_ORIGINS "https://${DOMAIN},http://${DOMAIN}"
+ else
+  set_env_var NEXT_PUBLIC_APP_PUBLIC_LABEL ""
+  remove_env_var SSH_WS_ALLOWED_ORIGINS
+ fi
  chmod 600 "${ENV_FILE}"
 }
 
@@ -691,10 +713,11 @@ validate_install_scope() {
 
 create_runtime_dirs() {
   log "Creating runtime directories"
-  local storage_root download_root backup_root
+  local storage_root download_root backup_root aria2_root
   storage_root="${STORAGE_ROOT:-${DESTDIR}/var/lib/${APP_SLUG}/storage}"
   download_root="${DOWNLOAD_ROOT:-${DESTDIR}/var/lib/${APP_SLUG}/downloads}"
   backup_root="${BACKUP_DIR:-${DESTDIR}/var/backups/${APP_SLUG}}"
+  aria2_root="${ARIA2_RPC_DIR:-${DESTDIR}/var/lib/${APP_SLUG}/aria2}"
   mkdir -p \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \
@@ -704,7 +727,8 @@ create_runtime_dirs() {
     "${APP_DIR}/logs" \
     "${storage_root}" \
     "${download_root}" \
-    "${backup_root}"
+    "${backup_root}" \
+    "${aria2_root}"
   chown -R "${APP_USER}:${APP_USER}" \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \
@@ -714,7 +738,8 @@ create_runtime_dirs() {
     "${APP_DIR}/logs" \
     "${storage_root}" \
     "${download_root}" \
-    "${backup_root}"
+    "${backup_root}" \
+    "${aria2_root}"
 }
 
 setup_postgres() {
@@ -943,13 +968,22 @@ sed \
 		chmod 0644 "${dst}"
 		systemd-analyze verify "${dst}" >/dev/null 2>&1 || warn "systemd-analyze verify reported warnings for ${dst}"
 	done
-	systemctl daemon-reload
-	systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
+	if [ -n "${DESTDIR}" ]; then
+		log "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable"
+	else
+		systemctl daemon-reload
+		systemctl enable "${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-ssh-ws.service"
+	fi
 }
 install_caddy() {
  [ "${SKIP_CADDY}" = "1" ] && { warn "Skipping Caddy setup"; return; }
  [ -n "${DOMAIN}" ] || { warn "DOMAIN is empty; using Apache IP/direct reverse proxy instead of Caddy"; return; }
+ if ! have_cmd caddy; then
+  [ "${SKIP_PACKAGES}" = "1" ] && fail "Caddy is required for DOMAIN=${DOMAIN}, but SKIP_PACKAGES=1 and caddy is not installed. Install caddy first or unset SKIP_PACKAGES."
+  fail "Caddy is required for DOMAIN=${DOMAIN}, but caddy is not installed. Re-run without SKIP_PACKAGES=1 so install_packages can install it."
+ fi
  log "Installing Caddy reverse proxy for ${DOMAIN}"
+ mkdir -p "${DESTDIR}/etc/caddy"
  install -m 0644 "${APP_DIR}/deploy/Caddyfile.example" "${DESTDIR}/etc/caddy/Caddyfile"
  local escaped_domain escaped_next escaped_ssh_ws
  escaped_domain="$(shell_escape_sed_replacement "${DOMAIN}")"
@@ -961,6 +995,10 @@ sed -i \
   -e "s|127.0.0.1:3001|${escaped_ssh_ws}|g" \
   "${DESTDIR}/etc/caddy/Caddyfile"
  caddy validate --config "${DESTDIR}/etc/caddy/Caddyfile" --adapter caddyfile
+ if [ -n "${DESTDIR}" ]; then
+  log "Rendered Caddy config under ${DESTDIR}; skipping host caddy enable/port-owner changes"
+  return 0
+ fi
  systemctl enable caddy
  # Ensure Apache/Nginx is not stealing port 80/443 from Caddy.
  if systemctl is-active --quiet apache2 2>/dev/null; then
@@ -982,11 +1020,15 @@ install_apache() {
   return 0
  fi
  if ! have_cmd apache2 && ! have_cmd apachectl; then
+  [ "${SKIP_PACKAGES}" = "1" ] && fail "Apache is required for IP-only/SKIP_CADDY installs, but SKIP_PACKAGES=1 and apache2 is not installed. Install apache2 first or unset SKIP_PACKAGES."
   log "Apache not found — installing"
+  apt-get update
   apt-get install -y apache2
  fi
  log "Installing Apache reverse proxy config"
- a2enmod proxy proxy_http proxy_wstunnel rewrite headers 2>/dev/null || true
+ if [ -z "${DESTDIR}" ]; then
+  a2enmod proxy proxy_http proxy_wstunnel rewrite headers 2>/dev/null || true
+ fi
 
  # Determine ServerName: use DOMAIN if set, otherwise auto-detect external IP
  local server_name="${DOMAIN:-}"
@@ -1015,11 +1057,16 @@ sed \
   "${apache_src}" > "${apache_dst}"
  chmod 0644 "${apache_dst}"
 
- # Disable default site, enable our proxy site
- a2dissite 000-default 2>/dev/null || true
- a2ensite next-proxy 2>/dev/null || true
- apache2ctl configtest 2>/dev/null || warn "Apache config test had warnings"
- systemctl enable apache2
+ # Disable default site, enable our proxy site. In DESTDIR mode only render the
+ # config file; never mutate host Apache state from an isolated install test.
+ if [ -n "${DESTDIR}" ]; then
+  log "Rendered Apache config under ${DESTDIR}; skipping host apache enable/configtest"
+ else
+  a2dissite 000-default 2>/dev/null || true
+  a2ensite next-proxy 2>/dev/null || true
+  apache2ctl configtest 2>/dev/null || warn "Apache config test had warnings"
+  systemctl enable apache2
+ fi
  log "Apache reverse proxy configured for ${server_name} → ${NEXT_HOST}:${NEXT_PORT} + SSH-WS ${SSH_WS_HOST}:${SSH_WS_PORT}"
 }
 
@@ -1031,12 +1078,15 @@ restart_services() {
 	# when Caddy is installed/enabled but not currently running (common after a
 	# reboot or first install), so try reload only for an active service and fall
 	# back to restart otherwise.
-	if [ "${SKIP_CADDY}" != "1" ]; then
+	if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then
 		if systemctl is-active --quiet caddy; then
 			systemctl reload caddy || systemctl restart caddy
 		else
 			systemctl restart caddy
 		fi
+	fi
+	if [ "${SKIP_CADDY}" = "1" ] || [ -z "${DOMAIN}" ]; then
+		systemctl restart apache2 || warn "Apache reverse proxy did not restart cleanly; check: systemctl status apache2"
 	fi
 	# Wait for Next.js to be ready (standalone server can take a few seconds)
  local retries=15

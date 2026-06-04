@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T07:40:03Z",
+  "updatedAt": "2026-06-04T09:07:02Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,49 +58,48 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-04T07:23:08Z",
-    "finishedAt": "2026-06-04T07:40:03Z",
-    "target": "integrations-media-security-canary",
-    "status": "completed_verified_deployed",
-    "summary": "Verified and fixed the API Tokens + image-bed integration canary: production login/API-token creation and token-authenticated image listing worked, but real image upload failed because the systemd sandbox did not grant the app write access to its image-bed upload directory. The Next.js unit template now grants runtime data paths, the live unit received the matching override, and upload/list/file/delete completed in production with smoke/log/cleanup proof.",
+    "startedAt": "2026-06-04T09:07:02Z",
+    "finishedAt": "2026-06-04T09:07:02Z",
+    "target": "one-click-installer-env-and-proxy-readiness",
+    "status": "completed_verified_no_runtime_restart_required",
+    "summary": "Audited and fixed one-click installer environment generation and proxy branch logic: IP-only/no-domain installs now consistently use Apache instead of installing/restarting Caddy, DESTDIR renders units/proxy configs without mutating host service managers, installer overrides sync HOSTNAME/public origins/runtime data paths/DATABASE_URL, aria2 env template coverage was completed, and skipped package installs now fail clearly when the required reverse proxy is absent.",
     "changeContract": {
-      "qaPathId": "integrations-media-security-canary",
-      "role": "authenticated admin/operator creating an API token and using it for image-bed automation",
-      "entry": "/login -> /api-tokens and /api/api-tokens -> /api/images/list, /api/images/upload, /api/images/[id]/file, /api/images/[id] DELETE",
-      "userAction": "Create a temporary admin user, log in through the production form flow, create an API token with image read/write scopes, list image-bed records through Bearer auth, upload a real PNG, verify the uploaded file is served, delete it, and clean up QA credentials/artifacts.",
+      "qaPathId": "one-click-installer-env-and-proxy-readiness",
+      "role": "operator running one-click install or isolated installer validation",
+      "entry": "deploy/bootstrap.sh -> deploy/install.sh -> generated .env.local/systemd/proxy assets",
+      "userAction": "Run installer in domain and IP-only/no-domain modes with either normal package installation or explicit SKIP_PACKAGES/DESTDIR validation.",
       "expectedSideEffects": [
-        "Login creates a real session plus CSRF cookie",
-        "API Token creation persists a token row usable for Bearer image-bed calls",
-        "Image upload writes an image file under the runtime upload directory and creates an ImageUpload DB row",
-        "Image list and file endpoints expose the uploaded object",
-        "DELETE removes the image row/files and leaves no QA artifacts"
+        "Fresh .env.local contains concrete runtime paths and correct host/origin/DB settings",
+        "IP-only installs render/use Apache instead of Caddy",
+        "DESTDIR installs render files only and do not mutate host systemctl/Apache/Caddy state",
+        "Package-skipped installs fail clearly if the required reverse proxy is absent"
       ],
       "outOfScope": [
-        "No Tickets/Announcements/Snippets/AI provider CRUD in this slice",
-        "No unrelated image-bed UI polish",
-        "No persistent QA token/user kept after closeout"
+        "No production runtime code changed",
+        "No live service restart required"
       ],
-      "evidenceProfile": "integrations_media_security"
+      "evidenceProfile": "deployment_installer"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser reached /login, logged in as qa_cron_integrations_canary, rendered the dashboard shell, and /api-tokens rendered the personal API Token manager form with image:read/image:write scope controls. Browser UI click became stale, so the same CSRF/session-backed production route was exercised deterministically with curl for the side-effect proof.",
-      "api": "Production /api/login returned 303 with session/CSRF cookies; CSRF POST /api/api-tokens returned 200 and a one-time plaintext token (redacted); Bearer GET /api/images/list returned 200; initial Bearer POST /api/images/upload returned 500 {error:\"上传失败\"}; after the systemd runtime-path fix, Bearer POST /api/images/upload returned 201 for qa-recanary.png, GET /api/images/[id]/file returned 200 image/png 68 bytes, and CSRF DELETE /api/images/[id] returned 200 success.",
-      "db_or_persisted_config": "Prisma inspection confirmed qa_cron_integrations_canary existed with admin role, API token scopes [read,image:read,image:write], and no ImageUpload rows after the failing upload. Cleanup deleted the temporary QA user/token and verified remaining qa_cron_* users = 0. The systemd source template now persists writable runtime data paths for future installs/upgrades.",
-      "filesystem_or_sftp": "Root cause was filesystem/systemd sandboxing: /opt/whrkhldsb/uploads/image-bed existed but was not writable from the vcontrolhub-next.service sandbox because ProtectSystem=strict ReadWritePaths omitted the app upload/runtime data directories. The live upload directory was chowned to vcontrolhub:vcontrolhub, the live unit override added /opt/whrkhldsb/uploads plus app runtime directories, and post-fix upload/delete left no recent files in the image-bed directory.",
-      "background_task_or_process": "vcontrolhub-next.service runs as vcontrolhub with ProtectSystem=strict. A direct sudo -u vcontrolhub write probe initially failed EACCES, and systemctl show confirmed ReadWritePaths omitted /opt/whrkhldsb/uploads. After daemon-reload and restart, production services were active and the real upload/list/file/delete lifecycle completed through the Next.js process.",
-      "runtime_or_ui_side_effect": "The visible integration path is now truthful for automation users: an API token with image scopes can perform the image-bed upload workflow end-to-end instead of succeeding at token creation/listing but failing at the real file side effect.",
-      "permissions": "Unauthenticated preflight remained guarded (/api/quick-services 401 and protected pages 307). Token upload required image:write; list used read/image:read; delete used the authenticated owner session plus CSRF. No broad permission boundary was relaxed.",
+      "browser_or_dom": "Not applicable: this slice targets headless one-click install/deploy assets rather than a browser user page.",
+      "api": "Production /api/status returned healthy after changes; no API contract changed.",
+      "db_or_persisted_config": "Installer now writes DATABASE_URL overrides when supplied, syncs PG_DB_NAME/PG_DB_USER, concretes STORAGE_ROOT/DOWNLOAD_ROOT/BACKUP_DIR/ARIA2_RPC_DIR, and clears/regenerates SSH_WS_ALLOWED_ORIGINS based on DOMAIN/IP-only mode instead of preserving stale template domains.",
+      "filesystem_or_sftp": "DESTDIR IP-only dry run rendered systemd units and Apache next-proxy.conf under the fake root; aria2 runtime directory is created/chowned alongside storage/download/backup dirs.",
+      "background_task_or_process": "DESTDIR path now skips host systemctl daemon-reload/enable and host Apache/Caddy enable/configtest/port-owner changes; package-skip path fails explicitly when apache2/caddy is missing.",
+      "runtime_or_ui_side_effect": "Future one-click installs without DOMAIN now consistently use Apache/IP-direct reverse proxy, while DOMAIN installs retain Caddy. Existing production runtime was not restarted because changes affect installer/assets only.",
+      "permissions": "No application permission boundary changed; installer isolation reduces accidental host side effects in validation runs.",
       "regression": [
-        "npx vitest run src/app/api/images/upload/__tests__/route.test.ts src/app/api/images/publish-from-storage/__tests__/route.test.ts src/app/api/images/[id]/file/__tests__/route.test.ts --reporter=dot: 3 files / 13 tests passed",
-        "git diff --check passed",
+        "bash -n deploy/install.sh deploy/bootstrap.sh deploy/preflight.sh deploy/check.sh deploy/smoke-test.sh deploy/verify-assets.sh passed",
+        "npm test -- --run deploy/__tests__/preflight.test.ts src/lib/aria2/__tests__/service.test.ts: 33/33 passed",
+        "npm run verify:deploy-assets passed",
         "npm run typecheck passed",
         "npm run lint passed",
         "npm run build passed",
         "npm run build:runtime passed"
       ],
-      "production": "Repaired .next/dist/runtime data ownership, added a live systemd ReadWritePaths override for runtime data/upload paths, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
-      "logs": "Recent logs captured the expected pre-fix image-bed:upload errors during the failing canary attempts. After the runtime-path fix, the upload/list/file/delete recanary completed without new image-bed/EACCES failures; final cleanup log scan only showed the earlier pre-fix image-bed:upload lines.",
-      "cleanup": "Deleted temporary qa_cron_integrations_canary and API token, removed temporary /tmp/vch_int_* and /tmp/vch_recanary_* secret/artifact files, deleted the uploaded test image through the production DELETE route, verified remaining qa_cron_* users = 0, and left no recent files in /opt/whrkhldsb/uploads/image-bed."
+      "production": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active; /api/status healthy. No runtime restart required for installer-only changes.",
+      "logs": "No new runtime logs required beyond health check because production services were not restarted for installer-only changes.",
+      "cleanup": "Temporary DESTDIR/fakeroot installer dry-run directories were removed; no QA users or production artifacts were introduced."
     }
   },
   "runPolicy": {

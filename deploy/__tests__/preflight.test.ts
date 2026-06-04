@@ -593,9 +593,22 @@ describe("deploy/install.sh", () => {
       expect(envContent).toContain('APP_SLUG="smoke-console"');
       expect(envContent).toContain('PG_DB_NAME="smoke_console"');
       expect(envContent).toContain('PG_DB_USER="smoke_console"');
+      expect(envContent).toMatch(
+        /^DATABASE_URL="postgresql:\/\/smoke_console:.+@127\.0\.0\.1:5432\/smoke_console"$/m,
+      );
+      expect(envContent).toContain('STORAGE_ROOT="/var/lib/smoke-console/storage"');
+      expect(envContent).toContain('DOWNLOAD_ROOT="/var/lib/smoke-console/downloads"');
+      expect(envContent).toContain('BACKUP_DIR="/var/backups/smoke-console"');
+      expect(envContent).toContain('ARIA2_RPC_DIR="/var/lib/smoke-console/aria2"');
+      expect(envContent).not.toContain('${APP_SLUG:-');
       expect(envContent).toContain('NEXT_PORT="3100"');
+      expect(envContent).toContain('HOSTNAME="127.0.0.1"');
       expect(envContent).toContain('PORT="3100"');
       expect(envContent).toContain('SSH_WS_PORT="3101"');
+      expect(envContent).toContain(
+        'SSH_WS_ALLOWED_ORIGINS="https://smoke.example.test,http://smoke.example.test"',
+      );
+      expect(envContent).not.toContain("whrkhldsb.qzz.io");
       expect(envContent).toContain(
         'ARIA2_RPC_SECRET="0123456789abcdef0123456789abcdef0123456789abcdef"',
       );
@@ -618,6 +631,8 @@ describe("deploy/install.sh", () => {
       mkdir(customNodeDir, { recursive: true }),
       mkdir(path.join(fakeRoot, "etc/systemd/system"), { recursive: true }),
       mkdir(path.join(fakeRoot, "etc/caddy"), { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/apache2/sites-available"), { recursive: true }),
+      mkdir(path.join(fakeRoot, "etc/apache2/sites-enabled"), { recursive: true }),
     ]);
 
     await writeFile(
@@ -670,6 +685,17 @@ describe("deploy/install.sh", () => {
       path.join(binDir, "caddy"),
       "#!/usr/bin/env bash\nexit 0\n",
     );
+    for (const command of [
+      "apache2",
+      "apachectl",
+      "a2enmod",
+      "a2dissite",
+      "a2ensite",
+      "apache2ctl",
+      "ip",
+    ]) {
+      await writeFile(path.join(binDir, command), "#!/usr/bin/env bash\nexit 0\n");
+    }
     await writeFile(
       path.join(binDir, "rsync"),
       `#!/usr/bin/env bash\nsrc=""\ndest=""\nfor arg in "$@"; do\n  case "$arg" in\n    --*) ;;\n    *) src="$dest"; dest="$arg" ;;\n  esac\ndone\nmkdir -p "$dest"\n(cd "$src" && tar --exclude=.git --exclude=node_modules --exclude=.next --exclude=backups --exclude=storage --exclude=tmp --exclude=uploads --exclude=downloads --exclude=logs --exclude=.env.local -cf - .) | (cd "$dest" && tar -xf -)\n`,
@@ -692,6 +718,13 @@ describe("deploy/install.sh", () => {
       "sed",
       "install",
       "caddy",
+      "apache2",
+      "apachectl",
+      "a2enmod",
+      "a2dissite",
+      "a2ensite",
+      "apache2ctl",
+      "ip",
       "rsync",
       "git",
       "sleep",
@@ -1015,6 +1048,61 @@ describe("deploy/install.sh", () => {
     expect(script).toContain("systemctl restart caddy");
   });
 
+  it("uses Apache instead of installing/restarting Caddy for IP-only installs", async () => {
+    const script = await readFile(
+      path.resolve(__dirname, "../install.sh"),
+      "utf8",
+    );
+    expect(script).toContain(
+      'elif [ -z "${DOMAIN}" ]; then\n\t\tlog " ○ Caddy: skipped (DOMAIN is empty); Apache IP/direct reverse proxy will be used"',
+    );
+    expect(script).toContain(
+      'if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then',
+    );
+    expect(script).toContain(
+      'if [ "${SKIP_CADDY}" = "1" ] || [ -z "${DOMAIN}" ]; then\n\t\tsystemctl restart apache2',
+    );
+  });
+
+  it("fails clearly instead of silently installing reverse proxies when packages are skipped", async () => {
+    const script = await readFile(
+      path.resolve(__dirname, "../install.sh"),
+      "utf8",
+    );
+    expect(script).toContain(
+      'Caddy is required for DOMAIN=${DOMAIN}, but SKIP_PACKAGES=1 and caddy is not installed',
+    );
+    expect(script).toContain(
+      'Apache is required for IP-only/SKIP_CADDY installs, but SKIP_PACKAGES=1 and apache2 is not installed',
+    );
+  });
+
+  it("keeps DESTDIR installs isolated from host service managers", async () => {
+    const script = await readFile(
+      path.resolve(__dirname, "../install.sh"),
+      "utf8",
+    );
+    expect(script).toContain(
+      "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable",
+    );
+    expect(script).toContain(
+      "Rendered Apache config under ${DESTDIR}; skipping host apache enable/configtest",
+    );
+    expect(script).toContain(
+      "Rendered Caddy config under ${DESTDIR}; skipping host caddy enable/port-owner changes",
+    );
+  });
+
+  it("keeps generated environment templates complete for runtime features", async () => {
+    const repoRoot = path.resolve(__dirname, "../..");
+    const envExample = await readFile(path.join(repoRoot, ".env.example"), "utf8");
+    const installer = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");
+
+    expect(envExample).toContain('ARIA2_RPC_SECRET="REPLACE_WITH_RANDOM_ARIA2_RPC_SECRET"');
+    expect(envExample).toContain('ARIA2_RPC_DIR="/var/lib/${APP_SLUG:-whrkhldsb}/aria2"');
+    expect(installer).toContain('set_env_var HOSTNAME "${NEXT_HOST}"');
+  });
+
   it("uses explicit zero-status returns for skipped Apache setup under set -e", async () => {
     const script = await readFile(
       path.resolve(__dirname, "../install.sh"),
@@ -1031,12 +1119,11 @@ describe("deploy/install.sh", () => {
       "utf8",
     );
     expect(script).toContain('encoded_pw="$(urlencode "${PG_DB_PASSWORD}")"');
-    expect(script).toContain(
-      'generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"',
-    );
-    expect(script).not.toContain(
-      'generated_url="postgresql://${PG_DB_USER}:***@127.0.0.1:5432/${PG_DB_NAME}"',
-    );
+    const generatedUrlLine = script
+      .split("\n")
+      .find((line) => line.includes("generated_url="));
+    expect(generatedUrlLine).toContain("${encoded_pw}");
+    expect(generatedUrlLine).not.toContain(":***@");
   });
 
   it("uses configured service ports in post-deploy smoke tests", async () => {
