@@ -19,4 +19,26 @@ describe("LoginPage", () => {
 
 		vi.unstubAllEnvs();
 	});
+
+	it("uses light-theme readable surfaces while preserving the dark default", async () => {
+		const { container } = render(await LoginPage({ searchParams: Promise.resolve({}) }));
+
+		const main = container.querySelector("main");
+		expect(main).toHaveClass("bg-[#050508]");
+		expect(main).toHaveClass("text-white");
+		expect(main?.className).toContain("light:bg-slate-50");
+		expect(main?.className).toContain("light:text-slate-950");
+
+		const username = screen.getByLabelText("用户名");
+		expect(username.className).toContain("bg-white/[0.04]");
+		expect(username.className).toContain("text-white");
+		expect(username.className).toContain("light:bg-white");
+		expect(username.className).toContain("light:text-slate-950");
+	});
+
+	it("renders a visible alert for login errors", async () => {
+		render(await LoginPage({ searchParams: Promise.resolve({ error: "invalid" }) }));
+
+		expect(screen.getByRole("alert")).toHaveTextContent("用户名或密码错误");
+	});
 });

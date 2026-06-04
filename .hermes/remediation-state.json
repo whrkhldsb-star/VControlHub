@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T10:16:00Z",
+  "updatedAt": "2026-06-04T11:04:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,45 +58,49 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-04T09:45:58Z",
-    "finishedAt": "2026-06-04T10:16:00Z",
-    "target": "servers-ssh-gateway-canary",
-    "status": "completed_verified_no_code_change_with_cleanup",
-    "summary": "Authenticated Servers/SSH/Gateway canary verified the production VPS management page, server detail/direct-gateway guidance, real SSH terminal connected state, DB server/storage metadata, smoke/service/log health, and cleaned a stale Quick Services AList container/row from a previous canary without product code changes. Follow-up audit also fixed dashed APP_SLUG defaults by deriving safe PostgreSQL identifiers with underscores for PG_DB_NAME/PG_DB_USER.",
+    "startedAt": "2026-06-04T10:52:00Z",
+    "finishedAt": "2026-06-04T11:04:30Z",
+    "target": "login-light-theme-readability",
+    "status": "completed_verified_deployed",
+    "summary": "Fixed the login page light/day-mode readability problem by converting the hard-coded dark login design into a theme-aware default-dark plus html.light override design. Light mode now renders bright readable page/card/input surfaces, dark mode still renders the original dark experience, login errors expose role=alert, and the real production login flow reaches the authenticated shell.",
     "changeContract": {
-      "qaPathId": "servers-ssh-gateway-canary",
-      "role": "authenticated admin/operator managing VPS nodes and opening SSH terminal",
-      "entry": "Production /servers page -> VPS status cards -> details expansion -> SSH terminal button -> SSH WebSocket token/proxy",
-      "userAction": "Log in, open VPS Management, inspect real server status/storage/direct-gateway details, launch a real SSH terminal to an enabled VPS, wait for connected state, then close out permissions/logs/cleanup.",
+      "qaPathId": "login-light-theme-readability",
+      "role": "public user reaching /login and admin submitting credentials",
+      "entry": "/login page -> /api/login form submit -> authenticated shell",
+      "userAction": "Open production /login in light and dark theme states, verify readability, submit admin credentials, and confirm redirect into the authenticated shell.",
       "expectedSideEffects": [
-        "/servers hydrates real server/storage state",
-        "/api/auth/ws-token issues an authenticated token for the selected server",
-        "vcontrolhub-ssh-ws establishes a browser SSH session and UI shows connected state",
-        "no DB/server configuration is mutated",
-        "temporary QA user and stale Quick Services container state are removed"
+        "Login page is readable in html.light/day mode",
+        "Default dark login page remains readable",
+        "Invalid login error text is exposed via role=alert",
+        "Successful login redirects into the authenticated app shell",
+        "No DB mutation beyond normal session login"
       ],
       "outOfScope": [
-        "No add/edit/delete/toggle mutation of real VPS rows",
-        "No product code change or production restart unless the journey exposes a blocker"
+        "No preference default-page change",
+        "No unrelated app pages redesigned",
+        "No installer changes"
       ],
-      "evidenceProfile": "servers_ssh_gateway"
+      "evidenceProfile": "login_ui_theme_auth"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in as temporary admin qa_cron_servers_canary, opened /servers, verified the VPS Management page with 3 enabled nodes/3 bound storage nodes, expanded 45.207.216.45 details, saw connection summary root@45.207.216.45:61834 using password, Direct Gateway status/link/guidance, and opened a real SSH terminal modal. DOM proof showed role=dialog, aria-modal=true, labelled title/description, terminal input, and status text 已连接 after an idle wait.",
-      "api": "Authenticated browser resource timing showed /api/servers returned during page hydration and /api/auth/ws-token completed for the SSH terminal token; unauthenticated preflight still guarded protected routes (/files,/downloads,/operation-tasks 307 and /api/quick-services 401). Authenticated /api/quick-services returned docker.available=true and also exposed a stale AList installed row before cleanup.",
-      "db_or_persisted_config": "Production Prisma inspection showed three enabled Server rows: test 31.59.111.31:22 SSH_KEY with storage /root, 31.22.111.48:22 SSH_KEY with storage /root, and 45.207.216.45:61834 PASSWORD with storage /root/drive plus publicUrl http://45.207.216.45:31888/fileProxyPort 31888. Final cleanup verified qa_cron_* count 0 and QuickService rows [].",
-      "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended for this servers/SSH journey. The canary only read server/storage metadata and opened a WebSocket SSH terminal; temporary password/cookie files under /tmp were removed. Cleanup also discovered and removed the leftover qs-alist Docker container/QuickService row from a prior Quick Services run, leaving no qs-* containers.",
-      "background_task_or_process": "vcontrolhub-ssh-ws.service accepted the real browser SSH terminal flow and the UI reached 已连接. systemctl/curl closeout showed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active with /api/status 200. docker ps after cleanup showed no qs-* containers.",
-      "runtime_or_ui_side_effect": "The operator-visible VPS journey remained functional: details expansion surfaced truthful connection/storage/direct-gateway guidance and the SSH terminal reached an active connected state rather than only rendering a static modal. The prior stale AList container side effect was cleaned so Quick Services sidebar/API state no longer claims an installed service.",
-      "permissions": "A temporary admin QA user was created only for the canary; the SSH terminal and server page required the authenticated shell. Protected unauthenticated route behavior remained guarded by deterministic preflight and smoke auth checks.",
+      "browser_or_dom": "Production browser verified /login before submit, forced html.light and confirmed a clearly light themed readable page, removed html.light and confirmed default dark theme returned/readable, then submitted admin credentials and reached the authenticated shell/sidebar/VPS page. Browser vision found no major visual defects in light or dark mode.",
+      "api": "Production /api/status returned healthy after deployment. /api/login form submit succeeded through the browser and redirected to the authenticated shell.",
+      "db_or_persisted_config": "No DB schema/config change. Normal login session creation only.",
+      "filesystem_or_sftp": "No filesystem/SFTP user data mutation. Only login page source/test files and rebuilt .next/dist artifacts changed.",
+      "background_task_or_process": "vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted after clean build/runtime build with .next BUILD_ID/manifest checks and ownership repair. Services active afterward.",
+      "runtime_or_ui_side_effect": "User-facing login page now supports the project theme model: dark is the default base, html.light applies day-mode readable surfaces. The login form remains functional and the authenticated app shell loads.",
+      "permissions": "Login form behavior preserved; invalid error alert is visible via role=alert; protected app shell still requires successful authentication.",
       "regression": [
-        "npx vitest run src/app/servers/__tests__/page.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/app/servers/__tests__/server-actions.test.ts --reporter=dot: 2 files / 4 tests passed",
-        "Follow-up dashed APP_SLUG PostgreSQL identifier regression added; installer/aria2 regressions now 34/34 passed",
-        "No product code changed, so typecheck/lint/build/build:runtime and production restart were not required for this run."
+        "npx vitest run src/app/login/__tests__/page.test.tsx: 3/3 passed",
+        "npm run lint -- src/app/login/page.tsx src/app/login/login-form.tsx src/app/login/__tests__/page.test.tsx passed",
+        "git diff --check passed",
+        "npm run typecheck passed",
+        "npm run build passed",
+        "npm run build:runtime passed"
       ],
-      "production": "Preflight showed clean git/origin sync, main/daily cron last_status ok, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, Docker 20.10.24 available, /api/status and /login 200, protected pages 307, /api/quick-services 401 unauth. Closeout confirmed /api/status 200, services active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
-      "logs": "Preflight recent log scan was clean. Post-canary journal scan found no SSH/WebSocket errors; it captured one expected cleanup race log from DELETE /api/quick-services/alist returning 服务不存在 after the row/container had already been removed, with no continuing failures afterward.",
-      "cleanup": "Deleted qa_cron_servers_canary and verified qa_cron_* remaining 0; removed /tmp QA password/cookie files; removed stale qs-alist container/QuickService row left from prior evidence; final Prisma QuickService list [] and docker ps no qs-* containers; git stayed clean and HEAD == origin/main 6ce39b9."
+      "production": "Production restart completed; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks; vcontrolhub-next, vcontrolhub-ssh-ws, caddy, docker active; /api/status healthy.",
+      "logs": "A transient Caddy 502 was recorded during the intentional restart/readiness window; a later 30-second journal window was clean and /api/status remained healthy.",
+      "cleanup": "No QA users/files/containers created. Browser session was used only for login verification."
     }
   },
   "runPolicy": {
@@ -681,8 +685,34 @@
         "type": "servers_ssh_gateway_canary_completed_no_code_change",
         "target": "servers-ssh-gateway-canary",
         "summary": "Production Servers/SSH/Gateway canary verified VPS page hydration, real server detail/direct-gateway guidance, SSH terminal connected state, DB metadata, smoke/log health, qa user cleanup, and stale Quick Services container cleanup."
+      },
+      {
+        "at": "2026-06-04T10:55:58Z",
+        "type": "skipped_overlap_dirty_closeout",
+        "target": "login-light-theme-dirty-closeout",
+        "reason": "Worktree was dirty with login page light-theme/readable-alert changes, but an overlapping npm run build / next build process was active; per non-overlap policy this tick recorded the skip and did not validate, deploy, commit, or open a new QA lane.",
+        "preflight": {
+          "gitWorktreeDirty": true,
+          "headMatchesOriginMain": true,
+          "servicesActive": [
+            "vcontrolhub-next.service",
+            "vcontrolhub-ssh-ws.service",
+            "caddy.service",
+            "docker.service"
+          ],
+          "dockerAvailableForQuickServices": true,
+          "mainCronLastStatus": "ok",
+          "dailyCronLastStatus": "ok"
+        },
+        "overlapProcess": "npm run build / next build --webpack observed in process table",
+        "dirtyFiles": [
+          "src/app/login/__tests__/page.test.tsx",
+          "src/app/login/login-form.tsx",
+          "src/app/login/page.tsx"
+        ]
       }
-    ]
+    ],
+    "skippedOverlapRuns": 1
   },
   "lastRunEvaluation": {
     "evaluatedAt": "2026-06-02T22:24:54Z",
@@ -1063,6 +1093,37 @@
       "type": "canary_code_verified_deployed",
       "target": "monitoring-health-status-canary",
       "summary": "Monitoring/Health canary completed: /health and health APIs verified, /monitoring metric truthfulness defect fixed, quality gates/build/restart/smoke/logs/cleanup completed."
+    },
+    {
+      "at": "2026-06-04T10:55:58Z",
+      "type": "skipped_overlap_dirty_closeout",
+      "target": "login-light-theme-dirty-closeout",
+      "reason": "Worktree was dirty with login page light-theme/readable-alert changes, but an overlapping npm run build / next build process was active; per non-overlap policy this tick recorded the skip and did not validate, deploy, commit, or open a new QA lane.",
+      "preflight": {
+        "gitWorktreeDirty": true,
+        "headMatchesOriginMain": true,
+        "servicesActive": [
+          "vcontrolhub-next.service",
+          "vcontrolhub-ssh-ws.service",
+          "caddy.service",
+          "docker.service"
+        ],
+        "dockerAvailableForQuickServices": true,
+        "mainCronLastStatus": "ok",
+        "dailyCronLastStatus": "ok"
+      },
+      "overlapProcess": "npm run build / next build --webpack observed in process table",
+      "dirtyFiles": [
+        "src/app/login/__tests__/page.test.tsx",
+        "src/app/login/login-form.tsx",
+        "src/app/login/page.tsx"
+      ]
+    },
+    {
+      "at": "2026-06-04T11:04:30Z",
+      "type": "canary_code_verified_deployed",
+      "target": "login-light-theme-readability",
+      "summary": "Login page light/day mode readability fixed and deployed; light/dark browser proof, real login redirect, targeted tests, typecheck, lint, build/runtime build, smoke 24/24, health/log closeout completed."
     }
   ],
   "resolvedBlockers": [

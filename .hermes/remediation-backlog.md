@@ -77,6 +77,8 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 - [x] 2026-06-04 — Harden one-click installer environment and proxy readiness: IP-only installs now skip Caddy and render/restart Apache, DESTDIR renders systemd/Caddy/Apache assets without host service-manager side effects, installer env overrides sync HOSTNAME/public origins/DATABASE_URL/runtime data paths, .env.example includes aria2 runtime settings, dashed APP_SLUG defaults produce PostgreSQL-safe identifiers, and SKIP_PACKAGES reverse-proxy failures are explicit. Verification: installer/aria2 regressions 33/33, deploy-assets, typecheck, lint, build, runtime build, DESTDIR IP-only dry run, production active + /api/status healthy.
 
+- [x] 2026-06-04 — Fix login page light/day-mode readability: login page now uses default dark surfaces with `html.light` overrides for bright readable page/card/input/feature surfaces, preserves dark mode, exposes login errors via role=alert, and production browser login reaches the authenticated shell. Verification: login page tests 3/3, targeted lint, typecheck, build, runtime build, production restart, light/dark browser visual proof, real login redirect, smoke 24/24, /api/status healthy, recent logs clean after restart window.
+
 ## P6 — Architecture hardening
 
 - [ ] Move command/deployment SSH execution out of synchronous API path into background tasks/worker model with timeouts, output limits, cancellation, and task status.
