@@ -282,6 +282,8 @@ describe("deploy/preflight.sh", () => {
     await mkdir(path.join(appDir, "scripts"), { recursive: true });
     await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
     await mkdir(path.join(appDir, "deploy"), { recursive: true });
+    await mkdir(path.join(appDir, "fake-root/etc/apache2/sites-available"), { recursive: true });
+    await mkdir(path.join(appDir, "fake-root/etc/apache2/sites-enabled"), { recursive: true });
     await writeFile(
       path.join(appDir, "scripts/backup-db.sh"),
       `#!/usr/bin/env bash\nprintf 'backup %s\\n' "$*" >> ${JSON.stringify(logFile)}\n`,
@@ -1019,7 +1021,7 @@ describe("deploy/install.sh", () => {
       "utf8",
     );
     expect(script).toContain(
-      'if [ "${SKIP_CADDY}" != "1" ]; then\n  return 0\n fi',
+      'if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then\n  return 0\n fi',
     );
   });
 

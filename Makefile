@@ -1,6 +1,6 @@
 APP_DIR ?= $(CURDIR)
-DOMAIN ?= whrkhldsb.qzz.io
-SERVICE_PREFIX ?= vcontrolhub
+DOMAIN ?=
+SERVICE_PREFIX ?= $(notdir $(APP_DIR))
 
 .PHONY: help verify build runtime deploy-check smoke restart status logs package
 
@@ -9,9 +9,9 @@ help:
 	@printf '  make verify        Run prisma generate, typecheck, lint, tests, Next build and runtime bundle\n'
 	@printf '  make build         Run Next.js production build\n'
 	@printf '  make runtime       Build dist/server.js and dist/ssh-ws-proxy.js\n'
-	@printf '  make restart       Restart $(SERVICE_PREFIX)-next and $(SERVICE_PREFIX)-ssh-ws when available\n'
+	@printf '  make restart       Restart SERVICE_PREFIX=$(SERVICE_PREFIX)-next/-ssh-ws when available\n'
 	@printf '  make deploy-check  Run deploy/check.sh against APP_DIR=$(APP_DIR)\n'
-	@printf '  make smoke         Run post-deploy smoke test for DOMAIN=$(DOMAIN)\n'
+	@printf '  make smoke         Run post-deploy smoke test; set DOMAIN=your-host when auto-detect is not enough\n'
 	@printf '  make status        Show systemd service status\n'
 	@printf '  make logs          Tail recent application logs\n'
 	@printf '  make package       Create a portable release archive\n'
@@ -36,7 +36,7 @@ deploy-check:
 	APP_DIR=$(APP_DIR) SERVICE_PREFIX=$(SERVICE_PREFIX) deploy/check.sh
 
 smoke:
-	deploy/smoke-test.sh $(DOMAIN) $(SERVICE_PREFIX)
+	deploy/smoke-test.sh "$(DOMAIN)" "$(SERVICE_PREFIX)"
 
 status:
 	@if command -v systemctl >/dev/null 2>&1; then \

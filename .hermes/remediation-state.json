@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T06:52:38Z",
+  "updatedAt": "2026-06-04T07:40:03Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,48 +58,49 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-04T06:43:29Z",
-    "finishedAt": "2026-06-04T06:52:38Z",
-    "target": "monitoring-health-status-canary",
+    "startedAt": "2026-06-04T07:23:08Z",
+    "finishedAt": "2026-06-04T07:40:03Z",
+    "target": "integrations-media-security-canary",
     "status": "completed_verified_deployed",
-    "summary": "Verified and fixed the Monitoring/Health observability canary: Health Center and health APIs were live, but Monitoring showed misleading disk order and impossible process MEM% units. The stats API now reports disk as used/total and process memory as bounded percentages, with production deploy, smoke, logs, and QA cleanup complete.",
+    "summary": "Verified and fixed the API Tokens + image-bed integration canary: production login/API-token creation and token-authenticated image listing worked, but real image upload failed because the systemd sandbox did not grant the app write access to its image-bed upload directory. The Next.js unit template now grants runtime data paths, the live unit received the matching override, and upload/list/file/delete completed in production with smoke/log/cleanup proof.",
     "changeContract": {
-      "qaPathId": "monitoring-health-status-canary",
-      "role": "authenticated admin/operator checking observability truthfulness",
-      "entry": "/health Health Center -> /api/system-health and /api/health -> /monitoring -> /api/monitoring/stats",
-      "userAction": "Log in, inspect Health Center self-check/refresh state, call authenticated health/system-health APIs, open Monitoring and verify resource cards/process table match API output, then fix misleading metrics and redeploy.",
+      "qaPathId": "integrations-media-security-canary",
+      "role": "authenticated admin/operator creating an API token and using it for image-bed automation",
+      "entry": "/login -> /api-tokens and /api/api-tokens -> /api/images/list, /api/images/upload, /api/images/[id]/file, /api/images/[id] DELETE",
+      "userAction": "Create a temporary admin user, log in through the production form flow, create an API token with image read/write scopes, list image-bed records through Bearer auth, upload a real PNG, verify the uploaded file is served, delete it, and clean up QA credentials/artifacts.",
       "expectedSideEffects": [
-        "Health Center renders authenticated self-checks and node health summary",
-        "/api/system-health and /api/health return authenticated observability payloads",
-        "/monitoring renders host resource cards and process table from /api/monitoring/stats",
-        "Monitoring disk and process memory values are truthful enough for operator triage rather than swapped/unbounded units"
+        "Login creates a real session plus CSRF cookie",
+        "API Token creation persists a token row usable for Bearer image-bed calls",
+        "Image upload writes an image file under the runtime upload directory and creates an ImageUpload DB row",
+        "Image list and file endpoints expose the uploaded object",
+        "DELETE removes the image row/files and leaves no QA artifacts"
       ],
       "outOfScope": [
-        "No unrelated monitoring UX polish",
-        "No alert-rule CRUD",
-        "No changes to health permission model"
+        "No Tickets/Announcements/Snippets/AI provider CRUD in this slice",
+        "No unrelated image-bed UI polish",
+        "No persistent QA token/user kept after closeout"
       ],
-      "evidenceProfile": "observability"
+      "evidenceProfile": "integrations_media_security"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in as qa_cron_monitoring_canary, opened /health and saw Health Center with 16 system checks, 15 healthy / 1 warning / 0 critical, managed nodes count 3, service/GitHub checks, and Health refresh controls. After deploy, /monitoring rendered disk as 15.7 GB/39.3 GB (40% used) and Top process MEM% cells such as 27.3%, 14.2%, 8.2% instead of impossible raw megabyte/page values.",
-      "api": "Authenticated browser fetches returned /api/system-health 200 with total=16, healthy=15, critical=0 and git-sync healthy at 813273c; /api/health 200 with 3 server health rows; /api/monitoring/stats 200 after deploy with disk=\"15.7 GB/39.3 GB (40% used)\" and topProcesses mem values formatted as percentages.",
-      "db_or_persisted_config": "Temporary admin qa_cron_monitoring_canary was created only for the canary and cleanup Prisma deleteMany left qa_cron_* remaining=0. No persistent product config was changed.",
-      "filesystem_or_sftp": "No product storage/SFTP path was intended. Build artifacts .next and dist were regenerated, ownership repaired to vcontrolhub:vcontrolhub, and temporary .hermes helper scripts were removed.",
-      "background_task_or_process": "Monitoring stats API reads live host /proc/stat, /proc/net/dev, /proc/[pid]/stat and statfs data. The selected side effect exposed a process-table parsing defect in production: before fix the browser showed MEM% values like 3128084M and disk as total/used despite “used” copy; after fix process RSS is bounded against os.totalmem and disk renders used/total.",
-      "runtime_or_ui_side_effect": "The live Monitoring UI now presents operator-triage resource metrics truthfully: disk usage order matches the used label, and the process table MEM% column is a percent rather than mislabeled raw RSS/page-derived megabytes.",
-      "permissions": "Unauthenticated preflight still showed guarded /files,/downloads,/operation-tasks 307 and /api/quick-services 401. This canary used an authenticated admin session; health APIs remain protected by health:read/API guard and smoke confirmed API auth blocks unauthenticated requests.",
+      "browser_or_dom": "Production browser reached /login, logged in as qa_cron_integrations_canary, rendered the dashboard shell, and /api-tokens rendered the personal API Token manager form with image:read/image:write scope controls. Browser UI click became stale, so the same CSRF/session-backed production route was exercised deterministically with curl for the side-effect proof.",
+      "api": "Production /api/login returned 303 with session/CSRF cookies; CSRF POST /api/api-tokens returned 200 and a one-time plaintext token (redacted); Bearer GET /api/images/list returned 200; initial Bearer POST /api/images/upload returned 500 {error:\"上传失败\"}; after the systemd runtime-path fix, Bearer POST /api/images/upload returned 201 for qa-recanary.png, GET /api/images/[id]/file returned 200 image/png 68 bytes, and CSRF DELETE /api/images/[id] returned 200 success.",
+      "db_or_persisted_config": "Prisma inspection confirmed qa_cron_integrations_canary existed with admin role, API token scopes [read,image:read,image:write], and no ImageUpload rows after the failing upload. Cleanup deleted the temporary QA user/token and verified remaining qa_cron_* users = 0. The systemd source template now persists writable runtime data paths for future installs/upgrades.",
+      "filesystem_or_sftp": "Root cause was filesystem/systemd sandboxing: /opt/whrkhldsb/uploads/image-bed existed but was not writable from the vcontrolhub-next.service sandbox because ProtectSystem=strict ReadWritePaths omitted the app upload/runtime data directories. The live upload directory was chowned to vcontrolhub:vcontrolhub, the live unit override added /opt/whrkhldsb/uploads plus app runtime directories, and post-fix upload/delete left no recent files in the image-bed directory.",
+      "background_task_or_process": "vcontrolhub-next.service runs as vcontrolhub with ProtectSystem=strict. A direct sudo -u vcontrolhub write probe initially failed EACCES, and systemctl show confirmed ReadWritePaths omitted /opt/whrkhldsb/uploads. After daemon-reload and restart, production services were active and the real upload/list/file/delete lifecycle completed through the Next.js process.",
+      "runtime_or_ui_side_effect": "The visible integration path is now truthful for automation users: an API token with image scopes can perform the image-bed upload workflow end-to-end instead of succeeding at token creation/listing but failing at the real file side effect.",
+      "permissions": "Unauthenticated preflight remained guarded (/api/quick-services 401 and protected pages 307). Token upload required image:write; list used read/image:read; delete used the authenticated owner session plus CSRF. No broad permission boundary was relaxed.",
       "regression": [
-        "npx vitest run src/app/api/monitoring/stats/__tests__/route.test.ts src/app/api/health/__tests__/route.test.ts src/app/api/system-health/__tests__/route.test.ts --reporter=dot: 2 files / 10 tests passed",
+        "npx vitest run src/app/api/images/upload/__tests__/route.test.ts src/app/api/images/publish-from-storage/__tests__/route.test.ts src/app/api/images/[id]/file/__tests__/route.test.ts --reporter=dot: 3 files / 13 tests passed",
         "git diff --check passed",
         "npm run typecheck passed",
         "npm run lint passed",
         "npm run build passed",
         "npm run build:runtime passed"
       ],
-      "production": "Repaired .next/dist ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
-      "logs": "Post-restart journal scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for the last 10 minutes found no error/warn/failed/exception/EACCES/permission-denied/monitoring/system-health matches.",
-      "cleanup": "Deleted temporary qa_cron_monitoring_canary (remaining qa_cron_* count 0), removed temporary .hermes helper scripts, left no Quick Services containers/storage artifacts, and prepared state/backlog closeout."
+      "production": "Repaired .next/dist/runtime data ownership, added a live systemd ReadWritePaths override for runtime data/upload paths, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+      "logs": "Recent logs captured the expected pre-fix image-bed:upload errors during the failing canary attempts. After the runtime-path fix, the upload/list/file/delete recanary completed without new image-bed/EACCES failures; final cleanup log scan only showed the earlier pre-fix image-bed:upload lines.",
+      "cleanup": "Deleted temporary qa_cron_integrations_canary and API token, removed temporary /tmp/vch_int_* and /tmp/vch_recanary_* secret/artifact files, deleted the uploaded test image through the production DELETE route, verified remaining qa_cron_* users = 0, and left no recent files in /opt/whrkhldsb/uploads/image-bed."
     }
   },
   "runPolicy": {
@@ -115,7 +116,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 26,
+    "successfulRemediationRunsSinceFreshAudit": 27,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -389,8 +390,31 @@
         "batch": "QA batch 5",
         "path": "Tickets/Announcements/Snippets/API Tokens/AI providers/Image bed/API docs/Audit -> CRUD/probe/revoke/publish/list permissions -> real side effects and cleanup",
         "priority": "medium",
-        "status": "pending",
-        "requiredEvidenceProfile": "integrations_media_security"
+        "status": "completed_verified_deployed",
+        "requiredEvidenceProfile": "integrations_media_security",
+        "lastCompletedAt": "2026-06-04T07:40:03Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser reached /login, logged in as qa_cron_integrations_canary, rendered the dashboard shell, and /api-tokens rendered the personal API Token manager form with image:read/image:write scope controls. Browser UI click became stale, so the same CSRF/session-backed production route was exercised deterministically with curl for the side-effect proof.",
+          "api": "Production /api/login returned 303 with session/CSRF cookies; CSRF POST /api/api-tokens returned 200 and a one-time plaintext token (redacted); Bearer GET /api/images/list returned 200; initial Bearer POST /api/images/upload returned 500 {error:\"上传失败\"}; after the systemd runtime-path fix, Bearer POST /api/images/upload returned 201 for qa-recanary.png, GET /api/images/[id]/file returned 200 image/png 68 bytes, and CSRF DELETE /api/images/[id] returned 200 success.",
+          "db_or_persisted_config": "Prisma inspection confirmed qa_cron_integrations_canary existed with admin role, API token scopes [read,image:read,image:write], and no ImageUpload rows after the failing upload. Cleanup deleted the temporary QA user/token and verified remaining qa_cron_* users = 0. The systemd source template now persists writable runtime data paths for future installs/upgrades.",
+          "filesystem_or_sftp": "Root cause was filesystem/systemd sandboxing: /opt/whrkhldsb/uploads/image-bed existed but was not writable from the vcontrolhub-next.service sandbox because ProtectSystem=strict ReadWritePaths omitted the app upload/runtime data directories. The live upload directory was chowned to vcontrolhub:vcontrolhub, the live unit override added /opt/whrkhldsb/uploads plus app runtime directories, and post-fix upload/delete left no recent files in the image-bed directory.",
+          "background_task_or_process": "vcontrolhub-next.service runs as vcontrolhub with ProtectSystem=strict. A direct sudo -u vcontrolhub write probe initially failed EACCES, and systemctl show confirmed ReadWritePaths omitted /opt/whrkhldsb/uploads. After daemon-reload and restart, production services were active and the real upload/list/file/delete lifecycle completed through the Next.js process.",
+          "runtime_or_ui_side_effect": "The visible integration path is now truthful for automation users: an API token with image scopes can perform the image-bed upload workflow end-to-end instead of succeeding at token creation/listing but failing at the real file side effect.",
+          "permissions": "Unauthenticated preflight remained guarded (/api/quick-services 401 and protected pages 307). Token upload required image:write; list used read/image:read; delete used the authenticated owner session plus CSRF. No broad permission boundary was relaxed.",
+          "regression": [
+            "npx vitest run src/app/api/images/upload/__tests__/route.test.ts src/app/api/images/publish-from-storage/__tests__/route.test.ts src/app/api/images/[id]/file/__tests__/route.test.ts --reporter=dot: 3 files / 13 tests passed",
+            "git diff --check passed",
+            "npm run typecheck passed",
+            "npm run lint passed",
+            "npm run build passed",
+            "npm run build:runtime passed"
+          ],
+          "production": "Repaired .next/dist/runtime data ownership, added a live systemd ReadWritePaths override for runtime data/upload paths, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+          "logs": "Recent logs captured the expected pre-fix image-bed:upload errors during the failing canary attempts. After the runtime-path fix, the upload/list/file/delete recanary completed without new image-bed/EACCES failures; final cleanup log scan only showed the earlier pre-fix image-bed:upload lines.",
+          "cleanup": "Deleted temporary qa_cron_integrations_canary and API token, removed temporary /tmp/vch_int_* and /tmp/vch_recanary_* secret/artifact files, deleted the uploaded test image through the production DELETE route, verified remaining qa_cron_* users = 0, and left no recent files in /opt/whrkhldsb/uploads/image-bed."
+        },
+        "lastCommit": null,
+        "fixSummary": "Systemd Next.js unit template now grants runtime uploads/storage/downloads/backups/logs write paths so image-bed uploads can perform their real file side effect under ProtectSystem=strict."
       }
     ],
     "evidenceProfiles": {
@@ -623,6 +647,14 @@
         "type": "monitoring_health_status_canary_completed_deployed",
         "summary": "Authenticated Health/Monitoring canary fixed misleading Monitoring disk/process memory metrics and deployed with smoke/log/cleanup proof.",
         "nextFocus": "Rotate to integrations-media-security-canary or run fresh comprehensive audit because successful canary count is above threshold."
+      }
+    ],
+    "events": [
+      {
+        "at": "2026-06-04T07:40:03Z",
+        "type": "integrations_media_security_canary_completed_deployed",
+        "summary": "API Token + image-bed canary fixed missing systemd runtime upload write path; production token upload/list/file/delete lifecycle, tests, build, restart, smoke, logs, and cleanup completed.",
+        "nextFocus": "Fresh audit threshold remains above policy; otherwise rotate to the next unverified QA batch/user journey rather than repeating image-bed."
       }
     ]
   },

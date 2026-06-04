@@ -16,7 +16,11 @@ vi.mock("@/components/toast-provider", () => ({
 }));
 
 vi.mock("next/image", () => ({
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+  default: ({
+    unoptimized: _unoptimized,
+    fill: _fill,
+    ...props
+  }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean; fill?: boolean }) => {
     // eslint-disable-next-line @next/next/no-img-element
     return <img alt="" {...props} />;
   },

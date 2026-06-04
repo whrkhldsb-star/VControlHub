@@ -5,6 +5,10 @@ if [ "${RUN_MIGRATIONS_ON_START:-true}" = "true" ]; then
   ./node_modules/.bin/prisma migrate deploy
 fi
 
+if [ "${SEED_ON_START:-true}" = "true" ]; then
+  node --import tsx prisma/seed.ts
+fi
+
 node dist/ssh-ws-proxy.js &
 ssh_ws_pid=$!
 

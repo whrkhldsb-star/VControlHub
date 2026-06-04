@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Portable database restore helper for whrkhldsb.
-# Usage: APP_DIR=/opt/whrkhldsb scripts/restore-db.sh /path/to/backup.sql.gz
+# Portable database restore helper for VControlHub-compatible deployments.
+# Usage: APP_DIR=/opt/vcontrolhub scripts/restore-db.sh /path/to/backup.sql.gz
 
 set -euo pipefail
 
@@ -26,7 +26,7 @@ set +a
 if [ -n "${DATABASE_URL:-}" ]; then
   PSQL_ARGS=("${DATABASE_URL}")
 else
-  DB_NAME="${DATABASE_NAME:-whrkhldsb}"
+  DB_NAME="${DATABASE_NAME:-${APP_SLUG:-vcontrolhub}}"
   DB_HOST="${DATABASE_HOST:-127.0.0.1}"
   DB_PORT="${DATABASE_PORT:-5432}"
   DB_USER="${DATABASE_USER:-postgres}"

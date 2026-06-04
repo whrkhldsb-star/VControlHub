@@ -21,7 +21,7 @@ Group={{APP_USER}}
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/{{APP_SLUG}} /var/backups/{{APP_SLUG}} /tmp {{APP_DIR}}/.next{{QUICK_SERVICE_READ_WRITE_PATHS}}
+ReadWritePaths=/var/lib/{{APP_SLUG}} /var/backups/{{APP_SLUG}} /tmp {{APP_DIR}}/.next {{APP_DIR}}/uploads {{APP_DIR}}/storage {{APP_DIR}}/downloads {{APP_DIR}}/backups {{APP_DIR}}/logs{{QUICK_SERVICE_READ_WRITE_PATHS}}
 PrivateTmp=true
 
 # Resource limits (tune for your VPS)

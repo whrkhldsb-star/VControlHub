@@ -72,13 +72,14 @@ npm run prisma:seed
 
 ```bash
 npm run build
+npm run build:runtime
 HOSTNAME=127.0.0.1 PORT=3000 npm run start
 ```
 
 SSH WebSocket 代理另启一个进程：
 
 ```bash
-SSH_WS_HOST=127.0.0.1 SSH_WS_PORT=3001 npx tsx src/ssh-ws-proxy.ts
+SSH_WS_HOST=127.0.0.1 SSH_WS_PORT=3001 npm run start:ssh-ws
 ```
 
 生产建议使用 `deploy/systemd/` 下模板创建 systemd 服务。
@@ -99,6 +100,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
+npm run build:runtime
 curl -I http://127.0.0.1:3000/login
 ```
 

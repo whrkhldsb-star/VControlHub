@@ -948,7 +948,7 @@ sed \
 }
 install_caddy() {
  [ "${SKIP_CADDY}" = "1" ] && { warn "Skipping Caddy setup"; return; }
- [ -n "${DOMAIN}" ] || { warn "DOMAIN is empty; skipping Caddy config"; return; }
+ [ -n "${DOMAIN}" ] || { warn "DOMAIN is empty; using Apache IP/direct reverse proxy instead of Caddy"; return; }
  log "Installing Caddy reverse proxy for ${DOMAIN}"
  install -m 0644 "${APP_DIR}/deploy/Caddyfile.example" "${DESTDIR}/etc/caddy/Caddyfile"
  local escaped_domain escaped_next escaped_ssh_ws
@@ -976,9 +976,9 @@ sed -i \
 }
 
 install_apache() {
- # When SKIP_CADDY=1, set up Apache as the reverse proxy instead.
+ # When SKIP_CADDY=1 or DOMAIN is empty, set up Apache as the reverse proxy.
  # This covers IP-only deployments where no domain/TLS is needed.
- if [ "${SKIP_CADDY}" != "1" ]; then
+ if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then
   return 0
  fi
  if ! have_cmd apache2 && ! have_cmd apachectl; then

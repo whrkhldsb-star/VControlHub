@@ -14,8 +14,10 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 vi.mock("next/image", () => ({
   default: ({
     alt: _alt,
+    unoptimized: _unoptimized,
+    fill: _fill,
     ...props
-  }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+  }: React.ImgHTMLAttributes<HTMLImageElement> & { unoptimized?: boolean; fill?: boolean }) => (
     <picture data-testid="mock-next-image" {...props} />
   ),
 }));

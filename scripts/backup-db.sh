@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# PostgreSQL backup script for whrkhldsb.
+# PostgreSQL backup script for VControlHub-compatible deployments.
 # Portable usage:
-#   APP_DIR=/opt/whrkhldsb ENV_FILE=/opt/whrkhldsb/.env.local BACKUP_DIR=/var/backups/whrkhldsb \
-#     /opt/whrkhldsb/scripts/backup-db.sh
+#   APP_DIR=/opt/vcontrolhub ENV_FILE=/opt/vcontrolhub/.env.local BACKUP_DIR=/var/backups/vcontrolhub \
+#     /opt/vcontrolhub/scripts/backup-db.sh
 # Cron example:
-#   0 3 * * * APP_DIR=/opt/whrkhldsb /opt/whrkhldsb/scripts/backup-db.sh >> /var/log/whrkhldsb-backup.log 2>&1
+#   0 3 * * * APP_DIR=/opt/vcontrolhub /opt/vcontrolhub/scripts/backup-db.sh >> /var/log/vcontrolhub-backup.log 2>&1
 
 set -euo pipefail
 
@@ -22,7 +22,7 @@ fi
 if [ -n "${DATABASE_URL:-}" ]; then
   PG_CONN_ARGS=("${DATABASE_URL}")
 else
-  DB_NAME="${DATABASE_NAME:-whrkhldsb}"
+  DB_NAME="${DATABASE_NAME:-${APP_SLUG:-vcontrolhub}}"
   DB_HOST="${DATABASE_HOST:-127.0.0.1}"
   DB_PORT="${DATABASE_PORT:-5432}"
   DB_USER="${DATABASE_USER:-postgres}"
@@ -42,7 +42,7 @@ if [ "${1:-}" != "" ]; then
     *) BACKUP_FILE="${APP_DIR}/${BACKUP_FILE}" ;;
   esac
 else
-  BACKUP_FILE="${BACKUP_DIR}/whrkhldsb_${TIMESTAMP}.sql.gz"
+  BACKUP_FILE="${BACKUP_DIR}/${APP_SLUG:-vcontrolhub}_${TIMESTAMP}.sql.gz"
 fi
 
 mkdir -p "${BACKUP_DIR}" "$(dirname "${BACKUP_FILE}")"
@@ -60,7 +60,7 @@ pg_dump "${PG_CONN_ARGS[@]}" \
 SIZE=$(du -sh "${BACKUP_FILE}" | cut -f1)
 echo "[$(date -Iseconds)] Backup completed: ${BACKUP_FILE} (${SIZE})"
 
-DELETED=$(find "${BACKUP_DIR}" -name "whrkhldsb_*.sql.gz" -mtime +"${RETENTION_DAYS}" -delete -print | wc -l)
+DELETED=$(find "${BACKUP_DIR}" -name "${APP_SLUG:-vcontrolhub}_*.sql.gz" -mtime +"${RETENTION_DAYS}" -delete -print | wc -l)
 if [ "${DELETED}" -gt 0 ]; then
   echo "[$(date -Iseconds)] Cleaned up ${DELETED} backup(s) older than ${RETENTION_DAYS} days"
 fi

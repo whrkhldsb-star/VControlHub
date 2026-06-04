@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import RootLayout from "@/app/layout";
@@ -40,6 +41,18 @@ vi.mock("@/lib/auth/session", () => ({
 	getSessionCookieName: () => "vcontrolhub_session",
 }));
 
+async function renderLayoutBody(children: React.ReactNode) {
+	const root = await RootLayout({ children });
+	if (!React.isValidElement(root)) throw new Error("RootLayout did not return a valid element");
+	const rootProps = root.props as { children?: React.ReactNode };
+	const body = React.Children.toArray(rootProps.children).find(
+		(child) => React.isValidElement(child) && child.type === "body",
+	);
+	if (!React.isValidElement(body)) throw new Error("RootLayout did not include a body element");
+	const bodyProps = body.props as { children?: React.ReactNode };
+	return render(<>{bodyProps.children}</>);
+}
+
 describe("RootLayout", () => {
 	beforeEach(() => {
 		cookieGetMock.mockReset();
@@ -50,7 +63,7 @@ describe("RootLayout", () => {
 	it("does not render authenticated chrome before a session exists", async () => {
 		cookieGetMock.mockReturnValue(undefined);
 
-		render(await RootLayout({ children: <div>登录</div> }));
+		await renderLayoutBody(<div>登录</div>);
 
 		expect(screen.queryByRole("navigation", { name: "移动端底部导航" })).not.toBeInTheDocument();
 		expect(screen.queryByTestId("global-search")).not.toBeInTheDocument();
@@ -59,7 +72,7 @@ describe("RootLayout", () => {
 	it("renders mobile navigation and global search for authenticated sessions", async () => {
 		cookieGetMock.mockReturnValue({ value: "session-token" });
 
-		render(await RootLayout({ children: <div>仪表盘</div> }));
+		await renderLayoutBody(<div>仪表盘</div>);
 
 		expect(screen.getByTestId("sidebar-loader")).toBeInTheDocument();
 		expect(screen.getByRole("navigation", { name: "移动端底部导航" })).toBeInTheDocument();
@@ -72,7 +85,7 @@ describe("RootLayout", () => {
 			name === "x-vcontrolhub-public-auth-page" ? "1" : null,
 		);
 
-		render(await RootLayout({ children: <div>欢迎回来</div> }));
+		await renderLayoutBody(<div>欢迎回来</div>);
 
 		expect(screen.queryByTestId("sidebar-loader")).not.toBeInTheDocument();
 		expect(screen.queryByRole("navigation", { name: "移动端底部导航" })).not.toBeInTheDocument();
