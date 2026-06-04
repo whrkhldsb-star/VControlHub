@@ -41,6 +41,7 @@ describe("/api/media", () => {
     expect(listMediaItemsMock).toHaveBeenCalledWith({
       mediaType: "image",
       q: "cat",
+      favorite: undefined,
     });
     expect(body.media).toEqual([{ id: "m_1", mediaType: "image" }]);
   });

@@ -47,6 +47,33 @@ function inferMediaMimeType(entry: {
   return byExtension[extension] ?? `${entry.mediaType}/*`;
 }
 
+const mediaItemSelect = {
+  id: true,
+  name: true,
+  mediaType: true,
+  relativePath: true,
+  size: true,
+  favorite: true,
+  tags: true,
+  mimeType: true,
+  createdAt: true,
+  updatedAt: true,
+  storageNode: {
+    select: {
+      id: true,
+      name: true,
+      basePath: true,
+      driver: true,
+      directAccessMode: true,
+      publicBaseUrl: true,
+      serverId: true,
+      server: {
+        select: { id: true, name: true, host: true },
+      },
+    },
+  },
+} as const;
+
 export async function listMediaItems(
   input: { mediaType?: "image" | "video"; q?: string; favorite?: boolean } = {},
 ) {
@@ -67,32 +94,14 @@ export async function listMediaItems(
     },
     orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }],
     take: 200,
-    select: {
-      id: true,
-      name: true,
-      mediaType: true,
-      relativePath: true,
-      size: true,
-      favorite: true,
-      tags: true,
-      mimeType: true,
-      createdAt: true,
-      updatedAt: true,
-      storageNode: {
-        select: {
-          id: true,
-          name: true,
-          basePath: true,
-          driver: true,
-          directAccessMode: true,
-          publicBaseUrl: true,
-          serverId: true,
-          server: {
-            select: { id: true, name: true, host: true },
-          },
-        },
-      },
-    },
+    select: mediaItemSelect,
+  });
+}
+
+export async function getMediaItem(id: string) {
+  return prisma.mediaItem.findUnique({
+    where: { id },
+    select: mediaItemSelect,
   });
 }
 

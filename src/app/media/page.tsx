@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listMediaItems } from "@/lib/media/service";
@@ -7,14 +9,15 @@ import { MediaItemCard } from "./media-item-card";
 
 export const dynamic = "force-dynamic";
 
-export default async function Page({ searchParams }: { searchParams?: Promise<{ type?: string; q?: string }> }) {
+export default async function Page({ searchParams }: { searchParams?: Promise<{ type?: string; q?: string; favorite?: string }> }) {
   const session = await requireSession("/media");
   if (!sessionHasPermission(session, "storage:read")) return <PermissionDenied />;
   const canManageMedia = sessionHasPermission(session, "media:manage");
   const params = await searchParams;
   const mediaType = params?.type === "image" || params?.type === "video" ? (params.type as "image" | "video") : undefined;
+  const favorite = params?.favorite === "1" ? true : undefined;
   const q = params?.q || undefined;
-  const media = await listMediaItems({ mediaType, q });
+  const media = await listMediaItems({ mediaType, q, favorite });
 
   const grouped = new Map<string, typeof media>();
   for (const m of media) {
@@ -36,10 +39,10 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
       </header>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-cyan-200">共 {media.length} 项</span>
-        <span className="rounded-full border border-blue-400/20 bg-blue-400/[0.06] px-3 py-1 text-blue-200">图片 {imageCount}</span>
-        <span className="rounded-full border border-purple-400/20 bg-purple-400/[0.06] px-3 py-1 text-purple-200">视频 {videoCount}</span>
-        {favCount > 0 && <span className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-3 py-1 text-amber-200">⭐ 收藏 {favCount}</span>}
+        <Link href="/media" className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-cyan-200 hover:bg-cyan-400/10">共 {media.length} 项</Link>
+        <Link href="/media?type=image" className="rounded-full border border-blue-400/20 bg-blue-400/[0.06] px-3 py-1 text-blue-200 hover:bg-blue-400/10">图片 {imageCount}</Link>
+        <Link href="/media?type=video" className="rounded-full border border-purple-400/20 bg-purple-400/[0.06] px-3 py-1 text-purple-200 hover:bg-purple-400/10">视频 {videoCount}</Link>
+        <Link href="/media?favorite=1" className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-3 py-1 text-amber-200 hover:bg-amber-400/10">⭐ 收藏 {favCount}</Link>
       </div>
 
       {canManageMedia && <MediaScanButton />}

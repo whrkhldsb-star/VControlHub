@@ -7,7 +7,6 @@ import {
   appendDownloadFlag,
   buildProxyDownloadHref,
   buildSearchHref,
-  getPreviewHref,
   toStorageEntry,
   type FileProp,
 } from "@/app/files/file-entry-utils";
@@ -138,7 +137,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
   };
 
   const storageEntry = createStorageEntry(item);
-  const previewHref = storageEntry ? getPreviewHref(storageEntry) : null;
+  const previewHref = storageEntry ? `/media/${encodeURIComponent(item.id)}?from=${encodeURIComponent('/media')}` : null;
   const downloadHref = storageEntry ? appendDownloadFlag(buildProxyDownloadHref(storageEntry)) : null;
   const sourceHref = item.storageNode
     ? buildSearchHref(containingFolderPath(item.relativePath), {

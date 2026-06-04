@@ -26,13 +26,11 @@ const item: MediaItem = {
 };
 
 describe("MediaItemCard", () => {
-  it("offers preview, download and source-file actions for scanned media", () => {
+  it("opens media-owned player while keeping download and source-file actions", () => {
     render(<MediaItemCard item={item} canManage />);
 
     const preview = screen.getByRole("link", { name: /预览\/播放/ });
-    expect(preview).toHaveAttribute("href", expect.stringContaining("/files/preview?"));
-    expect(preview).toHaveAttribute("href", expect.stringContaining("type=video%2Fmp4"));
-    expect(preview).toHaveAttribute("href", expect.stringContaining("relativePath=movies%2F2026%2Fmovie.mp4"));
+    expect(preview).toHaveAttribute("href", "/media/m_1?from=%2Fmedia");
 
     const download = screen.getByRole("link", { name: /下载/ });
     expect(download).toHaveAttribute(

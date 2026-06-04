@@ -18,6 +18,7 @@ export async function GET(request: Request) {
         media: await listMediaItems({
           mediaType: type === "image" || type === "video" ? type : undefined,
           q: searchParams.get("q") ?? undefined,
+          favorite: searchParams.get("favorite") === "1" ? true : undefined,
         }),
       });
     },
