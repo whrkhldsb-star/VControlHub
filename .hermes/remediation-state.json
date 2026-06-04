@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-03T20:34:55Z",
+  "updatedAt": "2026-06-04T06:11:42Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,47 +58,44 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-03T20:29:41Z",
-    "finishedAt": "2026-06-03T20:34:55Z",
-    "target": "backups-restore-canary",
+    "startedAt": "2026-06-04T06:07:12Z",
+    "finishedAt": "2026-06-04T06:11:42Z",
+    "target": "settings-runtime-canary",
     "status": "completed_verified_no_code_change",
-    "summary": "Verified the backup/restore canary in production without product code changes. The Backups page and backup routes continued to gate restore behind explicit backup:restore plus RESTORE confirmation, the backup service still resolves writable artifacts under /var/backups/vcontrolhub/backups/... via BACKUP_DIR/APP_SLUG, and the targeted backup Vitest plus full quality gates passed before restart/smoke.",
+    "summary": "Verified the Settings runtime canary in production without product code changes: runtime.operationTaskListLimit required authenticated CSRF to mutate, persisted to the DB, was visible in the Settings UI, was consumable by the Operation Tasks page/API, and was rolled back to 100 with QA user cleanup and clean production health.",
     "changeContract": {
-      "qaPathId": "backups-restore-canary",
-      "role": "authenticated operator validating backup creation and restore boundary safety through the production Backups surface",
-      "entry": "/backups -> backup record -> guarded restore action",
-      "userAction": "Open the Backups page, confirm the restore action is gated, and verify backup/restore execution resolves artifacts under the writable production backup root.",
+      "qaPathId": "settings-runtime-canary",
+      "role": "authenticated admin/operator validating runtime Settings persistence and a real Operation Tasks consumer effect",
+      "entry": "/settings runtime parameters -> /api/settings -> /operation-tasks Task Center consumer",
+      "userAction": "Log in, inspect runtime.operationTaskListLimit, prove missing-CSRF writes fail closed, save a bounded new value, open Task Center/API to prove the runtime setting is consumable, then roll back and clean up.",
       "expectedSideEffects": [
-        "Backups page exposes the authenticated backup/restore surface",
-        "Restore remains gated by explicit BACKUP:RESTORE permission plus RESTORE confirmation",
-        "Backup artifacts resolve under /var/backups/vcontrolhub/backups/...",
-        "Route/service behavior aligns with persisted backup records and production smoke remains healthy"
+        "/settings renders the runtime Operation Tasks limit control with current persisted value",
+        "CSRF-protected PATCH persists a bounded runtime.operationTaskListLimit value",
+        "/operation-tasks and /api/operation-tasks continue to hydrate through the runtime setting consumer",
+        "Missing-CSRF mutation fails without persisting",
+        "The setting is rolled back and temporary QA user removed"
       ],
       "outOfScope": [
         "No product code changes",
-        "No new user-facing feature work outside backups/restore",
-        "No unrelated filesystem or Quick Services changes"
+        "No restart-only runtime knobs",
+        "No unrelated Quick Services, file/SFTP, or UI polish work"
       ],
-      "evidenceProfile": "background_task"
+      "evidenceProfile": "settings_runtime"
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser reached the login gate for /backups and rendered the backup/restore entry path; the browser-side verification confirmed the route is protected and the user journey is exposed through the authenticated shell.",
-      "api": "Targeted backup route regressions verified /api/backups and /api/backups/[id]/restore guard/execute behavior; restore requires backup:restore and completed records before any side effect.",
-      "db_or_persisted_config": "The backup service continues to resolve backup artifacts through the writable backup root configured by BACKUP_DIR/APP_SLUG, and restore checks the persisted backup record before execution.",
-      "filesystem_or_sftp": "Writable artifact resolution remained under /var/backups/vcontrolhub/backups/... rather than the repo checkout, matching the deployed backup root behavior.",
-      "background_task_or_process": "Vitest exercised the backup restore route/service and the real deploy/runtime verification ran successfully; no overlapping job blocked the closeout.",
-      "runtime_or_ui_side_effect": "The Backups page and restore routes stayed aligned with the real record/restore semantics rather than claiming success without artifact creation or confirmation.",
-      "permissions": "Restore remained gated by explicit BACKUP:RESTORE permission and RESTORE confirmation; unauthenticated access stayed guarded.",
+      "browser_or_dom": "Production browser logged in as temporary admin qa_cron_settings_canary, opened /settings, and the runtime settings panel visibly rendered the Operation Tasks list limit spinbutton at 100, then 123 after save, then back to 100 after rollback. /operation-tasks rendered the authenticated Task Center list with 7 visible task cards after the changed setting.",
+      "api": "Authenticated browser fetch GET /api/settings showed runtime.operationTaskListLimit=100. A PATCH without X-CSRF-Token returned 403 with CSRF token 验证失败 and did not mutate the setting. A CSRF-protected PATCH changed runtime.operationTaskListLimit to 123 with 200 {success:true}; a final CSRF PATCH restored it to 100. Authenticated GET /api/operation-tasks returned 200 with tasks array length 7.",
+      "db_or_persisted_config": "Production Prisma inspection after rollback showed Setting runtime.operationTaskListLimit persisted as value 100 with updatedAt 2026-06-04T06:10:38.106Z, and qa_cron_* user count was 0 after cleanup.",
+      "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended. Temporary helper scripts under .hermes were removed; no storage/SFTP surface was touched.",
+      "background_task_or_process": "Operation Tasks/runtime settings neighboring regressions ran in-process via Vitest: runtime settings service, settings API, operation-task service/API/client passed 21/21. No overlapping build/test/deploy job was found beyond TypeScript server/editor processes and the current check.",
+      "runtime_or_ui_side_effect": "The changed runtime Operation Tasks list limit was consumed by the live Task Center path: after saving 123, /operation-tasks loaded normally and /api/operation-tasks returned the task list under the updated persisted runtime setting. The setting was rolled back to 100 after proof.",
+      "permissions": "Settings mutation required an authenticated admin session plus CSRF; the missing-CSRF write failed with 403 and left the persisted value unchanged. The temporary qa_cron_settings_canary admin user was deleted during cleanup.",
       "regression": [
-        "npx vitest run src/lib/backup/__tests__/service.test.ts src/app/backups/__tests__/page.test.ts src/app/api/backups/__tests__/route.test.ts src/app/api/backups/[id]/restore/__tests__/route.test.ts",
-        "npm run typecheck",
-        "npm run lint",
-        "npm run build",
-        "npm run build:runtime"
+        "npx vitest run src/lib/runtime-settings/service.test.ts src/app/api/settings/__tests__/route.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/operation-tasks/__tests__/route.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx --reporter=dot: 5 files / 21 tests passed"
       ],
-      "production": "Production restart of vcontrolhub-next.service and vcontrolhub-ssh-ws.service succeeded, systemctl reported both active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
-      "logs": "Recent service logs remained clean around the backup verification window.",
-      "cleanup": "No temporary QA users or stray runtime artifacts were left behind by this run."
+      "production": "No product code changed, so no restart/deploy was required. Production closeout confirmed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active; /api/status responded with 3 checks at 2026-06-04T06:11:35.603Z; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+      "logs": "journalctl scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for the last 20 minutes found no error/warn/failed/exception/EACCES/permission-denied/settings/operation-tasks matches.",
+      "cleanup": "Restored runtime.operationTaskListLimit to 100, deleted all qa_cron_* users (remaining 0), removed temporary .hermes helper scripts, left no Quick Services containers or storage artifacts, and confirmed git HEAD == origin/main."
     }
   },
   "runPolicy": {
@@ -114,7 +111,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 24,
+    "successfulRemediationRunsSinceFreshAudit": 25,
     "skippedOverlapRuns": 0
   },
   "blockers": [],
@@ -331,8 +328,25 @@
         "batch": "QA batch 5",
         "path": "Settings runtime knob -> save validation -> persisted value -> real runtime/UI consumer effect -> rollback/cleanup -> immediate-vs-restart copy",
         "priority": "medium_high",
-        "status": "pending",
-        "requiredEvidenceProfile": "settings_runtime"
+        "status": "completed_verified_no_code_change",
+        "requiredEvidenceProfile": "settings_runtime",
+        "lastCompletedAt": "2026-06-04T06:11:42Z",
+        "lastEvidenceMatrix": {
+          "browser_or_dom": "Production browser logged in as temporary admin qa_cron_settings_canary, opened /settings, and the runtime settings panel visibly rendered the Operation Tasks list limit spinbutton at 100, then 123 after save, then back to 100 after rollback. /operation-tasks rendered the authenticated Task Center list with 7 visible task cards after the changed setting.",
+          "api": "Authenticated browser fetch GET /api/settings showed runtime.operationTaskListLimit=100. A PATCH without X-CSRF-Token returned 403 with CSRF token 验证失败 and did not mutate the setting. A CSRF-protected PATCH changed runtime.operationTaskListLimit to 123 with 200 {success:true}; a final CSRF PATCH restored it to 100. Authenticated GET /api/operation-tasks returned 200 with tasks array length 7.",
+          "db_or_persisted_config": "Production Prisma inspection after rollback showed Setting runtime.operationTaskListLimit persisted as value 100 with updatedAt 2026-06-04T06:10:38.106Z, and qa_cron_* user count was 0 after cleanup.",
+          "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended. Temporary helper scripts under .hermes were removed; no storage/SFTP surface was touched.",
+          "background_task_or_process": "Operation Tasks/runtime settings neighboring regressions ran in-process via Vitest: runtime settings service, settings API, operation-task service/API/client passed 21/21. No overlapping build/test/deploy job was found beyond TypeScript server/editor processes and the current check.",
+          "runtime_or_ui_side_effect": "The changed runtime Operation Tasks list limit was consumed by the live Task Center path: after saving 123, /operation-tasks loaded normally and /api/operation-tasks returned the task list under the updated persisted runtime setting. The setting was rolled back to 100 after proof.",
+          "permissions": "Settings mutation required an authenticated admin session plus CSRF; the missing-CSRF write failed with 403 and left the persisted value unchanged. The temporary qa_cron_settings_canary admin user was deleted during cleanup.",
+          "regression": [
+            "npx vitest run src/lib/runtime-settings/service.test.ts src/app/api/settings/__tests__/route.test.ts src/lib/operation-task/__tests__/service.test.ts src/app/api/operation-tasks/__tests__/route.test.ts src/app/operation-tasks/__tests__/operation-task-list-client.test.tsx --reporter=dot: 5 files / 21 tests passed"
+          ],
+          "production": "No product code changed, so no restart/deploy was required. Production closeout confirmed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy.service, and docker.service active; /api/status responded with 3 checks at 2026-06-04T06:11:35.603Z; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks.",
+          "logs": "journalctl scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for the last 20 minutes found no error/warn/failed/exception/EACCES/permission-denied/settings/operation-tasks matches.",
+          "cleanup": "Restored runtime.operationTaskListLimit to 100, deleted all qa_cron_* users (remaining 0), removed temporary .hermes helper scripts, left no Quick Services containers or storage artifacts, and confirmed git HEAD == origin/main."
+        },
+        "lastCommit": null
       },
       {
         "id": "monitoring-health-status-canary",
@@ -571,6 +585,12 @@
         "type": "dirty_closeout_reconciled_already_committed",
         "summary": "Reconciled stale dirty-worktree preflight/state against the live repo: the Files/Preferences/SFTP slice was already committed and pushed as 22d9bab, production remained healthy under targeted regression plus smoke checks, and the next focus stays the real Quick Services Docker lifecycle canary.",
         "nextFocus": "Run the authenticated Quick Services install/start/stop/uninstall canary now that Docker is available and the repo is clean."
+      },
+      {
+        "at": "2026-06-04T06:11:42Z",
+        "type": "settings_runtime_canary_completed_no_code_change",
+        "summary": "Authenticated Settings runtime canary verified operationTaskListLimit CSRF guard, persistence, Operation Tasks consumer behavior, rollback, cleanup, smoke, and logs without product code changes.",
+        "nextFocus": "Rotate to monitoring-health-status-canary or integrations-media-security-canary unless the fresh-audit threshold triggers a broader tester pass."
       }
     ]
   },
@@ -941,6 +961,12 @@
       "type": "quick_services_docker_canary_completed_no_code_change",
       "target": "quick-services-docker-canary",
       "summary": "Authenticated Quick Services canary completed in production: AList 云盘 was installed, started, observed in the live /api/quick-services state, then stopped and uninstalled to prove the real Docker-backed lifecycle and clean up the installed row/container."
+    },
+    {
+      "at": "2026-06-04T06:11:42Z",
+      "type": "settings_runtime_canary_completed_no_code_change",
+      "target": "settings-runtime-canary",
+      "summary": "Runtime Settings canary completed in production: operationTaskListLimit was changed with CSRF, observed in UI/API/DB and Operation Tasks consumer path, rolled back to 100, and QA user cleanup verified 0 remaining."
     }
   ],
   "resolvedBlockers": [
