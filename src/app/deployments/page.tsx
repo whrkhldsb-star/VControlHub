@@ -42,27 +42,27 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
 				<h2 className="text-sm font-semibold text-white light:text-slate-900 mb-3">💡 使用流程</h2>
 				<div className="grid gap-2 text-xs text-slate-400 light:text-slate-600 md:grid-cols-5">
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-white light:text-slate-900">1. 创建模板</div>
 						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300 light:text-cyan-700">{"{{变量名}}"}</code> 的部署脚本</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">🎯</div>
 						<div className="font-medium text-white light:text-slate-900">2. 选择模板</div>
 						<div className="mt-1">在下方选择你要部署的模板</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">⚙️</div>
 						<div className="font-medium text-white light:text-slate-900">3. 填写变量</div>
 						<div className="mt-1">填写模板所需的变量值（如版本号、端口等）</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">🖥️</div>
 						<div className="font-medium text-white light:text-slate-900">4. 选择 VPS</div>
 						<div className="mt-1">勾选要部署到的目标服务器</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">🚀</div>
 						<div className="font-medium text-white light:text-slate-900">5. 提交审批</div>
 						<div className="mt-1">进入审批链路，审批通过后自动执行并记录日志</div>

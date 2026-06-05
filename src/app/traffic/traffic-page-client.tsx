@@ -145,8 +145,8 @@ export default function TrafficPage() {
 									<RateBadge label={`↑ 上传速度 · ${primary.iface}`} value={primary.txRateLabel} color="emerald" />
 								</div>
 								<div className="mt-4 grid grid-cols-1 gap-3 text-xs text-slate-400 light:text-slate-600 md:grid-cols-2">
-									<div className="rounded-xl bg-black/20 p-3">累计下载：<span className="font-mono text-slate-100 light:text-slate-900">{primary.rxLabel}</span></div>
-									<div className="rounded-xl bg-black/20 p-3">累计上传：<span className="font-mono text-slate-100 light:text-slate-900">{primary.txLabel}</span></div>
+									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100 light:text-slate-900">{primary.rxLabel}</span></div>
+									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100 light:text-slate-900">{primary.txLabel}</span></div>
 								</div>
 							</>
 						) : <div className="text-sm text-slate-500">暂无网卡数据</div>}

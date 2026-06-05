@@ -79,7 +79,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 							/>
 							<FeatureCard
 								icon={
-									<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.926-9.937A5.5 5.5 0 008.5 9.5 5.5 0 003 15z" /></svg>
+									<svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 15a4 4 0 004 4h9a5 5 0 10-.926-9.937A5.5 5.5 0 0 0 8.5 9.5 5.5 5.5 0 0 0 3 15z" /></svg>
 								}
 								title="分布式云盘"
 								desc="多节点存储"

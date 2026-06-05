@@ -14,28 +14,20 @@ import {
 
 type Preferences = UserPreferences;
 
-type InitialPreferencesState = {
-	prefs: Preferences;
-	hasStoredPrefs: boolean;
-};
-
 const defaultPrefs: Preferences = defaultUserPreferences;
 
-function readInitialPreferencesState(): InitialPreferencesState {
+function readStoredPreferences(): Preferences | null {
 	if (typeof window === "undefined") {
-		return { prefs: defaultPrefs, hasStoredPrefs: false };
+		return null;
 	}
 	const local = window.localStorage.getItem("vps-preferences");
 	if (!local) {
-		return { prefs: defaultPrefs, hasStoredPrefs: false };
+		return null;
 	}
 	try {
-		return {
-			prefs: normalizeUserPreferences({ ...defaultPrefs, ...JSON.parse(local) }),
-			hasStoredPrefs: true,
-		};
+		return normalizeUserPreferences({ ...defaultPrefs, ...JSON.parse(local) });
 	} catch {
-		return { prefs: defaultPrefs, hasStoredPrefs: false };
+		return null;
 	}
 }
 
@@ -86,20 +78,25 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 }
 
 export default function PreferencesPage() {
-	const [{ prefs: initialPrefs, hasStoredPrefs }] = useState<InitialPreferencesState>(
-		() => readInitialPreferencesState(),
-	);
-	const [prefs, setPrefs] = useState<Preferences>(initialPrefs);
-	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(() => initialPrefs);
+	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
+	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(() => defaultPrefs);
 	const [saved, setSaved] = useState(false);
 	const [error, setError] = useState("");
-	const [loading, setLoading] = useState(() => !hasStoredPrefs);
+	const [loading, setLoading] = useState(true);
 	const activeLoadRequestIdRef = useRef(0);
 	const latestSaveRequestIdRef = useRef(0);
 
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
 	useEffect(() => {
+		const storedPrefs = readStoredPreferences();
+		if (storedPrefs) {
+			// Local cache must be applied immediately after hydration so preference buttons do not flash defaults.
+			// eslint-disable-next-line react-hooks/set-state-in-effect
+			setPrefs(storedPrefs);
+			setLastSavedPrefs(storedPrefs);
+			setLoading(false);
+		}
 		const loadRequestId = activeLoadRequestIdRef.current + 1;
 		activeLoadRequestIdRef.current = loadRequestId;
 		const timer = window.setTimeout(() => {
