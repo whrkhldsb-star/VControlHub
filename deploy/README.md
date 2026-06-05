@@ -132,7 +132,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
 
 > `APP_SLUG` 可包含短横线（如 `my-console`），用于目录、service、cookie 等标识；安装脚本为 PostgreSQL 默认库名/用户名会单独转换为安全标识符（如 `my_console`）。如果你显式设置 `PG_DB_NAME` / `PG_DB_USER`，脚本会按你的值使用。
 
-安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`，最后写入 systemd 并重启服务。
+安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`postgresql-client`、`build-essential`，并在缺少 Node 或 Node 主版本低于 `NODE_VERSION_MAJOR`（默认 22）时通过 NodeSource 安装 Node.js；未设置 `SKIP_CADDY=1` 且系统缺少 Caddy 时，也会自动安装 Caddy。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（编译 `src/server.ts` 到 `dist/server.js`，跳过会导致后台 worker 不更新），最后写入 systemd 并重启服务。
 
 安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 
@@ -178,7 +178,7 @@ sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your
 `deploy/upgrade.sh` 默认会：
 
 1. 在 `$BACKUP_DIR`（默认 `$APP_DIR/backups`）创建 `pre-upgrade-*.dump` 数据库备份；
-2. 以 `SKIP_PACKAGES=1` 调用 `deploy/install.sh`，重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 并重启服务；
+2. 以 `SKIP_PACKAGES=1` 调用 `deploy/install.sh`，重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 与 `npm run build:runtime`（缺一会导致后台 worker 仍跑旧代码）并重启服务；
 3. 调用 `deploy/check.sh` 做本地 `/login`、systemd、运行目录和危险开关检查。
 
 可选开关：`SKIP_PRE_BACKUP=1` 跳过升级前备份，`SKIP_POST_CHECK=1` 跳过升级后自检，`CHECK_PUBLIC_URL=https://your.example.com` 增加公网 smoke。
@@ -219,6 +219,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
+npm run build:runtime  # 必跑：编译 src/server.ts → dist/server.js，否则 alert-worker / scheduled-task-worker 仍跑旧产物
 curl -fsS http://127.0.0.1:3000/login >/dev/null
 # /health 或 /api/health 在未登录时可能按当前认证策略重定向到 /login，这不代表服务失败。
 systemctl status ${SERVICE_PREFIX:-my-console}-next.service ${SERVICE_PREFIX:-my-console}-ssh-ws.service caddy --no-pager
@@ -261,7 +262,7 @@ Cron 示例：
 
 1. 部署前保留数据库备份：`scripts/backup-db.sh`。
 2. 保留上一版源码目录或 Git tag。
-3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && systemctl restart ${SERVICE_PREFIX:-vcontrolhub}-next.service ${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`。
+3. 如新版本异常：回退源码后执行 `npm ci && npm run prisma:generate && npm run build && npm run build:runtime && systemctl restart ${SERVICE_PREFIX:-vcontrolhub}-next.service ${SERVICE_PREFIX:-vcontrolhub}-ssh-ws.service`。
 
 
 ### Optional: AList WebDAV rclone mount
