@@ -1321,3 +1321,23 @@ html.light *[class~="bg-gray-900"]:not(html):not(body) {
 	background-color: var(--surface) !important;
 	color: var(--text-primary);
 }
+
+/* ============================================================
+ * 精修第 6 轮：SSH 终端弹窗主题兜底
+ * ============================================================ */
+html.light [data-ssh-terminal-dialog="true"] {
+	background-color: var(--surface) !important;
+	border-color: var(--border) !important;
+	color: var(--text-primary) !important;
+}
+
+html.light [data-ssh-terminal-dialog="true"] h3 {
+	color: var(--text-primary) !important;
+}
+
+html.light [data-ssh-terminal-dialog="true"] [aria-describedby],
+html.light [data-ssh-terminal-dialog="true"] p,
+html.light [data-ssh-terminal-dialog="true"] .text-slate-400,
+html.light [data-ssh-terminal-dialog="true"] .text-slate-300 {
+	color: var(--text-secondary) !important;
+}
