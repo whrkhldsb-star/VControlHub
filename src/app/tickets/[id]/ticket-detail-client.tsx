@@ -15,6 +15,7 @@ export interface Ticket {
 interface TicketDetailClientProps {
   initial: Ticket;
   canManage: boolean;
+  users?: TicketUser[];
 }
 
 const STATUS_LABELS: Record<string, string> = { OPEN: "待处理", IN_PROGRESS: "处理中", RESOLVED: "已解决", CLOSED: "已关闭" };
@@ -42,6 +43,22 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [assigneeId, setAssigneeId] = useState(initial.assigneeId ?? "");
+
+  const updateAssignee = async (newAssigneeId: string) => {
+    setSaving(true);
+    setError("");
+    try {
+      const data = await csrfFetch<{ ticket: Ticket }>(`/api/tickets/${ticket.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId: newAssigneeId || null }),
+      });
+      setTicket((prev) => ({ ...prev, ...data.ticket }));
+      setAssigneeId(data.ticket.assigneeId ?? "");
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "指派失败"); }
+    finally { setSaving(false); }
+  };
 
   const updateStatus = async (newStatus: string) => {
     setSaving(true);
@@ -108,6 +125,21 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
           <span>提交人: {ticket.creator.displayName || ticket.creator.username}</span>
           {ticket.assignee && <span>处理人: {ticket.assignee.displayName || ticket.assignee.username}</span>}
         </div>
+
+         {canManage && (
+           <div className="mt-3 flex items-center gap-2 text-xs">
+             <span className="text-slate-500 shrink-0">指派给:</span>
+             <select
+               value={assigneeId}
+               onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
+               disabled={saving}
+               className="rounded-lg border border-white/[0.08] bg-slate-950 px-2 py-1 text-sm text-slate-200 outline-none disabled:opacity-50"
+             >
+               <option value="">未指派</option>
+               {/* users populated from parent page */}
+             </select>
+           </div>
+         )}
       </div>
 
       {/* Status transitions */}

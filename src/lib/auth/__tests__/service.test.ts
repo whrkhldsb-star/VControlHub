@@ -10,6 +10,9 @@ vi.mock("@/lib/db", () => ({
  findUnique: vi.fn(),
  update: vi.fn(),
  },
+ setting: {
+ findUnique: vi.fn(),
+ },
  },
  isDatabaseUnavailableError: vi.fn(() => false),
 }));
@@ -82,7 +85,7 @@ describe("changePassword", () => {
  id: "u_1",
  username: "admin",
  displayName: null,
- passwordHash: await hashPassword("newpass123"),
+ passwordHash: await hashPassword("Newpass123"),
  mustChangePassword: false,
  status: "ACTIVE",
  createdAt: new Date(),
@@ -92,8 +95,8 @@ describe("changePassword", () => {
  const result = await changePassword({
  userId: "u_1",
  currentPassword: "19970103",
- newPassword: "newpass123",
- confirmPassword: "newpass123",
+ newPassword: "Newpass123",
+ confirmPassword: "Newpass123",
  });
 
  expect(result.success).toBe(true);
@@ -109,7 +112,7 @@ describe("changePassword", () => {
  const updateCall = vi.mocked(prisma.user.update).mock.calls[0]?.[0];
  const newHash = updateCall?.data?.passwordHash as string;
  expect(typeof newHash).toBe("string");
- expect(await verifyPassword("newpass123", newHash)).toBe(true);
+ expect(await verifyPassword("Newpass123", newHash)).toBe(true);
  });
 
  it("rejects password change when current password is invalid", async () => {
@@ -124,8 +127,8 @@ describe("changePassword", () => {
  changePassword({
  userId: "u_1",
  currentPassword: "wrong-password",
- newPassword: "newpass123",
- confirmPassword: "newpass123",
+ newPassword: "Newpass123",
+ confirmPassword: "Newpass123",
  }),
  ).resolves.toEqual({ success: false, error: "当前密码错误" });
  expect(prisma.user.update).not.toHaveBeenCalled();

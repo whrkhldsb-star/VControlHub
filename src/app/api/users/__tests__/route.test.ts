@@ -21,6 +21,9 @@ const { mocks } = vi.hoisted(() => ({
         createMany: vi.fn(),
         deleteMany: vi.fn(),
       },
+      setting: {
+        findUnique: vi.fn(),
+      },
       $transaction: vi.fn(),
     },
   },
@@ -50,6 +53,7 @@ describe("/api/users", () => {
     mocks.hashPassword.mockResolvedValue("hashed-password");
     mocks.prisma.$transaction.mockImplementation(async (callback) => callback(mocks.prisma));
     mocks.prisma.user.findUnique.mockResolvedValue(null);
+    mocks.prisma.setting.findUnique.mockResolvedValue(null);
     mocks.prisma.user.create.mockResolvedValue({ id: "user1", username: "alice" });
     mocks.prisma.role.findMany.mockResolvedValue([
       { id: "role-viewer", key: "viewer" },
@@ -65,7 +69,7 @@ describe("/api/users", () => {
       body: JSON.stringify({
         username: " alice ",
         displayName: " Alice Ops ",
-        password: "secret123",
+        password: "Secret123",
         roleKeys: [" viewer ", "operator", "viewer", ""],
       }),
     });
@@ -102,7 +106,7 @@ describe("/api/users", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         username: "bob",
-        password: "secret123",
+        password: "Secret123",
         roleKeys: ["viewer", "missing-role"],
       }),
     });

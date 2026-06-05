@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { hashPassword } from "@/lib/auth/password";
+import { validatePasswordPolicy } from "@/lib/auth/password-policy";
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -91,6 +92,13 @@ export async function POST(request: Request) {
         );
       }
       const { password } = parsed.data;
+      const passwordPolicyError = await validatePasswordPolicy(password);
+      if (passwordPolicyError) {
+        return NextResponse.json(
+          { error: passwordPolicyError },
+          { status: 400 },
+        );
+      }
       const username = parsed.data.username.trim();
       const displayName = parsed.data.displayName?.trim() || null;
       const requestedRoleKeys = Array.from(
@@ -198,6 +206,13 @@ export async function PATCH(request: Request) {
           targetUsername: targetUser.username,
         });
       } else if (userAction === "reset_password" && newPassword) {
+        const resetPolicyError = await validatePasswordPolicy(newPassword);
+        if (resetPolicyError) {
+          return NextResponse.json(
+            { error: resetPolicyError },
+            { status: 400 },
+          );
+        }
         const passwordHash = await hashPassword(newPassword);
         await prisma.user.update({
           where: { id: userId },

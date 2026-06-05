@@ -248,7 +248,11 @@ describe("/api/downloads", () => {
     }));
   });
 
-  it("rejects batch downloads instead of silently dropping URLs", async () => {
+  it("creates one independent task per URL for an HTTP/HTTPS batch", async () => {
+    prismaMock.downloadTask.create
+      .mockResolvedValueOnce({ id: "task_batch_1" })
+      .mockResolvedValueOnce({ id: "task_batch_2" });
+
     const response = await POST(request({
       url: "https://example.com/one.iso",
       serverId: "srv_1",
@@ -257,8 +261,30 @@ describe("/api/downloads", () => {
       batchUrls: ["https://example.com/one.iso", "https://example.com/two.iso"],
     }));
 
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload).toMatchObject({ success: true, count: 2 });
+    expect(payload.taskIds).toEqual(["task_batch_1", "task_batch_2"]);
+    expect(prismaMock.downloadTask.create).toHaveBeenCalledTimes(2);
+    expect(prismaMock.downloadTask.create).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      data: expect.objectContaining({ url: "https://example.com/one.iso" }),
+    }));
+    expect(prismaMock.downloadTask.create).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      data: expect.objectContaining({ url: "https://example.com/two.iso" }),
+    }));
+  });
+
+  it("rejects a batch that mixes magnet links with HTTP URLs", async () => {
+    const response = await POST(request({
+      url: "https://example.com/one.iso",
+      serverId: "srv_1",
+      targetPath: "downloads",
+      isBatch: true,
+      batchUrls: ["https://example.com/one.iso", "magnet:?xt=urn:btih:abc123"],
+    }));
+
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("批量下载暂不支持") });
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("磁力") });
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });

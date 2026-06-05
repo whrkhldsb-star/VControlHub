@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { authenticateUser } from "@/lib/auth/service";
-import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, getSessionTtlSeconds } from "@/lib/auth/session";
+import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
 import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLocked, recordLoginFailure, clearLoginFailure } from "@/lib/rate-limit";
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 		}
 		const { username, password } = parsed.data;
 		const rememberSession = parsed.data.remember === "on" || parsed.data.remember === "true" || parsed.data.remember === "1";
-		const sessionMaxAge = getSessionTtlSeconds(rememberSession);
+		const sessionMaxAge = await getConfiguredSessionTtlSeconds(rememberSession);
 		const requestedNextPath = safeNextPath(formData.get("next"));
 
 		// Check account lockout before attempting authentication

@@ -55,10 +55,10 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
       </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <Link href="/media" className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-3 py-1 text-cyan-200 hover:bg-cyan-400/10">共 {media.length} 项</Link>
-        <Link href="/media?type=image" className="rounded-full border border-blue-400/20 bg-blue-400/[0.06] px-3 py-1 text-blue-200 hover:bg-blue-400/10">图片 {imageCount}</Link>
-        <Link href="/media?type=video" className="rounded-full border border-purple-400/20 bg-purple-400/[0.06] px-3 py-1 text-purple-200 hover:bg-purple-400/10">视频 {videoCount}</Link>
-        <Link href="/media?favorite=1" className="rounded-full border border-amber-400/20 bg-amber-400/[0.06] px-3 py-1 text-amber-200 hover:bg-amber-400/10">⭐ 收藏 {favCount}</Link>
+         <Link href="/media" className={`rounded-full border px-3 py-1 transition ${!mediaType && !favorite ? "border-cyan-400/40 bg-cyan-400/20 text-cyan-100" : "border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-200 hover:bg-cyan-400/10"}`}>共 {media.length} 项</Link>
+         <Link href="/media?type=image" className={`rounded-full border px-3 py-1 transition ${mediaType === "image" ? "border-blue-400/40 bg-blue-400/20 text-blue-100" : "border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10"}`}>图片 {imageCount}</Link>
+         <Link href="/media?type=video" className={`rounded-full border px-3 py-1 transition ${mediaType === "video" ? "border-purple-400/40 bg-purple-400/20 text-purple-100" : "border-purple-400/20 bg-purple-400/[0.06] text-purple-200 hover:bg-purple-400/10"}`}>视频 {videoCount}</Link>
+         <Link href="/media?favorite=1" className={`rounded-full border px-3 py-1 transition ${favorite ? "border-amber-400/40 bg-amber-400/20 text-amber-100" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-200 hover:bg-amber-400/10"}`}>⭐ 收藏 {favCount}</Link>
       </div>
 
       {canManageMedia && <MediaScanButton />}

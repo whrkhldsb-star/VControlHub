@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 
 import { writeAuditLog } from "@/lib/audit/service";
 import { hashPassword, verifyPassword } from "./password";
+import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
 import { DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKey } from "./rbac";
 import { normalizeUserPreferences, type UserPreferences } from "@/lib/preferences/user-preferences";
@@ -99,6 +100,11 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
   const passwordMatches = await verifyPassword(payload.currentPassword, user.passwordHash);
   if (!passwordMatches) {
     return { success: false, error: "当前密码错误" };
+  }
+
+  const policyError = await validatePasswordPolicy(payload.newPassword);
+  if (policyError) {
+    return { success: false, error: policyError };
   }
 
   const nextPasswordHash = await hashPassword(payload.newPassword);

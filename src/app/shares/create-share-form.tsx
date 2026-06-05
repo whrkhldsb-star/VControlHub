@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 interface StorageNode {
@@ -9,6 +10,7 @@ interface StorageNode {
 }
 
 export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
   const [path, setPath] = useState("");
@@ -51,6 +53,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       setPath("");
       setName("");
       setExpiresIn("");
+      router.refresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "创建失败");
     } finally {

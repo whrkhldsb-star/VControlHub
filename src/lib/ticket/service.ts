@@ -41,8 +41,8 @@ export async function canViewTicket(id: string, userId: string) {
   return ticket?.createdBy === userId || ticket?.assigneeId === userId;
 }
 
-export async function updateTicketStatus(input: { id: string; status?: string; assigneeId?: string | null }) {
-  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null } = {};
+export async function updateTicketStatus(input: { id: string; status?: string; assigneeId?: string | null; priority?: string }) {
+  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string } = {};
 
   if (input.status !== undefined) {
     if (!STATUSES.has(input.status)) throw new Error("工单状态无效");
@@ -52,6 +52,10 @@ export async function updateTicketStatus(input: { id: string; status?: string; a
 
   if (input.assigneeId !== undefined) {
     data.assigneeId = input.assigneeId;
+  }
+
+  if (input.priority !== undefined) {
+    data.priority = input.priority;
   }
 
   if (Object.keys(data).length === 0) throw new Error("工单更新内容不能为空");

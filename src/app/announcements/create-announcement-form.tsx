@@ -50,7 +50,7 @@ export function CreateAnnouncementForm() {
 					<select name="type" defaultValue="info" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
 						<option value="info">信息</option>
 						<option value="warning">警告</option>
-						<option value="critical">严重</option>
+						<option value="urgent">🔴 紧急</option>
 					</select>
 				</label>
 			</div>

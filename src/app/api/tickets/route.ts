@@ -79,6 +79,6 @@ export async function PATCH(request: Request) {
     const parsed = ticketPatchSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
     const data = parsed.data;
-    return NextResponse.json({ ticket: await updateTicketStatus({ id: data.id, status: normalizeStatus(data.status), assigneeId: data.assigneeId }) });
+    return NextResponse.json({ ticket: await updateTicketStatus({ id: data.id, status: normalizeStatus(data.status), assigneeId: data.assigneeId, priority: normalizePriority(data.priority) }) });
   });
 }

@@ -23,6 +23,7 @@ export function CreateSnippetModal({
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [language, setLanguage] = useState("");
+  const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -43,6 +44,7 @@ export function CreateSnippetModal({
           title,
           content,
           language: language.trim() || undefined,
+          description: description.trim() || undefined,
           tags: tags.length ? tags : undefined,
           isPrivate,
         }),
@@ -77,6 +79,15 @@ export function CreateSnippetModal({
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               placeholder="例如 javascript、python（留空默认 text）"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="简要说明此片段的用途"
               className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
             />
           </div>

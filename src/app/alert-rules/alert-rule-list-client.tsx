@@ -158,8 +158,10 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 									<h2 className="text-lg font-semibold text-white">{rule.name}</h2>
 									<p className="mt-1 text-xs text-slate-500">
 										当 <span className="text-cyan-300/80">{metricLabels[rule.metric] ?? rule.metric}</span>{" "}
+										{rule.metric !== "server_offline" && <>
 										<span className="text-white/70">{operatorLabels[rule.operator] ?? rule.operator}</span>{" "}
-										<span className="text-amber-300 font-mono">{rule.threshold}{rule.metric !== "server_offline" ? "%" : ""}</span>
+										<span className="text-amber-300 font-mono">{rule.threshold}%</span>
+										</>}
 										{rule.durationSeconds > 0 && <span className="text-slate-500"> 持续 {rule.durationSeconds}s</span>}
 										{rule.serverIds.length === 0 ? " (全部节点)" : ` (${rule.serverIds.length} 节点)`}
 									</p>
@@ -278,7 +280,7 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 						<option value="server_offline">服务器离线</option>
 					</select>
 				</div>
-				<div className="space-y-1.5">
+				{metric !== "server_offline" && <div className="space-y-1.5">
 					<label className="text-xs font-medium text-white/50 tracking-wide">比较方式</label>
 					<select value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
 						<option value="gt">大于</option>
@@ -286,11 +288,11 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 						<option value="lt">小于</option>
 						<option value="lte">小于等于</option>
 					</select>
-				</div>
-				<div className="space-y-1.5">
+				</div>}
+				{metric !== "server_offline" && <div className="space-y-1.5">
 					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertThreshold">阈值</label>
 					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
-				</div>
+				</div>}
 			</div>
 
 			<div className="space-y-1.5">

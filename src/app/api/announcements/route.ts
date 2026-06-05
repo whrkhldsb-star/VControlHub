@@ -9,6 +9,8 @@ const announcementPostSchema = z.object({
   title: z.string().min(1),
   content: z.string().min(1),
   type: z.enum(["info", "warning", "urgent"]).optional(),
+  pinned: z.boolean().optional(),
+  published: z.boolean().optional(),
   expiresAt: z.string().datetime().optional(),
   startsAt: z.string().optional(),
 });
@@ -46,6 +48,8 @@ export async function POST(request: Request) {
           title: data.title,
           body: data.content,
           level: data.type,
+          pinned: data.pinned,
+          published: data.published,
           createdBy: session?.userId,
           startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
           expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,

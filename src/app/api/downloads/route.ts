@@ -121,25 +121,25 @@ export async function POST(request: Request) {
       } = parsed.data;
 
       const allUrls = isBatch && batchUrls?.length ? batchUrls : [url];
-      if (
-        isBatch &&
-        allUrls.length > 1 &&
-        allUrls.every((candidate) => !isMagnetLink(candidate))
-      ) {
+      // Batch mode semantics:
+      //  - HTTP/HTTPS batch with >1 URL → create one independent download task
+      //    per URL (looped below). Each link is fetched separately.
+      //  - Magnet/BT links must each be their own relay task; mixing magnets
+      //    into a multi-URL HTTP batch is rejected because the two execution
+      //    paths (direct vs aria2 relay) cannot be combined in one request.
+      const hasMagnet = allUrls.some(isMagnetLink);
+      if (isBatch && allUrls.length > 1 && hasMagnet) {
         return NextResponse.json(
           {
             error:
-              "HTTP/HTTPS 批量下载暂不支持，请拆分为单个任务创建，避免只下载第一项",
+              "磁力/BT 链接需单独创建任务，请勿与普通链接混在同一批量中",
           },
           { status: 400 },
         );
       }
-      if (isBatch && allUrls.length > 1 && allUrls.some(isMagnetLink)) {
-        return NextResponse.json(
-          { error: "磁力/BT 批量下载暂不支持，请每次创建一个任务" },
-          { status: 400 },
-        );
-      }
+      // For an HTTP/HTTPS batch we iterate over every URL; otherwise this is a
+      // single-task request (one HTTP link or one magnet relay).
+      const isHttpBatch = isBatch && allUrls.length > 1 && !hasMagnet;
       for (const u of allUrls) {
         const validation = await assertDownloadSourceUrlSafe(u);
         if (!validation.ok) {
@@ -213,76 +213,98 @@ export async function POST(request: Request) {
 
       const relayMode = allUrls.some(isMagnetLink);
 
-      const task = await prisma.downloadTask.create({
-        data: {
-          url,
+      // Determine the list of URLs that each become their own task.
+      //  - HTTP batch: one task per URL.
+      //  - Single HTTP or magnet relay: a single task (magnet relay may carry
+      //    multiple magnet URLs into one aria2 task, handled below).
+      const taskUrls = isHttpBatch ? allUrls : [allUrls[0]];
+
+      const createdTaskIds: string[] = [];
+
+      for (const taskUrl of taskUrls) {
+        // For an HTTP batch a single user-supplied fileName cannot apply to
+        // every link, so only honour it for single-task requests.
+        const taskFileName = isHttpBatch ? null : safeFileName;
+
+        const task = await prisma.downloadTask.create({
+          data: {
+            url: taskUrl,
+            serverId,
+            targetPath: resolvedTargetPath,
+            fileName: taskFileName,
+            status: "PENDING",
+            progress: relayMode ? "准备中转下载..." : "准备远程下载...",
+            relayMode,
+            createdBy: session.userId,
+            category: category || null,
+            maxSpeedKb: maxSpeedKb || null,
+            isBatch: isBatch ?? false,
+            batchUrls:
+              isBatch && batchUrls?.length
+                ? JSON.stringify(batchUrls)
+                : JSON.stringify([]),
+          },
+        });
+        createdTaskIds.push(task.id);
+
+        const serverForExec: DownloadServer = {
+          host: server.host,
+          port: server.port,
+          username: server.username,
+          sshKeyId: server.sshKeyId,
+          password: server.password,
+          storageNode: server.storageNode
+            ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
+            : null,
+          sshKey: server.sshKey
+            ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey ?? "") }
+            : null,
+        };
+
+        if (relayMode) {
+          // A magnet relay task carries all magnet URLs into one aria2 job.
+          executeAria2RelayDownload(
+            task.id,
+            serverForExec,
+            allUrls,
+            resolvedTargetPath,
+            safeFileName,
+            maxSpeedKb,
+            session.userId,
+          ).catch((error) => {
+            logError("[DownloadAPI] Relay execution error:", error);
+          });
+        } else {
+          executeDirectDownload(
+            task.id,
+            serverForExec,
+            taskUrl,
+            resolvedTargetPath,
+            taskFileName,
+            session.userId,
+          ).catch((error) => {
+            logError("[DownloadAPI] Direct execution error:", error);
+          });
+        }
+
+        auditUserAction(session.userId, "download.create", {
+          url: taskUrl,
           serverId,
           targetPath: resolvedTargetPath,
-          fileName: safeFileName,
-          status: "PENDING",
-          progress: relayMode ? "准备中转下载..." : "准备远程下载...",
-          relayMode,
-          createdBy: session.userId,
-          category: category || null,
-          maxSpeedKb: maxSpeedKb || null,
+          taskId: task.id,
+          relayMode: relayMode ?? false,
+          category: category ?? "",
           isBatch: isBatch ?? false,
-          batchUrls:
-            isBatch && batchUrls?.length
-              ? JSON.stringify(batchUrls)
-              : JSON.stringify([]),
-        },
-      });
-
-      const serverForExec: DownloadServer = {
-        host: server.host,
-        port: server.port,
-        username: server.username,
-        sshKeyId: server.sshKeyId,
-        password: server.password,
-        storageNode: server.storageNode
-          ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
-          : null,
-        sshKey: server.sshKey
-          ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey ?? "") }
-          : null,
-      };
-
-      if (relayMode) {
-        executeAria2RelayDownload(
-          task.id,
-          serverForExec,
-          allUrls,
-          resolvedTargetPath,
-          safeFileName,
-          maxSpeedKb,
-          session.userId,
-        ).catch((error) => {
-          logError("[DownloadAPI] Relay execution error:", error);
-        });
-      } else {
-        executeDirectDownload(
-          task.id,
-          serverForExec,
-          allUrls[0],
-          resolvedTargetPath,
-          safeFileName,
-          session.userId,
-        ).catch((error) => {
-          logError("[DownloadAPI] Direct execution error:", error);
         });
       }
 
-      auditUserAction(session.userId, "download.create", {
-        url,
-        serverId,
-        targetPath: resolvedTargetPath,
-        taskId: task.id,
-        relayMode: relayMode ?? false,
-        category: category ?? "",
-        isBatch: isBatch ?? false,
+      return NextResponse.json({
+        success: true,
+        taskId: createdTaskIds[0],
+        taskIds: createdTaskIds,
+        count: createdTaskIds.length,
+        relayMode,
       });
-
-      return NextResponse.json({ success: true, taskId: task.id, relayMode });
     },
   );
 }

@@ -70,7 +70,7 @@ export function AnnouncementEditModal({
             >
               <option value="info">ℹ️ 信息</option>
               <option value="warning">⚠️ 警告</option>
-              <option value="critical">🔴 严重</option>
+              <option value="urgent">🔴 紧急</option>
             </select>
           </div>
           <div>

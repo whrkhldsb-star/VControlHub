@@ -319,108 +319,63 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
-## 🔎 2026-06-03 全面审查发现（修复跟踪）
+## 🔎 当前可用性与功能完整性状态（2026-06-04）
 
-> 审查方式：以软件测试工程师/真实用户视角进行只读检查，覆盖生产健康、已登录核心页面、关键 API、部署脚本、Docker/Compose、README/部署文档、静态代码、`npm run verify`。本轮未改产品代码，仅记录已核实问题。
->
-> 当前基线：生产服务 `vcontrolhub-next` / `vcontrolhub-ssh-ws` / `caddy` / `postgresql` 均为 active；`/api/status` 为 healthy；管理员登录后 `/`、`/servers`、`/files`、`/storage`、`/quick-services`、`/docker`、`/monitoring`、`/ai`、`/settings`、`/users`、`/api-docs`、`/health`、`/traffic` 均返回 200。2026-06-04 已将部署资产校验纳入 `npm run verify`，并清理已知测试环境 React/HTML warning。
+> 当前重点已经从“页面是否能打开”推进到“按钮是否真的有副作用、设置项是否真的生效、后台任务是否真的会跑、安装脚本是否能支撑 fresh install”。以下状态来自生产修复、单元测试、构建和 smoke-test 的收尾结果。
 
-### P0 / P1 — 会影响新部署或核心可用性的缺陷
+### 已完成的关键闭环
 
-- [x] **无域名一键安装的文档承诺与脚本实际不一致，可能没有公网反向代理。**
-  README 写明“无域名时自动配置 Apache/IP 直连模式”，但 `deploy/bootstrap.sh:101-111` 只是把 `DOMAIN` 原样传给 `deploy/install.sh`；`deploy/install.sh:949-951` 在 `DOMAIN` 为空时跳过 Caddy；`deploy/install.sh:978-983` 只有 `SKIP_CADDY=1` 才配置 Apache。也就是说用户按 README 省略 `DOMAIN` 时，默认路径会跳过 Caddy 且不会进入 Apache IP 直连配置，fresh install 可能只在 `127.0.0.1:3000/3001` 本地启动而无法通过公网 IP 访问。
-  - 2026-06-04 已修复：`deploy/install.sh` 在 `DOMAIN` 为空时会进入 Apache/IP 模式；显式 `SKIP_CADDY=1` 仍保留同一路径。
+- [x] **前后端枚举一致性修复** — 公告类型创建/编辑表单发送 `critical` 但 API 只接受 `urgent`，导致"严重/紧急"级别公告完全无法创建；已统一为 `urgent`。快捷服务应用源预设 URL 从 `example.com` 占位符改为空值，避免误导用户同步失败。
+- [x] **片段所有权校验** — 代码片段的编辑和删除操作现在校验操作者身份：只有创建者或拥有 `role:manage` 权限的管理员可以修改/删除，修复了任意用户可改删他人片段的 IDOR 问题。
+- [x] **强制改密拦截** — `requireSession` 中增加 `mustChangePassword` 检测，管理员强制重置密码后用户首次登录会自动跳转改密页。
+- [x] **权限门控完善** — 用户管理页面的创建/权限配置/禁用按钮现在受 `user:manage` 权限控制；命令模板列表 GET 权限从 `command:create` 修正为 `command:read`。
+- [x] **分享链路可用** — `/shares` 生成的 `/share/[token]` 已有公开落地页；页面只读预览不增加下载计数，下载仍走 `/api/share/[token]` 计数端点。
+- [x] **设置项真实生效** — `session.timeout` 会影响普通登录 session TTL；密码复杂度设置会约束改密、创建用户和重置密码。
+- [x] **后台功能不再只停留在 UI** — 定时任务 worker 随服务启动，按到期时间触发命令请求并记录运行结果；告警评估 worker 随服务启动并周期检查规则。
+- [x] **下载中心批量语义补齐** — HTTP/HTTPS 批量下载会为每个 URL 创建独立任务；磁力/BT 与普通 URL 混合批量会明确拒绝，避免只下载第一项。
+- [x] **表单字段不再丢失** — 代码片段创建/编辑支持描述、标签和私有状态；分享创建后刷新列表；公告创建支持置顶/发布字段。
+- [x] **工单更新更完整** — 状态、负责人、优先级可以一起更新，避免 UI 有字段但 API 丢弃。
+- [x] **一键安装脚本已增强** — 无域名安装进入 Apache/IP 直连路径；`APP_SLUG` 可带短横线，默认 PostgreSQL 用户/库名会安全转换为下划线标识符；部署资产校验进入 `npm run verify`。
 
-- [x] **手动部署指南缺少 `npm run build:runtime`，按文档启动会找不到 `dist/server.js`。**
-  `docs/deploy-vps.md:71-82` 只执行 `npm run build` 后直接 `npm run start`，并用 `npx tsx src/ssh-ws-proxy.ts` 启 SSH-WS；但 `package.json:7-10` 中 `start` 是 `node dist/server.js`，`dist/server.js` 和 `dist/ssh-ws-proxy.js` 只有 `npm run build:runtime` 生成。主安装脚本 `deploy/install.sh` 已正确执行 build + build:runtime，手动文档落后。
-  - 2026-06-04 已修复：手动部署文档补齐 `npm run build:runtime`，并改为用 `dist/ssh-ws-proxy.js` 启动 SSH-WS。
+### 目前仍存在的问题 / 使用边界
 
-- [x] **`.env.example` 缺少生产必需的 `ENCRYPTION_KEY`，且仍包含已弃用的 `NEXT_PUBLIC_SSH_WS_SECRET`。**
-  `docs/deploy-vps.md:41-56` 引导 `cp .env.example .env.local`，但 `.env.example:1-60` 没有 `ENCRYPTION_KEY`；而 `deploy/preflight.sh:99-101`、`deploy/check.sh:65-67` 都要求它，生产环境缺少时会影响凭据加密路径。同时 `.env.example:36-37` 仍暴露 `NEXT_PUBLIC_SSH_WS_SECRET`，但 `deploy/install.sh` 已有逻辑移除该 deprecated browser-exposed secret；模板与安全策略不一致。
-  - 2026-06-04 已修复：`.env.example` 补齐 `ENCRYPTION_KEY` 示例/说明，移除 deprecated `NEXT_PUBLIC_SSH_WS_SECRET`。
-
-- [x] **Docker Compose 部署缺少首次管理员 seed 与加密密钥配置，容器可能启动但无法完成真实可用初始化。**
-  `docker-compose.yml:25-36` 仅配置 `DATABASE_URL`、`AUTH_SESSION_SECRET`、`SSH_WS_SECRET` 等，缺少 `ADMIN_INITIAL_PASSWORD` 与 `ENCRYPTION_KEY`；`docker-entrypoint.sh:4-11` 只执行 `prisma migrate deploy` 并启动两个进程，没有执行 `npm run db:seed` / `prisma:seed`。systemd 安装路径会 seed 初始化管理员，但 Compose 路径没有等价流程，空库场景可能没有可登录管理员，且涉及 SSH/存储凭据加密的生产路径会缺密钥。
-  - 2026-06-04 已修复：Compose 模板新增 `ADMIN_INITIAL_PASSWORD` / `ENCRYPTION_KEY`；entrypoint 在 migrate 后执行 `prisma/seed.ts`；生产镜像补带 `tsx` 以支持容器内 seed。
-
-### P1 / P2 — 运维、质量门禁和长期维护风险
-
-- [ ] **`deploy/smoke-test.sh` 对部署形态假设过强，容易在外部数据库、Docker、IP-only 或 Caddy 未配置场景误报。**
-  它默认根据系统是否有 `caddy.service` 推断公网 URL，强制检查 `${APP_SLUG}-next`、`${APP_SLUG}-ssh-ws`、代理服务、`postgresql` 均 active，并绑定 `/api/users` 未登录文案、首页 307 等具体响应。实际可用部署若使用外部 PostgreSQL、Compose 或自定义反代，可能被 smoke 误判失败。建议把 smoke 拆成“systemd 本机模式”和“HTTP 黑盒模式”，并减少对本地化文案的硬编码。
-
-- [x] **`npm run verify` 未覆盖部署资产校验。**
-  `package.json:21` 的 verify 包含 Prisma generate、typecheck、lint、test、build、build:runtime，但没有 `bash -n deploy/*.sh`、`systemd-analyze verify`、`caddy validate`、`docker compose config`、`package.sh` dry-run 等。部署脚本或模板损坏时，应用测试全绿也可能无法安装。审查中手动执行了相关语法/测试命令并通过，但它们未进入统一质量门禁。
-  - 2026-06-04 已修复：新增 `deploy/verify-assets.sh`，并把 `npm run verify:deploy-assets` 接入 `npm run verify`；校验 shell 语法、必需 systemd 模板、Caddyfile，Docker Compose 工具存在时校验 compose config。
-
-- [x] **备份/恢复脚本仍硬编码旧品牌 `whrkhldsb`，与 VControlHub 可品牌化部署不一致。**
-  `scripts/backup-db.sh:2-7`、`scripts/restore-db.sh:2-3` 注释仍是旧路径/旧品牌；`scripts/backup-db.sh:25`、`scripts/restore-db.sh:29` 默认数据库名仍为 `whrkhldsb`；`scripts/backup-db.sh:45` 默认备份文件名和 `scripts/backup-db.sh:63` 清理规则也固定 `whrkhldsb_*.sql.gz`。多实例或自定义 `APP_SLUG` 部署时容易混淆备份与保留策略。
-  - 2026-06-04 已修复：备份/恢复脚本默认数据库、文件前缀和保留清理规则改为 `APP_SLUG`/`DB_NAME` 驱动。
-
-- [x] **Makefile 运维入口默认值固定生产域名和 `vcontrolhub` service prefix，自定义部署容易误操作。**
-  `Makefile:1-3` 默认 `DOMAIN=whrkhldsb.qzz.io`、`SERVICE_PREFIX=vcontrolhub`；而 README/deploy 文档强调支持自定义品牌、目录和服务前缀。用户在其他实例直接运行 `make smoke` / `make restart` 可能打到错误域名或错误 systemd 服务。
-  - 2026-06-04 已修复：Makefile 默认从 `APP_DOMAIN` / `APP_SLUG` / `SERVICE_PREFIX` 派生，保留本机生产默认但更适合自定义实例覆盖。
-
-- [x] **README 项目规模统计已经过期，应改为自动生成或移除固定数字。**
-  README 当前写 `35 页面 + 66 API`、`43 模型`、`~44,700 行`，但本轮扫描 `src/app` 已有 37 个 `page.tsx` 和 74 个 API route。易过期数字会降低项目首页可信度。
-  - 2026-06-04 已修复：README 规模统计更新为当前扫描值（37 页面、74 API、45 模型、约 77,700 行 src）。
-
-### P2 — 已通过但需要排队清理的质量问题
-
-- [x] **`npm run lint` 通过但有 5 条 React `set-state-in-effect` warning。**
-  涉及 `src/app/docker/docker-page-client.tsx:160`、`src/app/files/file-list-client.tsx:270`、`src/app/image-bed/image-bed-page-client.tsx:112`、`src/app/monitoring/monitoring-page-client.tsx:86`、`src/app/preferences/preferences-page-client.tsx:79`。目前不阻塞构建，但会造成级联渲染/性能风险，建议后续集中清理。
-  - 2026-06-04 复核：当前 `npm run lint` 已无 warning 输出。
-
-- [x] **测试输出仍包含若干 React/HTML 警告，说明 mock 或组件属性边界有噪声。**
-  `npm test` 通过，但输出中出现 `Received true for a non-boolean attribute jsx/fill/unoptimized`、`<html> cannot be a child of <div>` 等测试环境警告。它们不是生产 P0，但会降低测试信号质量，容易掩盖未来真实 warning。
-  - 2026-06-04 已修复：清理 `next/image` mock 透传属性、`style jsx` 测试噪声和 RootLayout `<html>` 测试挂载方式；targeted regressions 与全量测试通过。
+- [ ] **`deploy/smoke-test.sh` 仍偏 systemd 本机部署假设。** 对外部数据库、Compose、自定义反代、纯 HTTP 黑盒部署还不够友好，后续应拆成“本机 systemd 检查”和“公网 HTTP 检查”。
+- [ ] **快捷服务的一键更新仍未完善。** 当前更偏安装/管理，后续需要 Docker image pull、容器重建、配置 diff、失败回滚和更新日志。
+- [ ] **备份策略仍偏手动。** 已有备份/恢复脚本，但还缺 UI 化定时备份、异地备份、恢复演练和备份大小/保留策略监控。
+- [ ] **文件管理还缺完整编辑体验。** 浏览/上传/下载/预览可用，但在线编辑、保存前 diff、保存后可选重载服务仍是下一阶段。
+- [ ] **通知渠道还需产品化配置。** 站内通知和告警基础能力可用，Telegram/邮件/Webhook 等外部渠道需要更明确的配置 UI、测试发送和重试队列。
+- [ ] **移动端仍是次优体验。** 主要流程面向桌面管理台，手机端需要专门的导航、触摸操作和危险操作确认优化。
 
 ---
 
-## 🗺️ 路线图
+## 🗺️ 下一步升级方向
 
-> 基于生产浏览器 QA、后台巡检和用户反馈动态调整优先级。✅ 标注已完成项；每个 major round 收尾时同步更新本 GitHub 首页路线图与 `docs/plans/*` 计划文档。
+### P0 — 收尾质量门禁 / 安装可信度
+- [x] 一键安装 fresh install 关键路径：环境变量生成、反向代理分支、PostgreSQL 标识符、runtime bundle、systemd 模板。
+- [x] 核心质量门禁：typecheck、lint、测试、Next build、runtime build、部署资产校验。
+- [ ] 将 smoke-test 拆分为 `smoke:systemd` / `smoke:http`，减少对本机服务名、PostgreSQL 本机实例和中文文案的硬编码。
+- [ ] 增加 installer fakeroot/dry-run 回归脚本，覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 四类分支。
 
-### P0 — 当前质量门禁 / 阻塞性修复
-- [x] CSRF 表单提交修复 — 部署/备份页面 `<form>` 提交被 middleware 拦截 403，改用 `csrfFetch`
-- [x] 服务器重复添加检测 — 去重逻辑只查启用节点，已改为全量检查
-- [x] 登录/导航外壳一致性 — 已修复已登录用户直达 `/login` 时仍渲染受保护导航的问题
-- [ ] Docker 环境检测 — 快捷服务页面无 Docker 时应给出安装引导而非静默失败
-- [ ] 首次登录密码一致性 — 安装后 admin 初始密码与 `.env.local` 不匹配，需确认 seed 逻辑
-- [ ] Session 有效期优化 — 测试中频繁跳转登录页，建议延长或增加记住登录选项
+### P1 — 功能设置真实可用
+- [x] 会话超时、密码策略、定时任务、告警规则、批量下载、工单优先级、snippet 元数据等“有 UI 但无真实效果/效果不完整”的问题已补齐。
+- [ ] 系统设置页继续补齐说明文案、即时验证、保存后生效范围提示（是否需重登/重启/等待 worker 下一轮）。
+- [ ] 定时任务增强：Cron 可视化编辑、下一次运行时间预览、失败重试、执行日志搜索。
+- [ ] 告警增强：静默期、通知渠道选择、测试发送、失败重试和告警历史趋势。
 
-### P1 — 真实用户流程与核心体验提升
-- [x] 部署页面完整流程 — 模板选择 → 变量填写 → VPS 勾选 → 审批提交（csrfFetch 重写）
-- [x] 备份页面表单修复 — 同 CSRF 问题，已改为 csrfFetch
-- [x] 全局搜索基础能力 — 跨主要模块搜索、键盘导航、语言本地化和可访问性已落地
-- [x] 偏好设置真实生效 — 默认页、仪表盘模块、刷新/通知行为已具备真实 UI/runtime 副作用
-- [x] SSH 终端可访问弹窗 — 生产浏览器 QA 已验证真实连接、dialog 语义、状态公告与浅色主题可读性
-- [x] Direct Gateway 恢复引导 — VPS 卡片已显示直连状态、可探测公开 URL、监听端口/防火墙排查说明和切回中转真实副作用提示
-- [x] VPS 卡片状态语义 — 启用/停用徽章、详情展开区和浅色主题状态说明已补齐，明确管理状态不等于 SSH/文件/直连真实健康
-- [ ] VPS 编辑/删除安全路径 — 继续验证表单、确认、DB/StorageNode/Direct Gateway 清理和下一屏可见结果
-- [ ] SSH 终端空闲稳定性 — 长时间空闲连接、断线提示、重连/关闭路径仍需生产浏览器验证
-- [ ] SSH 多会话 — 分屏 + 多 Tab + 历史命令搜索
-- [ ] 在线文件编辑器 — 浏览器内编辑配置文件，保存后可选自动部署
-- [ ] 文件搜索 — 按名称 / 内容 / 大小 / 日期搜索
-- [ ] 告警外部推送 — Telegram Bot / 邮件 Webhook 已有基础，需完善配置 UI 和重试
-- [ ] 定时任务增强 — Cron 可视化编辑 + 执行日志搜索 + 失败重试
-
-### P2 — 功能完整性 / 可观测性 / 可运营性
-- [x] Settings 运行时控制首批能力 — 命令超时、输出限制、任务恢复、SSH keepalive、SFTP 超时、列表上限等非敏感参数已可配置
-- [x] 文件/SFTP 局部失败可见性 — SFTP 扫描支持超时、部分成功警告和权限能力边界
-- [x] 成长型列表有界化 — Operation Tasks、备份、分享链接、API Token、部署/下载目标、定时任务/模板、AI 列表等已加入上限
-- [ ] 快捷服务一键更新 — Docker 镜像 pull + 容器重建 + 更新日志
-- [ ] 备份策略管理 — 定时备份 + 异地备份 + 恢复验证 + 备份大小监控
-- [ ] 操作回滚 — 关键操作（文件删除、配置修改）一键 undo
-- [ ] 仪表盘自定义 — 拖拽卡片 + 指标选择 + 时间范围筛选
-- [ ] 移动端适配优化 — 底部导航 + 触摸手势 + 关键操作可用
+### P2 — 用户体验和可运营性
+- [ ] 快捷服务一键更新：pull/recreate/healthcheck/rollback/log。
+- [ ] 在线文件编辑器：文本编辑、差异预览、保存确认、权限边界。
+- [ ] 备份策略管理：定时备份、异地备份、恢复验证、保留策略。
+- [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。
+- [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。
+- [ ] 移动端适配：底部导航、触摸友好控件、危险操作二次确认。
 
 ### P3 — 长期愿景
-- [ ] 自动化工作流 (Playbook) — 条件触发 + 告警联动 + 步骤编排
-- [ ] 多租户 / 团队空间 — 资源隔离 + 配额管理 + 权限继承
-- [ ] 成本追踪 — VPS 费用 + 带宽/存储用量 + 月度报告
-- [ ] 智能运维 AI — 主动诊断建议 + 异常预测 + 自动修复
-- [ ] PWA 离线支持 — Service Worker + 关键操作离线可用
-- [ ] 集成市场 — 通知渠道 + 监控 Agent + CI/CD 一键接入
+- [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。
+- [ ] 多租户/团队空间：资源隔离、配额管理、权限继承。
+- [ ] 成本追踪：VPS 费用、带宽/存储用量、月度报告。
+- [ ] 智能运维 AI：主动诊断建议、异常预测、自动修复建议。
+- [ ] PWA 离线支持和集成市场。
 
 ---
 

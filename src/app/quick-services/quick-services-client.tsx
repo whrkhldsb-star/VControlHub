@@ -60,9 +60,9 @@ const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blo
 const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
 
 const SOURCE_PRESETS = [
-	{ key: "linuxserver", label: "LinuxServer.io", type: "linuxserver", url: "https://example.com/linuxserver.json", description: "媒体、下载、监控类服务。", badge: "LSIO" },
-	{ key: "github", label: "GitHub Raw JSON", type: "github", url: "https://example.com/apps.json", description: "社区维护的公开 JSON 目录。", badge: "GitHub" },
-	{ key: "json", label: "通用 JSON", type: "json", url: "https://example.com/apps.json", description: "你自己整理的任意 JSON 目录。", badge: "JSON" },
+	{ key: "linuxserver", label: "LinuxServer.io", type: "linuxserver", url: "", description: "媒体、下载、监控类服务。", badge: "LSIO" },
+	{ key: "github", label: "GitHub Raw JSON", type: "github", url: "", description: "社区维护的公开 JSON 目录。", badge: "GitHub" },
+	{ key: "json", label: "通用 JSON", type: "json", url: "", description: "你自己整理的任意 JSON 目录。", badge: "JSON" },
 ] as const;
 
 type Tab = "store" | "community" | "installed" | "sources";

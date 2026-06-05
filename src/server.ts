@@ -17,6 +17,8 @@ import next from "next";
 import { setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { startCommandMaintenanceWorker } from "@/lib/command/worker";
+import { startScheduledTaskWorker } from "@/lib/scheduled-task/worker";
+import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
 
 const logger = createLogger("server");
 
@@ -31,6 +33,8 @@ async function main() {
 
 	await app.prepare();
 	await startCommandMaintenanceWorker();
+	await startScheduledTaskWorker();
+	await startAlertEvaluationWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);

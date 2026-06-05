@@ -19,14 +19,12 @@ interface Announcement {
 const levelColors: Record<string, string> = {
   info: "border-cyan-400/20 bg-cyan-400/[0.04]",
   warning: "border-amber-400/20 bg-amber-400/[0.04]",
-  critical: "border-rose-400/20 bg-rose-400/[0.04]",
   urgent: "border-rose-400/20 bg-rose-400/[0.04]",
 };
 
 const levelLabels: Record<string, string> = {
   info: "ℹ️ 信息",
   warning: "⚠️ 警告",
-  critical: "🔴 严重",
   urgent: "🔴 紧急",
 };
 

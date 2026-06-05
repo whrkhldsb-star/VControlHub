@@ -27,6 +27,38 @@ export function getSessionTtlSeconds(remember = false) {
   const envName = remember ? "AUTH_REMEMBER_SESSION_TTL_SECONDS" : "AUTH_SESSION_TTL_SECONDS";
   return readPositiveIntEnv(envName, fallback);
 }
+
+/**
+ * Resolve the effective session TTL honouring (in priority order):
+ *   1. The env override (AUTH_SESSION_TTL_SECONDS / AUTH_REMEMBER_SESSION_TTL_SECONDS).
+ *   2. For non-remember sessions, the admin-configurable `session.timeout` setting.
+ *   3. The hardcoded fallback.
+ *
+ * This is what makes the "会话超时（秒）" setting in the admin UI actually
+ * govern how long a normal login stays valid.
+ */
+export async function getConfiguredSessionTtlSeconds(remember = false): Promise<number> {
+  const envName = remember ? "AUTH_REMEMBER_SESSION_TTL_SECONDS" : "AUTH_SESSION_TTL_SECONDS";
+  const envOverride = process.env[envName]?.trim();
+  if (envOverride) {
+    return getSessionTtlSeconds(remember);
+  }
+  // "Remember me" sessions keep their long fixed TTL; the configurable
+  // timeout only applies to standard logins.
+  if (!remember) {
+    try {
+      const { getSetting } = await import("@/lib/settings/service");
+      const raw = await getSetting("session.timeout");
+      const parsed = Number(raw);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        return parsed;
+      }
+    } catch (error) {
+      logger.warn("读取 session.timeout 设置失败，使用默认会话时长", error);
+    }
+  }
+  return getSessionTtlSeconds(remember);
+}
 const AUTH_BYPASS_PREFIXES = [
   "/_next",
   "/api/public",
@@ -89,7 +121,7 @@ export function shouldBypassAuth(pathname: string) {
 
 export async function createSessionToken(payload: SessionPayload, options: { remember?: boolean } = {}) {
   const now = Date.now();
-  const ttlMs = getSessionTtlSeconds(options.remember === true) * 1000;
+  const ttlMs = (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
   const envelope: SessionTokenEnvelope = {
     ...payload,
     iss: SESSION_ISSUER,

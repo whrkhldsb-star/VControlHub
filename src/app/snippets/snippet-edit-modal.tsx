@@ -25,6 +25,8 @@ export function SnippetEditModal({
   const [title, setTitle] = useState(snippet.title);
   const [content, setContent] = useState(snippet.content);
   const [language, setLanguage] = useState(snippet.language);
+  const [description, setDescription] = useState(snippet.description ?? "");
+  const [tagsInput, setTagsInput] = useState(snippet.tags.join(", "));
   const [isPrivate, setIsPrivate] = useState(snippet.isPrivate);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -33,10 +35,14 @@ export function SnippetEditModal({
     setSaving(true);
     setError("");
     try {
+      const tags = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
       const data = await csrfFetch<{ snippet: Snippet }>("/api/snippets", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: snippet.id, title, content, language, isPrivate }),
+        body: JSON.stringify({ id: snippet.id, title, content, language, description, tags, isPrivate }),
       });
       onSaved(data.snippet);
       onClose();
@@ -67,6 +73,24 @@ export function SnippetEditModal({
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="简要说明此片段的用途"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 light:text-slate-500">标签（用逗号分隔）</label>
+            <input
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder="例如 备份, nginx"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
             />
           </div>
           <div>
