@@ -40,6 +40,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   const session = await requireSession("/files");
   const canEditLocalFiles = sessionHasPermission(session, "storage:write");
   const canDelete = sessionHasPermission(session, "storage:delete");
+  const canShare = sessionHasPermission(session, "share:create");
   const canManageNodes = sessionHasPermission(session, "storage:manage-node");
   const resolvedSearchParams = (await searchParams) ?? {};
   const currentPath = normalizeFilePath(resolvedSearchParams.path);
@@ -199,6 +200,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     permissions: {
       canEditLocalFiles,
       canDelete,
+      canShare,
       canManageNodes,
     },
     nodes: storage.nodes.map((n) => ({

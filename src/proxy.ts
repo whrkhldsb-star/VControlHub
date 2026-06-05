@@ -29,6 +29,7 @@ const PUBLIC_PATHS_EXACT = new Set([
 const PUBLIC_PATH_PREFIXES = [
   "/_next", // static assets
   "/api/public", // public API endpoints
+  "/api/share/", // public share-token downloads (validated server-side)
   "/favicon.ico",
   "/icon.png",
   "/apple-icon.png",

@@ -14,6 +14,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [open, setOpen] = useState(false);
   const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
   const [path, setPath] = useState("");
+  const [entryType, setEntryType] = useState<"FILE" | "DIRECTORY">("DIRECTORY");
   const [name, setName] = useState("");
   const [expiresIn, setExpiresIn] = useState("");
   const [saving, setSaving] = useState(false);
@@ -41,7 +42,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
     setError("");
     setResult(null);
     try {
-      const body: Record<string, unknown> = { storageNodeId: nodeId, path };
+      const body: Record<string, unknown> = { storageNodeId: nodeId, path, entryType };
       if (name.trim()) body.name = name.trim();
       if (expiresIn) body.expiresInHours = Number(expiresIn);
       const data = await csrfFetch<{ token: string }>("/api/share-links", {
@@ -62,18 +63,21 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   };
 
   return (
-    <div className="mb-6">
+    <div>
       {!open ? (
         <button
           onClick={() => setOpen(true)}
           className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
         >
-          + 创建分享链接
+          + 高级创建分享链接
         </button>
       ) : (
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-white light:text-slate-900">新建分享链接</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-white light:text-slate-900">高级分享链接</h3>
+              <p className="mt-1 text-xs text-slate-500">选择存储节点和路径。目录分享会公开列出该路径下已索引文件，访问者可逐个下载。</p>
+            </div>
             <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-slate-500 hover:text-slate-300">收起</button>
           </div>
 
@@ -85,8 +89,15 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">文件路径</label>
-              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="如 /docs/readme.md" className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
+              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">访问路径</label>
+              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? "如 /public 或 /docs" : "如 /docs/readme.md"} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">分享类型</label>
+              <select value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900">
+                <option value="DIRECTORY">目录：允许访问路径下所有已索引文件</option>
+                <option value="FILE">单文件：只允许下载该文件</option>
+              </select>
             </div>
             <div>
               <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">名称（可选）</label>

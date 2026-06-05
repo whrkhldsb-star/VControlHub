@@ -102,7 +102,7 @@ export default async function MediaPlayerPage({ params, searchParams }: PageProp
   const isImage = item.mimeType.startsWith("image/") && item.mimeType !== "image/svg+xml";
   const isVideo = item.mimeType.startsWith("video/");
   const isAudio = item.mimeType.startsWith("audio/");
-  const mediaKindLabel = item.mediaType === "image" ? "图片" : "视频";
+  const mediaKindLabel = item.mediaType === "image" ? "图片" : item.mediaType === "audio" ? "音频" : "视频";
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -163,7 +163,7 @@ export default async function MediaPlayerPage({ params, searchParams }: PageProp
 
           <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 light:border-slate-200 light:bg-slate-50">
             <div className="mb-4 flex items-center gap-2">
-              <span className="text-3xl">{item.mediaType === "image" ? "🖼" : "🎬"}</span>
+              <span className="text-3xl">{item.mediaType === "image" ? "🖼" : item.mediaType === "audio" ? "🎵" : "🎬"}</span>
               <div>
                 <p className="text-sm font-medium text-white light:text-slate-900">{mediaKindLabel}</p>
                 <p className="text-xs text-slate-500">{item.mimeType || "未知 MIME"}</p>

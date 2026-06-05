@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       const canEditLocalFiles = sessionHasPermission(session, "storage:write");
       const canDelete = sessionHasPermission(session, "storage:delete");
+      const canShare = sessionHasPermission(session, "share:create");
       const canManageNodes = sessionHasPermission(
         session,
         "storage:manage-node",
@@ -205,6 +206,7 @@ export async function GET(request: NextRequest) {
         permissions: {
           canEditLocalFiles,
           canDelete,
+          canShare,
           canManageNodes,
         },
         nodes: storage.nodes.map((n) => ({

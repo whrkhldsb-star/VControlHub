@@ -5,17 +5,21 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
   createShareLink,
+  createShareLinkFromFileEntry,
   listShareLinks,
   revokeShareLink,
 } from "@/lib/share-link/service";
 
 const shareLinkPostSchema = z.object({
-  storageNodeId: z.string().min(1),
-  path: z.string().min(1),
+  fileEntryId: z.string().min(1).optional(),
+  storageNodeId: z.string().min(1).optional(),
+  path: z.string().min(1).optional(),
   entryType: z.enum(["FILE", "DIRECTORY"]).optional(),
   name: z.string().optional(),
   expiresInHours: z.number().positive().optional(),
   expiresIn: z.number().positive().optional(),
+}).refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
+  message: "必须从文件管理选择文件，或提供存储节点和路径",
 });
 
 export const dynamic = "force-dynamic";
@@ -57,14 +61,21 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       const data = parsed.data;
-      const result = await createShareLink({
-        session,
-        storageNodeId: data.storageNodeId,
-        path: data.path,
-        entryType: data.entryType,
-        name: data.name,
-        expiresInHours: data.expiresInHours ?? data.expiresIn,
-      });
+      const result = data.fileEntryId
+        ? await createShareLinkFromFileEntry({
+            session,
+            fileEntryId: data.fileEntryId,
+            name: data.name,
+            expiresInHours: data.expiresInHours ?? data.expiresIn,
+          })
+        : await createShareLink({
+            session,
+            storageNodeId: data.storageNodeId!,
+            path: data.path!,
+            entryType: data.entryType,
+            name: data.name,
+            expiresInHours: data.expiresInHours ?? data.expiresIn,
+          });
       return NextResponse.json(
         { share: result.share, token: result.token },
         { status: 201 },

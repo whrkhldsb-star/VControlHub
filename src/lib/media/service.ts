@@ -5,12 +5,11 @@ export function classifyMedia(
   mimeType?: string | null,
   nameOrPath?: string | null,
 ) {
-  const kind = classifyMediaKind({
+  return classifyMediaKind({
     mimeType,
     name: nameOrPath,
     relativePath: nameOrPath,
   });
-  return kind === "audio" ? null : kind;
 }
 
 function extensionOf(nameOrPath?: string | null) {
@@ -23,7 +22,7 @@ function inferMediaMimeType(entry: {
   mimeType?: string | null;
   name?: string | null;
   relativePath?: string | null;
-  mediaType: "image" | "video";
+  mediaType: "image" | "video" | "audio";
 }) {
   const mime = entry.mimeType?.trim().toLowerCase();
   if (mime && mime !== "application/octet-stream") return mime;
@@ -43,6 +42,13 @@ function inferMediaMimeType(entry: {
     ".mkv": "video/x-matroska",
     ".mov": "video/quicktime",
     ".avi": "video/x-msvideo",
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".flac": "audio/flac",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/opus",
   };
   return byExtension[extension] ?? `${entry.mediaType}/*`;
 }
@@ -75,13 +81,15 @@ const mediaItemSelect = {
 } as const;
 
 export async function listMediaItems(
-  input: { mediaType?: "image" | "video"; q?: string; favorite?: boolean } = {},
+  input: { mediaType?: "image" | "video" | "audio"; q?: string; favorite?: boolean; tag?: string } = {},
 ) {
   const q = input.q?.trim();
+  const tag = input.tag?.trim();
   return prisma.mediaItem.findMany({
     where: {
       mediaType: input.mediaType,
       favorite: input.favorite,
+      ...(tag ? { tags: { has: tag } } : {}),
       ...(q
         ? {
             OR: [
@@ -96,6 +104,26 @@ export async function listMediaItems(
     take: 200,
     select: mediaItemSelect,
   });
+}
+
+export async function listMediaTags() {
+  const items = await prisma.mediaItem.findMany({
+    select: { tags: true },
+    where: { tags: { isEmpty: false } },
+    take: 1000,
+  });
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    for (const rawTag of item.tags) {
+      const tag = rawTag.trim();
+      if (!tag) continue;
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, "zh-CN"))
+    .slice(0, 40);
 }
 
 export async function getMediaItem(id: string) {
@@ -113,6 +141,7 @@ export async function scanMediaFromFileEntries(userId?: string) {
       OR: [
         { mimeType: { startsWith: "image/" } },
         { mimeType: { startsWith: "video/" } },
+        { mimeType: { startsWith: "audio/" } },
         { name: { endsWith: ".jpg", mode: "insensitive" } },
         { name: { endsWith: ".jpeg", mode: "insensitive" } },
         { name: { endsWith: ".png", mode: "insensitive" } },
@@ -125,6 +154,13 @@ export async function scanMediaFromFileEntries(userId?: string) {
         { name: { endsWith: ".mkv", mode: "insensitive" } },
         { name: { endsWith: ".mov", mode: "insensitive" } },
         { name: { endsWith: ".avi", mode: "insensitive" } },
+        { name: { endsWith: ".mp3", mode: "insensitive" } },
+        { name: { endsWith: ".m4a", mode: "insensitive" } },
+        { name: { endsWith: ".aac", mode: "insensitive" } },
+        { name: { endsWith: ".flac", mode: "insensitive" } },
+        { name: { endsWith: ".wav", mode: "insensitive" } },
+        { name: { endsWith: ".ogg", mode: "insensitive" } },
+        { name: { endsWith: ".opus", mode: "insensitive" } },
       ],
     },
     take: 1000,

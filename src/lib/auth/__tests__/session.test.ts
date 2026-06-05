@@ -45,6 +45,8 @@ describe("session auth helpers", () => {
     expect(shouldBypassAuth("/apple-icon.png")).toBe(true);
     expect(shouldBypassAuth("/status")).toBe(true);
     expect(shouldBypassAuth("/api/status")).toBe(true);
+    expect(shouldBypassAuth("/share/public-token")).toBe(true);
+    expect(shouldBypassAuth("/api/share/public-token")).toBe(true);
     expect(shouldBypassAuth("/servers")).toBe(false);
   });
 

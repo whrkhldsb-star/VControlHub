@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   requireApiPermissionMock,
   createShareLinkMock,
+  createShareLinkFromFileEntryMock,
   listShareLinksMock,
   revokeShareLinkMock,
 } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   createShareLinkMock: vi.fn(),
+  createShareLinkFromFileEntryMock: vi.fn(),
   listShareLinksMock: vi.fn(),
   revokeShareLinkMock: vi.fn(),
 }));
@@ -17,6 +19,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 }));
 vi.mock("@/lib/share-link/service", () => ({
   createShareLink: createShareLinkMock,
+  createShareLinkFromFileEntry: createShareLinkFromFileEntryMock,
   listShareLinks: listShareLinksMock,
   revokeShareLink: revokeShareLinkMock,
 }));
@@ -50,6 +53,10 @@ describe("/api/share-links", () => {
     createShareLinkMock.mockResolvedValue({
       share: { id: "share_1", path: "docs/report.pdf" },
       token: "public-token",
+    });
+    createShareLinkFromFileEntryMock.mockResolvedValue({
+      share: { id: "share_2", path: "uploads/photo.jpg" },
+      token: "entry-token",
     });
   });
 
@@ -89,6 +96,27 @@ describe("/api/share-links", () => {
       name: "季度报告.pdf",
       expiresInHours: 24,
     });
+  });
+
+  it("creates share links from real file-manager entries", async () => {
+    const response = await POST(
+      postShare({
+        fileEntryId: "file_1",
+        expiresInHours: 12,
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(requireApiPermissionMock).toHaveBeenCalledWith("share:create");
+    await expect(response.json()).resolves.toMatchObject({
+      token: "entry-token",
+    });
+    expect(createShareLinkFromFileEntryMock).toHaveBeenCalledWith({
+      session,
+      fileEntryId: "file_1",
+      expiresInHours: 12,
+    });
+    expect(createShareLinkMock).not.toHaveBeenCalled();
   });
 
   it("revokes share links with share manage permission", async () => {

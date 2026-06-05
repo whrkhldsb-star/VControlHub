@@ -9,6 +9,7 @@ import { moveFileAction } from "./move-file-action";
 import { DeleteConfirmButton } from "./delete-confirm-button";
 import { RenameInlineForm } from "./rename-inline-form";
 import { MoveInlineForm } from "./move-inline-form";
+import { ShareFileButton } from "./share-file-button";
 import { DownloadIcon, FileTypeIcon, PreviewIcon } from "./file-entry-icons";
 import {
   appendDownloadFlag,
@@ -48,6 +49,7 @@ type FileListClientProps = {
   files: FileProp[];
   canEditLocalFiles: boolean;
   canDelete: boolean;
+  canShare?: boolean;
   currentPath: string;
   searchQuery: string;
   selectionScopeSeed?: string;
@@ -68,6 +70,7 @@ export function FileListClient({
   files,
   canEditLocalFiles,
   canDelete,
+  canShare = false,
   currentPath,
   searchQuery,
   selectionScopeSeed,
@@ -476,6 +479,7 @@ export function FileListClient({
           </Link>
         ) : null}
         {renderDownloadActions(entry, downloadUrl, compact)}
+        {canShare && entryCanRead(entry) ? <ShareFileButton entry={entry} compact={compact} /> : null}
         {entryCanWrite(entry) ? (
           <RenameInlineForm
             fileEntryId={entry.id}
@@ -638,6 +642,7 @@ export function FileListClient({
                   </Link>
                 ) : null}
                 {renderDownloadActions(entry, downloadUrl, true)}
+                {canShare && entryCanRead(entry) ? <ShareFileButton entry={entry} compact /> : null}
                 {entryCanWrite(entry) ? (
                   <RenameInlineForm
                     fileEntryId={entry.id}

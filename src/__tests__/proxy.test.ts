@@ -108,6 +108,16 @@ describe("proxy auth guard", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
+  it("lets anonymous browsers reach public share pages and share download APIs", () => {
+    for (const pathname of ["/share/public-token", "/api/share/public-token"]) {
+      const response = proxy(makeRequest(pathname));
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    }
+  });
+
   it("keeps state-changing image API routes protected by auth and CSRF", async () => {
     const response = proxy(
       makeRequest("/api/images/img_1/file", { method: "POST" }),

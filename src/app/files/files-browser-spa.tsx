@@ -62,6 +62,7 @@ type FilesApiResponse = {
   permissions: {
     canEditLocalFiles: boolean;
     canDelete: boolean;
+    canShare?: boolean;
     canManageNodes: boolean;
   };
   nodes: { id: string; name: string; driver: string }[];
@@ -790,6 +791,7 @@ export function FilesBrowserSpa({
             files={data.files}
             canEditLocalFiles={data.permissions.canEditLocalFiles}
             canDelete={data.permissions.canDelete}
+            canShare={data.permissions.canShare}
             currentPath={data.currentPath}
             searchQuery={data.searchQuery}
             onFolderClick={navigateToFolder}

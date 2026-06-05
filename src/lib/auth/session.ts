@@ -62,7 +62,9 @@ export async function getConfiguredSessionTtlSeconds(remember = false): Promise<
 const AUTH_BYPASS_PREFIXES = [
   "/_next",
   "/api/public",
+  "/api/share/",
   "/api/status",
+  "/share/",
   "/favicon.ico",
   "/icon.png",
   "/apple-icon.png",

@@ -1,8 +1,17 @@
 import Link from "next/link";
 
-import { peekShareToken } from "@/lib/share-link/service";
+import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 
 export const dynamic = "force-dynamic";
+
+function formatSize(bytes: bigint | number | null) {
+  if (bytes == null) return "未知";
+  const b = Number(bytes);
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  if (b < 1024 * 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
 
 export default async function SharePage({
   params,
@@ -12,23 +21,27 @@ export default async function SharePage({
   const { token } = await params;
 
   let share: Awaited<ReturnType<typeof peekShareToken>> | null = null;
+  let files: Awaited<ReturnType<typeof listShareDirectoryFiles>> = [];
   let errorMessage = "";
 
   try {
     share = await peekShareToken(token);
+    if (share.entryType === "DIRECTORY") {
+      files = await listShareDirectoryFiles(share);
+    }
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : "分享链接无效";
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-950 light:bg-white px-4 py-16 text-slate-100 light:text-slate-900">
-      <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl">
+      <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl light:border-slate-200 light:bg-white">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-2xl">
-            {errorMessage ? "🔒" : "📦"}
+            {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
           </div>
           <h1 className="text-lg font-semibold text-white light:text-slate-900">
-            {errorMessage ? "无法访问该分享" : "文件分享"}
+            {errorMessage ? "无法访问该分享" : share?.entryType === "DIRECTORY" ? "目录分享" : "文件分享"}
           </h1>
         </div>
 
@@ -38,11 +51,11 @@ export default async function SharePage({
           </div>
         ) : share ? (
           <div className="space-y-5">
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
               <p className="break-all text-base font-medium text-white light:text-slate-900">
                 {share.name || share.path}
               </p>
-              <dl className="mt-3 space-y-1.5 text-xs text-slate-400 light:text-slate-600">
+              <dl className="mt-3 grid gap-1.5 text-xs text-slate-400 light:text-slate-600 sm:grid-cols-2">
                 <div className="flex justify-between gap-3">
                   <dt>存储节点</dt>
                   <dd className="text-slate-300 light:text-slate-700">{share.storageNode?.name ?? "—"}</dd>
@@ -53,8 +66,12 @@ export default async function SharePage({
                     {share.entryType === "DIRECTORY" ? "目录" : "文件"}
                   </dd>
                 </div>
+                <div className="flex justify-between gap-3 sm:col-span-2">
+                  <dt>路径</dt>
+                  <dd className="break-all text-right text-slate-300 light:text-slate-700">{share.path}</dd>
+                </div>
                 {share.expiresAt ? (
-                  <div className="flex justify-between gap-3">
+                  <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>有效期至</dt>
                     <dd className="text-slate-300 light:text-slate-700">
                       {new Date(share.expiresAt).toLocaleString("zh-CN")}
@@ -70,8 +87,33 @@ export default async function SharePage({
             </div>
 
             {share.entryType === "DIRECTORY" ? (
-              <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-center text-xs text-amber-200 light:text-amber-800">
-                该分享指向一个目录，暂不支持在线打包下载。请联系分享者获取具体文件。
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-white light:text-slate-900">可下载文件</h2>
+                  <span className="text-xs text-slate-500">最多显示 200 个已索引文件</span>
+                </div>
+                {files.length === 0 ? (
+                  <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-center text-xs text-amber-200 light:text-amber-800">
+                    该目录下暂未找到已索引文件。请分享者先在文件管理中同步/刷新该路径。
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/[0.06] light:divide-slate-200">
+                    {files.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between gap-3 py-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-white light:text-slate-900">{file.name}</div>
+                          <div className="truncate text-xs text-slate-500" title={file.relativePath}>{file.relativePath} · {formatSize(file.size)}</div>
+                        </div>
+                        <a
+                          href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
+                          className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
+                        >
+                          下载
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <a
