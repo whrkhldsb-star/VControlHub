@@ -33,8 +33,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
   return (
     <PageShell>
       <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Media</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">媒体库</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Media</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">媒体库</h1>
         <p className="mt-1.5 text-sm text-slate-500">聚合各 VPS 云盘中的图片和视频，按服务器分组显示。支持收藏和标签。</p>
       </header>
 
@@ -46,25 +46,25 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
           name="q"
           defaultValue={q ?? ""}
           placeholder="搜索文件名、路径、标签…"
-          className="w-full max-w-sm rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600"
+          className="w-full max-w-sm rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:placeholder:text-slate-500"
         />
-        <button type="submit" className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500">搜索</button>
+        <button type="submit" className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500">搜索</button>
         {q && (
-          <Link href={`/media${mediaType ? `?type=${mediaType}` : favorite ? "?favorite=1" : ""}`} className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5">清除</Link>
-        )}
-      </form>
+          <Link href={`/media${mediaType ? `?type=${mediaType}` : favorite ? "?favorite=1" : ""}`} className="rounded-lg border border-white/10 light:border-slate-200 px-3 py-2 text-sm text-slate-400 light:text-slate-600 transition hover:bg-white/5">清除</Link>
+ )}
+ </form>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-         <Link href="/media" className={`rounded-full border px-3 py-1 transition ${!mediaType && !favorite ? "border-cyan-400/40 bg-cyan-400/20 text-cyan-100" : "border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-200 hover:bg-cyan-400/10"}`}>共 {media.length} 项</Link>
-         <Link href="/media?type=image" className={`rounded-full border px-3 py-1 transition ${mediaType === "image" ? "border-blue-400/40 bg-blue-400/20 text-blue-100" : "border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10"}`}>图片 {imageCount}</Link>
-         <Link href="/media?type=video" className={`rounded-full border px-3 py-1 transition ${mediaType === "video" ? "border-purple-400/40 bg-purple-400/20 text-purple-100" : "border-purple-400/20 bg-purple-400/[0.06] text-purple-200 hover:bg-purple-400/10"}`}>视频 {videoCount}</Link>
-         <Link href="/media?favorite=1" className={`rounded-full border px-3 py-1 transition ${favorite ? "border-amber-400/40 bg-amber-400/20 text-amber-100" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-200 hover:bg-amber-400/10"}`}>⭐ 收藏 {favCount}</Link>
+ <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+ <Link href="/media" className={`rounded-full border px-3 py-1 transition ${!mediaType && !favorite ? "border-cyan-400/40 bg-cyan-400/20 text-cyan-100 light:text-cyan-900" : "border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-200 light:text-cyan-800 hover:bg-cyan-400/10"}`}>共 {media.length} 项</Link>
+         <Link href="/media?type=image" className={`rounded-full border px-3 py-1 transition ${mediaType ==="image" ?"border-blue-400/40 bg-blue-400/20 text-blue-100" :"border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10"}`}>图片 {imageCount}</Link>
+         <Link href="/media?type=video" className={`rounded-full border px-3 py-1 transition ${mediaType ==="video" ?"border-purple-400/40 bg-purple-400/20 text-purple-100" :"border-purple-400/20 bg-purple-400/[0.06] text-purple-200 hover:bg-purple-400/10"}`}>视频 {videoCount}</Link>
+         <Link href="/media?favorite=1" className={`rounded-full border px-3 py-1 transition ${favorite ?"border-amber-400/40 bg-amber-400/20 text-amber-100 light:text-amber-900" :"border-amber-400/20 bg-amber-400/[0.06] text-amber-200 light:text-amber-800 hover:bg-amber-400/10"}`}>⭐ 收藏 {favCount}</Link>
       </div>
 
       {canManageMedia && <MediaScanButton />}
 
       {grouped.size === 0 && (
-        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center text-sm text-slate-400">
+        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center text-sm text-slate-400 light:text-slate-600">
           暂无媒体条目。请先在文件管理中浏览 VPS 存储，然后点击「扫描媒体索引」生成媒体列表。
         </div>
       )}
@@ -73,8 +73,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<{ 
         <section key={serverName} className="mb-6">
           <div className="mb-3 flex items-center gap-2">
             <span className="text-lg">🖥️</span>
-            <h2 className="text-sm font-semibold text-white">{serverName}</h2>
-            <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{items.length} 项</span>
+            <h2 className="text-sm font-semibold text-white light:text-slate-900">{serverName}</h2>
+            <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400 light:text-slate-600">{items.length} 项</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((m) => (

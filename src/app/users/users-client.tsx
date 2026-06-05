@@ -145,12 +145,12 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create button */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-lg font-medium text-white">用户列表</h2>
+        <h2 className="text-lg font-medium text-white light:text-slate-900">用户列表</h2>
         {canManage ? (
           <button
             type="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
           >
             {showCreateForm ? "取消" : "+ 创建用户"}
           </button>
@@ -159,41 +159,41 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="mb-6 rounded-2xl border border-white/10 bg-slate-900/60 p-6 space-y-4">
+        <div className="mb-6 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">用户名 *</label>
+              <label className="block text-sm text-slate-400 light:text-slate-600 mb-1">用户名 *</label>
               <input
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 focus:border-cyan-400/50 focus:outline-none"
                 placeholder="用户名"
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">显示名称</label>
+              <label className="block text-sm text-slate-400 light:text-slate-600 mb-1">显示名称</label>
               <input
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 focus:border-cyan-400/50 focus:outline-none"
                 placeholder="可选"
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm text-slate-400 mb-1">密码 *</label>
+              <label className="block text-sm text-slate-400 light:text-slate-600 mb-1">密码 *</label>
               <input
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 focus:border-cyan-400/50 focus:outline-none"
                 placeholder="至少6位"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-2">角色分配</label>
+            <label className="block text-sm text-slate-400 light:text-slate-600 mb-2">角色分配</label>
             <div className="flex flex-wrap gap-2">
               {ROLE_OPTIONS.map((role) => (
                 <button
@@ -215,7 +215,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             type="button"
             onClick={handleCreate}
             disabled={creating || !createForm.username || !createForm.password}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-6 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-6 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20 disabled:opacity-50"
           >
             {creating ? "创建中..." : "确认创建"}
           </button>
@@ -223,25 +223,25 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
       )}
 
       {/* User list */}
-      <div className="overflow-hidden rounded-2xl border border-white/10">
-        <div className="divide-y divide-white/5 bg-slate-950/40">
+      <div className="overflow-hidden rounded-2xl border border-white/10 light:border-slate-200">
+        <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
           {loading ? (
-            <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+            <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">加载中...</div>
           ) : loadFailed ? (
-            <div className="px-4 py-10 text-sm text-slate-400">用户列表加载失败，请稍后重试。</div>
+            <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">用户列表加载失败，请稍后重试。</div>
           ) : users.length === 0 ? (
-            <div className="px-4 py-10 text-sm text-slate-400">暂无用户。</div>
+            <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">暂无用户。</div>
           ) : (
             users.map((user) => (
               <div key={user.id} className="px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
-                    <span className="text-white font-medium">{user.displayName ?? user.username}</span>
+                    <span className="text-white light:text-slate-900 font-medium">{user.displayName ?? user.username}</span>
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge(user.status)}`}>
                       {statusLabel(user.status)}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-slate-400 light:text-slate-600">
                     <span>@{user.username}</span>
                     <span>·</span>
                     <span>{new Date(user.createdAt).toLocaleDateString("zh-CN")}</span>
@@ -260,7 +260,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                       <button
                         type="button"
                         onClick={() => setEditingPermissionsUser(user)}
-                        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20 transition"
+                        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
                       >
                         权限配置
                       </button>
@@ -268,7 +268,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                          className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/20 transition"
+                          className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
                         >
                           禁用
                         </button>
@@ -276,7 +276,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 transition"
+                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/20 transition"
                         >
                           启用
                         </button>

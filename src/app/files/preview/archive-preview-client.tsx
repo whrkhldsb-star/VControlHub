@@ -79,7 +79,7 @@ export function ArchivePreviewClient({
 					type="button"
 					onClick={loadArchiveContents}
 					disabled={loading}
-					className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+					className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{loading ? "加载中…" : entries ? "刷新列表" : "查看压缩包内容"}
 				</button>
@@ -88,7 +88,7 @@ export function ArchivePreviewClient({
 						type="button"
 						onClick={handleExtract}
 						disabled={extracting}
-						className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+						className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{extracting ? "解压中…" : "在线解压"}
 					</button>
@@ -96,20 +96,20 @@ export function ArchivePreviewClient({
 			</div>
 
 			{error ? (
-				<div className="rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+				<div className="rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200 light:text-rose-800">
 					{error}
 				</div>
 			) : null}
 
 			{extractResult ? (
-				<div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">
+				<div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200 light:text-emerald-800">
 					{extractResult}
 				</div>
 			) : null}
 
 			{entries && entries.length > 0 ? (
-				<div className="rounded-2xl border border-white/10 bg-slate-950/50 overflow-hidden">
-					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-slate-400 font-medium">
+				<div className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950/50 light:bg-white/50 overflow-hidden">
+					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-slate-400 light:text-slate-600 font-medium">
 						<div />
 						<div>名称</div>
 						<div className="text-right">大小</div>
@@ -127,8 +127,8 @@ export function ArchivePreviewClient({
 										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 									)}
 								</div>
-								<div className="truncate text-white">{entry.name}</div>
-								<div className="text-right text-slate-400 text-xs">{entry.isDirectory ? "目录" : formatSize(entry.size)}</div>
+								<div className="truncate text-white light:text-slate-900">{entry.name}</div>
+								<div className="text-right text-slate-400 light:text-slate-600 text-xs">{entry.isDirectory ? "目录" : formatSize(entry.size)}</div>
 							</div>
 						))}
 					</div>
@@ -137,7 +137,7 @@ export function ArchivePreviewClient({
 					</div>
 				</div>
 			) : entries && entries.length === 0 ? (
-				<div className="text-sm text-slate-400">压缩包为空</div>
+				<div className="text-sm text-slate-400 light:text-slate-600">压缩包为空</div>
 			) : null}
 		</div>
 	);

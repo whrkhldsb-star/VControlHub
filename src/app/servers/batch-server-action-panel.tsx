@@ -42,36 +42,36 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 		<section className="mb-8 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
-					<h2 className="text-sm font-medium text-white">批量节点操作</h2>
+					<h2 className="text-sm font-medium text-white light:text-slate-900">批量节点操作</h2>
 					<p className="mt-1 text-xs text-slate-500">先勾选节点，再统一启用或停用。适合维护窗口和巡检后的回收操作。</p>
 				</div>
 				<div className="text-xs text-slate-500">当前共有 {enabledCount} 台启用节点，已选中 {selectedServers.length} 台</div>
 			</div>
 
-			{state.error ? <div className="mt-4 rounded-lg border border-rose-400/20 bg-rose-500/[0.08] px-3.5 py-2.5 text-sm text-rose-200">{state.error}</div> : null}
-			{state.success ? <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-500/[0.08] px-3.5 py-2.5 text-sm text-emerald-200">{state.success}</div> : null}
+			{state.error ? <div className="mt-4 rounded-lg border border-rose-400/20 bg-rose-500/[0.08] px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{state.error}</div> : null}
+			{state.success ? <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-500/[0.08] px-3.5 py-2.5 text-sm text-emerald-200 light:text-emerald-800">{state.success}</div> : null}
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-				<button type="button" onClick={toggleAll} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-slate-300 transition hover:bg-white/[0.06]">
+				<button type="button" onClick={toggleAll} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]">
 					{allSelected ? "清空选择" : "全选节点"}
 				</button>
 				<span>已选中：{selectedServers.length} 台</span>
 				<span className="text-slate-600">·</span>
 				<span>其中启用 {enabledSelectedCount} 台，停用 {disabledSelectedCount} 台</span>
-				{someSelected ? <span className="text-cyan-300">当前为部分选择</span> : null}
+				{someSelected ? <span className="text-cyan-300 light:text-cyan-700">当前为部分选择</span> : null}
 			</div>
 
 			<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 				{servers.map((server) => (
-					<label key={server.id} className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200 transition hover:bg-white/[0.06]">
+					<label key={server.id} className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200 light:text-slate-800 transition hover:bg-white/[0.06]">
 						<input
 							type="checkbox"
 							checked={selectedIds.includes(server.id)}
 							onChange={(event) => updateSelection(server.id, event.target.checked)}
-							className="h-4 w-4 rounded border-white/20 bg-slate-950 text-cyan-400 focus:ring-cyan-400"
+							className="h-4 w-4 rounded border-white/20 bg-slate-950 light:bg-white text-cyan-400 focus:ring-cyan-400"
 						/>
 						<div className="min-w-0">
-							<div className="truncate font-medium text-white">{server.name}</div>
+							<div className="truncate font-medium text-white light:text-slate-900">{server.name}</div>
 							<div className="text-[11px] text-slate-500">{server.enabled ? "已启用" : "已停用"}</div>
 						</div>
 					</label>
@@ -85,7 +85,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 						<input key={server.id} type="hidden" name="serverIds" value={server.id} />
 					))}
 					{disableConfirming ? (
-						<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3.5 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20">
+						<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3.5 py-2 text-sm text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20">
 							确认停用 {enabledSelectedCount} 台节点
 						</SubmitButton>
 					) : (
@@ -93,13 +93,13 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 							type="button"
 							disabled={enabledSelectedCount === 0}
 							onClick={() => setDisableConfirming(true)}
-							className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3.5 py-2 text-sm text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+							className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3.5 py-2 text-sm text-amber-100 light:text-amber-900 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							批量停用所选节点
 						</button>
 					)}
 					{disableConfirming ? (
-						<button type="button" onClick={() => setDisableConfirming(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]">
+						<button type="button" onClick={() => setDisableConfirming(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]">
 							取消
 						</button>
 					) : null}
@@ -109,7 +109,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 					{selectedServers.map((server) => (
 						<input key={server.id} type="hidden" name="serverIds" value={server.id} />
 					))}
-					<SubmitButton pendingLabel="处理中..." disabled={disabledSelectedCount === 0} className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2 text-sm text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50">
+					<SubmitButton pendingLabel="处理中..." disabled={disabledSelectedCount === 0} className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2 text-sm text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50">
 						批量启用所选节点
 					</SubmitButton>
 				</form>

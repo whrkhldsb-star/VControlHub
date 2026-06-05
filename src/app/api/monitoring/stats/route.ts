@@ -131,6 +131,7 @@ function getTopProcesses(): {
     const entries = readdirSync("/proc");
     const clockTick = 100; // CLK_TCK on Linux, typically 100
     const totalMemKb = Math.max(os.totalmem() / 1024, 1);
+    const processCpuDenominator = Math.max(os.uptime() * Math.max(os.cpus().length, 1), 1);
 
     for (const entry of entries) {
       const pid = Number(entry);
@@ -162,12 +163,19 @@ function getTopProcesses(): {
     // Sort by memory usage (descending), take top 5
     procs.sort((a, b) => b.memKb - a.memKb);
     const top5 = procs.slice(0, 5);
-    return top5.map((proc) => ({
-      pid: String(proc.pid),
-      cpu: ((proc.utime + proc.stime) / clockTick).toFixed(1),
-      mem: `${((proc.memKb / totalMemKb) * 100).toFixed(1)}%`,
-      cmd: proc.cmd,
-    }));
+    return top5.map((proc) => {
+      const cpuSeconds = (proc.utime + proc.stime) / clockTick;
+      const cpuPercent = Math.min(
+        100,
+        Math.max(0, (cpuSeconds / processCpuDenominator) * 100),
+      );
+      return {
+        pid: String(proc.pid),
+        cpu: cpuPercent.toFixed(1),
+        mem: `${((proc.memKb / totalMemKb) * 100).toFixed(1)}%`,
+        cmd: proc.cmd,
+      };
+    });
   } catch {
     return [];
   }

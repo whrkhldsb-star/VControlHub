@@ -89,19 +89,19 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					<div className="flex items-center gap-3">
 						<a
 							href="/files"
-							className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5"
+							className="rounded-full border border-white/10 light:border-slate-200 px-4 py-2 text-sm text-slate-200 light:text-slate-800 hover:border-cyan-400/50 hover:bg-white/5"
 						>
 							← 返回文件
 						</a>
-						<h1 className="truncate text-xl font-semibold text-white">{name}</h1>
-						<span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-400">
+						<h1 className="truncate text-xl font-semibold text-white light:text-slate-900">{name}</h1>
+						<span className="rounded-full border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-3 py-1 text-xs text-slate-400 light:text-slate-600">
 							{driver}
 						</span>
 					</div>
 					{downloadUrl ? (
 						<a
 							href={downloadUrl}
-							className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20"
+							className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20"
 						>
 							⬇ 下载
 						</a>
@@ -110,13 +110,13 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 				{/* Large file warning */}
 				{largeTextWarning ? (
-					<div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200">
+					<div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200 light:text-amber-800">
 						⚠ 文件较大（{(size / 1024 / 1024).toFixed(1)} MB），预览可能较慢。建议直接下载后查看。
 					</div>
 				) : null}
 
 				{/* Preview content */}
-				<div className="rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+				<div className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
 					{isImage && href ? (
 						<div className="flex items-center justify-center">
 							{/* eslint-disable-next-line @next/next/no-img-element */}
@@ -157,13 +157,13 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							driver={driver}
 						/>
 					) : (
-						<div className="flex flex-col items-center gap-4 py-16 text-slate-400">
+						<div className="flex flex-col items-center gap-4 py-16 text-slate-400 light:text-slate-600">
 							<span className="text-6xl">📄</span>
 							<p>此文件类型暂不支持在线预览</p>
 							{downloadUrl ? (
 								<a
 									href={downloadUrl}
-									className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/20"
+									className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20"
 								>
 									⬇ 下载后查看
 								</a>

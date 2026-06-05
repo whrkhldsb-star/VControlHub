@@ -74,11 +74,11 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	return (
 		<div className="space-y-6">
-			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{actionError}</div>}
+			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{actionError}</div>}
 			{canCreate && !showCreate && (
 				<button
 					onClick={() => setShowCreate(true)}
-					className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+					className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
 				>
 					+ 创建定时任务
 				</button>
@@ -100,13 +100,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
-										<h2 className="text-lg font-semibold text-white">{task.name}</h2>
+										<h2 className="text-lg font-semibold text-white light:text-slate-900">{task.name}</h2>
 										<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge[task.status] ?? statusBadge.DISABLED}`}>
 											{statusLabel[task.status] ?? task.status}
 										</span>
 									</div>
-									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
-									<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">
+									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300 light:text-cyan-700/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
+									<div className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 light:text-cyan-900/80 border border-white/[0.04]">
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-slate-500">原因：{task.reason}</p>}
@@ -135,7 +135,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									</button>
 									<button
 										onClick={() => setTaskPendingDelete(task)}
-										className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition"
+										className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
 									>
 										删除
 									</button>
@@ -146,17 +146,17 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 				</div>
 			)}
 			{taskPendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
-						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">确认删除定时任务</h2>
-						<p className="mt-3 text-sm leading-6 text-slate-300">
-							即将删除定时任务 <span className="font-semibold text-rose-100">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 px-4 backdrop-blur-sm" role="presentation">
+					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 light:bg-white p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white light:text-slate-900">确认删除定时任务</h2>
+						<p className="mt-3 text-sm leading-6 text-slate-300 light:text-slate-700">
+							即将删除定时任务 <span className="font-semibold text-rose-100 light:text-rose-900">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setTaskPendingDelete(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+							<button type="button" onClick={() => setTaskPendingDelete(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 light:text-slate-800 hover:bg-white/[0.06]">
 								取消
 							</button>
-							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
+							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white light:text-slate-900 hover:bg-rose-400">
 								确认删除
 							</button>
 						</div>
@@ -223,17 +223,17 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	return (
 		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white">创建定时任务</h3>
-			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			<h3 className="text-lg font-semibold text-white light:text-slate-900">创建定时任务</h3>
+			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">任务名称</label>
-				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：清理日志" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">任务名称</label>
+				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：清理日志" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">Cron 表达式</label>
-				<input value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">Cron 表达式</label>
+				<input value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
@@ -250,18 +250,18 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">命令内容</label>
-				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="df -h" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">命令内容</label>
+				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="df -h" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">原因 / 备注</label>
-				<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">原因 / 备注</label>
+				<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 
 			{enabledServers.length > 0 && (
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">目标节点</label>
+					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">目标节点</label>
 					<div className="grid gap-1.5 sm:grid-cols-2">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
@@ -279,7 +279,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建任务"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 light:text-slate-700 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>

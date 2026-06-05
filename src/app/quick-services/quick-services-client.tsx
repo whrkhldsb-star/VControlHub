@@ -427,9 +427,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	return (
 		<div className="space-y-6">
 			{dockerStatus && !dockerStatus.available ? (
-				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100">
+				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100 light:text-amber-900">
 					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
-					<p className="mt-1 text-xs text-amber-100/75">{dockerStatus.message}</p>
+					<p className="mt-1 text-xs text-amber-100/75 light:text-amber-900/75">{dockerStatus.message}</p>
 					{dockerStatus.installHint ? <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
@@ -452,8 +452,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">运行概览</p>
-							<h2 className="mt-1 text-base font-semibold text-white">{runningItems.length > 0 ? `${runningItems.length} 个服务在线` : "还没有运行中的服务"}</h2>
+							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300 light:text-cyan-700/70">运行概览</p>
+							<h2 className="mt-1 text-base font-semibold text-white light:text-slate-900">{runningItems.length > 0 ? `${runningItems.length} 个服务在线` : "还没有运行中的服务"}</h2>
 						</div>
 						<button
 							type="button"
@@ -467,10 +467,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.slice(0, 4).map((item) => (
 							<a key={item.slug} href={hostName ? `http://${hostName}:${item.port ?? item.defaultPort}` : "#"} target="_blank" rel="noreferrer" className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
 								<div className="flex items-center justify-between gap-2">
-									<span className="truncate text-sm font-medium text-white">{item.icon} {item.name}</span>
-									<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>
+									<span className="truncate text-sm font-medium text-white light:text-slate-900">{item.icon} {item.name}</span>
+									<span className="text-[10px] text-emerald-200 light:text-emerald-800">:{item.port ?? item.defaultPort}</span>
 								</div>
-								<p className="mt-1 truncate text-[11px] text-slate-400">{item.image}</p>
+								<p className="mt-1 truncate text-[11px] text-slate-400 light:text-slate-600">{item.image}</p>
 							</a>
 						))}
 						{runningItems.length === 0 && <p className="text-sm text-slate-500">从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。</p>}
@@ -478,16 +478,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</div>
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">端口</p>
-					<h3 className="mt-1 text-base font-semibold text-white">{usedPorts.length} 个监听端口</h3>
-					<p className="mt-2 text-sm leading-6 text-slate-400">安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。</p>
+					<h3 className="mt-1 text-base font-semibold text-white light:text-slate-900">{usedPorts.length} 个监听端口</h3>
+					<p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-600">安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
-						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{port}</span>)}
+						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400 light:text-slate-600">{port}</span>)}
 					</div>
 				</div>
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">应用源</p>
-					<h3 className="mt-1 text-base font-semibold text-white">{sources.filter((s) => s.enabled).length}/{sources.length} 个源启用</h3>
-					<p className="mt-2 text-sm leading-6 text-slate-400">{lastSyncedSource ? `最近同步：${lastSyncedSource.displayName}` : "还没有同步记录。"}</p>
+					<h3 className="mt-1 text-base font-semibold text-white light:text-slate-900">{sources.filter((s) => s.enabled).length}/{sources.length} 个源启用</h3>
+					<p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-600">{lastSyncedSource ? `最近同步：${lastSyncedSource.displayName}` : "还没有同步记录。"}</p>
 					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
 						{staleSources.length > 0 ? `处理 ${staleSources.length} 个待同步源` : "管理应用源"}
 					</button>
@@ -501,10 +501,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					placeholder="搜索应用名称、描述、镜像…"
-					className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
+					className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
 				/>
 				{search && (
-					<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs">
+					<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white light:hover:text-slate-900 text-xs">
 						✕
 					</button>
 				)}
@@ -514,10 +514,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<section className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.05] p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h2 className="text-sm font-semibold text-white">推荐快速服务</h2>
-							<p className="mt-1 text-xs text-slate-400">优先覆盖文件、监控、容器管理、密码库和代码托管。</p>
+							<h2 className="text-sm font-semibold text-white light:text-slate-900">推荐快速服务</h2>
+							<p className="mt-1 text-xs text-slate-400 light:text-slate-600">优先覆盖文件、监控、容器管理、密码库和代码托管。</p>
 						</div>
-						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200">MVP 优先</span>
+						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200 light:text-cyan-800">MVP 优先</span>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{recommendedItems.map((item) => (
@@ -560,7 +560,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<div className="flex items-center justify-between gap-3">
 							<div>
 								<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
-								<p className="mt-1 text-sm text-slate-400">先选一个预设，再按你的实际源地址微调。</p>
+								<p className="mt-1 text-sm text-slate-400 light:text-slate-600">先选一个预设，再按你的实际源地址微调。</p>
 							</div>
 							<span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-slate-500">点卡片填充</span>
 						</div>
@@ -573,24 +573,24 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 											<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
 										</div>
-										<h4 className="mt-2 text-sm font-semibold text-white">{preset.label}</h4>
-										<p className="mt-1 text-xs leading-5 text-slate-400">{preset.description}</p>
+										<h4 className="mt-2 text-sm font-semibold text-white light:text-slate-900">{preset.label}</h4>
+										<p className="mt-1 text-xs leading-5 text-slate-400 light:text-slate-600">{preset.description}</p>
 									</button>
 								);
 							})}
 						</div>
 						<div className="grid gap-3 md:grid-cols-2">
 							<label className="space-y-1">
-								<span className="text-xs text-slate-400">源名称</span>
-								<input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="linuxserver" />
+								<span className="text-xs text-slate-400 light:text-slate-600">源名称</span>
+								<input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/40" placeholder="linuxserver" />
 							</label>
 							<label className="space-y-1">
-								<span className="text-xs text-slate-400">显示名称</span>
-								<input value={newSourceDisplayName} onChange={(e) => setNewSourceDisplayName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="LinuxServer.io" />
+								<span className="text-xs text-slate-400 light:text-slate-600">显示名称</span>
+								<input value={newSourceDisplayName} onChange={(e) => setNewSourceDisplayName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/40" placeholder="LinuxServer.io" />
 							</label>
 							<label className="space-y-1 md:col-span-2">
-								<span className="text-xs text-slate-400">源地址</span>
-								<input value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="https://..." />
+								<span className="text-xs text-slate-400 light:text-slate-600">源地址</span>
+								<input value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/40" placeholder="https://..." />
 							</label>
 						</div>
 						<div className="flex flex-wrap items-center justify-between gap-3">
@@ -628,7 +628,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								<div className="flex items-center gap-3">
 									<span className="text-lg">{src.type === "linuxserver" ? "🐧" : src.type === "github" ? "🐙" : "📡"}</span>
 									<div>
-										<h3 className="text-sm font-semibold text-white">{src.displayName}</h3>
+										<h3 className="text-sm font-semibold text-white light:text-slate-900">{src.displayName}</h3>
 										<p className="text-xs text-slate-500 mt-0.5">{src.url}</p>
 									</div>
 								</div>
@@ -655,7 +655,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								<button
 									onClick={() => doSync(src.id)}
 									disabled={syncing !== null}
-									className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50"
+									className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:opacity-50"
 								>
 									{syncing === src.id ? "同步中…" : "立即同步"}
 								</button>
@@ -683,7 +683,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				if (items.length === 0) return null;
 				return (
 					<div key={cat} className="space-y-3">
-						<h2 className="text-sm font-semibold text-white/70 tracking-wide">{CATEGORY_LABELS[cat] ?? cat}</h2>
+						<h2 className="text-sm font-semibold text-white light:text-slate-900/70 tracking-wide">{CATEGORY_LABELS[cat] ?? cat}</h2>
 						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{items.map((item) => (
 								<ServiceCard
@@ -728,12 +728,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{installDialog && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeInstallDialog}>
 					<div className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0c0f1a] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-						<h3 className="text-lg font-semibold text-white mb-1">安装 {installDialog.name}</h3>
+						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-1">安装 {installDialog.name}</h3>
 						<p className="text-xs text-slate-500 mb-4">选择服务监听的端口，安装后可通过该端口访问服务。</p>
 
 						<div className="space-y-3">
 							<label className="block">
-								<span className="text-xs text-slate-400 mb-1 block">端口号</span>
+								<span className="text-xs text-slate-400 light:text-slate-600 mb-1 block">端口号</span>
 								<div className="relative">
 									<input
 										type="number"
@@ -789,7 +789,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						</div>
 
 						<div className="flex items-center justify-end gap-3 mt-6">
-							<button onClick={closeInstallDialog} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+							<button onClick={closeInstallDialog} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] transition">
 								取消
 							</button>
 							<button
@@ -813,15 +813,15 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<h3 className="text-lg font-semibold text-white mb-2">确认卸载快捷服务</h3>
-						<p className="text-sm leading-6 text-slate-300">
-							将卸载 <span className="font-semibold text-white">{pendingUninstall.name}</span>，容器将被删除，数据卷会保留。
+						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-2">确认卸载快捷服务</h3>
+						<p className="text-sm leading-6 text-slate-300 light:text-slate-700">
+							将卸载 <span className="font-semibold text-white light:text-slate-900">{pendingUninstall.name}</span>，容器将被删除，数据卷会保留。
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-3">
-							<button type="button" onClick={() => setPendingUninstall(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+							<button type="button" onClick={() => setPendingUninstall(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] transition">
 								取消
 							</button>
-							<button type="button" onClick={doUninstall} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
+							<button type="button" onClick={doUninstall} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white light:text-slate-900 hover:bg-rose-400 transition">
 								确认卸载
 							</button>
 						</div>
@@ -838,15 +838,15 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<h3 className="text-lg font-semibold text-white mb-2">确认删除应用源</h3>
-						<p className="text-sm leading-6 text-slate-300">
-							将删除 <span className="font-semibold text-white">{pendingSourceDelete.displayName}</span>，其同步来的所有应用数据也会一并移除。
+						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-2">确认删除应用源</h3>
+						<p className="text-sm leading-6 text-slate-300 light:text-slate-700">
+							将删除 <span className="font-semibold text-white light:text-slate-900">{pendingSourceDelete.displayName}</span>，其同步来的所有应用数据也会一并移除。
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-3">
-							<button type="button" onClick={() => setPendingSourceDelete(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+							<button type="button" onClick={() => setPendingSourceDelete(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] transition">
 								取消
 							</button>
-							<button type="button" onClick={doDeleteSource} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
+							<button type="button" onClick={doDeleteSource} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white light:text-slate-900 hover:bg-rose-400 transition">
 								确认删除
 							</button>
 						</div>
@@ -870,7 +870,7 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 	return (
 		<div className={`rounded-xl border p-4 ${toneClass}`}>
 			<div className="text-[11px] uppercase tracking-wider text-current/70">{label}</div>
-			<div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+			<div className="mt-1 text-2xl font-semibold text-white light:text-slate-900">{value}</div>
 		</div>
 	);
 }
@@ -910,7 +910,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 				<div className="flex items-center gap-2.5">
 					<span className="text-2xl">{item.icon}</span>
 					<div>
-						<h3 className="text-sm font-semibold text-white leading-tight">{item.name}</h3>
+						<h3 className="text-sm font-semibold text-white light:text-slate-900 leading-tight">{item.name}</h3>
 						<p className="text-xs text-slate-500 mt-0.5">{item.image}</p>
 					</div>
 				</div>
@@ -927,7 +927,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 			</div>
 
 			{/* Description */}
-			<p className="text-xs text-slate-400 leading-relaxed line-clamp-2">{item.description}</p>
+			<p className="text-xs text-slate-400 light:text-slate-600 leading-relaxed line-clamp-2">{item.description}</p>
 
 			{/* Meta */}
 			<div className="flex items-center gap-3 text-[10px] text-slate-500">
@@ -952,12 +952,12 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 				{tab === "installed" && (
 					<>
 						{item.status === "running" && (
-							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
+							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:opacity-50">
 								{busy ? "…" : "停止"}
 							</button>
 						)}
 						{item.status === "stopped" && (
-							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition disabled:opacity-50">
+							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white light:text-slate-900 hover:bg-emerald-400 transition disabled:opacity-50">
 								{busy ? "…" : "启动"}
 							</button>
 						)}
@@ -965,7 +965,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 							<span className="text-xs text-amber-400 animate-pulse">正在拉取镜像…</span>
 						)}
 						{item.status === "error" && (
-							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
+							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:opacity-50">
 								刷新状态
 							</button>
 						)}

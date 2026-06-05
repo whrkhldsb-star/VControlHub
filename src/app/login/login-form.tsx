@@ -12,7 +12,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 			<input type="hidden" name="next" value={nextPath} />
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-semibold tracking-wide text-white/55 light:text-slate-600" htmlFor="username">
+				<label className="text-xs font-semibold tracking-wide text-white light:text-slate-600" htmlFor="username">
 					用户名
 				</label>
 				<input
@@ -26,7 +26,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-semibold tracking-wide text-white/55 light:text-slate-600" htmlFor="password">
+				<label className="text-xs font-semibold tracking-wide text-white light:text-slate-600" htmlFor="password">
 					密码
 				</label>
 				<input
@@ -39,7 +39,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 				/>
 			</div>
 
-			<label className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-2.5 text-xs font-medium text-white/45 shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:bg-slate-50 light:text-slate-600 light:shadow-sm">
+			<label className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-2.5 text-xs font-medium text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:bg-slate-50 light:text-slate-600 light:shadow-sm">
 				<span>记住登录 30 天，减少频繁跳转登录页</span>
 				<input
 					type="checkbox"
@@ -56,7 +56,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 
 			<button
 				type="submit"
-				className="w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-4 focus:ring-cyan-400/40 light:from-cyan-500 light:to-blue-600 light:shadow-[0_12px_28px_rgba(14,116,144,0.22)] light:hover:shadow-[0_16px_34px_rgba(14,116,144,0.28)] light:focus:ring-cyan-500/20"
+				className="w-full rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-3 text-sm font-semibold text-white light:text-slate-900 shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] focus:outline-none focus:ring-4 focus:ring-cyan-400/40 light:from-cyan-500 light:to-blue-600 light:shadow-[0_12px_28px_rgba(14,116,144,0.22)] light:hover:shadow-[0_16px_34px_rgba(14,116,144,0.28)] light:focus:ring-cyan-500/20"
 			>
 				登录后台
 			</button>

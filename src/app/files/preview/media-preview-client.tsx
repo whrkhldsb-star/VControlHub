@@ -31,7 +31,7 @@ export function MediaPreviewClient({
 			) : isAudio ? (
 				<div className="flex flex-col items-center gap-4 py-8">
 					<span className="text-6xl">🎵</span>
-					<span className="text-lg text-slate-300">{name}</span>
+					<span className="text-lg text-slate-300 light:text-slate-700">{name}</span>
 					<audio src={href} controls className="w-full max-w-lg" autoPlay>
 						您的浏览器不支持音频播放。
 					</audio>

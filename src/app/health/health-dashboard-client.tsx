@@ -458,7 +458,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 
 	if (!overview) {
 		return (
-			<div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">
+			<div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100 light:text-rose-900" role="alert">
 				<div>{loadError ?? copy.ui.healthUnavailable}</div>
 				<button
 					type="button"
@@ -477,24 +477,24 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 	return (
 		<div className="space-y-6">
 			{loadError && (
-				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100 light:text-rose-900">
 					{loadError}
 				</div>
 			)}
 			{systemHealth && (
 				<>
-					<section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+					<section className="space-y-3 rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.03] p-4">
 			<div className="flex items-center justify-between gap-3">
 				<div>
-					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
-					<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
-					<p className="mt-1 text-xs text-slate-400">
+					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300 light:text-cyan-700/70">{copy.ui.selfCheck}</p>
+					<h2 className="mt-1 text-lg font-semibold text-white light:text-slate-900">{copy.ui.repairSuggestions}</h2>
+					<p className="mt-1 text-xs text-slate-400 light:text-slate-600">
 						{copy.ui.checksSummary(systemHealth.summary)}
 					</p>
 				</div>
-				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
-					<Link href="/audit" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
-					<Link href="/" className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
+				<div className="flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600">
+					<Link href="/audit" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
+					<Link href="/" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
 				</div>
 			</div>
 						<div className="grid gap-3 lg:grid-cols-3">
@@ -503,11 +503,11 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 								return (
 									<article key={item.id} className={`rounded-xl border ${tone.border} ${tone.bg} p-4`}>
 										<div className="flex items-center justify-between gap-3">
-											<h3 className="text-sm font-semibold text-white">{item.label}</h3>
+											<h3 className="text-sm font-semibold text-white light:text-slate-900">{item.label}</h3>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${tone.badge}`}>{item.status}</span>
 										</div>
-										<p className="mt-2 text-sm leading-6 text-slate-300">{item.description}</p>
-									<p className="mt-3 text-xs text-slate-400">{copy.ui.suggestedAction}{item.href ? <Link href={item.href} className="text-cyan-200 transition hover:text-cyan-100">{item.action}</Link> : item.action}</p>
+										<p className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">{item.description}</p>
+									<p className="mt-3 text-xs text-slate-400 light:text-slate-600">{copy.ui.suggestedAction}{item.href ? <Link href={item.href} className="text-cyan-200 light:text-cyan-800 transition hover:text-cyan-100">{item.action}</Link> : item.action}</p>
 								</article>
 							);
 						})}
@@ -518,10 +518,10 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 								return (
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
-											<div className="text-sm font-medium text-white">{translateSystemHealthText(check.label, locale)}</div>
+											<div className="text-sm font-medium text-white light:text-slate-900">{translateSystemHealthText(check.label, locale)}</div>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${sc.text}`}>{copy.statusLabels[check.status] ?? check.status}</span>
 										</div>
-										<p className="mt-1 text-xs text-slate-300">{translateSystemHealthText(check.message, locale)}</p>
+										<p className="mt-1 text-xs text-slate-300 light:text-slate-700">{translateSystemHealthText(check.message, locale)}</p>
 										{check.detail && <p className="mt-1 break-all text-[11px] text-slate-500">{translateSystemHealthText(check.detail, locale)}</p>}
 									</div>
 								);
@@ -549,11 +549,11 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 						onClick={fetchHealth}
 						disabled={isRefreshing}
 						aria-label={copy.ui.refreshAria}
-						className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isRefreshing ? copy.ui.refreshing : copy.ui.refresh}
 					</button>
-					<label className="flex items-center gap-2 text-xs text-slate-400">
+					<label className="flex items-center gap-2 text-xs text-slate-400 light:text-slate-600">
 						<span>{copy.ui.autoRefresh}</span>
 						<button
 							type="button"
@@ -593,7 +593,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 											<div className="flex items-center gap-2">
 												<div className={`h-2 w-2 rounded-full ${sc.dot} shrink-0`} />
 												<div>
-													<div className="font-medium text-white">{server.serverName}</div>
+													<div className="font-medium text-white light:text-slate-900">{server.serverName}</div>
 													<div className="text-[11px] text-slate-500">{server.host}</div>
 												</div>
 											</div>
@@ -634,11 +634,11 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			{/* Expanded trend section */}
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
 				<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-					<h3 className="text-sm font-medium text-white/80 mb-4">
+					<h3 className="text-sm font-medium text-white light:text-slate-900/80 mb-4">
 						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
 					</h3>
 					{historyErrors[expandedServer] ? (
-						<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+						<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100 light:text-rose-900">
 							{historyErrors[expandedServer]}
 						</div>
 					) : (
@@ -671,7 +671,7 @@ function UsageCell({ value }: { value: number | undefined }) {
 	if (value === undefined) return <span className="text-xs text-slate-600">—</span>;
 	return (
 		<div className="flex items-center gap-2 min-w-[100px]">
-			<div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+			<div className="flex-1 h-1.5 rounded-full bg-slate-800 light:bg-slate-100 overflow-hidden">
 				<div className={`h-full rounded-full ${usageBarColor(value)} transition-all`} style={{ width: `${Math.min(100, value)}%` }} />
 			</div>
 			<span className={`text-xs font-mono tabular-nums w-12 text-right ${usageColor(value)}`}>

@@ -81,13 +81,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索标题、内容、标签…"
-            className="w-full rounded-lg border border-white/10 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600"
+            className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>
         <select
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
-          className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
+          className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none"
         >
           {languages.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? "全部语言" : l}</option>
@@ -96,7 +96,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <span className="text-xs text-slate-500">{filtered.length} 条</span>
         <button
           onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
         >
           <Plus size={14} /> 新建片段
         </button>
@@ -107,13 +107,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           <div key={s.id} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <b className="text-sm text-white">{s.title}</b>
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400">{s.language}</span>
+                <b className="text-sm text-white light:text-slate-900">{s.title}</b>
+                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400 light:text-slate-600">{s.language}</span>
                 {s.isPrivate && <span className="text-[10px] text-amber-400">🔒 私有</span>}
                 {s.tags.length > 0 && (
                   <div className="flex gap-1">
                     {s.tags.map((t) => (
-                      <span key={t} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300">{t}</span>
+                      <span key={t} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300 light:text-cyan-700">{t}</span>
                     ))}
                   </div>
                 )}
@@ -131,7 +131,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               </div>
             </div>
             {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
-            <pre className="mt-3 max-h-48 overflow-auto rounded bg-black/30 p-3 text-xs text-slate-300">{s.content}</pre>
+            <pre className="mt-3 max-h-48 overflow-auto rounded bg-black/30 p-3 text-xs text-slate-300 light:text-slate-700">{s.content}</pre>
           </div>
         ))}
         {filtered.length === 0 && (
@@ -160,16 +160,16 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       )}
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-            <h3 id="delete-snippet-title" className="text-base font-semibold text-white">删除代码片段</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">确认删除代码片段 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
+            <h3 id="delete-snippet-title" className="text-base font-semibold text-white light:text-slate-900">删除代码片段</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-600">确认删除代码片段 <span className="font-medium text-slate-100 light:text-slate-900">{pendingDelete.title}</span>？此操作不可恢复。</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06] disabled:opacity-50">
                 取消
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-500/25 disabled:opacity-50">
                 {deleteBusy ? "正在删除..." : "确认删除"}
               </button>
             </div>

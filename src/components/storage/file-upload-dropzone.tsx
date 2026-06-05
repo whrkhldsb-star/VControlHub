@@ -190,23 +190,23 @@ export function FileUploadDropzone({
   }
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+    <section className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-white">{title}</h2>
-          <p className="text-sm text-slate-400">{description}</p>
+          <h2 className="text-2xl font-semibold text-white light:text-slate-900">{title}</h2>
+          <p className="text-sm text-slate-400 light:text-slate-600">{description}</p>
         </div>
       </div>
 
       <div className={`mt-5 grid gap-4 ${allowNodeSelection ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "md:grid-cols-1"}`}>
         {allowNodeSelection ? (
-          <label className="grid gap-2 text-sm text-slate-300">
+          <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
             <span>上传到节点</span>
             <select
               aria-label="上传到节点"
               value={selectedNodeId}
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-              className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white"
+              className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900"
             >
               <option value="">请选择存储节点</option>
               {nodes.map((node) => (
@@ -218,14 +218,14 @@ export function FileUploadDropzone({
           </label>
         ) : null}
 
-        <label className="grid gap-2 text-sm text-slate-300">
+        <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
           <span>{pathLabel}</span>
           <input
             aria-label={pathLabel}
             value={effectiveRelativeDir}
             readOnly={uploadDir !== undefined || !allowNodeSelection}
             onChange={(event) => setRelativeDir(event.currentTarget.value)}
-            className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-3 text-white read-only:cursor-not-allowed read-only:opacity-80"
+            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900 read-only:cursor-not-allowed read-only:opacity-80"
             placeholder="docs 或 media/videos"
           />
         </label>
@@ -263,21 +263,21 @@ export function FileUploadDropzone({
             ? dragActive
               ? "border-cyan-300 bg-cyan-400/10 text-cyan-100"
               : "border-white/15 bg-white/5 text-slate-100 hover:border-cyan-400/50"
-            : "cursor-not-allowed border-white/10 bg-slate-950/60 text-slate-500"
+            : "cursor-not-allowed border-white/10 light:border-slate-200 bg-slate-950/60 light:bg-slate-50 text-slate-500"
         }`}
       >
         <span className="text-base font-medium">{submitLabel}</span>
-        <span className="mt-2 text-sm text-slate-400">
+        <span className="mt-2 text-sm text-slate-400 light:text-slate-600">
           {uploadEnabled ? (submitting ? "上传中，请稍候..." : "可拖拽或选择多个文件上传，文件夹请切换下方模式。") : "请选择 LOCAL 或 SFTP 节点后再上传。"}
         </span>
       </button>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400 light:text-slate-600">
         <button
           type="button"
           onClick={() => directoryInputRef.current?.click()}
           disabled={!uploadEnabled || submitting}
-          className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           选择文件夹
         </button>
@@ -297,7 +297,7 @@ export function FileUploadDropzone({
       ) : null}
 
       {queue.length > 0 ? (
-        <div className="mt-3 space-y-1 rounded-2xl border border-white/10 bg-slate-950/50 p-3 text-xs text-slate-300">
+        <div className="mt-3 space-y-1 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950/50 light:bg-white/50 p-3 text-xs text-slate-300 light:text-slate-700">
           {queue.map((item, index) => (
             <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
               <span className="truncate">

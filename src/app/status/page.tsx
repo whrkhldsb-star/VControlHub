@@ -6,10 +6,10 @@ export default async function Page() {
   const status = await getPublicStatus();
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-slate-950 light:bg-white text-slate-100 light:text-slate-900">
       <div className="mx-auto max-w-3xl px-6 py-14">
         <h1 className="text-3xl font-semibold">服务状态</h1>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-slate-400 light:text-slate-600">
           公开安全摘要，不展示主机名、端口、连接串或内部凭据。
         </p>
 
@@ -36,10 +36,7 @@ export default async function Page() {
                     c.status === "healthy" ? "bg-emerald-400" :
                     c.status === "warning" ? "bg-amber-400" :
                     "bg-rose-400"
-                  }`} />
-                  <b className="text-sm text-white">{c.label}</b>
-                </div>
-                <span className={`text-xs ${
+                  }`} /> <b className="text-sm text-white light:text-slate-900">{c.label}</b> </div> <span className={`text-xs ${
                   c.status === "healthy" ? "text-emerald-400" :
                   c.status === "warning" ? "text-amber-400" :
                   "text-rose-400"
@@ -47,7 +44,7 @@ export default async function Page() {
                   {c.status === "healthy" ? "正常" : c.status === "warning" ? "警告" : "异常"}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-slate-400">{c.message}</p>
+              <p className="mt-1.5 text-sm text-slate-400 light:text-slate-600">{c.message}</p>
             </div>
           ))}
         </div>

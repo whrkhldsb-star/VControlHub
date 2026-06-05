@@ -10,7 +10,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 		<button
 			type="button"
 			onClick={toggleTheme}
-			className={`${compact ? "h-10 w-10" : "h-8 w-8"} relative flex items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950`}
+			className={`${compact ?"h-10 w-10" :"h-8 w-8"} relative flex items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 light:hover:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950`}
 			aria-label={label}
 			title={label}
 		>

@@ -30,7 +30,7 @@ export const renderInline = (text: string): React.ReactNode[] => {
  codeParts.forEach((cp, ci) => {
  if (cp.startsWith("`") && cp.endsWith("`")) {
  result.push(
- <code key={`c-${ci}`} className="bg-black/30 px-1.5 py-0.5 rounded text-cyan-300 text-xs">
+ <code key={`c-${ci}`} className="bg-black/30 px-1.5 py-0.5 rounded text-cyan-300 light:text-cyan-700 text-xs">
  {cp.slice(1, -1)}
  </code>
  );
@@ -105,7 +105,7 @@ export const renderContent = (content: string) => {
  <thead>
  <tr>
  {tableRows[0]?.map((cell, ci) => (
- <th key={ci} className="border border-white/10 px-2 py-1 text-left text-cyan-400/80 bg-black/20">{renderInline(cell)}</th>
+ <th key={ci} className="border border-white/10 light:border-slate-200 px-2 py-1 text-left text-cyan-400/80 bg-black/20">{renderInline(cell)}</th>
  ))}
  </tr>
  </thead>
@@ -113,7 +113,7 @@ export const renderContent = (content: string) => {
  {tableRows.slice(1).map((row, ri) => (
  <tr key={ri}>
  {row.map((cell, ci) => (
- <td key={ci} className="border border-white/10 px-2 py-1 text-slate-300">{renderInline(cell)}</td>
+ <td key={ci} className="border border-white/10 light:border-slate-200 px-2 py-1 text-slate-300 light:text-slate-700">{renderInline(cell)}</td>
  ))}
  </tr>
  ))}
@@ -216,7 +216,7 @@ export const renderContent = (content: string) => {
  // Horizontal rule: --- or ***
  if (/^[-*_]{3,}\s*$/.test(line.trim())) {
  flushList(); flushTable();
- elements.push(<hr key={`hr-${elements.length}`} className="border-white/10 my-3" />);
+ elements.push(<hr key={`hr-${elements.length}`} className="border-white/10 light:border-slate-200 my-3" />);
  i++;
  continue;
  }

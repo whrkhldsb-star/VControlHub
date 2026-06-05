@@ -18,25 +18,25 @@ export default async function SharesPage() {
 	return (
 		<PageShell>
 			<header className="mb-8">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Sharing</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">文件分享链接</h1>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Sharing</p>
+				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">文件分享链接</h1>
 				<p className="mt-1.5 text-sm text-slate-500">为云盘文件生成可撤销、可过期的分享 token；数据库仅保存哈希。</p>
 			</header>
 
 			{canCreate && <CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: n.name }))} />}
 
 			<div className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">分享记录</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white light:text-slate-900">分享记录</div>
 				<div className="divide-y divide-white/[0.06]">
 					{shares.length === 0 ? <EmptyState text="暂无分享链接" /> : shares.map((s) => (
 						<div key={s.id} className="px-5 py-4">
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-white">{s.name || s.path}</h3>
+									<h3 className="text-sm font-medium text-white light:text-slate-900">{s.name || s.path}</h3>
 									<p className="mt-1 text-xs text-slate-500">{s.storageNode.name} · {s.path} · 访问 {s.accessCount} 次</p>
 								</div>
 								<div className="flex items-center gap-3">
-								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
+								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400 light:text-slate-600">
 									{s.revokedAt ? "已撤销" : s.expiresAt && s.expiresAt < new Date() ? "已过期" : "有效"}
 								</span>
 								{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}

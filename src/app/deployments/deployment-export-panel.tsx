@@ -94,7 +94,7 @@ export function DeploymentExportPanel() {
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
             placeholder="console.example.com"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-slate-400 light:text-slate-600"
           />
         </label>
         <label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
@@ -103,7 +103,7 @@ export function DeploymentExportPanel() {
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
             placeholder="vcontrolhub"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-slate-400 light:text-slate-600"
           />
         </label>
         <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">

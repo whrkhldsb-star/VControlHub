@@ -204,7 +204,7 @@ export default function DockerPage() {
 	return (
 		<PageShell>
 			<h1 className="text-2xl font-bold mb-1">Docker 容器</h1>
-			<p className="text-slate-400 mb-4">管理本机 Docker 容器</p>
+			<p className="text-slate-400 light:text-slate-600 mb-4">管理本机 Docker 容器</p>
 			<div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-6">
 				<span>支持按 compose 项目浏览</span>
 				<span className="text-slate-600">·</span>
@@ -252,7 +252,7 @@ export default function DockerPage() {
 					{grouped.map((group) => (
 						<section key={group.project} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
 							<div className="mb-3">
-								<h2 className="text-sm font-medium text-white">{group.project}</h2>
+								<h2 className="text-sm font-medium text-white light:text-slate-900">{group.project}</h2>
 								<p className="text-[11px] text-slate-500">compose 项目 · {group.containers.length} 个容器</p>
 							</div>
 							<div className="space-y-3">
@@ -265,7 +265,7 @@ export default function DockerPage() {
 													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
 														{c.State}
 													</span>
-													<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+													<span className="text-sm font-medium text-white light:text-slate-900 truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 												</div>
 												<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
 											</div>
@@ -276,9 +276,9 @@ export default function DockerPage() {
 											</div>
 											{stat && (
 												<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
-													<div className="rounded-lg bg-cyan-500/10 px-2 py-1.5 text-cyan-300">CPU {stat.cpuPercent.toFixed(1)}%</div>
+													<div className="rounded-lg bg-cyan-500/10 px-2 py-1.5 text-cyan-300 light:text-cyan-700">CPU {stat.cpuPercent.toFixed(1)}%</div>
 													<div className="rounded-lg bg-purple-500/10 px-2 py-1.5 text-purple-300">内存 {formatBytes(stat.memoryUsageBytes)} / {stat.memoryPercent.toFixed(1)}%</div>
-													<div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-300">↓ {formatBytes(stat.networkRxBytes)}</div>
+													<div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-300 light:text-emerald-700">↓ {formatBytes(stat.networkRxBytes)}</div>
 													<div className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-amber-300">↑ {formatBytes(stat.networkTxBytes)}</div>
 												</div>
 											)}
@@ -292,7 +292,7 @@ export default function DockerPage() {
 														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 													</>
 												)}
-												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
+												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-slate-300 light:text-slate-700 rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
 												<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 											</div>
 										</div>
@@ -304,7 +304,7 @@ export default function DockerPage() {
 
 					{ungrouped.length > 0 && (
 						<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-							<h2 className="text-sm font-medium text-white mb-3">独立容器</h2>
+							<h2 className="text-sm font-medium text-white light:text-slate-900 mb-3">独立容器</h2>
 							<div className="space-y-3">
 								{ungrouped.map((c) => (
 									<div key={c.Id} className="rounded-lg border border-white/[0.06] bg-black/20 p-4">
@@ -313,7 +313,7 @@ export default function DockerPage() {
 												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
 													{c.State}
 												</span>
-												<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+												<span className="text-sm font-medium text-white light:text-slate-900 truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 											</div>
 											<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
 										</div>
@@ -328,7 +328,7 @@ export default function DockerPage() {
 													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 												</>
 											)}
-											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 text-slate-300 rounded-lg hover:bg-slate-700 transition">日志</button>
+											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-slate-300 light:text-slate-700 rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
 											<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 										</div>
 									</div>
@@ -345,18 +345,18 @@ export default function DockerPage() {
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="docker-remove-confirm-title"
-						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 p-5 shadow-2xl"
+						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 light:bg-white p-5 shadow-2xl"
 						onClick={(event) => event.stopPropagation()}
 					>
-						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
-						<p className="mt-3 text-sm text-slate-300">
-							即将删除容器 <span className="font-mono text-rose-200">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
+						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white light:text-slate-900">确认删除容器</h3>
+						<p className="mt-3 text-sm text-slate-300 light:text-slate-700">
+							即将删除容器 <span className="font-mono text-rose-200 light:text-rose-800">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
 						</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button
 								type="button"
 								onClick={() => setPendingRemoval(null)}
-								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.06]"
+								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
@@ -375,14 +375,14 @@ export default function DockerPage() {
 
 			{logsId && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setLogsId(null)}>
-					<div className="w-full max-w-2xl mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+					<div className="w-full max-w-2xl mx-4 bg-slate-950 light:bg-white border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
 						<div className="flex items-center justify-between mb-3">
-							<h3 className="text-sm font-medium text-white">容器日志 — {logsId.slice(0, 12)}</h3>
+							<h3 className="text-sm font-medium text-white light:text-slate-900">容器日志 — {logsId.slice(0, 12)}</h3>
 							<button onClick={() => setLogsId(null)} className="text-slate-500 hover:text-slate-300">
 								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>
 						</div>
-						<pre className="flex-1 overflow-auto text-[11px] text-slate-300 bg-black/40 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
+						<pre className="flex-1 overflow-auto text-[11px] text-slate-300 light:text-slate-700 bg-black/40 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
 					</div>
 				</div>
 			)}

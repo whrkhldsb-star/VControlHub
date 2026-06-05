@@ -577,7 +577,7 @@ if (data.conversation) {
         confirmLabel: "确认删除",
         description: (
           <>
-            确定删除对话 <span className="font-medium text-white">{confirmAction.title}</span> 吗？此操作不可恢复。
+            确定删除对话 <span className="font-medium text-white light:text-slate-900">{confirmAction.title}</span> 吗？此操作不可恢复。
           </>
         ),
       };
@@ -588,7 +588,7 @@ if (data.conversation) {
         confirmLabel: "确认删除",
         description: (
           <>
-            确定删除提供商 <span className="font-medium text-white">{confirmAction.name}</span> 吗？关联的对话也会被删除。
+            确定删除提供商 <span className="font-medium text-white light:text-slate-900">{confirmAction.name}</span> 吗？关联的对话也会被删除。
           </>
         ),
       };
@@ -724,16 +724,16 @@ if (data.conversation) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="rename-conversation-title"
-            className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl"
+            className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
           >
-            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">修改对话标题</h3>
-            <label className="mt-4 grid gap-1 text-sm text-slate-300">
+            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white light:text-slate-900">修改对话标题</h3>
+            <label className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
               新标题
               <input
                 value={renameTitle}
                 onChange={(event) => setRenameTitle(event.target.value)}
                 autoFocus
-                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/60"
+                className="rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-300/60"
                 placeholder="输入新的对话标题"
               />
             </label>
@@ -743,7 +743,7 @@ if (data.conversation) {
                 type="button"
                 disabled={renameBusy}
                 onClick={() => { setRenameDialogOpen(false); setRenameError(null); }}
-                className="rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+                className="rounded-xl border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
               >
                 取消
               </button>
@@ -751,7 +751,7 @@ if (data.conversation) {
                 type="button"
                 disabled={renameBusy || !renameTitle.trim()}
                 onClick={handleRenameConversation}
-                className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/30 disabled:opacity-50"
+                className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 light:text-cyan-800 transition hover:bg-cyan-500/30 disabled:opacity-50"
               >
                 {renameBusy ? "保存中..." : "保存标题"}
               </button>
@@ -847,7 +847,7 @@ const conv = data.conversation;
                 <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                   {msg.role !== "user" && (
                     <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-white light:text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.09-.75.202-.25.112-.499.268-.75.468M9.75 3.104c.251.023.501.09.75.202.25.112.499.268.75.468M5 14.5l-1.43 1.43a2.25 2.25 0 01-3.182 0l-.03-.03a2.25 2.25 0 010-3.182L5 14.5zm0 0l6.25-6.25" />
                       </svg>
                     </div>
@@ -887,7 +887,7 @@ return (
 									width={200}
 									height={200}
 									unoptimized
-									className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10"
+									className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10 light:border-slate-200"
 									onError={(e) => {
 										(e.currentTarget as HTMLImageElement).style.display = "none";
 									}}
@@ -926,7 +926,7 @@ return (
   </button>
                   </div>
                   {msg.role === "user" && (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-[11px] font-semibold text-cyan-400 uppercase">
+                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-700 light:bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-cyan-400 uppercase">
                       U
                     </div>
                   )}
@@ -937,11 +937,11 @@ return (
               {streaming && streamContent && (
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-white light:text-slate-900 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5" />
                     </svg>
                   </div>
-                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-200 text-sm leading-relaxed">
+                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-200 light:text-slate-800 text-sm leading-relaxed">
                     {streamReasoning && (
                       <details open className="mb-2">
                         <summary className="text-[10px] text-cyan-400/60 cursor-pointer">💭 正在思考...</summary>
@@ -977,8 +977,8 @@ return (
     {pendingApprovals.map((approval) => (
      <div key={approval.actionId} className="flex items-center justify-between bg-black/30 rounded-lg p-2.5">
       <div className="flex-1 min-w-0">
-       <div className="text-sm text-white font-medium">{approval.actionName}</div>
-       <div className="text-xs text-slate-400 truncate">
+       <div className="text-sm text-white light:text-slate-900 font-medium">{approval.actionName}</div>
+       <div className="text-xs text-slate-400 light:text-slate-600 truncate">
  风险: <span className={
  approval.riskLevel === "critical" ? "text-red-400" :
  approval.riskLevel === "high" ? "text-orange-400" :
@@ -989,7 +989,7 @@ return (
       </div>
       <div className="flex gap-2 ml-3">
        <button
-        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white transition"
+        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white light:text-slate-900 transition"
         onClick={async () => {
          try {
           await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
@@ -1003,7 +1003,7 @@ return (
         }}
        >拒绝</button>
        <button
-        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
+        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white light:text-slate-900 transition"
         onClick={async () => {
           try {
           await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
@@ -1026,15 +1026,15 @@ return (
 
             {/* File/Attachment preview area */}
             {(fileAttachments.length > 0 || (activeConv.enableVision && imageUrls.length > 0)) && (
-              <div className="px-4 pb-1.5 border-t border-white/[0.03] bg-slate-950/20">
+              <div className="px-4 pb-1.5 border-t border-white/[0.03] bg-slate-950/20 light:bg-white/20">
                 <div className="flex flex-wrap gap-2 py-2">
                   {/* URL-based images */}
                   {imageUrls.map((url, i) => (
  <div key={`url-${i}`} className="relative group">
-					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10" />
+					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10 light:border-slate-200" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white light:text-slate-900 text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                       >
                         ×
                       </button>
@@ -1044,9 +1044,9 @@ return (
                 {fileAttachments.map((file, i) => (
                   <div key={`file-${i}`} className="relative group">
  {file.type === "image" && file.preview ? (
-						<Image src={file.preview} alt={file.name} width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10" />
+						<Image src={file.preview} alt={file.name} width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10 light:border-slate-200" />
                     ) : (
-                      <div className="w-12 h-12 rounded border border-white/10 bg-black/30 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded border border-white/10 light:border-slate-200 bg-black/30 flex flex-col items-center justify-center">
                         {file.mimeType.startsWith("video/") ? (
                           <span className="text-base" title="视频文件">🎬</span>
                         ) : file.mimeType.startsWith("audio/") ? (
@@ -1063,7 +1063,7 @@ return (
                     )}
                       <button
                         onClick={() => setFileAttachments((prev) => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white light:text-slate-900 text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                       >
                         ×
                       </button>
@@ -1081,7 +1081,7 @@ return (
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
                     placeholder="输入图片 URL（回车添加）"
-                    className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600"
+                    className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white light:text-slate-900 placeholder-slate-600"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && imageUrlInput.trim()) {
                         setImageUrls((prev) => [...prev, imageUrlInput.trim()]);
@@ -1094,7 +1094,7 @@ return (
             )}
 
             {/* Input area */}
-            <div className="px-4 py-3 border-t border-white/[0.06] bg-slate-950/30">
+            <div className="px-4 py-3 border-t border-white/[0.06] bg-slate-950/30 light:bg-white/30">
               {/* File rejection toast */}
               {fileRejectionMsg && (
                 <div className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -1110,7 +1110,7 @@ return (
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={streaming}
-                  className="h-10 w-10 rounded-xl bg-white/[0.04] text-slate-400 flex items-center justify-center hover:bg-white/[0.08] hover:text-slate-200 transition disabled:opacity-30"
+                  className="h-10 w-10 rounded-xl bg-white/[0.04] text-slate-400 light:text-slate-600 flex items-center justify-center hover:bg-white/[0.08] hover:text-slate-200 light:hover:text-slate-800 transition disabled:opacity-30"
                   title={`上传文件 (支持: ${formatAllowedTypes(currentModelCaps)})`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1146,7 +1146,7 @@ return (
                   }
                   rows={1}
                   disabled={streaming}
-                  className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
+                  className="flex-1 bg-black/30 border border-white/10 light:border-slate-200 rounded-xl px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
                   style={{ maxHeight: "120px" }}
                   onInput={(e) => {
                     const el = e.currentTarget;
@@ -1157,7 +1157,7 @@ return (
             <button
               onClick={handleSend}
               disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-              className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 light:text-cyan-700 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
@@ -1179,21 +1179,35 @@ return (
           </>
         ) : (
           /* Empty state */
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-600">
-            <svg className="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex-1 flex flex-col items-center justify-center px-6 text-center text-slate-600">
+            <svg className="mb-4 h-16 w-16 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.09-.75.202-.25.112-.499.268-.75.468M9.75 3.104c.251.023.501.09.75.202.25.112.499.268.75.468M5 14.5l-1.43 1.43a2.25 2.25 0 01-3.182 0l-.03-.03a2.25 2.25 0 010-3.182L5 14.5zm0 0l6.25-6.25" />
             </svg>
-            <p className="text-sm mb-3">选择一个对话或创建新对话</p>
-            <button
-              onClick={handleNewConv}
-              className="h-9 px-4 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium hover:bg-cyan-500/30 transition"
-            >
-              + 新对话
-            </button>
-            {providers.length === 0 && (
-              <p className="mt-4 text-xs text-amber-400/60">
-                ⚠ 还未配置 AI 提供商，请先在下方添加
-              </p>
+            {providers.length === 0 ? (
+              <>
+                <p className="text-sm font-medium text-slate-300 light:text-slate-800">还没有可用的 AI 提供商</p>
+                <p className="mt-2 max-w-md text-xs leading-5 text-slate-500 light:text-slate-600">
+                  先添加一个 OpenAI 兼容或其它提供商并填写 API Key、Base URL 和默认模型；配置完成后即可创建新对话。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowProviders(true)}
+                  className="mt-5 h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30 light:text-cyan-700"
+                >
+                  配置 AI 提供商
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm mb-3">选择一个对话或创建新对话</p>
+                <button
+                  type="button"
+                  onClick={handleNewConv}
+                  className="h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30 light:text-cyan-700"
+                >
+                  + 新对话
+                </button>
+              </>
             )}
           </div>
         )}

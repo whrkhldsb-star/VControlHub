@@ -60,7 +60,7 @@ const widgetOptions = [
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
 	return (
 		<div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
-			<h3 className="text-xs font-medium text-slate-400 mb-4">{title}</h3>
+			<h3 className="text-xs font-medium text-slate-400 light:text-slate-600 mb-4">{title}</h3>
 			<div className="space-y-4">{children}</div>
 		</div>
 	);
@@ -70,7 +70,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
 	return (
 		<div className="flex items-center justify-between">
-			<span id={`preference-toggle-${label}`} className="text-sm text-slate-300">{label}</span>
+			<span id={`preference-toggle-${label}`} className="text-sm text-slate-300 light:text-slate-700">{label}</span>
 			<button
 				type="button"
 				role="switch"
@@ -178,7 +178,7 @@ export default function PreferencesPage() {
 	return (
 		<PageShell>
 			<h1 className="text-2xl font-bold mb-1">个性化设置</h1>
-			<p className="text-slate-400 mb-6">自定义你的工作环境</p>
+			<p className="text-slate-400 light:text-slate-600 mb-6">自定义你的工作环境</p>
 			{saved && (
 				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>
 			)}

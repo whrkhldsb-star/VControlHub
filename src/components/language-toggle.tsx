@@ -11,7 +11,7 @@ export function LanguageToggle({ compact = false }: { compact?: boolean }) {
 		<button
 			type="button"
 			onClick={() => setLocale(nextLocale)}
-			className={`${compact ? "h-10 min-w-10 justify-center px-2" : "px-2.5 py-1.5"} flex items-center gap-1.5 rounded-lg text-[11px] font-medium text-slate-400 transition hover:bg-white/[0.06] hover:text-white`}
+			className={`${compact ?"h-10 min-w-10 justify-center px-2" :"px-2.5 py-1.5"} flex items-center gap-1.5 rounded-lg text-[11px] font-medium text-slate-400 light:text-slate-600 transition hover:bg-white/[0.06] hover:text-white light:hover:text-slate-900 light:hover:bg-slate-100`}
 			aria-label={label}
 			title={locale === "zh" ? "Switch to English" : "切换到中文"}
 		>

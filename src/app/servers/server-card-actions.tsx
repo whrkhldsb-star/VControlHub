@@ -126,7 +126,7 @@ export function ServerCardActions({
                   href={directGateway.publicUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:text-cyan-800 light:hover:text-cyan-950"
+                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-white light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:text-cyan-800 light:hover:text-cyan-950"
                 >
                   {directGateway.publicUrl}
                 </a>
@@ -185,7 +185,7 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={() => setShowEdit((value) => !value)}
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+            className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 light:text-slate-800 transition hover:bg-white/10"
           >
             {showEdit ? "收起编辑" : "编辑节点"}
           </button>
@@ -373,12 +373,12 @@ export function ServerCardActions({
                   name="confirmName"
                   type="text"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300 light:bg-white light:text-slate-950"
+                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300 light:bg-white light:text-slate-950"
                 />
                 <div className="flex gap-2">
                   <SubmitButton
                     pendingLabel="删除中..."
-                    className="flex-1 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:bg-rose-100 light:text-rose-800 light:hover:bg-rose-200"
+                    className="flex-1 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:text-rose-800 light:hover:bg-rose-200"
                   >
                     确认删除
                   </SubmitButton>
@@ -394,7 +394,7 @@ export function ServerCardActions({
             ) : (
               <SubmitButton
                 pendingLabel="查询中..."
-                className="w-full rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:bg-rose-50 light:text-rose-800 light:hover:bg-rose-100"
+                className="w-full rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-50 light:text-rose-800 light:hover:bg-rose-100"
               >
                 删除节点
               </SubmitButton>

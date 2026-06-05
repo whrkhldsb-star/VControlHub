@@ -116,7 +116,7 @@ export default async function MediaPlayerPage({ params, searchParams }: PageProp
               ← 返回媒体库
             </Link>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Media Player</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Media Player</p>
               <h1 className="truncate text-xl font-semibold text-white light:text-slate-900">{item.name}</h1>
             </div>
           </div>
@@ -155,7 +155,7 @@ export default async function MediaPlayerPage({ params, searchParams }: PageProp
                 relativePath={item.relativePath}
               />
             ) : (
-              <div className="py-16 text-center text-sm text-slate-400">
+              <div className="py-16 text-center text-sm text-slate-400 light:text-slate-600">
                 此媒体类型暂不支持在线预览，请下载后查看。
               </div>
             )}

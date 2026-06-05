@@ -78,7 +78,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	return (
 		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 			<div className="flex items-center justify-between mb-4">
-				<h3 className="text-sm font-medium text-white">🔐 两步验证 (2FA)</h3>
+				<h3 className="text-sm font-medium text-white light:text-slate-900">🔐 两步验证 (2FA)</h3>
 				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-700/50 text-slate-400"}`}>
 					{enabled ? "已启用" : "未启用"}
 				</span>
@@ -90,7 +90,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "idle" && !enabled && (
 				<div>
-					<p className="text-xs text-slate-400 mb-3">
+					<p className="text-xs text-slate-400 light:text-slate-600 mb-3">
 						启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。
 					</p>
 					<button
@@ -105,7 +105,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "idle" && enabled && (
 				<div>
-					<p className="text-xs text-slate-400 mb-3">
+					<p className="text-xs text-slate-400 light:text-slate-600 mb-3">
 						两步验证已启用。如需关闭，请输入验证器 App 中的当前验证码。
 					</p>
 					<button
@@ -119,7 +119,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "setup" && (
 				<div className="space-y-4">
-					<p className="text-xs text-slate-400">
+					<p className="text-xs text-slate-400 light:text-slate-600">
 						1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码
 					</p>
 					<Image
@@ -130,11 +130,11 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						height={200}
 						unoptimized
 					/>
-					<div className="bg-slate-900 rounded-lg p-3">
+					<div className="bg-slate-900 light:bg-white rounded-lg p-3">
 						<p className="text-[10px] text-slate-500 mb-1">密钥（手动输入）：</p>
 						<code className="text-xs text-cyan-400 break-all select-all">{secret}</code>
 					</div>
-					<p className="text-xs text-slate-400">
+					<p className="text-xs text-slate-400 light:text-slate-600">
 						2. 输入验证器 App 中显示的6位验证码：
 					</p>
 					<div className="flex gap-2">
@@ -144,7 +144,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
+							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white light:text-slate-900 placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
 						/>
 						<button
 							onClick={handleVerify}
@@ -165,7 +165,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "disable" && (
 				<div className="space-y-4">
-					<p className="text-xs text-slate-400">输入验证器 App 中的当前验证码以关闭两步验证：</p>
+					<p className="text-xs text-slate-400 light:text-slate-600">输入验证器 App 中的当前验证码以关闭两步验证：</p>
 					<div className="flex gap-2">
 						<input
 							type="text"
@@ -173,7 +173,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
+							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white light:text-slate-900 placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
 						/>
 						<button
 							onClick={handleDisable}

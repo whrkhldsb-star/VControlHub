@@ -19,7 +19,7 @@ export default function RootError({
 }) {
 	return (
 		<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
-			<h2 className="mb-3 text-2xl font-semibold text-white">
+			<h2 className="mb-3 text-2xl font-semibold text-white light:text-slate-900">
 				页面加载出错
 			</h2>
 			<p className="mb-2 text-[15px] leading-relaxed text-neutral-400">
@@ -33,13 +33,13 @@ export default function RootError({
 			<div className="mt-5 flex justify-center gap-3">
 				<button
 					onClick={reset}
-					className="cursor-pointer rounded-lg border-none bg-blue-600 px-6 py-2 text-sm text-white hover:bg-blue-700"
+					className="cursor-pointer rounded-lg border-none bg-blue-600 px-6 py-2 text-sm text-white light:text-slate-900 hover:bg-blue-700"
 				>
 					重试
 				</button>
 				<NextLink
 					href="/"
-					className="inline-flex items-center rounded-lg bg-neutral-800 px-6 py-2 text-sm text-neutral-200 no-underline hover:bg-neutral-700"
+					className="inline-flex items-center rounded-lg bg-neutral-800 light:bg-neutral-100 px-6 py-2 text-sm text-neutral-200 no-underline hover:bg-neutral-700 light:hover:bg-neutral-200"
 				>
 					返回首页
 				</NextLink>

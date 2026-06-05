@@ -66,34 +66,34 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
         >
           + 创建分享链接
         </button>
       ) : (
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-white">新建分享链接</h3>
+            <h3 className="text-sm font-semibold text-white light:text-slate-900">新建分享链接</h3>
             <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-slate-500 hover:text-slate-300">收起</button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs text-slate-400 mb-1">存储节点</label>
+              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">存储节点</label>
               <select value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900">
                 {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">文件路径</label>
+              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">文件路径</label>
               <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="如 /docs/readme.md" className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">名称（可选）</label>
+              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">名称（可选）</label>
               <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 mb-1">有效期（小时，空=永久）</label>
+              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">有效期（小时，空=永久）</label>
               <input type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
             </div>
           </div>
@@ -102,13 +102,13 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           {result && (
             <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
-              <p className="text-xs text-emerald-300 font-medium">✅ 分享链接已创建</p>
+              <p className="text-xs text-emerald-300 light:text-emerald-700 font-medium">✅ 分享链接已创建</p>
               <div className="mt-2 flex items-center gap-2">
-                <code className="block flex-1 break-all text-xs text-emerald-200/80">{shareUrl || `/share/${result.token}`}</code>
+                <code className="block flex-1 break-all text-xs text-emerald-200 light:text-emerald-800/80">{shareUrl || `/share/${result.token}`}</code>
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+                  className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20"
                 >
                   {copied ? "已复制 ✓" : "复制链接"}
                 </button>
@@ -120,7 +120,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           <button
             onClick={handleCreate}
             disabled={saving || !nodeId || !path.trim()}
-            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? "创建中…" : "创建"}
           </button>

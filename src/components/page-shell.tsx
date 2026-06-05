@@ -107,7 +107,7 @@ export function StatCard({
 export function PermissionDenied() {
 	return (
 		<PageShell>
-			<div className="text-center text-slate-400">缺少权限</div>
+			<div className="text-center text-slate-400 light:text-slate-600">缺少权限</div>
 		</PageShell>
 	);
 }

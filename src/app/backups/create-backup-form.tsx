@@ -20,12 +20,12 @@ export function CreateBackupForm() {
 
   return (
     <form ref={formRef} action={formAction} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto]">
-      <select name="type" defaultValue="DATABASE" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
+      <select name="type" defaultValue="DATABASE" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 light:text-slate-900">
         <option value="DATABASE">数据库备份</option>
         <option value="FILES">文件备份</option>
         <option value="FULL">完整备份</option>
       </select>
-      <input name="note" maxLength={500} placeholder="备注：例如升级前备份" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+      <input name="note" maxLength={500} placeholder="备注：例如升级前备份" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 light:text-slate-900 placeholder:text-slate-600 light:placeholder:text-slate-500" />
       <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? "执行中" : "创建并执行"}
       </button>

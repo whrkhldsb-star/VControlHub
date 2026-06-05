@@ -99,7 +99,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	return (
 		<div className="space-y-3">
 			{error && (
-				<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+				<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 light:text-rose-800">
 					{error}
 				</div>
 			)}

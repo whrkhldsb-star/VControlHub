@@ -28,15 +28,15 @@ export function AiConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 light:bg-slate-900/60 px-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
       >
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <div className="mt-2 text-sm leading-6 text-slate-300">{description}</div>
+        <h3 className="text-sm font-semibold text-white light:text-slate-900">{title}</h3>
+        <div className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">{description}</div>
         {error && (
           <div role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
             {error}
@@ -47,7 +47,7 @@ export function AiConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-xl border border-white/10 px-3 py-2 text-xs text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
+            className="rounded-xl border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
           >
             取消
           </button>
@@ -56,10 +56,10 @@ export function AiConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
             className={`rounded-xl px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
-              danger
-                ? "bg-red-500/20 text-red-200 hover:bg-red-500/30"
-                : "bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30"
-            }`}
+ danger
+ ?"bg-red-500/20 text-red-200 hover:bg-red-500/30"
+ :"bg-cyan-500/20 text-cyan-200 light:text-cyan-800 hover:bg-cyan-500/30"
+ }`}
           >
             {busy ? "处理中..." : confirmLabel}
           </button>

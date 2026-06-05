@@ -210,7 +210,7 @@ function NodeFilterSelect({
           <button
             type="button"
             onClick={() => onChange("")}
-            className="text-cyan-300 hover:text-cyan-100 light:text-cyan-700 light:hover:text-cyan-900"
+            className="text-cyan-300 hover:text-cyan-100 light:hover:text-cyan-700 light:hover:text-cyan-900"
           >
             清除
           </button>
@@ -321,7 +321,7 @@ function FolderTreeClient({
                     : `打开 ${child.displayName ?? child.name}`
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
-                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-slate-400 hover:bg-white/10 hover:text-white"
+                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-slate-400 light:text-slate-600 hover:bg-white/10 hover:text-white light:hover:text-slate-900"
               >
                 {hasChildren ? (isExpanded ? "▾" : "▸") : "•"}
               </button>
@@ -376,12 +376,12 @@ function BreadcrumbsClient({
   return (
     <nav
       aria-label="面包屑"
-      className="flex flex-wrap items-center gap-2 text-sm text-slate-400"
+      className="flex flex-wrap items-center gap-2 text-sm text-slate-400 light:text-slate-600"
     >
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-white/10 px-3 py-1.5 text-slate-200 hover:bg-white/5"
+        className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 light:text-slate-800 hover:bg-white/5"
       >
         全部文件
       </button>
@@ -393,14 +393,14 @@ function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
             {isLast ? (
-              <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">
+              <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 light:text-cyan-900">
                 {displaySegment}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-white/10 px-3 py-1.5 text-slate-200 hover:bg-white/5"
+                className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 light:text-slate-800 hover:bg-white/5"
               >
                 {displaySegment}
               </button>
@@ -560,11 +560,11 @@ export function FilesBrowserSpa({
   return (
     <section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
       {/* Sidebar: Directory tree */}
-      <aside className="rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+      <aside className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-white">目录树</h2>
-            <p className="mt-2 text-sm leading-7 text-slate-300">
+            <h2 className="text-2xl font-semibold text-white light:text-slate-900">目录树</h2>
+            <p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
               按层级展开所有已登记目录，便于快速跳转。
             </p>
           </div>
@@ -585,7 +585,7 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/50 p-4 pr-2">
+        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950/50 light:bg-white/50 p-4 pr-2">
           <button
             type="button"
             onClick={() => navigateToFolder("")}
@@ -596,7 +596,7 @@ export function FilesBrowserSpa({
             }`}
           >
             <span>全部文件</span>
-            <span className="text-xs text-cyan-200/70">
+            <span className="text-xs text-cyan-200/70 light:text-cyan-800/70">
               {data.stats.totalEntries}
             </span>
           </button>
@@ -636,18 +636,18 @@ export function FilesBrowserSpa({
         ) : null}
 
         {/* Search + Toolbar */}
-        <article className="rounded-3xl border border-white/10 bg-slate-900/60 p-6">
+        <article className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-white">
+              <h2 className="text-2xl font-semibold text-white light:text-slate-900">
                 {currentPathDisplay.title}
                 {loading ? (
-                  <span className="ml-2 text-sm text-cyan-300 animate-pulse">
+                  <span className="ml-2 text-sm text-cyan-300 light:text-cyan-700 animate-pulse">
                     加载中…
                   </span>
                 ) : null}
               </h2>
-              <p className="mt-2 text-sm leading-7 text-slate-300">
+              <p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
                 {currentPathDisplay.label ? `当前路径：${currentPathDisplay.label}` : "当前路径：全部节点：/"}
               </p>
             </div>
@@ -677,11 +677,11 @@ export function FilesBrowserSpa({
                       ? "搜索全部文件名…"
                       : "搜索当前目录文件名…"
                   }
-                  className="flex-1 rounded-2xl border border-white/10 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                  className="flex-1 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
                 />
                 <button
                   type="submit"
-                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
                 >
                   搜索
                 </button>
@@ -692,7 +692,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+                    className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
                   >
                     清除
                   </button>
@@ -700,7 +700,7 @@ export function FilesBrowserSpa({
               </div>
             </div>
             {data.searchQuery ? (
-              <p className="mt-2 text-xs text-slate-400">
+              <p className="mt-2 text-xs text-slate-400 light:text-slate-600">
                 搜索 &quot;{data.searchQuery}&quot; —{" "}
                 {data.searchScope === "all" ? "在全部文件中" : "在当前目录"}找到{" "}
                 {data.stats.totalItems} 个结果
@@ -711,13 +711,13 @@ export function FilesBrowserSpa({
           <div className="mt-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-white">
+                <h3 className="text-xl font-semibold text-white light:text-slate-900">
                   当前目录操作
                 </h3>
-                <p className="mt-2 text-sm text-slate-300">
+                <p className="mt-2 text-sm text-slate-300 light:text-slate-700">
                   当前路径：{currentPathDisplay.label}
                 </p>
-                <p className="mt-1 text-sm text-slate-300">
+                <p className="mt-1 text-sm text-slate-300 light:text-slate-700">
                   项目数 {data.stats.totalItems}
                   {data.sourceSummary.length > 0
                     ? ` · 来源节点：${data.sourceSummary.join("、")}`
@@ -736,14 +736,14 @@ export function FilesBrowserSpa({
                     )
                   }
                   disabled={loading}
-                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? "刷新中…" : `↻ ${refreshLabel}`}
                 </button>
                 {data.permissions.canEditLocalFiles ? (
                   <a
                     href="#upload-section"
-                    className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                    className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
                   >
                     ⬆ 上传文件
                   </a>
@@ -763,7 +763,7 @@ export function FilesBrowserSpa({
                         ? "没有文件编辑权限，无法新建文件夹"
                         : "当前没有可用的存储节点，无法新建文件夹"
                     }
-                    className="cursor-not-allowed rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-400"
+                    className="cursor-not-allowed rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-400 light:text-slate-600"
                   >
                     新建文件夹
                   </button>

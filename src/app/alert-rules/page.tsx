@@ -31,7 +31,7 @@ export default async function AlertRulesPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white">智能告警</h1>
+					<h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">智能告警</h1>
 					<p className="mt-1.5 text-sm text-slate-500">
 						配置自动告警规则，异常指标自动触发通知与 Webhook
 					</p>

@@ -156,7 +156,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
 			{/* Header */}
 			<div className="flex items-center justify-between">
-				<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider">实时监控</h4>
+				<h4 className="text-xs font-medium text-white light:text-slate-900/60 uppercase tracking-wider">实时监控</h4>
 				<div className="flex items-center gap-1.5">
 					<div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.5)] animate-pulse" />
 					<span className="text-[10px] text-slate-600">{new Date(metrics.timestamp).toLocaleTimeString("zh-CN")}</span>
@@ -213,7 +213,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 				<div className="space-y-1.5">
 					<span className="text-[11px] text-slate-500">网络流量</span>
 					{network.map((n) => (
-						<div key={n.iface} className="flex items-center justify-between text-xs text-slate-400">
+						<div key={n.iface} className="flex items-center justify-between text-xs text-slate-400 light:text-slate-600">
 							<span className="text-slate-500">{n.iface}</span>
 							<span className="font-mono text-[11px]">
 								↓{formatBytes(n.rxBytes)} ↑{formatBytes(n.txBytes)}

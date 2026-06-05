@@ -29,8 +29,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   return (
     <PageShell maxW="max-w-4xl">
       <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Ticket Detail</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">工单详情</h1>
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Ticket Detail</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">工单详情</h1>
       </header>
       <TicketDetailClient initial={serialized} canManage={canManage} />
     </PageShell>

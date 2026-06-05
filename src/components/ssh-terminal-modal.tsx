@@ -360,28 +360,28 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				</div>
 
 				{errorMsg && (status === "error" || status === "closed") && (
-					<div className="mx-6 mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+					<div className="mx-6 mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200 light:text-rose-800">
 						❌ {errorMsg}
 					</div>
 				)}
 
 				<div className="flex flex-1 gap-0 overflow-hidden p-4">
 					<div className="flex-1 overflow-hidden">
-						<div ref={termRef} className="h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e1a]" style={{ minHeight: "400px" }} />
+						<div ref={termRef} className="h-full w-full overflow-hidden rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0e1a]" style={{ minHeight: "400px" }} />
 					</div>
 					{showSidePanel && (
 						<div className="ml-3 flex w-64 shrink-0 flex-col gap-3 overflow-y-auto">
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white/60">⭐ 常用命令</h4>
+								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">⭐ 常用命令</h4>
 								<div className="mb-2 flex gap-1.5">
 									<input
 										value={newFavorite}
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 										placeholder="添加常用命令…"
-										className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+										className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] font-mono text-white light:text-slate-900 outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
-									<button onClick={addFavorite} className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200 light:text-cyan-800 transition hover:bg-cyan-400/20">
 										+
 									</button>
 								</div>
@@ -393,7 +393,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<div key={cmd} className="group flex items-center gap-1">
 												<button
 													onClick={() => sendCommand(cmd)}
-													className="flex-1 truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
+													className="flex-1 truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-cyan-100/80 light:text-cyan-900/80 transition hover:bg-white/[0.06]"
 													title={cmd}
 												>
 													{cmd}
@@ -411,7 +411,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</section>
 
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white/60">📜 命令历史</h4>
+								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">📜 命令历史</h4>
 								{commandHistory.length === 0 ? (
 									<p className="text-[10px] text-slate-600">暂无历史命令</p>
 								) : (
@@ -420,7 +420,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<button
 												key={`${cmd}-${i}`}
 												onClick={() => sendCommand(cmd)}
-												className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-slate-400 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+												className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-slate-400 light:text-slate-600 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
 												title={cmd}
 											>
 												{cmd}
@@ -431,7 +431,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</section>
 
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white/60">⚡ 快捷命令</h4>
+								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">⚡ 快捷命令</h4>
 								<div className="space-y-1">
 									{["ls -la", "df -h", "free -m", "top -bn1 | head -20", "uptime", "whoami", "cat /etc/os-release", "ps aux --sort=-%mem | head -10"].map((cmd) => (
 										<button

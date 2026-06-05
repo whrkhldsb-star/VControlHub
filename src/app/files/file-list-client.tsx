@@ -209,7 +209,7 @@ export function FileListClient({
         type="button"
         onClick={() => toggleSort(col)}
         aria-label={`按${label}排序`}
-        className="inline-flex items-center gap-1 hover:text-white transition"
+        className="inline-flex items-center gap-1 hover:text-white light:hover:text-slate-900 transition"
       >
         {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
       </button>
@@ -470,7 +470,7 @@ export function FileListClient({
           <Link
             href={previewHref}
             title="预览"
-            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 transition hover:bg-cyan-500/20"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
           >
             <PreviewIcon />
           </Link>
@@ -527,7 +527,7 @@ export function FileListClient({
             >
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
             </svg>
-            <p className="text-sm text-slate-400">{emptyMessage}</p>
+            <p className="text-sm text-slate-400 light:text-slate-600">{emptyMessage}</p>
           </div>
         ) : null}
 
@@ -538,7 +538,7 @@ export function FileListClient({
             type="button"
             onClick={() => navigateToFolder(folder.path)}
             data-testid="folder-card"
-            className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900/80 p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
+            className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900/80 light:bg-white/80 p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
           >
             <div
               className="rounded-xl bg-amber-400/10 p-3 transition-colors group-hover:bg-amber-400/20"
@@ -546,7 +546,7 @@ export function FileListClient({
             >
               <FileTypeIcon entry={{ entryType: "DIRECTORY" }} size={36} />
             </div>
-            <span className="w-full truncate text-sm font-medium text-cyan-100 group-hover:text-white transition">
+            <span className="w-full truncate text-sm font-medium text-cyan-100 light:text-cyan-900 group-hover:text-white light:hover:text-slate-900 transition">
               {folder.displayName ?? folder.name}
             </span>
             <span className="text-xs text-slate-500">
@@ -566,7 +566,7 @@ export function FileListClient({
           return (
             <div
               key={entry.id}
-              className={`group relative flex flex-col rounded-2xl border border-white/[0.06] bg-slate-900/80 text-center transition-all duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04]" : ""}`}
+              className={`group relative flex flex-col rounded-2xl border border-white/[0.06] light:border-slate-200 bg-slate-900/80 light:bg-white text-center transition-all duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
             >
               {/* Selection checkbox */}
               <div className="absolute top-2 left-2 z-20">
@@ -576,7 +576,7 @@ export function FileListClient({
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                    className="h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
               </div>
@@ -610,12 +610,12 @@ export function FileListClient({
                 {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
-                    className="w-full truncate text-sm font-medium text-white hover:text-cyan-100 transition"
+                    className="w-full truncate text-sm font-medium text-white light:text-slate-900 hover:text-cyan-100 transition"
                   >
                     {entry.name}
                   </Link>
                 ) : (
-                  <span className="w-full truncate text-sm font-medium text-white">
+                  <span className="w-full truncate text-sm font-medium text-white light:text-slate-900">
                     {entry.name}
                   </span>
                 )}
@@ -627,12 +627,12 @@ export function FileListClient({
               </div>
 
               {/* Action bar — always visible, icon buttons */}
-              <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40">
+              <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40 light:bg-white/40">
                 {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
                     title="预览"
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 transition hover:bg-cyan-500/20"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
                   >
                     <PreviewIcon />
                   </Link>
@@ -682,7 +682,7 @@ export function FileListClient({
       <div className="divide-y divide-white/[0.04]">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
           <div className="px-6 py-16 text-center">
-            <p className="text-sm text-slate-400">{emptyMessage}</p>
+            <p className="text-sm text-slate-400 light:text-slate-600">{emptyMessage}</p>
           </div>
         ) : null}
 
@@ -701,7 +701,7 @@ export function FileListClient({
               <button
                 type="button"
                 onClick={() => navigateToFolder(folder.path)}
-                className="truncate font-medium text-cyan-100 hover:text-white transition text-left text-sm"
+                className="truncate font-medium text-cyan-100 light:text-cyan-900 hover:text-white light:hover:text-slate-900 transition text-left text-sm"
               >
                 {folder.displayName ?? folder.name}
               </button>
@@ -714,7 +714,7 @@ export function FileListClient({
               <button
                 type="button"
                 onClick={() => navigateToFolder(folder.path)}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-cyan-400/30 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition"
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-cyan-400/30 bg-cyan-500/15 text-cyan-100 light:text-cyan-900 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition"
               >
                 <svg
                   width="14"
@@ -775,13 +775,13 @@ export function FileListClient({
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                    className="h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
               </div>
 
               {/* Thumbnail or colored icon */}
-              <div className="shrink-0 w-12 h-12 rounded-xl border border-white/[0.06] bg-slate-900/80 overflow-hidden flex items-center justify-center">
+              <div className="shrink-0 w-12 h-12 rounded-xl border border-white/[0.06] bg-slate-900/80 light:bg-white/80 overflow-hidden flex items-center justify-center">
                 {thumbUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -803,12 +803,12 @@ export function FileListClient({
                   {entry.previewable && entryCanRead(entry) ? (
                     <Link
                       href={previewHref}
-                      className="truncate font-medium text-white hover:text-cyan-100 transition text-sm"
+                      className="truncate font-medium text-white light:text-slate-900 hover:text-cyan-100 transition text-sm"
                     >
                       {entry.name}
                     </Link>
                   ) : (
-                    <span className="truncate font-medium text-white text-sm">
+                    <span className="truncate font-medium text-white light:text-slate-900 text-sm">
                       {entry.name}
                     </span>
                   )}
@@ -846,7 +846,7 @@ export function FileListClient({
           data-testid="file-table-scroll"
         >
           <div className="min-w-[1180px]" data-testid="file-table-inner">
-            <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 font-medium">
+            <div className="grid grid-cols-[44px_44px_minmax(280px,2.6fr)_120px_170px_160px_minmax(240px,auto)] items-center gap-3 bg-white/5 px-5 py-3 text-xs uppercase tracking-[0.15em] text-slate-400 light:text-slate-600 font-medium">
               <div>
                 <input
                   type="checkbox"
@@ -877,7 +877,7 @@ export function FileListClient({
             </div>
             <div className="divide-y divide-white/[0.04]">
               {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
-                <div className="px-6 py-16 text-center text-sm text-slate-400">
+                <div className="px-6 py-16 text-center text-sm text-slate-400 light:text-slate-600">
                   {emptyMessage}
                 </div>
               ) : null}
@@ -904,7 +904,7 @@ export function FileListClient({
                     <button
                       type="button"
                       onClick={() => navigateToFolder(folder.path)}
-                      className="truncate font-medium text-cyan-100 hover:text-cyan-50 text-left"
+                      className="truncate font-medium text-cyan-100 light:text-cyan-900 hover:text-cyan-50 text-left"
                     >
                       {folder.displayName ?? folder.name}
                     </button>
@@ -912,7 +912,7 @@ export function FileListClient({
                   <div className="text-slate-500">
                     {folder.fileCount + folder.folderCount} 项
                   </div>
-                  <div className="truncate text-xs text-slate-400">
+                  <div className="truncate text-xs text-slate-400 light:text-slate-600">
                     {folder.sourceValues[0] ?? "—"}
                   </div>
                   <div className="text-xs text-slate-500">—</div>
@@ -920,7 +920,7 @@ export function FileListClient({
                     <button
                       type="button"
                       onClick={() => navigateToFolder(folder.path)}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition"
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 bg-cyan-500/10 text-cyan-200 light:text-cyan-800 hover:bg-cyan-500/20 transition"
                     >
                       <svg
                         width="12"
@@ -976,7 +976,7 @@ export function FileListClient({
                           checked={effectiveSelectedIdSet.has(entry.id)}
                           onChange={() => toggleOne(entry.id)}
                           aria-label={`选择 ${entry.name}`}
-                          className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                          className="h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
                         />
                       ) : null}
                     </div>
@@ -987,12 +987,12 @@ export function FileListClient({
                       {entry.previewable && entryCanRead(entry) ? (
                         <Link
                           href={previewHref}
-                          className="truncate font-medium text-white hover:text-cyan-100 transition"
+                          className="truncate font-medium text-white light:text-slate-900 hover:text-cyan-100 transition"
                         >
                           {entry.name}
                         </Link>
                       ) : (
-                        <span className="truncate font-medium text-white">
+                        <span className="truncate font-medium text-white light:text-slate-900">
                           {entry.name}
                         </span>
                       )}
@@ -1000,8 +1000,8 @@ export function FileListClient({
                         {entry.relativePath}
                       </p>
                     </div>
-                    <div className="text-slate-300">{entry.sizeLabel}</div>
-                    <div className="text-slate-400 truncate text-xs">
+                    <div className="text-slate-300 light:text-slate-700">{entry.sizeLabel}</div>
+                    <div className="text-slate-400 light:text-slate-600 truncate text-xs">
                       {entry.storageNode.name}
                     </div>
                     <div className="text-slate-500 text-xs">
@@ -1012,7 +1012,7 @@ export function FileListClient({
                         <Link
                           href={previewHref}
                           title="预览"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 transition hover:bg-cyan-500/20"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
                         >
                           <PreviewIcon />
                         </Link>
@@ -1056,7 +1056,7 @@ export function FileListClient({
         {/* Mobile card view (below md) */}
         <div className="md:hidden divide-y divide-white/[0.04]">
           {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
-            <div className="px-6 py-16 text-center text-sm text-slate-400">
+            <div className="px-6 py-16 text-center text-sm text-slate-400 light:text-slate-600">
               {emptyMessage}
             </div>
           ) : null}
@@ -1074,7 +1074,7 @@ export function FileListClient({
                   <button
                     type="button"
                     onClick={() => navigateToFolder(folder.path)}
-                    className="truncate font-medium text-cyan-100 hover:text-cyan-50 text-left text-sm"
+                    className="truncate font-medium text-cyan-100 light:text-cyan-900 hover:text-cyan-50 text-left text-sm"
                   >
                     {folder.displayName ?? folder.name}
                   </button>
@@ -1085,7 +1085,7 @@ export function FileListClient({
                 <button
                   type="button"
                   onClick={() => navigateToFolder(folder.path)}
-                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition"
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 bg-cyan-500/10 text-cyan-200 light:text-cyan-800 hover:bg-cyan-500/20 transition"
                 >
                   打开
                 </button>
@@ -1135,7 +1135,7 @@ export function FileListClient({
                       checked={effectiveSelectedIdSet.has(entry.id)}
                       onChange={() => toggleOne(entry.id)}
                       aria-label={`选择 ${entry.name}`}
-                      className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                      className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
                     />
                   ) : null}
                   <div className="shrink-0 mt-0.5 rounded-lg bg-white/[0.03] p-1">
@@ -1145,12 +1145,12 @@ export function FileListClient({
                     {entry.previewable && entryCanRead(entry) ? (
                       <Link
                         href={previewHref}
-                        className="truncate font-medium text-white text-sm hover:text-cyan-100 transition"
+                        className="truncate font-medium text-white light:text-slate-900 text-sm hover:text-cyan-100 transition"
                       >
                         {entry.name}
                       </Link>
                     ) : (
-                      <span className="truncate font-medium text-white text-sm">
+                      <span className="truncate font-medium text-white light:text-slate-900 text-sm">
                         {entry.name}
                       </span>
                     )}
@@ -1168,7 +1168,7 @@ export function FileListClient({
                     <Link
                       href={previewHref}
                       title="预览"
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 transition hover:bg-cyan-500/20"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
                     >
                       <PreviewIcon />
                     </Link>
@@ -1219,15 +1219,15 @@ export function FileListClient({
       <div className="mt-6 overflow-x-auto rounded-2xl border border-white/[0.08]">
         {/* View mode toggle header bar */}
         <div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2 text-sm text-slate-400">
+          <div className="flex items-center gap-2 text-sm text-slate-400 light:text-slate-600">
             <span>{sortedFolders.length + sortedFiles.length} 项</span>
             {selectedCount > 0 ? (
-              <span className="text-cyan-300 font-medium">
+              <span className="text-cyan-300 light:text-cyan-700 font-medium">
                 · 已选 {selectedCount} 个
               </span>
             ) : null}
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-slate-950/80 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-slate-950/80 light:bg-white/80 p-1">
             <button
               type="button"
               onClick={() => handleViewModeChange("list")}
@@ -1333,13 +1333,13 @@ export function FileListClient({
         <div
           role="alert"
           aria-labelledby={batchErrorTitleId}
-          className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-amber-400/30 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-2xl"
+          className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-amber-400/30 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 light:text-amber-900 shadow-2xl"
         >
           <p id={batchErrorTitleId} className="font-medium">
             批量操作完成，{progress.errors.length + moveProgress.errors.length}{" "}
             个失败
           </p>
-          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-amber-100/80">
+          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-amber-100/80 light:text-amber-900/80">
             {[...progress.errors, ...moveProgress.errors].map((error) => (
               <li key={error}>• {error}</li>
             ))}
@@ -1353,7 +1353,7 @@ export function FileListClient({
           role="region"
           aria-labelledby={batchToolbarTitleId}
           aria-describedby={batchToolbarDescriptionId}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur border border-white/10 rounded-2xl shadow-2xl px-5 py-3"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 light:bg-white/95 backdrop-blur border border-white/10 light:border-slate-200 rounded-2xl shadow-2xl px-5 py-3"
         >
           <span id={batchToolbarTitleId} className="sr-only">
             文件批量操作
@@ -1363,14 +1363,14 @@ export function FileListClient({
           </span>
           {batchAction === "confirm-delete" ? (
             <>
-              <span className="text-sm text-rose-200">
+              <span className="text-sm text-rose-200 light:text-rose-800">
                 确认删除 {selectedCount} 个文件？
               </span>
               <button
                 type="button"
                 onClick={handleBatchDelete}
                 disabled={isPending}
-                className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
+                className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20 disabled:opacity-50"
               >
                 确认删除
               </button>
@@ -1378,14 +1378,14 @@ export function FileListClient({
                 type="button"
                 onClick={() => setBatchAction("none")}
                 disabled={isPending}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10 disabled:opacity-50"
               >
                 取消
               </button>
             </>
           ) : batchAction === "deleting" ? (
             <>
-              <span className="text-sm text-rose-200">
+              <span className="text-sm text-rose-200 light:text-rose-800">
                 已删除 {progress.done}/{progress.total} 个
               </span>
               {progress.done < progress.total ? (
@@ -1399,24 +1399,24 @@ export function FileListClient({
                 </div>
               ) : null}
               {progress.errors.length > 0 ? (
-                <span className="text-sm text-amber-200">
+                <span className="text-sm text-amber-200 light:text-amber-800">
                   {progress.errors.length} 个失败
                 </span>
               ) : null}
             </>
           ) : batchAction === "moving" ? (
             <>
-              <span className="text-sm text-slate-200">目标路径：</span>
+              <span className="text-sm text-slate-200 light:text-slate-800">目标路径：</span>
               <input
                 type="text"
                 value={moveTargetDir}
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || "目标路径"}
                 aria-label="批量移动目标路径"
-                className="w-40 rounded-2xl border border-white/10 bg-slate-950 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
+                className="w-40 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-1.5 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (
-                <span className="text-sm text-cyan-200">
+                <span className="text-sm text-cyan-200 light:text-cyan-800">
                   已移动 {moveProgress.done}/{moveProgress.total} 个
                   {moveProgress.errors.length > 0
                     ? `（${moveProgress.errors.length} 个失败）`
@@ -1429,7 +1429,7 @@ export function FileListClient({
                 disabled={
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
                 }
-                className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 确认移动
               </button>
@@ -1441,20 +1441,20 @@ export function FileListClient({
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
                 disabled={isPending && moveProgress.done > 0}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10 disabled:opacity-50"
               >
                 取消
               </button>
             </>
           ) : (
             <>
-              <span className="text-sm text-slate-200">
+              <span className="text-sm text-slate-200 light:text-slate-800">
                 已选 {selectedCount} 个文件
               </span>
               <button
                 type="button"
                 onClick={clearSelection}
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+                className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
               >
                 取消选择
               </button>
@@ -1462,7 +1462,7 @@ export function FileListClient({
                 <button
                   type="button"
                   onClick={() => setBatchAction("confirm-delete")}
-                  className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+                  className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20"
                 >
                   批量删除
                 </button>
@@ -1471,7 +1471,7 @@ export function FileListClient({
                 <button
                   type="button"
                   onClick={handleBatchMove}
-                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
                 >
                   批量移动
                 </button>

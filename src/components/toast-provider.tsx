@@ -56,14 +56,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             className={`pointer-events-auto flex items-center gap-3 rounded-2xl border px-5 py-3 text-sm shadow-2xl backdrop-blur transition-all animate-in slide-in-from-right ${
-              toast.type === "success"
-                ? "border-emerald-400/30 bg-emerald-900/90 text-emerald-100"
-                : toast.type === "error"
-                  ? "border-rose-400/30 bg-rose-900/90 text-rose-100"
-                  : toast.type === "warning"
-                    ? "border-amber-400/30 bg-amber-900/90 text-amber-100"
-                    : "border-cyan-400/30 bg-cyan-900/90 text-cyan-100"
-            }`}
+ toast.type ==="success"
+ ?"border-emerald-400/30 bg-emerald-900/90 text-emerald-100 light:text-emerald-900"
+ : toast.type ==="error"
+ ?"border-rose-400/30 bg-rose-900/90 text-rose-100 light:text-rose-900"
+ : toast.type ==="warning"
+ ?"border-amber-400/30 bg-amber-900/90 text-amber-100 light:text-amber-900"
+ :"border-cyan-400/30 bg-cyan-900/90 text-cyan-100 light:text-cyan-900"
+ }`}
           >
             <span className="text-lg">
               {toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : toast.type === "warning" ? "⚠" : "ℹ"}

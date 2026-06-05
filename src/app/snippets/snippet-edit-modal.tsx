@@ -54,7 +54,7 @@ export function SnippetEditModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 light:bg-slate-900/60 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white">
         <h3 className="text-lg font-semibold text-white light:text-slate-900">编辑代码片段</h3>
 
@@ -64,7 +64,7 @@ export function SnippetEditModal({
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
             />
           </div>
           <div>
@@ -72,7 +72,7 @@ export function SnippetEditModal({
             <input
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
             />
           </div>
           <div>
@@ -99,7 +99,7 @@ export function SnippetEditModal({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={10}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-xs text-slate-300 outline-none focus:border-cyan-400/50 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-xs text-slate-300 outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-400 light:text-slate-500">
@@ -125,7 +125,7 @@ export function SnippetEditModal({
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? "保存中…" : "保存"}
           </button>

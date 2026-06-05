@@ -220,53 +220,7 @@ export function TextPreviewClient({ href, name }: { href: string; name?: string 
 		let cancelled = false;
 		fetch(href)
 			.then(async (res) => {
-				if (!res.ok) throw new Error(`加载失败: ${res.status}`);
-				const text = await res.text();
-				if (!cancelled) setState({ loading: false, content: text, error: null });
-			})
-			.catch((err) => {
-				if (!cancelled) setState({ loading: false, content: null, error: err instanceof Error ? err.message : "加载失败" });
-			});
-		return () => { cancelled = true; };
-	}, [href]);
-
-	const handleJumpToLine = useCallback(() => {
-		const num = parseInt(jumpLine, 10);
-		if (isNaN(num) || num < 1) return;
-		const el = lineRef.current.get(num - 1);
-		if (el) {
-			el.scrollIntoView({ behavior: "smooth", block: "center" });
-			el.classList.add("bg-amber-400/10");
-			setTimeout(() => el.classList.remove("bg-amber-400/10"), 2000);
-		}
-	}, [jumpLine]);
-
-	if (state.loading) {
-		return (
-			<div className="flex items-center justify-center py-16 text-slate-400">
-				<span className="animate-pulse text-sm">正在加载文件内容…</span>
-			</div>
-		);
-	}
-
-	if (state.error) {
-		return (
-			<div className="flex flex-col items-center gap-3 py-16 text-red-300">
-				<span className="text-3xl">⚠️</span>
-				<p className="text-sm">{state.error}</p>
-			</div>
-		);
-	}
-
-	const lines = (state.content ?? "").split("\n");
-	const totalLines = lines.length;
-
-	const highlightSearch = (html: string): string => {
-		if (!searchQuery.trim()) return html;
-		try {
-			const escapedQuery = escapeHtml(searchQuery);
-		const escaped = escapeRegex(escapedQuery);
-			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded px-0.5">$1</mark>');
+				if (!res.ok) throw new Error(`加载失败: ${res.status}`); const text = await res.text(); if (!cancelled) setState({ loading: false, content: text, error: null }); }) .catch((err) => { if (!cancelled) setState({ loading: false, content: null, error: err instanceof Error ? err.message :"加载失败" }); }); return () => { cancelled = true; }; }, [href]); const handleJumpToLine = useCallback(() => { const num = parseInt(jumpLine, 10); if (isNaN(num) || num < 1) return; const el = lineRef.current.get(num - 1); if (el) { el.scrollIntoView({ behavior:"smooth", block:"center" }); el.classList.add("bg-amber-400/10"); setTimeout(() => el.classList.remove("bg-amber-400/10"), 2000); } }, [jumpLine]); if (state.loading) { return ( <div className="flex items-center justify-center py-16 text-slate-400 light:text-slate-600"> <span className="animate-pulse text-sm">正在加载文件内容…</span> </div> ); } if (state.error) { return ( <div className="flex flex-col items-center gap-3 py-16 text-red-300"> <span className="text-3xl">⚠️</span> <p className="text-sm">{state.error}</p> </div> ); } const lines = (state.content ??"").split("\n"); const totalLines = lines.length; const highlightSearch = (html: string): string => { if (!searchQuery.trim()) return html; try { const escapedQuery = escapeHtml(searchQuery); const escaped = escapeRegex(escapedQuery); return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded px-0.5">$1</mark>');
 		} catch {
 			return html;
 		}
@@ -288,7 +242,7 @@ export function TextPreviewClient({ href, name }: { href: string; name?: string 
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder="搜索..."
-						className="w-28 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none"
+						className="w-28 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
 					/>
 				</div>
 				{/* Jump to line */}
@@ -299,12 +253,12 @@ export function TextPreviewClient({ href, name }: { href: string; name?: string 
 						onChange={(e) => setJumpLine(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
 						placeholder="跳转行号"
-						className="w-20 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-300 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none"
+						className="w-20 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
 					/>
 					<button
 						type="button"
 						onClick={handleJumpToLine}
-						className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+						className="rounded-lg border border-slate-700 light:border-slate-200 bg-slate-800 light:bg-slate-100 px-2 py-1 text-xs text-slate-300 light:text-slate-700 hover:bg-slate-700 light:hover:bg-slate-200"
 					>
 						跳转
 					</button>
@@ -312,8 +266,8 @@ export function TextPreviewClient({ href, name }: { href: string; name?: string 
 			</div>
 
 			{/* Code area */}
-			<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 p-4 text-sm leading-relaxed max-h-[75vh]">
-				<pre className="font-mono text-slate-300">
+			<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 light:bg-white p-4 text-sm leading-relaxed max-h-[75vh]">
+				<pre className="font-mono text-slate-300 light:text-slate-700">
 					<code>
 						{lines.map((line, i) => {
 						let html = highlightLine(line, lang);

@@ -77,22 +77,22 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 	return (
 		<div className="space-y-6">
 			{templatePendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
-					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-						<h3 id="delete-template-title" className="text-base font-semibold text-white">删除命令模板</h3>
-						<p className="mt-2 text-sm text-slate-400">确认删除模板 <span className="font-medium text-slate-100">{templatePendingDelete.name}</span>？此操作不可恢复。</p>
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
+					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
+						<h3 id="delete-template-title" className="text-base font-semibold text-white light:text-slate-900">删除命令模板</h3>
+						<p className="mt-2 text-sm text-slate-400 light:text-slate-600">确认删除模板 <span className="font-medium text-slate-100 light:text-slate-900">{templatePendingDelete.name}</span>？此操作不可恢复。</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button
 								type="button"
 								onClick={() => setTemplatePendingDelete(null)}
-								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
+								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
 							<button
 								type="button"
 								onClick={() => handleDelete(templatePendingDelete.id)}
-								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
+								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-500/25"
 							>
 								确认删除
 							</button>
@@ -126,7 +126,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 				{canCreate && !showCreate && (
 					<button
 						onClick={() => setShowCreate(true)}
-						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
 					>
 						+ 创建模板
 					</button>
@@ -149,21 +149,21 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 						<article key={tmpl.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.04] transition-colors duration-150 flex flex-col">
 							<div className="flex items-start justify-between gap-2">
 								<div>
-									<h3 className="text-sm font-semibold text-white">{tmpl.name}</h3>
+									<h3 className="text-sm font-semibold text-white light:text-slate-900">{tmpl.name}</h3>
 									{tmpl.description && <p className="mt-0.5 text-[11px] text-slate-500">{tmpl.description}</p>}
 								</div>
 								{tmpl.isBuiltin && (
-									<span className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] text-cyan-300 shrink-0">内置</span>
+									<span className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] text-cyan-300 light:text-cyan-700 shrink-0">内置</span>
 								)}
 							</div>
-							<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04] line-clamp-2">
+							<div className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-2 font-mono text-xs text-cyan-100/80 light:text-cyan-900/80 border border-white/[0.04] line-clamp-2">
 								{tmpl.command}
 							</div>
 							{tmpl.variables.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 {tmpl.variables.map((v) => {
 											const placeholder = `{{${v}}}`;
-											return <span key={v} className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] text-amber-200 font-mono">{placeholder}</span>;
+											return <span key={v} className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] text-amber-200 light:text-amber-800 font-mono">{placeholder}</span>;
 										})}
 								</div>
 							)}
@@ -226,12 +226,12 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 		<div className="w-full space-y-2.5">
 			{template.variables.map((v) => (
 				<div key={v} className="flex items-center gap-2">
-{(() => { const lbl = `{{${v}}}=`; return <span className="text-[11px] text-amber-200 font-mono w-24 shrink-0">{lbl}</span>; })()}
+{(() => { const lbl = `{{${v}}}=`; return <span className="text-[11px] text-amber-200 light:text-amber-800 font-mono w-24 shrink-0">{lbl}</span>; })()}
 					<input
 						value={vars[v] ?? ""}
 					onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 						placeholder={v}
-						className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+						className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white light:text-slate-900 font-mono outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 					/>
 				</div>
 			))}
@@ -253,7 +253,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				>
 					{loading ? "提交中…" : "提交部署"}
 				</button>
-				<button onClick={() => setOpen(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition">
+				<button onClick={() => setOpen(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-400 light:text-slate-600 hover:bg-white/[0.06] transition">
 					取消
 				</button>
 			</div>
@@ -294,30 +294,30 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 
 	return (
 		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white">创建命令模板</h3>
-			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
+			<h3 className="text-lg font-semibold text-white light:text-slate-900">创建命令模板</h3>
+			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{error}</div>}
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">模板名称</label>
-				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：Docker Compose 更新" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">模板名称</label>
+				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：Docker Compose 更新" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">描述</label>
-				<input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选说明" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">描述</label>
+				<input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选说明" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">命令内容</label>
-				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">命令内容</label>
+				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
 				<p className="text-[11px] text-slate-600">使用 `{"{{变量名}}"}` 作为占位符，下发时填入实际值</p>
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">标签（逗号分隔）</label>
-				<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="docker, deploy" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">标签（逗号分隔）</label>
+				<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="docker, deploy" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建模板"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 light:text-slate-700 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>

@@ -98,7 +98,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 								target="_blank"
 								rel="noopener noreferrer"
 								onClick={() => setMobileOpen(false)}
-								className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
+								className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 							>
 								<span className="text-[18px] leading-none">{item.icon}</span>
 								<span>{item.name}</span>
@@ -122,7 +122,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 						setPasswordModalOpen(true);
 						setMobileOpen(false);
 					}}
-					className="flex w-full items-center gap-3 rounded-lg px-3.5 py-2 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
+					className="flex w-full items-center gap-3 rounded-lg px-3.5 py-2 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 				>
 					<IconKey />
 					<span>{t("auth.change-password") === "auth.change-password" ? "修改密码" : t("auth.change-password")}</span>

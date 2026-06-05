@@ -139,33 +139,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
   };
 
   const storageEntry = createStorageEntry(item);
-  const previewHref = storageEntry ? `/media/${encodeURIComponent(item.id)}?from=${encodeURIComponent('/media')}` : null;
-  const downloadHref = storageEntry ? appendDownloadFlag(buildProxyDownloadHref(storageEntry)) : null;
-  const sourceHref = item.storageNode
-    ? buildSearchHref(containingFolderPath(item.relativePath), {
-        nodeId: item.storageNode.id,
-        q: item.name,
-      })
-    : null;
-
-  return (
-    <div className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12] light:border-slate-200 light:bg-slate-50">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span>{item.mediaType === "image" ? "🖼" : "🎬"}</span>
-            <span className="truncate text-sm font-medium text-white light:text-slate-900">{item.name}</span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-500" title={item.relativePath}>📂 {item.relativePath}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
-            <span>📦 {formatSize(item.size)}</span>
-            <span>💾 {storageLabel(item)}</span>
-          </div>
-        </div>
-        {canManage && (
-          <button
-            onClick={toggleFav}
-            className={`shrink-0 rounded p-1 transition ${fav ? "text-amber-400 hover:text-amber-300" : "text-slate-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"}`}
+  const previewHref = storageEntry ? `/media/${encodeURIComponent(item.id)}?from=${encodeURIComponent('/media')}`: null; const downloadHref = storageEntry ? appendDownloadFlag(buildProxyDownloadHref(storageEntry)) : null; const sourceHref = item.storageNode ? buildSearchHref(containingFolderPath(item.relativePath), { nodeId: item.storageNode.id, q: item.name, }) : null; return ( <div className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12] light:hover:border-slate-200 light:bg-slate-50"> <div className="flex items-start justify-between gap-2"> <div className="min-w-0 flex-1"> <div className="flex items-center gap-1.5"> <span>{item.mediaType ==="image" ?"🖼" :"🎬"}</span> <span className="truncate text-sm font-medium text-white light:text-slate-900">{item.name}</span> </div> <p className="mt-1 text-[11px] text-slate-500" title={item.relativePath}>📂 {item.relativePath}</p> <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500"> <span>📦 {formatSize(item.size)}</span> <span>💾 {storageLabel(item)}</span> </div> </div> {canManage && ( <button onClick={toggleFav} className={`shrink-0 rounded p-1 transition ${fav ? "text-amber-400 hover:text-amber-300" : "text-slate-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"}`}
             title={fav ? "取消收藏" : "收藏"}
           >
             <Star size={16} fill={fav ? "currentColor" : "none"} />
@@ -204,9 +178,9 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
       {canManage && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {tags.map((t) => (
-            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300">
+            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300 light:text-cyan-700">
               {t}
-              <button onClick={() => removeTag(t)} className="text-cyan-400/50 hover:text-cyan-300">×</button>
+              <button onClick={() => removeTag(t)} className="text-cyan-400/50 hover:text-cyan-300 light:hover:text-cyan-700">×</button>
             </span>
           ))}
           {showTagInput ? (
@@ -216,13 +190,13 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") addTag(); if (e.key === "Escape") setShowTagInput(false); }}
               onBlur={() => { if (newTag.trim()) addTag(); else setShowTagInput(false); }}
-              className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-slate-600"
+              className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
               placeholder="标签名"
             />
           ) : (
             <button
               onClick={() => setShowTagInput(true)}
-              className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-white/10 px-2 py-0.5 text-[10px] text-slate-500 opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
+              className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-white/10 light:border-slate-200 px-2 py-0.5 text-[10px] text-slate-500 opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
             >
               <Tag size={10} /> 添加
             </button>
@@ -233,7 +207,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
       {!canManage && tags.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {tags.map((t) => (
-            <span key={t} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300">{t}</span>
+            <span key={t} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300 light:text-cyan-700">{t}</span>
           ))}
         </div>
       )}

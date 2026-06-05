@@ -52,7 +52,7 @@ export function RenameInlineForm({
 				type="button"
 				onClick={handleToggle}
 				title="重命名"
-				className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 transition hover:bg-amber-400/20"
+				className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 light:text-amber-900 transition hover:bg-amber-400/20"
 			>
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 			</button>
@@ -61,40 +61,25 @@ export function RenameInlineForm({
 
   const lastSlashIndex = currentPath.lastIndexOf("/");
   const pathPrefix = lastSlashIndex >= 0 ? currentPath.substring(0, lastSlashIndex + 1) : "";
-  const previewPath = newName.trim() ? `${pathPrefix}${newName.trim()}` : currentPath;
-
-  return (
-    <form action={formAction} className="flex flex-wrap items-center gap-3">
-      <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <label className="grid gap-1 text-sm text-slate-300">
-        <span className="sr-only">新名称</span>
-        <input
-          ref={inputRef}
-          name="newName"
-          value={newName}
-          onChange={(event) => setNewName(event.currentTarget.value)}
-          required
-          minLength={1}
-          maxLength={255}
-          pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
+  const previewPath = newName.trim() ? `${pathPrefix}${newName.trim()}`: currentPath; return ( <form action={formAction} className="flex flex-wrap items-center gap-3"> <input type="hidden" name="fileEntryId" value={fileEntryId} /> <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700"> <span className="sr-only">新名称</span> <input ref={inputRef} name="newName" value={newName} onChange={(event) => setNewName(event.currentTarget.value)} required minLength={1} maxLength={255} pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder="输入新名称"
-          className="rounded-2xl border border-white/10 bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500"
+          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400"
         />
       </label>
       {newName.trim() && newName !== currentName ? (
-        <span className="text-xs text-slate-400">路径：/{previewPath}</span>
+        <span className="text-xs text-slate-400 light:text-slate-600">路径：/{previewPath}</span>
       ) : null}
       <button
         type="submit"
         disabled={!newName.trim() || newName === currentName}
-        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
         确认
       </button>
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+        className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
       >
         取消
       </button>
@@ -102,7 +87,7 @@ export function RenameInlineForm({
         <span className="text-xs text-rose-300">{state.error}</span>
       ) : null}
       {state.success ? (
-        <span className="text-xs text-emerald-300">{state.success}</span>
+        <span className="text-xs text-emerald-300 light:text-emerald-700">{state.success}</span>
       ) : null}
     </form>
   );

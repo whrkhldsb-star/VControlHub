@@ -33,45 +33,45 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	return (
 		<PageShell>
 			<header className="mb-8">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Deploy</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">应用部署</h1>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Deploy</p>
+				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">应用部署</h1>
 				<p className="mt-1.5 text-sm text-slate-500">选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。</p>
 			</header>
 
 			{/* How it works */}
 			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
-				<h2 className="text-sm font-semibold text-white mb-3">💡 使用流程</h2>
-				<div className="grid gap-2 text-xs text-slate-400 md:grid-cols-5">
+				<h2 className="text-sm font-semibold text-white light:text-slate-900 mb-3">💡 使用流程</h2>
+				<div className="grid gap-2 text-xs text-slate-400 light:text-slate-600 md:grid-cols-5">
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">📝</div>
-						<div className="font-medium text-white">1. 创建模板</div>
-						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300">{"{{变量名}}"}</code> 的部署脚本</div>
+						<div className="font-medium text-white light:text-slate-900">1. 创建模板</div>
+						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300 light:text-cyan-700">{"{{变量名}}"}</code> 的部署脚本</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🎯</div>
-						<div className="font-medium text-white">2. 选择模板</div>
+						<div className="font-medium text-white light:text-slate-900">2. 选择模板</div>
 						<div className="mt-1">在下方选择你要部署的模板</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">⚙️</div>
-						<div className="font-medium text-white">3. 填写变量</div>
+						<div className="font-medium text-white light:text-slate-900">3. 填写变量</div>
 						<div className="mt-1">填写模板所需的变量值（如版本号、端口等）</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🖥️</div>
-						<div className="font-medium text-white">4. 选择 VPS</div>
+						<div className="font-medium text-white light:text-slate-900">4. 选择 VPS</div>
 						<div className="mt-1">勾选要部署到的目标服务器</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🚀</div>
-						<div className="font-medium text-white">5. 提交审批</div>
+						<div className="font-medium text-white light:text-slate-900">5. 提交审批</div>
 						<div className="mt-1">进入审批链路，审批通过后自动执行并记录日志</div>
 					</div>
 				</div>
 				<p className="mt-3 text-xs text-slate-500">每次部署都会生成唯一的运行记录，支持一键重发回退。所有操作经过审批链路，确保可审计。</p>
 			</section>
 			{formError && (
-				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200">
+				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200 light:text-rose-800">
 					部署提交失败：{formError}
 				</div>
 			)}
@@ -87,13 +87,13 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">快速回退</p>
-							<h2 className="mt-1 text-sm font-semibold text-white">最近部署：{latestRun.template.name}</h2>
-							<p className="mt-1 text-xs text-slate-400">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 审批 {latestRun.commandRequestId || "待创建"}</p>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70 light:text-cyan-800/70">快速回退</p>
+							<h2 className="mt-1 text-sm font-semibold text-white light:text-slate-900">最近部署：{latestRun.template.name}</h2>
+							<p className="mt-1 text-xs text-slate-400 light:text-slate-600">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 审批 {latestRun.commandRequestId || "待创建"}</p>
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{latestRun.renderedCommand}</code>
+					<code className="mt-4 block max-h-24 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300 light:text-slate-700">{latestRun.renderedCommand}</code>
 					<div className="mt-4">
 						<ResendDeployButton
 							templateId={latestRun.templateId}
@@ -107,18 +107,18 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				</section>
 			)}
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">部署运行</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white light:text-slate-900">部署运行</div>
 				<div className="divide-y divide-white/[0.06]">
 					{runs.length === 0 ? <EmptyState text="暂无部署运行记录" /> : runs.map((r) => (
 						<div key={r.id} className="px-5 py-4">
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-white">{r.template.name}</h3>
+									<h3 className="text-sm font-medium text-white light:text-slate-900">{r.template.name}</h3>
 									<p className="mt-1 text-xs text-slate-500">目标 {r.serverIds.length} 台 · {r.createdAt.toLocaleString("zh-CN")} · 审批 {r.commandRequestId || "待创建"}</p>
 								</div>
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
-							<code className="mt-3 block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300">{r.renderedCommand}</code>
+							<code className="mt-3 block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300 light:text-slate-700">{r.renderedCommand}</code>
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
 							{canRun && (
 								<div className="mt-3">

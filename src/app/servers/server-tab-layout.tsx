@@ -45,9 +45,9 @@ export function ServerTabLayout({
 								disabled={disabled}
 								className={`rounded-xl border px-4 py-3 text-left transition-all duration-150 ${
 									activePanel === action.key
-										? "border-cyan-400/25 bg-cyan-400/10 text-cyan-100 shadow-[0_0_0_1px_rgba(34,211,238,0.1)]"
-										: "border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
-								} ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+										?"border-cyan-400/25 bg-cyan-400/10 text-cyan-100 light:text-cyan-900 shadow-[0_0_0_1px_rgba(34,211,238,0.1)]"
+										:"border-white/[0.06] bg-white/[0.03] text-slate-300 light:text-slate-700 hover:bg-white/[0.06]"
+								} ${disabled ?"cursor-not-allowed opacity-45" :""}`}
 							>
 								<div className="text-sm font-medium">{action.label}</div>
 							</button>
