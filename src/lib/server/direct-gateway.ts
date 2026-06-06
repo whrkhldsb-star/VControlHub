@@ -150,14 +150,25 @@ ReadWritePaths=/opt/vcontrolhub-direct ${input.rootPath}
 WantedBy=multi-user.target
 VCH_DIRECT_UNIT
 systemctl daemon-reload
-systemctl enable --now ${DIRECT_GATEWAY_SERVICE_NAME}
+systemctl enable ${DIRECT_GATEWAY_SERVICE_NAME}
+systemctl restart ${DIRECT_GATEWAY_SERVICE_NAME}
 python3 - <<'VCH_DIRECT_HEALTH'
+import time
 from urllib.request import urlopen
+last_error = None
 url = "http://127.0.0.1:${port}/__vch_health"
-with urlopen(url, timeout=10) as response:
-    body = response.read().decode("utf-8", "replace").strip()
-    if response.status != 200 or body != "ok":
-        raise SystemExit(f"unexpected direct gateway health response: {response.status} {body!r}")
+for _ in range(20):
+    try:
+        with urlopen(url, timeout=3) as response:
+            body = response.read().decode("utf-8", "replace").strip()
+            if response.status == 200 and body == "ok":
+                break
+            last_error = RuntimeError(f"unexpected direct gateway health response: {response.status} {body!r}")
+    except Exception as exc:
+        last_error = exc
+        time.sleep(0.5)
+else:
+    raise SystemExit(f"direct gateway health check failed: {last_error}")
 VCH_DIRECT_HEALTH
 echo vcontrolhub-direct-ready`;
 }

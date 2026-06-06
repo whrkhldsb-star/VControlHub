@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import posixPath from "node:path/posix";
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -44,6 +45,26 @@ function getDirectAccessSecret() {
   );
 }
 
+function normalizeDirectGatewaySignedPath(input: {
+  publicBaseUrl: string;
+  relativePath: string;
+}) {
+  const basePathname = new URL(input.publicBaseUrl).pathname;
+  const basePrefix = posixPath
+    .normalize(`/${decodeURIComponent(basePathname).replace(/^\/+|\/+$/g, "")}`)
+    .replace(/\/$/, "");
+  const relativePathname = posixPath.normalize(
+    `/${input.relativePath
+      .split("/")
+      .filter(Boolean)
+      .join("/")}`,
+  );
+
+  return posixPath
+    .normalize(`${basePrefix === "/" ? "" : basePrefix}${relativePathname}`)
+    .replace(/\/+/g, "/");
+}
+
 function buildSignedDirectUrl(input: {
   publicBaseUrl: string;
   relativePath: string;
@@ -64,7 +85,10 @@ function buildSignedDirectUrl(input: {
     throw new Error("未配置直连签名密钥 STORAGE_DIRECT_ACCESS_SECRET");
   }
 
-  const signedPath = `/${relativeSegments.join("/")}`;
+  const signedPath = normalizeDirectGatewaySignedPath({
+    publicBaseUrl: input.publicBaseUrl,
+    relativePath: input.relativePath,
+  });
   const signature = crypto
     .createHmac("sha256", secret)
     .update(`${signedPath}.${expires}`)

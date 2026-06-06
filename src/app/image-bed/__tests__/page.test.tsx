@@ -49,7 +49,7 @@ describe("ImageBedPage", () => {
 
   it("loads local storage nodes through the supported API when opening cloud publish", async () => {
     const user = userEvent.setup();
-    render(<ImageBedPageClient />);
+    render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
@@ -57,8 +57,9 @@ describe("ImageBedPage", () => {
     await waitFor(() =>
       expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes?driver=LOCAL"),
     );
-    expect(await screen.findByRole("option", { name: "本机存储" })).toHaveValue(
-      "node_1",
+    const options = await screen.findAllByRole("option", { name: "本机存储" });
+    expect(options.some((option) => (option as HTMLOptionElement).value === "node_1")).toBe(
+      true,
     );
   });
 
@@ -73,7 +74,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPageClient />);
+    render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
@@ -98,7 +99,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPageClient />);
+    render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     const input = document.querySelector(
@@ -160,7 +161,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPageClient />);
+    render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("cat.png");
     await user.click(screen.getByTitle("删除"));
@@ -234,7 +235,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPageClient />);
+    render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("cat.png");
     await user.click(screen.getByRole("button", { name: "☐ 批量模式" }));
@@ -300,7 +301,7 @@ describe("ImageBedPage", () => {
       throw new Error(`unexpected request: ${url}`);
     });
 
-    render(<ImageBedPageClient />);
+    render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("private-cat.png");
     expect(screen.getByText("私有")).toBeInTheDocument();

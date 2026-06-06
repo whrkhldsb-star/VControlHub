@@ -17,6 +17,7 @@ type Props = {
 	tasks: Task[];
 	servers: ServerOption[];
 	canCreate: boolean;
+	canManage: boolean;
 };
 
 const statusBadge: Record<string, string> = {
@@ -36,7 +37,7 @@ function formatTime(iso: string | null): string {
 	return new Date(iso).toLocaleString("zh-CN");
 }
 
-export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate }: Props) {
+export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate, canManage }: Props) {
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
@@ -123,23 +124,27 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									)}
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
-									<button
-										onClick={() => toggleTask(task.id)}
-										className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
-											task.status === "ACTIVE"
-												? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
-												: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
-										}`}
-									>
-										{task.status === "ACTIVE" ? "暂停" : "恢复"}
-									</button>
-									<button
-										onClick={() => setTaskPendingDelete(task)}
-										className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
-									>
-										删除
-									</button>
-								</div>
+										{canManage && (
+											<button
+												onClick={() => toggleTask(task.id)}
+												className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
+													task.status === "ACTIVE"
+														? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
+														: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
+												}`}
+											>
+												{task.status === "ACTIVE" ? "暂停" : "恢复"}
+											</button>
+										)}
+										{canManage && (
+											<button
+												onClick={() => setTaskPendingDelete(task)}
+												className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
+											>
+												删除
+											</button>
+										)}
+									</div>
 							</div>
 						</article>
 					))}

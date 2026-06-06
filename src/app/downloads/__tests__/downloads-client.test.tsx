@@ -47,7 +47,7 @@ describe("DownloadsClient", () => {
   it("surfaces download list load failures instead of showing a misleading empty state", async () => {
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("下载列表加载失败"));
 
-    render(<DownloadsClient servers={servers} canManage />);
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("下载列表加载失败");
     expect(screen.queryByText("暂无下载任务")).not.toBeInTheDocument();
@@ -59,7 +59,7 @@ describe("DownloadsClient", () => {
       .mockResolvedValueOnce({ tasks: [runningTask], globalStat: null })
       .mockRejectedValueOnce(new Error("取消下载失败"));
 
-    render(<DownloadsClient servers={servers} canManage />);
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "✕ 取消" }));
@@ -81,7 +81,7 @@ describe("DownloadsClient", () => {
         downloadSpeed: "0",
       });
 
-    render(<DownloadsClient servers={servers} canManage />);
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
     expect(screen.getAllByText("下载中").length).toBeGreaterThan(0);
@@ -99,7 +99,7 @@ describe("DownloadsClient", () => {
       .mockResolvedValueOnce({ tasks: [], globalStat: null })
       .mockRejectedValueOnce(new Error("目标路径不可写"));
 
-    render(<DownloadsClient servers={servers} canManage />);
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     await actor.click(await screen.findByRole("button", { name: "+ 新建下载" }));
     await actor.type(screen.getByPlaceholderText("https://example.com/file.zip 或 magnet:?xt=urn:btih:..."), "https://example.com/a.iso");

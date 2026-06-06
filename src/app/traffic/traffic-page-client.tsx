@@ -62,7 +62,7 @@ function formatStorageHealthStatus(status: string) {
 
 export { formatStorageHealthStatus };
 
-export default function TrafficPage() {
+export default function TrafficPage({ canManage: _canManage }: { canManage: boolean }) {
 	const [summary, setSummary] = useState<TrafficSummary | null>(null);
 	const [selectedIface, setSelectedIface] = useState("");
 	const [loading, setLoading] = useState(true);

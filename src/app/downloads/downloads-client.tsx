@@ -85,7 +85,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 /* ── Main Component ───────────────────────────────────────── */
 
-export function DownloadsClient({ servers, canManage }: { servers: ServerOption[]; canManage: boolean }) {
+export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
@@ -168,6 +168,14 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
 				setTasks((current) => current.filter((task) => task.id !== taskId));
 				setMessage({ type: "success", text: "任务记录已删除" });
+			} else if (action.startsWith("limit:")) {
+				const maxSpeedKb = parseInt(action.slice(6));
+				await csrfFetch("/api/downloads", {
+					method: "PATCH", headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ taskId, maxSpeedKb }),
+				});
+				setMessage({ type: "success", text: `限速已设置为 ${maxSpeedKb} KB/s` });
+				void fetchTasks();
 			} else {
 				const result = await csrfFetch("/api/downloads", {
 					method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -241,13 +249,13 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<span className="text-xs text-slate-500">全局限速</span>
-						{[0, 1024, 5120, 10240].map((kb) => (
+						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
 								className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 light:text-slate-600 hover:bg-white/[0.06] transition"
 							>
 								{kb === 0 ? "不限" : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
-						))}
+						)) : <span className="text-xs text-slate-600 light:text-slate-400">需 manage-node 权限</span>}
 					</div>
 				</div>
 			)}
@@ -442,14 +450,24 @@ export function DownloadsClient({ servers, canManage }: { servers: ServerOption[
 
 								{/* Actions */}
 								<div className="mt-3 flex gap-2">
-									{task.status === "RUNNING" && task.aria2Gid && (
+									{task.status === "RUNNING" && task.aria2Gid && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "pause")}
 											className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-100 light:text-amber-900 hover:bg-amber-400/10 transition"
 										>
 											⏸ 暂停
 										</button>
 									)}
-									{task.status === "PENDING" && task.aria2Gid && (
+									{task.status === "RUNNING" && task.aria2Gid && canManage && (
+										<span className="flex items-center gap-1 text-xs text-slate-400">
+											<label>限速</label>
+											<input type="number" min={0} step={1024} placeholder="KB/s"
+												defaultValue={task.maxSpeedKb ?? ""}
+												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
+												className="w-16 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-1.5 py-0.5 text-xs text-slate-300 light:text-slate-700 focus:outline-none focus:border-cyan-400/50"
+											/>
+										</span>
+									)}
+									{task.status === "PENDING" && task.aria2Gid && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "resume")}
 											className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/10 transition"
 										>

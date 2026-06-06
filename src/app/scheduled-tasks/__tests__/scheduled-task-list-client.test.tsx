@@ -39,7 +39,7 @@ describe("ScheduledTaskListClient", () => {
       .mockResolvedValueOnce({ task: { id: "task_1" } })
       .mockResolvedValueOnce({ tasks: [] });
 
-    render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate />);
+    render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate canManage />);
 
     await actor.click(screen.getByRole("button", { name: "+ 创建定时任务" }));
     await actor.type(screen.getByPlaceholderText("例如：清理日志"), "清理日志");
@@ -66,7 +66,7 @@ describe("ScheduledTaskListClient", () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Cron 表达式无效"));
 
-    render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate />);
+    render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate canManage />);
 
     await actor.click(screen.getByRole("button", { name: "+ 创建定时任务" }));
     await actor.type(screen.getByPlaceholderText("例如：清理日志"), "清理日志");
@@ -83,7 +83,7 @@ describe("ScheduledTaskListClient", () => {
     const confirmSpy = vi.spyOn(window, "confirm");
     vi.mocked(csrfFetch).mockResolvedValue({ tasks: [task] });
 
-    render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate />);
+    render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
     await actor.click(screen.getByRole("button", { name: "删除" }));
 
     const dialog = await screen.findByRole("dialog", { name: "确认删除定时任务" });
@@ -100,7 +100,7 @@ describe("ScheduledTaskListClient", () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("删除任务失败：权限不足"));
 
-    render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate />);
+    render(<ScheduledTaskListClient tasks={[task]} servers={servers} canCreate canManage />);
     await actor.click(screen.getByRole("button", { name: "删除" }));
     const dialog = await screen.findByRole("dialog", { name: "确认删除定时任务" });
     await actor.click(within(dialog).getByRole("button", { name: "确认删除" }));

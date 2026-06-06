@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import crypto from "node:crypto";
 
 const { requireApiPermissionMock, assertStorageAccessMock, prismaMock } =
   vi.hoisted(() => ({
@@ -272,9 +273,17 @@ describe("/api/storage/direct-access", () => {
     );
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toMatch(
+    const location = response.headers.get("location") ?? "";
+    expect(location).toMatch(
       /^https:\/\/cdn\.example\.com\/media\/movies\/demo%20file\.mp4\?expires=\d+&signature=[a-f0-9]{64}$/,
     );
+    const redirectedUrl = new URL(location);
+    const expires = redirectedUrl.searchParams.get("expires") ?? "";
+    const expectedSignature = crypto
+      .createHmac("sha256", "test-secret")
+      .update(`/media/movies/demo file.mp4.${expires}`)
+      .digest("hex");
+    expect(redirectedUrl.searchParams.get("signature")).toBe(expectedSignature);
   });
 
   it("redirects GET requests to the managed SFTP fallback when direct access is unavailable", async () => {

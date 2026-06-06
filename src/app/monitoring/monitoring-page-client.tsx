@@ -45,7 +45,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function MonitoringPage() {
+export default function MonitoringPage({ canManage: _canManage }: { canManage: boolean }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

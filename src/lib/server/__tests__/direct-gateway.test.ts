@@ -44,9 +44,8 @@ describe("direct gateway helpers", () => {
       "ReadWritePaths=/opt/vcontrolhub-direct /data/media",
     );
     expect(command).toContain("DIRECT_PORT=31888");
-    expect(command).toContain(
-      "systemctl enable --now vcontrolhub-direct.service",
-    );
+    expect(command).toContain("systemctl enable vcontrolhub-direct.service");
+    expect(command).toContain("systemctl restart vcontrolhub-direct.service");
     expect(command).toContain("python3 - <<'VCH_DIRECT_HEALTH'");
     expect(command).toContain("http://127.0.0.1:31888/__vch_health");
     expect(command).not.toContain("rm -rf /");

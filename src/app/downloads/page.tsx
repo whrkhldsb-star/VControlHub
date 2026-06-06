@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function DownloadsPage() {
 	const session = await requireSession("/downloads");
 	const canManage = sessionHasPermission(session, "storage:write");
+	const canManageNode = sessionHasPermission(session, "storage:manage-node");
 	const canRead = sessionHasPermission(session, "storage:read");
 
 	if (!canRead) {
@@ -43,7 +44,7 @@ export default async function DownloadsPage() {
 					输入 URL 或磁力链接，下载到指定 VPS 的存储路径
 				</p>
 			</header>
-			<DownloadsClient servers={serverList} canManage={canManage} />
+			<DownloadsClient servers={serverList} canManage={canManage} canManageNode={canManageNode} />
 		</PageShell>
 	);
 }

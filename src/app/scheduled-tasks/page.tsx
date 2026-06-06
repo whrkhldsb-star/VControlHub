@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ScheduledTasksPage() {
 	const session = await requireSession();
 	const canCreate = sessionHasPermission(session, "command:create");
+	const canManage = sessionHasPermission(session, "command:execute");
 
 	const [tasks, servers] = await Promise.all([
 		listScheduledTasks(),
@@ -44,7 +45,7 @@ export default async function ScheduledTasksPage() {
 						配置 Cron 表达式，自动向 VPS 节点下发待审批命令
 					</p>
 				</header>
-				<ScheduledTaskListClient tasks={serialized} servers={serverOptions} canCreate={canCreate} />
+				<ScheduledTaskListClient tasks={serialized} servers={serverOptions} canCreate={canCreate} canManage={canManage} />
 		</PageShell>
 	);
 }

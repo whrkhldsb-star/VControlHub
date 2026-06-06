@@ -43,7 +43,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export default function ImageBedPage() {
+export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolean; canDelete: boolean }) {
 	const [images, setImages] = useState<ImageItem[]>([]);
 	const [total, setTotal] = useState(0);
 	const [page, setPage] = useState(1);
@@ -60,6 +60,8 @@ export default function ImageBedPage() {
 	const [batchMode, setBatchMode] = useState(false);
 	const [batchAlbum, setBatchAlbum] = useState("");
 	const [showPublishModal, setShowPublishModal] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [showAll, setShowAll] = useState(false);
 	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
 	const [publishForm, setPublishForm] = useState({ storageNodeId: "", relativePath: "", filename: "", album: "" });
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
@@ -76,6 +78,7 @@ export default function ImageBedPage() {
 		try {
 			const params = new URLSearchParams({ page: String(p), limit: "30" });
 			if (album) params.set("album", album);
+			if (showAll) params.set("all", "true");
 			const data = await csrfFetch(`/api/images/list?${params}`);
 			setImages(data.images || []);
 			setTotal(data.total || 0);
@@ -86,7 +89,7 @@ export default function ImageBedPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, [album]);
+	}, [album, showAll]);
 
 	const fetchStats = async () => {
 		try {
@@ -160,6 +163,8 @@ export default function ImageBedPage() {
 			const formData = new FormData();
 			formData.append("file", file);
 			if (album) formData.append("album", album);
+			if (publishForm.storageNodeId) formData.append("storageNodeId", publishForm.storageNodeId);
+			if (publishForm.relativePath) formData.append("relativePath", publishForm.relativePath);
 			try {
 				await csrfFetch("/api/images/upload", { method: "POST", body: formData });
 				success++;
@@ -201,7 +206,8 @@ export default function ImageBedPage() {
 	};
 
 	const confirmDelete = async () => {
-		if (!pendingDelete) return;
+		if (!pendingDelete || deleting) return;
+		setDeleting(true);
 		const target = pendingDelete;
 		setPendingDelete(null);
 		if (target.type === "single") {
@@ -211,9 +217,11 @@ export default function ImageBedPage() {
 				setPreviewImage(null);
 				fetchImages(page);
 			} catch { showToast("删除出错"); }
+			finally { setDeleting(false); }
 			return;
 		}
 		await runBatchAction("delete");
+		setDeleting(false);
 	};
 
 	const runBatchAction = async (action: "delete" | "moveAlbum" | "togglePublic") => {
@@ -298,22 +306,29 @@ export default function ImageBedPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					<span className="text-xs text-slate-500">共 {total} 张图片</span>
+					<button onClick={() => { setShowAll(!showAll); }} className={`px-3 py-1.5 text-xs rounded-lg transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
 					<button onClick={fetchStats} className="px-3 py-1.5 text-xs bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition">📊 统计</button>
-					<button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="px-3 py-1.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition">☁️ 云盘发布</button>
+					{canWrite && (
+						<button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="px-3 py-1.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition">☁️ 云盘发布</button>
+					)}
+					{canWrite && (
 					<button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }} className={`px-3 py-1.5 text-xs rounded-lg transition ${batchMode ? "bg-amber-500/20 text-amber-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"}`}>
 						{batchMode ? "✓ 批量模式" : "☐ 批量模式"}
 					</button>
+					)}
 				</div>
 			</div>
 
 			{/* Batch Operations Bar */}
-			{batchMode && (
+			{batchMode && canWrite && (
 				<div className="mt-3 flex items-center gap-3 p-3 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-xl">
 					<span className="text-xs text-slate-400 light:text-slate-600">已选 {selectedIds.size} 张</span>
 					<button onClick={selectAll} className="px-2 py-1 text-xs bg-slate-700 light:bg-slate-200 text-slate-300 light:text-slate-700 rounded hover:bg-slate-600 transition">
 						{selectedIds.size === images.length ? "取消全选" : "全选"}
 					</button>
-					<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
+					{canDelete && (
+						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
+					)}
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 light:bg-white/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 light:text-slate-800 w-28 focus:outline-none focus:border-cyan-400/50" />
 						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 light:text-cyan-700 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
@@ -382,22 +397,35 @@ export default function ImageBedPage() {
 			)}
 
 			{/* Upload Area */}
-			<div
-				onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-				onDragLeave={() => setDragOver(false)}
-				onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files); }}
-				onClick={() => fileInputRef.current?.click()}
-				className={`
-					mt-4 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
-					${dragOver ? "border-cyan-400 bg-cyan-400/5 light:bg-cyan-50" : "border-slate-700 hover:border-slate-500 bg-slate-900/50 light:border-slate-300 light:hover:border-slate-400 light:bg-slate-50"}
-					${uploading ? "opacity-50 pointer-events-none" : ""}
-				`}
-			>
-				<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handleUpload(e.target.files)} />
-				<div className="text-4xl mb-2">📤</div>
-				<div className="text-sm text-slate-300 light:text-slate-700 font-medium">{uploading ? "上传中..." : "拖拽图片到此处，或点击选择文件"}</div>
-				<div className="text-xs text-slate-500 mt-1">支持 JPG / PNG / GIF / WebP / AVIF / SVG，单文件最大 20MB</div>
-			</div>
+			{canWrite && (
+			<>
+				<div className="mt-2 flex items-center gap-2 text-xs">
+					<span className="text-slate-500">上传到：</span>
+					<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-2 py-1 text-xs text-slate-300 light:text-slate-700 focus:outline-none focus:border-cyan-400/50">
+						<option value="">默认存储</option>
+						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+					</select>
+					<input type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder="目标路径（可选）" className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-2 py-1 text-xs text-slate-300 light:text-slate-700 w-32 focus:outline-none focus:border-cyan-400/50" />
+					{!storageNodes.length && <button onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-cyan-400 hover:underline">加载节点</button>}
+				</div>
+				<div
+					onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+					onDragLeave={() => setDragOver(false)}
+					onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files); }}
+					onClick={() => fileInputRef.current?.click()}
+					className={`
+						mt-4 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+						${dragOver ? "border-cyan-400 bg-cyan-400/5 light:bg-cyan-50" : "border-slate-700 hover:border-slate-500 bg-slate-900/50 light:border-slate-300 light:hover:border-slate-400 light:bg-slate-50"}
+						${uploading ? "opacity-50 pointer-events-none" : ""}
+					`}
+				>
+					<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handleUpload(e.target.files)} />
+					<div className="text-4xl mb-2">📤</div>
+					<div className="text-sm text-slate-300 light:text-slate-700 font-medium">{uploading ? "上传中..." : "拖拽图片到此处，或点击选择文件"}</div>
+					<div className="text-xs text-slate-500 mt-1">支持 JPG / PNG / GIF / WebP / AVIF / SVG，单文件最大 20MB</div>
+				</div>
+			</>
+			)}
 
 			{/* Upload Progress */}
 			{uploadProgress && (
@@ -469,7 +497,9 @@ export default function ImageBedPage() {
 										<button onClick={() => copyLink(img.publicUrl)} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 light:text-cyan-700 rounded hover:bg-cyan-500/30" title="复制外链">🔗</button>
 										<button onClick={() => copyMarkdown(img)} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30" title="复制 Markdown">M↓</button>
 										<button onClick={() => copyHTML(img)} className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30" title="复制 HTML">H</button>
-										<button onClick={() => requestDelete(img)} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30" title="删除">🗑</button>
+										{canDelete && (
+											<button onClick={() => requestDelete(img)} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30" title="删除">🗑</button>
+										)}
 									</div>
 								)}
 							</div>
@@ -511,7 +541,9 @@ export default function ImageBedPage() {
 								<button onClick={() => copyLink(previewImage.publicUrl)} className="px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-300 light:text-cyan-700 rounded-lg hover:bg-cyan-500/30">复制外链</button>
 								<button onClick={() => copyMarkdown(previewImage)} className="px-3 py-1.5 text-xs bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30">Markdown</button>
 								<button onClick={() => copyHTML(previewImage)} className="px-3 py-1.5 text-xs bg-orange-500/20 text-orange-300 rounded-lg hover:bg-orange-500/30">HTML</button>
-								<button onClick={() => requestDelete(previewImage)} className="px-3 py-1.5 text-xs bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30">删除</button>
+								{canDelete && (
+									<button onClick={() => requestDelete(previewImage)} className="px-3 py-1.5 text-xs bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30">删除</button>
+								)}
 							</div>
 						</div>
 						<button onClick={() => setPreviewImage(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 light:bg-slate-100 text-slate-300 light:text-slate-700 rounded-full flex items-center justify-center hover:bg-slate-700 light:hover:bg-slate-200 text-lg">✕</button>
@@ -572,7 +604,7 @@ export default function ImageBedPage() {
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
 							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
-							<button type="button" onClick={confirmDelete} className="px-4 py-2 text-sm bg-red-600 text-white light:text-slate-900 rounded-lg hover:bg-red-500 transition">确认删除</button>
+							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-red-600 text-white light:text-slate-900 rounded-lg hover:bg-red-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
 						</div>
 					</div>
 				</div>
