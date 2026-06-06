@@ -25,6 +25,10 @@ const metrics = [
 ] as const;
 const operators = ["gt", "gte", "lt", "lte", "eq"] as const;
 const channels = ["in_app", "email", "webhook"] as const;
+const silenceWindowSchema = z
+  .string()
+  .trim()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/, "静默期格式应为 HH:mm-HH:mm，例如 22:00-08:00");
 
 const alertRuleSchemaBase = z.object({
   name: z.string().trim().min(1, "规则名称不能为空").max(100, "规则名称过长"),
@@ -52,6 +56,7 @@ const alertRuleSchemaBase = z.object({
       .optional(),
   ),
   cooldownMinutes: z.coerce.number().int().min(1).max(10_080).optional(),
+  silenceWindows: z.array(silenceWindowSchema).max(8).default([]),
   enabled: z.boolean().optional(),
 });
 
@@ -104,6 +109,7 @@ async function parseBody(request: Request) {
       cooldownMinutes: form.get("cooldownMinutes")
         ? String(form.get("cooldownMinutes"))
         : undefined,
+      silenceWindows: form.getAll("silenceWindows").map(String).map((value) => value.trim()).filter(Boolean),
     };
   }
   return request.json().catch(() => null);

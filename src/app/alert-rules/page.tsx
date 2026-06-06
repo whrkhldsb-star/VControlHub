@@ -22,6 +22,7 @@ export default async function AlertRulesPage() {
 		threshold: r.threshold, durationSeconds: r.durationSeconds,
 		serverIds: r.serverIds, notifyChannels: r.notifyChannels,
 		webhookConfigured: Boolean(r.webhookUrl), cooldownMinutes: r.cooldownMinutes,
+		silenceWindows: r.silenceWindows ?? [],
 		enabled: r.enabled, lastTriggeredAt: r.lastTriggeredAt?.toISOString() ?? null,
 		createdAt: r.createdAt.toISOString(),
 	}));

@@ -45,6 +45,26 @@ const CRIT_MEM = 95;
 const WARN_DISK = 85;
 const CRIT_DISK = 95;
 
+const SILENCE_WINDOW_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/;
+
+export function isNowInAlertSilenceWindow(windows: readonly string[], now: Date = new Date()): boolean {
+  if (windows.length === 0) return false;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  for (const window of windows) {
+    const match = SILENCE_WINDOW_PATTERN.exec(window);
+    if (!match) continue;
+    const start = Number(match[1]) * 60 + Number(match[2]);
+    const end = Number(match[3]) * 60 + Number(match[4]);
+    if (start === end) return true;
+    if (start < end) {
+      if (currentMinutes >= start && currentMinutes < end) return true;
+    } else if (currentMinutes >= start || currentMinutes < end) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function evaluateHealth(metrics: ServerMetrics): HealthStatus {
   const cpu = metrics.cpu.usagePercent;
   const mem = metrics.memory.usagePercent;
@@ -185,6 +205,7 @@ export async function evaluateAlerts() {
       lastMatchedAt: true,
       lastTriggeredAt: true,
       cooldownMinutes: true,
+      silenceWindows: true,
       serverIds: true,
       notifyChannels: true,
       webhookUrl: true,
@@ -196,6 +217,8 @@ export async function evaluateAlerts() {
   const health = await collectAllHealth();
 
   for (const rule of rules) {
+    if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
+
     // Check cooldown
     if (rule.lastTriggeredAt) {
       const cooldownMs = rule.cooldownMinutes * 60_000;

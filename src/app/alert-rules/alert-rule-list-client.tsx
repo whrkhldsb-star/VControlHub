@@ -9,6 +9,7 @@ type AlertRule = {
 	threshold: number; durationSeconds: number; serverIds: string[];
 	notifyChannels: string[]; webhookConfigured: boolean;
 	cooldownMinutes: number; enabled: boolean;
+	silenceWindows?: string[];
 	lastTriggeredAt: string | null; createdAt: string;
 };
 
@@ -227,7 +228,12 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 								冷却 {rule.cooldownMinutes}min
 							</span>
 						)}
-									</div>
+						{(rule.silenceWindows?.length ?? 0) > 0 && (
+							<span className="rounded-md border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200 light:text-violet-800">
+								静默 {rule.silenceWindows?.join("、")}
+							</span>
+						)}
+								</div>
 									{rule.lastTriggeredAt && (
 										<p className="mt-1 text-[11px] text-slate-600">上次触发：{new Date(rule.lastTriggeredAt).toLocaleString("zh-CN")}</p>
 									)}
@@ -278,6 +284,7 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 	const [operator, setOperator] = useState("gte");
 	const [threshold, setThreshold] = useState(85);
 	const [cooldown, setCooldown] = useState(30);
+	const [silenceWindowsText, setSilenceWindowsText] = useState("");
 	const [channels, setChannels] = useState<string[]>(["in_app"]);
 	const [webhookUrl, setWebhookUrl] = useState("");
 	const [submitting, setSubmitting] = useState(false);
@@ -291,6 +298,7 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 		e.preventDefault();
 		setSubmitting(true);
 		setError(null);
+		const silenceWindows = silenceWindowsText.split(/[\n,，]+/).map((item) => item.trim()).filter(Boolean);
 		try {
 			await csrfFetch("/api/alert-rules", {
 				method: "POST",
@@ -302,6 +310,7 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 					threshold,
 					notifyChannels: channels,
 					cooldownMinutes: cooldown,
+					silenceWindows,
 					webhookUrl: channels.includes("webhook") && webhookUrl.trim() ? webhookUrl.trim() : undefined,
 				}),
 			});
@@ -371,6 +380,12 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">冷却时间（分钟）</label>
 				<input type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30 w-32" />
+			</div>
+
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertSilenceWindows">静默期</label>
+				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder="22:00-08:00，可用换行或逗号添加多个" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<p className="text-xs text-slate-500">命中静默期时只记录匹配状态，不发送站内通知或 Webhook。</p>
 			</div>
 
 			<div className="flex gap-3 pt-2">

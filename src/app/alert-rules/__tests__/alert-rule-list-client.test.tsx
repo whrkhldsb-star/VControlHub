@@ -25,6 +25,7 @@ vi.mock("@/lib/alert/service", () => ({
 		notifyChannels: ["webhook"],
 		webhookUrl: "https://hooks.example.com/path/secret-token",
 		cooldownMinutes: 10,
+		silenceWindows: ["22:00-08:00"],
 		enabled: true,
 		lastTriggeredAt: null,
 		createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -57,6 +58,7 @@ describe("alert rules client", () => {
 		await user.type(screen.getByLabelText("规则名称"), "CPU 过载告警");
 		await user.clear(screen.getByLabelText("阈值"));
 		await user.type(screen.getByLabelText("阈值"), "91");
+		await user.type(screen.getByLabelText("静默期"), "22:00-08:00");
 		await user.click(screen.getByRole("button", { name: "创建规则" }));
 
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
@@ -70,6 +72,7 @@ describe("alert rules client", () => {
 					threshold: 91,
 					notifyChannels: ["in_app"],
 					cooldownMinutes: 30,
+					silenceWindows: ["22:00-08:00"],
 					webhookUrl: undefined,
 				}),
 			}),

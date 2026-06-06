@@ -1,0 +1,2 @@
+ALTER TABLE "alert_rules"
+  ADD COLUMN IF NOT EXISTS "silenceWindows" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

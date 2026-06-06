@@ -14,6 +14,7 @@ export type CreateAlertRuleInput = {
 	notifyChannels?: string[];
 	webhookUrl?: string;
 	cooldownMinutes?: number;
+	silenceWindows?: string[];
 	enabled?: boolean;
 };
 
@@ -35,6 +36,7 @@ export async function createAlertRule(input: CreateAlertRuleInput) {
 			notifyChannels: input.notifyChannels ?? ["in_app"],
 			webhookUrl: input.webhookUrl ?? null,
 			cooldownMinutes: input.cooldownMinutes ?? 30,
+			silenceWindows: input.silenceWindows ?? [],
 			enabled: input.enabled ?? true,
 		},
 	});
@@ -51,6 +53,7 @@ export async function updateAlertRule(id: string, input: Partial<CreateAlertRule
 	if (input.notifyChannels !== undefined) data.notifyChannels = input.notifyChannels;
 	if (input.webhookUrl !== undefined) data.webhookUrl = input.webhookUrl;
 	if (input.cooldownMinutes !== undefined) data.cooldownMinutes = input.cooldownMinutes;
+	if (input.silenceWindows !== undefined) data.silenceWindows = input.silenceWindows;
 	if (input.enabled !== undefined) data.enabled = input.enabled;
 	return prisma.alertRule.update({ where: { id }, data });
 }

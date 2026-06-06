@@ -27,7 +27,7 @@ vi.mock("@/lib/server/monitor", () => ({ collectServerMetrics: collectServerMetr
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 
-import { evaluateAlerts } from "../service";
+import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
 
 function cpuMetrics(cpu: number) {
 	return {
@@ -65,6 +65,7 @@ describe("evaluateAlerts", () => {
 				lastTriggeredAt: null,
 				lastMatchedAt: null,
 				cooldownMinutes: 0,
+				silenceWindows: [],
 				serverIds: [],
 				notifyChannels: ["in_app"],
 				webhookUrl: null,
@@ -94,6 +95,7 @@ describe("evaluateAlerts", () => {
 				lastTriggeredAt: null,
 				lastMatchedAt: new Date("2026-05-25T00:00:00.000Z"),
 				cooldownMinutes: 0,
+				silenceWindows: [],
 				serverIds: [],
 				notifyChannels: ["in_app"],
 				webhookUrl: null,
@@ -124,6 +126,7 @@ describe("evaluateAlerts", () => {
 				lastTriggeredAt: null,
 				lastMatchedAt: new Date("2026-05-25T00:00:00.000Z"),
 				cooldownMinutes: 0,
+				silenceWindows: [],
 				serverIds: [],
 				notifyChannels: ["in_app"],
 				webhookUrl: null,
@@ -138,5 +141,43 @@ describe("evaluateAlerts", () => {
 			where: { id: "rule1" },
 			data: { lastMatchedAt: null },
 		});
+	});
+
+	it("detects same-day and overnight alert silence windows", () => {
+		expect(isNowInAlertSilenceWindow(["09:00-17:00"], new Date("2026-05-25T10:30:00"))).toBe(true);
+		expect(isNowInAlertSilenceWindow(["09:00-17:00"], new Date("2026-05-25T17:00:00"))).toBe(false);
+		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T23:15:00"))).toBe(true);
+		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T07:59:00"))).toBe(true);
+		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T08:01:00"))).toBe(false);
+	});
+
+	it("skips notification delivery while an alert rule is inside a silence window", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T23:30:00"));
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule1",
+				name: "CPU quiet hours",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				cooldownMinutes: 0,
+				silenceWindows: ["22:00-08:00"],
+				serverIds: [],
+				notifyChannels: ["in_app", "webhook"],
+				webhookUrl: "https://hooks.example.com/alert",
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		await evaluateAlerts();
+
+		expect(createNotificationMock).not.toHaveBeenCalled();
+		expect(fetchWebhookSafelyMock).not.toHaveBeenCalled();
+		expect(prismaMock.alertRule.update).not.toHaveBeenCalled();
 	});
 });

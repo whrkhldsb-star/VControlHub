@@ -21,7 +21,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 
-const { testAlertRule } = await import("../service");
+const { createAlertRule, updateAlertRule, testAlertRule } = await import("../service");
 
 describe("alert service", () => {
 	beforeEach(() => {
@@ -95,5 +95,27 @@ describe("alert service", () => {
 			expect.objectContaining({ channel: "webhook", status: "failed", message: "HTTP 500" }),
 		]);
 		expect(JSON.stringify(result)).not.toContain("secret-token");
+	});
+
+	it("persists silence windows on create and update", async () => {
+		prismaMock.alertRule.create.mockResolvedValue({ id: "rule1" });
+		prismaMock.alertRule.update.mockResolvedValue({ id: "rule1" });
+
+		await createAlertRule({
+			name: "Night mute",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			silenceWindows: ["22:00-08:00"],
+		});
+		await updateAlertRule("rule1", { silenceWindows: ["12:00-13:00", "22:00-08:00"] });
+
+		expect(prismaMock.alertRule.create).toHaveBeenCalledWith(expect.objectContaining({
+			data: expect.objectContaining({ silenceWindows: ["22:00-08:00"] }),
+		}));
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule1" },
+			data: { silenceWindows: ["12:00-13:00", "22:00-08:00"] },
+		});
 	});
 });

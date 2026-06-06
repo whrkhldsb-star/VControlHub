@@ -402,6 +402,7 @@ model AlertRule {
   notifyChannels  String[] // ["in_app", "email", "webhook"]
   webhookUrl      String?
   cooldownMinutes Int       @default(30)
+  silenceWindows  String[]  @default([]) // HH:mm-HH:mm windows, local server time
   enabled         Boolean   @default(true)
   lastMatchedAt   DateTime?
   lastTriggeredAt DateTime?

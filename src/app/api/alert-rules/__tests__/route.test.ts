@@ -102,6 +102,7 @@ describe("/api/alert-rules", () => {
         notifyChannels: ["in_app", "webhook"],
         webhookUrl: "https://hooks.example.com/secret",
         cooldownMinutes: 10,
+        silenceWindows: ["22:00-08:00"],
         serverIds: ["srv1"],
       }),
     });
@@ -116,6 +117,7 @@ describe("/api/alert-rules", () => {
         notifyChannels: ["in_app", "webhook"],
         webhookUrl: "https://hooks.example.com/secret",
         cooldownMinutes: 10,
+        silenceWindows: ["22:00-08:00"],
         serverIds: ["srv1"],
       }),
     );
@@ -160,6 +162,26 @@ describe("/api/alert-rules", () => {
 
     expect(res.status).toBe(400);
     expect(mocks.updateAlertRule).not.toHaveBeenCalled();
+  });
+
+  it("rejects malformed silence windows before persistence", async () => {
+    const res = await route.POST(
+      new Request("http://local/api/alert-rules", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Quiet hours",
+          metric: "cpu_usage",
+          operator: "gte",
+          threshold: 90,
+          notifyChannels: ["in_app"],
+          silenceWindows: ["25:00-08:00"],
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(mocks.createAlertRule).not.toHaveBeenCalled();
   });
 
   it("rejects webhook URLs pointing at local or private network targets", async () => {
