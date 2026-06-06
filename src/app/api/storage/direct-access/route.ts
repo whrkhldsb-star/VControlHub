@@ -229,10 +229,12 @@ export async function GET(request: Request) {
 
       const shouldForceDownload =
         new URL(request.url).searchParams.get("download") === "1";
-      const redirectUrl = shouldForceDownload
-        ? forceAttachmentFallbackUrl(payload.fallbackUrl)
-        : payload.mode === "direct-url"
-          ? payload.url
+      const redirectUrl = payload.mode === "direct-url"
+        ? shouldForceDownload
+          ? forceAttachmentFallbackUrl(payload.url)
+          : payload.url
+        : shouldForceDownload
+          ? forceAttachmentFallbackUrl(payload.fallbackUrl)
           : payload.fallbackUrl;
       return redirectToDirectAccessLocation(redirectUrl, request.url);
     },

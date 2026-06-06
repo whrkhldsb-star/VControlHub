@@ -35,6 +35,7 @@ const runningTask = {
   fileSize: null,
   isBatch: false,
   batchUrls: null,
+  downloadAccess: null,
   server: { id: "srv_1", name: "主节点", host: "127.0.0.1" },
   creator: null,
 };
@@ -79,6 +80,12 @@ describe("DownloadsClient", () => {
         totalBytes: "2048",
         completedBytes: "2048",
         downloadSpeed: "0",
+        downloadAccess: {
+          mode: "storage-policy",
+          href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Fa.iso&download=1",
+          label: "下载文件",
+          description: "按 VPS 文件访问策略下载：直连可用时走目标 VPS Direct Gateway，否则自动走网站 SFTP 中转。",
+        },
       });
 
     render(<DownloadsClient servers={servers} canManage canManageNode />);
@@ -89,6 +96,9 @@ describe("DownloadsClient", () => {
 
     await screen.findAllByText("已完成");
     expect(screen.getByText("📦 2.0 KB")).toBeInTheDocument();
+    expect(screen.getByText("🔁 沿用 VPS 直连/中转策略")).toBeInTheDocument();
+    const downloadLink = screen.getByRole("link", { name: "⬇ 下载文件" });
+    expect(downloadLink).toHaveAttribute("href", "/api/storage/direct-access?nodeId=store_1&path=downloads%2Fa.iso&download=1");
     expect(screen.queryByText("0.1% ·")).not.toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(2);
   });
@@ -107,6 +117,7 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");
     expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
+    expect(screen.getByText("完成后的“下载文件”按钮会复用 VPS 文件访问策略。")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
   });
 });

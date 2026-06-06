@@ -25,6 +25,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { assertDownloadSourceUrlSafe } from "@/lib/downloads/source-url";
 import {
   normalizeDownloadFileName,
+  deriveDownloadFileNameFromUrl,
   mapAria2Status,
   buildProgressText,
   isMagnetLink,
@@ -48,6 +49,60 @@ function taskTargetRelativePath(task: { targetPath: string | null; server?: { st
   } catch {
     return null;
   }
+}
+
+function taskCompletedFileRelativePath(task: {
+  url: string;
+  targetPath: string | null;
+  fileName: string | null;
+  server?: { storageNode?: { basePath: string } | null } | null;
+}) {
+  const storageNode = task.server?.storageNode;
+  const fileName = task.fileName || deriveDownloadFileNameFromUrl(task.url);
+  if (!storageNode || !task.targetPath || !fileName) return null;
+  try {
+    return getDownloadTargetRelativePath(
+      storageNode.basePath,
+      `${task.targetPath.replace(/\/$/, "")}/${fileName}`,
+    );
+  } catch {
+    return null;
+  }
+}
+
+function taskDownloadAccess(task: {
+  url: string;
+  status: string;
+  targetPath: string | null;
+  fileName: string | null;
+  relayMode: boolean | null;
+  server?: { storageNode?: { id: string; basePath: string; driver?: string | null } | null } | null;
+}) {
+  if (task.status !== "COMPLETED") return null;
+  const storageNode = task.server?.storageNode;
+  const relativePath = taskCompletedFileRelativePath(task);
+  if (!storageNode || !relativePath) return null;
+
+  if (storageNode.driver === "LOCAL") {
+    return {
+      mode: "managed-download" as const,
+      href: `/api/storage/local?nodeId=${encodeURIComponent(storageNode.id)}&path=${encodeURIComponent(relativePath)}&download=1`,
+      label: "下载文件",
+      description: "从本机存储受控下载。",
+    };
+  }
+
+  const params = new URLSearchParams({
+    nodeId: storageNode.id,
+    path: relativePath,
+    download: "1",
+  });
+  return {
+    mode: "storage-policy" as const,
+    href: `/api/storage/direct-access?${params.toString()}`,
+    label: "下载文件",
+    description: "按 VPS 文件访问策略下载：直连可用时走目标 VPS Direct Gateway，否则自动走网站 SFTP 中转。",
+  };
 }
 
 async function canAccessDownloadTask(input: {
@@ -329,7 +384,7 @@ export async function GET(request: Request) {
       const tasks = await prisma.downloadTask.findMany({
         where,
         include: {
-          server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true } } } },
+          server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true, driver: true } } } },
           creator: { select: { id: true, username: true, displayName: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -408,6 +463,7 @@ export async function GET(request: Request) {
         fileSize: t.fileSize ?? null,
         isBatch: t.isBatch ?? false,
         batchUrls: t.batchUrls ?? null,
+        downloadAccess: taskDownloadAccess(t),
       }));
 
       let globalStat = null;
@@ -564,12 +620,19 @@ export async function PATCH(request: Request) {
               downloadSpeed: st.downloadSpeed,
             },
           });
+          const downloadAccess = taskDownloadAccess({
+            ...task,
+            status: newStatus,
+            fileName: task.fileName ?? null,
+            relayMode: task.relayMode ?? null,
+          });
           return NextResponse.json({
             status: newStatus,
             progress,
             completedBytes: st.completedLength,
             totalBytes: st.totalLength,
             downloadSpeed: st.downloadSpeed,
+            downloadAccess,
           });
         } catch (err) {
           logError("[DownloadAPI] aria2 refresh failed:", err);
@@ -626,12 +689,19 @@ export async function PATCH(request: Request) {
                   : {}),
               };
               await prisma.downloadTask.update({ where: { id: taskId }, data });
+              const downloadAccess = taskDownloadAccess({
+                ...task,
+                status: data.status,
+                fileName: task.fileName ?? null,
+                relayMode: task.relayMode ?? null,
+              });
               return NextResponse.json({
                 status: data.status,
                 progress: data.progress,
                 ...(size
                   ? { fileSize: size, totalBytes: size, completedBytes: size }
                   : {}),
+                downloadAccess,
               });
             }
             if (remoteState === "FAILED") {

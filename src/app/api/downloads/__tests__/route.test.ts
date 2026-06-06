@@ -364,6 +364,48 @@ describe("/api/downloads", () => {
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
   });
 
+  it("exposes completed download files through the storage direct/proxy policy route", async () => {
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([
+      {
+        id: "completed_task",
+        createdBy: "u_1",
+        url: "https://example.com/file.iso",
+        status: "COMPLETED",
+        targetPath: "/srv/cloud/downloads",
+        fileName: "file.iso",
+        relayMode: false,
+        server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud", driver: "SFTP" } },
+        creator: { id: "u_1", username: "alice", displayName: null },
+        aria2Gid: null,
+        pid: 12345,
+        category: null,
+        maxSpeedKb: null,
+        totalBytes: "2048",
+        completedBytes: "2048",
+        downloadSpeed: "0",
+        fileSize: "2048",
+        isBatch: false,
+        batchUrls: null,
+      },
+    ]);
+
+    const response = await GET(new Request("https://example.com/api/downloads"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      tasks: [
+        {
+          id: "completed_task",
+          downloadAccess: {
+            mode: "storage-policy",
+            href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
+            label: "下载文件",
+          },
+        },
+      ],
+    });
+  });
+
   it("does not start or query aria2 when listing direct-only tasks", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
       { id: "task_direct", createdBy: "u_1", status: "RUNNING", targetPath: "/srv/cloud/downloads/file.iso", server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } }, aria2Gid: null, pid: 12345, category: null, maxSpeedKb: null, totalBytes: null, completedBytes: null, downloadSpeed: null, fileSize: null, isBatch: false, batchUrls: null },
@@ -425,6 +467,11 @@ describe("/api/downloads", () => {
       fileSize: "2048",
       totalBytes: "2048",
       completedBytes: "2048",
+      downloadAccess: {
+        mode: "storage-policy",
+        href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
+        label: "下载文件",
+      },
     });
     expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({
       command: expect.stringContaining("app-dl-task_direct.pid.exit"),
@@ -447,9 +494,12 @@ describe("/api/downloads", () => {
       createdBy: "u_1",
       status: "RUNNING",
       progress: "下载中",
+      url: "https://example.com/file.iso",
+      fileName: "file.iso",
+      relayMode: true,
       aria2Gid: "gid_1",
-      targetPath: "/srv/cloud/downloads/file.iso",
-      server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud" } },
+      targetPath: "/srv/cloud/downloads",
+      server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud", driver: "SFTP" } },
     });
     tellStatusMock.mockResolvedValueOnce({
       gid: "gid_1",
@@ -471,6 +521,11 @@ describe("/api/downloads", () => {
       completedBytes: "4096",
       totalBytes: "4096",
       downloadSpeed: "0",
+      downloadAccess: {
+        mode: "storage-policy",
+        href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
+        label: "下载文件",
+      },
     });
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "task_relay" },

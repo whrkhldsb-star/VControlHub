@@ -308,7 +308,7 @@ describe("/api/storage/direct-access", () => {
     );
   });
 
-  it("redirects forced-download GET requests to the attachment-capable managed route", async () => {
+  it("redirects forced-download GET requests through direct access when VPS direct mode is enabled", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", username: "admin" },
@@ -329,8 +329,9 @@ describe("/api/storage/direct-access", () => {
     );
 
     expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe(
-      "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4&download=1",
+    const location = response.headers.get("location") ?? "";
+    expect(location).toMatch(
+      /^https:\/\/cdn\.example\.com\/media\/movies\/demo\.mp4\?expires=\d+&signature=[a-f0-9]{64}&download=1$/,
     );
   });
 

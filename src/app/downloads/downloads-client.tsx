@@ -14,6 +14,7 @@ type DownloadTask = {
 	aria2Gid: string | null; category: string | null; maxSpeedKb: number | null;
 	totalBytes: string | null; completedBytes: string | null; downloadSpeed: string | null;
 	fileSize: string | null; isBatch: boolean; batchUrls: string | null;
+	downloadAccess: { mode: string; href: string; label: string; description: string } | null;
 	server: { id: string; name: string; host: string };
 	creator: { id: string; username: string; displayName: string | null } | null;
 };
@@ -190,6 +191,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						totalBytes: result.totalBytes ?? task.totalBytes,
 						downloadSpeed: result.downloadSpeed ?? task.downloadSpeed,
 						fileSize: result.fileSize ?? task.fileSize,
+						downloadAccess: result.downloadAccess ?? task.downloadAccess,
 						errorMessage: result.errorMessage ?? task.errorMessage,
 					} : task));
 				} else {
@@ -382,6 +384,13 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						</div>
 					)}
 
+					<div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-4 py-3 text-xs leading-5 text-cyan-100 light:text-cyan-900">
+						<p className="font-medium">完成后的“下载文件”按钮会复用 VPS 文件访问策略。</p>
+						<p className="mt-1 text-cyan-100/70 light:text-cyan-900/70">
+							目标 VPS 在 VPS 管理中启用直连时优先走 Direct Gateway；切回网站中转后同一按钮会自动回退到 SFTP 中转，和文件管理保持一致。
+						</p>
+					</div>
+
 					<div className="flex gap-3 pt-2">
 						<button type="button" onClick={handleSubmit} disabled={submitting}
 							className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
@@ -439,6 +448,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									<span>🖥 {task.server.name}</span>
 									<span>📂 {task.targetPath}</span>
 									{task.fileSize && <span>📦 {formatBytes(task.fileSize)}</span>}
+									{task.downloadAccess && <span title={task.downloadAccess.description}>🔁 {task.downloadAccess.mode === "storage-policy" ? "沿用 VPS 直连/中转策略" : "受控下载"}</span>}
 									<span>🕒 {new Date(task.createdAt).toLocaleString("zh-CN")}</span>
 									{task.creator && <span>👤 {task.creator.displayName ?? task.creator.username}</span>}
 								</div>
@@ -486,6 +496,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									>
 										🔄 刷新
 									</button>
+									{task.downloadAccess && (
+										<a href={task.downloadAccess.href}
+											className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
+											title={task.downloadAccess.description}
+										>
+											⬇ {task.downloadAccess.label}
+										</a>
+									)}
 									{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "purge")}
 											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 light:text-rose-900 hover:bg-rose-400/10 transition"

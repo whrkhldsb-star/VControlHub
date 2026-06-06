@@ -26,6 +26,17 @@ export function normalizeDownloadFileName(fileName: string | null | undefined): 
  return value;
 }
 
+export function deriveDownloadFileNameFromUrl(url: string | null | undefined): string | null {
+ try {
+  const parsed = new URL(url ?? "");
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  const lastSegment = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() ?? "");
+  return normalizeDownloadFileName(lastSegment) || null;
+ } catch {
+  return null;
+ }
+}
+
 /* ── Path helpers ──────────────────────────────────────── */
 
 export function relativePathFromDownloadTarget(
