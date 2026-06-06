@@ -337,6 +337,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **工单更新更完整** — 状态、负责人、优先级可以一起更新，避免 UI 有字段但 API 丢弃。
 - [x] **一键安装脚本已增强** — 无域名安装进入 Apache/IP 直连路径；`APP_SLUG` 可带短横线，默认 PostgreSQL 用户/库名会安全转换为下划线标识符；部署资产校验进入 `npm run verify`。
 - [x] **smoke-test 部署假设已拆分** — `deploy/smoke-test.sh` 支持 `SMOKE_SCOPE=systemd`（本机 systemd/端口检查）和 `SMOKE_SCOPE=http`（公网黑盒 HTTP 检查），Makefile 提供 `make smoke-systemd` / `make smoke-http`，适配外部数据库、非本机数据库和自定义反代场景。
+- [x] **系统设置页闭环** — `/settings` 已补齐平台、会话/密码、运行参数、SMTP 的保存后生效范围说明；前端会即时拦截越界数字/非法 URL/邮箱格式，后端 PATCH 会统一归一化并拒绝无效配置，避免“保存成功但值不可用”。
 
 ### 目前仍存在的问题 / 使用边界
 
@@ -358,7 +359,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P1 — 功能设置真实可用
 - [x] 会话超时、密码策略、定时任务、告警规则、批量下载、工单优先级、snippet 元数据等“有 UI 但无真实效果/效果不完整”的问题已补齐。
-- [ ] 系统设置页继续补齐说明文案、即时验证、保存后生效范围提示（是否需重登/重启/等待 worker 下一轮）。
 - [ ] 定时任务增强：Cron 可视化编辑、下一次运行时间预览、失败重试、执行日志搜索。
 - [ ] 告警增强：静默期、通知渠道选择、测试发送、失败重试和告警历史趋势。
 

@@ -32,7 +32,21 @@ describe("/api/settings audit coverage", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", username: "alice", user: { id: "u1" } } });
     mocks.getAllSettingsMasked.mockResolvedValue({});
-    mocks.isValidSettingKey.mockImplementation((key: string) => ["platform.name", "smtp.pass", "runtime.commandExecutionTimeoutMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit", "runtime.aiProviderListLimit", "runtime.aiConversationListLimit"].includes(key));
+    mocks.isValidSettingKey.mockImplementation((key: string) => [
+      "platform.name",
+      "platform.logo",
+      "session.timeout",
+      "password.minLength",
+      "password.requireUppercase",
+      "smtp.port",
+      "smtp.from",
+      "smtp.pass",
+      "runtime.commandExecutionTimeoutMs",
+      "runtime.sshKeepaliveCountMax",
+      "runtime.operationTaskListLimit",
+      "runtime.aiProviderListLimit",
+      "runtime.aiConversationListLimit",
+    ].includes(key));
     mocks.setManySettings.mockResolvedValue(undefined);
   });
 
@@ -83,6 +97,54 @@ describe("/api/settings audit coverage", () => {
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "runtime.commandExecutionTimeoutMs", value: "120000" },
     ]);
+  });
+
+  it("normalizes and persists bounded system setting values", async () => {
+    const response = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        "platform.name": "  控制台  ",
+        "platform.logo": " /logo.png ",
+        "session.timeout": "900.9",
+        "password.minLength": "12.9",
+        "password.requireUppercase": "false",
+        "smtp.port": "587.9",
+        "smtp.from": " ops@example.com ",
+      }),
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith([
+      { key: "platform.name", value: "控制台" },
+      { key: "platform.logo", value: "/logo.png" },
+      { key: "session.timeout", value: "900" },
+      { key: "password.minLength", value: "12" },
+      { key: "password.requireUppercase", value: "false" },
+      { key: "smtp.port", value: "587" },
+      { key: "smtp.from", value: "ops@example.com" },
+    ]);
+  });
+
+  it("rejects invalid system setting values before persisting", async () => {
+    const response = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        "platform.logo": "ftp://example.com/logo.png",
+        "session.timeout": "10",
+        "password.minLength": "4",
+        "smtp.from": "not-an-email",
+      }),
+    }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload.error).toContain("Logo URL 只支持 http(s) 或站内路径");
+    expect(payload.error).toContain("会话超时 必须在 300 到 2592000 之间");
+    expect(payload.error).toContain("密码最小长度 必须在 8 到 128 之间");
+    expect(payload.error).toContain("发件人地址格式不正确");
+    expect(mocks.setManySettings).not.toHaveBeenCalled();
   });
 
   it("accepts bounded SSH terminal runtime settings", async () => {

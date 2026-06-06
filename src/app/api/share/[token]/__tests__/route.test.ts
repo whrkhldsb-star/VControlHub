@@ -44,6 +44,7 @@ describe("share token file route", () => {
         driver: "LOCAL",
         basePath: path.join(tempRoot, "${APP_SLUG:-vcontrolhub}", "storage"),
       },
+      entryType: "FILE",
       path: "docs/hello.txt",
       name: "hello.txt",
     } as never);

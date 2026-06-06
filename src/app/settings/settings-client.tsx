@@ -10,18 +10,90 @@ type Props = {
 	twoFactorEnabled?: boolean;
 };
 
+const SECTION_SAVE_MESSAGES: Record<string, string> = {
+	platform: "平台信息已保存；新打开/刷新后的页面会读取最新名称和 Logo。",
+	session: "会话与密码策略已保存；会话超时只影响新登录，密码策略立即用于创建用户、重置密码和改密。",
+	runtime: "运行参数已保存；标注“需重启”的 SSH/维护扫描参数请重启对应服务，其余新请求/新任务立即读取。",
+	smtp: "SMTP 设置已保存；启用后系统通知会使用最新连接参数。",
+};
+
+const RUNTIME_NUMBER_RULES: Record<string, { label: string; min: number; max: number }> = {
+	"runtime.commandExecutionTimeoutMs": { label: "命令执行超时", min: 5_000, max: 3_600_000 },
+	"runtime.commandOutputLimitBytes": { label: "命令输出保留上限", min: 4_096, max: 10_485_760 },
+	"runtime.commandStaleRunningAfterMs": { label: "命令卡死判定时间", min: 30_000, max: 86_400_000 },
+	"runtime.commandExecutionHeartbeatMs": { label: "命令执行心跳间隔", min: 5_000, max: 600_000 },
+	"runtime.commandReconcileIntervalMs": { label: "命令维护扫描间隔", min: 5_000, max: 3_600_000 },
+	"runtime.sftpSyncDirectoryTimeoutMs": { label: "SFTP 单目录同步超时", min: 5_000, max: 1_800_000 },
+	"runtime.sshWsHeartbeatIntervalMs": { label: "SSH WebSocket 心跳间隔", min: 5_000, max: 600_000 },
+	"runtime.sshKeepaliveIntervalMs": { label: "SSH keepalive 间隔", min: 5_000, max: 600_000 },
+	"runtime.sshKeepaliveCountMax": { label: "SSH keepalive 容忍次数", min: 1, max: 60 },
+	"runtime.operationTaskListLimit": { label: "任务中心列表上限", min: 20, max: 500 },
+	"runtime.aiProviderListLimit": { label: "AI 提供商列表上限", min: 10, max: 500 },
+	"runtime.aiConversationListLimit": { label: "AI 对话列表上限", min: 20, max: 1_000 },
+};
+
+function parseInteger(value: string, label: string, min: number, max: number) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) return `${label} 必须是数字`;
+	const integer = Math.trunc(parsed);
+	if (integer < min || integer > max) return `${label} 必须在 ${min} 到 ${max} 之间`;
+	return null;
+}
+
+function validateSettingValue(key: string, value: string) {
+	const runtimeRule = RUNTIME_NUMBER_RULES[key];
+	if (runtimeRule) {
+		return parseInteger(value, runtimeRule.label, runtimeRule.min, runtimeRule.max);
+	}
+	switch (key) {
+		case "platform.name":
+			return value.trim() ? null : "平台名称不能为空";
+		case "platform.logo": {
+			const trimmed = value.trim();
+			if (!trimmed || trimmed.startsWith("/")) return null;
+			try {
+				const parsed = new URL(trimmed);
+				return parsed.protocol === "http:" || parsed.protocol === "https:" ? null : "Logo URL 只支持 http(s) 或站内路径";
+			} catch {
+				return "Logo URL 只支持 http(s) 或站内路径";
+			}
+		}
+		case "session.timeout":
+			return parseInteger(value, "会话超时", 300, 2_592_000);
+		case "password.minLength":
+			return parseInteger(value, "密码最小长度", 8, 128);
+		case "smtp.port":
+			return parseInteger(value || "587", "SMTP 端口", 1, 65_535);
+		case "smtp.from":
+			return value.trim() && !/^.+@.+\..+$/.test(value.trim()) ? "发件人地址格式不正确" : null;
+		default:
+			return null;
+	}
+}
+
 export function SettingsClient({ settings: initialSettings, canManage, twoFactorEnabled = false }: Props) {
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
+	const [savedMessage, setSavedMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	const updateField = (key: string, value: string) => {
 		setSettings((prev) => ({ ...prev, [key]: value }));
 		setSaved(false);
+		setSavedMessage(null);
 	};
 
 	const handleSave = useCallback(async (section: string, keys: string[]) => {
+		const validationErrors = keys
+			.map((key) => validateSettingValue(key, settings[key] ?? ""))
+			.filter((message): message is string => Boolean(message));
+		if (validationErrors.length > 0) {
+			setError(validationErrors.join("；"));
+			setSaved(false);
+			setSavedMessage(null);
+			return;
+		}
 		setSaving(true);
 		setError(null);
 		try {
@@ -35,7 +107,11 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 				body: JSON.stringify(payload),
 			});
 			setSaved(true);
-			setTimeout(() => setSaved(false), 3000);
+			setSavedMessage(SECTION_SAVE_MESSAGES[section] ?? "设置已保存。");
+			setTimeout(() => {
+				setSaved(false);
+				setSavedMessage(null);
+			}, 5000);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "保存失败");
 		} finally {
@@ -58,7 +134,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 				<div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200 light:text-rose-800">{error}</div>
 			)}
 			{saved && (
-				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200 light:text-emerald-800">✓ 设置已保存</div>
+				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200 light:text-emerald-800">✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}</div>
 			)}
 
 			{/* Account security */}
@@ -72,17 +148,23 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 
 			{/* Platform */}
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-				<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🌐 平台信息</h2>
-				<Field label="平台名称" value={settings["platform.name"] ?? ""} onChange={(v) => updateField("platform.name", v)} placeholder="VPS 统一管控平台" />
-				<Field label="Logo URL" value={settings["platform.logo"] ?? ""} onChange={(v) => updateField("platform.logo", v)} placeholder="https://example.com/logo.png" />
+				<div>
+					<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🌐 平台信息</h2>
+					<p className="mt-1 text-xs text-slate-500">保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。</p>
+				</div>
+				<Field label="平台名称" value={settings["platform.name"] ?? ""} onChange={(v) => updateField("platform.name", v)} placeholder="VPS 统一管控平台" helperText="不能为空，最多 80 个字符；用于页面标题和公开品牌文案。" />
+				<Field label="Logo URL" value={settings["platform.logo"] ?? ""} onChange={(v) => updateField("platform.logo", v)} placeholder="https://example.com/logo.png" helperText="留空则不显示 Logo；支持 http(s) 或 /icon.png 这类站内路径。" />
 				<SaveButton onClick={() => handleSave("platform", ["platform.name", "platform.logo"])} saving={saving} />
 			</section>
 
 			{/* Session */}
 			<section id="password" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-				<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🔐 会话与安全</h2>
-				<Field label="会话超时（秒）" value={settings["session.timeout"] ?? ""} onChange={(v) => updateField("session.timeout", v)} placeholder="86400" type="number" />
-				<Field label="密码最小长度" value={settings["password.minLength"] ?? ""} onChange={(v) => updateField("password.minLength", v)} placeholder="8" type="number" />
+				<div>
+					<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🔐 会话与安全</h2>
+					<p className="mt-1 text-xs text-slate-500">会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。</p>
+				</div>
+				<Field label="会话超时（秒）" value={settings["session.timeout"] ?? ""} onChange={(v) => updateField("session.timeout", v)} placeholder="86400" type="number" helperText="300–2592000 秒；已有 session 不会被 retroactively 缩短。" />
+				<Field label="密码最小长度" value={settings["password.minLength"] ?? ""} onChange={(v) => updateField("password.minLength", v)} placeholder="8" type="number" helperText="8–128 位；保存后立即约束新密码。" />
 				<SwitchField label="要求大写字母" value={settings["password.requireUppercase"] === "true"} onChange={(v) => updateField("password.requireUppercase", v ? "true" : "false")} />
 				<SwitchField label="要求数字" value={settings["password.requireNumber"] === "true"} onChange={(v) => updateField("password.requireNumber", v ? "true" : "false")} />
 				<SwitchField label="要求特殊字符" value={settings["password.requireSpecial"] === "true"} onChange={(v) => updateField("password.requireSpecial", v ? "true" : "false")} />
@@ -118,17 +200,17 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 					<div>
 						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">📧 邮件通知（SMTP）</h2>
 						<p className="mt-1 text-xs text-slate-500">
-							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，保存后会用于系统通知邮件。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。"}
+							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，保存后系统通知会立即使用最新连接参数。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可先用后续测试发送功能验证。"}
 						</p>
 					</div>
 					<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
 				</div>
 				<div className="grid gap-4 md:grid-cols-2" aria-disabled={settings["smtp.enabled"] !== "true"}>
 					<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
-					<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+					<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "1–65535；常用 465/587。"} />
 					<Field label="用户名" value={settings["smtp.user"] ?? ""} onChange={(v) => updateField("smtp.user", v)} placeholder="user@example.com" autoComplete="username" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
 					<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" autoComplete="new-password" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
-					<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
+					<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "保存前会校验邮箱格式。"} />
 				</div>
 				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from"])} saving={saving} />
 			</form>

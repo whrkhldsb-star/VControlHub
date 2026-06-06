@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "../settings-client";
 
@@ -20,6 +20,11 @@ vi.mock("next/navigation", () => ({
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 describe("SettingsClient", () => {
+	beforeEach(() => {
+		vi.mocked(csrfFetch).mockReset();
+		refreshMock.mockReset();
+	});
+
 	it("persists edited settings through the settings API", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
@@ -37,7 +42,19 @@ describe("SettingsClient", () => {
 				body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "" }),
 			});
 		});
-		expect(await screen.findByText("✓ 设置已保存")).toBeInTheDocument();
+		expect(await screen.findByText(/✓ 设置已保存/)).toBeInTheDocument();
+		expect(screen.getByText(/平台信息已保存/)).toBeInTheDocument();
+	});
+
+	it("validates platform settings before calling the API", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+
+		render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "ftp://example.com/logo.png" }} canManage />);
+		await user.click(screen.getAllByRole("button", { name: "保存" })[0]);
+
+		expect(screen.getByText("Logo URL 只支持 http(s) 或站内路径")).toBeInTheDocument();
+		expect(csrfFetch).not.toHaveBeenCalled();
 	});
 
 	it("shows API errors instead of falsely reporting success", async () => {
@@ -48,7 +65,7 @@ describe("SettingsClient", () => {
 		await user.click(screen.getAllByRole("button", { name: "保存" })[0]);
 
 		expect(await screen.findByText("权限不足")).toBeInTheDocument();
-		expect(screen.queryByText("✓ 设置已保存")).not.toBeInTheDocument();
+		expect(screen.queryByText(/✓ 设置已保存/)).not.toBeInTheDocument();
 	});
 
   it("persists edited runtime settings through the settings API", async () => {
@@ -124,7 +141,7 @@ describe("SettingsClient", () => {
 
     render(<SettingsClient settings={{ "smtp.enabled": "false", "smtp.host": "smtp.example.com", "smtp.port": "587" }} canManage />);
 
-    expect(screen.getByText("SMTP 未启用，连接参数会保留但不会被用于发送邮件。")).toBeInTheDocument();
+    expect(screen.getByText(/SMTP 未启用，连接参数会保留但不会被用于发送邮件/)).toBeInTheDocument();
     const smtpHost = screen.getByLabelText("SMTP 服务器");
     expect(smtpHost).toBeDisabled();
     expect(smtpHost.parentElement).toHaveClass("opacity-70");
@@ -132,8 +149,19 @@ describe("SettingsClient", () => {
 
     await user.click(screen.getByRole("switch", { name: "启用 SMTP" }));
 
-    expect(screen.getByText("SMTP 已启用，保存后会用于系统通知邮件。")).toBeInTheDocument();
+    expect(screen.getByText("SMTP 已启用，保存后系统通知会立即使用最新连接参数。")).toBeInTheDocument();
     expect(screen.getByLabelText("SMTP 服务器")).toBeEnabled();
+  });
+
+  it("validates runtime number bounds before saving", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+
+    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "1", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "60", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
+    await user.click(screen.getAllByRole("button", { name: "保存" })[2]);
+
+    expect(screen.getByText("命令执行超时 必须在 5000 到 3600000 之间")).toBeInTheDocument();
+    expect(csrfFetch).not.toHaveBeenCalled();
   });
 	it("hosts account two-factor controls in system settings", () => {
 		render(<SettingsClient settings={{}} canManage twoFactorEnabled={false} />);

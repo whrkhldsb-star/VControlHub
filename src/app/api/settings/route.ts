@@ -17,10 +17,90 @@ export const dynamic = "force-dynamic";
 
 const patchEntrySchema = z.object({
 	key: SettingKey,
-	value: z.string().min(1, "值不能为空"),
+	value: z.string(),
 });
 
 const patchBodySchema = z.record(z.string(), z.string());
+
+function normalizeIntegerSetting(
+	key: string,
+	value: string,
+	label: string,
+	min: number,
+	max: number,
+) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) {
+		throw new Error(`${label} 必须是数字`);
+	}
+	const integer = Math.trunc(parsed);
+	if (integer < min || integer > max) {
+		throw new Error(`${label} 必须在 ${min} 到 ${max} 之间`);
+	}
+	return { key, value: String(integer) };
+}
+
+function normalizeBooleanSetting(key: string, value: string) {
+	if (value !== "true" && value !== "false") {
+		throw new Error(`${key} 必须是 true 或 false`);
+	}
+	return { key, value };
+}
+
+function normalizeOptionalHttpUrl(key: string, value: string) {
+	const trimmed = value.trim();
+	if (!trimmed) return { key, value: "" };
+	if (trimmed.startsWith("/")) return { key, value: trimmed };
+	try {
+		const parsed = new URL(trimmed);
+		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+			throw new Error("Logo URL 只支持 http(s) 或站内路径");
+		}
+	} catch {
+		throw new Error("Logo URL 只支持 http(s) 或站内路径");
+	}
+	return { key, value: trimmed };
+}
+
+function normalizeSettingValue(key: string, value: string) {
+	if (isRuntimeSettingKey(key)) {
+		return { key, value: normalizeRuntimeSettingValue(key, value) };
+	}
+	switch (key) {
+		case "platform.name": {
+			const trimmed = value.trim();
+			if (!trimmed) throw new Error("平台名称不能为空");
+			if (trimmed.length > 80) throw new Error("平台名称不能超过 80 个字符");
+			return { key, value: trimmed };
+		}
+		case "platform.logo":
+			return normalizeOptionalHttpUrl(key, value);
+		case "session.timeout":
+			return normalizeIntegerSetting(key, value, "会话超时", 300, 2_592_000);
+		case "password.minLength":
+			return normalizeIntegerSetting(key, value, "密码最小长度", 8, 128);
+		case "password.requireUppercase":
+		case "password.requireNumber":
+		case "password.requireSpecial":
+		case "smtp.enabled":
+			return normalizeBooleanSetting(key, value);
+		case "smtp.port":
+			return normalizeIntegerSetting(key, value || "587", "SMTP 端口", 1, 65_535);
+		case "smtp.from": {
+			const trimmed = value.trim();
+			if (trimmed && !/^.+@.+\..+$/.test(trimmed)) {
+				throw new Error("发件人地址格式不正确");
+			}
+			return { key, value: trimmed };
+		}
+		case "smtp.host":
+		case "smtp.user":
+		case "smtp.pass":
+			return { key, value: value.trim() };
+		default:
+			return { key, value };
+	}
+}
 
 /* ── GET ──────────────────────────────────────────────────── */
 
@@ -47,9 +127,10 @@ export async function PATCH(request: Request) {
 			);
 		}
 
-		// 2. Filter entries: reject keys not in whitelist, skip sentinel values
+		// 2. Filter entries: reject keys not in whitelist, skip sentinel values, normalize supported value types.
 		const entries: Array<{ key: string; value: string }> = [];
 		const rejectedKeys: string[] = [];
+		const validationErrors: string[] = [];
 
 		for (const [key, value] of Object.entries(parsed.data)) {
 			if (!isValidSettingKey(key)) {
@@ -60,28 +141,28 @@ export async function PATCH(request: Request) {
 			if (value === MASKED_VALUE) {
 				continue;
 			}
-			// Per-entry Zod validation (key enum + value non-empty string)
+			// Per-entry Zod validation (key enum + string value)
 			const entryResult = patchEntrySchema.safeParse({ key, value });
 			if (!entryResult.success) {
 				rejectedKeys.push(key);
 				continue;
 			}
-			if (isRuntimeSettingKey(key)) {
-				try {
-					entries.push({ key, value: normalizeRuntimeSettingValue(key, value) });
-				} catch {
-					rejectedKeys.push(key);
-				}
-				continue;
+			try {
+				entries.push(normalizeSettingValue(key, value));
+			} catch (error) {
+				validationErrors.push(error instanceof Error ? error.message : `${key} 校验失败`);
 			}
-			entries.push({ key, value });
 		}
 
-		if (rejectedKeys.length > 0) {
+		if (rejectedKeys.length > 0 || validationErrors.length > 0) {
 			return NextResponse.json(
 				{
-					error: `不允许的配置项: ${rejectedKeys.join(", ")}`,
+					error: [
+						rejectedKeys.length > 0 ? `不允许的配置项: ${rejectedKeys.join(", ")}` : null,
+						...validationErrors,
+					].filter(Boolean).join("；"),
 					rejectedKeys,
+					details: validationErrors,
 				},
 				{ status: 400 }
 			);
