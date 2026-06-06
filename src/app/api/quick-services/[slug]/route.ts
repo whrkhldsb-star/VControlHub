@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { startService, stopService, uninstallService, syncServiceStatus } from "@/lib/quick-service/service";
+import { startService, stopService, uninstallService, syncServiceStatus, updateService } from "@/lib/quick-service/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
-const serviceActionSchema = z.object({ action: z.enum(["start", "stop", "sync"]) });
+const serviceActionSchema = z.object({ action: z.enum(["start", "stop", "sync", "update"]) });
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +27,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 			const status = await syncServiceStatus(slug);
 			return NextResponse.json({ success: true, status });
 		}
+		if (action === "update") {
+			const result = await updateService(slug);
+			return NextResponse.json({ success: true, status: result.status, updated: true });
+		}
 
-		return NextResponse.json({ error: "未知操作，支持: start/stop/sync" }, { status: 400 });
+		return NextResponse.json({ error: "未知操作，支持: start/stop/sync/update" }, { status: 400 });
 	});
 }
 

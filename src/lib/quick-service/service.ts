@@ -457,6 +457,41 @@ export async function startService(slug: string) {
 	});
 }
 
+export async function updateService(slug: string) {
+	return withServiceOperationLock(slug, "更新", async () => {
+		const svc = await prisma.quickService.findUnique({ where: { slug } });
+		if (!svc) throw new Error("服务不存在");
+		assertServiceNotBusy(svc, "更新");
+
+		const tmpl: ServiceTemplate = {
+			slug: svc.slug,
+			name: svc.name,
+			category: svc.category,
+			icon: svc.icon,
+			description: svc.description,
+			image: svc.image,
+			defaultPort: svc.port,
+			internalPort: svc.internalPort ?? undefined,
+			path: svc.path,
+			envJson: JSON.parse(svc.envJson),
+			volumesJson: JSON.parse(svc.volumesJson),
+			extraPorts: JSON.parse(svc.extraPortsJson || "[]"),
+			command: svc.command ?? undefined,
+		};
+
+		try {
+			dockerExecSync(["pull", svc.image], 300_000);
+			await prisma.quickService.update({ where: { slug }, data: { status: "installing", error: null } });
+			await startDockerContainer(svc.id, tmpl, svc.port);
+			return { status: "running" };
+		} catch (err) {
+			const msg = dockerErrorMessage(err);
+			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `更新失败: ${msg}` } });
+			throw new Error(`更新失败: ${msg}`);
+		}
+	});
+}
+
 export async function stopService(slug: string) {
 	return withServiceOperationLock(slug, "停止", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });

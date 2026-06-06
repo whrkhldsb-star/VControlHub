@@ -241,7 +241,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ action }),
 			});
-			setMessage({ type: "ok", text: data.status === "running" ? `已启动` : `已停止` });
+			const actionMessages: Record<string, string> = {
+				start: "已启动",
+				stop: "已停止",
+				sync: data.status === "running" ? "状态已刷新：运行中" : "状态已刷新：已停止",
+				update: "更新完成，已拉取镜像并重建容器",
+			};
+			setMessage({ type: "ok", text: actionMessages[action] ?? "操作完成" });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "操作失败" });
@@ -529,6 +535,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								onInstall={() => openInstallDialog(item)}
 								onStart={() => doAction(item.slug, "start")}
 								onStop={() => doAction(item.slug, "stop")}
+								onUpdate={() => doAction(item.slug, "update")}
 								onSync={() => doAction(item.slug, "sync")}
 								onUninstall={() => requestUninstall(item)}
 							/>
@@ -694,6 +701,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									onInstall={() => openInstallDialog(item)}
 									onStart={() => doAction(item.slug, "start")}
 									onStop={() => doAction(item.slug, "stop")}
+									onUpdate={() => doAction(item.slug, "update")}
 									onSync={() => doAction(item.slug, "sync")}
 									onUninstall={() => requestUninstall(item)}
 								/>
@@ -875,13 +883,14 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 	);
 }
 
-function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUninstall }: {
+function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, onSync, onUninstall }: {
 	item: CatalogItem;
 	tab: string;
 	busy: boolean;
 	onInstall: () => void;
 	onStart: () => void;
 	onStop: () => void;
+	onUpdate: () => void;
 	onSync: () => void;
 	onUninstall: () => void;
 }) {
@@ -967,6 +976,11 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onSync, onUn
 						{item.status === "error" && (
 							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:opacity-50">
 								刷新状态
+							</button>
+						)}
+						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
+							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs text-cyan-200 light:text-cyan-800 hover:bg-cyan-500/[0.08] transition disabled:opacity-50">
+								{busy ? "…" : "更新"}
 							</button>
 						)}
 						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/[0.08] transition disabled:opacity-50">

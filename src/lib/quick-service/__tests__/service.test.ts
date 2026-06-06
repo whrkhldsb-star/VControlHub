@@ -26,7 +26,7 @@ vi.mock("child_process", () => ({
 	execFile: execFileMock,
 }));
 
-import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, syncServiceStatus, uninstallService } from "../service";
+import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -275,6 +275,68 @@ describe("quick service docker lifecycle", () => {
 
 		releaseInstall();
 		await installing;
+	});
+
+	it("updates a service by pulling its image and recreating the container", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({
+			id: "svc-update",
+			slug: "demo",
+			name: "Demo",
+			category: "other",
+			icon: "pkg",
+			description: "Demo service",
+			image: "example/demo:latest",
+			port: 18080,
+			path: "/demo/",
+			envJson: JSON.stringify({ DEMO_HOST: "localhost" }),
+			volumesJson: JSON.stringify([{ host: "/opt/demo/data", container: "/data" }]),
+			internalPort: 8080,
+			extraPortsJson: JSON.stringify([]),
+			command: null,
+			status: "running",
+		});
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		await expect(updateService("demo")).resolves.toEqual({ status: "running" });
+
+		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "installing", error: null } });
+		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		expect(dockerArgs).toEqual(expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "18080:8080", "example/demo:latest"]));
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
+			where: { id: "svc-update" },
+			data: { status: "running", containerId: "abcdef123456", error: null },
+		});
+	});
+
+	it("marks update failures as service errors", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({
+			id: "svc-update-fail",
+			slug: "demo",
+			name: "Demo",
+			category: "other",
+			icon: "pkg",
+			description: "Demo service",
+			image: "example/demo:latest",
+			port: 18080,
+			path: "/demo/",
+			envJson: JSON.stringify({}),
+			volumesJson: JSON.stringify([]),
+			internalPort: null,
+			extraPortsJson: JSON.stringify([]),
+			command: null,
+			status: "stopped",
+		});
+		execFileSyncMock.mockImplementationOnce(() => {
+			throw Object.assign(new Error("pull failed"), { stderr: "manifest unknown" });
+		});
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		await expect(updateService("demo")).rejects.toThrow("更新失败: manifest unknown");
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
+			where: { slug: "demo" },
+			data: { status: "error", error: "更新失败: manifest unknown" },
+		});
 	});
 
 	it("rejects lifecycle operations while a service is still installing", async () => {

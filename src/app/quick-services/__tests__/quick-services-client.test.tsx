@@ -97,6 +97,26 @@ describe("QuickServicesClient", () => {
 		expect(await screen.findByText("已卸载")).toBeInTheDocument();
 	});
 
+	it("shows an update action for installed services and calls the update endpoint", async () => {
+		const user = userEvent.setup();
+		mockInitialLoads();
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce({ success: true, status: "running", updated: true })
+			.mockResolvedValueOnce(catalogResponse);
+
+		render(<QuickServicesClient canManage />);
+		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(screen.getByRole("button", { name: "更新" }));
+
+		await waitFor(() => {
+			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", expect.objectContaining({
+				method: "PATCH",
+				body: JSON.stringify({ action: "update" }),
+			}));
+		});
+		expect(await screen.findByText("更新完成，已拉取镜像并重建容器")).toBeInTheDocument();
+	});
+
 	it("uses an in-app confirmation before deleting an app source", async () => {
 		const user = userEvent.setup();
 		const confirmSpy = vi.spyOn(window, "confirm");

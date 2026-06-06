@@ -12,6 +12,7 @@ const { mocks } = vi.hoisted(() => ({
     stopService: vi.fn(),
     uninstallService: vi.fn(),
     syncServiceStatus: vi.fn(),
+    updateService: vi.fn(),
     getDockerEnvironmentStatus: vi.fn(),
     getRemoteApps: vi.fn(),
   },
@@ -31,6 +32,7 @@ vi.mock("@/lib/quick-service/service", () => ({
   stopService: mocks.stopService,
   uninstallService: mocks.uninstallService,
   syncServiceStatus: mocks.syncServiceStatus,
+  updateService: mocks.updateService,
   getDockerEnvironmentStatus: mocks.getDockerEnvironmentStatus,
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
@@ -66,6 +68,7 @@ describe("/api/quick-services routes", () => {
     mocks.stopService.mockResolvedValue(undefined);
     mocks.uninstallService.mockResolvedValue(undefined);
     mocks.syncServiceStatus.mockResolvedValue("running");
+    mocks.updateService.mockResolvedValue({ status: "running" });
     mocks.getRemoteApps.mockResolvedValue([]);
   });
 
@@ -152,6 +155,18 @@ describe("/api/quick-services routes", () => {
     expect(response.status).toBe(200);
     expect(await body(response)).toEqual({ success: true, status: "running" });
     expect(mocks.syncServiceStatus).toHaveBeenCalledWith("alist");
+  });
+
+  it("updates a service through the guarded slug route", async () => {
+    const response = await slugRoute.PATCH(new Request("http://local/api/quick-services/alist", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "update" }),
+    }), { params: Promise.resolve({ slug: "alist" }) });
+
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual({ success: true, status: "running", updated: true });
+    expect(mocks.updateService).toHaveBeenCalledWith("alist");
   });
 
   it("uninstalls services through the guarded route", async () => {
