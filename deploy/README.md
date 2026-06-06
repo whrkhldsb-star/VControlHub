@@ -156,6 +156,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/vcontrolhub deploy/install.sh
 | 入口 | 用途 | 示例 |
 | --- | --- | --- |
 | `Makefile` | 本地/生产统一维护入口 | `make verify && sudo make restart && make smoke DOMAIN=your.example.com SERVICE_PREFIX=vcontrolhub` |
+| `deploy/fakeroot-install-check.sh` | installer fakeroot/dry-run 回归；通过 Vitest 的 DESTDIR 隔离 fixture 覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 和凭据同步等 fresh-install 分支，不会改动宿主 systemd/反代服务 | `make installer-fakeroot` |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
 | `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
 | `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/vcontrolhub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |

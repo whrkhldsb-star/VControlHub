@@ -354,7 +354,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] 一键安装 fresh install 关键路径：环境变量生成、反向代理分支、PostgreSQL 标识符、runtime bundle、systemd 模板。
 - [x] 核心质量门禁：typecheck、lint、测试、Next build、runtime build、部署资产校验。
 - [x] 将 smoke-test 拆分为 `SMOKE_SCOPE=systemd` / `SMOKE_SCOPE=http`，减少对本机服务名、PostgreSQL 本机实例和固定反代类型的硬编码。
-- [ ] 增加 installer fakeroot/dry-run 回归脚本，覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 四类分支。
+- [x] 增加 `make installer-fakeroot` / `deploy/fakeroot-install-check.sh` 回归入口，覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 四类 installer 分支。
 
 ### P1 — 功能设置真实可用
 - [x] 会话超时、密码策略、定时任务、告警规则、批量下载、工单优先级、snippet 元数据等“有 UI 但无真实效果/效果不完整”的问题已补齐。
