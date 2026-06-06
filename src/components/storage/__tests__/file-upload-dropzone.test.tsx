@@ -254,6 +254,34 @@ describe("FileUploadDropzone", () => {
     expect(formData.get("relativePath")).toBe("media/videos/clip.mp4");
   });
 
+  it("updates the selected upload node when the current SPA node changes", () => {
+    const { rerender } = render(
+      <FileUploadDropzone
+        nodes={[localNode, sftpNode]}
+        initialNodeId="node_local"
+        title="上传"
+        description="上传文件"
+        submitLabel="选择文件"
+        pathLabel="上传目录路径"
+      />,
+    );
+
+    expect(screen.getByLabelText("上传到节点")).toHaveValue("node_local");
+
+    rerender(
+      <FileUploadDropzone
+        nodes={[localNode, sftpNode]}
+        initialNodeId="node_sftp"
+        title="上传"
+        description="上传文件"
+        submitLabel="选择文件"
+        pathLabel="上传目录路径"
+      />,
+    );
+
+    expect(screen.getByLabelText("上传到节点")).toHaveValue("node_sftp");
+  });
+
   it("rejects unsafe upload directories on the client before sending files", async () => {
     const onUploadComplete = vi.fn();
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({

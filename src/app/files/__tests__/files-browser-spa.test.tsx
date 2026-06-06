@@ -41,8 +41,19 @@ vi.mock("../search-scope-toggle", () => ({
 }));
 
 vi.mock("../create-folder-form", () => ({
-  CreateFolderForm: () =>
-    React.createElement("button", { type: "button" }, "新建文件夹"),
+  CreateFolderForm: (props: {
+    initialNodeId?: string;
+    onCreated?: () => void;
+  }) =>
+    React.createElement(
+      "button",
+      {
+        type: "button",
+        onClick: () => props.onCreated?.(),
+        "data-initial-node-id": props.initialNodeId ?? "",
+      },
+      "新建文件夹",
+    ),
 }));
 
 vi.mock("../recycle-bin-section-client", () => ({
@@ -193,6 +204,52 @@ describe("FilesBrowserSpa", () => {
       expect(screen.getByRole("alert")).toHaveTextContent("文件列表刷新失败"),
     );
     expect(screen.getByText("before.jpg")).toBeInTheDocument();
+  });
+
+  it("refreshes the SPA file list after create-folder succeeds", async () => {
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }));
+
+    await waitFor(() =>
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        "/api/files/list?path=photos&nodeId=node_1",
+        expect.any(Object),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByText("after.jpg")).toBeInTheDocument(),
+    );
+  });
+
+  it("defaults create-folder and upload targets to the currently selected storage node", () => {
+    render(
+      <FilesBrowserSpa
+        initialData={{
+          ...baseData,
+          nodeIdFilter: "node_sftp_1",
+          nodes: [
+            { id: "node_1", name: "本机存储", driver: "LOCAL" },
+            { id: "node_sftp_1", name: "香港 VPS", driver: "SFTP" },
+          ],
+        }}
+        deletedEntries={[]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "新建文件夹" })).toHaveAttribute(
+      "data-initial-node-id",
+      "node_sftp_1",
+    );
+    expect(screen.getByRole("button", { name: "模拟上传完成" })).toHaveAttribute(
+      "data-initial-node-id",
+      "node_sftp_1",
+    );
   });
 
   it("filters storage nodes before switching the file browser node", async () => {

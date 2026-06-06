@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -99,6 +99,13 @@ export function FileUploadDropzone({
 
   const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) ?? null, [nodes, selectedNodeId]);
   const uploadEnabled = selectedNode ? ["LOCAL", "SFTP"].includes(selectedNode.driver) : false;
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const nextNodeId = initialNodeId ?? nodes.find((node) => node.driver === "LOCAL")?.id ?? DEFAULT_NODE;
+    setSelectedNodeId(nextNodeId);
+  }, [initialNodeId, nodes]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function uploadFiles(files: File[]) {
     if (!selectedNodeId) {

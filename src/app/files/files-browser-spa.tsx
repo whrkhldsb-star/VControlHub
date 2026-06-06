@@ -534,6 +534,9 @@ export function FilesBrowserSpa({
     data.nodeIdFilter,
   );
   const selectedNode = getNodeById(data.nodes, data.nodeIdFilter);
+  const preferredUploadNode = data.nodeIdFilter && uploadNodes.some((node) => node.id === data.nodeIdFilter)
+    ? data.nodeIdFilter
+    : uploadNodes[0]?.id ?? data.nodes[0]?.id;
   const refreshLabel = selectedNode?.driver === "SFTP" ? "刷新远端文件" : "刷新列表";
   const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(() =>
     getInitialExpandedTreePaths(initialData.tree, initialData.currentPath),
@@ -753,6 +756,15 @@ export function FilesBrowserSpa({
                   <CreateFolderForm
                     storageNodes={data.nodes}
                     currentPath={data.currentPath}
+                    initialNodeId={data.nodeIdFilter || undefined}
+                    onCreated={() =>
+                      fetchFiles(
+                        data.currentPath,
+                        data.searchQuery,
+                        data.searchScope,
+                        data.nodeIdFilter,
+                      )
+                    }
                   />
                 ) : (
                   <button
@@ -811,7 +823,7 @@ export function FilesBrowserSpa({
           <div id="upload-section">
             <FileUploadDropzone
               nodes={data.nodes}
-              initialNodeId={uploadNodes[0]?.id ?? data.nodes[0]?.id}
+              initialNodeId={preferredUploadNode}
               initialRelativeDir={data.currentPath}
               uploadDir={data.currentPath}
               title={`上传到当前目录 ${currentPathDisplay.uploadPathLabel}`}
