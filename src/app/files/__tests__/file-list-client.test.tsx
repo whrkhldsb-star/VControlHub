@@ -267,7 +267,7 @@ describe("FileListClient", () => {
     expect(screen.getAllByRole("link", { name: "report.pdf" })[0]).toBeInTheDocument();
   });
 
-  it("renders one effective download action instead of website and direct choices", () => {
+  it("renders one effective attachment-capable download action instead of website and direct choices", () => {
     renderFileList({ files: [sftpDirectFile], folders: [] });
 
     expect(screen.queryByText("下载流量")).not.toBeInTheDocument();
@@ -276,9 +276,10 @@ describe("FileListClient", () => {
     const downloadLinks = screen.getAllByRole("link", { name: "下载 movie.mp4" });
     expect(downloadLinks[0]).toHaveAttribute(
       "href",
-      "https://cdn.example.com/media/movie.mp4?signature=abc&download=1",
+      "/api/storage/sftp-download?nodeId=node_sftp&path=media%2Fmovie.mp4&download=1",
     );
-    expect(downloadLinks[0]).toHaveAttribute("target", "_blank");
+    expect(downloadLinks[0]).toHaveAttribute("download");
+    expect(downloadLinks[0]).not.toHaveAttribute("target");
   });
 
   it("renders archive download actions for readable folders", () => {

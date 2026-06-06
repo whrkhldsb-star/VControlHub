@@ -12,9 +12,8 @@ import { MoveInlineForm } from "./move-inline-form";
 import { ShareFileButton } from "./share-file-button";
 import { DownloadIcon, FileTypeIcon, PreviewIcon } from "./file-entry-icons";
 import {
-  appendDownloadFlag,
   buildArchiveDownloadHref,
-  buildDownloadHref,
+  buildForcedDownloadHref,
   buildSearchHref,
   formatDate,
   getPreviewHref,
@@ -563,7 +562,7 @@ export function FileListClient({
         {sortedFiles.map((fileProp) => {
           const entry = toStorageEntry(fileProp);
           const thumbUrl = getThumbnailUrl(entry);
-          const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
+          const downloadUrl = buildForcedDownloadHref(entry);
           const previewHref = getPreviewHref(entry);
           const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 
@@ -762,7 +761,7 @@ export function FileListClient({
         {/* Details file rows */}
         {sortedFiles.map((fileProp) => {
           const entry = toStorageEntry(fileProp);
-          const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
+          const downloadUrl = buildForcedDownloadHref(entry);
           const previewHref = getPreviewHref(entry);
           const thumbUrl = getThumbnailUrl(entry);
           const isChecked = effectiveSelectedIdSet.has(fileProp.id);
@@ -965,7 +964,7 @@ export function FileListClient({
 
               {sortedFiles.map((fileProp) => {
                 const entry = toStorageEntry(fileProp);
-                const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
+                const downloadUrl = buildForcedDownloadHref(entry);
                 const previewHref = getPreviewHref(entry);
                 const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 
@@ -1124,7 +1123,7 @@ export function FileListClient({
 
           {sortedFiles.map((fileProp) => {
             const entry = toStorageEntry(fileProp);
-            const downloadUrl = appendDownloadFlag(buildDownloadHref(entry));
+            const downloadUrl = buildForcedDownloadHref(entry);
             const previewHref = getPreviewHref(entry);
             const isChecked = effectiveSelectedIdSet.has(fileProp.id);
 

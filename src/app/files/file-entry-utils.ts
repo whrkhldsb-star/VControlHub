@@ -114,6 +114,10 @@ export function buildDownloadHref(entry: StorageEntry) {
   return buildDirectDownloadHref(entry) ?? buildProxyDownloadHref(entry);
 }
 
+export function buildForcedDownloadHref(entry: StorageEntry) {
+  return appendDownloadFlag(buildProxyDownloadHref(entry));
+}
+
 export function getPreviewHref(entry: StorageEntry) {
   const mime = entry.mimeType ?? "";
   const isPreviewableMime =

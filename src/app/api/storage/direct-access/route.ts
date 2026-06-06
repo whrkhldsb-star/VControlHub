@@ -36,6 +36,20 @@ function fallbackUrl(nodeId: string, relativePath: string) {
   return `/api/storage/sftp-download?${params.toString()}`;
 }
 
+function forceAttachmentFallbackUrl(fallback: string) {
+  return `${fallback}${fallback.includes("?") ? "&" : "?"}download=1`;
+}
+
+function redirectToDirectAccessLocation(location: string, requestUrl: string) {
+  const response = NextResponse.redirect(new URL(location, requestUrl), {
+    status: 302,
+  });
+  if (location.startsWith("/")) {
+    response.headers.set("location", location);
+  }
+  return response;
+}
+
 function getDirectAccessSecret() {
   return (
     process.env.STORAGE_DIRECT_ACCESS_SECRET ||
@@ -213,11 +227,14 @@ export async function GET(request: Request) {
       });
       if (payload instanceof NextResponse) return payload;
 
-      const redirectUrl =
-        payload.mode === "direct-url" ? payload.url : payload.fallbackUrl;
-      return NextResponse.redirect(new URL(redirectUrl, request.url), {
-        status: 302,
-      });
+      const shouldForceDownload =
+        new URL(request.url).searchParams.get("download") === "1";
+      const redirectUrl = shouldForceDownload
+        ? forceAttachmentFallbackUrl(payload.fallbackUrl)
+        : payload.mode === "direct-url"
+          ? payload.url
+          : payload.fallbackUrl;
+      return redirectToDirectAccessLocation(redirectUrl, request.url);
     },
   );
 }

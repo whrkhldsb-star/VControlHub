@@ -304,7 +304,33 @@ describe("/api/storage/direct-access", () => {
 
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
-      "https://app.example.com/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
+      "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4",
+    );
+  });
+
+  it("redirects forced-download GET requests to the attachment-capable managed route", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin" },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce(
+      directNode({
+        directAccessMode: "DIRECT",
+        publicBaseUrl: "https://cdn.example.com/media",
+        directAccessExpiresSeconds: 600,
+      }),
+    );
+
+    const response = await GET(
+      new Request(
+        "https://app.example.com/api/storage/direct-access?nodeId=node_1&path=movies%2Fdemo.mp4&download=1",
+      ),
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe(
+      "/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4&download=1",
     );
   });
 

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
 	appendDownloadFlag,
 	buildDirectDownloadHref,
+	buildDownloadHref,
+	buildForcedDownloadHref,
 	buildProxyDownloadHref,
 	buildSearchHref,
 	getPreviewHref,
@@ -61,6 +63,21 @@ describe("file-entry-utils", () => {
 	it("adds download flags without losing existing query strings", () => {
 		expect(appendDownloadFlag("/api/storage/local?path=a")).toBe("/api/storage/local?path=a&download=1");
 		expect(appendDownloadFlag("/api/storage/local")).toBe("/api/storage/local?download=1");
+	});
+
+	it("forces file-manager downloads through attachment-capable managed routes", () => {
+		const directEntry = toStorageEntry({
+			...baseFile,
+			storageNodeId: "node_sftp",
+			storageNodeDriver: "SFTP",
+			directAccessMode: "direct-url",
+			directAccessHref: "/api/storage/direct-access?nodeId=node_sftp&path=docs%2Freport.pdf",
+		});
+
+		expect(buildDownloadHref(directEntry)).toContain("/api/storage/direct-access");
+		expect(buildForcedDownloadHref(directEntry)).toBe(
+			"/api/storage/sftp-download?nodeId=node_sftp&path=docs%2Freport.pdf&download=1",
+		);
 	});
 
 	it("uses managed download links for previews and thumbnails when available", () => {
