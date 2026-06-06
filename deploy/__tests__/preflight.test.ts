@@ -1142,9 +1142,8 @@ describe("deploy/install.sh", () => {
       path.resolve(__dirname, "../smoke-test.sh"),
       "utf8",
     );
-    expect(script).toContain(
-      'ENV_FILE="${ENV_FILE:-${SMOKE_APP_DIR}/.env.local}"',
-    );
+    expect(script).toContain('if [ -z "${ENV_FILE}" ]; then');
+    expect(script).toContain('ENV_FILE="${SMOKE_APP_DIR}/.env.local"');
     expect(script).toContain('source "${ENV_FILE}"');
     expect(script).toContain('NEXT_PORT="${NEXT_PORT:-3000}"');
     expect(script).toContain('SSH_WS_PORT="${SSH_WS_PORT:-3001}"');
@@ -1170,6 +1169,29 @@ describe("deploy/install.sh", () => {
     expect(script).toContain("grep -i X-Content-Type-Options");
     expect(script).not.toContain("Apache on *:80");
     expect(script).not.toContain("Login page (via Apache)");
+  });
+
+  it("supports scoped post-deploy smoke tests for systemd-only and HTTP-only deployments", async () => {
+    const script = await readFile(
+      path.resolve(__dirname, "../smoke-test.sh"),
+      "utf8",
+    );
+    const makefile = await readFile(path.resolve(__dirname, "../../Makefile"), "utf8");
+
+    expect(script).toContain("SMOKE_SCOPE=\"${SMOKE_SCOPE:-full}\"");
+    expect(script).toContain("full|systemd|http");
+    expect(script).toContain("run_systemd_checks()");
+    expect(script).toContain("run_http_checks()");
+    expect(script).toContain("wait_for_systemd_readiness");
+    expect(script).toContain("wait_for_public_readiness");
+    expect(script).toContain("PostgreSQL service not installed locally; assuming external database");
+    expect(script).toContain("SMOKE_PUBLIC_URL=\"${SMOKE_PUBLIC_URL:-}\"");
+    expect(script).toContain("Explicit SMOKE_PUBLIC_URL set; skipping local reverse-proxy service check");
+    expect(script).toContain("Scope: ${SMOKE_SCOPE}");
+    expect(makefile).toContain("smoke-systemd:");
+    expect(makefile).toContain("SMOKE_SCOPE=systemd deploy/smoke-test.sh");
+    expect(makefile).toContain("smoke-http:");
+    expect(makefile).toContain("SMOKE_SCOPE=http SMOKE_PUBLIC_URL=\"$(SMOKE_PUBLIC_URL)\"");
   });
 
   it("keeps fresh-install migrations aligned with mapped Prisma tables used by runtime pages", async () => {

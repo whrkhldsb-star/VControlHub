@@ -225,6 +225,21 @@ curl -fsS http://127.0.0.1:3000/login >/dev/null
 systemctl status ${SERVICE_PREFIX:-my-console}-next.service ${SERVICE_PREFIX:-my-console}-ssh-ws.service caddy --no-pager
 ```
 
+部署后 smoke 支持按部署形态拆分，避免把本机 systemd、PostgreSQL 和公网反代假设混在一起：
+
+```bash
+# 完整默认检查：本机 systemd/端口 + 公网 HTTP
+make smoke DOMAIN=your.example.com SERVICE_PREFIX=my-console
+
+# 只检查本机 systemd/端口/localhost（适合外部数据库或反代暂未切换时）
+make smoke-systemd SERVICE_PREFIX=my-console
+
+# 只做公网黑盒 HTTP 检查（适合 Compose、自定义反代或非本机部署）
+make smoke-http DOMAIN=your.example.com SERVICE_PREFIX=my-console
+# 也可直接指定完整公网 URL
+SMOKE_PUBLIC_URL=https://your.example.com make smoke-http SERVICE_PREFIX=my-console
+```
+
 
 ## 运行时目录与可移植性规则
 

@@ -196,7 +196,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 | 反向代理 | Caddy (自动HTTPS) / Apache | — |
 | 进程管理 | systemd | — |
 | 容器 | Docker (应用商店) | — |
-| 代码量 | **~44,700 行** TypeScript/TSX | — |
+| 代码量 | **~79,700 行** TypeScript/TSX（`src` 扫描） | — |
 
 ---
 
@@ -204,7 +204,7 @@ sudo APP_NAME="MyCloud" APP_SLUG=mycloud SITE_NAME="My Cloud Platform" \
 
 ```
 ├── src/
-│   ├── app/                    # Next.js App Router (35 页面 + 66 API)
+│   ├── app/                    # Next.js App Router (39 页面 + 75 API)
 │   │   ├── api/                # API Routes (RESTful)
 │   │   ├── servers/            # VPS 管理
 │   │   ├── files/              # 文件管理
@@ -310,16 +310,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 指标 | 数量 |
 |------|------|
-| 功能页面 | 37 |
-| API 端点 | 74 |
-| 数据模型 | 45 |
-| UI 组件 | 18 |
-| 代码行数 | ~77,700（src 扫描） |
+| 功能页面 | 39 |
+| API 端点 | 75 |
+| 数据模型 | 43 |
+| UI 组件 | 27 |
+| 代码行数 | ~79,700（src 扫描） |
 | Docker 应用模板 | 44 (本地) + 187 (社区) |
 
 ---
 
-## 🔎 当前可用性与功能完整性状态（2026-06-04）
+## 🔎 当前可用性与功能完整性状态（2026-06-06）
 
 > 当前重点已经从“页面是否能打开”推进到“按钮是否真的有副作用、设置项是否真的生效、后台任务是否真的会跑、安装脚本是否能支撑 fresh install”。以下状态来自生产修复、单元测试、构建和 smoke-test 的收尾结果。
 
@@ -336,10 +336,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **表单字段不再丢失** — 代码片段创建/编辑支持描述、标签和私有状态；分享创建后刷新列表；公告创建支持置顶/发布字段。
 - [x] **工单更新更完整** — 状态、负责人、优先级可以一起更新，避免 UI 有字段但 API 丢弃。
 - [x] **一键安装脚本已增强** — 无域名安装进入 Apache/IP 直连路径；`APP_SLUG` 可带短横线，默认 PostgreSQL 用户/库名会安全转换为下划线标识符；部署资产校验进入 `npm run verify`。
+- [x] **smoke-test 部署假设已拆分** — `deploy/smoke-test.sh` 支持 `SMOKE_SCOPE=systemd`（本机 systemd/端口检查）和 `SMOKE_SCOPE=http`（公网黑盒 HTTP 检查），Makefile 提供 `make smoke-systemd` / `make smoke-http`，适配外部数据库、非本机数据库和自定义反代场景。
 
 ### 目前仍存在的问题 / 使用边界
 
-- [ ] **`deploy/smoke-test.sh` 仍偏 systemd 本机部署假设。** 对外部数据库、Compose、自定义反代、纯 HTTP 黑盒部署还不够友好，后续应拆成“本机 systemd 检查”和“公网 HTTP 检查”。
 - [ ] **快捷服务的一键更新仍未完善。** 当前更偏安装/管理，后续需要 Docker image pull、容器重建、配置 diff、失败回滚和更新日志。
 - [ ] **备份策略仍偏手动。** 已有备份/恢复脚本，但还缺 UI 化定时备份、异地备份、恢复演练和备份大小/保留策略监控。
 - [ ] **文件管理还缺完整编辑体验。** 浏览/上传/下载/预览可用，但在线编辑、保存前 diff、保存后可选重载服务仍是下一阶段。
@@ -353,7 +353,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P0 — 收尾质量门禁 / 安装可信度
 - [x] 一键安装 fresh install 关键路径：环境变量生成、反向代理分支、PostgreSQL 标识符、runtime bundle、systemd 模板。
 - [x] 核心质量门禁：typecheck、lint、测试、Next build、runtime build、部署资产校验。
-- [ ] 将 smoke-test 拆分为 `smoke:systemd` / `smoke:http`，减少对本机服务名、PostgreSQL 本机实例和中文文案的硬编码。
+- [x] 将 smoke-test 拆分为 `SMOKE_SCOPE=systemd` / `SMOKE_SCOPE=http`，减少对本机服务名、PostgreSQL 本机实例和固定反代类型的硬编码。
 - [ ] 增加 installer fakeroot/dry-run 回归脚本，覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 四类分支。
 
 ### P1 — 功能设置真实可用

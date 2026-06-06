@@ -1,8 +1,9 @@
 APP_DIR ?= $(CURDIR)
 DOMAIN ?=
 SERVICE_PREFIX ?= $(notdir $(APP_DIR))
+SMOKE_PUBLIC_URL ?=
 
-.PHONY: help verify build runtime deploy-check smoke restart status logs package
+.PHONY: help verify build runtime deploy-check smoke smoke-systemd smoke-http restart status logs package
 
 help:
 	@printf 'VControlHub maintenance targets:\n'
@@ -11,7 +12,9 @@ help:
 	@printf '  make runtime       Build dist/server.js and dist/ssh-ws-proxy.js\n'
 	@printf '  make restart       Restart SERVICE_PREFIX=$(SERVICE_PREFIX)-next/-ssh-ws when available\n'
 	@printf '  make deploy-check  Run deploy/check.sh against APP_DIR=$(APP_DIR)\n'
-	@printf '  make smoke         Run post-deploy smoke test; set DOMAIN=your-host when auto-detect is not enough\n'
+	@printf '  make smoke         Run full post-deploy smoke test; set DOMAIN=your-host when auto-detect is not enough\n'
+	@printf '  make smoke-systemd Run local systemd/port smoke only (no public reverse-proxy assumptions)\n'
+	@printf '  make smoke-http    Run black-box public HTTP smoke only; set DOMAIN or SMOKE_PUBLIC_URL\n'
 	@printf '  make status        Show systemd service status\n'
 	@printf '  make logs          Tail recent application logs\n'
 	@printf '  make package       Create a portable release archive\n'
@@ -37,6 +40,12 @@ deploy-check:
 
 smoke:
 	deploy/smoke-test.sh "$(DOMAIN)" "$(SERVICE_PREFIX)"
+
+smoke-systemd:
+	SMOKE_SCOPE=systemd deploy/smoke-test.sh "$(DOMAIN)" "$(SERVICE_PREFIX)"
+
+smoke-http:
+	SMOKE_SCOPE=http SMOKE_PUBLIC_URL="$(SMOKE_PUBLIC_URL)" deploy/smoke-test.sh "$(DOMAIN)" "$(SERVICE_PREFIX)"
 
 status:
 	@if command -v systemctl >/dev/null 2>&1; then \
