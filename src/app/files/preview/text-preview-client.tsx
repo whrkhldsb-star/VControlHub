@@ -29,6 +29,8 @@ function sanitizeHighlightHtml(html: string): string {
 
 type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
 
+type DiffRow = { line: number; before: string; after: string; kind: "added" | "removed" | "changed" };
+
 const LANG_MAP: Record<string, string> = {
 	js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
 	mjs: "javascript", cjs: "javascript",
@@ -54,6 +56,25 @@ function getLangFromName(name?: string): string {
 	if (lower === "dockerfile" || lower === "makefile" || lower === "vagrantfile" || lower === "gemfile") return LANG_MAP[lower] ?? "text";
 	const ext = lower.split(".").pop() ?? "";
 	return LANG_MAP[ext] ?? "text";
+}
+
+function buildLineDiff(before: string, after: string): DiffRow[] {
+	const beforeLines = before.split("\n");
+	const afterLines = after.split("\n");
+	const max = Math.max(beforeLines.length, afterLines.length);
+	const rows: DiffRow[] = [];
+	for (let i = 0; i < max; i += 1) {
+		const previous = beforeLines[i];
+		const next = afterLines[i];
+		if (previous === next) continue;
+		rows.push({
+			line: i + 1,
+			before: previous ?? "",
+			after: next ?? "",
+			kind: previous == null ? "added" : next == null ? "removed" : "changed",
+		});
+	}
+	return rows;
 }
 
 /* Simple token-based syntax highlighting using regex.
@@ -240,6 +261,7 @@ export function TextPreviewClient({
 	const [jumpLine, setJumpLine] = useState("");
 	const [editMode, setEditMode] = useState(false);
 	const [draft, setDraft] = useState("");
+	const [showDiffReview, setShowDiffReview] = useState(false);
 	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 	const [saveMessage, setSaveMessage] = useState("");
 	const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -247,11 +269,19 @@ export function TextPreviewClient({
 
 	const lang = useMemo(() => getLangFromName(name), [name]);
 	const canEdit = editable && Boolean(fileEntryId);
+	const currentContent = state.loading ? "" : state.content ?? "";
+	const diffRows = useMemo(() => buildLineDiff(currentContent, draft), [currentContent, draft]);
+	const diffSummary = useMemo(() => ({
+		added: diffRows.filter((row) => row.kind === "added").length,
+		removed: diffRows.filter((row) => row.kind === "removed").length,
+		changed: diffRows.filter((row) => row.kind === "changed").length,
+	}), [diffRows]);
 
 	useEffect(() => {
 		let cancelled = false;
 		setState({ loading: true });
 		setEditMode(false);
+		setShowDiffReview(false);
 		setSaveStatus("idle");
 		setSaveMessage("");
 
@@ -309,6 +339,7 @@ export function TextPreviewClient({
 			});
 			setState({ loading: false, content: draft, error: null });
 			setEditMode(false);
+			setShowDiffReview(false);
 			setSaveStatus("saved");
 			setSaveMessage(`已保存 ${response.file.byteSize} B`);
 		} catch (err) {
@@ -334,9 +365,9 @@ export function TextPreviewClient({
 		);
 	}
 
-	const lines = (state.content ?? "").split("\n");
+	const lines = currentContent.split("\n");
 	const totalLines = lines.length;
-	const hasUnsavedChanges = draft !== (state.content ?? "");
+	const hasUnsavedChanges = draft !== currentContent;
 	const highlightSearch = (html: string): string => {
 		if (!searchQuery.trim()) return html;
 		try {
@@ -375,17 +406,18 @@ export function TextPreviewClient({
 							<>
 								<button
 									type="button"
-									onClick={handleSave}
+									onClick={() => setShowDiffReview(true)}
 									disabled={saveStatus === "saving" || !hasUnsavedChanges}
 									className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/20 disabled:opacity-50"
 								>
-									{saveStatus === "saving" ? "保存中…" : "保存"}
+									{saveStatus === "saving" ? "保存中…" : "预览并保存"}
 								</button>
 								<button
 									type="button"
 									onClick={() => {
-										setDraft(state.content ?? "");
+										setDraft(currentContent);
 										setEditMode(false);
+										setShowDiffReview(false);
 										setSaveStatus("idle");
 										setSaveMessage("");
 									}}
@@ -438,6 +470,53 @@ export function TextPreviewClient({
 				) : null}
 			</div>
 
+			{editMode && showDiffReview ? (
+				<div role="dialog" aria-modal="true" aria-label="保存前差异预览" className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 shadow-2xl shadow-black/20">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<h3 className="text-sm font-semibold text-amber-100 light:text-amber-900">保存前差异预览</h3>
+							<p className="mt-1 text-xs text-amber-100/80 light:text-amber-900/80">
+								请确认变更后再写入文件：新增 {diffSummary.added} 行，删除 {diffSummary.removed} 行，修改 {diffSummary.changed} 行。
+							</p>
+						</div>
+						<div className="flex gap-2">
+							<button
+								type="button"
+								onClick={() => setShowDiffReview(false)}
+								disabled={saveStatus === "saving"}
+								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 light:border-slate-300 light:bg-white/70 light:text-slate-700 disabled:opacity-50"
+							>
+								返回编辑
+							</button>
+							<button
+								type="button"
+								onClick={handleSave}
+								disabled={saveStatus === "saving" || diffRows.length === 0}
+								className="rounded-lg border border-emerald-300/40 bg-emerald-400/20 px-3 py-1.5 text-xs font-medium text-emerald-100 light:text-emerald-900 disabled:opacity-50"
+							>
+								{saveStatus === "saving" ? "保存中…" : "确认保存"}
+							</button>
+						</div>
+					</div>
+					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80 light:bg-white/80">
+						{diffRows.length === 0 ? (
+							<p className="px-3 py-2 text-xs text-slate-400">没有检测到内容差异。</p>
+						) : (
+							<ul className="divide-y divide-white/[0.06]">
+								{diffRows.slice(0, 80).map((row) => (
+									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
+										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? "新增" : row.kind === "removed" ? "删除" : "修改"}</span>
+										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-rose-500/10 px-2 py-1 text-rose-200 light:text-rose-800">- {row.before}</code>
+										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-emerald-500/10 px-2 py-1 text-emerald-200 light:text-emerald-800">+ {row.after}</code>
+									</li>
+								))}
+								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-slate-500">还有 {diffRows.length - 80} 行差异未展示，仍会一起保存。</li> : null}
+							</ul>
+						)}
+					</div>
+				</div>
+			) : null}
+
 			{editMode ? (
 				<textarea
 					aria-label="在线编辑文件内容"
@@ -447,6 +526,7 @@ export function TextPreviewClient({
 						setSaveStatus("idle");
 						setSaveMessage("");
 					}}
+					onClick={() => showDiffReview && setShowDiffReview(false)}
 					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 light:bg-white p-4 font-mono text-sm leading-relaxed text-slate-100 light:text-slate-900 outline-none focus:border-cyan-300"
 					spellCheck={false}
 				/>
