@@ -7,6 +7,8 @@ const { mocks } = vi.hoisted(() => ({
     listScheduledTasks: vi.fn(),
     updateScheduledTask: vi.fn(),
     deleteScheduledTask: vi.fn(),
+    describeCron: vi.fn(),
+    retryScheduledTask: vi.fn(),
     toggleScheduledTask: vi.fn(),
     auditUserAction: vi.fn(),
   },
@@ -20,6 +22,8 @@ vi.mock("@/lib/scheduled-task/service", () => ({
   listScheduledTasks: mocks.listScheduledTasks,
   updateScheduledTask: mocks.updateScheduledTask,
   deleteScheduledTask: mocks.deleteScheduledTask,
+  describeCron: mocks.describeCron,
+  retryScheduledTask: mocks.retryScheduledTask,
   toggleScheduledTask: mocks.toggleScheduledTask,
 }));
 vi.mock("@/lib/audit/service", () => ({
@@ -34,6 +38,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
     mocks.listScheduledTasks.mockResolvedValue([]);
+    mocks.describeCron.mockReturnValue("每天 2:00");
     mocks.createScheduledTask.mockResolvedValue({
       id: "task1",
       name: "Clean logs",
@@ -61,6 +66,15 @@ describe("/api/scheduled-tasks audit coverage", () => {
       serverIds: ["srv1", "srv2"],
       status: "PAUSED",
     });
+    mocks.retryScheduledTask.mockResolvedValue({
+      id: "task1",
+      name: "Clean logs",
+      cronExpression: "0 2 * * *",
+      command: "journalctl --vacuum-time=7d && cat /etc/shadow",
+      reason: "maintenance",
+      serverIds: ["srv1", "srv2"],
+      status: "ACTIVE",
+    });
     mocks.deleteScheduledTask.mockResolvedValue({
       id: "task1",
       name: "Clean logs",
@@ -69,6 +83,36 @@ describe("/api/scheduled-tasks audit coverage", () => {
       reason: "maintenance",
       serverIds: ["srv1", "srv2"],
       status: "ACTIVE",
+    });
+  });
+
+  it("serializes cron descriptions for refreshed scheduled task lists", async () => {
+    mocks.listScheduledTasks.mockResolvedValue([
+      {
+        id: "task1",
+        name: "Clean logs",
+        cronExpression: "0 2 * * *",
+        command: "journalctl --vacuum-time=7d",
+        reason: "maintenance",
+        serverIds: ["srv1"],
+        status: "ACTIVE",
+        lastRunAt: new Date("2026-01-01T00:00:00Z"),
+        nextRunAt: new Date("2026-01-02T02:00:00Z"),
+        lastResult: "执行失败：disk full",
+        runCount: 2,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        creator: { username: "alice", displayName: null },
+      },
+    ]);
+
+    const res = await route.GET(new Request("http://local/api/scheduled-tasks"));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.tasks[0]).toMatchObject({
+      id: "task1",
+      cronDescription: "每天 2:00",
+      lastResult: "执行失败：disk full",
     });
   });
 
@@ -121,6 +165,26 @@ describe("/api/scheduled-tasks audit coverage", () => {
       serverIds: ["srv1"],
       status: undefined,
     });
+  });
+
+  it("retries scheduled tasks from the API and audits without leaking command text", async () => {
+    const res = await route.PATCH(
+      new Request("http://local/api/scheduled-tasks", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ retryId: "task1" }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mocks.retryScheduledTask).toHaveBeenCalledWith("task1");
+    expect(mocks.auditUserAction).toHaveBeenCalledWith(
+      "u1",
+      "scheduled_task.retry",
+      expect.objectContaining({ taskId: "task1", name: "Clean logs" }),
+    );
+    expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("journalctl");
+    expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("/etc/shadow");
   });
 
   it("audits scheduled task lifecycle changes without leaking command text", async () => {

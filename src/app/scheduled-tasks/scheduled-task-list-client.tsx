@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Task = {
@@ -21,9 +21,9 @@ type Props = {
 };
 
 const statusBadge: Record<string, string> = {
-	ACTIVE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
-	PAUSED: "border-amber-400/20 bg-amber-400/10 text-amber-200",
-	DISABLED: "border-slate-400/20 bg-slate-400/10 text-slate-200",
+	ACTIVE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200 light:text-emerald-800",
+	PAUSED: "border-amber-400/20 bg-amber-400/10 text-amber-200 light:text-amber-800",
+	DISABLED: "border-slate-400/20 bg-slate-400/10 text-slate-200 light:text-slate-700",
 };
 
 const statusLabel: Record<string, string> = {
@@ -37,16 +37,41 @@ function formatTime(iso: string | null): string {
 	return new Date(iso).toLocaleString("zh-CN");
 }
 
+function matchesTask(task: Task, query: string) {
+	const needle = query.trim().toLowerCase();
+	if (!needle) return true;
+	return [task.name, task.cronExpression, task.cronDescription, task.command, task.reason, task.lastResult, task.status]
+		.filter(Boolean)
+		.some((value) => String(value).toLowerCase().includes(needle));
+}
+
+function describeCronPreview(expr: string) {
+	const parts = expr.trim().split(/\s+/);
+	if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
+	const [min, hour, day, month, dow] = parts;
+	if (min.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `每 ${min.slice(2)} 分钟执行一次`;
+	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return "每小时整点执行";
+	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour) && /^\d+$/.test(min)) return `每天 ${hour}:${min.padStart(2, "0")} 执行`;
+	if (day === "*" && month === "*" && /^\d+$/.test(dow) && /^\d+$/.test(hour) && /^\d+$/.test(min)) {
+		const names: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
+		return `每${names[dow] ?? `周${dow}`} ${hour}:${min.padStart(2, "0")} 执行`;
+	}
+	return "自定义 Cron；保存时服务端会计算下一次运行时间";
+}
+
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate, canManage }: Props) {
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const refresh = useCallback(async () => {
 		const data = await csrfFetch("/api/scheduled-tasks");
 		setTasks(data.tasks ?? []);
 	}, []);
+
+	const filteredTasks = useMemo(() => tasks.filter((task) => matchesTask(task, searchQuery)), [tasks, searchQuery]);
 
 	const toggleTask = useCallback(async (id: string) => {
 		setActionError(null);
@@ -59,6 +84,20 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			void refresh();
 		} catch (err) {
 			setActionError(err instanceof Error ? err.message : "切换定时任务状态失败");
+		}
+	}, [refresh]);
+
+	const retryTask = useCallback(async (id: string) => {
+		setActionError(null);
+		try {
+			await csrfFetch("/api/scheduled-tasks", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ retryId: id }),
+			});
+			void refresh();
+		} catch (err) {
+			setActionError(err instanceof Error ? err.message : "重试定时任务失败");
 		}
 	}, [refresh]);
 
@@ -76,17 +115,30 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 	return (
 		<div className="space-y-6">
 			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{actionError}</div>}
-			{canCreate && !showCreate && (
-				<button
-					onClick={() => setShowCreate(true)}
-					className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
-				>
-					+ 创建定时任务
-				</button>
-			)}
+			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+				<div className="space-y-1">
+					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-slate-400 light:text-slate-600">搜索定时任务 / 执行日志</label>
+					<input
+						id="scheduled-task-log-search"
+						type="search"
+						value={searchQuery}
+						onChange={(e) => setSearchQuery(e.target.value)}
+						placeholder="按名称、命令、Cron、上次结果搜索"
+						className="w-full min-w-[18rem] rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
+					/>
+				</div>
+				{canCreate && !showCreate && (
+					<button
+						onClick={() => setShowCreate(true)}
+						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
+					>
+						+ 创建定时任务
+					</button>
+				)}
+			</div>
 
 			{showCreate && (
-				<CreateTaskForm servers={servers} onClose={() => { setShowCreate(false); refresh(); }} />
+				<CreateTaskForm servers={servers} onClose={() => { setShowCreate(false); void refresh(); }} />
 			)}
 
 			{tasks.length === 0 && !showCreate ? (
@@ -94,9 +146,11 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					<div className="text-4xl mb-3">⏰</div>
 					<p className="text-sm text-slate-500">暂无定时任务</p>
 				</div>
+			) : filteredTasks.length === 0 ? (
+				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-8 text-center text-sm text-slate-500">没有匹配“{searchQuery}”的定时任务或执行日志</div>
 			) : (
 				<div className="space-y-3">
-					{tasks.map((task) => (
+					{filteredTasks.map((task) => (
 						<article key={task.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors duration-150">
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
@@ -117,34 +171,41 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										<div>上次运行：{formatTime(task.lastRunAt)}</div>
 										<div>下次运行：{formatTime(task.nextRunAt)}</div>
 									</div>
-									{task.lastResult && (
-										<div className="mt-2 text-[11px] text-slate-600 truncate">
-											上次结果：{task.lastResult.slice(0, 100)}
-										</div>
-									)}
+									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-slate-50 px-3 py-2 text-[11px] text-slate-400 light:text-slate-700">
+										<div className="mb-1 font-medium text-slate-300 light:text-slate-800">最近执行日志</div>
+										<div className="whitespace-pre-wrap break-words">{task.lastResult || "暂无执行记录"}</div>
+									</div>
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
-										{canManage && (
-											<button
-												onClick={() => toggleTask(task.id)}
-												className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
-													task.status === "ACTIVE"
-														? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
-														: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
-												}`}
-											>
-												{task.status === "ACTIVE" ? "暂停" : "恢复"}
-											</button>
-										)}
-										{canManage && (
-											<button
-												onClick={() => setTaskPendingDelete(task)}
-												className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
-											>
-												删除
-											</button>
-										)}
-									</div>
+									{canManage && (
+										<button
+											onClick={() => retryTask(task.id)}
+											className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
+										>
+											重试
+										</button>
+									)}
+									{canManage && (
+										<button
+											onClick={() => toggleTask(task.id)}
+											className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
+												task.status === "ACTIVE"
+													? "border-amber-400/30 bg-amber-400/10 text-amber-100 light:text-amber-900 hover:bg-amber-400/20"
+													: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/20"
+											}`}
+										>
+											{task.status === "ACTIVE" ? "暂停" : "恢复"}
+										</button>
+									)}
+									{canManage && (
+										<button
+											onClick={() => setTaskPendingDelete(task)}
+											className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
+										>
+											删除
+										</button>
+									)}
+								</div>
 							</div>
 						</article>
 					))}
@@ -182,6 +243,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(new Set());
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const cronPreview = useMemo(() => describeCronPreview(cronExpression), [cronExpression]);
 
 	const toggleServer = (id: string) => {
 		setSelectedServerIds((prev) => {
@@ -239,12 +301,13 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">Cron 表达式</label>
 				<input value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
 							className={`rounded-md border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
-									? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
+									? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200 light:text-cyan-900"
 									: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]"
 							}`}
 						>
@@ -270,7 +333,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					<div className="grid gap-1.5 sm:grid-cols-2">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]"
+								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white light:text-slate-900" : "border-white/[0.06] bg-white/[0.03] text-slate-300 light:text-slate-700 hover:bg-white/[0.05]"
 							}`}>
 								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-cyan-400" />
 								<span>{s.name}</span>

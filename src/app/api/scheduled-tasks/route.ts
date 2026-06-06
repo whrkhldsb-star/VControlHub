@@ -7,7 +7,9 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
   createScheduledTask,
   deleteScheduledTask,
+  describeCron,
   listScheduledTasks,
+  retryScheduledTask,
   toggleScheduledTask,
   updateScheduledTask,
 } from "@/lib/scheduled-task/service";
@@ -33,6 +35,7 @@ const scheduledTaskPostSchema = z.object({
 const scheduledTaskPatchSchema = z.object({
   id: z.string().optional(),
   toggleId: z.string().optional(),
+  retryId: z.string().optional(),
   name: z.string().optional(),
   cron: z.string().optional(),
   cronExpression: z.string().optional(),
@@ -75,6 +78,7 @@ export async function GET(request: Request) {
         id: task.id,
         name: task.name,
         cronExpression: task.cronExpression,
+        cronDescription: describeCron(task.cronExpression),
         command: task.command,
         reason: task.reason,
         status: task.status,
@@ -163,6 +167,15 @@ export async function PATCH(request: Request) {
         auditUserAction(
           session.userId,
           "scheduled_task.toggle",
+          auditScheduledTaskDetail(result),
+        );
+        return NextResponse.json({ task: result });
+      }
+      if (data.retryId) {
+        const result = await retryScheduledTask(data.retryId);
+        auditUserAction(
+          session.userId,
+          "scheduled_task.retry",
           auditScheduledTaskDetail(result),
         );
         return NextResponse.json({ task: result });

@@ -1,18 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockPrisma } = vi.hoisted(() => ({
+const { mockPrisma, mockCreateCommandRequest } = vi.hoisted(() => ({
   mockPrisma: {
     scheduledTask: {
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
   },
+  mockCreateCommandRequest: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/command/service", () => ({ createCommandRequest: mockCreateCommandRequest }));
 
 const service = await import("../service");
 
@@ -62,5 +65,41 @@ describe("scheduled task service", () => {
       take: 200,
       include: { creator: { select: { username: true, displayName: true } } },
     });
+  });
+
+  it("retries a scheduled task by creating a command request and recording the manual trigger", async () => {
+    mockPrisma.scheduledTask.findUnique
+      .mockResolvedValueOnce({
+        id: "task1",
+        name: "Clean logs",
+        cronExpression: "0 2 * * *",
+        command: "df -h",
+        reason: "maintenance",
+        serverIds: ["srv1"],
+        createdById: "u1",
+      })
+      .mockResolvedValueOnce({ cronExpression: "0 2 * * *", runCount: 3 });
+    mockCreateCommandRequest.mockResolvedValue({ id: "cmd1" });
+    mockPrisma.scheduledTask.update.mockResolvedValue({ id: "task1", runCount: 4 });
+    mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue({ id: "task1", lastResult: "手动重试已触发命令请求 cmd1" });
+
+    const result = await service.retryScheduledTask("task1");
+
+    expect(mockCreateCommandRequest).toHaveBeenCalledWith({
+      title: "定时任务重试：Clean logs",
+      command: "df -h",
+      reason: "maintenance",
+      submissionMode: "user",
+      requesterId: "u1",
+      serverIds: ["srv1"],
+    });
+    expect(mockPrisma.scheduledTask.update).toHaveBeenCalledWith({
+      where: { id: "task1" },
+      data: expect.objectContaining({
+        lastResult: "手动重试已触发命令请求 cmd1",
+        runCount: 4,
+      }),
+    });
+    expect(result).toEqual({ id: "task1", lastResult: "手动重试已触发命令请求 cmd1" });
   });
 });

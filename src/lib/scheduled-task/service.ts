@@ -1,5 +1,6 @@
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
+import { createCommandRequest } from "@/lib/command/service";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -106,6 +107,27 @@ export async function toggleScheduledTask(id: string) {
 			...(nextRun === null ? { nextRunAt: null } : { nextRunAt: computeNextRun((await prisma.scheduledTask.findUnique({ where: { id }, select: { cronExpression: true } }))!.cronExpression) }),
 		},
 	});
+}
+
+export async function retryScheduledTask(id: string) {
+	const task = await prisma.scheduledTask.findUnique({ where: { id } });
+	if (!task) throw new Error("定时任务不存在");
+	if (task.serverIds.length === 0 || !task.createdById) {
+		await recordTaskRun(task.id, "手动重试失败：无目标服务器或无创建者");
+		throw new Error("定时任务缺少目标服务器或创建者，无法重试");
+	}
+
+	const result = await createCommandRequest({
+		title: `定时任务重试：${task.name}`,
+		command: task.command,
+		reason: task.reason ?? `手动重试定时任务 ${task.name}`,
+		submissionMode: "user",
+		requesterId: task.createdById,
+		serverIds: task.serverIds,
+	});
+
+	await recordTaskRun(task.id, `手动重试已触发命令请求 ${result.id}`);
+	return prisma.scheduledTask.findUniqueOrThrow({ where: { id } });
 }
 
 export async function recordTaskRun(id: string, result: string) {
