@@ -19,6 +19,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
+vi.mock("@/lib/server/service", () => ({
+  listServerProfiles: vi.fn().mockResolvedValue([{ id: "srv_1", name: "主节点", enabled: true }]),
+}));
+
 vi.mock("@/lib/backup/service", async () => {
   const actual = await vi.importActual<typeof import("@/lib/backup/service")>("@/lib/backup/service");
   return {
@@ -84,6 +88,11 @@ describe("BackupsPage", () => {
     expect(screen.getByText("DATABASE").closest("div")).toHaveTextContent("1 个 · 1.0 MB");
     expect(screen.getByText("FILES").closest("div")).toHaveTextContent("1 个 · 2.0 MB");
     expect(screen.getByText("FULL").closest("div")).toHaveTextContent("1 个 · 3.0 MB");
+    expect(screen.getByRole("heading", { name: "创建定时备份" })).toBeInTheDocument();
+    expect(screen.getByText(/选择备份类型、Cron 与执行节点后/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建定时备份" })).toBeInTheDocument();
+    expect(screen.getByText("主节点")).toBeInTheDocument();
+    expect(screen.getByText("cd '/opt/VControlHub' && bash deploy/backup.sh")).toBeInTheDocument();
 
     expect(screen.getByText(/deploy\/backup\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();

@@ -1,8 +1,10 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
+import { buildBackupRestoreCommand, buildPortableBackupCommand, buildScheduledBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
+import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
+import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +16,14 @@ export default async function BackupsPage() {
 	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text="你没有备份管理查看权限。" /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
-	const backups = await listBackupRecords();
+	const [backups, servers] = await Promise.all([listBackupRecords(), listServerProfiles()]);
 	const summary = summarizeBackupPolicy(backups);
+	const serverOptions = servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }));
+	const scheduledCommandByType = {
+		DATABASE: buildScheduledBackupCommand({ projectRoot, type: "DATABASE" }),
+		FILES: buildScheduledBackupCommand({ projectRoot, type: "FILES" }),
+		FULL: buildScheduledBackupCommand({ projectRoot, type: "FULL" }),
+	};
 	return (
 		<PageShell>
 			<header className="mb-8">
@@ -70,7 +78,15 @@ export default async function BackupsPage() {
 					<h2 className="text-sm font-semibold text-white light:text-slate-900">创建并执行备份</h2>
 					<p className="mt-1 text-xs text-slate-500">提交后会立即在服务器执行对应的 deploy/backup.sh 模式，记录会从 RUNNING 更新为 COMPLETED 或 FAILED。</p>
 					<CreateBackupForm />
-			</section>
+				</section>
+			)}
+
+			{canCreate && (
+				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+					<h2 className="text-sm font-semibold text-white light:text-slate-900">创建定时备份</h2>
+					<p className="mt-1 text-xs text-slate-500">选择备份类型、Cron 与执行节点后，会创建一条可审计的定时任务；后续执行日志可在“定时任务”页面追踪。</p>
+					<ScheduleBackupForm servers={serverOptions} commandByType={scheduledCommandByType} />
+				</section>
 			)}
 
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">

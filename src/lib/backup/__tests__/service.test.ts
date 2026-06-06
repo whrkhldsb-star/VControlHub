@@ -13,6 +13,7 @@ vi.mock("node:fs/promises", () => ({ default: { stat: statMock }, stat: statMock
 const {
   createBackupRecord,
   buildPortableBackupCommand,
+  buildScheduledBackupCommand,
   buildBackupRestoreCommand,
   buildRestoreCommand,
   resolveBackupPath,
@@ -96,6 +97,20 @@ describe("backup service", () => {
     for (const command of [databaseCommand, filesCommand, fullCommand]) {
       expect(command).toContain("backups/");
       expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
+    }
+  });
+
+  it("builds scheduled backup commands that let deploy/backup.sh create timestamped artifacts", () => {
+    const databaseCommand = buildScheduledBackupCommand({ projectRoot: "/opt/whrkhldsb", type: "DATABASE" });
+    const filesCommand = buildScheduledBackupCommand({ projectRoot: "/opt/whrkhldsb", type: "FILES" });
+    const fullCommand = buildScheduledBackupCommand({ projectRoot: "/opt/whrkhldsb", type: "FULL" });
+
+    expect(databaseCommand).toBe("cd '/opt/whrkhldsb' && bash deploy/backup.sh");
+    expect(filesCommand).toBe("cd '/opt/whrkhldsb' && bash deploy/backup.sh --files");
+    expect(fullCommand).toBe("cd '/opt/whrkhldsb' && bash deploy/backup.sh --full");
+    for (const command of [databaseCommand, filesCommand, fullCommand]) {
+      expect(command).not.toMatch(/PASSWORD|TOKEN|SECRET|PRIVATE_KEY/i);
+      expect(command).not.toContain("$(date");
     }
   });
 
