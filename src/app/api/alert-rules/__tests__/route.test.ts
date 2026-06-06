@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     createAlertRule: vi.fn(),
     updateAlertRule: vi.fn(),
     deleteAlertRule: vi.fn(),
+    testAlertRule: vi.fn(),
     toggleAlertRule: vi.fn(),
     evaluateAlerts: vi.fn(),
     auditUserAction: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("@/lib/alert/service", () => ({
   createAlertRule: mocks.createAlertRule,
   updateAlertRule: mocks.updateAlertRule,
   deleteAlertRule: mocks.deleteAlertRule,
+  testAlertRule: mocks.testAlertRule,
   toggleAlertRule: mocks.toggleAlertRule,
 }));
 vi.mock("@/lib/health/service", () => ({
@@ -54,6 +56,10 @@ describe("/api/alert-rules", () => {
     });
     mocks.updateAlertRule.mockResolvedValue({ id: "rule1" });
     mocks.toggleAlertRule.mockResolvedValue({ id: "rule1", enabled: false });
+    mocks.testAlertRule.mockResolvedValue({
+      rule: { id: "rule1", name: "CPU", webhookUrl: "https://hooks.example.com/secret" },
+      deliveries: [{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" }],
+    });
     mocks.deleteAlertRule.mockResolvedValue({ id: "rule1" });
     mocks.evaluateAlerts.mockResolvedValue(undefined);
   });
@@ -183,11 +189,17 @@ describe("/api/alert-rules", () => {
     expect(mocks.createAlertRule).not.toHaveBeenCalled();
   });
 
-  it("audits toggle, delete, and manual evaluation actions", async () => {
+  it("audits toggle, delete, test-send, and manual evaluation actions", async () => {
     await route.PATCH(
       new Request("http://local/api/alert-rules", {
         method: "PATCH",
         body: JSON.stringify({ toggleId: "rule1" }),
+      }),
+    );
+    await route.PATCH(
+      new Request("http://local/api/alert-rules", {
+        method: "PATCH",
+        body: JSON.stringify({ testId: "rule1" }),
       }),
     );
     await route.DELETE(
@@ -203,6 +215,17 @@ describe("/api/alert-rules", () => {
       "alert_rule.toggle",
       expect.objectContaining({ ruleId: "rule1" }),
     );
+    expect(mocks.testAlertRule).toHaveBeenCalledWith("rule1");
+    expect(mocks.auditUserAction).toHaveBeenCalledWith(
+      "u1",
+      "alert_rule.test",
+      expect.objectContaining({
+        ruleId: "rule1",
+        channels: ["webhook"],
+        statuses: ["sent"],
+      }),
+    );
+    expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("secret");
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "alert_rule.delete",

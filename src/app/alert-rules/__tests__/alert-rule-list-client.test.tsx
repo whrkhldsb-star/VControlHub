@@ -214,4 +214,65 @@ describe("alert rules client", () => {
 		expect(await screen.findByRole("alert")).toHaveTextContent("检测任务启动失败");
 		expect(screen.getByRole("button", { name: "🔍 立即检测" })).toBeEnabled();
 	});
+
+	it("can send a test alert for a configured rule and display delivery results", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({
+			deliveries: [{ channel: "webhook", status: "sent", message: "Webhook 测试请求已发送" }],
+		});
+
+		render(wrap(<AlertRuleListClient rules={[{
+			id: "rule1",
+			name: "Webhook rule",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["webhook"],
+			webhookConfigured: true,
+			cooldownMinutes: 10,
+			enabled: true,
+			lastTriggeredAt: null,
+			createdAt: "2026-01-01T00:00:00.000Z",
+		}]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "测试发送" }));
+
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
+			"/api/alert-rules",
+			expect.objectContaining({
+				method: "PATCH",
+				body: JSON.stringify({ testId: "rule1" }),
+			}),
+		));
+		expect(await screen.findByRole("status")).toHaveTextContent("测试发送结果：Webhook rule");
+		expect(screen.getByText("Webhook 测试请求已发送")).toBeInTheDocument();
+	});
+
+	it("surfaces alert test-send failures", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Webhook 不可达"));
+
+		render(wrap(<AlertRuleListClient rules={[{
+			id: "rule1",
+			name: "Webhook rule",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["webhook"],
+			webhookConfigured: true,
+			cooldownMinutes: 10,
+			enabled: true,
+			lastTriggeredAt: null,
+			createdAt: "2026-01-01T00:00:00.000Z",
+		}]} servers={[]} canManage={true} />));
+
+		await user.click(screen.getByRole("button", { name: "测试发送" }));
+
+		expect(await screen.findByRole("alert")).toHaveTextContent("Webhook 不可达");
+		expect(screen.getByRole("button", { name: "测试发送" })).toBeEnabled();
+	});
 });

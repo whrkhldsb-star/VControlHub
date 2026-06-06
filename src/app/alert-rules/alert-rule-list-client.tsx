@@ -12,6 +12,12 @@ type AlertRule = {
 	lastTriggeredAt: string | null; createdAt: string;
 };
 
+type TestDelivery = {
+	channel: string;
+	status: "sent" | "skipped" | "failed";
+	message: string;
+};
+
 type ServerOption = { id: string; name: string };
 
 type Props = {
@@ -36,6 +42,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const [rules, setRules] = useState(initialRules);
 	const [showCreate, setShowCreate] = useState(false);
 	const [actionError, setActionError] = useState<string | null>(null);
+	const [testResult, setTestResult] = useState<{ ruleName: string; deliveries: TestDelivery[] } | null>(null);
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
 
@@ -48,6 +55,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 	const toggleRule = useCallback(async (id: string) => {
 		setActionError(null);
+		setTestResult(null);
 		setBusyAction(`toggle:${id}`);
 		try {
 			await csrfFetch("/api/alert-rules", {
@@ -65,6 +73,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 	const deleteRule = useCallback(async (id: string) => {
 		setActionError(null);
+		setTestResult(null);
 		setBusyAction(`delete:${id}`);
 		try {
 			await csrfFetch(`/api/alert-rules?id=${id}`, { method: "DELETE" });
@@ -79,6 +88,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 	const triggerNow = useCallback(async () => {
 		setActionError(null);
+		setTestResult(null);
 		setBusyAction("trigger");
 		try {
 			await csrfFetch("/api/alert-rules", { method: "PUT" });
@@ -90,6 +100,27 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			setBusyAction(null);
 		}
 	}, [addToast, refresh]);
+
+	const testRule = useCallback(async (rule: AlertRule) => {
+		setActionError(null);
+		setTestResult(null);
+		setBusyAction(`test:${rule.id}`);
+		try {
+			const data = await csrfFetch("/api/alert-rules", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ testId: rule.id }),
+			});
+			const deliveries = Array.isArray(data?.deliveries) ? data.deliveries : [];
+			setTestResult({ ruleName: rule.name, deliveries });
+			const failed = deliveries.filter((delivery: TestDelivery) => delivery.status === "failed").length;
+			addToast(failed > 0 ? "warning" : "success", failed > 0 ? "测试发送完成，部分渠道失败" : "测试发送完成");
+		} catch (error) {
+			setActionError(getErrorMessage(error, "测试发送失败"));
+		} finally {
+			setBusyAction(null);
+		}
+	}, [addToast]);
 
 	return (
 		<div className="space-y-6">
@@ -137,6 +168,21 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			{actionError && (
 				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100 light:text-rose-900">
 					{actionError}
+				</div>
+			)}
+
+			{testResult && (
+				<div role="status" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 light:text-cyan-900">
+					<p className="font-medium">测试发送结果：{testResult.ruleName}</p>
+					<ul className="mt-2 space-y-1">
+						{testResult.deliveries.map((delivery, index) => (
+							<li key={`${delivery.channel}-${index}`} className="flex flex-wrap gap-2 text-xs">
+								<span className="font-mono uppercase">{delivery.channel}</span>
+								<span>{delivery.status === "sent" ? "已发送" : delivery.status === "failed" ? "失败" : "跳过"}</span>
+								<span className="text-cyan-100/70 light:text-cyan-900/70">{delivery.message}</span>
+							</li>
+						))}
+					</ul>
 				</div>
 			)}
 
@@ -198,6 +244,13 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							}`}
 						>
 							{busyAction === `toggle:${rule.id}` ? "处理中…" : rule.enabled ? "暂停" : "启用"}
+						</button>
+						<button
+							onClick={() => testRule(rule)}
+							disabled={busyAction === `test:${rule.id}`}
+							className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							{busyAction === `test:${rule.id}` ? "发送中…" : "测试发送"}
 						</button>
 						<button
 							onClick={() => setRulePendingDelete(rule)}

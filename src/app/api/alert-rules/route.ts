@@ -6,6 +6,7 @@ import {
   createAlertRule,
   updateAlertRule,
   deleteAlertRule,
+  testAlertRule,
   toggleAlertRule,
 } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
@@ -180,6 +181,16 @@ export async function PATCH(request: Request) {
             enabled: Boolean(result.enabled),
           });
           return NextResponse.json({ rule: result });
+        }
+        if (body?.testId) {
+          const result = await testAlertRule(String(body.testId));
+          auditUserAction(session.userId, "alert_rule.test", {
+            ruleId: result.rule.id,
+            name: result.rule.name,
+            channels: result.deliveries.map((delivery) => delivery.channel),
+            statuses: result.deliveries.map((delivery) => delivery.status),
+          });
+          return NextResponse.json(result);
         }
         const input = updateAlertRuleSchema.parse(body);
         const result = await updateAlertRule(input.id, input);
