@@ -25,6 +25,14 @@ interface CatalogItem {
 	monthlyPulls?: number;
 }
 
+interface QuickServiceActionResult {
+	success?: boolean;
+	status?: string;
+	updated?: boolean;
+	health?: string | null;
+	logTail?: string | null;
+}
+
 interface DockerEnvironmentStatus {
 	available: boolean;
 	running: boolean;
@@ -236,16 +244,22 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const doAction = async (slug: string, action: string) => {
 		setActionSlug(slug);
 		try {
-			const data = await csrfFetch(`/api/quick-services/${slug}`, {
+			const data = await csrfFetch<QuickServiceActionResult>(`/api/quick-services/${slug}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ action }),
 			});
+			const updateDetails = [
+				data.health ? `健康状态：${data.health}` : null,
+				data.logTail ? `最近日志：${data.logTail.split("\n").slice(-2).join(" / ")}` : null,
+			]
+				.filter(Boolean)
+				.join("；");
 			const actionMessages: Record<string, string> = {
 				start: "已启动",
 				stop: "已停止",
 				sync: data.status === "running" ? "状态已刷新：运行中" : "状态已刷新：已停止",
-				update: "更新完成，已拉取镜像并重建容器",
+				update: updateDetails ? `更新完成，已拉取镜像并重建容器；${updateDetails}` : "更新完成，已拉取镜像并重建容器",
 			};
 			setMessage({ type: "ok", text: actionMessages[action] ?? "操作完成" });
 			fetchCatalog();

@@ -296,8 +296,13 @@ describe("quick service docker lifecycle", () => {
 			status: "running",
 		});
 		prismaMock.quickService.update.mockResolvedValue({});
+		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
+			if (file === "docker" && args[0] === "inspect") return "healthy\n";
+			if (file === "docker" && args[0] === "logs") return "old line\nservice ready\n";
+			return "";
+		});
 
-		await expect(updateService("demo")).resolves.toEqual({ status: "running" });
+		await expect(updateService("demo")).resolves.toEqual({ status: "running", health: "healthy", logTail: "old line\nservice ready" });
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "installing", error: null } });

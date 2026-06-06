@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		}
 		if (action === "update") {
 			const result = await updateService(slug);
-			return NextResponse.json({ success: true, status: result.status, updated: true });
+			return NextResponse.json({ success: true, status: result.status, health: result.health, logTail: result.logTail, updated: true });
 		}
 
 		return NextResponse.json({ error: "未知操作，支持: start/stop/sync/update" }, { status: 400 });

@@ -159,6 +159,24 @@ function dockerErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+function getContainerHealth(containerName: string): string | null {
+	try {
+		const health = dockerExecSync(["inspect", "--format={{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}", containerName], 10_000).trim();
+		return health || null;
+	} catch {
+		return null;
+	}
+}
+
+function getContainerLogTail(containerName: string): string | null {
+	try {
+		const logs = dockerExecSync(["logs", "--tail", "20", containerName], 10_000).trim();
+		return logs ? logs.slice(-2000) : null;
+	} catch {
+		return null;
+	}
+}
+
 export function getDockerEnvironmentStatus() {
 	try {
 		const version = execFileSync("docker", ["--version"], { timeout: 5_000, encoding: "utf8" }).trim();
@@ -462,6 +480,7 @@ export async function updateService(slug: string) {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
 		if (!svc) throw new Error("服务不存在");
 		assertServiceNotBusy(svc, "更新");
+		const containerName = safeContainerName(svc.slug);
 
 		const tmpl: ServiceTemplate = {
 			slug: svc.slug,
@@ -483,7 +502,9 @@ export async function updateService(slug: string) {
 			dockerExecSync(["pull", svc.image], 300_000);
 			await prisma.quickService.update({ where: { slug }, data: { status: "installing", error: null } });
 			await startDockerContainer(svc.id, tmpl, svc.port);
-			return { status: "running" };
+			const health = getContainerHealth(containerName);
+			const logTail = getContainerLogTail(containerName);
+			return { status: "running", health, logTail };
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `更新失败: ${msg}` } });

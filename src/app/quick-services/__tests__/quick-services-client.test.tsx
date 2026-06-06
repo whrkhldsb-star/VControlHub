@@ -101,7 +101,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({ success: true, status: "running", updated: true })
+			.mockResolvedValueOnce({ success: true, status: "running", updated: true, health: "healthy", logTail: "service ready\nlistening on 5244" })
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
@@ -114,7 +114,9 @@ describe("QuickServicesClient", () => {
 				body: JSON.stringify({ action: "update" }),
 			}));
 		});
-		expect(await screen.findByText("更新完成，已拉取镜像并重建容器")).toBeInTheDocument();
+		expect(await screen.findByText(/更新完成，已拉取镜像并重建容器/)).toBeInTheDocument();
+	expect(screen.getByText(/健康状态：healthy/)).toBeInTheDocument();
+	expect(screen.getByText(/最近日志：service ready/)).toBeInTheDocument();
 	});
 
 	it("uses an in-app confirmation before deleting an app source", async () => {

@@ -68,7 +68,7 @@ describe("/api/quick-services routes", () => {
     mocks.stopService.mockResolvedValue(undefined);
     mocks.uninstallService.mockResolvedValue(undefined);
     mocks.syncServiceStatus.mockResolvedValue("running");
-    mocks.updateService.mockResolvedValue({ status: "running" });
+    mocks.updateService.mockResolvedValue({ status: "running", health: "healthy", logTail: "ready" });
     mocks.getRemoteApps.mockResolvedValue([]);
   });
 
@@ -165,7 +165,7 @@ describe("/api/quick-services routes", () => {
     }), { params: Promise.resolve({ slug: "alist" }) });
 
     expect(response.status).toBe(200);
-    expect(await body(response)).toEqual({ success: true, status: "running", updated: true });
+    expect(await body(response)).toEqual({ success: true, status: "running", health: "healthy", logTail: "ready", updated: true });
     expect(mocks.updateService).toHaveBeenCalledWith("alist");
   });
 
