@@ -117,7 +117,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{selectedTemplate?.description && <p className="text-xs text-slate-500 light:text-slate-600">{selectedTemplate.description}</p>}
 
 			{variables.length > 0 ? (
-				<div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:bg-cyan-50">
+				<div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:border-cyan-200 light:bg-cyan-50">
 					<div className="mb-3 flex items-center justify-between gap-3">
 						<h3 className="text-sm font-semibold text-white light:text-slate-900">模板变量</h3>
 						<span className="text-xs text-slate-500 light:text-slate-600">全部必填，提交前会在后端再次校验。</span>
@@ -132,7 +132,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3 text-xs text-slate-500 light:border-slate-200 light:bg-white light:text-slate-600">该模板没有变量，可直接选择目标 VPS 提交。</p>
+				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400 light:border-slate-200 light:bg-slate-50 light:text-slate-600">该模板没有变量，可直接选择目标 VPS 提交。</p>
 			)}
 
 			<div>
@@ -142,7 +142,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 text-xs text-slate-300 light:border-slate-200 light:bg-white light:text-slate-700">
+						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-slate-300 light:border-slate-200 light:bg-white light:text-slate-700">
 							<input type="checkbox" name="serverIds" value={server.id} />
 							<span>{server.name} · {server.username}@{server.host}</span>
 						</label>
@@ -150,9 +150,9 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 			</div>
 
-			<details className="rounded-xl border border-white/[0.06] bg-black/20 p-3 light:border-slate-200 light:bg-white">
+			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3 light:border-slate-200 light:bg-slate-50">
 				<summary className="cursor-pointer text-xs font-medium text-slate-400 light:text-slate-600">预览命令</summary>
-				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap text-xs text-slate-300 light:text-slate-700">{previewCommand(selectedTemplate, variables)}</code>
+				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-white light:text-slate-800">{previewCommand(selectedTemplate, variables)}</code>
 			</details>
 
 			{error && <p className="text-xs text-rose-300">{error}</p>}

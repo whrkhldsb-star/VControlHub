@@ -93,7 +93,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300 light:text-slate-700">{latestRun.renderedCommand}</code>
+					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{latestRun.renderedCommand}</code>
 					<div className="mt-4">
 						<ResendDeployButton
 							templateId={latestRun.templateId}
@@ -118,7 +118,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								</div>
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
-							<code className="mt-3 block overflow-auto rounded-lg bg-black/30 p-3 text-xs text-slate-300 light:text-slate-700">{r.renderedCommand}</code>
+							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{r.renderedCommand}</code>
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
 							{canRun && (
 								<div className="mt-3">

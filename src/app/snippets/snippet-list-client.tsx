@@ -104,14 +104,14 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       <div className="grid gap-3">
         {filtered.map((s) => (
-          <div key={s.id} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12]">
+          <div key={s.id} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12] light:border-slate-200 light:bg-white light:hover:border-slate-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <b className="text-sm text-white light:text-slate-900">{s.title}</b>
-                <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400 light:text-slate-600">{s.language}</span>
+                <span className="rounded-full border border-white/[0.06] bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400 light:border-slate-200 light:bg-slate-50 light:text-slate-600">{s.language}</span>
                 {s.isPrivate && <span className="text-[10px] text-amber-400">🔒 私有</span>}
                 {s.tags.length > 0 && (
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {s.tags.map((t) => (
                       <span key={t} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300 light:text-cyan-700">{t}</span>
                     ))}
@@ -119,19 +119,19 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                <button onClick={() => handleCopy(s.content, s.id)} title="复制" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400">
+                <button onClick={() => handleCopy(s.content, s.id)} title="复制" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-                <button onClick={() => setEditing(s)} title="编辑" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400">
+                <button onClick={() => setEditing(s)} title="编辑" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title="删除" aria-label={`删除代码片段 ${s.title}`} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400">
+                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title="删除" aria-label={`删除代码片段 ${s.title}`} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
                   <Trash2 size={14} />
                 </button>
               </div>
             </div>
             {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
-            <pre className="mt-3 max-h-48 overflow-auto rounded bg-black/30 p-3 text-xs text-slate-300 light:text-slate-700">{s.content}</pre>
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{s.content}</pre>
           </div>
         ))}
         {filtered.length === 0 && (

@@ -450,7 +450,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100 light:text-amber-900">
 					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
 					<p className="mt-1 text-xs text-amber-100/75 light:text-amber-900/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p className="mt-2 rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
+					{dockerStatus.installHint ? <p className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50 light:border-amber-200 light:bg-amber-50 light:text-amber-900">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
@@ -469,7 +469,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 light:border-slate-200 light:bg-white">
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300 light:text-cyan-700/70">运行概览</p>
@@ -496,7 +496,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.length === 0 && <p className="text-sm text-slate-500">从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。</p>}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 light:border-slate-200 light:bg-white">
 					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">端口</p>
 					<h3 className="mt-1 text-base font-semibold text-white light:text-slate-900">{usedPorts.length} 个监听端口</h3>
 					<p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-600">安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。</p>
@@ -504,7 +504,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400 light:text-slate-600">{port}</span>)}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 light:border-slate-200 light:bg-white">
 					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">应用源</p>
 					<h3 className="mt-1 text-base font-semibold text-white light:text-slate-900">{sources.filter((s) => s.enabled).length}/{sources.length} 个源启用</h3>
 					<p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-600">{lastSyncedSource ? `最近同步：${lastSyncedSource.displayName}` : "还没有同步记录。"}</p>
@@ -559,17 +559,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{/* Tab bar */}
-			<div className="flex gap-1 rounded-xl bg-white/[0.03] p-1 border border-white/[0.06] w-fit">
-				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-400 hover:text-white"}`}>
+			<div className="flex flex-wrap gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] p-1 light:border-slate-200 light:bg-white w-fit">
+				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100 light:text-cyan-800" : "text-slate-400 hover:text-white light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					🏪 本地精选 ({localAvailable.length})
 				</button>
-				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300" : "text-slate-400 hover:text-white"}`}>
+				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100 light:text-violet-800" : "text-slate-400 hover:text-white light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					🌐 社区推荐 ({remoteAvailable.length})
 				</button>
-				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-400 hover:text-white"}`}>
+				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100 light:text-cyan-800" : "text-slate-400 hover:text-white light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					📦 已安装 ({installed.length})
 				</button>
-				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300" : "text-slate-400 hover:text-white"}`}>
+				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100 light:text-amber-800" : "text-slate-400 hover:text-white light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					⚙️ 应用源 ({sources.length})
 				</button>
 			</div>

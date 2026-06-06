@@ -92,7 +92,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         </label>
       </div>
       <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
-      <code className="block overflow-auto rounded-lg bg-black/30 light:bg-slate-900/10 p-3 text-xs text-slate-300 light:text-slate-700">{command}</code>
+      <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{command}</code>
       <div className="space-y-2">
         <p className="text-xs font-medium text-slate-400 light:text-slate-600">执行节点</p>
         {enabledServers.length === 0 ? (
@@ -100,7 +100,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {enabledServers.map((server) => (
-              <label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-slate-200 light:text-slate-800">
+              <label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-slate-200 light:border-slate-200 light:bg-white light:text-slate-800">
                 <input type="checkbox" checked={selectedServerIds.has(server.id)} onChange={() => toggleServer(server.id)} className="accent-cyan-400" />
                 <span>{server.name}</span>
               </label>

@@ -496,6 +496,27 @@ html.light code:not(pre code) {
 	border-color: var(--border-subtle);
 }
 
+/* Unified code surfaces: keep snippets, deploy previews, backup commands and
+ * inline shell hints visually consistent across dark/light themes even when
+ * component-level utilities or typography defaults compete with Tailwind. */
+:root pre,
+:root code.block,
+:root [class*="font-mono"][class*="bg-slate-950"],
+:root [class*="font-mono"][class*="bg-black"] {
+	background-color: var(--surface-subtle);
+	border-color: var(--border-subtle);
+	color: var(--text-secondary);
+}
+
+html.light pre,
+html.light code.block,
+html.light [class*="font-mono"][class*="bg-slate-950"],
+html.light [class*="font-mono"][class*="bg-black"] {
+	background-color: var(--surface-elevated) !important;
+	border-color: var(--border) !important;
+	color: var(--text-secondary) !important;
+}
+
 /* 禁用态 */
 :disabled, [aria-disabled="true"] {
 	opacity: 0.5;
@@ -1339,5 +1360,17 @@ html.light [data-ssh-terminal-dialog="true"] [aria-describedby],
 html.light [data-ssh-terminal-dialog="true"] p,
 html.light [data-ssh-terminal-dialog="true"] .text-slate-400,
 html.light [data-ssh-terminal-dialog="true"] .text-slate-300 {
+	color: var(--text-secondary) !important;
+}
+
+/* Final UI polish guard: deployment/snippet/backup command blocks should never
+ * fall back to dark code-chip globals in light mode. */
+html.light body pre,
+html.light body code.block,
+html.light body code[class*="block"],
+html.light body [class*="font-mono"][class*="bg-slate-950"],
+html.light body [class*="font-mono"][class*="bg-black"] {
+	background-color: var(--surface-elevated) !important;
+	border-color: var(--border) !important;
 	color: var(--text-secondary) !important;
 }

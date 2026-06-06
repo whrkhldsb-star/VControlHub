@@ -112,8 +112,8 @@ export default async function BackupsPage() {
 							{b.note && <p className="mt-2 text-xs text-slate-400 light:text-slate-600">{b.note}</p>}
 							{canRestore && (
 								<div className="mt-3 grid gap-2">
-									<code className="block overflow-auto rounded-lg bg-black/30 light:bg-slate-900/30 p-3 text-xs text-slate-300 light:text-slate-700">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
-									<code className="block overflow-auto rounded-lg bg-black/30 light:bg-slate-900/30 p-3 text-xs text-slate-300 light:text-slate-700">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
+									<code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
 									{b.status !== "COMPLETED" && <p className="text-xs text-slate-500">只有 COMPLETED 状态的备份可以执行恢复。</p>}
 								</div>
