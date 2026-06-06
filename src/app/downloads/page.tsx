@@ -17,7 +17,11 @@ export default async function DownloadsPage() {
 	}
 
 	const servers = await prisma.server.findMany({
-		where: { enabled: true },
+		where: {
+			enabled: true,
+			storageNode: { isNot: null },
+			OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+		},
 		take: 200,
 		select: {
 			id: true,

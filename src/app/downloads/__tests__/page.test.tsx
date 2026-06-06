@@ -46,12 +46,16 @@ describe("DownloadsPage", () => {
     serverFindManyMock.mockClear();
   });
 
-  it("bounds enabled target server hydration for download creation", async () => {
+  it("hydrates only download-capable VPS targets", async () => {
     render(await DownloadsPage());
 
     expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS");
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
-      where: { enabled: true },
+      where: {
+        enabled: true,
+        storageNode: { isNot: null },
+        OR: [{ sshKeyId: { not: null } }, { password: { not: null } }],
+      },
       orderBy: { name: "asc" },
       take: 200,
       select: expect.objectContaining({

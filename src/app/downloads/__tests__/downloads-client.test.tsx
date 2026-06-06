@@ -120,4 +120,32 @@ describe("DownloadsClient", () => {
     expect(screen.getByText("完成后的“下载文件”按钮会复用 VPS 文件访问策略。")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
   });
+
+  it("prevents creating tasks when no eligible VPS target is available", async () => {
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [], globalStat: null });
+
+    render(<DownloadsClient servers={[]} canManage canManageNode />);
+
+    expect(await screen.findByText("暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ 新建下载" })).not.toBeInTheDocument();
+  });
+
+  it("prevents mixed HTTP and magnet batch submissions on the client", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [], globalStat: null });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    await actor.click(await screen.findByRole("button", { name: "+ 新建下载" }));
+    await actor.click(screen.getByRole("button", { name: "📋 批量模式" }));
+    await actor.type(
+      screen.getByRole("textbox", { name: "下载链接（每行一个）" }),
+      "https://example.com/a.zip\nmagnet:?xt=urn:btih:abcdef",
+    );
+
+    expect(screen.getByText("批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。")).toBeInTheDocument();
+    expect(screen.getByText("磁力/BT 链接请单独创建任务，不要与普通 HTTP/HTTPS 链接混用。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始下载" })).toBeDisabled();
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(1);
+  });
 });

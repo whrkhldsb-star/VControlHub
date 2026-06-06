@@ -126,12 +126,29 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		return () => clearInterval(interval);
 	}, [tasks, fetchTasks]);
 
+	const invalidBatchUrls = form.batchMode
+		? form.batchText.split("\n").map((l) => l.trim()).filter(Boolean)
+		: [];
+	const hasBatchMagnet = invalidBatchUrls.some((line) => line.startsWith("magnet:?") || line.endsWith(".torrent"));
+	const hasBatchHttp = invalidBatchUrls.some((line) => line.startsWith("http://") || line.startsWith("https://"));
+	const batchModeError = form.batchMode && invalidBatchUrls.length > 1 && hasBatchMagnet && hasBatchHttp
+		? "磁力/BT 链接请单独创建任务，不要与普通 HTTP/HTTPS 链接混用。"
+		: null;
+
 	const handleServerChange = (serverId: string) => {
 		const srv = servers.find((s) => s.id === serverId);
 		setForm((p) => ({ ...p, serverId, targetPath: srv?.storagePath ?? "/root/downloads" }));
 	};
 
 	const handleSubmit = async () => {
+		if (!form.serverId) {
+			setMessage({ type: "error", text: "暂无可用的下载目标 VPS：请先在 VPS 管理中为节点绑定存储节点并配置 SSH 密钥或密码。" });
+			return;
+		}
+		if (batchModeError) {
+			setMessage({ type: "error", text: batchModeError });
+			return;
+		}
 		const trimmedFileName = form.fileName.trim();
 		if (trimmedFileName && (trimmedFileName.includes("/") || trimmedFileName.includes("\\") || trimmedFileName.includes(".."))) {
 			setMessage({ type: "error", text: "文件名只能填写单个文件名，不能包含路径分隔符或 .." });
@@ -293,13 +310,17 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						</button>
 					))}
 				</div>
-				{canManage && (
+				{canManage && servers.length > 0 ? (
 					<button type="button" onClick={() => setShowForm(!showForm)}
 						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
 					>
 						{showForm ? "取消" : "+ 新建下载"}
 					</button>
-				)}
+				) : canManage ? (
+					<div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-xs text-amber-100 light:text-amber-900">
+						暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。
+					</div>
+				) : null}
 			</div>
 
 			{/* Create form */}
@@ -322,10 +343,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					{form.batchMode ? (
 						<div className="space-y-1.5">
 							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接（每行一个）</label>
-							<textarea value={form.batchText} onChange={(e) => setForm((p) => ({ ...p, batchText: e.target.value }))}
-								rows={6} placeholder="https://example.com/file1.zip&#10;magnet:?xt=urn:btih:...&#10;https://example.com/file2.zip"
+							<textarea aria-label="下载链接（每行一个）" value={form.batchText} onChange={(e) => setForm((p) => ({ ...p, batchText: e.target.value }))}
+								rows={6} placeholder="https://example.com/file1.zip&#10;https://example.com/file2.zip&#10;https://example.com/file3.iso"
 								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
 							/>
+							<p className="text-[11px] text-slate-500 light:text-slate-600">
+								批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。
+							</p>
+							{batchModeError && <p className="text-[11px] text-rose-300 light:text-rose-700">{batchModeError}</p>}
 						</div>
 					) : (
 						<div className="space-y-1.5">
@@ -392,7 +417,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					</div>
 
 					<div className="flex gap-3 pt-2">
-						<button type="button" onClick={handleSubmit} disabled={submitting}
+						<button type="button" onClick={handleSubmit} disabled={submitting || Boolean(batchModeError) || !form.serverId}
 							className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 							{submitting ? "提交中…" : "开始下载"}
 						</button>
