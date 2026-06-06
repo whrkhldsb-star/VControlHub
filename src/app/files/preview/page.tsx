@@ -18,6 +18,8 @@ type PreviewPageProps = {
 		size?: string;
 		nodeId?: string;
 		relativePath?: string;
+		fileEntryId?: string;
+		editable?: string;
 	}>;
 };
 
@@ -55,6 +57,8 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	const size = params?.size ? Number(params.size) : 0;
 	const nodeId = params?.nodeId ?? "";
 	const relativePath = params?.relativePath ?? "";
+	const fileEntryId = params?.fileEntryId ?? "";
+	const editable = params?.editable === "1";
 
 	const downloadUrl = href ? `${href}${href.includes("?") ? "&" : "?"}download=1` : "";
 
@@ -146,7 +150,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : resolvedIsCsv && href ? (
 						<CsvPreviewClient href={href} />
 					) : resolvedIsText && href ? (
-						<TextPreviewClient href={href} name={name} />
+						<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} />
 					) : isOffice && href ? (
 						<OfficePreviewClient href={href} name={name} driver={driver} />
 					) : isArchive ? (

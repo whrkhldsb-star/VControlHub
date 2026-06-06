@@ -2,6 +2,7 @@ import {
   mkdir,
   mkdtemp,
   rm,
+  readFile as readFileToDisk,
   writeFile as writeFileToDisk,
 } from "node:fs/promises";
 import * as path from "node:path";
@@ -47,6 +48,7 @@ import {
   getStorageOverview,
   listFileEntries,
   restoreFileEntry,
+  saveLocalEditableFileDraft,
   updateStorageNode,
 } from "@/lib/storage/service";
 import { prisma } from "@/lib/db";
@@ -478,6 +480,65 @@ describe("storage service", () => {
         relativePath,
         content: "hello world",
         byteSize: 11,
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("saves editable local file drafts and updates metadata", async () => {
+    vi.clearAllMocks();
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-editable-save-"));
+    const relativePath = "docs/notes.txt";
+    const absolutePath = path.join(tempRoot, relativePath);
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFileToDisk(absolutePath, "old", "utf8");
+    const updatedAt = new Date("2026-04-21T01:02:03.000Z");
+
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+      id: "file_save",
+      name: "notes.txt",
+      entryType: "FILE",
+      mimeType: "text/plain",
+      size: BigInt(3),
+      checksumSha256: "previous-checksum",
+      relativePath,
+      storageNodeId: "node_1",
+      parentId: null,
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date("2026-04-20T01:02:03.000Z"),
+      storageNode: {
+        id: "node_1",
+        name: "主控本机",
+        driver: "LOCAL",
+        basePath: tempRoot,
+      },
+    } as any);
+    vi.mocked(prisma.fileEntry.update).mockResolvedValueOnce({
+      id: "file_save",
+      updatedAt,
+    } as any);
+
+    try {
+      const result = await saveLocalEditableFileDraft({
+        fileEntryId: "file_save",
+        content: "new content",
+      });
+
+      await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("new content");
+      expect(prisma.fileEntry.update).toHaveBeenCalledWith({
+        where: { id: "file_save" },
+        data: expect.objectContaining({
+          size: BigInt(11),
+          checksumSha256: null,
+        }),
+      });
+      expect(result).toMatchObject({
+        fileEntryId: "file_save",
+        byteSize: 11,
+        previousByteSize: 3,
+        updatedAt: updatedAt.toISOString(),
       });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });

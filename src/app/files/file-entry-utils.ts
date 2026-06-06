@@ -21,6 +21,7 @@ export type StorageEntry = {
   size?: bigint | number | null;
   sizeLabel: string;
   previewable: boolean;
+  localEditable?: boolean;
   directAccess: { mode: string; href?: string; description: string };
   storageNode: { id: string; name: string; driver: string };
   capabilities?: EntryCapabilities | null;
@@ -36,6 +37,7 @@ export type FileProp = {
   sizeBytes?: number | null;
   sizeLabel: string;
   previewable: boolean;
+  localEditable?: boolean;
   directAccessMode: string;
   directAccessHref?: string | null;
   directAccessDescription: string;
@@ -138,6 +140,7 @@ export function getPreviewHref(entry: StorageEntry) {
       driver: entry.storageNode.driver,
       ...(entry.storageNode.id ? { nodeId: entry.storageNode.id } : {}),
       ...(entry.relativePath ? { relativePath: entry.relativePath } : {}),
+      ...(entry.localEditable ? { fileEntryId: entry.id, editable: "1" } : {}),
     });
     return `/files/preview?${params.toString()}`;
   }
@@ -174,6 +177,7 @@ export function toStorageEntry(file: FileProp): StorageEntry {
     size: file.sizeBytes == null ? null : BigInt(file.sizeBytes),
     sizeLabel: file.sizeLabel,
     previewable: file.previewable,
+    localEditable: file.localEditable ?? false,
     directAccess: {
       mode: file.directAccessMode,
       href: file.directAccessHref ?? undefined,

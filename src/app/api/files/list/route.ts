@@ -168,6 +168,7 @@ export async function GET(request: NextRequest) {
           sizeBytes: entry.size == null ? null : Number(entry.size),
           sizeLabel: entry.sizeLabel,
           previewable: entry.previewable,
+          localEditable: entry.localEditable,
           directAccessMode: entry.directAccess.mode,
           directAccessHref: entry.directAccess.href ?? null,
           directAccessFallbackHref:

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import createDOMPurify from "dompurify";
 import type { Config } from "dompurify";
 
+import { csrfFetch } from "@/lib/auth/csrf-client";
+
 const HIGHLIGHT_SANITIZE_CONFIG: Config = {
 	ALLOWED_TAGS: ["span", "br"],
 	ALLOWED_ATTR: ["class"],
@@ -207,20 +209,140 @@ const LANG_LABELS: Record<string, string> = {
 	dockerfile: "Dockerfile", makefile: "Makefile", env: "Env", text: "文本", log: "日志",
 };
 
-export function TextPreviewClient({ href, name }: { href: string; name?: string }) {
+type EditableDraft = {
+	content: string;
+	byteSize: number;
+	updatedAt?: string | null;
+};
+
+type SaveResponse = {
+	success: boolean;
+	file: {
+		byteSize: number;
+		previousByteSize?: number;
+		updatedAt?: string | null;
+	};
+};
+
+export function TextPreviewClient({
+	href,
+	name,
+	fileEntryId,
+	editable = false,
+}: {
+	href: string;
+	name?: string;
+	fileEntryId?: string;
+	editable?: boolean;
+}) {
 	const [state, setState] = useState<PreviewState>({ loading: true });
 	const [searchQuery, setSearchQuery] = useState("");
 	const [jumpLine, setJumpLine] = useState("");
+	const [editMode, setEditMode] = useState(false);
+	const [draft, setDraft] = useState("");
+	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+	const [saveMessage, setSaveMessage] = useState("");
 	const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	const lang = useMemo(() => getLangFromName(name), [name]);
+	const canEdit = editable && Boolean(fileEntryId);
 
 	useEffect(() => {
 		let cancelled = false;
-		fetch(href)
-			.then(async (res) => {
-				if (!res.ok) throw new Error(`加载失败: ${res.status}`); const text = await res.text(); if (!cancelled) setState({ loading: false, content: text, error: null }); }) .catch((err) => { if (!cancelled) setState({ loading: false, content: null, error: err instanceof Error ? err.message :"加载失败" }); }); return () => { cancelled = true; }; }, [href]); const handleJumpToLine = useCallback(() => { const num = parseInt(jumpLine, 10); if (isNaN(num) || num < 1) return; const el = lineRef.current.get(num - 1); if (el) { el.scrollIntoView({ behavior:"smooth", block:"center" }); el.classList.add("bg-amber-400/10"); setTimeout(() => el.classList.remove("bg-amber-400/10"), 2000); } }, [jumpLine]); if (state.loading) { return ( <div className="flex items-center justify-center py-16 text-slate-400 light:text-slate-600"> <span className="animate-pulse text-sm">正在加载文件内容…</span> </div> ); } if (state.error) { return ( <div className="flex flex-col items-center gap-3 py-16 text-red-300"> <span className="text-3xl">⚠️</span> <p className="text-sm">{state.error}</p> </div> ); } const lines = (state.content ??"").split("\n"); const totalLines = lines.length; const highlightSearch = (html: string): string => { if (!searchQuery.trim()) return html; try { const escapedQuery = escapeHtml(searchQuery); const escaped = escapeRegex(escapedQuery); return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded px-0.5">$1</mark>');
+		setState({ loading: true });
+		setEditMode(false);
+		setSaveStatus("idle");
+		setSaveMessage("");
+
+		const load = async () => {
+			try {
+				let content: string;
+				if (canEdit && fileEntryId) {
+					const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`);
+					content = data.draft.content;
+				} else {
+					const res = await fetch(href);
+					if (!res.ok) throw new Error(`加载失败: ${res.status}`);
+					content = await res.text();
+				}
+				if (!cancelled) {
+					setState({ loading: false, content, error: null });
+					setDraft(content);
+				}
+			} catch (err) {
+				if (!cancelled) {
+					setState({
+						loading: false,
+						content: null,
+						error: err instanceof Error ? err.message : "加载失败",
+					});
+				}
+			}
+		};
+
+		load();
+		return () => {
+			cancelled = true;
+		};
+	}, [href, fileEntryId, canEdit]);
+
+	const handleJumpToLine = useCallback(() => {
+		const num = parseInt(jumpLine, 10);
+		if (isNaN(num) || num < 1) return;
+		const el = lineRef.current.get(num - 1);
+		if (el) {
+			el.scrollIntoView({ behavior: "smooth", block: "center" });
+			el.classList.add("bg-amber-400/10");
+			setTimeout(() => el.classList.remove("bg-amber-400/10"), 2000);
+		}
+	}, [jumpLine]);
+
+	const handleSave = useCallback(async () => {
+		if (!fileEntryId) return;
+		setSaveStatus("saving");
+		setSaveMessage("");
+		try {
+			const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
+				method: "PUT",
+				body: JSON.stringify({ content: draft }),
+			});
+			setState({ loading: false, content: draft, error: null });
+			setEditMode(false);
+			setSaveStatus("saved");
+			setSaveMessage(`已保存 ${response.file.byteSize} B`);
+		} catch (err) {
+			setSaveStatus("error");
+			setSaveMessage(err instanceof Error ? err.message : "保存失败");
+		}
+	}, [draft, fileEntryId]);
+
+	if (state.loading) {
+		return (
+			<div className="flex items-center justify-center py-16 text-slate-400 light:text-slate-600">
+				<span className="animate-pulse text-sm">正在加载文件内容…</span>
+			</div>
+		);
+	}
+
+	if (state.error) {
+		return (
+			<div className="flex flex-col items-center gap-3 py-16 text-red-300">
+				<span className="text-3xl">⚠️</span>
+				<p className="text-sm">{state.error}</p>
+			</div>
+		);
+	}
+
+	const lines = (state.content ?? "").split("\n");
+	const totalLines = lines.length;
+	const hasUnsavedChanges = draft !== (state.content ?? "");
+	const highlightSearch = (html: string): string => {
+		if (!searchQuery.trim()) return html;
+		try {
+			const escapedQuery = escapeHtml(searchQuery);
+			const escaped = escapeRegex(escapedQuery);
+			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded px-0.5">$1</mark>');
 		} catch {
 			return html;
 		}
@@ -228,67 +350,131 @@ export function TextPreviewClient({ href, name }: { href: string; name?: string 
 
 	return (
 		<div className="space-y-3">
-			{/* Toolbar */}
 			<div className="flex flex-wrap items-center gap-2">
 				<span className="rounded-full bg-blue-400/10 px-3 py-1 text-xs font-medium text-blue-300 border border-blue-400/30">
 					{LANG_LABELS[lang] ?? lang.toUpperCase()}
 				</span>
 				<span className="text-xs text-slate-500">{totalLines} 行</span>
-				<div className="flex-1" />
-				{/* Search */}
-				<div className="flex items-center gap-1">
-					<input
-						type="text"
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						placeholder="搜索..."
-						className="w-28 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-					/>
-				</div>
-				{/* Jump to line */}
-				<div className="flex items-center gap-1">
-					<input
-						type="text"
-						value={jumpLine}
-						onChange={(e) => setJumpLine(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
-						placeholder="跳转行号"
-						className="w-20 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-					/>
-					<button
-						type="button"
-						onClick={handleJumpToLine}
-						className="rounded-lg border border-slate-700 light:border-slate-200 bg-slate-800 light:bg-slate-100 px-2 py-1 text-xs text-slate-300 light:text-slate-700 hover:bg-slate-700 light:hover:bg-slate-200"
+				{canEdit ? (
+					<span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 light:text-emerald-800">
+						可在线编辑
+					</span>
+				) : null}
+				{saveMessage ? (
+					<span
+						role={saveStatus === "error" ? "alert" : "status"}
+						className={`text-xs ${saveStatus === "error" ? "text-rose-300" : "text-emerald-300"}`}
 					>
-						跳转
-					</button>
-				</div>
+						{saveMessage}
+					</span>
+				) : null}
+				<div className="flex-1" />
+				{canEdit ? (
+					<div className="flex items-center gap-1">
+						{editMode ? (
+							<>
+								<button
+									type="button"
+									onClick={handleSave}
+									disabled={saveStatus === "saving" || !hasUnsavedChanges}
+									className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/20 disabled:opacity-50"
+								>
+									{saveStatus === "saving" ? "保存中…" : "保存"}
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										setDraft(state.content ?? "");
+										setEditMode(false);
+										setSaveStatus("idle");
+										setSaveMessage("");
+									}}
+									disabled={saveStatus === "saving"}
+									className="rounded-lg border border-slate-700 light:border-slate-200 bg-slate-800 light:bg-slate-100 px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
+								>
+									取消
+								</button>
+							</>
+						) : (
+							<button
+								type="button"
+								onClick={() => setEditMode(true)}
+								className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20"
+							>
+								编辑
+							</button>
+						)}
+					</div>
+				) : null}
+				{!editMode ? (
+					<>
+						<div className="flex items-center gap-1">
+							<input
+								type="text"
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								placeholder="搜索..."
+								className="w-28 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+							/>
+						</div>
+						<div className="flex items-center gap-1">
+							<input
+								type="text"
+								value={jumpLine}
+								onChange={(e) => setJumpLine(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
+								placeholder="跳转行号"
+								className="w-20 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+							/>
+							<button
+								type="button"
+								onClick={handleJumpToLine}
+								className="rounded-lg border border-slate-700 light:border-slate-200 bg-slate-800 light:bg-slate-100 px-2 py-1 text-xs text-slate-300 light:text-slate-700 hover:bg-slate-700 light:hover:bg-slate-200"
+							>
+								跳转
+							</button>
+						</div>
+					</>
+				) : null}
 			</div>
 
-			{/* Code area */}
-			<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 light:bg-white p-4 text-sm leading-relaxed max-h-[75vh]">
-				<pre className="font-mono text-slate-300 light:text-slate-700">
-					<code>
-						{lines.map((line, i) => {
-						let html = highlightLine(line, lang);
-						html = highlightSearch(html);
-						html = sanitizeHighlightHtml(html);
-							return (
-								<div
-									key={i}
-									ref={(el) => { if (el) lineRef.current.set(i, el); }}
-									className="flex transition-colors duration-500"
-								>
-									<span className="mr-4 inline-block w-12 select-none text-right text-slate-600 shrink-0">
-										{i + 1}
-									</span>
-									<span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} />
-								</div>
-							);
-						})}
-					</code>
-				</pre>
-			</div>
+			{editMode ? (
+				<textarea
+					aria-label="在线编辑文件内容"
+					value={draft}
+					onChange={(event) => {
+						setDraft(event.currentTarget.value);
+						setSaveStatus("idle");
+						setSaveMessage("");
+					}}
+					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 light:bg-white p-4 font-mono text-sm leading-relaxed text-slate-100 light:text-slate-900 outline-none focus:border-cyan-300"
+					spellCheck={false}
+				/>
+			) : (
+				<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 light:bg-white p-4 text-sm leading-relaxed max-h-[75vh]">
+					<pre className="font-mono text-slate-300 light:text-slate-700">
+						<code>
+							{lines.map((line, i) => {
+								let html = highlightLine(line, lang);
+								html = highlightSearch(html);
+								html = sanitizeHighlightHtml(html);
+								return (
+									<div
+										key={i}
+										ref={(el) => { if (el) lineRef.current.set(i, el); }}
+										className="flex transition-colors duration-500"
+									>
+										<span className="mr-4 inline-block w-12 select-none text-right text-slate-600 shrink-0">
+											{i + 1}
+										</span>
+										<span className="whitespace-pre-wrap break-all" dangerouslySetInnerHTML={{ __html: html }} />
+									</div>
+								);
+							})}
+						</code>
+					</pre>
+				</div>
+			)}
 		</div>
 	);
 }

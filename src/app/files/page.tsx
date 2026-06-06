@@ -166,6 +166,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       sizeBytes: entry.size == null ? null : Number(entry.size),
       sizeLabel: entry.sizeLabel,
       previewable: entry.previewable,
+      localEditable: entry.localEditable,
       directAccessMode: entry.directAccess.mode,
       directAccessHref: entry.directAccess.href ?? null,
       directAccessDescription: entry.directAccess.description,

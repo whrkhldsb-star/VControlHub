@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { Prisma } from "@prisma/client";
@@ -1011,5 +1011,40 @@ export async function getLocalEditableFileDraft(fileEntryId: string) {
     content,
     byteSize: fileStat.size,
     updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+  };
+}
+
+export async function saveLocalEditableFileDraft(input: {
+  fileEntryId: string;
+  content: string;
+}) {
+  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
+    input.fileEntryId,
+  );
+  const content = String(input.content ?? "");
+  const byteSize = Buffer.byteLength(content, "utf8");
+
+  if (byteSize > MAX_EDITABLE_FILE_SIZE_BYTES) {
+    throw new Error("文件超过 512 KB，暂不支持在线编辑");
+  }
+
+  await writeFile(absolutePath, content, "utf8");
+  const nextStat = await stat(absolutePath);
+  const updated = await prisma.fileEntry.update({
+    where: { id: entry.id },
+    data: {
+      size: BigInt(nextStat.size),
+      updatedAt: new Date(),
+      checksumSha256: null,
+    },
+  });
+
+  return {
+    fileEntryId: entry.id,
+    name: entry.name,
+    relativePath: entry.relativePath,
+    byteSize: nextStat.size,
+    previousByteSize: fileStat.size,
+    updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
   };
 }
