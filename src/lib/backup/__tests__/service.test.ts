@@ -20,6 +20,8 @@ const {
   updateBackupRecordStatus,
   restoreBackupRecord,
   listBackupRecords,
+  formatBackupSize,
+  summarizeBackupPolicy,
 } = await import("../service");
 
 describe("backup service", () => {
@@ -183,5 +185,33 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
     await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
     expect(runFileMock).not.toHaveBeenCalled();
+  });
+
+  it("summarizes backup policy capacity, type mix, and retention hints", () => {
+    const summary = summarizeBackupPolicy([
+      { type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz", fileSize: "1048576", createdAt: new Date("2026-04-01T00:00:00Z"), completedAt: new Date("2026-04-01T00:00:00Z") },
+      { type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", fileSize: 2 * 1024 * 1024, createdAt: new Date("2026-05-20T00:00:00Z"), completedAt: new Date("2026-05-20T00:00:00Z") },
+      { type: "FULL", status: "FAILED", fileSize: "999999", createdAt: new Date("2026-05-21T00:00:00Z") },
+      { type: "DATABASE", status: "RUNNING", fileSize: null, createdAt: new Date("2026-05-22T00:00:00Z") },
+    ], new Date("2026-06-01T00:00:00Z"));
+
+    expect(summary.totalRecords).toBe(4);
+    expect(summary.completedRecords).toBe(2);
+    expect(summary.failedRecords).toBe(1);
+    expect(summary.runningRecords).toBe(1);
+    expect(summary.totalCompletedSizeBytes).toBe(3 * 1024 * 1024);
+    expect(summary.recordsOlderThan30Days).toBe(1);
+    expect(summary.byType.DATABASE).toEqual({ count: 1, sizeBytes: 1024 * 1024 });
+    expect(summary.byType.FILES).toEqual({ count: 1, sizeBytes: 2 * 1024 * 1024 });
+    expect(summary.byType.FULL).toEqual({ count: 0, sizeBytes: 0 });
+    expect(summary.largestCompleted).toEqual({ type: "FILES", filePath: "backups/files.tar.gz", sizeBytes: 2 * 1024 * 1024 });
+  });
+
+  it("formats backup sizes without rounding small artifacts down to 0 MB", () => {
+    expect(formatBackupSize(null)).toBe("待生成");
+    expect(formatBackupSize("512")).toBe("512 B");
+    expect(formatBackupSize(1536)).toBe("1.5 KB");
+    expect(formatBackupSize(2 * 1024 * 1024)).toBe("2.0 MB");
+    expect(formatBackupSize(3 * 1024 * 1024 * 1024)).toBe("3.00 GB");
   });
 });

@@ -20,6 +20,28 @@ export const RESTORE_CONFIRM_TEXT = "RESTORE";
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 export type BackupType = "DATABASE" | "FILES" | "FULL";
 
+type BackupRecordForSummary = {
+  type: string;
+  status: string;
+  filePath?: string | null;
+  fileSize?: string | number | bigint | null;
+  createdAt: Date;
+  completedAt?: Date | null;
+};
+
+export type BackupPolicySummary = {
+  totalRecords: number;
+  completedRecords: number;
+  failedRecords: number;
+  runningRecords: number;
+  totalCompletedSizeBytes: number;
+  latestCompletedAt: Date | null;
+  oldestCompletedAt: Date | null;
+  recordsOlderThan30Days: number;
+  byType: Record<BackupType, { count: number; sizeBytes: number }>;
+  largestCompleted: { type: string; filePath?: string | null; sizeBytes: number } | null;
+};
+
 export function isBackupType(value: string): value is BackupType {
   return value === "DATABASE" || value === "FILES" || value === "FULL";
 }
@@ -81,6 +103,79 @@ export async function listBackupRecords() {
     take: 200,
     include: { creator: { select: { username: true, displayName: true } } },
   });
+}
+
+function parseBackupSizeBytes(value: string | number | bigint | null | undefined) {
+  if (value == null) return 0;
+  const numeric = typeof value === "bigint" ? Number(value) : typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return numeric;
+}
+
+export function formatBackupSize(value: string | number | bigint | null | undefined) {
+  const size = parseBackupSizeBytes(value);
+  if (size <= 0) return "待生成";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export function summarizeBackupPolicy(records: BackupRecordForSummary[], now = new Date()): BackupPolicySummary {
+  const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const byType: BackupPolicySummary["byType"] = {
+    DATABASE: { count: 0, sizeBytes: 0 },
+    FILES: { count: 0, sizeBytes: 0 },
+    FULL: { count: 0, sizeBytes: 0 },
+  };
+  let completedRecords = 0;
+  let failedRecords = 0;
+  let runningRecords = 0;
+  let totalCompletedSizeBytes = 0;
+  let latestCompletedAt: Date | null = null;
+  let oldestCompletedAt: Date | null = null;
+  let recordsOlderThan30Days = 0;
+  let largestCompleted: BackupPolicySummary["largestCompleted"] = null;
+
+  for (const record of records) {
+    if (record.status === "FAILED") failedRecords += 1;
+    if (record.status === "RUNNING" || record.status === "PENDING") runningRecords += 1;
+    if (record.status !== "COMPLETED") continue;
+
+    completedRecords += 1;
+    const sizeBytes = parseBackupSizeBytes(record.fileSize);
+    totalCompletedSizeBytes += sizeBytes;
+    if (isBackupType(record.type)) {
+      byType[record.type].count += 1;
+      byType[record.type].sizeBytes += sizeBytes;
+    }
+    if (!largestCompleted || sizeBytes > largestCompleted.sizeBytes) {
+      largestCompleted = { type: record.type, filePath: record.filePath ?? null, sizeBytes };
+    }
+
+    const completedAt = record.completedAt ?? record.createdAt;
+    if (!latestCompletedAt || completedAt > latestCompletedAt) latestCompletedAt = completedAt;
+    if (!oldestCompletedAt || completedAt < oldestCompletedAt) oldestCompletedAt = completedAt;
+    if (completedAt < cutoff) recordsOlderThan30Days += 1;
+  }
+
+  return {
+    totalRecords: records.length,
+    completedRecords,
+    failedRecords,
+    runningRecords,
+    totalCompletedSizeBytes,
+    latestCompletedAt,
+    oldestCompletedAt,
+    recordsOlderThan30Days,
+    byType,
+    largestCompleted,
+  };
+}
+
+export async function getBackupPolicySummary() {
+  const records = await listBackupRecords();
+  return summarizeBackupPolicy(records);
 }
 
 export async function getBackupRecord(id: string) {

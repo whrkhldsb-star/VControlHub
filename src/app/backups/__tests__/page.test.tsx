@@ -30,8 +30,8 @@ vi.mock("@/lib/backup/service", async () => {
         status: "COMPLETED",
         filePath: "backups/database.sql.gz",
         createdAt: new Date("2026-05-29T00:00:00.000Z"),
-        fileSize: null,
-        completedAt: null,
+        fileSize: String(1024 * 1024),
+        completedAt: new Date("2026-05-29T00:00:00.000Z"),
         errorMessage: null,
         note: null,
         creator: { username: "admin", displayName: "Admin" },
@@ -42,8 +42,8 @@ vi.mock("@/lib/backup/service", async () => {
         status: "COMPLETED",
         filePath: "backups/files.tar.gz",
         createdAt: new Date("2026-05-29T00:00:00.000Z"),
-        fileSize: null,
-        completedAt: null,
+        fileSize: String(2 * 1024 * 1024),
+        completedAt: new Date("2026-05-29T00:00:00.000Z"),
         errorMessage: null,
         note: null,
         creator: { username: "admin", displayName: "Admin" },
@@ -54,8 +54,8 @@ vi.mock("@/lib/backup/service", async () => {
         status: "COMPLETED",
         filePath: "backups/full.tar.gz",
         createdAt: new Date("2026-05-29T00:00:00.000Z"),
-        fileSize: null,
-        completedAt: null,
+        fileSize: String(3 * 1024 * 1024),
+        completedAt: new Date("2026-05-29T00:00:00.000Z"),
         errorMessage: null,
         note: null,
         creator: { username: "admin", displayName: "Admin" },
@@ -74,6 +74,16 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/提交后会立即在服务器执行对应的 deploy\/backup\.sh 模式/)).toBeInTheDocument();
     expect(screen.queryByText(/创建可审计记录后/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建并执行" })).toBeInTheDocument();
+
+    expect(screen.getByText("备份策略概览")).toBeInTheDocument();
+    expect(screen.getByText("已用备份空间")).toBeInTheDocument();
+    expect(screen.getByText("6.0 MB")).toBeInTheDocument();
+    expect(screen.getByText("最大：FULL · 3.0 MB")).toBeInTheDocument();
+    expect(screen.getByText("保留策略提示")).toBeInTheDocument();
+    expect(screen.getByText("条完成备份超过 30 天，建议复核清理")).toBeInTheDocument();
+    expect(screen.getByText("DATABASE").closest("div")).toHaveTextContent("1 个 · 1.0 MB");
+    expect(screen.getByText("FILES").closest("div")).toHaveTextContent("1 个 · 2.0 MB");
+    expect(screen.getByText("FULL").closest("div")).toHaveTextContent("1 个 · 3.0 MB");
 
     expect(screen.getByText(/deploy\/backup\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
