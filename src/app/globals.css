@@ -483,7 +483,7 @@ code, pre, kbd {
 	font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 
-:root code:not(pre code) {
+:root code:not(pre code):not(.block) {
 	background: var(--surface-subtle);
 	border: 1px solid var(--border-subtle);
 	border-radius: var(--radius-sm);
@@ -491,7 +491,7 @@ code, pre, kbd {
 	font-size: 0.875em;
 }
 
-html.light code:not(pre code) {
+html.light code:not(pre code):not(.block) {
 	background: var(--surface-elevated);
 	border-color: var(--border-subtle);
 }
@@ -503,15 +503,18 @@ html.light code:not(pre code) {
 :root code.block,
 :root [class*="font-mono"][class*="bg-slate-950"],
 :root [class*="font-mono"][class*="bg-black"] {
-	background-color: var(--surface-subtle);
-	border-color: var(--border-subtle);
-	color: var(--text-secondary);
+	background-color: var(--surface-subtle) !important;
+	border-color: var(--border-subtle) !important;
+	color: var(--text-secondary) !important;
 }
 
 html.light pre,
 html.light code.block,
 html.light [class*="font-mono"][class*="bg-slate-950"],
-html.light [class*="font-mono"][class*="bg-black"] {
+html.light [class*="font-mono"][class*="bg-slate-900"],
+html.light [class*="font-mono"][class*="bg-black"],
+html.light textarea.font-mono,
+html.light pre code {
 	background-color: var(--surface-elevated) !important;
 	border-color: var(--border) !important;
 	color: var(--text-secondary) !important;

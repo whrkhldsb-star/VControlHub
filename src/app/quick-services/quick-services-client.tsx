@@ -450,7 +450,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100 light:text-amber-900">
 					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
 					<p className="mt-1 text-xs text-amber-100/75 light:text-amber-900/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50 light:border-amber-200 light:bg-amber-50 light:text-amber-900">{dockerStatus.installHint}</p> : null}
+					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
@@ -475,10 +475,8 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300 light:text-cyan-700/70">运行概览</p>
 							<h2 className="mt-1 text-base font-semibold text-white light:text-slate-900">{runningItems.length > 0 ? `${runningItems.length} 个服务在线` : "还没有运行中的服务"}</h2>
 						</div>
-						<button
-							type="button"
-							onClick={() => setTab(nextAction.tab)}
-							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15" : nextAction.tone === "emerald" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15" : "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15"}`}
+						<button type="button" onClick={() => setTab(nextAction.tab)}
+							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 light:text-rose-800 hover:bg-rose-400/15" : nextAction.tone === "emerald" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 light:text-emerald-800 hover:bg-emerald-400/15" : "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:text-cyan-800 hover:bg-cyan-400/15"}`}
 						>
 							{nextAction.label}
 						</button>
@@ -577,7 +575,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Sources management tab */}
 			{tab === "sources" && (
 				<div className="space-y-4">
-					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4 light:border-slate-200 light:bg-white">
 						<div className="flex items-center justify-between gap-3">
 							<div>
 								<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
@@ -589,10 +587,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							{SOURCE_PRESETS.map((preset) => {
 								const active = sourcePreset === preset.key;
 								return (
-									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"}`}>
+									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:text-cyan-800" : "border-white/[0.08] bg-white/[0.03] text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700 hover:bg-white/[0.06] light:hover:bg-white"}`}>
 										<div className="flex items-center justify-between gap-2">
 											<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100 light:text-cyan-800" : "border-white/[0.08] text-slate-500 light:border-slate-200 light:text-slate-600"}`}>{preset.type}</span>
 										</div>
 										<h4 className="mt-2 text-sm font-semibold text-white light:text-slate-900">{preset.label}</h4>
 										<p className="mt-1 text-xs leading-5 text-slate-400 light:text-slate-600">{preset.description}</p>
@@ -927,7 +925,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 	const isRemote = item.source !== "local";
 
 	return (
-		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col gap-3 hover:border-white/[0.12] transition">
+		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:border-slate-200 light:bg-white light:hover:border-slate-300">
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">
@@ -962,7 +960,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 
 			{/* Error message */}
 			{item.error && (
-				<div className="text-[10px] text-rose-300 bg-rose-500/[0.06] rounded px-2 py-1 line-clamp-2">{item.error}</div>
+				<div className="text-[10px] text-rose-300 light:text-rose-800 bg-rose-500/[0.06] rounded px-2 py-1 line-clamp-2">{item.error}</div>
 			)}
 
 			{/* Actions */}

@@ -45,7 +45,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-white light:text-slate-900">1. 创建模板</div>
-						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300 light:text-cyan-700">{"{{变量名}}"}</code> 的部署脚本</div>
+						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300 light:text-cyan-700/90">{"{{变量名}}"}</code> 的部署脚本</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">🎯</div>
