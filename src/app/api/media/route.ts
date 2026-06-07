@@ -16,9 +16,10 @@ export async function GET(request: Request) {
 
       return NextResponse.json({
         media: await listMediaItems({
-          mediaType: type === "image" || type === "video" ? type : undefined,
+          mediaType: type === "image" || type === "video" || type === "audio" ? type : undefined,
           q: searchParams.get("q") ?? undefined,
           favorite: searchParams.get("favorite") === "1" ? true : undefined,
+          tag: searchParams.get("tag")?.trim() || undefined,
         }),
       });
     },

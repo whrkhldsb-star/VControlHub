@@ -44,4 +44,10 @@ describe("MediaItemCard", () => {
       "/files?path=movies%2F2026&nodeId=node_sftp&q=movie.mp4",
     );
   });
+
+  it("offers image-bed publishing only for stored images", () => {
+    render(<MediaItemCard item={{ ...item, mediaType: "image", mimeType: "image/png", name: "photo.png", relativePath: "images/photo.png" }} canManage />);
+
+    expect(screen.getByRole("button", { name: /图床外链/ })).toBeInTheDocument();
+  });
 });

@@ -32,7 +32,7 @@ describe("/api/media", () => {
     ]);
 
     const response = await GET(
-      new Request("https://example.com/api/media?type=image&q=cat"),
+      new Request("https://example.com/api/media?type=image&q=cat&favorite=1&tag=demo"),
     );
     const body = await response.json();
 
@@ -41,7 +41,8 @@ describe("/api/media", () => {
     expect(listMediaItemsMock).toHaveBeenCalledWith({
       mediaType: "image",
       q: "cat",
-      favorite: undefined,
+      favorite: true,
+      tag: "demo",
     });
     expect(body.media).toEqual([{ id: "m_1", mediaType: "image" }]);
   });
