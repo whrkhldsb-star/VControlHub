@@ -148,7 +148,16 @@ function serverFixture() {
     sshKeyId: "key_1",
     password: null,
     sshKey: { privateKey: "PRIVATE KEY" },
-    storageNode: { id: "store_1", basePath: "/srv/cloud", driver: "SFTP" },
+    storageNode: {
+      id: "store_1",
+      basePath: "/srv/cloud",
+      driver: "SFTP",
+      host: "203.0.113.10",
+      port: 31888,
+      directAccessMode: "DIRECT",
+      publicBaseUrl: "https://files.example.com",
+      directAccessExpiresSeconds: 300,
+    },
   };
 }
 
@@ -374,7 +383,7 @@ describe("/api/downloads", () => {
         targetPath: "/srv/cloud/downloads",
         fileName: "file.iso",
         relayMode: false,
-        server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud", driver: "SFTP" } },
+        server: { ...serverFixture() },
         creator: { id: "u_1", username: "alice", displayName: null },
         aria2Gid: null,
         pid: 12345,
@@ -397,9 +406,12 @@ describe("/api/downloads", () => {
         {
           id: "completed_task",
           downloadAccess: {
-            mode: "storage-policy",
+            mode: "direct-url",
+            transport: "direct",
             href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
+            fallbackHref: "/api/storage/sftp-download?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
             label: "下载文件",
+            statusLabel: "当前：直连",
           },
         },
       ],
@@ -468,9 +480,12 @@ describe("/api/downloads", () => {
       totalBytes: "2048",
       completedBytes: "2048",
       downloadAccess: {
-        mode: "storage-policy",
+        mode: "direct-url",
+        transport: "direct",
         href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
+        fallbackHref: "/api/storage/sftp-download?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
         label: "下载文件",
+        statusLabel: "当前：直连",
       },
     });
     expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -499,7 +514,7 @@ describe("/api/downloads", () => {
       relayMode: true,
       aria2Gid: "gid_1",
       targetPath: "/srv/cloud/downloads",
-      server: { ...serverFixture(), storageNode: { id: "store_1", basePath: "/srv/cloud", driver: "SFTP" } },
+      server: { ...serverFixture() },
     });
     tellStatusMock.mockResolvedValueOnce({
       gid: "gid_1",
@@ -522,9 +537,12 @@ describe("/api/downloads", () => {
       totalBytes: "4096",
       downloadSpeed: "0",
       downloadAccess: {
-        mode: "storage-policy",
+        mode: "direct-url",
+        transport: "direct",
         href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
+        fallbackHref: "/api/storage/sftp-download?nodeId=store_1&path=downloads%2Ffile.iso&download=1",
         label: "下载文件",
+        statusLabel: "当前：直连",
       },
     });
     expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({

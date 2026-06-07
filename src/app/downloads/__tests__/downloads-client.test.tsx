@@ -2,15 +2,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DownloadsClient } from "../downloads-client";
+import { DownloadsClient, type ServerOption } from "../downloads-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
 }));
 
-const servers = [
-  { id: "srv_1", name: "主节点", host: "127.0.0.1", storagePath: "/root/downloads", storageDriver: "LOCAL" },
+const servers: ServerOption[] = [
+  { id: "srv_1", name: "主节点", host: "127.0.0.1", storagePath: "/root/downloads", storageDriver: "LOCAL", directAccessMode: "PROXY", directAccessAvailable: false, accessTransport: "relay", accessStatusLabel: "当前：中转", accessDescription: "本机文件由管理端直接提供受控下载与预览。" },
 ];
 
 const runningTask = {
@@ -81,10 +81,13 @@ describe("DownloadsClient", () => {
         completedBytes: "2048",
         downloadSpeed: "0",
         downloadAccess: {
-          mode: "storage-policy",
+          mode: "direct-url",
+          transport: "direct",
           href: "/api/storage/direct-access?nodeId=store_1&path=downloads%2Fa.iso&download=1",
+          fallbackHref: "/api/storage/sftp-download?nodeId=store_1&path=downloads%2Fa.iso&download=1",
           label: "下载文件",
-          description: "按 VPS 文件访问策略下载：直连可用时走目标 VPS Direct Gateway，否则自动走网站 SFTP 中转。",
+          statusLabel: "当前：直连",
+          description: "远端文件可切换为存储服务器直连（自动优先直连），不可用时回退到管理端 SFTP 中转。",
         },
       });
 
@@ -96,7 +99,7 @@ describe("DownloadsClient", () => {
 
     await screen.findAllByText("已完成");
     expect(screen.getByText("📦 2.0 KB")).toBeInTheDocument();
-    expect(screen.getByText("🔁 沿用 VPS 直连/中转策略")).toBeInTheDocument();
+    expect(screen.getByText("🔁 当前：直连")).toBeInTheDocument();
     const downloadLink = screen.getByRole("link", { name: "⬇ 下载文件" });
     expect(downloadLink).toHaveAttribute("href", "/api/storage/direct-access?nodeId=store_1&path=downloads%2Fa.iso&download=1");
     expect(screen.queryByText("0.1% ·")).not.toBeInTheDocument();
@@ -117,7 +120,8 @@ describe("DownloadsClient", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");
     expect(screen.getByRole("heading", { name: "新建下载任务" })).toBeInTheDocument();
-    expect(screen.getByText("完成后的“下载文件”按钮会复用 VPS 文件访问策略。")).toBeInTheDocument();
+    expect(screen.getByText("完成后的“下载文件”按钮和文件管理使用同一套访问策略。")).toBeInTheDocument();
+    expect(screen.getByText("当前：中转")).toBeInTheDocument();
     expect(screen.getByDisplayValue("https://example.com/a.iso")).toBeInTheDocument();
   });
 

@@ -30,6 +30,7 @@ import {
   buildProgressText,
   isMagnetLink,
 } from "@/lib/downloads/helpers";
+import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import {
   executeAria2RelayDownload,
   executeDirectDownload,
@@ -76,32 +77,51 @@ function taskDownloadAccess(task: {
   targetPath: string | null;
   fileName: string | null;
   relayMode: boolean | null;
-  server?: { storageNode?: { id: string; basePath: string; driver?: string | null } | null } | null;
+  server?: {
+    storageNode?: {
+      id: string;
+      basePath: string;
+      driver?: "LOCAL" | "SFTP" | null;
+      host?: string | null;
+      port?: number | null;
+      directAccessMode?: "PROXY" | "DIRECT" | "AUTO" | null;
+      publicBaseUrl?: string | null;
+      directAccessExpiresSeconds?: number | null;
+    } | null;
+  } | null;
 }) {
   if (task.status !== "COMPLETED") return null;
   const storageNode = task.server?.storageNode;
   const relativePath = taskCompletedFileRelativePath(task);
   if (!storageNode || !relativePath) return null;
 
-  if (storageNode.driver === "LOCAL") {
-    return {
-      mode: "managed-download" as const,
-      href: `/api/storage/local?nodeId=${encodeURIComponent(storageNode.id)}&path=${encodeURIComponent(relativePath)}&download=1`,
-      label: "下载文件",
-      description: "从本机存储受控下载。",
-    };
-  }
-
-  const params = new URLSearchParams({
+  const strategy = buildDirectAccessStrategy({
+    driver: storageNode.driver === "SFTP" ? "SFTP" : "LOCAL",
     nodeId: storageNode.id,
-    path: relativePath,
-    download: "1",
+    host: storageNode.host,
+    port: storageNode.port,
+    relativePath,
+    directAccessMode: storageNode.directAccessMode,
+    publicBaseUrl: storageNode.publicBaseUrl,
+    directAccessExpiresSeconds: storageNode.directAccessExpiresSeconds,
   });
+
+  const href = strategy.href
+    ? `${strategy.href}${strategy.href.includes("?") ? "&" : "?"}download=1`
+    : null;
+  if (!href) return null;
+
+  const isDirect = strategy.mode === "direct-url";
   return {
-    mode: "storage-policy" as const,
-    href: `/api/storage/direct-access?${params.toString()}`,
+    mode: strategy.mode,
+    transport: isDirect ? "direct" as const : "relay" as const,
+    href,
+    fallbackHref: "fallbackHref" in strategy && strategy.fallbackHref
+      ? `${strategy.fallbackHref}${strategy.fallbackHref.includes("?") ? "&" : "?"}download=1`
+      : null,
     label: "下载文件",
-    description: "按 VPS 文件访问策略下载：直连可用时走目标 VPS Direct Gateway，否则自动走网站 SFTP 中转。",
+    statusLabel: isDirect ? "当前：直连" : "当前：中转",
+    description: strategy.description,
   };
 }
 
@@ -384,7 +404,7 @@ export async function GET(request: Request) {
       const tasks = await prisma.downloadTask.findMany({
         where,
         include: {
-          server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true, driver: true } } } },
+          server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } } } },
           creator: { select: { id: true, username: true, displayName: true } },
         },
         orderBy: { createdAt: "desc" },

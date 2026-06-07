@@ -16,8 +16,8 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 
 vi.mock("../downloads-client", () => ({
-  DownloadsClient: vi.fn(({ servers }: { servers: Array<{ name: string }> }) => (
-    <div data-testid="downloads-client">{servers.map((server) => server.name).join(", ")}</div>
+  DownloadsClient: vi.fn(({ servers }: { servers: Array<{ name: string; accessStatusLabel?: string }> }) => (
+    <div data-testid="downloads-client">{servers.map((server) => `${server.name}:${server.accessStatusLabel}`).join(", ")}</div>
   )),
 }));
 
@@ -29,7 +29,7 @@ vi.mock("@/lib/db", () => ({
           id: "srv1",
           name: "下载 VPS",
           host: "203.0.113.20",
-          storageNode: { id: "node1", basePath: "/data/downloads", driver: "SFTP" },
+          storageNode: { id: "node1", basePath: "/data/downloads", driver: "SFTP", host: "203.0.113.20", port: 22, directAccessMode: "DIRECT", publicBaseUrl: "https://files.example.com", directAccessExpiresSeconds: 300 },
         },
       ]),
     },
@@ -49,7 +49,7 @@ describe("DownloadsPage", () => {
   it("hydrates only download-capable VPS targets", async () => {
     render(await DownloadsPage());
 
-    expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS");
+    expect(screen.getByTestId("downloads-client")).toHaveTextContent("下载 VPS:当前：直连");
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         enabled: true,
@@ -62,7 +62,7 @@ describe("DownloadsPage", () => {
         id: true,
         name: true,
         host: true,
-        storageNode: { select: { id: true, basePath: true, driver: true } },
+        storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
       }),
     }));
   });

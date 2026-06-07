@@ -90,7 +90,7 @@ function buildStorageConnectionSummary(input: {
   return `SFTP 存储：${remote}${serverHint}，根目录 ${input.basePath}`;
 }
 
-function buildDirectAccessStrategy(input: {
+export function buildDirectAccessStrategy(input: {
   driver: "LOCAL" | "SFTP";
   nodeId: string;
   host?: string | null;
@@ -105,7 +105,7 @@ function buildDirectAccessStrategy(input: {
       mode: "managed-download" as const,
       description: "本机文件由管理端直接提供受控下载与预览。",
       href: input.relativePath
-        ? `/api/storage/local?path=${encodeURIComponent(input.relativePath)}`
+        ? `/api/storage/local?nodeId=${encodeURIComponent(input.nodeId)}&path=${encodeURIComponent(input.relativePath)}`
         : null,
     };
   }

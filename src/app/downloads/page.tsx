@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
+import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
 import { PageShell, EmptyState } from "@/components/page-shell";
 
@@ -27,18 +28,36 @@ export default async function DownloadsPage() {
 			id: true,
 			name: true,
 			host: true,
-			storageNode: { select: { id: true, basePath: true, driver: true } },
+			storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
 		},
 		orderBy: { name: "asc" },
 	});
 
-	const serverList = servers.map((s) => ({
-		id: s.id,
-		name: s.name,
-		host: s.host,
-		storagePath: s.storageNode?.basePath ?? "/root/downloads",
-		storageDriver: s.storageNode?.driver ?? "LOCAL",
-	}));
+	const serverList = servers.map((s) => {
+		const strategy = buildDirectAccessStrategy({
+			driver: s.storageNode?.driver === "SFTP" ? "SFTP" : "LOCAL",
+			nodeId: s.storageNode?.id ?? "",
+			host: s.storageNode?.host ?? s.host,
+			port: s.storageNode?.port,
+			relativePath: ".",
+			directAccessMode: s.storageNode?.directAccessMode,
+			publicBaseUrl: s.storageNode?.publicBaseUrl,
+			directAccessExpiresSeconds: s.storageNode?.directAccessExpiresSeconds,
+		});
+		const isDirect = strategy.mode === "direct-url";
+		return {
+			id: s.id,
+			name: s.name,
+			host: s.host,
+			storagePath: s.storageNode?.basePath ?? "/root/downloads",
+			storageDriver: s.storageNode?.driver ?? "LOCAL",
+			directAccessMode: s.storageNode?.directAccessMode ?? "PROXY",
+			directAccessAvailable: isDirect,
+			accessTransport: isDirect ? "direct" as const : "relay" as const,
+			accessStatusLabel: isDirect ? "当前：直连" : "当前：中转",
+			accessDescription: strategy.description,
+		};
+	});
 
 	return (
 		<PageShell maxW="max-w-7xl">

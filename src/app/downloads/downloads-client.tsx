@@ -5,7 +5,18 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 /* ── Types ────────────────────────────────────────────────── */
 
-type ServerOption = { id: string; name: string; host: string; storagePath: string; storageDriver: string };
+export type ServerOption = {
+	id: string;
+	name: string;
+	host: string;
+	storagePath: string;
+	storageDriver: "LOCAL" | "SFTP";
+	directAccessMode: "PROXY" | "DIRECT" | "AUTO";
+	directAccessAvailable: boolean;
+	accessTransport: "direct" | "relay";
+	accessStatusLabel: string;
+	accessDescription: string;
+};
 
 type DownloadTask = {
 	id: string; url: string; serverId: string; targetPath: string; fileName: string | null;
@@ -14,7 +25,7 @@ type DownloadTask = {
 	aria2Gid: string | null; category: string | null; maxSpeedKb: number | null;
 	totalBytes: string | null; completedBytes: string | null; downloadSpeed: string | null;
 	fileSize: string | null; isBatch: boolean; batchUrls: string | null;
-	downloadAccess: { mode: string; href: string; label: string; description: string } | null;
+	downloadAccess: { mode: string; transport: "direct" | "relay"; href: string; fallbackHref: string | null; label: string; statusLabel: string; description: string } | null;
 	server: { id: string; name: string; host: string };
 	creator: { id: string; username: string; displayName: string | null } | null;
 };
@@ -237,6 +248,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		.filter((t) => filter === "ALL" || t.status === filter)
 		.filter((t) => !categoryFilter || (t.category ?? "") === categoryFilter);
 
+	const selectedServer = servers.find((server) => server.id === form.serverId) ?? defaultServer;
+
 	const runningCount = tasks.filter((t) => t.status === "RUNNING").length;
 	const pendingCount = tasks.filter((t) => t.status === "PENDING").length;
 
@@ -371,6 +384,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 							>
 								{servers.map((s) => (<option key={s.id} value={s.id}>{s.name} ({s.host})</option>))}
 							</select>
+							{selectedServer && (
+								<div className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${selectedServer.accessTransport === "direct" ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100 light:text-emerald-900" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-100 light:text-amber-900"}`}>
+									<div className="font-medium">{selectedServer.accessStatusLabel}</div>
+									<div className="mt-0.5 opacity-80">{selectedServer.accessDescription}</div>
+								</div>
+							)}
 						</div>
 						<div className="space-y-1.5">
 							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">保存路径</label>
@@ -410,9 +429,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					)}
 
 					<div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-4 py-3 text-xs leading-5 text-cyan-100 light:text-cyan-900">
-						<p className="font-medium">完成后的“下载文件”按钮会复用 VPS 文件访问策略。</p>
+						<p className="font-medium">完成后的“下载文件”按钮和文件管理使用同一套访问策略。</p>
 						<p className="mt-1 text-cyan-100/70 light:text-cyan-900/70">
-							目标 VPS 在 VPS 管理中启用直连时优先走 Direct Gateway；切回网站中转后同一按钮会自动回退到 SFTP 中转，和文件管理保持一致。
+							不在下载页单独启动传输模式；选择目标 VPS 后按其存储直连设置显示当前真实模式，直连可用时走 Direct Gateway，未配置或切回中转时走网站 SFTP 中转。
 						</p>
 					</div>
 
@@ -473,7 +492,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									<span>🖥 {task.server.name}</span>
 									<span>📂 {task.targetPath}</span>
 									{task.fileSize && <span>📦 {formatBytes(task.fileSize)}</span>}
-									{task.downloadAccess && <span title={task.downloadAccess.description}>🔁 {task.downloadAccess.mode === "storage-policy" ? "沿用 VPS 直连/中转策略" : "受控下载"}</span>}
+									{task.downloadAccess && <span title={task.downloadAccess.description}>🔁 {task.downloadAccess.statusLabel}</span>}
 									<span>🕒 {new Date(task.createdAt).toLocaleString("zh-CN")}</span>
 									{task.creator && <span>👤 {task.creator.displayName ?? task.creator.username}</span>}
 								</div>
