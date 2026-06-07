@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-07T19:07:20Z",
-  "runCounter": 35,
-  "lastRunStatus": "canary_verified_no_code_change",
-  "lastRunTarget": "downloads-negative-boundary-and-list-canary",
+  "updatedAt": "2026-06-07T20:12:46Z",
+  "runCounter": 37,
+  "lastRunStatus": "dirty_state_closeout_verified_no_code_change",
+  "lastRunTarget": "qa-loop-state-overall-review-evidence-closeout",
   "overallReviewDue": false,
-  "note": "Lightweight run (35/36). No product code changed. Verified Downloads production page/API availability and safe negative boundaries without starting a real download: authenticated /downloads 200, /api/downloads 200, missing CSRF PATCH 403, invalid mixed HTTP+magnet batch POST 400, missing task refresh PATCH 404. Smoke 25/25, /api/status 200 with 3 checks, services active, recent logs clean, temporary qa_cron_downloads user cleaned to zero."
+  "note": "Dirty-closeout run (37/42). No product code changed because entry worktree dirty state was limited to .hermes/qa-loop-state.json from the prior overall review evidence update. Revalidated the recorded state with live proof: Docker available and docker.service active+enabled, no qs-* containers, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active+enabled, HEAD == origin/main 47cc839, /api/status 200 with database/VPS/storage healthy checks, ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks, and recent filtered next/ssh-ws logs were clean. README remaining items are still larger P1/P2 slices, so this run closed the stale dirty state only. Next best small closable candidates remain storage-node grant-filtered /api/storage/nodes metadata, SFTP media Range/206 endpoint, or AI Provider/app-source URL private-IP/redirect validation."
 }
