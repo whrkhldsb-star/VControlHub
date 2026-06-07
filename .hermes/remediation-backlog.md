@@ -259,3 +259,8 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - 安全边界：可选清理仅处理模板记录的 `/opt/`、`/srv/` 下挂载目录，不清理 Docker socket、时区文件或根目录。
 - 其他巡查：记录 SFTP 音视频预览缺 Range、公开目录分享缺整目录归档下载、Office/压缩包预览为安全降级入口。
 - 证据：targeted quick-service/status tests 33/33 passed；`npm run verify` passed（204 files / 927 tests, Next build, runtime build, deploy-assets）；production restart/reload completed；`/api/status` 200 healthy；`/status` 200 and rendered `未做实时 SSH/网络探测` / `未做实时 SFTP/直连探测`；smoke 25/25 passed；post-restart logs clean。
+
+## 2026-06-07T14:57:45.043531+00:00 Quick Services 卸载闭环部署证据
+- 验证：targeted tests 38/38、typecheck、lint、full verify 均通过。
+- 部署：build:runtime 后重启 next/ssh-ws，服务 active，`/api/status` healthy，smoke 25/25 passed。
+- 生产日志：重启后 readiness 日志检查未发现 error/fail/warn/exception/traceback。

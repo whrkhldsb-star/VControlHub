@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T14:51:58.623692+00:00",
+  "updatedAt": "2026-06-07T14:57:45.043531+00:00",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -1221,6 +1221,23 @@
         "https://whrkhldsb.qzz.io/status => 200 and renders 未做实时 SSH/网络探测 plus 未做实时 SFTP/直连探测",
         "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub => ALL 25 CHECKS PASSED",
         "post-restart journal grep for error/warn/failed/exception => no matches"
+      ]
+    },
+    {
+      "at": "2026-06-07T14:57:45.043531+00:00",
+      "area": "quick-services",
+      "status": "deployed",
+      "summary": "Quick Services uninstall data cleanup deployed to production; smoke test passed and /api/status healthy.",
+      "verification": [
+        "targeted quick-service tests 38/38 passed",
+        "typecheck passed",
+        "lint --max-warnings=0 passed",
+        "npm run verify passed",
+        "npm run build:runtime passed",
+        "systemd restart passed",
+        "smoke test 25/25 passed",
+        "/api/status healthy",
+        "recent readiness logs checked after restart"
       ]
     }
   ]
