@@ -1128,5 +1128,36 @@
       "resolvedAt": "2026-06-03T06:35:45Z",
       "resolution": "Deterministic preflight verified Docker is now installed and docker.service is active on the production host; the old no-Docker environment blocker is stale. The next loop should perform a real Quick Services Docker lifecycle canary."
     }
-  ]
+  ],
+  "history": [
+    {
+      "at": "2026-06-07T13:21:55Z",
+      "slice": "server_file_proxy_scope_headers_cors",
+      "summary": "Closed README P0 remote file proxy scope gap: file proxy now requires bound SFTP storage node, serves only that node basePath with target-side realpath containment, prefers Authorization/X-VControlHub-Proxy-Token headers, keeps query token only as legacy fallback, and restricts CORS to the Hub origin with no-referrer/nosniff headers.",
+      "verification": [
+        "npx vitest run src/app/api/servers/[id]/file-proxy/__tests__/route.test.ts --reporter=dot: 5 tests passed",
+        "npm run typecheck -- --pretty false: passed",
+        "npm run lint -- --max-warnings=0: passed",
+        "npm run verify: passed including full test suite, Next build, runtime build, deploy-assets verification"
+      ]
+    }
+  ],
+  "lastRunAt": "2026-06-07T13:22:32Z",
+  "lastCompletedSlice": "server_file_proxy_scope_headers_cors",
+  "lastVerification": [
+    "npx vitest run src/app/api/servers/[id]/file-proxy/__tests__/route.test.ts --reporter=dot: 5 tests passed",
+    "npm run typecheck -- --pretty false: passed",
+    "npm run lint -- --max-warnings=0: passed",
+    "npm run verify: passed including full test suite, Next build, runtime build, deploy-assets verification"
+  ],
+  "lastDeployEvidence": {
+    "at": "2026-06-07T13:22:32Z",
+    "evidence": [
+      "deploy: npm run build:runtime passed after full verify build assets existed",
+      "deploy: chown .next/dist to vcontrolhub and restarted vcontrolhub-next.service + vcontrolhub-ssh-ws.service; reloaded caddy",
+      "production: services active; https://whrkhldsb.qzz.io/api/status summary.overall=healthy",
+      "smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
+      "logs: recent next/ssh-ws journal grep found no error/fail/warn/exception/traceback entries"
+    ]
+  }
 }

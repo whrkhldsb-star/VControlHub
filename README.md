@@ -353,7 +353,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 目前仍存在的问题 / 使用边界
 
 - [x] **在线文本文件编辑权限边界收紧** — `/api/files/editable/[id]` 读取和保存现在都会把当前 session 传入存储服务，并在解析 LOCAL 文件条目后调用 `assertStorageAccess` 校验对应存储节点与相对路径；读取需要具体 `read` 授权，保存会按新内容字节数校验 `write` 授权/配额，避免只有全局 `storage:read/write` 的用户通过文件条目 ID 绕过细粒度路径授权。
-- [ ] **远端文件代理范围过大（P0）。** 服务器文件代理在目标主机以 `/` 作为 `SERVE_DIR` 启动临时 HTTP 服务，并依赖 query token 控制访问；需要限制到用户选择/授权的目录、收紧 CORS，并避免 token 出现在容易泄露的 URL 查询串。
+- [x] **远端文件代理范围收紧** — `/api/servers/[id]/file-proxy` 启动临时 Python 代理前必须确认服务器绑定了 SFTP 存储节点，生成脚本时把 `SERVE_DIR` 限制到该节点 `basePath`，并在目标主机内做 realpath 边界校验；代理现在优先使用 `Authorization: Bearer` 或 `X-VControlHub-Proxy-Token` header 校验 token，只保留 query token 作为旧客户端兼容兜底，同时把 CORS 从 `*` 收紧到发起请求的 Hub origin 并补充 `Referrer-Policy: no-referrer` / `nosniff`。
 - [ ] **命令/定时任务/下载仍缺 durable worker 与并发控制（P1）。** 定时任务由每个 Node 进程内存轮询且无数据库租约，命令执行通过进程内 fire-and-forget Promise 启动，取消也依赖本进程 child-process Map；多实例或重启时可能重复执行、丢失运行态或覆盖取消状态。命令多目标与下载批量也缺全局并发/条数上限。
 - [ ] **备份/恢复、SFTP 同步仍是请求内长任务（P1）。** 备份/恢复 API 会在 HTTP 请求内同步等待最长 30 分钟的 shell 操作，SFTP 同步递归扫描并逐条写库；大目录或代理超时会造成请求占用、状态不清晰，后续应改为可观测的后台任务、进度、取消和重试。
 - [ ] **通知渠道仍有可选但不可发送的死路径（P1）。** SMTP 设置页和告警规则都暴露邮件/SMTP 语义，但告警测试发送明确跳过 email，真实告警评估也只处理站内通知和 Webhook；需要接入邮件发送、失败重试和发送历史，或在 UI 中暂时隐藏邮件渠道。

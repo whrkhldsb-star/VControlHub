@@ -18,6 +18,10 @@ import {
   UPLOAD_LIMIT,
 } from "@/lib/http/rate-limit-presets";
 import {
+  buildFileProxyScript,
+  sanitizeFileProxyOrigin,
+} from "@/lib/server/file-proxy-script";
+import {
   decryptServerPassword,
   decryptSshPrivateKey,
 } from "@/lib/ssh/ssh-key-crypto";
@@ -209,7 +213,7 @@ export async function POST(
       try {
         const server = await prisma.server.findUnique({
           where: { id },
-          include: { sshKey: true },
+          include: { sshKey: true, storageNode: true },
         });
 
         if (!server) {
@@ -219,6 +223,14 @@ export async function POST(
         if (!server.publicUrl) {
           return NextResponse.json(
             { error: "服务器未配置公网访问地址(publicUrl)，无法启用直连模式" },
+            { status: 400 },
+          );
+        }
+
+        const serveDir = server.storageNode?.basePath?.trim();
+        if (!serveDir) {
+          return NextResponse.json(
+            { error: "服务器未绑定 SFTP 存储节点，无法确定文件代理根目录" },
             { status: 400 },
           );
         }
@@ -262,52 +274,14 @@ export async function POST(
         const expiresAt = new Date(Date.now() + FILE_PROXY_TTL_MS);
         const expiresAtMs = expiresAt.getTime();
 
-        // 生成启动脚本：Python HTTP 服务器 + 简单 token 验证
-        const proxyScript = `
-import http.server
-import os
-import sys
-import json
-import time
-import urllib.parse
-
-TOKEN = "${accessToken}"
-EXPIRES_AT_MS = ${expiresAtMs}
-SERVE_DIR = "/"
-
-class AuthHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        if int(time.time() * 1000) > EXPIRES_AT_MS:
-            self.send_error(410, "Gone: token expired")
-            return
-        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        if query.get("token", [""])[0] != TOKEN:
-            self.send_error(403, "Forbidden: invalid token")
-            return
-        # Remove token from path for actual file serving
-        self.path = self.path.split("?")[0]
-        return super().do_GET()
-    
-    def end_headers(self):
-        # CORS headers
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Authorization")
-        super().end_headers()
-    
-    def do_OPTIONS(self):
-        self.send_response(200)
-        self.end_headers()
-
-port = ${desiredPort || 0}
-with http.server.HTTPServer(("0.0.0.0", port), AuthHandler) as httpd:
-    actual_port = httpd.server_address[1]
-    print(f"PROXY_READY:{actual_port}", flush=True)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
-`.trim();
+        // 生成启动脚本：Python HTTP 服务器 + header token 验证 + 绑定存储根目录
+        const proxyScript = buildFileProxyScript({
+          accessToken,
+          expiresAtMs,
+          serveDir,
+          port: desiredPort || 0,
+          allowedOrigin: sanitizeFileProxyOrigin(request.headers.get("origin")),
+        });
 
         // 写入脚本并启动
         const remoteScriptPath = `/tmp/.vps_file_proxy_${Date.now()}.py`;
@@ -434,7 +408,7 @@ export async function DELETE(
         // 终止远程进程
         const server = await prisma.server.findUnique({
           where: { id },
-          include: { sshKey: true },
+          include: { sshKey: true, storageNode: true },
         });
 
         if (server && proxy.pid) {
