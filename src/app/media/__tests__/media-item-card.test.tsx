@@ -26,6 +26,26 @@ const item: MediaItem = {
 };
 
 describe("MediaItemCard", () => {
+  it("renders a video cover from the media stream endpoint", () => {
+    render(<MediaItemCard item={item} canManage />);
+
+    const cover = screen.getByRole("link", { name: /movie\.mp4 视频预览/ });
+    expect(cover).toHaveAttribute("href", "/media/m_1?from=%2Fmedia");
+    expect(screen.getByLabelText("movie.mp4 视频封面")).toHaveAttribute("src", "/api/media/m_1/stream#t=0.1");
+  });
+
+  it("renders image thumbnails and audio icon covers with one visual style", () => {
+    render(
+      <>
+        <MediaItemCard item={{ ...item, id: "img_1", mediaType: "image", mimeType: "image/png", name: "photo.png", relativePath: "images/photo.png" }} canManage />
+        <MediaItemCard item={{ ...item, id: "aud_1", mediaType: "audio", mimeType: "audio/mpeg", name: "song.mp3", relativePath: "audio/song.mp3" }} canManage />
+      </>,
+    );
+
+    expect(screen.getByRole("img", { name: "photo.png 缩略图" })).toHaveAttribute("src", "/api/media/img_1/stream");
+    expect(screen.getByRole("link", { name: /song\.mp3 音频预览/ })).toHaveTextContent("音频预览");
+  });
+
   it("opens media-owned player while keeping download and source-file actions", () => {
     render(<MediaItemCard item={item} canManage />);
 

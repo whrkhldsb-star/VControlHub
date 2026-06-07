@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T16:35:33Z",
+  "updatedAt": "2026-06-07T17:09:48Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,21 +58,24 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T16:34:36Z",
-    "finishedAt": "2026-06-07T16:35:33Z",
-    "target": "media-library-type-switcher-state-reconciliation",
-    "status": "no_code_change_stale_blocker_reconciled",
-    "summary": "Reconciled stale active restart-approval blocker after confirming the media/image-bed navigation closure is already committed at f666ec7, main equals origin/main, production services are active, /api/status is healthy, smoke passed 25/25, and recent service logs are clean.",
+    "startedAt": "2026-06-07T16:59:52Z",
+    "finishedAt": "2026-06-07T17:09:48Z",
+    "target": "media-visual-workspace-and-image-link-center-redesign",
+    "status": "verified_deployed_pending_push",
+    "summary": "Redesigned /media into a visual media workspace with image thumbnails, video first-frame covers, audio icon covers, and separated /image-bed link-center management; deployed and smoke-tested successfully.",
     "changeContract": {
-      "qaPathId": "media-library-type-switcher-state-reconciliation",
-      "userJourney": "No new product journey was opened because this non-6th run found an active state blocker that contradicted the clean deployed repo. The run verified the existing media/image-bed closure was already active/healthy and updated durable state only.",
+      "qaPathId": "media-visual-workspace-and-image-link-center-redesign",
+      "userJourney": "Operator opens /media, visually distinguishes images/videos/audio from card covers, enters image mode for publishing, and uses /image-bed only for published-link management/source audit or compatibility direct upload.",
       "evidence": [
-        "git status --short was clean and HEAD matched origin/main at f666ec7",
-        "vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker services were active/enabled",
-        "/api/status returned overall healthy with 3/3 healthy checks",
-        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks",
-        "recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan had no error/warn/failed/exception matches",
-        "no product code changed and no restart was required"
+        "targeted media/image-bed tests passed 12/12",
+        "typecheck passed",
+        "lint passed",
+        "npm run verify passed: 205 files / 932 tests plus Next build, runtime build, deploy assets",
+        "production services restarted and vcontrolhub-next/vcontrolhub-ssh-ws/caddy/postgresql were active",
+        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
+        "authenticated HTML checks confirmed /media workspace, image publishing workflow, /image-bed link center, cloud publish, and folded compatibility upload",
+        "browser DOM checks confirmed image cards render img thumbnails and video cards render video covers from /api/media/:id/stream#t=0.1",
+        "/api/status returned overall healthy 3/3"
       ]
     }
   },

@@ -66,6 +66,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const [showPublishModal, setShowPublishModal] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [showAll, setShowAll] = useState(false);
+	const [showLegacyUpload, setShowLegacyUpload] = useState(false);
 	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
 	const [publishForm, setPublishForm] = useState({ storageNodeId: "", relativePath: "", filename: "", album: "" });
 	const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
@@ -308,25 +309,46 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	return (
 		<PageShell>
-			{/* Header */}
-			<div className="flex items-center justify-between mb-2">
-				<div>
-					<h1 className="text-3xl font-semibold text-white light:text-slate-900">图片外链管理</h1>
-					<p className="mt-1 text-sm text-slate-400 light:text-slate-600">管理已发布图片、复制外链并查看它来自直传还是媒体库 / 云盘发布；新建图片工作流优先从媒体库进入。</p>
+			<div className="mb-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-emerald-950/20 light:border-slate-200 light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/70">
+				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+					<div>
+						<p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-300 light:text-emerald-700/70">Link Center</p>
+						<h1 className="mt-2 text-3xl font-semibold text-white light:text-slate-950">图片外链中心</h1>
+						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 light:text-slate-600">这里专注管理已发布图片外链：复制 URL / Markdown / HTML、查看来源、批量归档或删除。新增图片优先从媒体库图片工作区进入。</p>
+					</div>
+					<div className="flex flex-wrap items-center gap-2 text-xs">
+						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-white transition hover:bg-emerald-400 light:text-emerald-950">🖼 打开图片工作区</Link>
+						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-blue-400/25 bg-blue-500/10 px-4 py-2 font-medium text-blue-300 transition hover:bg-blue-500/20 light:text-blue-800">☁️ 从云盘发布</button>}
+					</div>
 				</div>
-				<div className="flex flex-wrap items-center justify-end gap-2">
-					<Link href="/media?type=image" className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/10 text-emerald-300 light:text-emerald-700 hover:bg-emerald-500/20 transition">🖼 打开图片工作区</Link>
-					<span className="text-xs text-slate-500">共 {total} 张图片</span>
-					<button onClick={() => { setShowAll(!showAll); }} className={`px-3 py-1.5 text-xs rounded-lg transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
-					<button onClick={fetchStats} className="px-3 py-1.5 text-xs bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition">📊 统计</button>
-					{canWrite && (
-						<button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="px-3 py-1.5 text-xs bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition">☁️ 云盘发布</button>
-					)}
-					{canWrite && (
-					<button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }} className={`px-3 py-1.5 text-xs rounded-lg transition ${batchMode ? "bg-amber-500/20 text-amber-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"}`}>
-						{batchMode ? "✓ 批量模式" : "☐ 批量模式"}
-					</button>
-					)}
+				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white light:text-slate-950">{total}</div><div className="text-slate-400 light:text-slate-600">已发布外链</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white light:text-slate-950">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-slate-400 light:text-slate-600">可追溯来源</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white light:text-slate-950">{images.filter((img) => img.isPublic).length}</div><div className="text-slate-400 light:text-slate-600">当前页公开</div></div>
+				</div>
+			</div>
+
+			<div className="mb-5 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
+				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
+					<h2 className="text-sm font-semibold text-white light:text-slate-950">发布路径</h2>
+					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+						<Link href="/media?type=image" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-emerald-100 transition hover:bg-emerald-400/15 light:text-emerald-900"><span className="block text-lg">① 媒体库图片</span><span className="mt-1 block text-xs opacity-75">上传、扫描、卡片发布</span></Link>
+						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-blue-100 transition hover:bg-blue-400/15 light:text-blue-900"><span className="block text-lg">② 云盘路径发布</span><span className="mt-1 block text-xs opacity-75">输入 LOCAL/SFTP 文件路径</span></button>
+						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-left text-amber-100 transition hover:bg-amber-400/15 light:text-amber-900"><span className="block text-lg">③ 兼容直传</span><span className="mt-1 block text-xs opacity-75">仅用于旧流程临时上传</span></button>
+					</div>
+				</div>
+				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
+					<div className="flex items-center justify-between gap-2">
+						<div>
+							<h2 className="text-sm font-semibold text-white light:text-slate-950">管理视图</h2>
+							<p className="mt-1 text-xs text-slate-500">切换范围、统计和批量操作集中在这里。</p>
+						</div>
+						<button onClick={fetchStats} className="rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20 light:text-purple-700">📊 统计</button>
+					</div>
+					<div className="mt-3 flex flex-wrap gap-2 text-xs">
+						<button onClick={() => { setShowAll(!showAll); }} className={`rounded-full px-3 py-1.5 transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100 light:text-slate-600"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
+						{canWrite && <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }} className={`rounded-full px-3 py-1.5 transition ${batchMode ? "bg-amber-500/20 text-amber-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100 light:text-slate-600"}`}>{batchMode ? "✓ 批量模式" : "☐ 批量模式"}</button>}
+					</div>
 				</div>
 			</div>
 
@@ -408,18 +430,18 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			)}
 
 			{/* Upload Area */}
-			{canWrite && (
-				<div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 light:border-emerald-200 light:bg-emerald-50">
+			{showLegacyUpload && canWrite && (
+				<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 light:border-amber-200 light:bg-amber-50">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div>
-							<h2 className="text-sm font-semibold text-emerald-100 light:text-emerald-900">新图片请从图片工作区发布</h2>
-							<p className="mt-1 text-xs text-emerald-100/70 light:text-emerald-800">批量上传、选择 LOCAL/SFTP 节点、发布已有云盘图片都在 `/media?type=image`；此页保留拖拽上传作为兼容入口，并专注外链管理与发布来源审计。</p>
+							<h2 className="text-sm font-semibold text-amber-100 light:text-amber-900">兼容直传入口</h2>
+							<p className="mt-1 text-xs text-amber-100/70 light:text-amber-800">建议优先从 `/media?type=image` 上传和发布；这里保留给历史脚本或临时图片直传，上传后进入下方外链历史统一管理。</p>
 						</div>
-						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-white light:text-emerald-950 hover:bg-emerald-400 transition">打开媒体图片工作区</Link>
+						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-400 light:text-emerald-950">打开媒体图片工作区</Link>
 					</div>
 				</div>
 			)}
-			{canWrite && (
+			{showLegacyUpload && canWrite && (
 			<>
 				<div className="mt-2 flex items-center gap-2 text-xs">
 					<span className="text-slate-500">上传到：</span>

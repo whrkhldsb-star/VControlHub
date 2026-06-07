@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Download, Eye, FolderOpen, Link as LinkIcon, Star, Tag } from "lucide-react";
+import { Download, Eye, FolderOpen, ImageIcon, Link as LinkIcon, Music2, Star, Tag, Video } from "lucide-react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import {
@@ -90,6 +91,50 @@ function containingFolderPath(relativePath: string) {
 
 function getErrorMessage(error: unknown, fallback: string) {
 	return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function mediaTypeLabel(mediaType: string) {
+	if (mediaType === "image") return "图片";
+	if (mediaType === "video") return "视频";
+	if (mediaType === "audio") return "音频";
+	return "媒体";
+}
+
+function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string | null }) {
+	const fileHref = `/api/media/${encodeURIComponent(item.id)}/stream`;
+	const coverClass = "absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
+	const typeBadge = (
+		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur light:border-white/30">
+			{mediaTypeLabel(item.mediaType)}
+		</span>
+	);
+	const icon = item.mediaType === "audio" ? <Music2 size={32} /> : item.mediaType === "video" ? <Video size={32} /> : <ImageIcon size={32} />;
+
+	const fallback = (
+		<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] text-slate-200 light:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_45%),linear-gradient(135deg,#e2e8f0,#f8fafc)] light:text-slate-700">
+			<div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-inner light:border-slate-200 light:bg-white/80">{icon}</div>
+			<span className="text-xs font-medium">{mediaTypeLabel(item.mediaType)}预览</span>
+		</div>
+	);
+
+	const visual = item.mediaType === "image" && fileHref ? (
+		<Image src={fileHref} alt={`${item.name} 缩略图`} fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" unoptimized className={coverClass} />
+	) : item.mediaType === "video" && fileHref ? (
+		<video src={`${fileHref}#t=0.1`} preload="metadata" muted playsInline className={coverClass} aria-label={`${item.name} 视频封面`} />
+	) : fallback;
+
+	return (
+		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/60 light:border-slate-200 light:bg-slate-100" aria-label={`${item.name} ${mediaTypeLabel(item.mediaType)}预览`}>
+			{visual}
+			{typeBadge}
+			{item.mediaType !== "audio" && (
+				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
+			)}
+			<div className="absolute bottom-2 right-2 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur">
+				{formatSize(item.size)}
+			</div>
+		</a>
+	);
 }
 
 export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage: boolean }) {
@@ -185,16 +230,17 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 		: null;
 
 	return (
-		<div className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12] light:hover:border-slate-200 light:bg-slate-50">
-			<div className="flex items-start justify-between gap-2">
+		<div className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.045] light:border-slate-200 light:bg-white light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
+			<MediaCover item={item} sourceHref={previewHref} />
+
+			<div className="mt-3 flex items-start justify-between gap-2">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-1.5">
 						<span>{item.mediaType === "image" ? "🖼" : item.mediaType === "audio" ? "🎵" : "🎬"}</span>
 						<span className="truncate text-sm font-medium text-white light:text-slate-900">{item.name}</span>
 					</div>
-					<p className="mt-1 text-[11px] text-slate-500" title={item.relativePath}>📂 {item.relativePath}</p>
+					<p className="mt-1 truncate text-[11px] text-slate-500" title={item.relativePath}>📂 {item.relativePath}</p>
 					<div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[10px] text-slate-500">
-						<span>📦 {formatSize(item.size)}</span>
 						<span>💾 {storageLabel(item)}</span>
 					</div>
 				</div>

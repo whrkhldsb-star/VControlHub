@@ -40,17 +40,79 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
   const imageCount = typeCounts.image;
   const videoCount = typeCounts.video;
   const audioCount = typeCounts.audio;
+  const totalCount = imageCount + videoCount + audioCount;
   const favCount = media.filter((m) => m.favorite).length;
+  const modeTitle = mediaType === "image" ? "图片工作区" : mediaType === "video" ? "视频库" : mediaType === "audio" ? "音频库" : "全部媒体";
+  const modeDescription = mediaType === "image"
+    ? "上传、扫描、整理图片，并把已入库图片发布成可复制的外链。"
+    : mediaType === "video"
+      ? "集中浏览视频文件，支持预览播放、下载和跳回源文件位置。"
+      : mediaType === "audio"
+        ? "集中浏览音频文件，支持播放、下载和按标签收藏整理。"
+        : "从这里统一进入图片、视频、音频三个媒体工作流。";
 
   return (
     <PageShell>
-      <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Media</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">媒体库</h1>
-        <p className="mt-1.5 text-sm text-slate-500">统一管理图片、视频和音频；图片工作区可批量上传并发布为图床外链，图床页仅保留已发布外链的管理/审计。</p>
+      <header className="mb-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-cyan-950/20 light:border-slate-200 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/60">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Media Workspace</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-950">媒体库</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 light:text-slate-600">一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。</p>
+          </div>
+          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center light:border-slate-200 light:bg-white/70">
+            <div className="rounded-xl bg-blue-400/10 px-3 py-2"><div className="text-lg font-semibold text-blue-100 light:text-blue-900">{imageCount}</div><div className="text-[10px] text-blue-200/70 light:text-blue-700">图片</div></div>
+            <div className="rounded-xl bg-purple-400/10 px-3 py-2"><div className="text-lg font-semibold text-purple-100 light:text-purple-900">{videoCount}</div><div className="text-[10px] text-purple-200/70 light:text-purple-700">视频</div></div>
+            <div className="rounded-xl bg-emerald-400/10 px-3 py-2"><div className="text-lg font-semibold text-emerald-100 light:text-emerald-900">{audioCount}</div><div className="text-[10px] text-emerald-200/70 light:text-emerald-700">音频</div></div>
+          </div>
+        </div>
       </header>
 
-      <form method="GET" action="/media" className="mb-4 flex flex-wrap items-center gap-2">
+      <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 light:text-slate-500">Current Workspace</p>
+              <h2 className="mt-1 text-xl font-semibold text-white light:text-slate-950">{modeTitle}</h2>
+              <p className="mt-1 text-sm text-slate-400 light:text-slate-600">{modeDescription}</p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {mediaType === "image" ? (
+                <Link href="/image-bed" className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20 light:text-emerald-800">
+                  🔗 外链中心
+                </Link>
+              ) : null}
+              <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/[0.08] px-3 py-1.5 text-cyan-200 light:text-cyan-800">当前视图 {media.length} 项</span>
+            </div>
+          </div>
+
+          <div role="tablist" aria-label="媒体类型" className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-cyan-100 light:text-cyan-900" inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:border-slate-200 light:bg-slate-50 light:text-slate-700" className="rounded-2xl border px-4 py-3 transition">
+              <span className="block text-base">全部</span><span className="text-xs opacity-70">{totalCount} 项媒体</span>
+            </FilterLink>
+            <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100 light:text-blue-900" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 light:text-blue-800 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
+              <span className="flex items-center justify-between"><span>🖼️ 图片</span><span>{imageCount}</span></span><span className="mt-1 block text-xs opacity-70">上传 / 发布外链 {mediaType === "image" ? "×" : ""}</span>
+            </FilterLink>
+            <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/55 bg-purple-400/20 text-purple-100 light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "video" ? "再次点击取消视频筛选" : "只看视频"}>
+              <span className="flex items-center justify-between"><span>🎬 视频</span><span>{videoCount}</span></span><span className="mt-1 block text-xs opacity-70">播放 / 下载 {mediaType === "video" ? "×" : ""}</span>
+            </FilterLink>
+            <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/55 bg-emerald-400/20 text-emerald-100 light:text-emerald-900" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 light:text-emerald-800 hover:bg-emerald-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "audio" ? "再次点击取消音频筛选" : "只看音频"}>
+              <span className="flex items-center justify-between"><span>🎧 音频</span><span>{audioCount}</span></span><span className="mt-1 block text-xs opacity-70">播放 / 收藏 {mediaType === "audio" ? "×" : ""}</span>
+            </FilterLink>
+          </div>
+        </div>
+
+        <aside className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
+          <h2 className="text-sm font-semibold text-white light:text-slate-950">推荐流程</h2>
+          <ol className="mt-3 space-y-3 text-sm text-slate-400 light:text-slate-600">
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200 light:text-cyan-800">1</span><span>先用类型卡片进入图片、视频或音频工作区。</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200 light:text-cyan-800">2</span><span>搜索、标签和收藏筛选会在切换时保留。</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200 light:text-cyan-800">3</span><span>图片外链只从图片工作区发布，历史复制到外链中心处理。</span></li>
+          </ol>
+        </aside>
+      </section>
+
+      <form method="GET" action="/media" className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3 light:border-slate-200 light:bg-white">
         {mediaType && <input type="hidden" name="type" value={mediaType} />}
         {favorite && <input type="hidden" name="favorite" value="1" />}
         {tag && <input type="hidden" name="tag" value={tag} />}
@@ -59,46 +121,15 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           name="q"
           defaultValue={q ?? ""}
           placeholder="搜索文件名、路径、标签…"
-          className="w-full max-w-sm rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:placeholder:text-slate-500"
+          className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50 light:border-slate-200 light:text-slate-900 light:placeholder:text-slate-500"
         />
-        <button type="submit" className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500">搜索</button>
+        <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 light:text-slate-950">搜索</button>
         {(q || tag || mediaType || favorite) && (
-          <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-lg border border-white/10 light:border-slate-200 px-3 py-2 text-sm text-slate-400 light:text-slate-600 transition hover:bg-white/5">
+          <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 light:border-slate-200 light:text-slate-600">
             清除筛选
           </FilterLink>
         )}
       </form>
-
-      <div className="mb-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 light:border-slate-200 light:bg-white">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <div className="text-sm font-semibold text-white light:text-slate-900">媒体类型切换</div>
-            <p className="text-xs text-slate-500">当前筛选会保留搜索、标签和收藏条件；再次点击已选类型可回到全部媒体。</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {mediaType === "image" ? (
-              <Link href="/image-bed" className="rounded-full border border-emerald-400/25 bg-emerald-400/[0.08] px-2.5 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-400/15 light:text-emerald-800">
-                外链管理 / 来源审计
-              </Link>
-            ) : null}
-            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-2.5 py-1 text-[11px] text-cyan-200 light:text-cyan-800">当前视图 {media.length} 项</span>
-          </div>
-        </div>
-        <div role="tablist" aria-label="媒体类型" className="grid gap-2 text-sm sm:grid-cols-4">
-          <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/40 bg-cyan-400/20 text-cyan-100 light:text-cyan-900" inactiveClassName="border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-200 light:text-cyan-800 hover:bg-cyan-400/10" className="rounded-xl border px-3 py-2 transition">
-            全部 <span className="opacity-70">{imageCount + videoCount + audioCount}</span>
-          </FilterLink>
-          <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/50 bg-blue-400/20 text-blue-100 shadow-[inset_0_0_0_1px_rgba(96,165,250,0.18)] light:text-blue-900" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 light:text-blue-800 hover:bg-blue-400/10" className="flex items-center justify-between rounded-xl border px-3 py-2 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
-            <span>🖼️ 图片</span><span className="opacity-70">{imageCount}</span>{mediaType === "image" ? <span className="ml-1 opacity-70">×</span> : null}
-          </FilterLink>
-          <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/50 bg-purple-400/20 text-purple-100 shadow-[inset_0_0_0_1px_rgba(192,132,252,0.18)] light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="flex items-center justify-between rounded-xl border px-3 py-2 transition" title={mediaType === "video" ? "再次点击取消视频筛选" : "只看视频"}>
-            <span>🎬 视频</span><span className="opacity-70">{videoCount}</span>{mediaType === "video" ? <span className="ml-1 opacity-70">×</span> : null}
-          </FilterLink>
-          <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/50 bg-emerald-400/20 text-emerald-100 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.18)] light:text-emerald-900" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 light:text-emerald-800 hover:bg-emerald-400/10" className="flex items-center justify-between rounded-xl border px-3 py-2 transition" title={mediaType === "audio" ? "再次点击取消音频筛选" : "只看音频"}>
-            <span>🎧 音频</span><span className="opacity-70">{audioCount}</span>{mediaType === "audio" ? <span className="ml-1 opacity-70">×</span> : null}
-          </FilterLink>
-        </div>
-      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
         <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100 light:text-amber-900" inactiveClassName="border-amber-400/20 bg-amber-400/[0.06] text-amber-200 light:text-amber-800 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? "再次点击取消收藏筛选" : "只看收藏"}>
@@ -128,7 +159,20 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         </div>
       )}
 
-      {canManageMedia && mediaType === "image" && <MediaImageUploadPanel />}
+      {canManageMedia && mediaType === "image" && (
+        <section className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 light:border-emerald-200 light:bg-emerald-50">
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-emerald-100 light:text-emerald-950">图片发布工作流</h2>
+              <p className="mt-1 text-xs text-emerald-100/75 light:text-emerald-800">在这里选择存储节点批量上传；已入库图片卡片可直接发布外链，外链历史进入“外链中心”统一复制和审计。</p>
+            </div>
+            <Link href="/image-bed" className="inline-flex items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-100 transition hover:bg-emerald-500/25 light:text-emerald-900">
+              打开外链中心
+            </Link>
+          </div>
+          <MediaImageUploadPanel />
+        </section>
+      )}
 
       {canManageMedia && <MediaScanButton />}
 

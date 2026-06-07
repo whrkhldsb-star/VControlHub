@@ -270,3 +270,9 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Closed the user-visible media/image-bed gap: standalone `/image-bed` is no longer exposed in the main/sidebar/global-search navigation; it remains only as a compatibility external-link management/source-audit page reachable from `/media?type=image`.
 - Verified `/media?type=image` in production has the media heading, image/video/audio switcher, image upload workspace, and the external-link audit entry; `/image-bed` appears only as that image-mode auxiliary link.
 - Validation: targeted media/image-bed/global-search tests passed (5 files / 21 tests), typecheck/lint passed, `npm run verify` passed, and production smoke test passed 25/25.
+
+### 2026-06-07T16:59:52Z — Media visual workspace and image link center redesign
+- Redesigned `/media` as a visual media workspace with clear image/video/audio type cards, a recommended workflow panel, and a dedicated image publishing workflow.
+- Media cards now render real image thumbnails via `/api/media/:id/stream`, video first-frame covers via the same Range-capable stream endpoint, and a unified audio icon cover fallback.
+- Redesigned `/image-bed` as `图片外链中心`: primary actions are media image workspace, cloud-path publishing, link copy/source audit/batch management; legacy drag-drop direct upload is folded behind a compatibility entry.
+- Evidence: targeted media/image-bed Vitest suite passed 12/12; typecheck passed; lint passed; full `npm run verify` passed (205 files / 932 tests plus Next build/runtime/deploy assets); production services restarted; `/api/status` healthy 3/3; smoke passed 25/25; authenticated production HTML confirmed `/media` workspace and `/image-bed` link center; browser DOM confirmed image `<img>` thumbnails and video stream covers.

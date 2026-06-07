@@ -52,9 +52,9 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
-    expect(screen.getByRole("heading", { name: "图片外链管理" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "图片外链中心" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
-    await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
+    await user.click(screen.getByRole("button", { name: "☁️ 从云盘发布" }));
 
     await waitFor(() =>
       expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes"),
@@ -79,7 +79,7 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
-    await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
+    await user.click(screen.getByRole("button", { name: "☁️ 从云盘发布" }));
 
     expect(await screen.findByText("缺少权限")).toBeInTheDocument();
   });
@@ -104,6 +104,8 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
+    await userEvent.click(screen.getByRole("button", { name: /③ 兼容直传/ }));
+    expect(screen.getByText("兼容直传入口")).toBeInTheDocument();
     const input = document.querySelector(
       'input[type="file"]',
     ) as HTMLInputElement;
