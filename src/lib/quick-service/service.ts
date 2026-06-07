@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { execFile, execFileSync } from "child_process";
 import { promisify } from "util";
 
@@ -82,6 +82,29 @@ function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
 	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
 	throw new Error(`宿主机挂载路径 ${hostPath} 不在允许范围内`);
+}
+
+function isRemovableHostVolume(hostPath: string) {
+	if (hostPath === DOCKER_SOCKET || TRUSTED_HOST_MOUNTS.has(hostPath)) return false;
+	if (hostPath === "/opt" || hostPath === "/srv") return false;
+	return HOST_VOLUME_ROOTS.some((root) => hostPath.startsWith(root));
+}
+
+function getRemovableHostVolumes(rawVolumesJson: string | null | undefined) {
+	let volumes: Array<{ host?: unknown }> = [];
+	try {
+		const parsed = JSON.parse(rawVolumesJson || "[]");
+		if (Array.isArray(parsed)) volumes = parsed;
+	} catch {
+		return [];
+	}
+	const paths = new Set<string>();
+	for (const vol of volumes) {
+		if (typeof vol.host !== "string") continue;
+		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
+		if (isRemovableHostVolume(host)) paths.add(host);
+	}
+	return [...paths];
 }
 
 function validateTemplate(template: ServiceTemplate) {
@@ -464,7 +487,11 @@ async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl
 	}
 }
 
-export async function uninstallService(slug: string) {
+export interface UninstallServiceOptions {
+	deleteVolumes?: boolean;
+}
+
+export async function uninstallService(slug: string, options: UninstallServiceOptions = {}) {
 	return withServiceOperationLock(slug, "卸载", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
 		if (!svc) throw new Error("服务不存在");
@@ -477,6 +504,12 @@ export async function uninstallService(slug: string) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
 			throw new Error(`卸载失败: ${msg}`);
+		}
+
+		if (options.deleteVolumes === true) {
+			for (const hostPath of getRemovableHostVolumes(svc.volumesJson)) {
+				rmSync(hostPath, { recursive: true, force: true });
+			}
 		}
 
 		await prisma.quickService.delete({ where: { slug } });

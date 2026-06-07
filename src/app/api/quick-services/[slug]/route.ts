@@ -5,6 +5,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const serviceActionSchema = z.object({ action: z.enum(["start", "stop", "sync", "update"]) });
+const uninstallSchema = z.object({ deleteVolumes: z.boolean().optional() }).optional();
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +37,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 	});
 }
 
+async function readOptionalJson(request: Request) {
+	const text = await request.text();
+	if (!text.trim()) return undefined;
+	return JSON.parse(text) as unknown;
+}
+
 export async function DELETE(request: Request, { params }: { params: Promise<{ slug: string }> }) {
 	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "卸载失败" }, async () => {
 		const { slug } = await params;
-		await uninstallService(slug);
-		return NextResponse.json({ success: true });
+		const parsed = uninstallSchema.safeParse(await readOptionalJson(request));
+		if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+		await uninstallService(slug, { deleteVolumes: parsed.data?.deleteVolumes === true });
+		return NextResponse.json({ success: true, deleteVolumes: parsed.data?.deleteVolumes === true });
 	});
 }

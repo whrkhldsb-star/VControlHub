@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T12:55:17Z",
+  "updatedAt": "2026-06-07T14:51:58.623692+00:00",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -1197,5 +1197,31 @@
     "https://whrkhldsb.qzz.io/api/status => overall healthy",
     "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub => ALL 25 CHECKS PASSED",
     "post-restart journal grep for error/fail/warn/exception/traceback => no matches"
+  ],
+  "evidence": [
+    {
+      "at": "2026-06-07T14:51:58.623692+00:00",
+      "area": "quick-services",
+      "status": "implemented",
+      "summary": "Quick Services uninstall now supports in-app confirmation plus optional host data directory cleanup. Default uninstall removes the container and DB record while preserving data; deleteVolumes=true removes only template-recorded /opt/ or /srv/ host mounts and avoids docker socket/timezone/root paths. Additional audit recorded incomplete SFTP media preview Range/share archive boundaries in README.",
+      "files": [
+        "src/lib/quick-service/service.ts",
+        "src/app/api/quick-services/[slug]/route.ts",
+        "src/app/quick-services/quick-services-client.tsx",
+        "src/lib/quick-service/__tests__/service.test.ts",
+        "src/app/api/quick-services/__tests__/route.test.ts",
+        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
+        "README.md"
+      ],
+      "verification": [
+        "npx vitest run src/app/api/quick-services/__tests__/route.test.ts src/lib/quick-service/__tests__/service.test.ts src/lib/status/service.test.ts --reporter=dot => 3 files / 33 tests passed",
+        "npm run verify => passed (204 files / 927 tests, Next build, runtime build, deploy-assets)",
+        "production restart/reload completed for vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service",
+        "https://whrkhldsb.qzz.io/api/status => 200 healthy",
+        "https://whrkhldsb.qzz.io/status => 200 and renders 未做实时 SSH/网络探测 plus 未做实时 SFTP/直连探测",
+        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub => ALL 25 CHECKS PASSED",
+        "post-restart journal grep for error/warn/failed/exception => no matches"
+      ]
+    }
   ]
 }

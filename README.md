@@ -358,12 +358,14 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **后台任务缺统一 durable job/lease/并发控制（P1）。** 任务中心目前主要是聚合命令、定时任务、下载、同步、备份、部署等业务表状态，不是统一任务队列。命令请求已补 `workerId` / `workerHeartbeatAt` 与陈旧 RUNNING 恢复，但实际执行、下载 direct/relay、QuickService 安装仍由 API 进程内 fire-and-forget 或请求内长操作驱动；定时任务和告警评估仍是每个 Node 进程内存轮询。多实例、重启或长任务场景下仍可能重复触发、丢失进度、取消不可靠或只能事后修正状态。后续需要 DB-backed job queue/lease/heartbeat/retry/cancel/progress，并增加全局/按用户/按节点并发上限。
 - [ ] **备份/恢复、SFTP 同步仍是请求内长任务（P1）。** 备份/恢复 API 会在 HTTP 请求内同步等待最长 30 分钟的 `deploy/backup.sh`、`restore-db.sh` 或 `tar`；SFTP 同步 API 在请求内递归扫描远端目录并逐条写库，只有单目录 timeout，没有整任务 checkpoint、进度、取消和恢复。大目录、大备份或反向代理超时时容易造成请求占用、状态不清晰。后续应全部改为可观测后台任务，补进度、心跳、取消、失败重试、保留策略清理和恢复演练记录。
 - [x] **邮件告警通道已接入 SMTP** — SMTP 设置页新增告警收件人配置，保存时校验并规范化邮箱列表；告警测试发送现在会真实调用 SMTP 邮件通道并返回发送/拒收结果，真实告警评估也会在 `email` 渠道选中时 best-effort 发送邮件，不再是“可选但不可发送”的死路径。后续仍可继续补失败重试和发送历史。
+- [x] **快捷服务卸载闭环补齐** — 已安装快捷服务现在不仅有卸载确认弹窗，还可以选择是否同时删除该服务模板记录的宿主机数据目录；默认仅删除容器和数据库记录并保留 `/opt/`、`/srv/` 下数据，勾选后才会清理允许范围内的挂载目录，且不会删除 Docker socket、时区文件或根目录，避免“一键卸载”只停在容器层或误删共享宿主资源。
 - [ ] **部署“回滚”目前只是重发最近部署（P1）。** `/deployments` 的“快速回退/按此记录重发”会用同一模板、变量和服务器重新提交部署，并不是快照级回滚、上个版本恢复或失败自动回退；README 已改为“最近部署重发”，后续需要补真实回滚语义。
 - [ ] **AI Hosted Tools 授权边界仍需收紧（P1）。** `/api/ai/chat` 只要求 `ai:chat`，启用 Hosting 后模型可携带 `serverId` 触发托管工具；`get_server_status`、`read_server_logs`、`check_service_status` 等低风险工具会自动批准并通过 SSH 执行，目前未按 `server:ssh`、服务器所有权或细粒度节点授权再校验。`read_server_logs` 虽做 shell quoting 和路径字符限制，但未限制在 `/var/log` 等安全目录；危险工具会进入审批流，但默认“原请求者可批准自己的操作”，不等同管理员审批。后续需要增加服务器级授权校验、只读工具目录白名单、审批人分离/管理员审批策略。
 - [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 模块只管理 Hub 所在机器的 `/var/run/docker.sock`，不是跨 VPS 容器控制台；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，但第三方模板仍属于供应链输入，且安装/更新还缺配置 diff、失败回滚和历史日志。Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，需要反代 TLS/VPN/防火墙或改造默认部署。
-- [ ] **公开状态与运行态展示仍可能过于乐观（P2）。** `/status` 仍主要根据数据库可用性、启用 VPS 数量和存储节点数量判断“健康”，会把“已配置/已启用”显示成“服务在线”，尚未接入实时 SSH、Direct Gateway、SFTP 存储可达性探测；VPS 卡片详情已补充“状态徽章只表示是否允许接收操作”的边界说明，但列表徽章和公开状态页仍容易被理解为真实在线，后续应接入真实健康探测或进一步调整文案。
+- [ ] **公开状态与运行态展示仍可能过于乐观（P2）。** `/status` 已把启用 VPS/存储节点文案从“服务在线”改为“已启用/已配置，未做实时 SSH/SFTP/直连探测”，不再把资产配置伪装成实时可达；但公开状态页、VPS 列表徽章和存储/直连入口仍未接入真实 SSH、Direct Gateway、SFTP 存储可达性探测，后续应补真实健康探测或继续在列表层明确展示“未实时探测”。
 - [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索已具备 `dialog` 语义、初始聚焦和 Escape 关闭，但仍缺 focus trap/focus restore；SSH 终端缺 Escape/focus trap/focus restore，且固定 `minHeight: 400px`、横向命令侧栏在手机上仍易拥挤；Docker 日志弹窗缺 `role="dialog"` / `aria-modal` / 标题关联、Escape 和焦点管理；文本预览搜索/跳转、文件浏览搜索、SSH 常用命令输入等仍依赖 placeholder 而缺显式 label；文件浏览使用 `replaceState` 更新目录 URL，浏览器后退不能逐级回到上一个目录。
 - [ ] **AI Provider 与应用源 URL 仍存在 SSRF/出网信任边界（P1/P2）。** AI Provider 的 `baseUrl`、模型探测 `/models`、聊天 `/chat/completions` / `/messages` 以及 QuickService 自定义应用源 URL 都是管理用户配置后由服务端发起 fetch；当前主要校验 URL 格式，尚未统一拦截 localhost、内网、链路本地、metadata 地址、DNS rebinding 或重定向到私网。生产部署应通过网络层 egress policy、代理 allowlist 或代码层 URL/IP 解析校验收紧，并在文档中明确只有受信任管理员可配置这些 URL。
+- [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** SFTP 音视频预览目前仍复用 `/api/storage/sftp-download` 普通下载流，缺少 `Range` / `206` 支持，和媒体库 `/api/media/[id]/stream` 已有受控流能力不一致，大文件拖动播放体验可能不稳定；公开目录分享可以浏览并下载目录内具体文件，但尚不能像登录态 `/api/storage/archive-download` 那样一键打包下载整个目录；Office 预览和压缩包在线解压是安全降级入口，主要提供说明/下载，后续应在列表按钮和 README/API 文档里更早提示当前边界，或补专用 storage media stream、share archive endpoint 和受控格式解压。
 - [ ] **存储节点元数据和文件状态一致性仍需治理（P2）。** 文件读写、SFTP 下载、Direct URL 生成已调用 `assertStorageAccess` 并限制在节点 `basePath` 内；但 `/api/storage/nodes` 对具备 `storage:read` 的用户返回所有存储节点的 `basePath` 和部分服务器信息，尚未按 `UserStorageAccess` grant 过滤，可能暴露目录结构和节点存在性。文件删除仍是先删物理对象再标记数据库，失败时可能出现 DB 与磁盘不一致，恢复也可能只恢复 DB 标记；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺并发修改提示、保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
 
@@ -382,13 +384,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] 告警增强：静默期、Webhook 测试发送和 email/SMTP 真实发送已完成；后续继续补 Telegram 等通知渠道配置、失败重试和告警历史趋势。
 
 ### P2 — 用户体验和可运营性
-- [ ] 快捷服务一键更新：pull/recreate/healthcheck/日志摘要已完成，继续补配置 diff、失败回滚、更新历史，并纳入统一 durable job/lease，避免安装/更新继续依赖请求内长任务或进程内锁。
+- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，继续补配置 diff、失败回滚、更新历史，并纳入统一 durable job/lease，避免安装/更新/卸载继续依赖请求内长任务或进程内锁。
 - [ ] 在线文件编辑器：本机文本编辑/保存/权限边界、差异预览和保存确认已完成，继续补并发修改检测、保存后可选重载服务和 SFTP 编辑。
 - [x] 媒体库 / 图床融合：图片模式已合并批量上传、目标存储目录、已有存储图片发布外链和图片搜索；视频/音频仍保留媒体播放工作流。
 - [ ] 备份策略管理：UI 化定时备份入口已完成，继续补后台任务化执行、异地备份、恢复验证、保留策略自动清理。
 - [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。
-- [ ] 状态真实性：公开状态页、VPS 列表徽章、存储/直连入口区分“已配置/已启用”和“实时可达”，接入 SSH/SFTP/Direct Gateway 探测或在列表层明确展示“未实时探测”。
+- [ ] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”；继续让 VPS 列表徽章、存储/直连入口接入 SSH/SFTP/Direct Gateway 探测，或在列表层明确展示“未实时探测”。
 - [ ] 可访问性收口：为 SSH 终端、Docker 日志、全局搜索等弹窗统一补 focus trap、Escape、focus restore；为文本预览搜索/跳转、文件浏览搜索、SSH 命令输入等补显式 label/aria-label。
 - [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。
 

@@ -116,7 +116,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [sourcePreset, setSourcePreset] = useState<(typeof SOURCE_PRESETS)[number]["key"] | null>(null);
 	// Install dialog state
 	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
-	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string } | null>(null);
+	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string; deleteVolumes: boolean } | null>(null);
 	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<{ available: boolean; usedBy: string | null; checking: boolean } | null>(null);
@@ -276,7 +276,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	};
 
 	const requestUninstall = (item: CatalogItem) => {
-		setPendingUninstall({ slug: item.slug, name: item.name });
+		setPendingUninstall({ slug: item.slug, name: item.name, deleteVolumes: false });
 	};
 
 	const doUninstall = async () => {
@@ -285,8 +285,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setPendingUninstall(null);
 		setActionSlug(target.slug);
 		try {
-			await csrfFetch(`/api/quick-services/${target.slug}`, { method: "DELETE" });
-			setMessage({ type: "ok", text: `已卸载` });
+			await csrfFetch(`/api/quick-services/${target.slug}`, {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ deleteVolumes: target.deleteVolumes }),
+			});
+			setMessage({ type: "ok", text: target.deleteVolumes ? "已卸载并删除数据目录" : "已卸载，数据目录已保留" });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "卸载失败" });
@@ -853,8 +857,20 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					>
 						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-2">确认卸载快捷服务</h3>
 						<p className="text-sm leading-6 text-slate-300 light:text-slate-700">
-							将卸载 <span className="font-semibold text-white light:text-slate-900">{pendingUninstall.name}</span>，容器将被删除，数据卷会保留。
+							将卸载 <span className="font-semibold text-white light:text-slate-900">{pendingUninstall.name}</span>，容器将被删除。默认保留宿主机数据目录，方便重新安装后继续使用。
 						</p>
+						<label className="mt-4 flex items-start gap-3 rounded-xl border border-rose-400/15 bg-rose-500/[0.06] p-3 text-sm text-rose-100 light:text-rose-900">
+							<input
+								type="checkbox"
+								checked={pendingUninstall.deleteVolumes}
+								onChange={(e) => setPendingUninstall((current) => current ? { ...current, deleteVolumes: e.target.checked } : current)}
+								className="mt-1 h-4 w-4 rounded border-rose-300/40 bg-transparent text-rose-500"
+							/>
+							<span>
+								<span className="block font-medium">同时删除数据目录</span>
+								<span className="mt-1 block text-xs leading-5 text-rose-100/75 light:text-rose-800/75">仅删除该服务模板记录的 `/opt/` 或 `/srv/` 下挂载目录；不会删除 Docker socket、时区文件或根目录。</span>
+							</span>
+						</label>
 						<div className="mt-6 flex items-center justify-end gap-3">
 							<button type="button" onClick={() => setPendingUninstall(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] transition">
 								取消

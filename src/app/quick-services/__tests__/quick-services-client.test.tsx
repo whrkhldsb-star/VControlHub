@@ -74,6 +74,7 @@ describe("QuickServicesClient", () => {
 		expect(confirmSpy).not.toHaveBeenCalled();
 		const dialog = screen.getByRole("dialog", { name: "确认卸载快捷服务" });
 		expect(dialog).toHaveTextContent("AList");
+		expect(within(dialog).getByLabelText(/同时删除数据目录/)).not.toBeChecked();
 
 		await user.click(within(dialog).getByRole("button", { name: "取消" }));
 		expect(screen.queryByRole("dialog", { name: "确认卸载快捷服务" })).not.toBeInTheDocument();
@@ -93,9 +94,37 @@ describe("QuickServicesClient", () => {
 		await user.click(screen.getByRole("button", { name: "确认卸载" }));
 
 		await waitFor(() => {
-			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", { method: "DELETE" });
+			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ deleteVolumes: false }),
+			});
 		});
-		expect(await screen.findByText("已卸载")).toBeInTheDocument();
+		expect(await screen.findByText("已卸载，数据目录已保留")).toBeInTheDocument();
+	});
+
+	it("confirms uninstall with optional service data directory removal", async () => {
+		const user = userEvent.setup();
+		mockInitialLoads();
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce({})
+			.mockResolvedValueOnce(catalogResponse);
+
+		render(<QuickServicesClient canManage />);
+		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(screen.getByRole("button", { name: "卸载" }));
+		const dialog = screen.getByRole("dialog", { name: "确认卸载快捷服务" });
+		await user.click(within(dialog).getByLabelText(/同时删除数据目录/));
+		await user.click(within(dialog).getByRole("button", { name: "确认卸载" }));
+
+		await waitFor(() => {
+			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ deleteVolumes: true }),
+			});
+		});
+		expect(await screen.findByText("已卸载并删除数据目录")).toBeInTheDocument();
 	});
 
 	it("shows an update action for installed services and calls the update endpoint", async () => {

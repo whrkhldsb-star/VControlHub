@@ -253,3 +253,9 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - `/api/status` returned overall healthy.
 - Smoke test passed: 25/25 checks.
 - Post-restart logs: no error/fail/warn/exception/traceback matches.
+
+## 2026-06-07T14:51:58.623692+00:00 Quick Services 卸载闭环与功能完整性巡查
+- 修复：快捷服务卸载弹窗新增“同时删除数据目录”选项；默认只删容器/DB 记录并保留数据。
+- 安全边界：可选清理仅处理模板记录的 `/opt/`、`/srv/` 下挂载目录，不清理 Docker socket、时区文件或根目录。
+- 其他巡查：记录 SFTP 音视频预览缺 Range、公开目录分享缺整目录归档下载、Office/压缩包预览为安全降级入口。
+- 证据：targeted quick-service/status tests 33/33 passed；`npm run verify` passed（204 files / 927 tests, Next build, runtime build, deploy-assets）；production restart/reload completed；`/api/status` 200 healthy；`/status` 200 and rendered `未做实时 SSH/网络探测` / `未做实时 SFTP/直连探测`；smoke 25/25 passed；post-restart logs clean。

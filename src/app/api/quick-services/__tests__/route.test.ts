@@ -183,8 +183,20 @@ describe("/api/quick-services routes", () => {
     const response = await slugRoute.DELETE(new Request("http://local/api/quick-services/alist", { method: "DELETE" }), { params: Promise.resolve({ slug: "alist" }) });
 
     expect(response.status).toBe(200);
-    expect(await body(response)).toEqual({ success: true });
-    expect(mocks.uninstallService).toHaveBeenCalledWith("alist");
+    expect(await body(response)).toEqual({ success: true, deleteVolumes: false });
+    expect(mocks.uninstallService).toHaveBeenCalledWith("alist", { deleteVolumes: false });
+  });
+
+  it("passes deleteVolumes option when uninstalling with data removal", async () => {
+    const response = await slugRoute.DELETE(new Request("http://local/api/quick-services/alist", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ deleteVolumes: true }),
+    }), { params: Promise.resolve({ slug: "alist" }) });
+
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual({ success: true, deleteVolumes: true });
+    expect(mocks.uninstallService).toHaveBeenCalledWith("alist", { deleteVolumes: true });
   });
 
   it("checks and allocates ports", async () => {

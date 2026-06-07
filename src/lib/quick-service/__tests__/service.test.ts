@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock, rmSyncMock } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -13,12 +13,13 @@ const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock } = vi.hoisted
 	execFileSyncMock: vi.fn(),
 	execFileMock: vi.fn(),
 	mkdirSyncMock: vi.fn(),
+	rmSyncMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("node:fs", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("node:fs")>();
-	return { ...actual, default: { ...actual, mkdirSync: mkdirSyncMock }, mkdirSync: mkdirSyncMock };
+	return { ...actual, default: { ...actual, mkdirSync: mkdirSyncMock, rmSync: rmSyncMock }, mkdirSync: mkdirSyncMock, rmSync: rmSyncMock };
 });
 vi.mock("child_process", () => ({
 	default: { execFileSync: execFileSyncMock, execFile: execFileMock },
@@ -206,6 +207,39 @@ describe("quick service docker lifecycle", () => {
 			where: { slug: "demo" },
 			data: expect.objectContaining({ status: "error" }),
 		});
+	});
+
+	it("can remove service host data directories when uninstall requests volume deletion", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({
+			id: "svc-4",
+			slug: "demo",
+			volumesJson: JSON.stringify([
+				{ host: "/opt/demo/data", container: "/data" },
+				{ host: "/srv/demo/cache/", container: "/cache" },
+				{ host: "/etc/localtime", container: "/etc/localtime:ro" },
+			]),
+		});
+
+		await uninstallService("demo", { deleteVolumes: true });
+
+		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", "qs-demo"], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
+		expect(rmSyncMock).toHaveBeenCalledWith("/opt/demo/data", { recursive: true, force: true });
+		expect(rmSyncMock).toHaveBeenCalledWith("/srv/demo/cache", { recursive: true, force: true });
+		expect(rmSyncMock).not.toHaveBeenCalledWith("/etc/localtime", expect.anything());
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
+	});
+
+	it("preserves service host data directories by default when uninstalling", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({
+			id: "svc-4b",
+			slug: "demo",
+			volumesJson: JSON.stringify([{ host: "/opt/demo/data", container: "/data" }]),
+		});
+
+		await uninstallService("demo");
+
+		expect(rmSyncMock).not.toHaveBeenCalled();
+		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { slug: "demo" } });
 	});
 
 	it("marks the service error when recreating a missing container fails", async () => {
