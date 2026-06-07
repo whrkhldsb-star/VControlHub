@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T12:33:00Z",
+  "updatedAt": "2026-06-07T12:55:17Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,25 +58,28 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T12:18:00Z",
-    "finishedAt": "2026-06-07T12:33:00Z",
-    "target": "media-image-bed-source-history-navigation-closeout",
+    "startedAt": "2026-06-07T12:44:00Z",
+    "finishedAt": "2026-06-07T12:55:17Z",
+    "target": "local-text-editor-storage-grant-boundary",
     "status": "completed_verified_deployed_pending_push",
-    "summary": "Strengthened the media library / image-bed consolidation by making /image-bed an external-link management and source-audit surface while /media?type=image remains the preferred image workspace.",
+    "summary": "Closed the README P0 issue where /api/files/editable/[id] checked only global storage:read/write and could bypass storage node/path grants.",
     "changeContract": {
-      "qaPathId": "media-image-bed-source-history-navigation",
-      "userJourney": "Operators can publish images from the media workspace and later inspect image-bed links with clear source history, distinguishing direct image-bed uploads from LOCAL/SFTP media-library publications.",
+      "qaPathId": "local-text-editor-storage-grant-boundary",
+      "userJourney": "Operators can use the in-browser LOCAL text editor only when the current session has the matching storage node/path grant; read requires read access and save requires write access/quota for the edited bytes.",
       "evidence": [
-        "Image-bed list API now includes source storage node metadata for published media images",
-        "/image-bed header and compatibility upload area now direct new image workflows to /media?type=image",
-        "Image cards show source history: direct image-bed upload or storage node/server/path",
-        "targeted regressions passed: image-bed page and media service tests 10/10",
+        "Editable file route now passes the authenticated session into storage draft load/save operations",
+        "Storage service resolves the LOCAL file entry, then calls assertStorageAccess with storageNodeId, relativePath, operation read/write, and writeBytes on save",
+        "Denied path-grant regression rejects editable draft reads before filesystem access",
+        "Route regression proves GET/PUT forward session into the guarded storage service calls",
+        "targeted Vitest passed: src/lib/storage/__tests__/service.test.ts and src/app/api/files/editable/[id]/__tests__/route.test.ts, 22/22",
         "npm run typecheck passed",
         "npm run lint -- --max-warnings=0 passed",
         "npm run verify passed including full tests, Next build, runtime build, and deploy-assets",
+        "production build:runtime passed before restart",
         "production restart succeeded for vcontrolhub-next.service and vcontrolhub-ssh-ws.service",
+        "systemctl confirmed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active",
+        "https://whrkhldsb.qzz.io/api/status healthy after deploy",
         "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
-        "/api/status healthy after deploy",
         "post-restart service log scan returned no matching errors/warnings"
       ]
     }
@@ -94,7 +97,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 30,
+    "successfulRemediationRunsSinceFreshAudit": 31,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

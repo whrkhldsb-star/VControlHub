@@ -9,7 +9,7 @@ import * as path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 
-const { mockPrisma, listRemoteDirectoryMock } = vi.hoisted(() => ({
+const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } = vi.hoisted(() => ({
   mockPrisma: {
     storageNode: {
       updateMany: vi.fn(),
@@ -27,6 +27,7 @@ const { mockPrisma, listRemoteDirectoryMock } = vi.hoisted(() => ({
     },
   },
   listRemoteDirectoryMock: vi.fn(),
+  assertStorageAccessMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -35,6 +36,9 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/lib/ssh/client", () => ({
   listRemoteDirectory: listRemoteDirectoryMock,
+}));
+vi.mock("@/lib/storage/access-control", () => ({
+  assertStorageAccess: assertStorageAccessMock,
 }));
 vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
   decryptServerPassword: (value: string) => `decrypted:${value}`,
@@ -54,6 +58,7 @@ import {
 import { prisma } from "@/lib/db";
 
 describe("storage service", () => {
+  const storageSession = { userId: "u_1", username: "admin", roles: ["admin"] } as any;
   it("creates a local default storage node", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValue({ count: 0 });
@@ -472,7 +477,8 @@ describe("storage service", () => {
     } as any);
 
     try {
-      const result = await getLocalEditableFileDraft("file_3");
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      const result = await getLocalEditableFileDraft({ fileEntryId: "file_3", session: storageSession });
 
       expect(result).toMatchObject({
         fileEntryId: "file_3",
@@ -484,6 +490,45 @@ describe("storage service", () => {
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("rejects editable drafts without a matching storage path grant", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+      id: "file_denied",
+      name: "secret.txt",
+      entryType: "FILE",
+      mimeType: "text/plain",
+      size: BigInt(6),
+      checksumSha256: null,
+      relativePath: "private/secret.txt",
+      storageNodeId: "node_1",
+      parentId: null,
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      storageNode: {
+        id: "node_1",
+        name: "主控本机",
+        driver: "LOCAL",
+        basePath: "/tmp/storage-denied",
+      },
+    } as any);
+    assertStorageAccessMock.mockResolvedValueOnce({
+      allowed: false,
+      reason: "没有该存储节点或路径的访问授权",
+    });
+
+    await expect(
+      getLocalEditableFileDraft({ fileEntryId: "file_denied", session: storageSession }),
+    ).rejects.toThrow("没有该存储节点或路径的访问授权");
+    expect(assertStorageAccessMock).toHaveBeenCalledWith({
+      session: storageSession,
+      storageNodeId: "node_1",
+      relativePath: "private/secret.txt",
+      operation: "read",
+      writeBytes: undefined,
+    });
   });
 
   it("saves editable local file drafts and updates metadata", async () => {
@@ -521,9 +566,11 @@ describe("storage service", () => {
     } as any);
 
     try {
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
       const result = await saveLocalEditableFileDraft({
         fileEntryId: "file_save",
         content: "new content",
+        session: storageSession,
       });
 
       await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("new content");
@@ -578,7 +625,8 @@ describe("storage service", () => {
     } as any);
 
     try {
-      const result = await getLocalEditableFileDraft("file_expanded");
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      const result = await getLocalEditableFileDraft({ fileEntryId: "file_expanded", session: storageSession });
       expect(result.content).toBe("expanded hello");
       expect(result.relativePath).toBe(relativePath);
     } finally {

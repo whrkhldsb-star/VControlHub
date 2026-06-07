@@ -4,8 +4,10 @@ import path from "node:path";
 
 import { Prisma } from "@prisma/client";
 
+import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { listRemoteDirectory } from "@/lib/ssh/client";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -182,9 +184,14 @@ function isEditableTextFile(input: {
   return EDITABLE_TEXT_EXTENSIONS.has(path.extname(input.name).toLowerCase());
 }
 
-async function resolveLocalEditableFileEntry(fileEntryId: string) {
+async function resolveLocalEditableFileEntry(input: {
+  fileEntryId: string;
+  session: SessionPayload;
+  operation: "read" | "write";
+  writeBytes?: number | bigint | null;
+}) {
   const entry = await prisma.fileEntry.findUnique({
-    where: { id: fileEntryId },
+    where: { id: input.fileEntryId },
     include: {
       storageNode: {
         select: {
@@ -203,6 +210,17 @@ async function resolveLocalEditableFileEntry(fileEntryId: string) {
 
   if (entry.storageNode.driver !== "LOCAL") {
     throw new Error("仅支持编辑已上传到当前服务器本机存储节点的文件");
+  }
+
+  const storageAccess = await assertStorageAccess({
+    session: input.session,
+    storageNodeId: entry.storageNode.id,
+    relativePath: entry.relativePath,
+    operation: input.operation,
+    writeBytes: input.writeBytes,
+  });
+  if (!storageAccess.allowed) {
+    throw new Error(storageAccess.reason ?? "没有该存储节点或路径的访问授权");
   }
 
   if (
@@ -999,9 +1017,16 @@ export async function getStorageOverview() {
   };
 }
 
-export async function getLocalEditableFileDraft(fileEntryId: string) {
+export async function getLocalEditableFileDraft(input: {
+  fileEntryId: string;
+  session: SessionPayload;
+}) {
   const { entry, fileStat, absolutePath } =
-    await resolveLocalEditableFileEntry(fileEntryId);
+    await resolveLocalEditableFileEntry({
+      fileEntryId: input.fileEntryId,
+      session: input.session,
+      operation: "read",
+    });
   const content = await readFile(absolutePath, "utf8");
 
   return {
@@ -1017,16 +1042,23 @@ export async function getLocalEditableFileDraft(fileEntryId: string) {
 export async function saveLocalEditableFileDraft(input: {
   fileEntryId: string;
   content: string;
+  session: SessionPayload;
 }) {
-  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
-    input.fileEntryId,
-  );
   const content = String(input.content ?? "");
   const byteSize = Buffer.byteLength(content, "utf8");
 
   if (byteSize > MAX_EDITABLE_FILE_SIZE_BYTES) {
     throw new Error("文件超过 512 KB，暂不支持在线编辑");
   }
+
+  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
+    {
+      fileEntryId: input.fileEntryId,
+      session: input.session,
+      operation: "write",
+      writeBytes: byteSize,
+    },
+  );
 
   await writeFile(absolutePath, content, "utf8");
   const nextStat = await stat(absolutePath);

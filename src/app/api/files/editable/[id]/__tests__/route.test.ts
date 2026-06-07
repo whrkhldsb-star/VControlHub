@@ -38,7 +38,10 @@ describe("/api/files/editable/[id]", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(getDraftMock).toHaveBeenCalledWith("file_1");
+    expect(getDraftMock).toHaveBeenCalledWith({
+      fileEntryId: "file_1",
+      session: { userId: "u_1", username: "admin", roles: ["admin"] },
+    });
     expect(body.draft).toMatchObject({ content: "hello", byteSize: 5 });
   });
 
@@ -70,6 +73,7 @@ describe("/api/files/editable/[id]", () => {
     expect(saveDraftMock).toHaveBeenCalledWith({
       fileEntryId: "file_1",
       content: "hello again",
+      session: { userId: "u_1", username: "admin", roles: ["admin"] },
     });
     expect(body).toMatchObject({ success: true, file: { byteSize: 11 } });
   });

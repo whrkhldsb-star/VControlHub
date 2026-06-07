@@ -21,9 +21,10 @@ export async function GET(
   return withApiRoute(
     request,
     { permission: "storage:read", errorMessage: "读取文件草稿失败" },
-    async () => {
+    async ({ session }) => {
+      if (!session) return NextResponse.json({ error: "未认证" }, { status: 401 });
       const { id } = await params;
-      const draft = await getLocalEditableFileDraft(id);
+      const draft = await getLocalEditableFileDraft({ fileEntryId: id, session });
       return NextResponse.json({ draft });
     },
   );
@@ -41,7 +42,8 @@ export async function PUT(
       errorStatus: 400,
       errorMessage: "保存文件失败",
     },
-    async () => {
+    async ({ session }) => {
+      if (!session) return NextResponse.json({ error: "未认证" }, { status: 401 });
       const { id } = await params;
       const body = await request.json().catch(() => ({}));
       const parsed = saveSchema.safeParse(body);
@@ -55,6 +57,7 @@ export async function PUT(
       const result = await saveLocalEditableFileDraft({
         fileEntryId: id,
         content: parsed.data.content,
+        session,
       });
       return NextResponse.json({ success: true, file: result });
     },
