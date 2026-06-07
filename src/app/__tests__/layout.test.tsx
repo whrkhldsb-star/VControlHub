@@ -37,6 +37,10 @@ vi.mock("@/lib/i18n/provider", () => ({
 	I18nProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("@/lib/i18n/dom-bridge", () => ({
+	DomI18nBridge: () => <div data-testid="dom-i18n-bridge" />,
+}));
+
 vi.mock("@/lib/auth/session", () => ({
 	getSessionCookieName: () => "vcontrolhub_session",
 }));
