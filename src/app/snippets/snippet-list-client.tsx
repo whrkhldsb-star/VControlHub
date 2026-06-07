@@ -50,7 +50,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await csrfFetch(`/api/snippets?id=${pendingDelete.id}`, { method: "DELETE" });
+      await csrfFetch(`/api/snippets?id=${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
       setItems((prev) => prev.filter((s) => s.id !== pendingDelete.id));
       setPendingDelete(null);
       addToast("success", "代码片段已删除");
@@ -62,9 +62,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
   };
 
   const handleCopy = async (content: string, id: string) => {
-    await navigator.clipboard.writeText(content);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      addToast("error", "复制失败，请手动复制");
+    }
   };
 
   const handleSaved = (updated: Snippet) => {
@@ -118,7 +122,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+              <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                 <button onClick={() => handleCopy(s.content, s.id)} title="复制" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>

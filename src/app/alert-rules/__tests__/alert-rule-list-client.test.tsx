@@ -70,6 +70,8 @@ describe("alert rules client", () => {
 					metric: "cpu_usage",
 					operator: "gte",
 					threshold: 91,
+					durationSeconds: 0,
+					serverIds: [],
 					notifyChannels: ["in_app"],
 					cooldownMinutes: 30,
 					silenceWindows: ["22:00-08:00"],

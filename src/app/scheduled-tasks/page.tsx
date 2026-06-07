@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function ScheduledTasksPage() {
 	const session = await requireSession();
 	const canCreate = sessionHasPermission(session, "command:create");
-	const canManage = sessionHasPermission(session, "command:execute");
+	const canManage = canCreate;
 
 	const [tasks, servers] = await Promise.all([
 		listScheduledTasks(),

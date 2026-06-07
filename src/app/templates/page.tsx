@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function CommandTemplatesPage() {
 	const session = await requireSession("/templates");
 	const canCreate = sessionHasPermission(session, "command:create");
+	const canDeploy = sessionHasPermission(session, "deploy:run");
 
 	const [templates, servers] = await Promise.all([
 		listTemplates(),
@@ -35,7 +36,7 @@ export default async function CommandTemplatesPage() {
 						预置与自定义运维命令模板，支持变量占位符一键下发
 					</p>
 				</header>
-				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} />
+				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} />
 		</PageShell>
 	);
 }

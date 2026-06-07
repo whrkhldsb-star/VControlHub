@@ -535,11 +535,13 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											✕ 取消
 										</button>
 									)}
-									<button type="button" onClick={() => handleAction(task.id, "refresh")}
-										className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.05] transition"
-									>
-										🔄 刷新
-									</button>
+									{canManage && (
+										<button type="button" onClick={() => handleAction(task.id, "refresh")}
+											className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.05] transition"
+										>
+											🔄 刷新
+										</button>
+									)}
 									{task.downloadAccess && (
 										<a href={task.downloadAccess.href}
 											className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"

@@ -156,14 +156,16 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						+ 创建告警规则
 					</button>
 				)}
-				<button
-					type="button"
-					onClick={triggerNow}
-					disabled={busyAction === "trigger"}
-					className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{busyAction === "trigger" ? "正在检测…" : "🔍 立即检测"}
-				</button>
+				{canManage && (
+					<button
+						type="button"
+						onClick={triggerNow}
+						disabled={busyAction === "trigger"}
+						className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{busyAction === "trigger" ? "正在检测…" : "🔍 立即检测"}
+					</button>
+				)}
 			</div>
 
 			{actionError && (
@@ -278,11 +280,13 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 /* ── Create form ──────────────────────────────────────────── */
 
-function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => void }) {
+function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
 	const [name, setName] = useState("");
 	const [metric, setMetric] = useState("cpu_usage");
 	const [operator, setOperator] = useState("gte");
 	const [threshold, setThreshold] = useState(85);
+	const [durationSeconds, setDurationSeconds] = useState(0);
+	const [selectedServerIds, setSelectedServerIds] = useState<string[]>([]);
 	const [cooldown, setCooldown] = useState(30);
 	const [silenceWindowsText, setSilenceWindowsText] = useState("");
 	const [channels, setChannels] = useState<string[]>(["in_app"]);
@@ -292,6 +296,10 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 
 	const toggleChannel = (ch: string) => {
 		setChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
+	};
+
+	const toggleServer = (serverId: string) => {
+		setSelectedServerIds((prev) => prev.includes(serverId) ? prev.filter((id) => id !== serverId) : [...prev, serverId]);
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -308,6 +316,8 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 					metric,
 					operator,
 					threshold,
+					durationSeconds,
+					serverIds: selectedServerIds,
 					notifyChannels: channels,
 					cooldownMinutes: cooldown,
 					silenceWindows,
@@ -355,6 +365,31 @@ function CreateRuleForm({ onClose }: { servers: ServerOption[]; onClose: () => v
 					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertThreshold">阈值</label>
 					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30" />
 				</div>}
+			</div>
+
+			<div className="grid gap-3 sm:grid-cols-2">
+				<div className="space-y-1.5">
+					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertDurationSeconds">持续时间（秒）</label>
+					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30" />
+					<p className="text-xs text-slate-500">0 表示命中即触发。</p>
+				</div>
+				<div className="space-y-1.5">
+					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">目标节点</label>
+					<div className="flex flex-wrap gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2">
+						{servers.length === 0 ? (
+							<span className="text-xs text-slate-500">暂无节点，默认匹配全部节点</span>
+						) : (
+							<>
+								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500"}`}>全部节点</button>
+								{servers.map((server) => (
+									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]"}`}>
+										{server.name}
+									</button>
+								))}
+							</>
+						)}
+					</div>
+				</div>
 			</div>
 
 			<div className="space-y-1.5">

@@ -1,9 +1,24 @@
 import { prisma } from "@/lib/db";
 
-function tags(input?: string[]) { return Array.from(new Set((input ?? []).map((t) => t.trim()).filter(Boolean))).slice(0, 20); }
+function tags(input?: string[]) {
+  return Array.from(new Set((input ?? []).map((t) => t.trim()).filter(Boolean))).slice(0, 20);
+}
+
+function requireNonBlank(value: string, message: string) {
+  if (!value.trim()) throw new Error(message);
+}
+
+function canMutateSnippet(
+  ownerId: string | null,
+  actor?: { userId?: string | null; canManageAll?: boolean },
+) {
+  if (actor?.canManageAll) return true;
+  return Boolean(ownerId && actor?.userId && ownerId === actor.userId);
+}
 
 export async function createSnippet(input: { title: string; content: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean; createdBy?: string }) {
-  if (!input.title.trim() || !input.content.trim()) throw new Error("代码片段标题和内容不能为空");
+  requireNonBlank(input.title, "代码片段标题和内容不能为空");
+  requireNonBlank(input.content, "代码片段标题和内容不能为空");
   return prisma.snippet.create({ data: { title: input.title.trim(), content: input.content, language: input.language?.trim() || "text", description: input.description?.trim() || null, tags: tags(input.tags), isPrivate: input.isPrivate ?? false, createdBy: input.createdBy ?? null } });
 }
 
@@ -23,12 +38,18 @@ export async function updateSnippet(
 ) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
   if (!existing) throw new Error("代码片段不存在");
-  if (actor && !actor.canManageAll && existing.createdBy && existing.createdBy !== actor.userId) {
+  if (!canMutateSnippet(existing.createdBy, actor)) {
     throw new Error("无权修改他人的代码片段");
   }
   const data: Record<string, unknown> = {};
-  if (input.title !== undefined) data.title = input.title.trim();
-  if (input.content !== undefined) data.content = input.content;
+  if (input.title !== undefined) {
+    requireNonBlank(input.title, "代码片段标题不能为空");
+    data.title = input.title.trim();
+  }
+  if (input.content !== undefined) {
+    requireNonBlank(input.content, "代码片段内容不能为空");
+    data.content = input.content;
+  }
   if (input.language !== undefined) data.language = input.language.trim() || "text";
   if (input.description !== undefined) data.description = input.description?.trim() || null;
   if (input.tags !== undefined) data.tags = tags(input.tags);
@@ -40,7 +61,7 @@ export async function updateSnippet(
 export async function deleteSnippet(id: string, actor?: { userId?: string | null; canManageAll?: boolean }) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
   if (!existing) throw new Error("代码片段不存在");
-  if (actor && !actor.canManageAll && existing.createdBy && existing.createdBy !== actor.userId) {
+  if (!canMutateSnippet(existing.createdBy, actor)) {
     throw new Error("无权删除他人的代码片段");
   }
   return prisma.snippet.delete({ where: { id } });

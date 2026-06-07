@@ -17,9 +17,10 @@ type Props = {
 	templates: Template[];
 	servers: ServerOption[];
 	canCreate: boolean;
+	canDeploy?: boolean;
 };
 
-export function TemplateListClient({ templates: initialTemplates, servers, canCreate }: Props) {
+export function TemplateListClient({ templates: initialTemplates, servers, canCreate, canDeploy = false }: Props) {
 	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);
@@ -175,13 +176,15 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								</div>
 							)}
 							<div className="mt-3 flex items-center gap-2 pt-2 border-t border-white/[0.04]">
-								<DeployButton
-									template={tmpl}
-									servers={servers}
-									onDeploy={handleDeploy}
-									loading={deploying === tmpl.id}
-								/>
-								{!tmpl.isBuiltin && (
+								{canDeploy && (
+									<DeployButton
+										template={tmpl}
+										servers={servers}
+										onDeploy={handleDeploy}
+										loading={deploying === tmpl.id}
+									/>
+								)}
+								{canCreate && !tmpl.isBuiltin && (
 					<button
 						onClick={() => setTemplatePendingDelete(tmpl)}
 						className="text-[11px] text-rose-400/60 hover:text-rose-300 transition"

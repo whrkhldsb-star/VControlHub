@@ -21,7 +21,9 @@ import {
   generateThumbnail,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
+import { assertStorageAccess } from "@/lib/storage/access-control";
 import { writeStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
+import type { SessionPayload } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -72,12 +74,12 @@ export async function POST(request: Request) {
       if (!sessionHasPermission(session, "storage:write")) {
         return NextResponse.json({ error: "缺少权限" }, { status: 403 });
       }
-      return handleUpload(request, session.userId);
+      return handleUpload(request, session.userId, session);
     },
   );
 }
 
-async function handleUpload(request: Request, userId: string) {
+async function handleUpload(request: Request, userId: string, session?: SessionPayload) {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -182,6 +184,19 @@ async function handleUpload(request: Request, userId: string) {
 
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
+      if (!session) {
+        return NextResponse.json({ error: "Bearer 上传暂不支持写入存储节点副本" }, { status: 403 });
+      }
+      const access = await assertStorageAccess({
+        session,
+        storageNodeId,
+        relativePath,
+        operation: "write",
+        writeBytes: buffer.byteLength,
+      });
+      if (!access.allowed) {
+        return NextResponse.json({ error: access.reason ?? "无权写入该存储路径" }, { status: 403 });
+      }
       try {
         const storageNode = await prisma.storageNode.findUnique({
           where: { id: storageNodeId },

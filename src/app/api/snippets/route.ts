@@ -6,8 +6,8 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createSnippet, deleteSnippet, listSnippets, updateSnippet } from "@/lib/snippet/service";
 
 const snippetPostSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
+  title: z.string().trim().min(1),
+  content: z.string().trim().min(1),
   language: z.string().optional(),
   tags: z.array(z.string()).optional(),
   description: z.string().optional(),
@@ -16,8 +16,8 @@ const snippetPostSchema = z.object({
 
 const snippetPatchSchema = z.object({
   id: z.string().min(1),
-  title: z.string().min(1).optional(),
-  content: z.string().min(1).optional(),
+  title: z.string().trim().min(1).optional(),
+  content: z.string().trim().min(1).optional(),
   language: z.string().optional(),
   tags: z.array(z.string()).optional(),
   isPrivate: z.boolean().optional(),

@@ -55,8 +55,13 @@ export function SnippetEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 light:bg-slate-900/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white">
-        <h3 className="text-lg font-semibold text-white light:text-slate-900">编辑代码片段</h3>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-snippet-title"
+        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white"
+      >
+        <h3 id="edit-snippet-title" className="text-lg font-semibold text-white light:text-slate-900">编辑代码片段</h3>
 
         <div className="mt-4 space-y-3">
           <div>
