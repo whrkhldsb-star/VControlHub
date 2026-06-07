@@ -1140,6 +1140,29 @@
         "npm run lint -- --max-warnings=0: passed",
         "npm run verify: passed including full test suite, Next build, runtime build, deploy-assets verification"
       ]
+    },
+    {
+      "timestamp": "2026-06-07T13:57:36.717823+00:00",
+      "item": "smtp-email-alert-channel",
+      "status": "implemented_verified",
+      "summary": "Closed README P1 dead notification path: SMTP alert recipients setting, nodemailer delivery helper, email test send path, and real alert evaluation email channel.",
+      "evidence": [
+        "targeted: npx vitest run src/lib/notification/email.test.ts src/lib/alert/__tests__/service.test.ts src/lib/health/__tests__/service.test.ts src/app/api/settings/__tests__/route.test.ts src/app/settings/__tests__/settings-client.test.tsx --reporter=dot => 5 files / 33 tests passed",
+        "typecheck: npm run typecheck -- --pretty false => passed",
+        "lint: npm run lint -- --max-warnings=0 => passed",
+        "full verify: npm run verify => 204 files / 922 tests passed plus Next build/runtime build/deploy assets passed"
+      ],
+      "files": [
+        "src/lib/notification/email.ts",
+        "src/lib/notification/email.test.ts",
+        "src/lib/alert/service.ts",
+        "src/lib/health/service.ts",
+        "src/app/settings/settings-client.tsx",
+        "src/app/api/settings/route.ts",
+        "src/lib/settings/schema.ts",
+        "src/lib/settings/service.ts",
+        "README.md"
+      ]
     }
   ],
   "lastRunAt": "2026-06-07T13:22:32Z",
@@ -1159,5 +1182,20 @@
       "smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
       "logs: recent next/ssh-ws journal grep found no error/fail/warn/exception/traceback entries"
     ]
-  }
+  },
+  "last_updated": "2026-06-07T13:58:24.877779+00:00",
+  "current_focus": "smtp_email_alert_channel_deployed",
+  "last_evidence": [
+    "targeted: npx vitest run src/lib/notification/email.test.ts src/lib/alert/__tests__/service.test.ts src/lib/health/__tests__/service.test.ts src/app/api/settings/__tests__/route.test.ts src/app/settings/__tests__/settings-client.test.tsx --reporter=dot => 5 files / 33 tests passed",
+    "typecheck: npm run typecheck -- --pretty false => passed",
+    "lint: npm run lint -- --max-warnings=0 => passed",
+    "full verify: npm run verify => 204 files / 922 tests passed plus Next build/runtime build/deploy assets passed"
+  ],
+  "last_deploy_evidence": [
+    "npm run build:runtime => dist/server.js and dist/ssh-ws-proxy.js built",
+    "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service => both active; caddy active",
+    "https://whrkhldsb.qzz.io/api/status => overall healthy",
+    "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub => ALL 25 CHECKS PASSED",
+    "post-restart journal grep for error/fail/warn/exception/traceback => no matches"
+  ]
 }

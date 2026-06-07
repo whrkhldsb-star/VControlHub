@@ -66,6 +66,11 @@ function validateSettingValue(key: string, value: string) {
 			return parseInteger(value || "587", "SMTP 端口", 1, 65_535);
 		case "smtp.from":
 			return value.trim() && !/^.+@.+\..+$/.test(value.trim()) ? "发件人地址格式不正确" : null;
+		case "smtp.alertRecipients": {
+			const recipients = value.split(/[\n,;，；]+/).map((item) => item.trim()).filter(Boolean);
+			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
+			return invalid ? `告警收件人地址格式不正确：${invalid}` : null;
+		}
 		default:
 			return null;
 	}
@@ -200,7 +205,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 					<div>
 						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">📧 邮件通知（SMTP）</h2>
 						<p className="mt-1 text-xs text-slate-500">
-							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，保存后系统通知会立即使用最新连接参数。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可先用后续测试发送功能验证。"}
+							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"}
 						</p>
 					</div>
 					<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
@@ -211,8 +216,9 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 					<Field label="用户名" value={settings["smtp.user"] ?? ""} onChange={(v) => updateField("smtp.user", v)} placeholder="user@example.com" autoComplete="username" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
 					<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" autoComplete="new-password" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
 					<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "保存前会校验邮箱格式。"} />
+					<Field label="告警收件人" value={settings["smtp.alertRecipients"] ?? ""} onChange={(v) => updateField("smtp.alertRecipients", v)} placeholder="ops@example.com, admin@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "多个地址可用逗号、分号或换行分隔；告警测试和真实告警共用此列表。"} />
 				</div>
-				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from"])} saving={saving} />
+				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from", "smtp.alertRecipients"])} saving={saving} />
 			</form>
 		</div>
 	);

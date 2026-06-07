@@ -93,6 +93,17 @@ function normalizeSettingValue(key: string, value: string) {
 			}
 			return { key, value: trimmed };
 		}
+		case "smtp.alertRecipients": {
+			const recipients = value
+				.split(/[\n,;，；]+/)
+				.map((item) => item.trim())
+				.filter(Boolean);
+			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
+			if (invalid) {
+				throw new Error(`告警收件人地址格式不正确：${invalid}`);
+			}
+			return { key, value: recipients.join(",") };
+		}
 		case "smtp.host":
 		case "smtp.user":
 		case "smtp.pass":

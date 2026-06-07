@@ -241,3 +241,15 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
   - `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` — 19/19 passed.
 - Closeout rule: commit/push these verified functional changes and state updates together, then run the lightweight watchdog directly to confirm it is silent.
 - Final closeout: committed and pushed as `7beb73c` (`fix: localize global search overlay`); `main` matches `origin/main` at that commit. The lightweight watchdog was rerun with `python3 /root/.hermes/scripts/vcontrolhub_watchdog.py` and exited silently. State file was corrected to the current `every 30m` cadence and the completed/pushed commit hash.
+
+### 2026-06-07T13:57:36.717823+00:00 — SMTP email alert channel closed
+- Status: implemented and locally verified.
+- Closed README P1 dead path where email/SMTP was selectable but skipped.
+- Added SMTP alert recipients setting, settings validation/UI copy, nodemailer delivery helper, alert test-send email delivery, and real alert evaluation best-effort email delivery.
+- Evidence: targeted Vitest 5 files / 33 tests passed; typecheck passed; lint passed; full `npm run verify` passed with 204 files / 922 tests and build/runtime/deploy assets.
+
+#### Deploy evidence — 2026-06-07T13:58:24.877779+00:00
+- Runtime build passed and production services restarted: vcontrolhub-next active, vcontrolhub-ssh-ws active, caddy active.
+- `/api/status` returned overall healthy.
+- Smoke test passed: 25/25 checks.
+- Post-restart logs: no error/fail/warn/exception/traceback matches.

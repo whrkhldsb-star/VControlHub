@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, collectServerMetricsMock, createNotificationMock, fetchWebhookSafelyMock } = vi.hoisted(() => ({
+const { prismaMock, collectServerMetricsMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock } = vi.hoisted(() => ({
 	prismaMock: {
 		server: {
 			findMany: vi.fn(),
@@ -20,11 +20,13 @@ const { prismaMock, collectServerMetricsMock, createNotificationMock, fetchWebho
 	collectServerMetricsMock: vi.fn(),
 	createNotificationMock: vi.fn(),
 	fetchWebhookSafelyMock: vi.fn(),
+	sendAlertEmailMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/server/monitor", () => ({ collectServerMetrics: collectServerMetricsMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
+vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 
 import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
@@ -48,6 +50,7 @@ describe("evaluateAlerts", () => {
 		prismaMock.alertRule.update.mockResolvedValue({});
 		createNotificationMock.mockResolvedValue({});
 		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
+		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
 	});
 
 	it("does not trigger rules with durationSeconds until the condition is sustained", async () => {
@@ -149,6 +152,42 @@ describe("evaluateAlerts", () => {
 		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T23:15:00"))).toBe(true);
 		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T07:59:00"))).toBe(true);
 		expect(isNowInAlertSilenceWindow(["22:00-08:00"], new Date("2026-05-25T08:01:00"))).toBe(false);
+	});
+
+	it("sends email alerts through the SMTP alert channel when a rule triggers", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T00:03:00.000Z"));
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_email",
+				name: "CPU email",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["email"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		await evaluateAlerts();
+
+		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
+			title: "告警: Prod cpu usage",
+			message: "CPU email: cpu_usage gte 80 (当前: 95)",
+			contextLines: expect.arrayContaining(["服务器: Prod", "当前值: 95"]),
+		}));
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule_email" },
+			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:03:00.000Z") }),
+		});
 	});
 
 	it("skips notification delivery while an alert rule is inside a silence window", async () => {

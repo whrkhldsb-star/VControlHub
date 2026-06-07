@@ -30,6 +30,7 @@ const DEFAULTS: Record<string, string> = {
 	"smtp.user": "",
 	"smtp.pass": "",
 	"smtp.from": "",
+	"smtp.alertRecipients": "",
 	"smtp.enabled": "false",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])

@@ -26,6 +26,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
+    "@types/nodemailer": "^8.0.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -33,6 +34,7 @@
     "dompurify": "^3.4.3",
     "lucide-react": "^1.17.0",
     "next": "^16.2.6",
+    "nodemailer": "^8.0.10",
     "otplib": "^13.4.0",
     "ppk-to-openssh": "^3.2.0",
     "react": "19.2.4",

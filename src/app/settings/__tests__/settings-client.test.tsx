@@ -149,8 +149,9 @@ describe("SettingsClient", () => {
 
     await user.click(screen.getByRole("switch", { name: "启用 SMTP" }));
 
-    expect(screen.getByText("SMTP 已启用，保存后系统通知会立即使用最新连接参数。")).toBeInTheDocument();
+    expect(screen.getByText("SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。")).toBeInTheDocument();
     expect(screen.getByLabelText("SMTP 服务器")).toBeEnabled();
+    expect(screen.getByLabelText("告警收件人")).toBeEnabled();
   });
 
   it("validates runtime number bounds before saving", async () => {

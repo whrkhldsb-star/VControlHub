@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { sendAlertEmail } from "@/lib/notification/email";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
@@ -137,7 +138,30 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 	}
 
 	if (rule.notifyChannels.includes("email")) {
-		deliveries.push({ channel: "email", status: "skipped", message: "邮件测试发送待 SMTP 通道接入" });
+		try {
+			const result = await sendAlertEmail({
+				title,
+				message,
+				contextLines: [
+					`规则: ${rule.name}`,
+					`指标: ${rule.metric}`,
+					`阈值: ${rule.threshold}`,
+				],
+			});
+			deliveries.push({
+				channel: "email",
+				status: result.accepted.length > 0 && result.rejected.length === 0 ? "sent" : "failed",
+				message: result.rejected.length === 0
+					? `邮件测试已发送给 ${result.accepted.length} 个收件人`
+					: `邮件测试部分失败：${result.rejected.length} 个收件人被拒收`,
+			});
+		} catch (error) {
+			deliveries.push({
+				channel: "email",
+				status: "failed",
+				message: error instanceof Error ? error.message : "邮件测试发送失败",
+			});
+		}
 	}
 
 	if (deliveries.length === 0) {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, createNotificationMock, fetchWebhookSafelyMock } = vi.hoisted(() => ({
+const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock } = vi.hoisted(() => ({
 	prismaMock: {
 		alertRule: {
 			create: vi.fn(),
@@ -15,9 +15,11 @@ const { prismaMock, createNotificationMock, fetchWebhookSafelyMock } = vi.hoiste
 	},
 	createNotificationMock: vi.fn(),
 	fetchWebhookSafelyMock: vi.fn(),
+	sendAlertEmailMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 
@@ -28,6 +30,7 @@ describe("alert service", () => {
 		vi.clearAllMocks();
 		createNotificationMock.mockResolvedValue({ id: "n1" });
 		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
+		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }, { id: "admin2" }]);
 	});
 
@@ -66,6 +69,37 @@ describe("alert service", () => {
 		expect(result.deliveries).toEqual([
 			expect.objectContaining({ channel: "in_app", status: "sent" }),
 			expect.objectContaining({ channel: "webhook", status: "sent" }),
+		]);
+	});
+
+	it("sends alert test emails through configured SMTP recipients", async () => {
+		prismaMock.alertRule.findUnique.mockResolvedValue({
+			id: "rule_email",
+			name: "Email rule",
+			metric: "cpu_usage",
+			operator: "gte",
+			threshold: 90,
+			durationSeconds: 0,
+			serverIds: [],
+			notifyChannels: ["email"],
+			webhookUrl: null,
+			cooldownMinutes: 30,
+			enabled: true,
+			lastMatchedAt: null,
+			lastTriggeredAt: null,
+			createdAt: new Date("2026-01-01T00:00:00.000Z"),
+			updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+		});
+
+		const result = await testAlertRule("rule_email");
+
+		expect(sendAlertEmailMock).toHaveBeenCalledWith(expect.objectContaining({
+			title: "测试告警: Email rule",
+			message: "这是一条测试告警，用于验证「Email rule」的通知渠道是否可达。",
+			contextLines: expect.arrayContaining(["规则: Email rule", "指标: cpu_usage"]),
+		}));
+		expect(result.deliveries).toEqual([
+			expect.objectContaining({ channel: "email", status: "sent", message: "邮件测试已发送给 1 个收件人" }),
 		]);
 	});
 

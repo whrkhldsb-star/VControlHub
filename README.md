@@ -356,7 +356,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **远端文件代理范围收紧** — `/api/servers/[id]/file-proxy` 启动临时 Python 代理前必须确认服务器绑定了 SFTP 存储节点，生成脚本时把 `SERVE_DIR` 限制到该节点 `basePath`，并在目标主机内做 realpath 边界校验；代理现在优先使用 `Authorization: Bearer` 或 `X-VControlHub-Proxy-Token` header 校验 token，只保留 query token 作为旧客户端兼容兜底，同时把 CORS 从 `*` 收紧到发起请求的 Hub origin 并补充 `Referrer-Policy: no-referrer` / `nosniff`。
 - [ ] **命令/定时任务/下载仍缺 durable worker 与并发控制（P1）。** 定时任务由每个 Node 进程内存轮询且无数据库租约，命令执行通过进程内 fire-and-forget Promise 启动，取消也依赖本进程 child-process Map；多实例或重启时可能重复执行、丢失运行态或覆盖取消状态。命令多目标与下载批量也缺全局并发/条数上限。
 - [ ] **备份/恢复、SFTP 同步仍是请求内长任务（P1）。** 备份/恢复 API 会在 HTTP 请求内同步等待最长 30 分钟的 shell 操作，SFTP 同步递归扫描并逐条写库；大目录或代理超时会造成请求占用、状态不清晰，后续应改为可观测的后台任务、进度、取消和重试。
-- [ ] **通知渠道仍有可选但不可发送的死路径（P1）。** SMTP 设置页和告警规则都暴露邮件/SMTP 语义，但告警测试发送明确跳过 email，真实告警评估也只处理站内通知和 Webhook；需要接入邮件发送、失败重试和发送历史，或在 UI 中暂时隐藏邮件渠道。
+- [x] **邮件告警通道已接入 SMTP** — SMTP 设置页新增告警收件人配置，保存时校验并规范化邮箱列表；告警测试发送现在会真实调用 SMTP 邮件通道并返回发送/拒收结果，真实告警评估也会在 `email` 渠道选中时 best-effort 发送邮件，不再是“可选但不可发送”的死路径。后续仍可继续补失败重试和发送历史。
 - [ ] **部署“回滚”目前只是重发最近部署（P1）。** `/deployments` 的“快速回退/按此记录重发”会用同一模板、变量和服务器重新提交部署，并不是快照级回滚、上个版本恢复或失败自动回退；README 已改为“最近部署重发”，后续需要补真实回滚语义。
 - [ ] **Docker/直连网关仍有部署边界需要说明和加固（P1）。** Docker 模块只管理 Hub 所在机器的 `/var/run/docker.sock`，不是跨 VPS 容器控制台；容器部署默认 root 运行且挂载 Docker socket。Direct Gateway 默认生成 `http://host:31888` 明文直连链接，签名能鉴权但不提供传输加密，需要反代 TLS/VPN/防火墙或改造默认部署。
 - [ ] **公开状态与 VPS 卡片状态仍可能过于乐观（P2）。** `/status` 主要根据数据库、启用 VPS 数量和存储节点数量判断“健康”，VPS 卡片的状态也主要表示是否允许操作，而不是实时 SSH/存储可达性；需要把真实健康探测接入公共状态或在文案中继续明确边界。
@@ -377,7 +377,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P1 — 功能设置真实可用
 - [x] 会话超时、密码策略、定时任务、告警规则、批量下载、工单优先级、snippet 元数据等“有 UI 但无真实效果/效果不完整”的问题已补齐。
-- [ ] 告警增强：静默期和 Webhook 测试发送已完成，但 email/SMTP 仍是可选不可发送状态，继续补邮件/Telegram 等通知渠道配置、失败重试和告警历史趋势。
+- [x] 告警增强：静默期、Webhook 测试发送和 email/SMTP 真实发送已完成；后续继续补 Telegram 等通知渠道配置、失败重试和告警历史趋势。
 
 ### P2 — 用户体验和可运营性
 - [ ] 快捷服务一键更新：pull/recreate/healthcheck/日志摘要已完成，继续补配置 diff、失败回滚和更新历史。

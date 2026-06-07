@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
+import { sendAlertEmail } from "@/lib/notification/email";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
@@ -340,6 +341,24 @@ export async function evaluateAlerts() {
           });
         } catch {
           /* webhook best-effort */
+        }
+      }
+
+      if (rule.notifyChannels.includes("email")) {
+        try {
+          await sendAlertEmail({
+            title,
+            message,
+            contextLines: [
+              `服务器: ${server.serverName}`,
+              `指标: ${rule.metric}`,
+              `当前值: ${value}`,
+              `阈值: ${rule.operator} ${rule.threshold}`,
+              `时间: ${new Date().toISOString()}`,
+            ],
+          });
+        } catch {
+          /* email best-effort */
         }
       }
 
