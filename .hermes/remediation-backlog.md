@@ -278,3 +278,11 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Media cards now render real image thumbnails via `/api/media/:id/stream`, video first-frame covers via the same Range-capable stream endpoint, and a unified audio icon cover fallback.
 - Redesigned `/image-bed` as `图片外链中心`: primary actions are media image workspace, cloud-path publishing, link copy/source audit/batch management; legacy drag-drop direct upload is folded behind a compatibility entry.
 - Evidence: targeted media/image-bed Vitest suite passed 12/12; typecheck passed; lint passed; full `npm run verify` passed (205 files / 932 tests plus Next build/runtime/deploy assets); production services restarted; `/api/status` healthy 3/3; smoke passed 25/25; authenticated production HTML confirmed `/media` workspace and `/image-bed` link center; browser DOM confirmed image `<img>` thumbnails and video stream covers.
+
+### 2026-06-07T19:07:20Z — Downloads negative-boundary and list canary
+- Scope: lightweight run 35/36; no product code changed and no real remote download was started.
+- Environment capability: Docker available/running, `vcontrolhub-next.service`, `vcontrolhub-ssh-ws.service`, `caddy.service`, and `docker.service` active/enabled; git worktree was clean and `HEAD == origin/main` at `66193d0`.
+- User journey/evidence: temporary authenticated QA session reached `/downloads` with HTTP 200; `/api/downloads` returned HTTP 200 with existing terminal download-task history and `globalStat: null`, proving list hydration without starting aria2/SSH work.
+- Boundary evidence: state-changing PATCH without CSRF returned 403 `CSRF token 验证失败`; invalid mixed HTTP + magnet batch POST returned 400 `磁力/BT 链接需单独创建任务，请勿与普通链接混在同一批量中`; refresh for a missing task returned 404 `任务不存在`.
+- Production/status/logs: `/api/status` returned HTTP 200 with 3 checks; `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed 25/25; recent Next/SSH-WS journal scan for error/warn/failed/exception/CSRF/download/aria2/EACCES matches was clean.
+- Cleanup: temporary `qa_cron_downloads_*` user deleted, `qa_cron_*` remaining count 0, no canary DownloadTask rows were created, and temporary credential/script files were removed from `/tmp`.

@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-07T18:25:13Z",
-  "runCounter": 34,
-  "lastRunStatus": "dirty_closeout_verified_deployed",
-  "lastRunTarget": "media-visual-workspace-and-image-link-center-redesign",
+  "updatedAt": "2026-06-07T19:07:20Z",
+  "runCounter": 35,
+  "lastRunStatus": "canary_verified_no_code_change",
+  "lastRunTarget": "downloads-negative-boundary-and-list-canary",
   "overallReviewDue": false,
-  "note": "Dirty worktree closeout only. Verified with targeted tests, typecheck, lint, full npm run verify, safe post-build restart, /api/status 200 healthy, smoke 25/25, and clean post-restart logs. Commit/push pending in the same run."
+  "note": "Lightweight run (35/36). No product code changed. Verified Downloads production page/API availability and safe negative boundaries without starting a real download: authenticated /downloads 200, /api/downloads 200, missing CSRF PATCH 403, invalid mixed HTTP+magnet batch POST 400, missing task refresh PATCH 404. Smoke 25/25, /api/status 200 with 3 checks, services active, recent logs clean, temporary qa_cron_downloads user cleaned to zero."
 }
