@@ -3,6 +3,8 @@ import { execFile, execFileSync } from "child_process";
 import { promisify } from "util";
 
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notification/service";
+import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
 import type { ServiceTemplate } from "./types";
 
 const runFile = promisify(execFile);
@@ -305,6 +307,8 @@ export interface InstallOptions {
 	template: ServiceTemplate;
 	userId?: string;
 	customPort?: number;
+	installNoticeCredentials?: QuickServiceCredential[];
+	installNoticeNotes?: string[];
 }
 
 export async function installService(opts: InstallOptions) {
@@ -313,7 +317,7 @@ export async function installService(opts: InstallOptions) {
 }
 
 async function installServiceUnlocked(opts: InstallOptions) {
-	const { template, userId, customPort } = opts;
+	const { template, userId, customPort, installNoticeCredentials = [], installNoticeNotes = [] } = opts;
 
 	// Pre-flight: ensure Docker is available
 	const dockerStatus = getDockerEnvironmentStatus();
@@ -368,7 +372,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		},
 	});
 
-	startDockerContainer(svc.id, template, hostPort).catch(async (err) => {
+	startDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes }).catch(async (err) => {
 		let msg = dockerErrorMessage(err);
 		try {
 			dockerExecSync(["rm", "-f", safeContainerName(template.slug)], 15_000);
@@ -376,12 +380,13 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			msg = `${msg}; 清理残留容器失败: ${dockerErrorMessage(cleanupErr)}`;
 		}
 		await prisma.quickService.update({ where: { id: svc.id }, data: { status: "error", error: msg } });
+		await notifyQuickServiceInstallFailure(userId, template, msg);
 	});
 
 	return { ...svc, port: hostPort };
 }
 
-async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, hostPort: number) {
+async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, hostPort: number, notice?: { userId?: string; credentials?: QuickServiceCredential[]; notes?: string[] }) {
 	validateTemplate(tmpl);
 	const containerName = safeContainerName(tmpl.slug);
 
@@ -413,10 +418,50 @@ async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, ho
 	const { stdout } = await runFile("docker", args, { timeout: 300_000 });
 	const containerId = stdout.trim().substring(0, 12);
 
+	await applyPostInstallSetup(tmpl, containerName);
+
 	await prisma.quickService.update({
 		where: { id: serviceId },
 		data: { status: "running", containerId, error: null },
 	});
+	await notifyQuickServiceInstallSuccess(notice?.userId, tmpl, hostPort, notice?.credentials ?? [], notice?.notes ?? []);
+}
+
+async function applyPostInstallSetup(tmpl: ServiceTemplate, containerName: string) {
+	if (tmpl.slug === "alist" && tmpl.initialPassword) {
+		dockerExecSync(["exec", containerName, "/opt/alist/alist", "admin", "set", tmpl.initialPassword, "--data", "/opt/alist/data"], 30_000);
+	}
+}
+
+async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl: ServiceTemplate, hostPort: number, credentials: QuickServiceCredential[], notes: string[]) {
+	if (!userId) return;
+	try {
+		const notice = buildInstallNotice(tmpl, hostPort, credentials, notes);
+		await createNotification({
+			userId,
+			type: "system",
+			title: `快捷服务安装成功：${tmpl.name}`,
+			message: formatInstallNoticeMessage(tmpl.name, notice),
+			actionUrl: notice.accessUrl ?? "/quick-services",
+		});
+	} catch {
+		// Notification delivery should never flip a successfully started container into a failed install.
+	}
+}
+
+async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl: ServiceTemplate, message: string) {
+	if (!userId) return;
+	try {
+		await createNotification({
+			userId,
+			type: "system",
+			title: `快捷服务安装失败：${tmpl.name}`,
+			message: `${tmpl.name} 安装失败：${message}`,
+			actionUrl: "/quick-services",
+		});
+	} catch {
+		// Preserve the original install error even if notification persistence is unavailable.
+	}
 }
 
 export async function uninstallService(slug: string) {

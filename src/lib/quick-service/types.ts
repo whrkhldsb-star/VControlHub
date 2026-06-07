@@ -18,4 +18,6 @@ export interface ServiceTemplate {
 	extraPorts?: Array<{ host: number; container: number }>;
 	/** Explicitly allow mounting /var/run/docker.sock for trusted built-in templates. */
 	allowDockerSocket?: boolean;
+	/** Optional initial password to apply after container creation for apps that generate one-time defaults. */
+	initialPassword?: string;
 }

@@ -112,10 +112,20 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(201);
     expect(mocks.installService).toHaveBeenCalledWith({
-      template: expect.objectContaining({ slug: "alist" }),
+      template: expect.objectContaining({ slug: "alist", initialPassword: expect.any(String) }),
       userId: "u1",
       customPort: 5244,
+      installNoticeCredentials: [
+        { label: "账号", value: "admin" },
+        { label: "初始密码", value: expect.any(String) },
+      ],
+      installNoticeNotes: ["AList 初始管理员密码已在容器启动后自动设置。"],
     });
+    const json = await body(response) as { notice: { credentials: Array<{ label: string; value: string }> } };
+    expect(json.notice.credentials).toEqual([
+      { label: "账号", value: "admin" },
+      { label: "初始密码", value: expect.any(String) },
+    ]);
   });
 
   it("returns 409 when a requested custom port is already used", async () => {

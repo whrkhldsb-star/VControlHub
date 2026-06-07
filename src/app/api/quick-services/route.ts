@@ -4,6 +4,7 @@ import { z } from "zod";
 const installSchema = z.object({ slug: z.string().min(1), customPort: z.number().int().min(1).max(65535).optional() });
 
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
+import { prepareInstallSecrets } from "@/lib/quick-service/install-notice";
 import {
 	listQuickServices,
 	installService,
@@ -116,7 +117,14 @@ export async function POST(request: Request) {
 			}
 		}
 
-		const svc = await installService({ template, userId: session?.userId ?? "", customPort });
-		return NextResponse.json({ service: svc }, { status: 201 });
+		const prepared = prepareInstallSecrets(template);
+		const svc = await installService({
+			template: prepared.template,
+			userId: session?.userId ?? "",
+			customPort,
+			installNoticeCredentials: prepared.credentials,
+			installNoticeNotes: prepared.notes,
+		});
+		return NextResponse.json({ service: svc, notice: { credentials: prepared.credentials, notes: prepared.notes } }, { status: 201 });
 	});
 }
