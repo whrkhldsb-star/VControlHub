@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-07T20:12:46Z",
-  "runCounter": 37,
-  "lastRunStatus": "dirty_state_closeout_verified_no_code_change",
-  "lastRunTarget": "qa-loop-state-overall-review-evidence-closeout",
+  "updatedAt": "2026-06-07T20:51:30Z",
+  "runCounter": 38,
+  "lastRunStatus": "downloads_negative_boundary_canary_verified_no_code_change",
+  "lastRunTarget": "downloads-negative-boundary-canary",
   "overallReviewDue": false,
-  "note": "Dirty-closeout run (37/42). No product code changed because entry worktree dirty state was limited to .hermes/qa-loop-state.json from the prior overall review evidence update. Revalidated the recorded state with live proof: Docker available and docker.service active+enabled, no qs-* containers, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active+enabled, HEAD == origin/main 47cc839, /api/status 200 with database/VPS/storage healthy checks, ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks, and recent filtered next/ssh-ws logs were clean. README remaining items are still larger P1/P2 slices, so this run closed the stale dirty state only. Next best small closable candidates remain storage-node grant-filtered /api/storage/nodes metadata, SFTP media Range/206 endpoint, or AI Provider/app-source URL private-IP/redirect validation."
+  "note": "Lightweight run (38/42). Docker available and docker.service active; git was clean and HEAD == origin/main 273a306. Selected QA batch 4 Downloads negative-boundary canary with no product code change and no real download start. Created temporary qa_cron_downloads admin session using the app session/CSRF helpers after loading .env.runtime, verified 3 enabled download targets with bound storage and SSH credentials, authenticated /downloads returned 200 with app HTML, authenticated GET /api/downloads returned 200 and hydrated existing historical tasks, PATCH without CSRF returned 403, PATCH refresh for a missing task with CSRF returned 404, mixed HTTP+magnet batch POST with CSRF returned 400 before task creation, and DB cleanup proved 0 DownloadTask rows created by the canary user. Deleted temporary qa_cron_downloads user/role, verified qa_cron_* users 0, removed temp /tmp scripts/files. Production closeout: smoke 25/25 passed, /api/status 200, next/ssh-ws/caddy/docker active, recent filtered logs clean. Existing QuickService rows alist/emby were observed stopped and left untouched as outside the selected downloads lane. Next best small candidates remain storage-node grant-filtered /api/storage/nodes metadata, SFTP media Range/206 endpoint, AI Provider/app-source SSRF redirect/private-IP validation, or a real Downloads create/cancel canary if a safe disposable remote target is approved."
 }
