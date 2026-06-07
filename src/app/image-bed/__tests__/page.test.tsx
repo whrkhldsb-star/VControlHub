@@ -41,7 +41,7 @@ describe("ImageBedPage", () => {
       const url = String(input);
       if (url.startsWith("/api/images/list"))
         return { images: [], total: 0, totalPages: 1 };
-      if (url === "/api/storage/nodes?driver=LOCAL")
+      if (url === "/api/storage/nodes")
         return { nodes: [{ id: "node_1", name: "本机存储" }] };
       throw new Error(`unexpected request: ${url}`);
     });
@@ -55,7 +55,7 @@ describe("ImageBedPage", () => {
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
 
     await waitFor(() =>
-      expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes?driver=LOCAL"),
+      expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes"),
     );
     const options = await screen.findAllByRole("option", { name: "本机存储" });
     expect(options.some((option) => (option as HTMLOptionElement).value === "node_1")).toBe(
@@ -69,7 +69,7 @@ describe("ImageBedPage", () => {
       const url = String(input);
       if (url.startsWith("/api/images/list"))
         return { images: [], total: 0, totalPages: 1 };
-      if (url === "/api/storage/nodes?driver=LOCAL")
+      if (url === "/api/storage/nodes")
         throw new Error("缺少权限");
       throw new Error(`unexpected request: ${url}`);
     });

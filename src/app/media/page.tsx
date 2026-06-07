@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listMediaItems, listMediaTags } from "@/lib/media/service";
 import { PageShell, PermissionDenied } from "@/components/page-shell";
 import { MediaScanButton } from "./media-scan-button";
+import { MediaImageUploadPanel } from "./media-image-upload-panel";
 import { MediaItemCard } from "./media-item-card";
 import { FilterLink, toggleFavoriteHref, toggleTagHref, toggleTypeHref, type MediaFilterState } from "./media-filter-links";
 
@@ -43,8 +44,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
     <PageShell>
       <header className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Media</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">媒体库</h1>
-        <p className="mt-1.5 text-sm text-slate-500">聚合文件管理中的图片、视频和音频，按服务器分组在线浏览/播放。收藏和标签可直接筛选。</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">媒体库 / 图床</h1>
+        <p className="mt-1.5 text-sm text-slate-500">视频和音频保持媒体库播放；切到图片后会融合图床：可批量上传、把已存储图片发布为外链、复制 Markdown/HTML。</p>
       </header>
 
       <form method="GET" action="/media" className="mb-4 flex flex-wrap items-center gap-2">
@@ -105,6 +106,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           </div>
         </div>
       )}
+
+      {canManageMedia && mediaType === "image" && <MediaImageUploadPanel />}
 
       {canManageMedia && <MediaScanButton />}
 

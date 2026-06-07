@@ -48,7 +48,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const [total, setTotal] = useState(0);
 	const [page, setPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(1);
-	const [album, setAlbum] = useState("");
+	const [search, setSearch] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
@@ -77,7 +77,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		setLoading(true);
 		try {
 			const params = new URLSearchParams({ page: String(p), limit: "30" });
-			if (album) params.set("album", album);
+			if (search) params.set("q", search);
 			if (showAll) params.set("all", "true");
 			const data = await csrfFetch(`/api/images/list?${params}`);
 			setImages(data.images || []);
@@ -89,7 +89,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		} finally {
 			setLoading(false);
 		}
-	}, [album, showAll]);
+	}, [search, showAll]);
 
 	const fetchStats = async () => {
 		try {
@@ -103,10 +103,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	const fetchStorageNodes = async () => {
 		try {
-			const data = await csrfFetch("/api/storage/nodes?driver=LOCAL");
-			const nodes = (data.nodes || data || []).map((n: { id: string; name: string }) => ({ id: n.id, name: n.name }));
+			const data = await csrfFetch("/api/storage/nodes");
+			const nodes = (data.nodes || data || []).map((n: { id: string; name: string; driver?: string; serverName?: string | null }) => ({ id: n.id, name: n.serverName ? `${n.name} · ${n.serverName}` : n.name }));
 			setStorageNodes(nodes);
-			if (nodes.length === 0) showToast("暂无可发布的本地存储节点");
+			if (nodes.length === 0) showToast("暂无可发布的存储节点");
 		} catch (err) {
 			showToast(err instanceof Error ? err.message : "获取存储节点失败");
 		}
@@ -162,7 +162,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			}
 			const formData = new FormData();
 			formData.append("file", file);
-			if (album) formData.append("album", album);
+			if (search) formData.append("album", search);
 			if (publishForm.storageNodeId) formData.append("storageNodeId", publishForm.storageNodeId);
 			if (publishForm.relativePath) formData.append("relativePath", publishForm.relativePath);
 			try {
@@ -450,18 +450,18 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				</div>
 			)}
 
-			{/* Album Filter */}
-			<div className="mt-4 flex items-center gap-3">
+			{/* Search Filter */}
+			<div className="mt-4 flex flex-wrap items-center gap-3">
 				<input
 					type="text"
-					placeholder="按相册筛选（可选）"
-					value={album}
-					onChange={(e) => setAlbum(e.target.value)}
+					placeholder="搜索文件名 / 路径 / 相册"
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
 					onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
-					className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-64"
+					className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-72"
 				/>
 				<button onClick={() => fetchImages(1)} className="px-4 py-2 text-sm bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition">搜索</button>
-				<button onClick={() => { setAlbum(""); fetchImages(1); }} className="px-4 py-2 text-sm text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
+				<button onClick={() => { setSearch(""); fetchImages(1); }} className="px-4 py-2 text-sm text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
 			</div>
 
 			{/* Image Grid */}
@@ -558,7 +558,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-4">☁️ 从云盘发布到图床</h3>
 						<div className="space-y-3">
 							<div>
-								<label className="text-xs text-slate-400 light:text-slate-600 mb-1 block">存储节点</label>
+								<label className="text-xs text-slate-400 light:text-slate-600 mb-1 block">存储节点（本地或 SFTP）</label>
 								<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 focus:outline-none focus:border-cyan-400/50">
 									<option value="">选择存储节点</option>
 									{storageNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}

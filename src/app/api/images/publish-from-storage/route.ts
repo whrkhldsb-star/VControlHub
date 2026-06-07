@@ -4,7 +4,7 @@
  * Body: { storageNodeId, relativePath, filename?, album? }
  */
 import * as crypto from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -20,7 +20,7 @@ import {
 } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
-import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 
 const publishSchema = z.object({
   storageNodeId: z.string().min(1),
@@ -55,25 +55,15 @@ export async function POST(request: Request) {
       // Verify the storage node exists and is accessible
       const storageNode = await prisma.storageNode.findUnique({
         where: { id: storageNodeId },
-        select: { id: true, driver: true, basePath: true },
+        select: storageFileNodeSelect,
       });
-      if (!storageNode || storageNode.driver !== "LOCAL") {
+      if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
         return NextResponse.json(
-          { error: "仅支持本地存储节点" },
+          { error: "仅支持本地或 SFTP 存储节点" },
           { status: 400 },
         );
       }
 
-      const resolvedSourcePath = resolveStoragePathWithinBase(
-        storageNode.basePath,
-        relativePath,
-      );
-      if (!resolvedSourcePath.ok)
-        return NextResponse.json(
-          { error: resolvedSourcePath.reason },
-          { status: 400 },
-        );
-      const sourcePath = resolvedSourcePath.path;
       const ext = path.extname(relativePath).toLowerCase();
       if (!IMAGE_EXTENSIONS.has(ext))
         return NextResponse.json(
@@ -92,7 +82,7 @@ export async function POST(request: Request) {
       }
 
       // Read file from storage after the exact storage path has been authorized.
-      const buffer = await readFile(sourcePath);
+      const buffer = await readStorageFileBuffer(storageNode, relativePath);
       const originalName = filename || path.basename(relativePath);
       const storageKey = `${crypto.randomUUID()}${ext}`;
       const checksum = crypto.createHash("sha256").update(buffer).digest("hex");

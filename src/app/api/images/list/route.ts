@@ -40,6 +40,7 @@ async function listImages(request: Request, userId: string, isAdmin: boolean) {
   const { searchParams } = new URL(request.url);
 
   const album = searchParams.get("album")?.trim() || undefined;
+  const q = searchParams.get("q")?.trim() || undefined;
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limit = Math.min(
     100,
@@ -49,6 +50,13 @@ async function listImages(request: Request, userId: string, isAdmin: boolean) {
 
   const where: Record<string, unknown> = {};
   if (album) where.album = album;
+  if (q) {
+    where.OR = [
+      { filename: { contains: q, mode: "insensitive" } },
+      { relativePath: { contains: q, mode: "insensitive" } },
+      { album: { contains: q, mode: "insensitive" } },
+    ];
+  }
 
   // Non-admin users only see their own images
   if (!showAll || !isAdmin) {

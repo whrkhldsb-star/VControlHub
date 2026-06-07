@@ -26,6 +26,7 @@ export async function GET(request: Request) {
       const storage = await getStorageOverview();
       const nodes = storage.nodes
         .filter((node) => !driverFilter || node.driver === driverFilter)
+        .filter((node) => node.driver !== "SFTP" || Boolean(node.serverId || node.server))
         .map((node) => ({
           id: node.id,
           name: node.name,

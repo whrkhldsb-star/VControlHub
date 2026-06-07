@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-04T11:43:30Z",
+  "updatedAt": "2026-06-07T08:31:34Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,50 +58,22 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-04T11:26:30Z",
-    "finishedAt": "2026-06-04T11:43:30Z",
-    "target": "files-storage-local-placeholder-canary",
+    "startedAt": "2026-06-07T08:11:00Z",
+    "finishedAt": "2026-06-07T08:31:34Z",
+    "target": "media-image-bed-consolidation-closeout",
     "status": "completed_verified_deployed",
-    "summary": "Fixed the production LOCAL storage upload/download path for the default storage node when its persisted basePath contains the deployment-template placeholder /var/lib/${APP_SLUG:-vcontrolhub}/storage. Runtime path resolution now expands APP_SLUG placeholders before resolving child paths, so authenticated uploads create real files under /var/lib/vcontrolhub/storage, persist FileEntry rows, list/download correctly, and clean up without leaving canary artifacts.",
+    "summary": "Closed the media library / image-bed consolidation slice: /media?type=image now has an image-bed workspace for batch image upload, storage node and target directory selection, existing media images can publish storage files to public image-bed links, image-bed search covers filename/path/album, and shared storage helpers support LOCAL/SFTP read/write and node-appropriate download URLs.",
     "changeContract": {
-      "qaPathId": "files-storage-local-placeholder-canary",
-      "role": "authenticated admin/operator using Files local storage",
-      "entry": "/files -> /api/files/list?nodeId=node_local_default -> /api/storage/local upload/download",
-      "userAction": "Log in, inspect the default LOCAL storage node, upload a text file into qa-cron-files-canary, list the folder, download the file, verify DB/filesystem persistence, then delete the canary row/file.",
-      "expectedSideEffects": [
-        "The default LOCAL storage node remains visible and usable even though its persisted basePath contains ${APP_SLUG:-vcontrolhub}",
-        "POST /api/storage/local writes the file under the expanded runtime root /var/lib/vcontrolhub/storage",
-        "FileEntry is persisted with the requested relative path and size",
-        "GET /api/files/list shows the uploaded file and GET /api/storage/local downloads the exact bytes",
-        "Cleanup removes the physical file and DB row"
-      ],
-      "outOfScope": [
-        "No SFTP server mutation beyond neighboring route regression coverage",
-        "No share-link/direct-access redesign",
-        "No unrelated Files UI polish"
-      ],
-      "evidenceProfile": "files_storage_sftp"
-    },
-    "evidenceMatrix": {
-      "browser_or_dom": "Production browser login reached the authenticated Files shell earlier in the run, showing the Files page and storage navigation. The side-effect proof then used the same production route contracts through authenticated API calls because the original blocker was in the LOCAL storage API path rather than static DOM rendering.",
-      "api": "Pre-fix authenticated POST /api/storage/local against node_local_default failed with HTTP 500 {error: ENOENT: no such file or directory, mkdir '/var/lib/${APP_SLUG:-vcontrolhub}'}. After deployment, authenticated login returned 303, GET /api/files/list for node_local_default returned an empty baseline, POST /api/storage/local returned 200 {ok:true, relativePath: qa-cron-files-canary/20260604T113504Z-storage-canary.txt, size:90}, folder listing returned the uploaded filename, and download returned HTTP 200 text/plain length 90 with matching body.",
-      "db_or_persisted_config": "Production Prisma inspection showed node_local_default persisted basePath remained /var/lib/${APP_SLUG:-vcontrolhub}/storage, while the uploaded FileEntry row cmpzf4yjp0001ifv291e4w1te had relativePath qa-cron-files-canary/20260604T113504Z-storage-canary.txt, size 90, isDeleted false. Cleanup deleted that row and verified local canary row count 0 plus qa_cron_* user count 0.",
-      "filesystem_or_sftp": "The canary file existed at expanded absolute path /var/lib/vcontrolhub/storage/qa-cron-files-canary/20260604T113504Z-storage-canary.txt with stat size 90, proving runtime expansion avoided the literal ${APP_SLUG:-vcontrolhub} directory. Cleanup unlinked the file and left no qa-cron-files-canary files under the expanded root. No remote SFTP mutation was performed.",
-      "background_task_or_process": "No background worker was required for LOCAL upload. vcontrolhub-next.service executed the upload/download route after build artifact ownership repair and restart. Docker remained available/active but was not touched by this files canary.",
-      "runtime_or_ui_side_effect": "The operator-visible Files local-storage path now performs the real write/list/download side effect instead of reporting a 500 from a literal template directory. Shared storage path resolution also expands the same placeholder for other local storage helpers.",
-      "permissions": "Authenticated admin session and CSRF token were required for the upload. Unauthenticated preflight still showed protected /files redirected with 307 and protected APIs guarded with 401; no permission boundary was relaxed.",
-      "regression": [
-        "npx vitest run src/lib/storage/__tests__/path-utils.test.ts src/app/api/storage/local/__tests__/route.test.ts src/app/api/files/list/__tests__/route.test.ts: 3 files / 23 tests passed",
-        "npx vitest run src/lib/storage/__tests__/path-utils.test.ts: 1 file / 9 tests passed",
-        "git diff --check passed",
-        "npm run typecheck passed",
-        "npm run lint passed",
-        "npm run build passed",
-        "npm run build:runtime passed"
-      ],
-      "production": "Repaired .next/dist ownership to vcontrolhub:vcontrolhub, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, confirmed vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 24 checks. An immediate /api/status probe returned a transient 502 during the restart window, then smoke readiness and later health checks passed.",
-      "logs": "Preflight logs were clean. The journal captured the expected pre-fix ENOENT at 2026-06-04T11:29:44Z from the failing canary; post-fix log scan found no new storage/ENOENT errors after the deployed successful upload/download cleanup.",
-      "cleanup": "Removed the uploaded canary file, deleted the FileEntry row, verified local canary rows 0, qa_cron_* users 0, QuickService rows [], and docker ps had no qs-* containers. Temporary cookie/upload/download files under /tmp were removed."
+      "qaPathId": "media-image-bed-consolidation",
+      "userJourney": "Operator opens media image mode, uploads one or more images to a selected storage node/directory, refreshes/scans, and publishes existing stored image files as reusable public image-bed links without switching to a separate unclear page.",
+      "evidence": [
+        "targeted media/image-bed/API/storage helper regressions 25/25 plus storage helper tests 4/4 after final cleanup",
+        "npm run verify passed including typecheck/lint/full Vitest 202 files / 907 tests/build/runtime/deploy-assets",
+        "production restart succeeded after confirming .next/BUILD_ID and dist artifacts",
+        "smoke-test 25/25 passed",
+        "/api/status healthy and protected media/image-bed/image APIs return 307/401 as expected",
+        "post-readiness log window clean; only restart-window Caddy 502s and HTTP-only warnings appeared immediately during service restart"
+      ]
     }
   },
   "runPolicy": {

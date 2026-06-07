@@ -21,7 +21,7 @@ import {
   generateThumbnail,
 } from "@/lib/image/service";
 import { logError } from "@/lib/logging";
-import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { writeStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -178,28 +178,19 @@ async function handleUpload(request: Request, userId: string) {
     ]);
 
     let linkedStorageCopyPath: string | null = null;
+    let linkedStorageRelativePath: string | null = null;
 
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
       try {
         const storageNode = await prisma.storageNode.findUnique({
           where: { id: storageNodeId },
-          select: { id: true, driver: true, basePath: true },
+          select: storageFileNodeSelect,
         });
-        if (storageNode && storageNode.driver === "LOCAL") {
-          const resolvedPath = resolveStoragePathWithinBase(
-            storageNode.basePath,
-            relativePath,
-          );
-          if (!resolvedPath.ok) {
-            return NextResponse.json(
-              { error: resolvedPath.reason },
-              { status: 400 },
-            );
-          }
-          await mkdir(resolvedPath.path, { recursive: true });
-          linkedStorageCopyPath = path.join(resolvedPath.path, storageKey);
-          await writeFile(linkedStorageCopyPath, buffer);
+        if (storageNode && (storageNode.driver === "LOCAL" || storageNode.driver === "SFTP")) {
+          linkedStorageRelativePath = `${relativePath.replace(/\/$/, "")}/${storageKey}`;
+          const writtenStoragePath = await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, buffer);
+          if (storageNode.driver === "LOCAL") linkedStorageCopyPath = writtenStoragePath;
         }
       } catch (e) {
         // Non-fatal: cloud copy is best-effort
@@ -221,8 +212,8 @@ async function handleUpload(request: Request, userId: string) {
           checksum,
           album,
           isPublic: true,
-          storageNodeId: storageNodeId || undefined,
-          relativePath: relativePath || undefined,
+          storageNodeId: linkedStorageRelativePath && storageNodeId ? storageNodeId : undefined,
+          relativePath: linkedStorageRelativePath || undefined,
           userId: userId,
         },
       });
