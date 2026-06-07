@@ -1,11 +1,12 @@
 import { requireSession } from "@/lib/auth/require-session";
+import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listMediaItems, listMediaTags } from "@/lib/media/service";
+import { listMediaItems, listMediaTags, listMediaTypeCounts } from "@/lib/media/service";
 import { PageShell, PermissionDenied } from "@/components/page-shell";
 import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
 import { MediaItemCard } from "./media-item-card";
-import { FilterLink, toggleFavoriteHref, toggleTagHref, toggleTypeHref, type MediaFilterState } from "./media-filter-links";
+import { FilterLink, mediaHref, toggleFavoriteHref, toggleTagHref, toggleTypeHref, type MediaFilterState } from "./media-filter-links";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,10 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
   const favorite = params?.favorite === "1" ? true : undefined;
   const q = params?.q?.trim() || undefined;
   const tag = params?.tag?.trim() || undefined;
-  const [media, tagCloud] = await Promise.all([
+  const [media, tagCloud, typeCounts] = await Promise.all([
     listMediaItems({ mediaType, q, favorite, tag }),
     listMediaTags(),
+    listMediaTypeCounts({ q, favorite, tag }),
   ]);
   const filters: MediaFilterState = { type: mediaType, q, favorite, tag };
 
@@ -35,17 +37,17 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
     grouped.get(groupKey)!.push(m);
   }
 
-  const imageCount = media.filter((m) => m.mediaType === "image").length;
-  const videoCount = media.filter((m) => m.mediaType === "video").length;
-  const audioCount = media.filter((m) => m.mediaType === "audio").length;
+  const imageCount = typeCounts.image;
+  const videoCount = typeCounts.video;
+  const audioCount = typeCounts.audio;
   const favCount = media.filter((m) => m.favorite).length;
 
   return (
     <PageShell>
       <header className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Media</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">媒体库 / 图床</h1>
-        <p className="mt-1.5 text-sm text-slate-500">视频和音频保持媒体库播放；切到图片后会融合图床：可批量上传、把已存储图片发布为外链、复制 Markdown/HTML。</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">媒体库</h1>
+        <p className="mt-1.5 text-sm text-slate-500">统一管理图片、视频和音频；图片工作区可批量上传并发布为图床外链，图床页仅保留已发布外链的管理/审计。</p>
       </header>
 
       <form method="GET" action="/media" className="mb-4 flex flex-wrap items-center gap-2">
@@ -67,19 +69,38 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         )}
       </form>
 
+      <div className="mb-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 light:border-slate-200 light:bg-white">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-semibold text-white light:text-slate-900">媒体类型切换</div>
+            <p className="text-xs text-slate-500">当前筛选会保留搜索、标签和收藏条件；再次点击已选类型可回到全部媒体。</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {mediaType === "image" ? (
+              <Link href="/image-bed" className="rounded-full border border-emerald-400/25 bg-emerald-400/[0.08] px-2.5 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-400/15 light:text-emerald-800">
+                外链管理 / 来源审计
+              </Link>
+            ) : null}
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-2.5 py-1 text-[11px] text-cyan-200 light:text-cyan-800">当前视图 {media.length} 项</span>
+          </div>
+        </div>
+        <div role="tablist" aria-label="媒体类型" className="grid gap-2 text-sm sm:grid-cols-4">
+          <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/40 bg-cyan-400/20 text-cyan-100 light:text-cyan-900" inactiveClassName="border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-200 light:text-cyan-800 hover:bg-cyan-400/10" className="rounded-xl border px-3 py-2 transition">
+            全部 <span className="opacity-70">{imageCount + videoCount + audioCount}</span>
+          </FilterLink>
+          <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/50 bg-blue-400/20 text-blue-100 shadow-[inset_0_0_0_1px_rgba(96,165,250,0.18)] light:text-blue-900" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 light:text-blue-800 hover:bg-blue-400/10" className="flex items-center justify-between rounded-xl border px-3 py-2 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
+            <span>🖼️ 图片</span><span className="opacity-70">{imageCount}</span>{mediaType === "image" ? <span className="ml-1 opacity-70">×</span> : null}
+          </FilterLink>
+          <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/50 bg-purple-400/20 text-purple-100 shadow-[inset_0_0_0_1px_rgba(192,132,252,0.18)] light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="flex items-center justify-between rounded-xl border px-3 py-2 transition" title={mediaType === "video" ? "再次点击取消视频筛选" : "只看视频"}>
+            <span>🎬 视频</span><span className="opacity-70">{videoCount}</span>{mediaType === "video" ? <span className="ml-1 opacity-70">×</span> : null}
+          </FilterLink>
+          <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/50 bg-emerald-400/20 text-emerald-100 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.18)] light:text-emerald-900" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 light:text-emerald-800 hover:bg-emerald-400/10" className="flex items-center justify-between rounded-xl border px-3 py-2 transition" title={mediaType === "audio" ? "再次点击取消音频筛选" : "只看音频"}>
+            <span>🎧 音频</span><span className="opacity-70">{audioCount}</span>{mediaType === "audio" ? <span className="ml-1 opacity-70">×</span> : null}
+          </FilterLink>
+        </div>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <FilterLink href="/media" active={!mediaType && !favorite && !tag && !q} activeClassName="border-cyan-400/40 bg-cyan-400/20 text-cyan-100 light:text-cyan-900" inactiveClassName="border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-200 light:text-cyan-800 hover:bg-cyan-400/10" className="rounded-full border px-3 py-1 transition">
-          当前 {media.length} 项
-        </FilterLink>
-        <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/40 bg-blue-400/20 text-blue-100 light:text-blue-900" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 light:text-blue-800 hover:bg-blue-400/10" className="rounded-full border px-3 py-1 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
-          图片 {imageCount}
-        </FilterLink>
-        <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/40 bg-purple-400/20 text-purple-100 light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="rounded-full border px-3 py-1 transition" title={mediaType === "video" ? "再次点击取消视频筛选" : "只看视频"}>
-          视频 {videoCount}
-        </FilterLink>
-        <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/40 bg-emerald-400/20 text-emerald-100 light:text-emerald-900" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 light:text-emerald-800 hover:bg-emerald-400/10" className="rounded-full border px-3 py-1 transition" title={mediaType === "audio" ? "再次点击取消音频筛选" : "只看音频"}>
-          音频 {audioCount}
-        </FilterLink>
         <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100 light:text-amber-900" inactiveClassName="border-amber-400/20 bg-amber-400/[0.06] text-amber-200 light:text-amber-800 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? "再次点击取消收藏筛选" : "只看收藏"}>
           ⭐ 收藏 {favCount}
         </FilterLink>

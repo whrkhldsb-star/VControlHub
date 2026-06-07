@@ -264,3 +264,9 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - 验证：targeted tests 38/38、typecheck、lint、full verify 均通过。
 - 部署：build:runtime 后重启 next/ssh-ws，服务 active，`/api/status` healthy，smoke 25/25 passed。
 - 生产日志：重启后 readiness 日志检查未发现 error/fail/warn/exception/traceback。
+
+### 2026-06-07 — Media/image-bed navigation closure and production recovery
+- Restored production after `.next/BUILD_ID` was missing by rebuilding Next/runtime artifacts, fixing ownership and restarting `vcontrolhub-next`/`vcontrolhub-ssh-ws`; confirmed `vcontrolhub-next`, `vcontrolhub-ssh-ws`, `caddy`, and `postgresql` are active and enabled.
+- Closed the user-visible media/image-bed gap: standalone `/image-bed` is no longer exposed in the main/sidebar/global-search navigation; it remains only as a compatibility external-link management/source-audit page reachable from `/media?type=image`.
+- Verified `/media?type=image` in production has the media heading, image/video/audio switcher, image upload workspace, and the external-link audit entry; `/image-bed` appears only as that image-mode auxiliary link.
+- Validation: targeted media/image-bed/global-search tests passed (5 files / 21 tests), typecheck/lint passed, `npm run verify` passed, and production smoke test passed 25/25.

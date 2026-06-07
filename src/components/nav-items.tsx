@@ -50,7 +50,6 @@ export const mainNavItems: AppNavItem[] = [
 	{ href: "/quick-services", labelKey: "nav.quickservice", fallbackLabel: "快捷服务", icon: <IconStore /> },
 	{ href: "/snippets", labelKey: "nav.snippets", fallbackLabel: "代码片段", icon: <IconCode /> },
 	{ href: "/media", labelKey: "nav.media", fallbackLabel: "媒体库", icon: <IconMovie /> },
-	{ href: "/image-bed", labelKey: "nav.image-bed", fallbackLabel: "图床", icon: <IconImage /> },
 	{ href: "/ai", labelKey: "nav.ai", fallbackLabel: "AI 助手", icon: <IconAi /> },
 	{ href: "/announcements", labelKey: "nav.announcements", fallbackLabel: "站内公告", icon: <IconBell /> },
 	{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "工单请求", icon: <IconTicket /> },

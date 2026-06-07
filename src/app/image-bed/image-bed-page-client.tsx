@@ -311,8 +311,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Header */}
 			<div className="flex items-center justify-between mb-2">
 				<div>
-					<h1 className="text-3xl font-semibold text-white light:text-slate-900">图床外链管理</h1>
-					<p className="mt-1 text-sm text-slate-400 light:text-slate-600">管理已发布图片、复制外链并查看它来自图床直传还是媒体库 / 云盘发布；新建图片工作流优先从媒体库进入。</p>
+					<h1 className="text-3xl font-semibold text-white light:text-slate-900">图片外链管理</h1>
+					<p className="mt-1 text-sm text-slate-400 light:text-slate-600">管理已发布图片、复制外链并查看它来自直传还是媒体库 / 云盘发布；新建图片工作流优先从媒体库进入。</p>
 				</div>
 				<div className="flex flex-wrap items-center justify-end gap-2">
 					<Link href="/media?type=image" className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/10 text-emerald-300 light:text-emerald-700 hover:bg-emerald-500/20 transition">🖼 打开图片工作区</Link>

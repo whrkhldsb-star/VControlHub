@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { fileEntry: { findMany: vi.fn() }, mediaItem: { upsert: vi.fn(), findMany: vi.fn(), update: vi.fn() } } }));
+const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { fileEntry: { findMany: vi.fn() }, mediaItem: { upsert: vi.fn(), findMany: vi.fn(), update: vi.fn(), groupBy: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-const { classifyMedia, scanMediaFromFileEntries, listMediaItems } = await import("./service");
+const { classifyMedia, scanMediaFromFileEntries, listMediaItems, listMediaTypeCounts } = await import("./service");
 describe("media service", () => {
   beforeEach(() => vi.clearAllMocks());
   it("classifies images and videos only", () => { expect(classifyMedia("image/png")).toBe("image"); expect(classifyMedia("video/mp4")).toBe("video"); expect(classifyMedia("text/plain")).toBeNull(); });
@@ -53,6 +53,30 @@ describe("media service", () => {
           { tags: { has: "summer" } },
         ],
       }),
+    }));
+  });
+
+  it("counts media types across the current non-type filters", async () => {
+    mockPrisma.mediaItem.groupBy.mockResolvedValue([
+      { mediaType: "image", _count: { _all: 3 } },
+      { mediaType: "audio", _count: { _all: 2 } },
+    ]);
+
+    const counts = await listMediaTypeCounts({ q: "summer", favorite: true, tag: "cover" });
+
+    expect(counts).toEqual({ image: 3, video: 0, audio: 2 });
+    expect(mockPrisma.mediaItem.groupBy).toHaveBeenCalledWith(expect.objectContaining({
+      by: ["mediaType"],
+      where: expect.objectContaining({
+        favorite: true,
+        tags: { has: "cover" },
+        OR: [
+          { name: { contains: "summer", mode: "insensitive" } },
+          { relativePath: { contains: "summer", mode: "insensitive" } },
+          { tags: { has: "summer" } },
+        ],
+      }),
+      _count: { _all: true },
     }));
   });
 });

@@ -52,7 +52,7 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
-    expect(screen.getByRole("heading", { name: "图床外链管理" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "图片外链管理" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
 

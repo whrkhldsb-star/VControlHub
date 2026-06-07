@@ -106,6 +106,37 @@ export async function listMediaItems(
   });
 }
 
+export async function listMediaTypeCounts(
+  input: { q?: string; favorite?: boolean; tag?: string } = {},
+) {
+  const q = input.q?.trim();
+  const tag = input.tag?.trim();
+  const grouped = await prisma.mediaItem.groupBy({
+    by: ["mediaType"],
+    where: {
+      favorite: input.favorite,
+      ...(tag ? { tags: { has: tag } } : {}),
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { relativePath: { contains: q, mode: "insensitive" } },
+              { tags: { has: q } },
+            ],
+          }
+        : {}),
+    },
+    _count: { _all: true },
+  });
+  const counts = { image: 0, video: 0, audio: 0 };
+  for (const row of grouped) {
+    if (row.mediaType === "image" || row.mediaType === "video" || row.mediaType === "audio") {
+      counts[row.mediaType] = row._count._all;
+    }
+  }
+  return counts;
+}
+
 export async function listMediaTags() {
   const items = await prisma.mediaItem.findMany({
     select: { tags: true },

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T14:57:45.043531+00:00",
+  "updatedAt": "2026-06-07T16:03:32.331751+00:00",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,29 +58,22 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T12:44:00Z",
-    "finishedAt": "2026-06-07T12:55:17Z",
-    "target": "local-text-editor-storage-grant-boundary",
-    "status": "completed_verified_deployed_pending_push",
-    "summary": "Closed the README P0 issue where /api/files/editable/[id] checked only global storage:read/write and could bypass storage node/path grants.",
+    "startedAt": "2026-06-07T15:56:36Z",
+    "finishedAt": "2026-06-07T16:03:32.331751+00:00",
+    "target": "media-library-type-switcher-dirty-closeout",
+    "status": "verified_pending_restart_approval",
+    "summary": "Closed the dirty media-library slice locally by adding first-class image/video/audio type switching with global counts and renaming the image-bed nav entry to external-link management, but did not commit/push because production restart activation was approval-blocked.",
     "changeContract": {
-      "qaPathId": "local-text-editor-storage-grant-boundary",
-      "userJourney": "Operators can use the in-browser LOCAL text editor only when the current session has the matching storage node/path grant; read requires read access and save requires write access/quota for the edited bytes.",
+      "qaPathId": "media-library-type-switcher",
+      "userJourney": "Operators can use /media as the primary media library, switch between all/image/video/audio views while preserving search/tag/favorite filters, see type counts across the current filter context, and recognize /image-bed as external-link management rather than a second image workspace.",
       "evidence": [
-        "Editable file route now passes the authenticated session into storage draft load/save operations",
-        "Storage service resolves the LOCAL file entry, then calls assertStorageAccess with storageNodeId, relativePath, operation read/write, and writeBytes on save",
-        "Denied path-grant regression rejects editable draft reads before filesystem access",
-        "Route regression proves GET/PUT forward session into the guarded storage service calls",
-        "targeted Vitest passed: src/lib/storage/__tests__/service.test.ts and src/app/api/files/editable/[id]/__tests__/route.test.ts, 22/22",
-        "npm run typecheck passed",
-        "npm run lint -- --max-warnings=0 passed",
-        "npm run verify passed including full tests, Next build, runtime build, and deploy-assets",
-        "production build:runtime passed before restart",
-        "production restart succeeded for vcontrolhub-next.service and vcontrolhub-ssh-ws.service",
-        "systemctl confirmed vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active",
-        "https://whrkhldsb.qzz.io/api/status healthy after deploy",
-        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
-        "post-restart service log scan returned no matching errors/warnings"
+        "README and nav/i18n copy narrow image-bed to external-link management/source audit",
+        "Media page renders a first-class media type switcher and keeps image upload/publish workflow only in image mode",
+        "Media service adds listMediaTypeCounts with search/tag/favorite parity",
+        "Targeted media page/service regressions passed",
+        "Full verify passed including full Vitest, Next build, runtime build, and deploy-assets",
+        "Production was restored from the preflight 502 state by an already-running build/restart chain before this closeout",
+        "Final activation restart for the verified dirty build was blocked by approval policy, so commit/push was intentionally deferred"
       ]
     }
   },
@@ -100,7 +93,29 @@
     "successfulRemediationRunsSinceFreshAudit": 31,
     "skippedOverlapRuns": 0
   },
-  "blockers": [],
+  "blockers": [
+    {
+      "id": "media-type-switcher-restart-approval-2026-06-07",
+      "createdAt": "2026-06-07T16:03:32.331751+00:00",
+      "targetQaPathId": "media-library-type-switcher",
+      "priority": "high",
+      "status": "active",
+      "reason": "Dirty media-library/image-bed navigation slice passed targeted tests, typecheck, lint, and full npm run verify, but production restart/chown activation was blocked by approval policy in the scheduled cron context.",
+      "requiredProof": [
+        "Approve/run the activation command after confirming no next build process is active: chown -R vcontrolhub:vcontrolhub .next dist && systemctl reset-failed vcontrolhub-next.service && systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service.",
+        "Run /api/status, ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub, and recent service log scan after restart.",
+        "Only then commit/push the media type switcher and image-bed nav-label dirty slice."
+      ],
+      "verificationSoFar": [
+        "git diff --check passed",
+        "npx vitest run src/lib/media/service.test.ts src/app/media/__tests__/page.test.tsx --reporter=dot passed",
+        "npm run typecheck passed",
+        "npm run lint -- --max-warnings=0 passed",
+        "npm run verify passed: full Vitest 205 files / 930 tests, Next build, runtime build, deploy-assets",
+        "Read-only production health after prior recovery: services active, /api/status 200 healthy, smoke 25/25, recent logs clean"
+      ]
+    }
+  ],
   "productDirection": "Active full-product canary evidence QA loop with deterministic per-run preflight: every half-hour run must first reconcile environment capabilities, cron health, services, Docker/Quick Services readiness, git/origin state, critical routes, and logs before selecting one real user journey and producing a detailed closeout checklist.",
   "removedBacklogCronJobId": "b8833e83bb1f",
   "qaControlSystem": {
@@ -1240,5 +1255,35 @@
         "recent readiness logs checked after restart"
       ]
     }
-  ]
+  ],
+  "completed": [
+    {
+      "id": "media-image-bed-nav-consolidation",
+      "completedAt": "2026-06-07T16:22:34.044067+00:00",
+      "summary": "Recovered production after missing .next build artifacts, confirmed systemd enablement and closed media/image-bed navigation gap: main nav no longer exposes standalone image-bed, media image mode has first-class image/video/audio switching and external-link audit entry.",
+      "evidence": [
+        {
+          "command": "npm run test -- --run src/lib/media/service.test.ts src/app/media/__tests__/page.test.tsx src/app/image-bed/__tests__/page.test.tsx src/components/__tests__/global-search.test.tsx src/components/__tests__/global-search-catalog.test.ts",
+          "result": "5 files / 21 tests passed"
+        },
+        {
+          "command": "npm run typecheck -- --pretty false && npm run lint -- --max-warnings=0",
+          "result": "passed"
+        },
+        {
+          "command": "npm run verify",
+          "result": "passed; Next webpack build, runtime build, deploy assets verified"
+        },
+        {
+          "command": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub",
+          "result": "25/25 checks passed"
+        },
+        {
+          "command": "curl authenticated /media?type=image",
+          "result": "200 OK; media heading, image/video/audio switcher, and external-link audit entry present; /image-bed only appears as media image-mode auxiliary link"
+        }
+      ]
+    }
+  ],
+  "lastUpdatedAt": "2026-06-07T16:22:34.044067+00:00"
 }
