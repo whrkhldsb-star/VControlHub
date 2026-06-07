@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T17:09:48Z",
+  "updatedAt": "2026-06-07T18:25:13Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -59,10 +59,10 @@
   },
   "lastRun": {
     "startedAt": "2026-06-07T16:59:52Z",
-    "finishedAt": "2026-06-07T17:21:10Z",
+    "finishedAt": "2026-06-07T18:25:13Z",
     "target": "media-visual-workspace-and-image-link-center-redesign",
     "status": "verified_deployed_ready_to_commit",
-    "summary": "Redesigned /media into a visual media workspace with image thumbnails, video first-frame covers, audio icon covers, separated /image-bed link-center management, and cancellation-safe shared media/download stream conversion; deployed and smoke-tested successfully.",
+    "summary": "Closed dirty media/share/sidebar/i18n/QuickService polish: /shares now supports inline storage browsing and batch share creation, public directory shares refresh LOCAL/SFTP one-level indexes on access, media/image-bed visual workspace and Quick Apps navigation/search polish are deployed with smoke/log proof.",
     "changeContract": {
       "qaPathId": "media-visual-workspace-and-image-link-center-redesign",
       "userJourney": "Operator opens /media, visually distinguishes images/videos/audio from card covers, enters image mode for publishing, and uses /image-bed only for published-link management/source audit or compatibility direct upload.",
@@ -76,7 +76,12 @@
         "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
         "/api/status returned healthy database/VPS/storage checks",
         "post-restart journal scan was clean after replacing the shared Node-to-Web stream adapter with cancellation-safe close/error handling",
-        "media-stream abort probe completed without new Controller is already closed or uncaughtException log entries"
+        "media-stream abort probe completed without new Controller is already closed or uncaughtException log entries",
+        "waited for an overlapping next build to finish before touching .next; confirmed .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed",
+        "chown -R vcontrolhub:vcontrolhub .next dist and restarted vcontrolhub-next.service plus vcontrolhub-ssh-ws.service successfully",
+        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks",
+        "post-restart /api/status returned 200 healthy 3/3",
+        "post-restart journal scan for next/ssh-ws found no error/warn/failed/exception matches"
       ]
     }
   },
