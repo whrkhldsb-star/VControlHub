@@ -77,6 +77,17 @@ describe("AI service list hydration limits", () => {
     }));
   });
 
+  it("rejects private AI provider Base URLs before persistence", async () => {
+    await expect(createProvider({
+      name: "Local compatible",
+      apiKey: "sk-test",
+      baseUrl: "http://127.0.0.1:11434/v1",
+      createdBy: "u1",
+    })).rejects.toThrow(/公网 HTTP\(S\)/);
+
+    expect(prismaMock.aiProvider.create).not.toHaveBeenCalled();
+  });
+
   it("normalizes duplicate provider model lists on update", async () => {
     await updateProvider("p1", "u1", {
       availableModels: [" claude-3 ", "claude-3", "", "claude-3.5"],
@@ -88,5 +99,13 @@ describe("AI service list hydration limits", () => {
         availableModels: JSON.stringify(["claude-3", "claude-3.5"]),
       }),
     }));
+  });
+
+  it("rejects private AI provider Base URLs on update", async () => {
+    await expect(updateProvider("p1", "u1", {
+      baseUrl: "http://169.254.169.254/latest/meta-data",
+    })).rejects.toThrow(/metadata/);
+
+    expect(prismaMock.aiProvider.update).not.toHaveBeenCalled();
   });
 });

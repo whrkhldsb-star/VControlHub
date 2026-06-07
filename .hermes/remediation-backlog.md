@@ -217,6 +217,14 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 - 2026-06-03 — Quick Services Docker lifecycle blocker resolved by a real authenticated AList 云盘 install/start/stop/uninstall canary: Docker is available and the stale no-Docker proof has been superseded. No active blocker remains for this lane; next focus should rotate to the next backlog canary.
 
+
+### 2026-06-07T23:05:19Z — AI Provider / QuickService app-source URL boundary closeout
+- Scope: lightweight run 41/42 with a focused SSRF/egress trust boundary fix for operator-configured AI Provider base URLs and QuickService custom app-source URLs.
+- Fix: added a shared public HTTP(S) URL normalizer that rejects credentials, localhost, loopback, private IPv4/IPv6, link-local/special ranges, and `metadata.google.internal`; AI Provider create/update, app-source creation, and app-source fetch now pass through it while the default OpenAI Base URL remains `https://api.openai.com/v1`.
+- Verification: `git diff --check`; targeted Vitest `src/lib/ai/service.test.ts`, `src/lib/quick-service/__tests__/adapters.test.ts`, and `src/lib/storage/__tests__/schema.test.ts` passed 11/11; `npm run typecheck`; `npm run lint -- --max-warnings=0`; full `npm run verify` passed with 208 files / 944 tests plus Next build/runtime/deploy-assets.
+- Deployment/status: repaired `.next`/`dist` ownership, restarted `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service`, reloaded Caddy, retried through an initial restart-window 502 to `/api/status` 200 healthy 3/3, smoke passed 25/25, and post-restart Next/SSH-WS logs were clean of new warning/error/failure matches.
+- Cleanup/limits: no temporary QA user, Docker container, SFTP/file, or DB side effect was created; unrelated media diff was reverted. DNS rebinding and redirect-to-private defenses remain future network/egress-policy candidates.
+
 ## Last known healthy baseline
 
 - 2026-05-29 comprehensive audit: git clean, `npm run typecheck` passed, `npm run lint` passed, `npm test` passed (160 files / 612 tests), `npm run build` passed, `npm run build:runtime` passed, production services active, `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed 19/19.

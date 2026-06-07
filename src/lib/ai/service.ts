@@ -1,6 +1,9 @@
 import { prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
+import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
+
+const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
 
 function safeDecryptApiKey(stored: string): string {
 	try {
@@ -14,6 +17,10 @@ function normalizeProviderModels(models?: string[]) {
   return Array.from(
     new Set((models ?? []).map((model) => model.trim()).filter(Boolean)),
   );
+}
+
+function normalizeProviderBaseUrl(value: string | undefined) {
+  return normalizePublicHttpUrl(value?.trim() || DEFAULT_AI_BASE_URL);
 }
 
 /* ── Types ──────────────────────────────────────────────────── */
@@ -88,7 +95,7 @@ export async function createProvider(input: CreateProviderInput) {
       name: input.name.trim(),
       type: (input.type as "OPENAI_COMPATIBLE") || "OPENAI_COMPATIBLE",
 		apiKey: encrypt(input.apiKey.trim()),
-		baseUrl: input.baseUrl?.trim() || "https://api.openai.com/v1",
+		baseUrl: normalizeProviderBaseUrl(input.baseUrl),
       defaultModel: input.defaultModel?.trim() || "gpt-4o",
       availableModels: JSON.stringify(normalizeProviderModels(input.availableModels)),
       isDefault: input.isDefault ?? false,
@@ -138,7 +145,7 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
       ...(input.name !== undefined && { name: input.name.trim() }),
       ...(input.type !== undefined && { type: input.type as "OPENAI_COMPATIBLE" }),
 	...(input.apiKey !== undefined && { apiKey: encrypt(input.apiKey.trim()) }),
-      ...(input.baseUrl !== undefined && { baseUrl: input.baseUrl.trim() }),
+      ...(input.baseUrl !== undefined && { baseUrl: normalizeProviderBaseUrl(input.baseUrl) }),
       ...(input.defaultModel !== undefined && { defaultModel: input.defaultModel.trim() }),
       ...(input.availableModels !== undefined && { availableModels: JSON.stringify(normalizeProviderModels(input.availableModels)) }),
       ...(input.isDefault !== undefined && { isDefault: input.isDefault }),

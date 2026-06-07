@@ -12,6 +12,7 @@ import {
   syncSource,
 } from "@/lib/quick-service/app-source-sync";
 import { listQuickServices } from "@/lib/quick-service/service";
+import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
 export const dynamic = "force-dynamic";
 
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
         data: {
           name: parsed.data.name,
           displayName: parsed.data.displayName,
-          url: parsed.data.url,
+          url: normalizePublicHttpUrl(parsed.data.url),
           type: parsed.data.type,
         },
       });

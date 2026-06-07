@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T21:32:51Z",
+  "updatedAt": "2026-06-07T23:05:19Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,27 +58,28 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T21:22:37Z",
-    "finishedAt": "2026-06-07T21:32:51Z",
-    "target": "storage-nodes-grant-filter-boundary",
+    "startedAt": "2026-06-07T22:47:37Z",
+    "finishedAt": "2026-06-07T23:05:19Z",
+    "target": "ai-provider-app-source-url-boundary",
     "status": "verified_deployed_committing",
-    "summary": "Closed /api/storage/nodes metadata authorization boundary so ordinary storage readers only see storage nodes covered by readable grants; verified locally, deployed to production, smoked, and proved with a temporary viewer canary.",
+    "summary": "Closed AI Provider and QuickService app-source static URL egress boundary by reusing a shared public HTTP(S) URL normalizer and deploying it to production.",
     "changeContract": {
-      "qaPathId": "storage-nodes-grant-filter-boundary",
-      "userJourney": "A low-privilege storage reader opens a storage-node selector/API-backed surface and should only learn about nodes they are explicitly granted to read, not every configured LOCAL/SFTP base path.",
+      "qaPathId": "ai-provider-app-source-url-boundary",
+      "userJourney": "An operator configures AI Provider base URLs or QuickService custom app sources; the server must reject localhost/private/link-local/metadata destinations before persistence or outbound fetch while preserving the default OpenAI base URL.",
       "evidence": [
-        "Preflight: Docker available, services active, git clean, HEAD == origin/main 4c5f521, /api/status 200, recent logs clean",
-        "npx vitest run src/app/api/storage/nodes/__tests__/route.test.ts --reporter=dot passed 4/4",
+        "Preflight: Docker available, services active/enabled, git clean, HEAD == origin/main b910a66, /api/status 200 healthy, recent logs clean",
+        "Reused storage direct-access public-host checks as normalizePublicHttpUrl and exported isUnsafePublicHttpHost",
+        "AI Provider create/update now normalizes baseUrl through the public HTTP(S) URL boundary; default remains https://api.openai.com/v1",
+        "QuickService app-source POST and server-side fetch now validate custom source URLs before persistence/fetch",
+        "npx vitest run src/lib/ai/service.test.ts src/lib/quick-service/__tests__/adapters.test.ts src/lib/storage/__tests__/schema.test.ts --reporter=dot passed 11/11",
         "git diff --check passed",
         "npm run typecheck passed",
         "npm run lint -- --max-warnings=0 passed",
-        "npm run verify passed: Vitest 207 files / 940 tests plus Next build, runtime build, deploy-assets",
-        "Production services restarted after .next/BUILD_ID and dist artifacts existed and ownership was repaired",
-        "Stable post-restart /api/status returned 200",
+        "npm run verify passed: Vitest 208 files / 944 tests plus Next build, runtime build, deploy-assets",
+        "Production services restarted after .next/dist ownership repair; first immediate /api/status hit transient 502, retry returned 200 healthy 3/3",
         "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
-        "Temporary viewer with one SFTP read grant received only that granted node from /api/storage/nodes and did not receive node_local_default",
-        "Temporary qa_cron_* user cleanup verified 0 remaining",
-        "Post-restart next/ssh-ws filtered journal scan clean"
+        "Post-restart next/ssh-ws filtered journal scan found no new error/warn/failed/exception matches; pre-restart media-stream No such file logs were unrelated",
+        "No temporary QA users, Docker containers, files, SFTP objects, or DB rows were created; unrelated media diff was reverted"
       ]
     }
   },
@@ -95,7 +96,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 32,
+    "successfulRemediationRunsSinceFreshAudit": 33,
     "skippedOverlapRuns": 0
   },
   "blockers": [

@@ -11,6 +11,7 @@
 import type { ServiceTemplate } from "./types";
 import { SERVICE_CATALOG } from "./catalog";
 import { createLogger } from "@/lib/logging";
+import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
 const logger = createLogger("app-source:adapters");
 
@@ -246,7 +247,8 @@ export async function fetchSourceApps(
 ): Promise<NormalizedApp[]> {
 	const adapter = ADAPTERS[sourceType] || ADAPTERS["json"];
 	try {
-		const apps = await adapter(url);
+		const safeUrl = normalizePublicHttpUrl(url);
+		const apps = await adapter(safeUrl);
 		logger.info(`Fetched ${apps.length} apps from ${sourceName} (${sourceType})`);
 		return apps;
 	} catch (err) {
