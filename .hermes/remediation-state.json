@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T16:03:32.331751+00:00",
+  "updatedAt": "2026-06-07T16:35:33Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,22 +58,21 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T15:56:36Z",
-    "finishedAt": "2026-06-07T16:03:32.331751+00:00",
-    "target": "media-library-type-switcher-dirty-closeout",
-    "status": "verified_pending_restart_approval",
-    "summary": "Closed the dirty media-library slice locally by adding first-class image/video/audio type switching with global counts and renaming the image-bed nav entry to external-link management, but did not commit/push because production restart activation was approval-blocked.",
+    "startedAt": "2026-06-07T16:34:36Z",
+    "finishedAt": "2026-06-07T16:35:33Z",
+    "target": "media-library-type-switcher-state-reconciliation",
+    "status": "no_code_change_stale_blocker_reconciled",
+    "summary": "Reconciled stale active restart-approval blocker after confirming the media/image-bed navigation closure is already committed at f666ec7, main equals origin/main, production services are active, /api/status is healthy, smoke passed 25/25, and recent service logs are clean.",
     "changeContract": {
-      "qaPathId": "media-library-type-switcher",
-      "userJourney": "Operators can use /media as the primary media library, switch between all/image/video/audio views while preserving search/tag/favorite filters, see type counts across the current filter context, and recognize /image-bed as external-link management rather than a second image workspace.",
+      "qaPathId": "media-library-type-switcher-state-reconciliation",
+      "userJourney": "No new product journey was opened because this non-6th run found an active state blocker that contradicted the clean deployed repo. The run verified the existing media/image-bed closure was already active/healthy and updated durable state only.",
       "evidence": [
-        "README and nav/i18n copy narrow image-bed to external-link management/source audit",
-        "Media page renders a first-class media type switcher and keeps image upload/publish workflow only in image mode",
-        "Media service adds listMediaTypeCounts with search/tag/favorite parity",
-        "Targeted media page/service regressions passed",
-        "Full verify passed including full Vitest, Next build, runtime build, and deploy-assets",
-        "Production was restored from the preflight 502 state by an already-running build/restart chain before this closeout",
-        "Final activation restart for the verified dirty build was blocked by approval policy, so commit/push was intentionally deferred"
+        "git status --short was clean and HEAD matched origin/main at f666ec7",
+        "vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker services were active/enabled",
+        "/api/status returned overall healthy with 3/3 healthy checks",
+        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks",
+        "recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan had no error/warn/failed/exception matches",
+        "no product code changed and no restart was required"
       ]
     }
   },
@@ -99,7 +98,7 @@
       "createdAt": "2026-06-07T16:03:32.331751+00:00",
       "targetQaPathId": "media-library-type-switcher",
       "priority": "high",
-      "status": "active",
+      "status": "resolved",
       "reason": "Dirty media-library/image-bed navigation slice passed targeted tests, typecheck, lint, and full npm run verify, but production restart/chown activation was blocked by approval policy in the scheduled cron context.",
       "requiredProof": [
         "Approve/run the activation command after confirming no next build process is active: chown -R vcontrolhub:vcontrolhub .next dist && systemctl reset-failed vcontrolhub-next.service && systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service.",
@@ -112,8 +111,14 @@
         "npm run typecheck passed",
         "npm run lint -- --max-warnings=0 passed",
         "npm run verify passed: full Vitest 205 files / 930 tests, Next build, runtime build, deploy-assets",
-        "Read-only production health after prior recovery: services active, /api/status 200 healthy, smoke 25/25, recent logs clean"
-      ]
+        "Read-only production health after prior recovery: services active, /api/status 200 healthy, smoke 25/25, recent logs clean",
+        "2026-06-07T16:35Z git clean and HEAD == origin/main f666ec7",
+        "2026-06-07T16:35Z /api/status healthy 3/3",
+        "2026-06-07T16:35Z smoke 25/25 passed",
+        "2026-06-07T16:35Z recent service log scan clean"
+      ],
+      "resolvedAt": "2026-06-07T16:35:33Z",
+      "resolution": "Superseded by clean deployed state: commit f666ec7 is on main/origin, backlog records production restart/smoke/log proof for the media/image-bed navigation closure, and this run revalidated /api/status healthy plus smoke 25/25 with clean recent logs. No further restart approval is pending for this blocker."
     }
   ],
   "productDirection": "Active full-product canary evidence QA loop with deterministic per-run preflight: every half-hour run must first reconcile environment capabilities, cron health, services, Docker/Quick Services readiness, git/origin state, critical routes, and logs before selecting one real user journey and producing a detailed closeout checklist.",
