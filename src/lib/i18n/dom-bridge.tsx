@@ -12,7 +12,7 @@ const translatedAttrNames = ["aria-label", "title", "placeholder"] as const;
 function isSkippableElement(element: Element | null) {
   if (!element) return true;
   const tag = element.tagName.toLowerCase();
-  if (["script", "style", "noscript", "code", "pre", "textarea", "select", "option", "svg"].includes(tag)) return true;
+  if (["script", "style", "noscript", "code", "pre", "textarea", "svg"].includes(tag)) return true;
   if (element.closest("[data-i18n-skip], code, pre, textarea, script, style, svg")) return true;
   return false;
 }
@@ -32,11 +32,36 @@ function translateTextValue(value: string, locale: "zh" | "en") {
   return translated === core ? value : `${leading}${translated}${trailing}`;
 }
 
+function hasTranslatedDescendant(element: HTMLElement) {
+  return Boolean(
+    element.querySelector(
+      "[data-i18n-original-text], [data-i18n-original-aria-label], [data-i18n-original-title], [data-i18n-original-placeholder]",
+    ),
+  );
+}
+
+function translateElementWholeText(element: HTMLElement, locale: "zh" | "en") {
+  if (isSkippableElement(element) || hasTranslatedDescendant(element)) return;
+  const childNodes = Array.from(element.childNodes);
+  const hasText = childNodes.some((node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim());
+  if (!hasText) return;
+  const hasElementChildren = childNodes.some((node) => node.nodeType === Node.ELEMENT_NODE);
+  if (!hasElementChildren) return;
+  const source = element.getAttribute("data-i18n-original-text") ?? element.textContent ?? "";
+  const translated = locale === "zh" ? source : translateTextValue(source, locale);
+  if (translated === source && locale !== "zh") return;
+  if (!element.hasAttribute("data-i18n-original-text")) element.setAttribute("data-i18n-original-text", source);
+  element.textContent = translated;
+}
+
 function localizeTextNode(node: Text, locale: "zh" | "en") {
   if (isSkippableElement(node.parentElement)) return;
   if (!originalText.has(node)) originalText.set(node, node.nodeValue ?? "");
   const source = originalText.get(node) ?? "";
   node.nodeValue = locale === "zh" ? source : translateTextValue(source, locale);
+  if (node.parentElement && translateTextValue(source, "en") !== source) {
+    node.parentElement.setAttribute("data-i18n-original-text-node", "true");
+  }
 }
 
 function localizeElementAttributes(element: HTMLElement, locale: "zh" | "en") {
@@ -73,6 +98,13 @@ function localizeTree(root: ParentNode, locale: "zh" | "en") {
   while (textNode) {
     localizeTextNode(textNode as Text, locale);
     textNode = textWalker.nextNode();
+  }
+
+  const wholeElementWalker = ownerDocument.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  let wholeElementNode = wholeElementWalker.nextNode();
+  while (wholeElementNode) {
+    if (wholeElementNode instanceof HTMLElement) translateElementWholeText(wholeElementNode, locale);
+    wholeElementNode = wholeElementWalker.nextNode();
   }
 }
 
