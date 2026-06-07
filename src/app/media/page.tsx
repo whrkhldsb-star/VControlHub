@@ -72,7 +72,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 light:text-slate-500">Current Workspace</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 light:text-cyan-700/70">Current Workspace</p>
               <h2 className="mt-1 text-xl font-semibold text-white light:text-slate-950">{modeTitle}</h2>
               <p className="mt-1 text-sm text-slate-400 light:text-slate-600">{modeDescription}</p>
             </div>

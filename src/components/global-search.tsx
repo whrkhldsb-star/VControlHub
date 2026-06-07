@@ -26,7 +26,7 @@ const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> 
 	"/backups": { icon: "💾", keywords: ["backup", "备份迁移", "恢复", "restore"] },
 	"/templates": { icon: "🧩", keywords: ["命令模板", "template", "command"] },
 	"/deployments": { icon: "🚀", keywords: ["部署", "deploy", "发布"] },
-	"/quick-services": { icon: "⚡", keywords: ["快服务", "quick service", "quick-services", "应用商店"] },
+	"/quick-services": { icon: "⚡", keywords: ["快服务", "quick service", "quick services", "quick-services", "quick apps", "应用商店"] },
 	"/snippets": { icon: "💻", keywords: ["代码片段", "snippet"] },
 	"/media": { icon: "🎞️", keywords: ["媒体库", "media"] },
 	"/image-bed": { icon: "🖼️", keywords: ["图床", "图片", "image"] },

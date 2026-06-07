@@ -11,6 +11,9 @@ function renderBridge(locale: "zh" | "en") {
       <main>
         <h1>备份与迁移</h1>
         <button aria-label="执行恢复" title="执行恢复">执行恢复</button>
+        <nav data-i18n-skip>
+          <a href="/notifications">通知中心</a>
+        </nav>
         <input placeholder="确认文本" />
         <code>创建定时备份</code>
         <p>qa_canary_20260603.txt</p>
@@ -27,6 +30,8 @@ describe("DomI18nBridge", () => {
     const restoreButton = screen.getByRole("button", { name: "Run restore" });
     expect(restoreButton).toHaveAttribute("title", "Run restore");
     expect(screen.getByPlaceholderText("Confirmation text")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "通知中心" })).toBeInTheDocument();
+    expect(screen.queryByText("Notifications中心")).not.toBeInTheDocument();
     expect(screen.getByText("创建定时备份")).toBeInTheDocument();
     expect(screen.getByText("qa_canary_20260603.txt")).toBeInTheDocument();
   });

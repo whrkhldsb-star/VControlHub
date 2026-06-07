@@ -6,10 +6,12 @@ import { useWsNotifications } from "@/lib/ws/use-ws-notifications";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
 export function NotificationBell() {
+	const { locale } = useI18n();
 	const [isOpen, setIsOpen] = useState(false);
 	const [notifications, setNotifications] = useState<Array<{
 		id: string; type: string; title: string; message: string; isRead: boolean; actionUrl: string | null; createdAt: string;
@@ -43,9 +45,9 @@ export function NotificationBell() {
 			if (!wsConnected) setPolledUnread(data.unreadCount ?? 0);
 		} catch (err) {
 			setNotifications([]);
-			setFeedback({ type: "error", message: err instanceof Error ? err.message : "通知列表加载失败" });
+			setFeedback({ type: "error", message: err instanceof Error ? err.message : (locale === "zh" ? "通知列表加载失败" : "Failed to load notifications") });
 		}
-	}, [wsConnected]);
+	}, [locale, wsConnected]);
 
 	// Poll fallback when WS not connected
 	useEffect(() => {
@@ -131,16 +133,25 @@ export function NotificationBell() {
 			else { setPolledUnread(0); }
 			setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
 		} catch (err) {
-			setFeedback({ type: "error", message: err instanceof Error ? err.message : "通知标记已读失败" });
+			setFeedback({ type: "error", message: err instanceof Error ? err.message : (locale === "zh" ? "通知标记已读失败" : "Failed to mark notifications read") });
 		}
 	};
+
+	const notificationLabel = locale === "zh" ? "通知" : "Notifications";
+	const realtimeLabel = locale === "zh" ? "实时" : "Live";
+	const manualLabel = locale === "zh" ? "手动" : "Manual";
+	const pollingPrefix = locale === "zh" ? "轮询" : "Polling";
+	const markAllReadLabel = locale === "zh" ? "全部已读" : "Mark all read";
+	const emptyLabel = locale === "zh" ? "暂无通知" : "No notifications";
+	const recentListLabel = locale === "zh" ? "最近通知" : "Recent notifications";
+	const viewAllLabel = locale === "zh" ? "查看全部通知 →" : "View all notifications →";
 
 	return (
 		<div className="relative" ref={panelRef}>
 			<button
 				onClick={togglePanel}
 				className="relative flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 hover:bg-white/[0.06] transition"
-				aria-label="通知"
+				aria-label={notificationLabel}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
 				aria-controls="notification-popover"
@@ -155,7 +166,7 @@ export function NotificationBell() {
 				)}
 				{/* WS connection indicator */}
 				{wsConnected && (
-					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400" title="实时连接" />
+					<span className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-emerald-400" title={locale === "zh" ? "实时连接" : "Live connection"} />
 				)}
 			</button>
 
@@ -168,18 +179,18 @@ export function NotificationBell() {
 					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.12] bg-slate-950/98 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto light:border-slate-200 light:bg-white"
 				>
 					<div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between light:border-slate-200 light:bg-white/95">
-						<span id="notification-popover-title" className="text-sm font-medium text-white light:text-slate-900">通知</span>
+						<span id="notification-popover-title" className="text-sm font-medium text-white light:text-slate-900">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
-								<span className="text-[10px] text-emerald-400/70">实时</span>
+								<span className="text-[10px] text-emerald-400/70">{realtimeLabel}</span>
 							) : refreshIntervalSeconds <= 0 ? (
-								<span className="text-[10px] text-slate-500">手动</span>
+								<span className="text-[10px] text-slate-500">{manualLabel}</span>
 							) : (
-								<span className="text-[10px] text-slate-500">轮询 {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
+								<span className="text-[10px] text-slate-500">{pollingPrefix} {getRefreshIntervalLabel(refreshIntervalSeconds)}</span>
 							)}
 							{effectiveUnread > 0 && (
 								<button onClick={markAllRead} className="text-[11px] text-cyan-400/80 hover:text-cyan-300 transition">
-									全部已读
+									{markAllReadLabel}
 								</button>
 							)}
 						</div>
@@ -190,9 +201,9 @@ export function NotificationBell() {
 						</div>
 					)}
 					{notifications.length === 0 && !feedback ? (
-						<div className="p-6 text-center text-xs text-slate-400 light:text-slate-600">暂无通知</div>
+						<div className="p-6 text-center text-xs text-slate-400 light:text-slate-600">{emptyLabel}</div>
 					) : notifications.length > 0 ? (
-						<ul className="divide-y divide-white/[0.04] light:divide-slate-200" aria-label="最近通知">
+						<ul className="divide-y divide-white/[0.04] light:divide-slate-200" aria-label={recentListLabel}>
 							{notifications.slice(0, 10).map((n) => (
 								<li key={n.id}>
 									<Link
@@ -211,7 +222,7 @@ export function NotificationBell() {
 					) : null}
 					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/95 light:border-slate-200 light:bg-white/95">
 						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:text-cyan-700 light:hover:text-cyan-800">
-							查看全部通知 →
+							{viewAllLabel}
 						</Link>
 					</div>
 				</div>

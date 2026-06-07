@@ -449,6 +449,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		browserHost: hostName,
 		configuredHost: quickServicePublicHost,
 		protocol: typeof window !== "undefined" ? window.location.protocol : null,
+		path: item.path,
 	});
 	const accessHostLabel = quickServicePublicHost || hostName || "当前主机";
 	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");

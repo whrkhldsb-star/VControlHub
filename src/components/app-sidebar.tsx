@@ -59,13 +59,13 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				}`}
 			>
 				<span className={active ? "text-cyan-400 light:text-cyan-700" : "text-slate-500 light:text-slate-500"}>{item.icon}</span>
-				<span>{t(item.labelKey) === item.labelKey ? item.fallbackLabel : t(item.labelKey)}</span>
+				<span className="min-w-0 flex-1 truncate" title={t(item.labelKey) === item.labelKey ? item.fallbackLabel : t(item.labelKey)}>{t(item.labelKey) === item.labelKey ? item.fallbackLabel : t(item.labelKey)}</span>
 			</Link>
 		);
 	};
 
 	const nav = (
-		<nav className="flex h-full flex-col">
+		<nav className="flex h-full flex-col" data-i18n-skip>
 			<div className="border-b border-white/[0.06] px-5 py-5 light:border-slate-200">
 				<div className="flex items-center gap-2.5">
 					<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-400/15 text-cyan-300 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.20)] light:bg-cyan-50 light:text-cyan-700 light:shadow-[inset_0_0_0_1px_rgba(14,116,144,0.14)]">
@@ -98,10 +98,10 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 								target="_blank"
 								rel="noopener noreferrer"
 								onClick={() => setMobileOpen(false)}
-								className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
+								className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 							>
-								<span className="text-[18px] leading-none">{item.icon}</span>
-								<span>{item.name}</span>
+								<span className="shrink-0 text-[18px] leading-none">{item.icon}</span>
+								<span className="min-w-0 flex-1 truncate" title={item.name}>{item.name}</span>
 								<IconExternal />
 							</a>
 						))}

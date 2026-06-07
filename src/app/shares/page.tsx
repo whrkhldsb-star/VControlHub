@@ -2,9 +2,9 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
-import Link from "next/link";
 import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateShareForm } from "./create-share-form";
+import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +25,8 @@ export default async function SharesPage() {
 			</header>
 
 			{canCreate ? (
-				<div className="mb-6 grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-					<div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4">
-						<div className="text-sm font-semibold text-white light:text-slate-900">快捷分享真实文件</div>
-						<p className="mt-1 text-sm text-slate-400 light:text-slate-600">进入文件与存储管理，在具体文件行点击「分享」。适合单个真实文件，自动带入节点和路径。</p>
-						<Link href="/files" className="mt-3 inline-flex rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500">去文件管理选择文件</Link>
-					</div>
+				<div className="mb-6 space-y-4">
+					<ShareFilePicker nodes={nodes.map((n) => ({ id: n.id, name: n.name, driver: n.driver }))} />
 					<CreateShareForm nodes={nodes.map((n) => ({ id: n.id, name: `${n.name} · ${n.driver}` }))} />
 				</div>
 			) : null}

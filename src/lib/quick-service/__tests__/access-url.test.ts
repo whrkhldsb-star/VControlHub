@@ -14,4 +14,8 @@ describe("quick service access URLs", () => {
 	it("falls back to the browser host when no production host is configured", () => {
 		expect(buildQuickServiceAccessUrl({ defaultPort: 8110, port: null, browserHost: "localhost", protocol: "http:" })).toBe("http://localhost:8110/");
 	});
+
+	it("preserves app subpaths when building sidebar and launch URLs", () => {
+		expect(buildQuickServiceAccessUrl({ defaultPort: 3000, port: 31000, configuredHost: "https://apps.example.com", path: "admin/" })).toBe("https://apps.example.com:31000/admin/");
+	});
 });

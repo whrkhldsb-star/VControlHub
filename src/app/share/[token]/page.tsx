@@ -94,7 +94,7 @@ export default async function SharePage({
                 </div>
                 {files.length === 0 ? (
                   <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-center text-xs text-amber-200 light:text-amber-800">
-                    该目录下暂未找到已索引文件。请分享者先在文件管理中同步/刷新该路径。
+                    当前目录暂未发现可下载文件。系统已自动尝试刷新目录索引，请稍后重试或联系分享者确认目录内有文件。
                   </div>
                 ) : (
                   <div className="divide-y divide-white/[0.06] light:divide-slate-200">

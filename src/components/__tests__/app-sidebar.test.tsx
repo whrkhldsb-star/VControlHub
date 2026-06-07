@@ -20,7 +20,7 @@ vi.mock("../notification-bell", () => ({
 }));
 
 vi.mock("../theme-toggle", () => ({
-	ThemeToggle: () => <button type="button" aria-label="主题" />,
+	ThemeToggle: () => <button type="button" aria-label="Switch to light mode" />,
 }));
 
 vi.mock("../language-toggle", () => ({
@@ -42,6 +42,26 @@ describe("AppSidebar", () => {
 		expect(username).toHaveClass("flex-1");
 		expect(username).toHaveClass("truncate");
 		expect(username).toHaveAttribute("title", "qa_cron_1780249023419");
+	});
+
+	it("renders quick service links as external URLs without squeezing labels", () => {
+		render(<AppSidebar username="admin" quickServices={[{ slug: "alist", name: "AList 文件服务", icon: "☁️", path: "http://82.158.91.159:5244/" }]} />);
+
+		const links = screen.getAllByRole("link", { name: /AList 文件服务/ });
+		expect(links).toHaveLength(2);
+		for (const link of links) {
+			expect(link).toHaveAttribute("href", "http://82.158.91.159:5244/");
+			expect(link).toHaveAttribute("target", "_blank");
+		}
+		expect(screen.getAllByText("AList 文件服务")[0]).toHaveClass("truncate");
+	});
+
+	it("marks sidebar navigation as React-localized chrome", () => {
+		render(<AppSidebar username="admin" />);
+
+		expect(screen.getAllByRole("navigation")[0]).toHaveAttribute("data-i18n-skip");
+		expect(screen.getAllByRole("button", { name: "Switch to light mode" }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("button", { name: "通知" }).length).toBeGreaterThan(0);
 	});
 
 	it("does not render without an authenticated username", () => {

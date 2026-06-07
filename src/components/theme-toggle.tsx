@@ -1,10 +1,14 @@
 "use client";
 
 import { useTheme } from "@/lib/theme/use-theme";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 	const { theme, toggleTheme } = useTheme();
-	const label = theme === "dark" ? "切换到浅色模式" : "切换到深色模式";
+	const { locale } = useI18n();
+	const label = theme === "dark"
+		? (locale === "zh" ? "切换到浅色模式" : "Switch to light mode")
+		: (locale === "zh" ? "切换到深色模式" : "Switch to dark mode");
 
 	return (
 		<button

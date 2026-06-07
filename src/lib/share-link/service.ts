@@ -1,7 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { Dirent } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
+import path from "node:path";
 
 import { prisma } from "@/lib/db";
+import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 
 export function hashShareToken(token: string) {
@@ -133,8 +139,57 @@ export async function peekShareToken(token: string) {
   return share;
 }
 
-export async function listShareDirectoryFiles(share: { storageNodeId: string; path: string; entryType: string }) {
+async function syncLocalShareDirectory(share: { storageNodeId: string; storageNode?: { basePath: string }; path: string }) {
+  const basePath = share.storageNode?.basePath;
+  if (!basePath) return;
+  const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
+  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
+  const absoluteDir = path.resolve(allowedRoot, normalizedPrefix);
+  const relativeToRoot = path.relative(allowedRoot, absoluteDir);
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return;
+
+  let entries: Dirent[];
+  try {
+    entries = await readdir(absoluteDir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  await Promise.all(entries.map(async (entry) => {
+    if (!entry.isFile() && !entry.isDirectory()) return;
+    const relativePath = `${normalizedPrefix}/${entry.name}`.replace(/^\/+/, "");
+    const absolutePath = path.join(absoluteDir, entry.name);
+    const fileStat = await stat(absolutePath).catch(() => null);
+    if (!fileStat) return;
+    const entryType = entry.isDirectory() ? "DIRECTORY" : "FILE";
+    const mimeType = entryType === "DIRECTORY" ? "inode/directory" : guessMimeType(entry.name);
+    const size = entryType === "FILE" ? BigInt(fileStat.size) : null;
+    const existing = await prisma.fileEntry.findFirst({ where: { storageNodeId: share.storageNodeId, relativePath } });
+    if (existing) {
+      await prisma.fileEntry.update({ where: { id: existing.id }, data: { name: entry.name, entryType, mimeType, size, isDeleted: false } });
+      return;
+    }
+    await prisma.fileEntry.create({ data: { storageNodeId: share.storageNodeId, relativePath, name: entry.name, entryType, mimeType, size: size ?? undefined } });
+  }));
+}
+
+async function refreshShareDirectoryIndex(share: Awaited<ReturnType<typeof peekShareToken>>) {
+  if (share.entryType !== "DIRECTORY") return;
+  if (share.storageNode.driver === "LOCAL") {
+    await syncLocalShareDirectory(share);
+    return;
+  }
+  if (share.storageNode.driver === "SFTP") {
+    const node = await getSftpSyncNode(share.storageNodeId);
+    if (node) {
+      await syncSftpDirectoryEntries({ node, remotePath: share.path, recursive: false, maxDepth: 1 });
+    }
+  }
+}
+
+export async function listShareDirectoryFiles(share: Awaited<ReturnType<typeof peekShareToken>>) {
   if (share.entryType !== "DIRECTORY") return [];
+  await refreshShareDirectoryIndex(share);
   const prefix = share.path.replace(/^\/+|\/+$/g, "");
   return prisma.fileEntry.findMany({
     where: {

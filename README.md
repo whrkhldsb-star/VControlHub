@@ -352,6 +352,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **图床删除授权收紧** — `/api/images/[id]` 和 `/api/images/batch` 不再把默认 viewer 也拥有的 `user:read` 当作跨用户删除许可；单图删除仅允许图片所有者、`storage:delete` 或 `role:manage`，批量删除仅允许显式管理/删除权限，并补充 IDOR 回归测试。
 - [x] **媒体库图片/视频/音频切换补齐** — `/media` 增加一等类型切换区，图片、视频、音频和全部媒体入口会保留搜索/标签/收藏条件，已选类型可再次点击取消；类型计数改为跨当前筛选条件的全局统计，不再只统计当前列表结果，图片模式继续显示批量上传和发布外链工作流。
 - [x] **全局搜索入口死路径清理** — 全局搜索目录由主侧边栏与系统导航统一生成，测试覆盖所有侧边栏页面入口，并明确排除 `/system-health`、`/quickservice`、`/backup`、`/ssh` 等旧路径；改密与两步验证入口已改为 `/settings#password` 和 `/settings#2fa`，不再派发不存在的弹窗事件。
+- [x] **分享中心真实文件选择闭环** — `/shares` 现在可直接像文件管理一样按存储节点浏览目录、勾选文件/文件夹并批量创建分享链接，不再要求跳转 `/files` 后从单行入口分享；公开目录分享落地页会在访问时自动刷新 LOCAL/SFTP 目录索引（非递归一层），避免真实目录已有文件但 DB 未同步时显示“暂无已索引文件”。
 
 ### 目前仍存在的问题 / 使用边界
 
@@ -367,7 +368,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **公开状态与运行态展示仍可能过于乐观（P2）。** `/status` 已把启用 VPS/存储节点文案从“服务在线”改为“已启用/已配置，未做实时 SSH/SFTP/直连探测”，不再把资产配置伪装成实时可达；但公开状态页、VPS 列表徽章和存储/直连入口仍未接入真实 SSH、Direct Gateway、SFTP 存储可达性探测，后续应补真实健康探测或继续在列表层明确展示“未实时探测”。
 - [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索已具备 `dialog` 语义、初始聚焦和 Escape 关闭，但仍缺 focus trap/focus restore；SSH 终端缺 Escape/focus trap/focus restore，且固定 `minHeight: 400px`、横向命令侧栏在手机上仍易拥挤；Docker 日志弹窗缺 `role="dialog"` / `aria-modal` / 标题关联、Escape 和焦点管理；文本预览搜索/跳转、文件浏览搜索、SSH 常用命令输入等仍依赖 placeholder 而缺显式 label；文件浏览使用 `replaceState` 更新目录 URL，浏览器后退不能逐级回到上一个目录。
 - [ ] **AI Provider 与应用源 URL 仍存在 SSRF/出网信任边界（P1/P2）。** AI Provider 的 `baseUrl`、模型探测 `/models`、聊天 `/chat/completions` / `/messages` 以及 QuickService 自定义应用源 URL 都是管理用户配置后由服务端发起 fetch；当前主要校验 URL 格式，尚未统一拦截 localhost、内网、链路本地、metadata 地址、DNS rebinding 或重定向到私网。生产部署应通过网络层 egress policy、代理 allowlist 或代码层 URL/IP 解析校验收紧，并在文档中明确只有受信任管理员可配置这些 URL。
-- [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** SFTP 音视频预览目前仍复用 `/api/storage/sftp-download` 普通下载流，缺少 `Range` / `206` 支持，和媒体库 `/api/media/[id]/stream` 已有受控流能力不一致，大文件拖动播放体验可能不稳定；公开目录分享可以浏览并下载目录内具体文件，但尚不能像登录态 `/api/storage/archive-download` 那样一键打包下载整个目录；Office 预览和压缩包在线解压是安全降级入口，主要提供说明/下载，后续应在列表按钮和 README/API 文档里更早提示当前边界，或补专用 storage media stream、share archive endpoint 和受控格式解压。
+- [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** SFTP 音视频预览目前仍复用 `/api/storage/sftp-download` 普通下载流，缺少 `Range` / `206` 支持，和媒体库 `/api/media/[id]/stream` 已有受控流能力不一致，大文件拖动播放体验可能不稳定；公开目录分享现在会自动刷新目录索引并可下载目录内具体文件，但尚不能像登录态 `/api/storage/archive-download` 那样一键打包下载整个目录；Office 预览和压缩包在线解压是安全降级入口，主要提供说明/下载，后续应在列表按钮和 README/API 文档里更早提示当前边界，或补专用 storage media stream、share archive endpoint 和受控格式解压。
 - [ ] **存储节点元数据和文件状态一致性仍需治理（P2）。** 文件读写、SFTP 下载、Direct URL 生成已调用 `assertStorageAccess` 并限制在节点 `basePath` 内；但 `/api/storage/nodes` 对具备 `storage:read` 的用户返回所有存储节点的 `basePath` 和部分服务器信息，尚未按 `UserStorageAccess` grant 过滤，可能暴露目录结构和节点存在性。文件删除仍是先删物理对象再标记数据库，失败时可能出现 DB 与磁盘不一致，恢复也可能只恢复 DB 标记；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺并发修改提示、保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
 

@@ -1,6 +1,7 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
 import { listQuickServices } from "@/lib/quick-service/service";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -27,10 +28,24 @@ export async function SidebarLoader() {
 	// Fetch running quick services for sidebar
 	let quickServices: Array<{ slug: string; name: string; icon: string; path: string }> = [];
 	try {
+		const headerStore = await headers();
+		const browserHost = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
+		const protocol = headerStore.get("x-forwarded-proto") ?? "http";
 		const all = await listQuickServices();
 		quickServices = all
-			.filter((s) => s.status === "running" && s.path)
-			.map((s) => ({ slug: s.slug, name: s.name, icon: s.icon, path: s.path }));
+			.filter((s) => s.status === "running" && s.port)
+			.map((s) => {
+				const accessUrl = buildQuickServiceAccessUrl({
+					port: s.port,
+					defaultPort: s.port ?? 80,
+					browserHost,
+					configuredHost: process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST,
+					protocol,
+					path: s.path,
+				});
+				return accessUrl ? { slug: s.slug, name: s.name, icon: s.icon, path: accessUrl } : null;
+			})
+			.filter((s): s is { slug: string; name: string; icon: string; path: string } => Boolean(s));
 	} catch {
 		// DB may not be ready; skip
 	}

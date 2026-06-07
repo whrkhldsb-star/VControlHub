@@ -140,7 +140,7 @@ describe("GlobalSearch", () => {
 		expect(screen.getByText("↑↓ Select")).toBeInTheDocument();
 
 		await user.type(input, "Quick Services");
-		await user.click(await screen.findByRole("button", { name: /Quick Services/ }));
+		await user.click(await screen.findByRole("button", { name: /Quick Apps/ }));
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
 });
