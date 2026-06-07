@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 
 		const usedPorts = getUsedPorts();
 		const docker = getDockerEnvironmentStatus();
-		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts, docker });
+		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts, docker, publicHost: process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ?? null });
 	});
 }
 

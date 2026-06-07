@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -73,6 +74,8 @@ const SOURCE_PRESETS = [
 	{ key: "json", label: "通用 JSON", type: "json", url: "", description: "你自己整理的任意 JSON 目录。", badge: "JSON" },
 ] as const;
 
+const QUICK_SERVICE_PUBLIC_HOST = process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ?? "";
+
 type Tab = "store" | "community" | "installed" | "sources";
 
 function sortByPriority(items: CatalogItem[]): CatalogItem[] {
@@ -122,6 +125,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	// Search
 	const [search, setSearch] = useState("");
 	const [hostName, setHostName] = useState("");
+	const [quickServicePublicHost, setQuickServicePublicHost] = useState(QUICK_SERVICE_PUBLIC_HOST);
 
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -132,6 +136,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			setRemoteCatalog(data.remoteCatalog ?? []);
 			setUsedPorts(Array.isArray(data.usedPorts) ? data.usedPorts : []);
 			setDockerStatus(data.docker ?? null);
+			if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "加载失败");
 		} finally {
@@ -434,6 +439,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		.filter((item): item is CatalogItem => Boolean(item));
 	const runningItems = installed.filter((item) => item.status === "running");
 	const errorItems = installed.filter((item) => item.status === "error");
+	const quickServiceAccessUrl = (item: CatalogItem) => buildQuickServiceAccessUrl({
+		port: item.port,
+		defaultPort: item.defaultPort,
+		browserHost: hostName,
+		configuredHost: quickServicePublicHost,
+		protocol: typeof window !== "undefined" ? window.location.protocol : null,
+	});
+	const accessHostLabel = quickServicePublicHost || hostName || "当前主机";
 	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");
 	const lastSyncedSource = sources
 		.filter((source) => source.lastSyncAt)
@@ -482,15 +495,18 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						</button>
 					</div>
 					<div className="mt-4 grid gap-2 sm:grid-cols-2">
-						{runningItems.slice(0, 4).map((item) => (
-							<a key={item.slug} href={hostName ? `http://${hostName}:${item.port ?? item.defaultPort}` : "#"} target="_blank" rel="noreferrer" className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
-								<div className="flex items-center justify-between gap-2">
-									<span className="truncate text-sm font-medium text-white light:text-slate-900">{item.icon} {item.name}</span>
-									<span className="text-[10px] text-emerald-200 light:text-emerald-800">:{item.port ?? item.defaultPort}</span>
-								</div>
-								<p className="mt-1 truncate text-[11px] text-slate-400 light:text-slate-600">{item.image}</p>
-							</a>
-						))}
+						{runningItems.slice(0, 4).map((item) => {
+							const accessUrl = quickServiceAccessUrl(item);
+							return (
+								<a key={item.slug} href={accessUrl ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!accessUrl} className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
+									<div className="flex items-center justify-between gap-2">
+										<span className="truncate text-sm font-medium text-white light:text-slate-900">{item.icon} {item.name}</span>
+										<span className="text-[10px] text-emerald-200 light:text-emerald-800">:{item.port ?? item.defaultPort}</span>
+									</div>
+									<p className="mt-1 truncate text-[11px] text-slate-400 light:text-slate-600">{accessUrl ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
+								</a>
+							);
+						})}
 						{runningItems.length === 0 && <p className="text-sm text-slate-500">从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。</p>}
 					</div>
 				</div>
@@ -550,6 +566,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								onUpdate={() => doAction(item.slug, "update")}
 								onSync={() => doAction(item.slug, "sync")}
 								onUninstall={() => requestUninstall(item)}
+								publicHost={quickServicePublicHost}
 							/>
 						))}
 					</div>
@@ -716,6 +733,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									onUpdate={() => doAction(item.slug, "update")}
 									onSync={() => doAction(item.slug, "sync")}
 									onUninstall={() => requestUninstall(item)}
+									publicHost={quickServicePublicHost}
 								/>
 							))}
 						</div>
@@ -895,7 +913,7 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 	);
 }
 
-function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, onSync, onUninstall }: {
+function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, onSync, onUninstall, publicHost }: {
 	item: CatalogItem;
 	tab: string;
 	busy: boolean;
@@ -905,6 +923,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 	onUpdate: () => void;
 	onSync: () => void;
 	onUninstall: () => void;
+	publicHost: string;
 }) {
 	const statusColor: Record<string, string> = {
 		available: "text-slate-500",
@@ -922,6 +941,13 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 	};
 
 	const displayPort = item.port ?? item.defaultPort;
+	const accessUrl = buildQuickServiceAccessUrl({
+		port: item.port,
+		defaultPort: item.defaultPort,
+		browserHost: typeof window !== "undefined" ? window.location.hostname : null,
+		configuredHost: publicHost,
+		protocol: typeof window !== "undefined" ? window.location.protocol : null,
+	});
 	const isRemote = item.source !== "local";
 
 	return (
@@ -972,6 +998,11 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 				)}
 				{tab === "installed" && (
 					<>
+						{item.status === "running" && accessUrl && (
+							<a href={accessUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white light:text-slate-900 hover:bg-emerald-400 transition">
+								访问
+							</a>
+						)}
 						{item.status === "running" && (
 							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:opacity-50">
 								{busy ? "…" : "停止"}

@@ -30,6 +30,7 @@ const catalogResponse = {
 	],
 	remoteCatalog: [],
 	usedPorts: [5244],
+	publicHost: "82.158.91.159",
 };
 
 const sourcesResponse = {
@@ -156,5 +157,15 @@ describe("QuickServicesClient", () => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/app-sources?sourceId=src_1", { method: "DELETE" });
 		});
 		expect(await screen.findByText("源已删除")).toBeInTheDocument();
+	});
+
+	it("shows a public direct-port access link for running services", async () => {
+		mockInitialLoads();
+
+		render(<QuickServicesClient canManage />);
+		await userEvent.click(await screen.findByRole("button", { name: /已安装/ }));
+
+		const accessLink = await screen.findByRole("link", { name: "访问" });
+		expect(accessLink).toHaveAttribute("href", "http://82.158.91.159:5244/");
 	});
 });
