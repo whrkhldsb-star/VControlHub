@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { PageShell, Card } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -14,6 +15,9 @@ type ImageItem = {
 	isPublic: boolean;
 	createdAt: string;
 	publicUrl: string;
+	storageNodeId?: string | null;
+	relativePath?: string | null;
+	storageNode?: { id: string; name: string; driver: string; server?: { name: string } | null } | null;
 	user?: { username: string; displayName: string | null };
 };
 
@@ -296,15 +300,22 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		return new Date(iso).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 	};
 
+	const formatPublishSource = (img: ImageItem) => {
+		if (!img.storageNodeId || !img.relativePath) return "图床直传";
+		const nodeName = img.storageNode?.server?.name ? `${img.storageNode.name} · ${img.storageNode.server.name}` : img.storageNode?.name ?? "存储节点";
+		return `${nodeName} / ${img.relativePath}`;
+	};
+
 	return (
 		<PageShell>
 			{/* Header */}
 			<div className="flex items-center justify-between mb-2">
 				<div>
-					<h1 className="text-3xl font-semibold text-white light:text-slate-900">图床</h1>
-					<p className="mt-1 text-sm text-slate-400 light:text-slate-600">上传图片获取外链，支持拖拽上传和云盘联动</p>
+					<h1 className="text-3xl font-semibold text-white light:text-slate-900">图床外链管理</h1>
+					<p className="mt-1 text-sm text-slate-400 light:text-slate-600">管理已发布图片、复制外链并查看它来自图床直传还是媒体库 / 云盘发布；新建图片工作流优先从媒体库进入。</p>
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center justify-end gap-2">
+					<Link href="/media?type=image" className="px-3 py-1.5 text-xs rounded-lg bg-emerald-500/10 text-emerald-300 light:text-emerald-700 hover:bg-emerald-500/20 transition">🖼 打开图片工作区</Link>
 					<span className="text-xs text-slate-500">共 {total} 张图片</span>
 					<button onClick={() => { setShowAll(!showAll); }} className={`px-3 py-1.5 text-xs rounded-lg transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
 					<button onClick={fetchStats} className="px-3 py-1.5 text-xs bg-purple-500/10 text-purple-400 rounded-lg hover:bg-purple-500/20 transition">📊 统计</button>
@@ -397,6 +408,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			)}
 
 			{/* Upload Area */}
+			{canWrite && (
+				<div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 light:border-emerald-200 light:bg-emerald-50">
+					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+						<div>
+							<h2 className="text-sm font-semibold text-emerald-100 light:text-emerald-900">新图片请从图片工作区发布</h2>
+							<p className="mt-1 text-xs text-emerald-100/70 light:text-emerald-800">批量上传、选择 LOCAL/SFTP 节点、发布已有云盘图片都在 `/media?type=image`；此页保留拖拽上传作为兼容入口，并专注外链管理与发布来源审计。</p>
+						</div>
+						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-white light:text-emerald-950 hover:bg-emerald-400 transition">打开媒体图片工作区</Link>
+					</div>
+				</div>
+			)}
 			{canWrite && (
 			<>
 				<div className="mt-2 flex items-center gap-2 text-xs">
@@ -504,6 +526,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								)}
 							</div>
 							<div className="text-xs text-slate-300 light:text-slate-700 truncate" title={img.filename}>{img.filename}</div>
+							<div className="mt-1 truncate text-[10px] text-slate-500 light:text-slate-600" title={formatPublishSource(img)}>来源：{formatPublishSource(img)}</div>
 							<div className="flex items-center justify-between mt-1">
 								<span className="text-[10px] text-slate-500">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">

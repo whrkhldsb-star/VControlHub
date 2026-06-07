@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({ mockPrisma: { fileEntry: { findMany: vi.fn() }, mediaItem: { upsert: vi.fn(), findMany: vi.fn(), update: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-const { classifyMedia, scanMediaFromFileEntries } = await import("./service");
+const { classifyMedia, scanMediaFromFileEntries, listMediaItems } = await import("./service");
 describe("media service", () => {
   beforeEach(() => vi.clearAllMocks());
   it("classifies images and videos only", () => { expect(classifyMedia("image/png")).toBe("image"); expect(classifyMedia("video/mp4")).toBe("video"); expect(classifyMedia("text/plain")).toBeNull(); });
@@ -35,5 +35,24 @@ describe("media service", () => {
       mimeType: "video/mp4",
       relativePath: "uploads/movie.mp4",
     });
+  });
+
+  it("builds a practical image search across name, path and tags", async () => {
+    mockPrisma.mediaItem.findMany.mockResolvedValue([]);
+
+    await listMediaItems({ mediaType: "image", q: "summer", favorite: true, tag: "cover" });
+
+    expect(mockPrisma.mediaItem.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        mediaType: "image",
+        favorite: true,
+        tags: { has: "cover" },
+        OR: [
+          { name: { contains: "summer", mode: "insensitive" } },
+          { relativePath: { contains: "summer", mode: "insensitive" } },
+          { tags: { has: "summer" } },
+        ],
+      }),
+    }));
   });
 });

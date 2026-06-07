@@ -71,6 +71,14 @@ async function listImages(request: Request, userId: string, isAdmin: boolean) {
       take: limit,
       include: {
         user: { select: { id: true, username: true, displayName: true } },
+        storageNode: {
+          select: {
+            id: true,
+            name: true,
+            driver: true,
+            server: { select: { name: true } },
+          },
+        },
       },
     }),
     prisma.imageUpload.count({ where }),

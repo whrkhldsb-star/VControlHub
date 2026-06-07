@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T11:32:19Z",
+  "updatedAt": "2026-06-07T12:33:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,21 +58,26 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T11:11:00Z",
-    "finishedAt": "2026-06-07T11:32:19Z",
-    "target": "image-delete-authorization-ci-closeout",
+    "startedAt": "2026-06-07T12:18:00Z",
+    "finishedAt": "2026-06-07T12:33:00Z",
+    "target": "media-image-bed-source-history-navigation-closeout",
     "status": "completed_verified_deployed_pending_push",
-    "summary": "Closed the image-bed delete authorization and CI hygiene slice: single and batch image delete no longer treat user:read as cross-user delete permission; DESTDIR installer tests are isolated from real runtime paths; the text preview lint fix no longer races initial editable draft loading.",
+    "summary": "Strengthened the media library / image-bed consolidation by making /image-bed an external-link management and source-audit surface while /media?type=image remains the preferred image workspace.",
     "changeContract": {
-      "qaPathId": "image-delete-authorization-ci",
-      "userJourney": "Authenticated operators can delete only their own image-bed uploads unless they hold explicit storage deletion or role management permission; CI installer and lint gates pass without unsafe fake-root side effects.",
+      "qaPathId": "media-image-bed-source-history-navigation",
+      "userJourney": "Operators can publish images from the media workspace and later inspect image-bed links with clear source history, distinguishing direct image-bed uploads from LOCAL/SFTP media-library publications.",
       "evidence": [
-        "targeted regressions passed: image single/batch delete + installer preflight + text preview editable test",
-        "npm run verify passed including typecheck, lint --max-warnings=0, full Vitest 203 files / 912 tests, Next build, runtime build, deploy-assets",
-        "production restart succeeded after verifying .next BUILD_ID _uHBYRC0E5O9MYN_jpTf2 and dist server artifacts",
+        "Image-bed list API now includes source storage node metadata for published media images",
+        "/image-bed header and compatibility upload area now direct new image workflows to /media?type=image",
+        "Image cards show source history: direct image-bed upload or storage node/server/path",
+        "targeted regressions passed: image-bed page and media service tests 10/10",
+        "npm run typecheck passed",
+        "npm run lint -- --max-warnings=0 passed",
+        "npm run verify passed including full tests, Next build, runtime build, and deploy-assets",
+        "production restart succeeded for vcontrolhub-next.service and vcontrolhub-ssh-ws.service",
         "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
         "/api/status healthy after deploy",
-        "post-readiness service log scan returned no matching errors/warnings"
+        "post-restart service log scan returned no matching errors/warnings"
       ]
     }
   },
@@ -89,7 +94,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 29,
+    "successfulRemediationRunsSinceFreshAudit": 30,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

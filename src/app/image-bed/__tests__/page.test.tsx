@@ -52,6 +52,8 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
+    expect(screen.getByRole("heading", { name: "图床外链管理" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
     await user.click(screen.getByRole("button", { name: "☁️ 云盘发布" }));
 
     await waitFor(() =>
@@ -292,6 +294,14 @@ describe("ImageBedPage", () => {
               isPublic: false,
               createdAt: "2026-01-01T00:00:00.000Z",
               publicUrl: "/api/images/img_private/file",
+              storageNodeId: "node_1",
+              relativePath: "image-bed/2026/private-cat.png",
+              storageNode: {
+                id: "node_1",
+                name: "本机图片库",
+                driver: "LOCAL",
+                server: { name: "主节点" },
+              },
             },
           ],
           total: 1,
@@ -304,6 +314,7 @@ describe("ImageBedPage", () => {
     render(<ImageBedPageClient canWrite canDelete />);
 
     await screen.findByText("private-cat.png");
+    expect(screen.getByText("来源：本机图片库 · 主节点 / image-bed/2026/private-cat.png")).toBeInTheDocument();
     expect(screen.getByText("私有")).toBeInTheDocument();
     const images = screen.getAllByTestId("mock-next-image");
     expect(images[0]).toHaveAttribute("src", "/api/images/img_private/file");
