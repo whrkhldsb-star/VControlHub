@@ -7,6 +7,7 @@ vi.mock("node:crypto", () => ({
 }));
 
 const { buildInstallNotice, formatInstallNoticeMessage, prepareInstallSecrets } = await import("../install-notice");
+const { SERVICE_CATALOG } = await import("../catalog");
 import type { ServiceTemplate } from "../types";
 
 const baseTemplate: ServiceTemplate = {
@@ -32,6 +33,46 @@ describe("quick service install notices", () => {
 			{ label: "初始密码", value: "generated-password" },
 		]);
 		expect(prepared.notes[0]).toContain("AList");
+	});
+
+	it("generates random default credentials for templates with unsafe placeholders", () => {
+		const minio = prepareInstallSecrets(SERVICE_CATALOG.find((template: ServiceTemplate) => template.slug === "minio")!);
+		const n8n = prepareInstallSecrets(SERVICE_CATALOG.find((template: ServiceTemplate) => template.slug === "n8n")!);
+		const pihole = prepareInstallSecrets(SERVICE_CATALOG.find((template: ServiceTemplate) => template.slug === "pihole")!);
+		const halo = prepareInstallSecrets(SERVICE_CATALOG.find((template: ServiceTemplate) => template.slug === "halo")!);
+
+		expect(minio.template.envJson.MINIO_ROOT_PASSWORD).toBe("generated-password");
+		expect(minio.credentials).toEqual([
+			{ label: "账号", value: "minioadmin" },
+			{ label: "初始密码", value: "generated-password" },
+		]);
+		expect(n8n.template.envJson.N8N_BASIC_AUTH_PASSWORD).toBe("generated-password");
+		expect(pihole.template.envJson.WEBPASSWORD).toBe("generated-password");
+		expect(halo.template.envJson.HALO_SECURITY_INITIALIZER_SUPERADMINPASSWORD).toBe("generated-password");
+	});
+
+	it("generates missing passwords for password-protected apps", () => {
+		const codeServer = prepareInstallSecrets(SERVICE_CATALOG.find((template: ServiceTemplate) => template.slug === "code-server")!);
+		expect(codeServer.template.envJson.PASSWORD).toBe("generated-password");
+		expect(codeServer.template.envJson.SUDO_PASSWORD).toBe("");
+		expect(codeServer.credentials).toEqual([{ label: "初始密码", value: "generated-password" }]);
+	});
+
+	it("reports setup guidance for every built-in catalog app", () => {
+		for (const template of SERVICE_CATALOG) {
+			const prepared = prepareInstallSecrets(template);
+			expect(prepared.credentials.length + prepared.notes.length, template.slug).toBeGreaterThan(0);
+			const notice = buildInstallNotice(prepared.template, prepared.template.defaultPort, prepared.credentials, prepared.notes);
+			const message = formatInstallNoticeMessage(prepared.template.name, notice);
+			expect(message, template.slug).toContain("已安装并启动成功");
+			expect(message, template.slug).toMatch(/初始化登录信息：/);
+		}
+	});
+
+	it("falls back to a generic setup note for remote or unknown apps", () => {
+		const prepared = prepareInstallSecrets({ ...baseTemplate, slug: "custom-app", name: "Custom App" });
+		expect(prepared.credentials).toEqual([]);
+		expect(prepared.notes[0]).toContain("未声明固定初始化账号密码");
 	});
 
 	it("formats success notices with access URL and credentials", () => {
