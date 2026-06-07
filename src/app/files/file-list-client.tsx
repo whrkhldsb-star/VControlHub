@@ -408,6 +408,58 @@ export function FileListClient({
     ? `未找到匹配 "${searchQuery}" 的文件。`
     : "当前目录暂无内容。";
 
+  const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
+  const detailEntry = useMemo(() => {
+    const file = visibleFiles.find((item) => item.id === detailEntryId);
+    return file ? toStorageEntry(file) : null;
+  }, [detailEntryId, visibleFiles]);
+
+  function getMediaType(entry: StorageEntry) {
+    const mime = entry.mimeType ?? "";
+    if (mime.startsWith("image/")) return "image";
+    if (mime.startsWith("video/")) return "video";
+    if (mime.startsWith("audio/")) return "audio";
+    return null;
+  }
+
+  function buildMediaLibraryHref(entry: StorageEntry) {
+    const params = new URLSearchParams({ q: entry.name });
+    const mediaType = getMediaType(entry);
+    if (mediaType) params.set("type", mediaType);
+    return `/media?${params.toString()}`;
+  }
+
+  function renderDetailAction(entry: StorageEntry, compact = false) {
+    return (
+      <button
+        type="button"
+        title="资料详情"
+        aria-label={`资料详情 ${entry.name}`}
+        onClick={() => setDetailEntryId(entry.id)}
+        className={compact
+          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-500/10 text-violet-100 transition hover:bg-violet-500/20 light:text-violet-900"
+          : "inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-2.5 py-1.5 text-xs text-violet-100 transition hover:bg-violet-500/20 light:text-violet-900"}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 16v-4" />
+          <path d="M12 8h.01" />
+        </svg>
+        {compact ? null : <span>详情</span>}
+      </button>
+    );
+  }
+
   /* helper to render file actions for any view */
   function renderDownloadActions(
     entry: StorageEntry,
@@ -468,6 +520,7 @@ export function FileListClient({
   ) {
     return (
       <div className="flex items-center gap-1 flex-wrap">
+        {renderDetailAction(entry, compact)}
         {entry.previewable && entryCanRead(entry) ? (
           <Link
             href={previewHref}
@@ -631,6 +684,7 @@ export function FileListClient({
 
               {/* Action bar — always visible, icon buttons */}
               <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40 light:bg-white/40">
+                {renderDetailAction(entry, true)}
                 {entry.previewable && entryCanRead(entry) ? (
                   <Link
                     href={previewHref}
@@ -1012,6 +1066,7 @@ export function FileListClient({
                       {entry.updatedAt ? formatDate(entry.updatedAt) : "—"}
                     </div>
                     <div className="flex flex-wrap gap-1">
+                      {renderDetailAction(entry, true)}
                       {entry.previewable && entryCanRead(entry) ? (
                         <Link
                           href={previewHref}
@@ -1168,6 +1223,7 @@ export function FileListClient({
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1 pl-9">
+                  {renderDetailAction(entry, true)}
                   {entry.previewable && entryCanRead(entry) ? (
                     <Link
                       href={previewHref}
@@ -1331,6 +1387,137 @@ export function FileListClient({
             ? renderGridView()
             : renderDetailsView()}
       </div>
+
+      {detailEntry ? (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 p-3 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="file-detail-panel-title"
+          onClick={() => setDetailEntryId(null)}
+        >
+          <aside
+            className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 text-slate-100 shadow-2xl light:border-slate-200 light:bg-white light:text-slate-900"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 light:border-slate-200">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300 light:text-violet-700">
+                  资料详情
+                </p>
+                <h2 id="file-detail-panel-title" className="mt-1 truncate text-lg font-semibold">
+                  {detailEntry.name}
+                </h2>
+                <p className="mt-1 truncate text-xs text-slate-500">{detailEntry.relativePath}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailEntryId(null)}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:border-slate-200 light:text-slate-700"
+              >
+                关闭
+              </button>
+            </div>
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 light:border-slate-200 light:bg-slate-50">
+                <div className="grid gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-xs text-slate-500">存储节点</p>
+                    <p className="mt-1 font-medium">{detailEntry.storageNode.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">驱动</p>
+                    <p className="mt-1 font-medium">{detailEntry.storageNode.driver}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">大小</p>
+                    <p className="mt-1 font-medium">{detailEntry.sizeLabel}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-slate-500">修改时间</p>
+                    <p className="mt-1 font-medium">
+                      {detailEntry.updatedAt ? formatDate(detailEntry.updatedAt) : "—"}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs text-slate-500">访问方式</p>
+                    <p className="mt-1 font-medium">{detailEntry.directAccess.description}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-slate-200 light:text-slate-800">快捷操作</h3>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {detailEntry.previewable && entryCanRead(detailEntry) ? (
+                    <Link
+                      href={getPreviewHref(detailEntry)}
+                      className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20 light:text-cyan-900"
+                    >
+                      预览 / 在线编辑
+                    </Link>
+                  ) : null}
+                  {entryCanRead(detailEntry) ? (
+                    <Link
+                      href={buildForcedDownloadHref(detailEntry)}
+                      download
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10 light:border-slate-200 light:text-slate-800"
+                    >
+                      下载文件
+                    </Link>
+                  ) : null}
+                  {entryCanRead(detailEntry) ? (
+                    <Link
+                      href={buildMediaLibraryHref(detailEntry)}
+                      className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900"
+                    >
+                      在媒体库中查找
+                    </Link>
+                  ) : null}
+                  {canShare && entryCanRead(detailEntry) ? (
+                    <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-2">
+                      <ShareFileButton entry={detailEntry} />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-slate-200 light:text-slate-800">管理操作</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {entryCanWrite(detailEntry) ? (
+                    <RenameInlineForm
+                      fileEntryId={detailEntry.id}
+                      currentName={detailEntry.name}
+                      currentPath={detailEntry.relativePath}
+                      entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
+                      onRefresh={onRefresh}
+                    />
+                  ) : null}
+                  {entryCanWrite(detailEntry) ? (
+                    <MoveInlineForm
+                      fileEntryId={detailEntry.id}
+                      name={detailEntry.name}
+                      relativePath={detailEntry.relativePath}
+                      storageNodeId={detailEntry.storageNode.id}
+                      storageNodeName={detailEntry.storageNode.name}
+                      onRefresh={onRefresh}
+                    />
+                  ) : null}
+                  {canDelete && entryCanDelete(detailEntry) ? (
+                    <DeleteConfirmButton
+                      fileEntryId={detailEntry.id}
+                      entryName={detailEntry.name}
+                      entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
+                      onRefresh={onRefresh}
+                    />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      ) : null}
 
       {selectedScopeMatches &&
       (progress.errors.length > 0 || moveProgress.errors.length > 0) ? (

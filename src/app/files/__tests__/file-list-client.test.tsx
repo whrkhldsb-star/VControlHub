@@ -39,6 +39,15 @@ vi.mock("../move-inline-form", () => ({
     React.createElement("button", { type: "button", "data-testid": "move-btn", "data-file-entry-id": props.fileEntryId }, `移动 ${props.name}`),
 }));
 
+vi.mock("../share-file-button", () => ({
+  ShareFileButton: (props: { entry: { id: string; name: string }; compact?: boolean }) =>
+    React.createElement(
+      "button",
+      { type: "button", "data-testid": "share-btn", "data-file-entry-id": props.entry.id },
+      props.compact ? "分享" : `分享 ${props.entry.name}`,
+    ),
+}));
+
 vi.mock("../../storage/actions", () => ({
   deleteFileEntryAction: deleteFileEntryActionMock,
 }));
@@ -141,6 +150,7 @@ function renderFileList(overrides: Partial<React.ComponentProps<typeof FileListC
       files={overrides.files ?? [imageFile]}
       canEditLocalFiles={overrides.canEditLocalFiles ?? true}
       canDelete={overrides.canDelete ?? true}
+      canShare={overrides.canShare ?? false}
       currentPath={overrides.currentPath ?? ""}
       searchQuery={overrides.searchQuery ?? ""}
       selectionScopeSeed={overrides.selectionScopeSeed ?? `${overrides.currentPath ?? ""}\u0000${overrides.searchQuery ?? ""}`}
@@ -289,6 +299,55 @@ describe("FileListClient", () => {
       "href",
       "/api/storage/archive-download?nodeId=node_1&path=photos",
     );
+  });
+
+  it("opens an asset detail panel that consolidates preview, download, share, and media actions", () => {
+    renderFileList({ files: [imageFile], folders: [], canShare: true });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]);
+
+    const dialog = screen.getByRole("dialog", { name: "cover.jpg" });
+    expect(dialog).toHaveTextContent("资料详情");
+    expect(dialog).toHaveTextContent("photos/cover.jpg");
+    expect(dialog).toHaveTextContent("本机存储");
+    expect(screen.getByRole("link", { name: "预览 / 在线编辑" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("/files/preview?"),
+    );
+    expect(screen.getByRole("link", { name: "下载文件" })).toHaveAttribute(
+      "href",
+      "/api/storage/local?path=photos%2Fcover.jpg&nodeId=node_1&download=1",
+    );
+    expect(screen.getByRole("link", { name: "在媒体库中查找" })).toHaveAttribute(
+      "href",
+      "/media?q=cover.jpg&type=image",
+    );
+    expect(screen.getAllByTestId("share-btn").some((button) => button.textContent === "分享 cover.jpg")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(screen.queryByRole("dialog", { name: "cover.jpg" })).not.toBeInTheDocument();
+  });
+
+  it("hides detail panel actions when entry read permission is denied", () => {
+    renderFileList({
+      files: [
+        {
+          ...imageFile,
+          storageNodeDriver: "SFTP",
+          capabilities: { canRead: false, canWrite: false, canDelete: false },
+        },
+      ],
+      folders: [],
+      canShare: true,
+    });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]);
+
+    expect(screen.getByRole("dialog", { name: "cover.jpg" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "预览 / 在线编辑" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "下载文件" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "在媒体库中查找" })).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId("share-btn")).toHaveLength(0);
   });
 
   it("hides preview, download, delete, and batch selection when entry capabilities deny access", () => {
