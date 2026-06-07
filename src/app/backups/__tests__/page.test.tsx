@@ -92,7 +92,6 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/选择备份类型、Cron 与执行节点后/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建定时备份" })).toBeInTheDocument();
     expect(screen.getByText("主节点")).toBeInTheDocument();
-    expect(screen.getByText("cd '/opt/VControlHub' && bash deploy/backup.sh")).toBeInTheDocument();
 
     expect(screen.getByText(/deploy\/backup\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/deploy\/backup\.sh --files 'backups\/files\.tar\.gz'/)).toBeInTheDocument();

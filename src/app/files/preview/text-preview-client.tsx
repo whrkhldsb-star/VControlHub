@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, useReducer } from "react";
 import createDOMPurify from "dompurify";
 import type { Config } from "dompurify";
 
@@ -28,6 +28,19 @@ function sanitizeHighlightHtml(html: string): string {
 }
 
 type PreviewState = { loading: true } | { loading: false; content: string | null; error: string | null };
+type PreviewMetaState = {
+	editMode: boolean;
+	showDiffReview: boolean;
+	saveStatus: "idle" | "saving" | "saved" | "error";
+	saveMessage: string;
+};
+
+const INITIAL_PREVIEW_META: PreviewMetaState = {
+	editMode: false,
+	showDiffReview: false,
+	saveStatus: "idle",
+	saveMessage: "",
+};
 
 type DiffRow = { line: number; before: string; after: string; kind: "added" | "removed" | "changed" };
 
@@ -257,15 +270,27 @@ export function TextPreviewClient({
 	editable?: boolean;
 }) {
 	const [state, setState] = useState<PreviewState>({ loading: true });
+	const [loadVersion, resetForLoad] = useReducer((value: number) => value + 1, 0);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [jumpLine, setJumpLine] = useState("");
-	const [editMode, setEditMode] = useState(false);
+	const [previewMeta, setPreviewMeta] = useState<PreviewMetaState>(INITIAL_PREVIEW_META);
 	const [draft, setDraft] = useState("");
-	const [showDiffReview, setShowDiffReview] = useState(false);
-	const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-	const [saveMessage, setSaveMessage] = useState("");
+	const { editMode, showDiffReview, saveStatus, saveMessage } = previewMeta;
+	const setEditMode = useCallback((editMode: boolean) => {
+		setPreviewMeta((current) => ({ ...current, editMode }));
+	}, []);
+	const setShowDiffReview = useCallback((showDiffReview: boolean) => {
+		setPreviewMeta((current) => ({ ...current, showDiffReview }));
+	}, []);
+	const setSaveStatus = useCallback((saveStatus: PreviewMetaState["saveStatus"]) => {
+		setPreviewMeta((current) => ({ ...current, saveStatus }));
+	}, []);
+	const setSaveMessage = useCallback((saveMessage: string) => {
+		setPreviewMeta((current) => ({ ...current, saveMessage }));
+	}, []);
 	const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
 	const containerRef = useRef<HTMLDivElement>(null);
+	const didMountRef = useRef(false);
 
 	const lang = useMemo(() => getLangFromName(name), [name]);
 	const canEdit = editable && Boolean(fileEntryId);
@@ -278,12 +303,15 @@ export function TextPreviewClient({
 	}), [diffRows]);
 
 	useEffect(() => {
+		if (!didMountRef.current) {
+			didMountRef.current = true;
+			return;
+		}
+		resetForLoad();
+	}, [href, fileEntryId, canEdit]);
+
+	useEffect(() => {
 		let cancelled = false;
-		setState({ loading: true });
-		setEditMode(false);
-		setShowDiffReview(false);
-		setSaveStatus("idle");
-		setSaveMessage("");
 
 		const load = async () => {
 			try {
@@ -315,7 +343,7 @@ export function TextPreviewClient({
 		return () => {
 			cancelled = true;
 		};
-	}, [href, fileEntryId, canEdit]);
+	}, [href, fileEntryId, canEdit, loadVersion]);
 
 	const handleJumpToLine = useCallback(() => {
 		const num = parseInt(jumpLine, 10);
@@ -346,7 +374,7 @@ export function TextPreviewClient({
 			setSaveStatus("error");
 			setSaveMessage(err instanceof Error ? err.message : "保存失败");
 		}
-	}, [draft, fileEntryId]);
+	}, [draft, fileEntryId, setEditMode, setSaveMessage, setSaveStatus, setShowDiffReview]);
 
 	if (state.loading) {
 		return (

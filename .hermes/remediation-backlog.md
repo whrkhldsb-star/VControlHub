@@ -81,6 +81,8 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 
 - [x] 2026-06-07 — Close media library / image-bed consolidation: `/media?type=image` now exposes an image-bed workspace for batch image upload with storage-node/target-directory selection, existing media image cards can publish storage files to public image-bed links, image-bed search covers filename/path/album, and storage file helpers support LOCAL/SFTP read/write plus node-appropriate source links. Verification: media/image-bed/API/storage helper regressions 25/25, typecheck, targeted eslint, build/runtime/deploy smoke pending in this closeout.
 
+- [x] 2026-06-07 — Closed the image-bed delete authorization and CI hygiene slice. `/api/images/[id]` now allows deletion only for the image owner, `storage:delete`, or `role:manage`; `/api/images/batch` no longer treats `user:read` as delete authority and uses the same explicit management/delete boundary. Installer DESTDIR fake-root validation now prevents CI preflight from touching real runtime directories, and the text preview lint fix was corrected to avoid a duplicate initial editable-draft fetch. Verification: targeted Vitest for deploy preflight, single image delete, batch image delete, and text preview editable flow; `npm run verify` passed with typecheck, lint `--max-warnings=0`, full Vitest 203 files / 912 tests, Next build, runtime build, deploy-assets; production restart; smoke 25/25; `/api/status` healthy; recent service logs clean.
+
 ## P6 — Architecture hardening
 
 - [ ] Move command/deployment SSH execution out of synchronous API path into background tasks/worker model with timeouts, output limits, cancellation, and task status.

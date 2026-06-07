@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T08:31:34Z",
+  "updatedAt": "2026-06-07T11:32:19Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,21 +58,21 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T08:11:00Z",
-    "finishedAt": "2026-06-07T08:31:34Z",
-    "target": "media-image-bed-consolidation-closeout",
-    "status": "completed_verified_deployed",
-    "summary": "Closed the media library / image-bed consolidation slice: /media?type=image now has an image-bed workspace for batch image upload, storage node and target directory selection, existing media images can publish storage files to public image-bed links, image-bed search covers filename/path/album, and shared storage helpers support LOCAL/SFTP read/write and node-appropriate download URLs.",
+    "startedAt": "2026-06-07T11:11:00Z",
+    "finishedAt": "2026-06-07T11:32:19Z",
+    "target": "image-delete-authorization-ci-closeout",
+    "status": "completed_verified_deployed_pending_push",
+    "summary": "Closed the image-bed delete authorization and CI hygiene slice: single and batch image delete no longer treat user:read as cross-user delete permission; DESTDIR installer tests are isolated from real runtime paths; the text preview lint fix no longer races initial editable draft loading.",
     "changeContract": {
-      "qaPathId": "media-image-bed-consolidation",
-      "userJourney": "Operator opens media image mode, uploads one or more images to a selected storage node/directory, refreshes/scans, and publishes existing stored image files as reusable public image-bed links without switching to a separate unclear page.",
+      "qaPathId": "image-delete-authorization-ci",
+      "userJourney": "Authenticated operators can delete only their own image-bed uploads unless they hold explicit storage deletion or role management permission; CI installer and lint gates pass without unsafe fake-root side effects.",
       "evidence": [
-        "targeted media/image-bed/API/storage helper regressions 25/25 plus storage helper tests 4/4 after final cleanup",
-        "npm run verify passed including typecheck/lint/full Vitest 202 files / 907 tests/build/runtime/deploy-assets",
-        "production restart succeeded after confirming .next/BUILD_ID and dist artifacts",
-        "smoke-test 25/25 passed",
-        "/api/status healthy and protected media/image-bed/image APIs return 307/401 as expected",
-        "post-readiness log window clean; only restart-window Caddy 502s and HTTP-only warnings appeared immediately during service restart"
+        "targeted regressions passed: image single/batch delete + installer preflight + text preview editable test",
+        "npm run verify passed including typecheck, lint --max-warnings=0, full Vitest 203 files / 912 tests, Next build, runtime build, deploy-assets",
+        "production restart succeeded after verifying .next BUILD_ID _uHBYRC0E5O9MYN_jpTf2 and dist server artifacts",
+        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
+        "/api/status healthy after deploy",
+        "post-readiness service log scan returned no matching errors/warnings"
       ]
     }
   },
@@ -89,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 28,
+    "successfulRemediationRunsSinceFreshAudit": 29,
     "skippedOverlapRuns": 0
   },
   "blockers": [],

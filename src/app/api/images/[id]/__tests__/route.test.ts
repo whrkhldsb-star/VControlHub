@@ -40,6 +40,10 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/image-bed/constants", () => ({
   UPLOAD_DIR: "/tmp/vcontrolhub-image-delete-test",
 }));
+vi.mock("@/lib/http/rate-limit-presets", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/http/rate-limit-presets")>("@/lib/http/rate-limit-presets");
+  return { ...actual, withRateLimit: vi.fn().mockResolvedValue({ allowed: true }) };
+});
 
 import { DELETE } from "../route";
 
@@ -188,5 +192,60 @@ describe("/api/images/[id]", () => {
 
     expect(response.status).toBe(403);
     expect(imageDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("does not treat user:read as cross-user image delete permission", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "user:read",
+    );
+    imageFindUniqueMock.mockResolvedValueOnce({
+      id: "img_2",
+      userId: "u_2",
+      storageKey: "nested/img.png",
+      storageNodeId: null,
+      relativePath: null,
+    });
+
+    const response = await DELETE(
+      new Request("https://example.com/api/images/img_2", { method: "DELETE" }),
+      {
+        params: Promise.resolve({ id: "img_2" }),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(imageDeleteMock).not.toHaveBeenCalled();
+  });
+
+  it("allows explicit storage delete permission to delete another user's image", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) => permission === "storage:delete",
+    );
+    imageFindUniqueMock.mockResolvedValueOnce({
+      id: "img_2",
+      userId: "u_2",
+      storageKey: "nested/img.png",
+      storageNodeId: null,
+      relativePath: null,
+    });
+    unlinkMock.mockResolvedValue(undefined);
+    imageDeleteMock.mockResolvedValueOnce({ id: "img_2" });
+
+    const response = await DELETE(
+      new Request("https://example.com/api/images/img_2", { method: "DELETE" }),
+      {
+        params: Promise.resolve({ id: "img_2" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(unlinkMock).toHaveBeenCalledWith(
+      "/tmp/vcontrolhub-image-delete-test/nested/img_thumb.webp",
+    );
+    expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_2" } });
   });
 });

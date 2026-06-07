@@ -2,9 +2,6 @@
  * Batch operations for image-bed: bulk delete, bulk move album, bulk toggle public.
  * POST /api/images/batch  { action: "delete"|"moveAlbum"|"togglePublic", ids: string[], album?: string }
  */
-import { unlink } from "node:fs/promises";
-import * as path from "node:path";
-
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -12,6 +9,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { deleteImageVariants } from "@/lib/image/service";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
 const batchSchema = z.object({
@@ -43,13 +41,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
       const { action, ids, album } = parsed.data;
 
-      const isAdmin = sessionHasPermission(session, "user:read");
-      const whereClause = isAdmin
+      const canManageImages =
+        sessionHasPermission(session, "storage:delete") ||
+        sessionHasPermission(session, "role:manage");
+      const whereClause = canManageImages
         ? { id: { in: ids } }
         : { id: { in: ids }, userId: session.userId };
 
       switch (action) {
         case "delete": {
+          if (!canManageImages) {
+            return NextResponse.json(
+              { error: "无权批量删除图片" },
+              { status: 403 },
+            );
+          }
           const images = await prisma.imageUpload.findMany({
             where: whereClause,
             select: { id: true, storageKey: true },
@@ -61,18 +67,7 @@ export async function POST(request: Request) {
           });
           // Delete files (best-effort)
           for (const img of images) {
-            try {
-              const ext = path.extname(img.storageKey);
-              const base = path.basename(img.storageKey, ext);
-              await Promise.allSettled([
-                unlink(path.join(UPLOAD_DIR, img.storageKey)),
-                unlink(path.join(UPLOAD_DIR, `${base}_thumb.webp`)),
-                unlink(path.join(UPLOAD_DIR, `${base}.webp`)),
-                unlink(path.join(UPLOAD_DIR, `${base}.avif`)),
-              ]);
-            } catch {
-              // best-effort
-            }
+            await deleteImageVariants(img.storageKey, UPLOAD_DIR);
           }
           return NextResponse.json({ deleted: result.count });
         }

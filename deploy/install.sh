@@ -716,6 +716,14 @@ auto_generate_env_secrets() {
 }
 
 validate_install_scope() {
+	if [ -n "${DESTDIR}" ]; then
+		case "${DESTDIR}" in
+			/tmp/*|/var/tmp/*) ;;
+			*) fail "Refusing to install with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
+		esac
+		[ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
+		[ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
+	fi
 	if [ "${SKIP_SYSTEMD}" = "1" ] && [ -z "${DESTDIR}" ]; then
 		fail "SKIP_SYSTEMD=1 is only allowed together with DESTDIR for isolated installer tests. Use SKIP_RESTART=1 for live dry-runs."
 	fi
@@ -729,10 +737,17 @@ validate_install_scope() {
 create_runtime_dirs() {
   log "Creating runtime directories"
   local storage_root download_root backup_root aria2_root
-  storage_root="${STORAGE_ROOT:-${DESTDIR}/var/lib/${APP_SLUG}/storage}"
-  download_root="${DOWNLOAD_ROOT:-${DESTDIR}/var/lib/${APP_SLUG}/downloads}"
-  backup_root="${BACKUP_DIR:-${DESTDIR}/var/backups/${APP_SLUG}}"
-  aria2_root="${ARIA2_RPC_DIR:-${DESTDIR}/var/lib/${APP_SLUG}/aria2}"
+  if [ -n "${DESTDIR}" ]; then
+    storage_root="${STORAGE_ROOT_OVERRIDE:-${DESTDIR}/var/lib/${APP_SLUG}/storage}"
+    download_root="${DOWNLOAD_ROOT_OVERRIDE:-${DESTDIR}/var/lib/${APP_SLUG}/downloads}"
+    backup_root="${BACKUP_DIR_OVERRIDE:-${DESTDIR}/var/backups/${APP_SLUG}}"
+    aria2_root="${ARIA2_RPC_DIR_OVERRIDE:-${DESTDIR}/var/lib/${APP_SLUG}/aria2}"
+  else
+    storage_root="${STORAGE_ROOT:-/var/lib/${APP_SLUG}/storage}"
+    download_root="${DOWNLOAD_ROOT:-/var/lib/${APP_SLUG}/downloads}"
+    backup_root="${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+    aria2_root="${ARIA2_RPC_DIR:-/var/lib/${APP_SLUG}/aria2}"
+  fi
   mkdir -p \
     "${APP_DIR}/storage" \
     "${APP_DIR}/tmp" \

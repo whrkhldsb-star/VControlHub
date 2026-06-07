@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -34,12 +35,21 @@ async function unlinkIfPresent(filePath: string) {
 function imageVariantPaths(root: string, storageKey: string) {
   const ext = path.extname(storageKey);
   const base = path.basename(storageKey, ext);
+  const subDir = path.dirname(storageKey);
   return [
     path.join(root, storageKey),
-    path.join(root, `${base}_thumb.webp`),
-    path.join(root, `${base}.webp`),
-    path.join(root, `${base}.avif`),
+    path.join(root, subDir, `${base}_thumb.webp`),
+    path.join(root, subDir, `${base}.webp`),
+    path.join(root, subDir, `${base}.avif`),
   ];
+}
+
+function canDeleteImage(input: { ownerId: string; session: SessionPayload }) {
+  return (
+    input.ownerId === input.session.userId ||
+    sessionHasPermission(input.session, "storage:delete") ||
+    sessionHasPermission(input.session, "role:manage")
+  );
 }
 
 export async function DELETE(
@@ -75,11 +85,9 @@ export async function DELETE(
       if (!image)
         return NextResponse.json({ error: "图片不存在" }, { status: 404 });
 
-      // Only owner or admin can delete
-      if (
-        image.userId !== session.userId &&
-        !sessionHasPermission(session, "user:read")
-      ) {
+      // Only owner or explicit destructive/admin permissions can delete.
+      // `user:read` is intentionally not enough because viewer accounts have it.
+      if (!canDeleteImage({ ownerId: image.userId, session })) {
         return NextResponse.json({ error: "无权删除" }, { status: 403 });
       }
 

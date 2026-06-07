@@ -595,6 +595,7 @@ describe("deploy/install.sh", () => {
           PG_DB_USER: "smoke_console",
           NEXT_PORT: "3100",
           SSH_WS_PORT: "3101",
+          DATABASE_URL: "",
         },
         timeoutMs: 20000,
       });
