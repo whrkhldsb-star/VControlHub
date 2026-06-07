@@ -116,6 +116,12 @@ describe("/api/scheduled-tasks audit coverage", () => {
     });
   });
 
+  it("allows read-only command users to refresh scheduled task lists", async () => {
+    await route.GET(new Request("http://local/api/scheduled-tasks"));
+
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("command:read");
+  });
+
   it("accepts create payloads from the current client without legacy cron/serverId fields", async () => {
     const res = await route.POST(
       new Request("http://local/api/scheduled-tasks", {

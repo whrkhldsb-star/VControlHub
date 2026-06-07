@@ -71,7 +71,10 @@ function auditScheduledTaskDetail(task: ScheduledTaskAuditPayload) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "command:create", errorMessage: "服务器错误" },
+    {
+      permission: "command:read",
+      errorMessage: "服务器错误",
+    },
     async () => {
       const tasks = await listScheduledTasks();
       const serialized = tasks.map((task) => ({
