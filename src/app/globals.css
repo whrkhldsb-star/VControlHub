@@ -1377,3 +1377,152 @@ html.light body [class*="font-mono"][class*="bg-black"] {
 	border-color: var(--border) !important;
 	color: var(--text-secondary) !important;
 }
+
+/* ============================================================
+ * 精修第 7 轮：全站浅色模式残留深灰/黑色块收敛
+ * 用户反馈：分段修改后页面风格不统一，浅色模式仍出现深灰色色块。
+ * 继续追加全局兼容层，覆盖此前扫描遗漏的 opacity / arbitrary value /
+ * light: 前缀深色类，避免逐页面修补导致再次漂移。
+ * ============================================================ */
+
+/* R1. 浅色模式：补齐 slate 深色背景透明度遗漏（/20 /30 /75 /98 等）。 */
+html.light .bg-slate-950\/10,
+html.light .bg-slate-950\/20,
+html.light .bg-slate-950\/30,
+html.light .bg-slate-950\/75,
+html.light .bg-slate-950\/95,
+html.light .bg-slate-950\/98,
+html.light .bg-slate-900\/10,
+html.light .bg-slate-900\/20,
+html.light .bg-slate-900\/30,
+html.light .bg-slate-900\/35,
+html.light .bg-slate-900\/45,
+html.light .bg-slate-900\/65,
+html.light .bg-slate-800\/10,
+html.light .bg-slate-800\/20,
+html.light .bg-slate-800\/30,
+html.light .bg-slate-800\/40,
+html.light .bg-slate-800\/60,
+html.light .bg-slate-800\/70,
+html.light .bg-slate-800\/80,
+html.light .bg-slate-700\/10,
+html.light .bg-slate-700\/20,
+html.light .bg-slate-700\/30,
+html.light .bg-slate-700\/40,
+html.light .bg-slate-700\/70,
+html.light .bg-slate-700\/80,
+html.light .bg-slate-700 {
+	background-color: var(--surface-elevated) !important;
+	color: var(--text-primary) !important;
+}
+
+/* R2. 浅色模式：black overlay 分场景处理。
+ * 普通内容区黑色块映射为中性浅色面；fixed 全屏仍保留半透明遮罩语义。
+ */
+html.light main .bg-black\/5,
+html.light main .bg-black\/10,
+html.light main .bg-black\/20,
+html.light main .bg-black\/30,
+html.light main .bg-black\/40,
+html.light section .bg-black\/5,
+html.light section .bg-black\/10,
+html.light section .bg-black\/20,
+html.light section .bg-black\/30,
+html.light section .bg-black\/40,
+html.light article .bg-black\/5,
+html.light article .bg-black\/10,
+html.light article .bg-black\/20,
+html.light article .bg-black\/30,
+html.light article .bg-black\/40 {
+	background-color: var(--surface-elevated) !important;
+	color: var(--text-primary) !important;
+}
+
+html.light .fixed.inset-0.bg-black\/10,
+html.light .fixed.inset-0.bg-black\/20,
+html.light .fixed.inset-0.bg-black\/30,
+html.light .fixed.inset-0.bg-black\/40,
+html.light .fixed.inset-0.bg-black\/50,
+html.light .fixed.inset-0.bg-black\/60,
+html.light .fixed.inset-0.bg-black\/70,
+html.light .fixed.inset-0.bg-black\/80,
+html.light .fixed.inset-0.bg-black\/90,
+html.light .fixed.inset-0.bg-slate-950\/75 {
+	background-color: rgba(31, 35, 40, 0.45) !important;
+	backdrop-filter: blur(2px);
+}
+
+/* R3. 浅色模式：覆盖 Tailwind light: 前缀里仍显式写深色背景的类。 */
+html.light .light\:bg-slate-950,
+html.light .light\:bg-slate-950\/20,
+html.light .light\:bg-slate-950\/30,
+html.light .light\:bg-slate-950\/40,
+html.light .light\:bg-slate-950\/50,
+html.light .light\:bg-slate-950\/60,
+html.light .light\:bg-slate-950\/70,
+html.light .light\:bg-slate-950\/80,
+html.light .light\:bg-slate-900,
+html.light .light\:bg-slate-900\/20,
+html.light .light\:bg-slate-900\/30,
+html.light .light\:bg-slate-900\/40,
+html.light .light\:bg-slate-900\/50,
+html.light .light\:bg-slate-900\/60,
+html.light .light\:bg-slate-900\/70,
+html.light .light\:bg-slate-900\/80,
+html.light .light\:bg-slate-800,
+html.light .light\:bg-slate-800\/20,
+html.light .light\:bg-slate-800\/30,
+html.light .light\:bg-slate-800\/40,
+html.light .light\:bg-slate-800\/50,
+html.light .light\:bg-slate-800\/60,
+html.light .light\:bg-slate-700,
+html.light .light\:bg-slate-700\/20,
+html.light .light\:bg-slate-700\/30,
+html.light .light\:bg-slate-700\/40,
+html.light .light\:bg-slate-700\/50,
+html.light .light\:bg-slate-700\/60 {
+	background-color: var(--surface-elevated) !important;
+	color: var(--text-primary) !important;
+}
+
+/* R4. 任意透明白/黑/深色 arbitrary 背景值统一到层级面，补齐 bg-white/[0.01] / [0.025]。 */
+html.light [class*="bg-white/\\[0.0"],
+html.light [class*="bg-slate-9"][class*="/"],
+html.light [class*="bg-slate-8"][class*="/"],
+html.light [class*="bg-slate-7"][class*="/"],
+html.light [class*="bg-neutral-9"][class*="/"],
+html.light [class*="bg-zinc-9"][class*="/"],
+html.light [class*="bg-gray-9"][class*="/"] {
+	background-color: var(--surface-elevated) !important;
+}
+
+/* R5. 深色模式也收敛 light-card 类：透明白面板保持同一 surface 层级。 */
+:root .bg-white\/\[0\.01\],
+:root .bg-white\/\[0\.015\],
+:root .bg-white\/\[0\.02\],
+:root .bg-white\/\[0\.025\],
+:root .bg-white\/\[0\.03\] {
+	background-color: var(--surface) !important;
+}
+
+/* R6. 浅色模式：通知/全局搜索/移动导航这类浮层统一用白底卡片，不残留深灰。 */
+html.light [class*="bg-slate-950"][class*="backdrop-blur"],
+html.light [class*="bg-slate-900"][class*="backdrop-blur"],
+html.light [class*="bg-\\[\\#0a0e1a\\]"][class*="backdrop-blur"],
+html.light [class*="bg-\\[\\#0c0f1a\\]"][class*="shadow"] {
+	background-color: var(--surface) !important;
+	border-color: var(--border) !important;
+	box-shadow: var(--shadow-lg) !important;
+}
+
+/* R7. 浅色模式：嵌套操作条/工具条的边框与文字同步，避免浅底深灰字块割裂。 */
+html.light [class*="bg-slate-"] .text-slate-100,
+html.light [class*="bg-slate-"] .text-slate-200,
+html.light [class*="bg-slate-"] .text-cyan-100,
+html.light [class*="bg-slate-"] .text-cyan-200,
+html.light [class*="bg-black/"] .text-slate-100,
+html.light [class*="bg-black/"] .text-slate-200,
+html.light [class*="bg-black/"] .text-cyan-100,
+html.light [class*="bg-black/"] .text-cyan-200 {
+	color: var(--text-primary) !important;
+}
