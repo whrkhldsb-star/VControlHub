@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T18:25:13Z",
+  "updatedAt": "2026-06-07T21:32:51Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,30 +58,27 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T16:59:52Z",
-    "finishedAt": "2026-06-07T18:25:13Z",
-    "target": "media-visual-workspace-and-image-link-center-redesign",
-    "status": "verified_deployed_ready_to_commit",
-    "summary": "Closed dirty media/share/sidebar/i18n/QuickService polish: /shares now supports inline storage browsing and batch share creation, public directory shares refresh LOCAL/SFTP one-level indexes on access, media/image-bed visual workspace and Quick Apps navigation/search polish are deployed with smoke/log proof.",
+    "startedAt": "2026-06-07T21:22:37Z",
+    "finishedAt": "2026-06-07T21:32:51Z",
+    "target": "storage-nodes-grant-filter-boundary",
+    "status": "verified_deployed_committing",
+    "summary": "Closed /api/storage/nodes metadata authorization boundary so ordinary storage readers only see storage nodes covered by readable grants; verified locally, deployed to production, smoked, and proved with a temporary viewer canary.",
     "changeContract": {
-      "qaPathId": "media-visual-workspace-and-image-link-center-redesign",
-      "userJourney": "Operator opens /media, visually distinguishes images/videos/audio from card covers, enters image mode for publishing, and uses /image-bed only for published-link management/source audit or compatibility direct upload.",
+      "qaPathId": "storage-nodes-grant-filter-boundary",
+      "userJourney": "A low-privilege storage reader opens a storage-node selector/API-backed surface and should only learn about nodes they are explicitly granted to read, not every configured LOCAL/SFTP base path.",
       "evidence": [
+        "Preflight: Docker available, services active, git clean, HEAD == origin/main 4c5f521, /api/status 200, recent logs clean",
+        "npx vitest run src/app/api/storage/nodes/__tests__/route.test.ts --reporter=dot passed 4/4",
         "git diff --check passed",
-        "targeted media/image-bed tests passed 12/12 before stream fix",
-        "affected media/image-bed/media-stream/storage-stream tests passed 29/29 after stream fix",
-        "npm run verify passed: full Vitest plus Next build, runtime build, and deploy-assets",
-        "production services restarted after confirming no build/test process was active and .next/BUILD_ID plus dist artifacts existed",
-        "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active after restart",
+        "npm run typecheck passed",
+        "npm run lint -- --max-warnings=0 passed",
+        "npm run verify passed: Vitest 207 files / 940 tests plus Next build, runtime build, deploy-assets",
+        "Production services restarted after .next/BUILD_ID and dist artifacts existed and ownership was repaired",
+        "Stable post-restart /api/status returned 200",
         "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
-        "/api/status returned healthy database/VPS/storage checks",
-        "post-restart journal scan was clean after replacing the shared Node-to-Web stream adapter with cancellation-safe close/error handling",
-        "media-stream abort probe completed without new Controller is already closed or uncaughtException log entries",
-        "waited for an overlapping next build to finish before touching .next; confirmed .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed",
-        "chown -R vcontrolhub:vcontrolhub .next dist and restarted vcontrolhub-next.service plus vcontrolhub-ssh-ws.service successfully",
-        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks",
-        "post-restart /api/status returned 200 healthy 3/3",
-        "post-restart journal scan for next/ssh-ws found no error/warn/failed/exception matches"
+        "Temporary viewer with one SFTP read grant received only that granted node from /api/storage/nodes and did not receive node_local_default",
+        "Temporary qa_cron_* user cleanup verified 0 remaining",
+        "Post-restart next/ssh-ws filtered journal scan clean"
       ]
     }
   },
@@ -98,7 +95,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 31,
+    "successfulRemediationRunsSinceFreshAudit": 32,
     "skippedOverlapRuns": 0
   },
   "blockers": [

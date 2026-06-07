@@ -1,9 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
-const { requireApiPermissionMock, getStorageOverviewMock } = vi.hoisted(() => ({
+const { requireApiPermissionMock, getStorageOverviewMock, prismaMock } = vi.hoisted(() => ({
   requireApiPermissionMock: vi.fn(),
   getStorageOverviewMock: vi.fn(),
+  prismaMock: {
+    userStorageAccess: {
+      findMany: vi.fn(),
+    },
+  },
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: prismaMock,
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -21,6 +30,7 @@ describe("/api/storage/nodes", () => {
     requireApiPermissionMock.mockResolvedValue({
       session: { userId: "user_1", username: "admin", roles: ["admin"] },
     });
+    prismaMock.userStorageAccess.findMany.mockResolvedValue([]);
     getStorageOverviewMock.mockResolvedValue({
       nodes: [
         {
@@ -72,6 +82,38 @@ describe("/api/storage/nodes", () => {
     );
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      nodes: [
+        {
+          id: "sftp_1",
+          name: "远端资料盘",
+          driver: "SFTP",
+          basePath: "/data",
+          serverId: "srv_1",
+          serverName: "prod-vps",
+        },
+      ],
+    });
+  });
+
+  it("filters node metadata to readable grants for non-manager users", async () => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "user_1", username: "viewer", roles: ["viewer"] },
+    });
+    prismaMock.userStorageAccess.findMany.mockResolvedValueOnce([
+      { storageNodeId: "sftp_1" },
+    ]);
+
+    const response = await GET(
+      new Request("https://example.com/api/storage/nodes"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(prismaMock.userStorageAccess.findMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", canRead: true },
+      select: { storageNodeId: true },
+      distinct: ["storageNodeId"],
+    });
     await expect(response.json()).resolves.toEqual({
       nodes: [
         {
