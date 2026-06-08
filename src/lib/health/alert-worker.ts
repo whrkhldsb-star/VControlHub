@@ -1,10 +1,18 @@
+import { JobStatus } from "@prisma/client";
+
+import { prisma } from "@/lib/db";
+import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
 import { evaluateAlerts } from "./service";
 
 const logger = createLogger("alert-evaluation-worker");
 
+export const ALERT_EVALUATION_JOB_TYPE = "alert.evaluate";
+
 const ALERT_EVALUATION_INTERVAL_MS = 60_000;
+const ALERT_EVALUATION_LEASE_MS = 60_000;
+const ALERT_EVALUATION_WORKER_ID = `${process.env.HOSTNAME || "vcontrolhub"}:alert:${process.pid}`;
 
 type AlertEvaluationWorkerState = {
   started: boolean;
@@ -26,20 +34,52 @@ function getWorkerState() {
   return globalState.__vcontrolhubAlertEvaluationWorker;
 }
 
-async function evaluateAlertsOnce(state: AlertEvaluationWorkerState, reason: string) {
+async function hasActiveEvaluationJob() {
+  const existing = await prisma.job.findFirst({
+    where: {
+      type: ALERT_EVALUATION_JOB_TYPE,
+      status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+    },
+    select: { id: true },
+  });
+  return Boolean(existing);
+}
+
+async function enqueueAlertEvaluationJob(reason: string) {
+  if (await hasActiveEvaluationJob()) return null;
+  return enqueueJob({
+    type: ALERT_EVALUATION_JOB_TYPE,
+    title: "告警规则评估",
+    payload: { reason, requestedAt: new Date().toISOString() },
+    priority: -10,
+    maxAttempts: 3,
+  });
+}
+
+export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
+  const state = getWorkerState();
   if (state.running) {
     logger.warn("Skipping alert evaluation tick because a previous tick is still running", { reason });
-    return;
+    return false;
   }
 
   state.running = true;
   try {
-    await evaluateAlerts();
-  } catch (error) {
-    logger.error("Alert evaluation failed", {
-      reason,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    await enqueueAlertEvaluationJob(reason);
+    const job = await claimNextJob({ workerId: ALERT_EVALUATION_WORKER_ID, types: [ALERT_EVALUATION_JOB_TYPE], leaseMs: ALERT_EVALUATION_LEASE_MS });
+    if (!job) return false;
+
+    try {
+      await heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, { leaseMs: ALERT_EVALUATION_LEASE_MS, progress: "正在评估告警规则" });
+      const result = await evaluateAlerts();
+      await completeJob(job.id, ALERT_EVALUATION_WORKER_ID, result ?? { evaluated: true });
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "告警评估失败";
+      await failJob(job.id, ALERT_EVALUATION_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
+      logger.error("Alert evaluation failed", { reason, jobId: job.id, error: message });
+      return true;
+    }
   } finally {
     state.running = false;
   }
@@ -52,13 +92,17 @@ export async function startAlertEvaluationWorker() {
   state.started = true;
   const intervalMs = ALERT_EVALUATION_INTERVAL_MS;
 
-  void evaluateAlertsOnce(state, "startup");
+  void runAlertEvaluationJobWorkerOnce("startup").catch((error) => {
+    logger.error("Alert evaluation worker tick failed", { reason: "startup", error: error instanceof Error ? error.message : String(error) });
+  });
   state.timer = setInterval(() => {
-    void evaluateAlertsOnce(state, "interval");
+    void runAlertEvaluationJobWorkerOnce("interval").catch((error) => {
+      logger.error("Alert evaluation worker tick failed", { reason: "interval", error: error instanceof Error ? error.message : String(error) });
+    });
   }, intervalMs);
   state.timer.unref?.();
 
-  logger.info("Alert evaluation worker started", { intervalMs });
+  logger.info("alert evaluation durable job worker started", { workerId: ALERT_EVALUATION_WORKER_ID, intervalMs });
   return state;
 }
 

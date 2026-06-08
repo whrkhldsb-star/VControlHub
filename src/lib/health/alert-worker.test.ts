@@ -1,14 +1,39 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { evaluateAlertsMock, infoMock, warnMock, errorMock } = vi.hoisted(() => ({
+const { evaluateAlertsMock, infoMock, warnMock, errorMock, jobMocks, jobIds } = vi.hoisted(() => ({
   evaluateAlertsMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
+  jobIds: { next: 1 },
+  jobMocks: {
+    findFirst: vi.fn(),
+    enqueueJob: vi.fn(),
+    claimNextJob: vi.fn(),
+    heartbeatJob: vi.fn(),
+    completeJob: vi.fn(),
+    failJob: vi.fn(),
+  },
 }));
 
 vi.mock("./service", () => ({
   evaluateAlerts: evaluateAlertsMock,
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    job: {
+      findFirst: jobMocks.findFirst,
+    },
+  },
+}));
+
+vi.mock("@/lib/job/service", () => ({
+  enqueueJob: jobMocks.enqueueJob,
+  claimNextJob: jobMocks.claimNextJob,
+  heartbeatJob: jobMocks.heartbeatJob,
+  completeJob: jobMocks.completeJob,
+  failJob: jobMocks.failJob,
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -21,34 +46,57 @@ vi.mock("@/lib/logging", () => ({
 
 import { startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "./alert-worker";
 
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe("alert evaluation worker", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
-    evaluateAlertsMock.mockResolvedValue(undefined);
+    jobIds.next = 1;
+    evaluateAlertsMock.mockResolvedValue({ evaluated: true });
+    jobMocks.findFirst.mockResolvedValue(null);
+    jobMocks.enqueueJob.mockResolvedValue({ id: "enqueued-job" });
+    jobMocks.claimNextJob.mockImplementation(async () => {
+      const id = `job-${jobIds.next++}`;
+      return { id, type: "alert.evaluate", payload: {}, status: "RUNNING" };
+    });
+    jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
+    jobMocks.completeJob.mockResolvedValue({ count: 1 });
+    jobMocks.failJob.mockResolvedValue({ count: 1 });
     stopAlertEvaluationWorkerForTests();
   });
 
-  it("starts once (idempotent) and evaluates alerts on startup and interval", async () => {
+  it("starts once (idempotent), enqueues durable jobs, and evaluates alerts on startup and interval", async () => {
     await startAlertEvaluationWorker();
     await startAlertEvaluationWorker();
-    await Promise.resolve();
+    await flushPromises();
 
     expect(infoMock).toHaveBeenCalledTimes(1);
+    expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1);
+    expect(jobMocks.claimNextJob).toHaveBeenCalledWith(expect.objectContaining({ types: ["alert.evaluate"] }));
     expect(evaluateAlertsMock).toHaveBeenCalledTimes(1);
+    expect(jobMocks.completeJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), { evaluated: true });
 
     await vi.runOnlyPendingTimersAsync();
+    expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(2);
     expect(evaluateAlertsMock).toHaveBeenCalledTimes(2);
   });
 
-  it("swallows evaluation errors without throwing", async () => {
-    evaluateAlertsMock.mockRejectedValueOnce(new Error("eval boom")).mockResolvedValue(undefined);
+  it("marks durable evaluation jobs failed without throwing", async () => {
+    evaluateAlertsMock.mockRejectedValueOnce(new Error("eval boom")).mockResolvedValue({ evaluated: true });
 
     await expect(startAlertEvaluationWorker()).resolves.toBeDefined();
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushPromises();
 
-    expect(errorMock).toHaveBeenCalled();
+    expect(jobMocks.failJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), "eval boom", { retryAfterMs: 60_000 });
+    expect(errorMock).toHaveBeenCalledWith("Alert evaluation failed", expect.objectContaining({ jobId: "job-1", error: "eval boom" }));
   });
 
   it("skips overlapping ticks while a previous evaluation is still running", async () => {
@@ -63,6 +111,7 @@ describe("alert evaluation worker", () => {
     await vi.advanceTimersByTimeAsync(60_000);
 
     expect(evaluateAlertsMock).toHaveBeenCalledTimes(1);
+    expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1);
     expect(warnMock).toHaveBeenCalledWith(
       "Skipping alert evaluation tick because a previous tick is still running",
       { reason: "interval" },
@@ -70,5 +119,16 @@ describe("alert evaluation worker", () => {
 
     release();
     await vi.runOnlyPendingTimersAsync();
+  });
+
+  it("does not enqueue duplicate alert jobs while a pending/running one exists", async () => {
+    jobMocks.findFirst.mockResolvedValueOnce({ id: "existing-job" });
+    jobMocks.claimNextJob.mockResolvedValueOnce(null);
+
+    await startAlertEvaluationWorker();
+    await flushPromises();
+
+    expect(jobMocks.enqueueJob).not.toHaveBeenCalled();
+    expect(evaluateAlertsMock).not.toHaveBeenCalled();
   });
 });
