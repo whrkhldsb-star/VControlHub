@@ -150,6 +150,28 @@ export function getPreviewHref(entry: StorageEntry) {
     : buildDownloadHref(entry);
 }
 
+export function getPreviewActionCopy(entry: StorageEntry) {
+  const mime = entry.mimeType ?? "";
+  if (OFFICE_MIME_SET.has(mime)) {
+    return {
+      label: `打开 Office 下载提示 ${entry.name}`,
+      title: "Office 文件暂不做公网在线渲染，将打开下载提示页",
+    };
+  }
+  if (ARCHIVE_MIME_SET.has(mime)) {
+    return {
+      label: `查看压缩包内容 ${entry.name}`,
+      title: entry.storageNode.driver === "LOCAL"
+        ? "查看压缩包内容，可在受控流程中在线解压"
+        : "查看压缩包内容，远端压缩包仅提供安全列表和下载",
+    };
+  }
+  return {
+    label: `预览 ${entry.name}`,
+    title: "预览",
+  };
+}
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
   return d.toLocaleDateString("zh-CN", {

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T14:36:30Z",
+  "updatedAt": "2026-06-08T14:58:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,38 +58,38 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "media-stream-helper",
-    "title": "Media stream unified Range helper",
-    "startedAt": "2026-06-08T14:05:00Z",
-    "finishedAt": "2026-06-08T14:36:30Z",
-    "status": "deployed_verified",
-    "summary": "/api/media/[id]/stream now reuses shared storage Range/header/Node stream response helpers instead of local duplicate parse/header code.",
+    "id": "preview-boundary-disclosure",
+    "title": "File preview boundary disclosure in file list actions",
+    "startedAt": "2026-06-08T14:45:00Z",
+    "finishedAt": "2026-06-08T14:58:30Z",
+    "status": "deployed",
+    "summary": "/files preview actions now disclose Office download fallback and archive controlled-list/extract boundaries before opening preview pages.",
     "changeContract": {
       "files": [
-        "src/app/api/media/[id]/stream/route.ts",
-        "src/app/api/media/[id]/stream/__tests__/route.test.ts",
+        "src/app/files/file-entry-utils.ts",
+        "src/app/files/file-list-client.tsx",
+        "src/app/files/__tests__/file-list-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "README identified media stream route as the remaining local Range/header implementation after storage/share streaming unification.",
-        "Route now imports parseStorageRange and storageStreamResponse from src/lib/storage/streaming.ts for LOCAL and SFTP media streams.",
-        "Targeted verification: media stream route tests and storage streaming helper tests passed 9/9.",
-        "Typecheck passed.",
-        "Regression covers LOCAL Range 206 headers, invalid Range 416 content-range, and attachment download content-disposition."
+        "Office file preview action accessible name is 打开 Office 下载提示 <name> with title explaining no public online render.",
+        "Archive preview action accessible name is 查看压缩包内容 <name> with title explaining LOCAL controlled extraction vs remote list/download.",
+        "Targeted FileListClient regression passed 18/18.",
+        "Typecheck passed."
       ],
       "remaining": [
-        "Office preview and archive online extraction remain safe-degrade/documentation follow-ups.",
-        "SFTP stale media index cleanup remains under storage consistency follow-up."
+        "README/API docs can further document Office/archive boundaries.",
+        "Archive extraction can be expanded with finer format/permission/quota controls."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 1000 tests, Next build, runtime build, deploy assets OK.",
+      "verify": "npm run verify passed: 213 test files / 1001 tests, Next build, runtime build, deploy-assets OK.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart.",
-      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /media unauthenticated probe returned 307.",
-      "logs": "No next/ssh-ws errors or warnings in the post-restart journal scan.",
+      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
+      "status": "https://whrkhldsb.qzz.io/api/status returned healthy 3/3; /files unauthenticated probe returned 307.",
+      "logs": "No error/warn/failed/exception lines in recent next/ssh-ws logs after deployment.",
       "swap": "Only /swapfile 6G active."
     }
   },

@@ -149,6 +149,16 @@ const sftpDirectFile: FileProp = {
   storageNodeDriver: "SFTP",
 };
 
+const officeFile: FileProp = {
+  ...imageFile,
+  id: "file_office",
+  name: "report.docx",
+  mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  relativePath: "photos/report.docx",
+  directAccessHref: "/api/storage/local?path=photos%2Freport.docx",
+  updatedAt: "2026-05-07T00:00:00.000Z",
+};
+
 const docFile: FileProp = {
   ...imageFile,
   id: "file_3",
@@ -353,6 +363,23 @@ describe("FileListClient", () => {
     );
     expect(downloadLinks[0]).toHaveAttribute("download");
     expect(downloadLinks[0]).not.toHaveAttribute("target");
+  });
+
+  it("discloses Office and archive preview boundaries from the file list action", () => {
+    renderFileList({ files: [officeFile, archiveFile], folders: [] });
+
+    const officePreview = screen.getAllByRole("link", { name: "打开 Office 下载提示 report.docx" })[0];
+    expect(officePreview).toHaveAttribute(
+      "title",
+      "Office 文件暂不做公网在线渲染，将打开下载提示页",
+    );
+    expect(officePreview).toHaveAttribute("href", expect.stringContaining("/files/preview?"));
+
+    const archivePreview = screen.getAllByRole("link", { name: "查看压缩包内容 archive.zip" })[0];
+    expect(archivePreview).toHaveAttribute(
+      "title",
+      "查看压缩包内容，可在受控流程中在线解压",
+    );
   });
 
   it("keeps secondary file actions under a More menu across dense file rows", () => {

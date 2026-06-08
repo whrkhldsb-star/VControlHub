@@ -16,6 +16,7 @@ import {
   buildForcedDownloadHref,
   buildSearchHref,
   formatDate,
+  getPreviewActionCopy,
   getPreviewHref,
   getThumbnailUrl,
   toStorageEntry,
@@ -627,14 +628,15 @@ export function FileListClient({
     previewHref: string,
     compact = false,
   ) {
+    const previewAction = getPreviewActionCopy(entry);
     return (
       <div className="flex items-center gap-1 flex-wrap">
         {renderDetailAction(entry, compact)}
         {entry.previewable && entryCanRead(entry) ? (
           <Link
             href={previewHref}
-            title="预览"
-            aria-label={`预览 ${entry.name}`}
+            title={previewAction.title}
+            aria-label={previewAction.label}
             className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
           >
             <PreviewIcon />
