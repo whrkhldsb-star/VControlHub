@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-08T09:49:30Z",
-  "runCounter": 52,
-  "lastRunStatus": "quickservice_access_boundaries_deployed_committed",
-  "lastRunTarget": "runtime-boundaries",
+  "updatedAt": "2026-06-08T10:32:30Z",
+  "runCounter": 53,
+  "lastRunStatus": "file_inventory_consistency_deployed_pending_commit",
+  "lastRunTarget": "file-inventory",
   "overallReviewDue": false,
-  "note": "Closed and deployed a QuickService runtime-boundary disclosure slice: generated access entries now classify direct host-port links vs reverse-proxy HTTPS and /quick-services exposes direct-port auth-boundary warnings in overview/cards. Evidence: git diff --check, targeted QuickService regressions 13/13, npm run verify passed with 211 files / 978 tests plus Next build/runtime build/deploy-assets, vcontrolhub-next/vcontrolhub-ssh-ws restarted with caddy reload, /api/status healthy after one restart-window 502 retry, smoke 25/25, recent logs clean. Preflight: HEAD==origin/main e847af9 before closeout, Docker available; closeout HEAD==origin/main e4ed3e9 after concurrent product commit. Next candidates: Docker socket privilege/operator docs, QuickService durable install/update rollback/history, Direct Gateway TLS/VPN/firewall hardening, storage/Direct Gateway realtime probes."
+  "note": "Dirty-closeout only because preflight found product/.hermes changes. Closed and deployed the file inventory consistency slice: deleteFileEntryAction now marks FileEntry rows as recycle-bin state before best-effort LOCAL/SFTP backing deletion, emits storage.file_delete_backing_failed on physical delete failure without rolling DB metadata active again, and restoreFileEntryAction delegates to service-level physical existence/type checks. Evidence: git diff --check passed; targeted storage actions/service regressions passed 31/31; npm run typecheck passed; npm run lint -- --max-warnings=0 passed; npm run verify passed with 213 files / 990 tests plus Next build/runtime build/deploy-assets; vcontrolhub-next/vcontrolhub-ssh-ws restarted and caddy reloaded; /api/status healthy 3/3; smoke 25/25; recent next/ssh-ws logs clean. Preflight/closeout: Docker available, services active, HEAD==origin/main before commit. Next candidates: scheduled stale SFTP inventory reconciliation for out-of-band deletes, storage overview/list pagination and aggregation bounds, migrate media stream helper, public directory share archive streaming."
 }
