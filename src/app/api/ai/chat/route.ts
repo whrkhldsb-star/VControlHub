@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   sendChatRequest,
   createMessage,
@@ -476,47 +475,14 @@ export async function POST(request: Request) {
                   });
 
                   if (tool.autoApproved) {
-                    // 安全操作：检查用户是否有 SSH 权限
-                    if (!sessionHasPermission(session, "server:ssh")) {
-                      const errResult = {
-                        success: false,
-                        error: "你没有服务器 SSH 执行权限",
-                      };
-                      await prisma.aiHostedAction.update({
-                        where: { id: action.id },
-                        data: {
-                          status: "FAILED",
-                          errorMessage: errResult.error,
-                          completedAt: new Date(),
-                        },
-                      });
-                      await prisma.aiMessage.create({
-                        data: {
-                          conversationId: conv.id,
-                          role: "tool",
-                          content: JSON.stringify(errResult),
-                          toolCallId,
-                        },
-                      });
-                      controller.enqueue(
-                        encoder.encode(
-                          `data: ${JSON.stringify({ type: "tool_result", toolCallId, success: false, error: errResult.error, actionId: action.id })}\n\n`,
-                        ),
-                      );
-                      allToolResults.push({
-                        toolCallId,
-                        toolName: tool.name,
-                        result: errResult,
-                        needsApproval: false,
-                        actionId: action.id,
-                      });
-                      continue;
-                    }
-                    const execResult = await executeSafeAction({
-                      actionType: tool.actionType,
-                      serverId: (args.serverId as string) || null,
-                      params: args,
-                    });
+                    const execResult = await executeSafeAction(
+                      {
+                        actionType: tool.actionType,
+                        serverId: (args.serverId as string) || null,
+                        params: args,
+                      },
+                      { session },
+                    );
 
                     // 更新操作状态
                     await prisma.aiHostedAction.update({

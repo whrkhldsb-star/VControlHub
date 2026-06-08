@@ -9,6 +9,8 @@
 
 import { prisma } from "@/lib/db";
 import { getToolByName, type HostedTool } from "./hosted-tools";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 // ── 类型 ──────────────────────────────────────────────────
@@ -21,6 +23,16 @@ interface ToolCall {
     arguments: string; // JSON string
   };
 }
+
+type HostedActionSession = {
+  userId: string;
+  roles: RoleKey[];
+};
+
+type HostedActionExecutionContext = {
+  session: HostedActionSession;
+  requiredPermission?: Permission;
+};
 
 interface ParsedToolCall {
   toolCallId: string;
@@ -81,7 +93,12 @@ export async function executeSafeAction(
     serverId: string | null;
     params: Record<string, unknown>;
   },
+  context?: HostedActionExecutionContext,
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
+  if (context && !sessionHasPermission(context.session, context.requiredPermission ?? "server:ssh")) {
+    return { success: false, data: null, error: "你没有服务器 SSH 执行权限" };
+  }
+
   if (!action.serverId) {
     return { success: false, data: null, error: "未指定服务器" };
   }
@@ -238,27 +255,27 @@ export function buildCommand(actionType: string, params: Record<string, unknown>
 
 // ── 审批操作 ──────────────────────────────────────────────
 
-export async function approveHostedAction(actionId: string, approverId: string, isAdminOverride = false) {
-  const where: { id: string; requesterId?: string } = { id: actionId };
-  if (!isAdminOverride) where.requesterId = approverId;
-  const action = await prisma.aiHostedAction.findFirst({ where });
+export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
+  if (!sessionHasPermission(approver, "ai:action:approve")) throw new Error("缺少权限：ai:action:approve");
+
+  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
   if (!action) throw new Error("操作不存在或无权审批");
   if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
 
   // 更新状态为已批准
   await prisma.aiHostedAction.update({
     where: { id: actionId },
-    data: { status: "APPROVED", approverId, approvedAt: new Date() },
+    data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
   });
 
   // 执行操作
-  await executeApprovedAction(actionId);
+  await executeApprovedAction(actionId, approver);
 }
 
-export async function rejectHostedAction(actionId: string, approverId: string, reason?: string, isAdminOverride = false) {
-  const where: { id: string; requesterId?: string } = { id: actionId };
-  if (!isAdminOverride) where.requesterId = approverId;
-  const action = await prisma.aiHostedAction.findFirst({ where });
+export async function rejectHostedAction(actionId: string, approver: HostedActionSession, reason?: string) {
+  if (!sessionHasPermission(approver, "ai:action:approve")) throw new Error("缺少权限：ai:action:approve");
+
+  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
   if (!action) throw new Error("操作不存在或无权审批");
   if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
 
@@ -266,7 +283,7 @@ export async function rejectHostedAction(actionId: string, approverId: string, r
     where: { id: actionId },
     data: {
       status: "REJECTED",
-      approverId,
+      approverId: approver.userId,
       errorMessage: reason || "审批被拒绝",
     },
   });
@@ -274,7 +291,7 @@ export async function rejectHostedAction(actionId: string, approverId: string, r
 
 // ── 执行已批准的操作 ──────────────────────────────────────
 
-async function executeApprovedAction(actionId: string) {
+async function executeApprovedAction(actionId: string, approver: HostedActionSession) {
   const action = await prisma.aiHostedAction.findUnique({ where: { id: actionId } });
   if (!action || action.status !== "APPROVED") return;
 
@@ -284,11 +301,14 @@ async function executeApprovedAction(actionId: string) {
   });
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
-  const result = await executeSafeAction({
-    actionType: action.actionType,
-    serverId: action.serverId,
-    params,
-  });
+  const result = await executeSafeAction(
+    {
+      actionType: action.actionType,
+      serverId: action.serverId,
+      params,
+    },
+    { session: approver },
+  );
 
   await prisma.aiHostedAction.update({
     where: { id: actionId },

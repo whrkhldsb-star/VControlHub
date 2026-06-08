@@ -2,13 +2,11 @@
  * PATCH /api/ai/hosted-actions/[id] — approve or reject an AI hosted action
  *
  * Permission rules:
- * - The original requester can always approve/reject their own action
- * - Users with `ai:action:approve` permission can approve/reject any action (admin override)
+ * - Users need `ai:action:approve` to approve or reject hosted actions.
  */
 
 import { NextResponse } from "next/server";
 
-import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   approveHostedAction,
   rejectHostedAction,
@@ -26,6 +24,7 @@ export async function PATCH(
     request,
     {
       requireAuth: true,
+      permission: "ai:action:approve",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "操作失败",
@@ -42,15 +41,8 @@ export async function PATCH(
         return NextResponse.json({ error: "无效请求" }, { status: 400 });
       }
 
-      // Check permission: requester can always approve own action;
-      // ai:action:approve grants admin override for others' actions
-      const hasAdminApprove = sessionHasPermission(
-        session,
-        "ai:action:approve",
-      );
-
       if (body.action === "approve") {
-        await approveHostedAction(id, session.userId, hasAdminApprove);
+        await approveHostedAction(id, session);
         const { prisma } = await import("@/lib/db");
         const action = await prisma.aiHostedAction.findUnique({
           where: { id },
@@ -60,9 +52,8 @@ export async function PATCH(
 
       const result = await rejectHostedAction(
         id,
-        session.userId,
+        session,
         body.reason,
-        hasAdminApprove,
       );
       return NextResponse.json({ success: true, action: result });
     },

@@ -217,7 +217,7 @@ describe("AI API shared guard migration", () => {
     );
   });
 
-  it("keeps hosted action approval owner/admin permission semantics", async () => {
+  it("requires ai:action:approve for hosted action approval and rejection", async () => {
     const listResponse = await hostedActionsRoute.GET(
       new Request("http://local/api/ai/hosted-actions"),
     );
@@ -233,11 +233,8 @@ describe("AI API shared guard migration", () => {
       { params: Promise.resolve({ id: "a1" }) },
     );
     expect(approveResponse.status).toBe(200);
-    expect(mocks.sessionHasPermission).toHaveBeenCalledWith(
-      session,
-      "ai:action:approve",
-    );
-    expect(mocks.approveHostedAction).toHaveBeenCalledWith("a1", "u1", true);
+    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:action:approve");
+    expect(mocks.approveHostedAction).toHaveBeenCalledWith("a1", session);
   });
 
   it("uses shared guard for AI conversation list/create/update/delete routes", async () => {
