@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T10:28:30Z",
+  "updatedAt": "2026-06-08T10:58:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,36 +58,39 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "file-inventory",
-    "title": "File inventory consistency",
-    "startedAt": "2026-06-08T10:22:30Z",
-    "finishedAt": "2026-06-08T10:28:30Z",
+    "id": "share-archive",
+    "title": "Public directory share archive streaming",
+    "startedAt": "2026-06-08T10:34:00Z",
+    "finishedAt": "2026-06-08T10:58:30Z",
     "status": "deployed_verified",
-    "summary": "Soft delete now marks FileEntry recycle-bin state before best-effort LOCAL/SFTP backing deletion, and restore action delegates to service-level physical existence/type checks.",
+    "summary": "Public directory share pages can download the whole shared directory as a tar.gz archive through /api/share/:token?archive=1, reusing the authenticated storage archive helper.",
     "changeContract": {
       "files": [
-        "src/app/storage/actions.ts",
-        "src/app/storage/__tests__/actions.test.ts",
+        "src/lib/storage/archive-stream.ts",
+        "src/app/api/storage/archive-download/route.ts",
+        "src/app/api/share/[token]/route.ts",
+        "src/app/api/share/[token]/__tests__/route.test.ts",
+        "src/app/share/[token]/page.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Targeted verification: npx vitest run src/app/storage/__tests__/actions.test.ts src/lib/storage/__tests__/service.test.ts passed 31/31.",
+        "Targeted verification: npx vitest run src/app/api/share/[token]/__tests__/route.test.ts src/app/api/storage/archive-download/__tests__/route.test.ts passed 7/7.",
         "Typecheck: npm run typecheck passed.",
-        "Delete ordering: recycle-bin DB state is written before best-effort physical deletion, preventing physical-delete-success/DB-active split-brain.",
-        "Restore ordering: restoreFileEntryAction calls restoreFileEntry, which verifies LOCAL/SFTP backing object existence and type before clearing isDeleted."
+        "Public share token route preserves existing file and child path download behavior while adding archive=1 for directory tokens.",
+        "Authenticated and public archive routes reuse shared LOCAL/SFTP tar.gz stream helper with RFC 5987 filename and SSH stream cleanup."
       ],
       "remaining": [
-        "Add scheduled stale inventory reconciliation for out-of-band SFTP deletes.",
-        "Bound/paginate storage overview and file list aggregation for very large indexes."
+        "Migrate media stream range/header code into the shared streaming helper.",
+        "Document or extend controlled archive extraction boundaries."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 990 tests, Next build, runtime build, deploy asset verification.",
+      "verify": "npm run verify passed: 213 test files / 991 tests, Next build, runtime build, deploy asset verification.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3.",
+      "status": "https://whrkhldsb.qzz.io/api/status healthy; invalid public share page returned 200 and invalid archive API returned 404.",
       "logs": "No recent error/warn/failed/exception lines for next/ssh-ws units after deploy."
     }
   },
@@ -104,7 +107,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": [

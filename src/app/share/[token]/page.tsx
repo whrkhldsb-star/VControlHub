@@ -88,9 +88,17 @@ export default async function SharePage({
 
             {share.entryType === "DIRECTORY" ? (
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-white light:text-slate-900">可下载文件</h2>
-                  <span className="text-xs text-slate-500">最多显示 200 个已索引文件</span>
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-white light:text-slate-900">可下载文件</h2>
+                    <span className="text-xs text-slate-500">最多显示 200 个已索引文件</span>
+                  </div>
+                  <a
+                    href={`/api/share/${encodeURIComponent(token)}?archive=1`}
+                    className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/10 light:text-cyan-700"
+                  >
+                    ⬇ 下载整个目录
+                  </a>
                 </div>
                 {files.length === 0 ? (
                   <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-center text-xs text-amber-200 light:text-amber-800">

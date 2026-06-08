@@ -4,6 +4,13 @@ import { stat } from "node:fs/promises";
 import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 
+import {
+	archiveStreamResponse,
+	closeSshClientOnStreamEnd,
+	safeArchiveName,
+	streamLocalTarGz,
+	streamRemoteTarGz,
+} from "@/lib/storage/archive-stream";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { normalizeSharePath, resolveShareToken } from "@/lib/share-link/service";
@@ -85,17 +92,23 @@ export async function GET(
 	}
 
 	let targetPath = share.path;
+	const searchParams = new URL(request.url).searchParams;
+	const childPath = searchParams.get("path");
+	const wantsArchive = searchParams.get("archive") === "1";
 	if (share.entryType === "DIRECTORY") {
-		const childPath = new URL(request.url).searchParams.get("path");
-		if (!childPath) return NextResponse.json({ error: "请选择目录中的具体文件" }, { status: 400 });
-		try {
-			targetPath = normalizeSharePath(childPath);
-		} catch {
-			return NextResponse.json({ error: "非法路径" }, { status: 400 });
-		}
-		const prefix = `${share.path.replace(/^\/+|\/+$/g, "")}/`;
-		if (targetPath !== share.path && !targetPath.startsWith(prefix)) {
-			return NextResponse.json({ error: "文件不在分享目录范围内" }, { status: 403 });
+		if (wantsArchive) {
+			targetPath = share.path;
+		} else {
+			if (!childPath) return NextResponse.json({ error: "请选择目录中的具体文件或使用 archive=1 下载整个目录" }, { status: 400 });
+			try {
+				targetPath = normalizeSharePath(childPath);
+			} catch {
+				return NextResponse.json({ error: "非法路径" }, { status: 400 });
+			}
+			const prefix = `${share.path.replace(/^\/+|\/+$/g, "")}/`;
+			if (targetPath !== share.path && !targetPath.startsWith(prefix)) {
+				return NextResponse.json({ error: "文件不在分享目录范围内" }, { status: 403 });
+			}
 		}
 	} else if (share.entryType !== "FILE") {
 		return NextResponse.json({ error: "分享目标不是可下载文件" }, { status: 400 });
@@ -113,6 +126,13 @@ export async function GET(
 		}
 		try {
 			const fileStat = await stat(absolutePath);
+			if (wantsArchive) {
+				if (share.entryType !== "DIRECTORY" || !fileStat.isDirectory()) {
+					return NextResponse.json({ error: "分享目标不是可打包目录" }, { status: 400 });
+				}
+				const stream = streamLocalTarGz(absolutePath, path.basename(absolutePath));
+				return archiveStreamResponse(stream, safeArchiveName(share.name || path.basename(absolutePath)));
+			}
 			if (!fileStat.isFile()) return NextResponse.json({ error: "分享目标不是可下载文件" }, { status: 400 });
 			return fileResponse(createReadStream(absolutePath), { size: fileStat.size, fileName });
 		} catch {
@@ -144,6 +164,15 @@ export async function GET(
 				readyTimeout: 15000,
 				timeout: 10000,
 			});
+			if (wantsArchive) {
+				if (share.entryType !== "DIRECTORY") {
+					return NextResponse.json({ error: "分享目标不是可打包目录" }, { status: 400 });
+				}
+				const stream = await streamRemoteTarGz(client, remotePath);
+				closeSshClientOnStreamEnd(stream, client);
+				client = null;
+				return archiveStreamResponse(stream, safeArchiveName(share.name || fileName));
+			}
 			const { stream, size } = await openSftpFile(client, remotePath);
 			stream.on("close", () => client?.end());
 			stream.on("error", () => client?.end());

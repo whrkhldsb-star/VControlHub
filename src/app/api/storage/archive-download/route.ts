@@ -1,16 +1,21 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import { spawn } from "node:child_process";
 
-import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
+import type { Client } from "ssh2";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { buildContentDisposition } from "@/lib/http/content-disposition";
-import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import {
+  archiveStreamResponse,
+  closeSshClientOnStreamEnd,
+  connectArchiveSsh,
+  safeArchiveName,
+  streamLocalTarGz,
+  streamRemoteTarGz,
+} from "@/lib/storage/archive-stream";
 import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -44,51 +49,8 @@ type DirectoryEntry = {
   };
 };
 
-function safeArchiveName(name: string) {
-  const base = path.basename(name).replace(/[^\w.\-\u4e00-\u9fff]+/g, "-");
-  return `${base || "folder"}.tar.gz`;
-}
-
 function isDirectoryEntry(entry: DirectoryEntry) {
   return entry.entryType === "DIRECTORY" || entry.mimeType === "inode/directory";
-}
-
-function streamLocalTarGz(directoryPath: string, entryName: string) {
-  const tar = spawn("tar", ["-czf", "-", "-C", path.dirname(directoryPath), "--", entryName], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  tar.stderr.on("data", (chunk) => {
-    logger.warn("local archive tar stderr", { message: String(chunk).slice(0, 500) });
-  });
-  return tar.stdout;
-}
-
-function shellQuote(value: string) {
-  return `'${value.replace(/'/g, `'"'"'`)}'`;
-}
-
-function connectSsh(config: ConnectConfig): Promise<Client> {
-  return new Promise((resolve, reject) => {
-    const client = new Client();
-    client.on("ready", () => resolve(client));
-    client.on("error", (err) => reject(err));
-    client.connect(config);
-  });
-}
-
-function streamRemoteTarGz(client: Client, remoteDirectoryPath: string) {
-  return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
-    const parent = path.posix.dirname(remoteDirectoryPath);
-    const name = path.posix.basename(remoteDirectoryPath);
-    const command = `tar -czf - -C ${shellQuote(parent)} -- ${shellQuote(name)}`;
-    client.exec(command, (err, stream) => {
-      if (err) return reject(err);
-      stream.stderr.on("data", (chunk: Buffer) => {
-        logger.warn("remote archive tar stderr", { message: chunk.toString("utf8").slice(0, 500) });
-      });
-      resolve(stream);
-    });
-  });
 }
 
 async function findDirectoryEntry(nodeId: string, relativePath: string) {
@@ -167,10 +129,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const headers = new Headers();
-    headers.set("content-type", "application/gzip");
-    headers.set("cache-control", "private, no-store");
-    headers.set("content-disposition", buildContentDisposition("attachment", safeArchiveName(entry.name)));
+    const archiveName = safeArchiveName(entry.name);
 
     if (entry.storageNode.driver === "LOCAL") {
       const resolved = resolveStoragePathWithinBase(entry.storageNode.basePath, entry.relativePath);
@@ -182,7 +141,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "本机目录不存在或不可读取" }, { status: 404 });
       }
       const stream = streamLocalTarGz(resolved.path, path.basename(resolved.path));
-      return new Response(nodeStreamToWeb(stream), { status: 200, headers });
+      return archiveStreamResponse(stream, archiveName);
     }
 
     if (entry.storageNode.driver !== "SFTP") {
@@ -203,7 +162,7 @@ export async function GET(request: Request) {
     let client: Client | null = null;
     try {
       const remotePath = normalizeRemoteTargetPath(entry.storageNode.basePath, entry.relativePath);
-      client = await connectSsh({
+      client = await connectArchiveSsh({
         host: credentials.host,
         port: credentials.port,
         username: credentials.username,
@@ -213,15 +172,9 @@ export async function GET(request: Request) {
         timeout: 10000,
       });
       const stream = await streamRemoteTarGz(client, remotePath);
-      stream.on("close", () => {
-        client?.end();
-        client = null;
-      });
-      stream.on("error", () => {
-        client?.end();
-        client = null;
-      });
-      return new Response(nodeStreamToWeb(stream), { status: 200, headers });
+      closeSshClientOnStreamEnd(stream, client);
+      client = null;
+      return archiveStreamResponse(stream, archiveName);
     } catch (error) {
       client?.end();
       logger.error("archive download failed", error, { nodeId: entry.storageNode.id });

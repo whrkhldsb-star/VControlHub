@@ -57,4 +57,33 @@ describe("share token file route", () => {
     expect(response.headers.get("content-disposition")).toContain("hello.txt");
     await expect(response.text()).resolves.toBe("hello share");
   });
+
+  it("streams LOCAL directory shares as tar.gz archives", async () => {
+    const expandedRoot = path.join(tempRoot, "vcontrolhub", "storage");
+    await mkdir(path.join(expandedRoot, "docs"), { recursive: true });
+    await writeFile(path.join(expandedRoot, "docs", "hello.txt"), "hello archive");
+
+    vi.mocked(resolveShareToken).mockResolvedValueOnce({
+      storageNode: {
+        id: "node_1",
+        name: "本机存储",
+        driver: "LOCAL",
+        basePath: path.join(tempRoot, "${APP_SLUG:-vcontrolhub}", "storage"),
+      },
+      entryType: "DIRECTORY",
+      path: "docs",
+      name: "资料 目录",
+    } as never);
+
+    const response = await route.GET(new Request("http://local/api/share/token?archive=1"), {
+      params: Promise.resolve({ token: "share-token-12345" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/gzip");
+    expect(response.headers.get("content-disposition")).toContain("filename*=UTF-8''");
+    expect(response.headers.get("content-disposition")).toContain("%E8%B5%84%E6%96%99-%E7%9B%AE%E5%BD%95.tar.gz");
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    expect([...bytes.slice(0, 2)]).toEqual([0x1f, 0x8b]);
+  });
 });
