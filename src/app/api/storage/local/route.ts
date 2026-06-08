@@ -5,9 +5,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 import type { SessionPayload } from "@/lib/auth/session";
 
-import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { prisma } from "@/lib/db";
-import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { logError } from "@/lib/logging";
 import {
@@ -24,6 +22,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
+import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
@@ -171,18 +170,18 @@ async function handleGet(request: Request, session: SessionPayload) {
       );
     }
 
-    const nodeStream = createReadStream(absolutePath);
-    const body = nodeStreamToWeb(nodeStream);
-    const headers = new Headers();
-    headers.set("content-type", guessContentType(entry.name, entry.mimeType));
-    headers.set("content-length", String(fileStat.size));
-    headers.set("cache-control", "private, no-store");
-    headers.set(
-      "content-disposition",
-      buildContentDisposition(download ? "attachment" : "inline", entry.name),
-    );
-
-    return new Response(body, { status: 200, headers });
+    const range = parseStorageRange(request.headers.get("range"), fileStat.size);
+    if (range instanceof Response) return range;
+    const streamOptions = range.status === 206 ? { start: range.start, end: range.end } : undefined;
+    const nodeStream = createReadStream(absolutePath, streamOptions);
+    return storageStreamResponse({
+      stream: nodeStream,
+      range,
+      fileName: entry.name,
+      fileSize: fileStat.size,
+      contentType: guessContentType(entry.name, entry.mimeType),
+      download,
+    });
   } catch (downloadError) {
     logError("[/api/storage/local] download error:", downloadError);
     return NextResponse.json(

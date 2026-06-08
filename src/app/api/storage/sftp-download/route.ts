@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 
 import { prisma } from "@/lib/db";
-import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -14,6 +13,7 @@ import {
   normalizeRemoteRelativePath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
+import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
 const logger = createLogger("api:storage:sftp-download");
 
@@ -63,7 +63,8 @@ function connectSsh(config: ConnectConfig): Promise<Client> {
 function getSftpStream(
   client: Client,
   remotePath: string,
-): Promise<{ stream: import("stream").Readable; stat: { size: number } }> {
+  rangeHeader: string | null,
+): Promise<{ stream: import("stream").Readable; stat: { size: number }; range: StorageByteRange } | Response> {
   return new Promise((resolve, reject) => {
     client.sftp((err, sftp) => {
       if (err) return reject(err);
@@ -72,10 +73,14 @@ function getSftpStream(
         if (statErr) return reject(statErr);
         if (!stats.isFile()) return reject(new Error("目标不是可下载文件"));
 
-        const readStream = sftp.createReadStream(remotePath);
+        const range = parseStorageRange(rangeHeader, stats.size);
+        if (range instanceof Response) return resolve(range);
+        const streamOptions = range.status === 206 ? { start: range.start, end: range.end } : undefined;
+        const readStream = sftp.createReadStream(remotePath, streamOptions);
         resolve({
           stream: readStream as import("stream").Readable,
           stat: { size: stats.size },
+          range,
         });
       });
     });
@@ -207,50 +212,33 @@ export async function GET(request: Request) {
         };
 
         client = await connectSsh(config);
-        const { stream: nodeStream, stat } = await getSftpStream(
+        const streamResult = await getSftpStream(
           client,
           normalizedRemotePath,
+          request.headers.get("range"),
         );
+        if (streamResult instanceof Response) {
+          client.end();
+          client = null;
+          return streamResult;
+        }
+        const { stream: nodeStream, stat, range } = streamResult;
 
-        // 将 Node.js ReadableStream 转换为 Web ReadableStream
-        const webStream = new ReadableStream({
-          start(controller) {
-            nodeStream.on("data", (chunk: Buffer | string) => {
-              controller.enqueue(
-                typeof chunk === "string"
-                  ? new TextEncoder().encode(chunk)
-                  : chunk,
-              );
-            });
-            nodeStream.on("end", () => {
-              controller.close();
-              // 流结束后关闭 SSH 连接
-              client?.end();
-              client = null;
-            });
-            nodeStream.on("error", (streamErr) => {
-              controller.error(streamErr);
-              client?.end();
-              client = null;
-            });
-          },
-          cancel() {
-            nodeStream.destroy();
-            client?.end();
-            client = null;
-          },
+        const closeClient = () => {
+          client?.end();
+          client = null;
+        };
+        nodeStream.once("close", closeClient);
+        nodeStream.once("error", closeClient);
+
+        return storageStreamResponse({
+          stream: nodeStream,
+          range,
+          fileName,
+          fileSize: stat.size,
+          contentType,
+          download,
         });
-
-        const headers = new Headers();
-        headers.set("content-type", contentType);
-        headers.set("content-length", String(stat.size));
-        headers.set("cache-control", "private, no-store");
-        headers.set(
-          "content-disposition",
-          buildContentDisposition(download ? "attachment" : "inline", fileName),
-        );
-
-        return new Response(webStream, { status: 200, headers });
       } catch (error) {
         // 确保出错时关闭连接
         client?.end();

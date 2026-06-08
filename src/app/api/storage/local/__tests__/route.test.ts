@@ -371,6 +371,58 @@ describe("/api/storage/local", () => {
     expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
   });
 
+  it("returns 206 with byte-range headers for local downloads", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+      id: "file_video",
+      name: "demo.mp4",
+      relativePath: "videos/demo.mp4",
+      entryType: "FILE",
+      mimeType: "video/mp4",
+      storageNode: {
+        id: "node_1",
+        name: "本机存储",
+        basePath: "/tmp/storage",
+        driver: "LOCAL",
+      },
+    });
+
+    const response = await GET(
+      new Request("https://example.com/api/storage/local?path=videos%2Fdemo.mp4", {
+        headers: { range: "bytes=2-5" },
+      }),
+    );
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("accept-ranges")).toBe("bytes");
+    expect(response.headers.get("content-range")).toBe("bytes 2-5/11");
+    expect(response.headers.get("content-length")).toBe("4");
+  });
+
+  it("returns 416 for invalid local download ranges", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+      id: "file_video",
+      name: "demo.mp4",
+      relativePath: "videos/demo.mp4",
+      entryType: "FILE",
+      mimeType: "video/mp4",
+      storageNode: {
+        id: "node_1",
+        name: "本机存储",
+        basePath: "/tmp/storage",
+        driver: "LOCAL",
+      },
+    });
+
+    const response = await GET(
+      new Request("https://example.com/api/storage/local?path=videos%2Fdemo.mp4", {
+        headers: { range: "bytes=99-100" },
+      }),
+    );
+
+    expect(response.status).toBe(416);
+    expect(response.headers.get("content-range")).toBe("bytes */11");
+  });
+
   it("returns 200 with RFC 5987 content-disposition for Chinese filename downloads", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
       id: "file_cn",
