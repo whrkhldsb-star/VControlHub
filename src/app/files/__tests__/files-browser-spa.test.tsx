@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
   within,
+  act,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -406,6 +407,65 @@ describe("FilesBrowserSpa", () => {
       ),
     );
     await waitFor(() => expect(screen.getByText("fresh.log")).toBeInTheDocument());
+  });
+
+  it("adds directory clicks to browser history and restores prior folders on back navigation", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...baseData,
+          currentPath: "photos/raw",
+          files: [
+            {
+              ...baseData.files[0],
+              id: "file_raw",
+              name: "raw.nef",
+              relativePath: "photos/raw/raw.nef",
+            },
+          ],
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ...baseData,
+          currentPath: "photos",
+          files: [baseData.files[0]],
+        }),
+      } as Response);
+    const pushStateSpy = vi.spyOn(window.history, "pushState");
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "raw" }));
+
+    await waitFor(() => expect(screen.getByText("raw.nef")).toBeInTheDocument());
+    expect(pushStateSpy).toHaveBeenCalledWith(null, "", "/files?path=photos%2Fraw&nodeId=node_1");
+
+    await act(async () => {
+      window.history.pushState(null, "", "/files?path=photos&nodeId=node_1");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        "/api/files/list?path=photos&nodeId=node_1",
+        expect.any(Object),
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("before.jpg")).toBeInTheDocument());
+    expect(replaceStateSpy).not.toHaveBeenCalledWith(null, "", "/files?path=photos&nodeId=node_1");
+
+    pushStateSpy.mockRestore();
+    replaceStateSpy.mockRestore();
   });
 
   it("hides internal grouped node path keys in current-path labels", () => {

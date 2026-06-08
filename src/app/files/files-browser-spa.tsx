@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { logError } from "@/lib/logging";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -146,6 +146,36 @@ function getDisplaySegment(segment: string, nodes: NodeOption[] = []) {
   return node ? node.name : group.label;
 }
 
+function buildFilesPageUrl({
+  path,
+  q,
+  scope,
+  nodeId,
+}: {
+  path: string;
+  q?: string;
+  scope?: string;
+  nodeId?: string;
+}) {
+  const params = new URLSearchParams();
+  if (path) params.set("path", path);
+  if (q) params.set("q", q);
+  if (scope && scope !== "current") params.set("scope", scope);
+  if (nodeId) params.set("nodeId", nodeId);
+  const qs = params.toString();
+  return qs ? `/files?${qs}` : "/files";
+}
+
+function getFilesStateFromLocation(defaultNodeId: string) {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    path: params.get("path") ?? "",
+    q: params.get("q") ?? "",
+    scope: params.get("scope") === "all" ? "all" : "current",
+    nodeId: params.get("nodeId") ?? defaultNodeId,
+  };
+}
+
 function getCurrentPathDisplay(path: string, nodes: NodeOption[], nodeIdFilter: string) {
   const selectedNode = getNodeById(nodes, nodeIdFilter);
   const segments = splitPath(path);
@@ -248,19 +278,25 @@ function NodeFilterSelect({
 
 /* ── Navigation hook ────────────────────────────────────────────── */
 
+type FetchFilesOptions = {
+  resetSelection?: boolean;
+  history?: "push" | "replace" | "none";
+};
+
 function useFolderNavigation(
   fetchFiles: (
     path: string,
     q?: string,
     scope?: string,
     nodeId?: string,
-    options?: { resetSelection?: boolean },
+    options?: FetchFilesOptions,
   ) => Promise<void>,
 ) {
   const navigateToFolder = useCallback(
     (path: string) => {
       fetchFiles(path, undefined, undefined, undefined, {
         resetSelection: true,
+        history: "push",
       });
     },
     [fetchFiles],
@@ -426,6 +462,7 @@ export function FilesBrowserSpa({
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [selectionEpoch, setSelectionEpoch] = useState(0);
+  const [searchInput, setSearchInput] = useState(initialData.searchQuery);
   const abortRef = useRef<AbortController | null>(null);
 
   // Fetch files for a given path — SPA navigation, no page reload
@@ -435,7 +472,7 @@ export function FilesBrowserSpa({
       q?: string,
       scope?: string,
       nodeId?: string,
-      options?: { resetSelection?: boolean },
+      options?: FetchFilesOptions,
     ) => {
       // Cancel previous request
       if (abortRef.current) {
@@ -444,6 +481,7 @@ export function FilesBrowserSpa({
       const controller = new AbortController();
       abortRef.current = controller;
       const shouldResetSelection = options?.resetSelection ?? false;
+      const historyMode = options?.history ?? "replace";
 
       setLoading(true);
       setListError(null);
@@ -466,15 +504,17 @@ export function FilesBrowserSpa({
           setListError(nextData.syncWarning);
         }
 
-        // Update URL without page reload
-        const urlParams = new URLSearchParams();
-        if (path) urlParams.set("path", path);
-        if (q) urlParams.set("q", q);
-        if (scope && scope !== "current") urlParams.set("scope", scope);
-        if (effectiveNodeId) urlParams.set("nodeId", effectiveNodeId);
-        const qs = urlParams.toString();
-        const newUrl = qs ? `/files?${qs}` : "/files";
-        window.history.replaceState(null, "", newUrl);
+        const newUrl = buildFilesPageUrl({
+          path,
+          q,
+          scope,
+          nodeId: effectiveNodeId,
+        });
+        if (historyMode === "push") {
+          window.history.pushState(null, "", newUrl);
+        } else if (historyMode === "replace") {
+          window.history.replaceState(null, "", newUrl);
+        }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
         logError("Failed to fetch files:", err);
@@ -488,10 +528,22 @@ export function FilesBrowserSpa({
     [data.nodeIdFilter],
   );
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const next = getFilesStateFromLocation(initialData.nodeIdFilter);
+      setSearchInput(next.q);
+      void fetchFiles(next.path, next.q, next.scope, next.nodeId, {
+        resetSelection: true,
+        history: "none",
+      });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [fetchFiles, initialData.nodeIdFilter]);
+
   const { navigateToFolder } = useFolderNavigation(fetchFiles);
 
   // Search handler
-  const [searchInput, setSearchInput] = useState(data.searchQuery);
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
