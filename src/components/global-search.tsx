@@ -85,7 +85,7 @@ export function getSearchItems(locale: Locale = "zh"): SearchItem[] {
 	return localizeSearchItems(locale);
 }
 
-export function GlobalSearch() {
+export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: number }) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [selectedIndex, setSelectedIndex] = useState(0);
@@ -115,6 +115,18 @@ export function GlobalSearch() {
 		},
 		[router]
 	);
+
+	useEffect(() => {
+		if (externalOpenSignal > 0) {
+			setOpen(true);
+		}
+	}, [externalOpenSignal]);
+
+	useEffect(() => {
+		const handleOpenSearch = () => setOpen(true);
+		window.addEventListener("vcontrolhub:open-global-search", handleOpenSearch);
+		return () => window.removeEventListener("vcontrolhub:open-global-search", handleOpenSearch);
+	}, []);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {

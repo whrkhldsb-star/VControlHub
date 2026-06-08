@@ -21,8 +21,22 @@ interface QuickServiceLink {
 }
 
 function SidebarControls() {
+	const { t } = useI18n();
+	const openGlobalSearch = () => {
+		window.dispatchEvent(new Event("vcontrolhub:open-global-search"));
+	};
+
 	return (
 		<div className="ml-auto flex items-center gap-1">
+			<button
+				type="button"
+				onClick={openGlobalSearch}
+				className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-900"
+				aria-label={t("search.dialog") === "search.dialog" ? "全局搜索" : t("search.dialog")}
+				aria-keyshortcuts="Control+K Meta+K"
+			>
+				<span aria-hidden="true">⌕</span>
+			</button>
 			<LanguageToggle />
 			<ThemeToggle />
 			<NotificationBell />

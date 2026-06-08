@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppSidebar } from "../app-sidebar";
@@ -62,6 +63,19 @@ describe("AppSidebar", () => {
 		expect(screen.getAllByRole("navigation")[0]).toHaveAttribute("data-i18n-skip");
 		expect(screen.getAllByRole("button", { name: "Switch to light mode" }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("button", { name: "通知" }).length).toBeGreaterThan(0);
+	});
+
+	it("exposes a visible search control that opens global search without relying on hidden shortcuts", async () => {
+		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+		const user = userEvent.setup();
+		render(<AppSidebar username="admin" />);
+
+		const searchButtons = screen.getAllByRole("button", { name: "全局搜索" });
+		expect(searchButtons[0]).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
+		await user.click(searchButtons[0]);
+
+		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vcontrolhub:open-global-search" }));
+		dispatchSpy.mockRestore();
 	});
 
 	it("does not render without an authenticated username", () => {

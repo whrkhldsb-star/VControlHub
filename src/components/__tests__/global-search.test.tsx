@@ -1,4 +1,4 @@
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -49,6 +49,17 @@ describe("GlobalSearch", () => {
 
 		await user.type(input, "健康");
 		expect(screen.getByRole("option", { name: /健康看板/ })).toHaveAttribute("aria-selected", "true");
+	});
+
+	it("opens from the visible sidebar search event as well as the keyboard shortcut", async () => {
+		renderGlobalSearch();
+
+		act(() => {
+			window.dispatchEvent(new Event("vcontrolhub:open-global-search"));
+		});
+
+		expect(await screen.findByRole("dialog", { name: "全局搜索" })).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByRole("combobox", { name: "搜索页面和操作" })).toHaveFocus());
 	});
 
 	it("routes health search results to the real health dashboard page", () => {

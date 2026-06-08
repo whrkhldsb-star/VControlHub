@@ -42,6 +42,7 @@ const {
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     fileEntry: {
       findFirst: vi.fn(),
@@ -726,6 +727,54 @@ describe("/api/downloads", () => {
       where: { id: "task_relay" },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
+  });
+
+  it("purges terminal download task records without touching remote processes", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_done",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
+      url: "https://example.com/file.iso",
+      status: "COMPLETED",
+      pid: 12345,
+      aria2Gid: "gid_done",
+      relayMode: false,
+      server: serverFixture(),
+    });
+    prismaMock.downloadTask.delete.mockResolvedValueOnce({ id: "task_done" });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_done&purge=1", { method: "DELETE" }));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ success: true, purged: true });
+    expect(prismaMock.downloadTask.delete).toHaveBeenCalledWith({ where: { id: "task_done" } });
+    expect(removeDownloadMock).not.toHaveBeenCalled();
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_done" },
+      data: expect.objectContaining({ status: "CANCELLED" }),
+    }));
+  });
+
+  it("rejects purging an active download task before cancellation", async () => {
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_running",
+      createdBy: "u_1",
+      targetPath: "/srv/cloud/downloads/file.iso",
+      url: "https://example.com/file.iso",
+      status: "RUNNING",
+      pid: 12345,
+      aria2Gid: null,
+      relayMode: false,
+      server: serverFixture(),
+    });
+
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_running&purge=1", { method: "DELETE" }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ error: "请先取消正在进行的任务，再删除记录" });
+    expect(prismaMock.downloadTask.delete).not.toHaveBeenCalled();
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
   it("cleans the relay temp directory when cancelling a relay task even if pid is missing", async () => {
