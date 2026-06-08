@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T15:59:30Z",
+  "updatedAt": "2026-06-08T16:05:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -61,8 +61,8 @@
     "id": "media-search-label",
     "title": "Visible label for media search",
     "startedAt": "2026-06-08T15:43:00Z",
-    "finishedAt": "2026-06-08T15:59:30Z",
-    "status": "deployed",
+    "finishedAt": "2026-06-08T16:05:00Z",
+    "status": "completed",
     "summary": "/media search now has a visible 搜索媒体 label and placeholder is only a hint.",
     "changeContract": {
       "files": [
@@ -83,12 +83,12 @@
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 1003 tests, Next build, runtime build, deploy-assets OK; npm run lint -- --max-warnings=0 passed before verify.",
-      "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, caddy, and docker active after restart.",
+      "verify": "npm run verify passed: 213 files / 1003 tests; Next build/runtime/deploy-assets OK.",
+      "services": "vcontrolhub-next, vcontrolhub-ssh-ws and caddy active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status returned healthy 3/3; /media?q=demo unauthenticated probe returned 307 to login preserving q and next.",
-      "logs": "No error/warn/failed/exception lines in recent next/ssh-ws logs after deployment.",
-      "swap": "Only /swapfile 6G active."
+      "status": "/api/status healthy 3/3 after restart; /media unauthenticated probe returned 307.",
+      "logs": "recent next/ssh-ws log scan found no error/warn/failed/exception entries.",
+      "swap": "steady /swapfile 6G only; no temporary swap files."
     }
   },
   "runPolicy": {
