@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 
 /* ------------------------------------------------------------------ */
 /* SSH Terminal Modal — xterm.js + WebSocket */
@@ -29,6 +30,7 @@ type SshTerminalModalProps = {
 };
 
 export function SshTerminalModal({ serverId, serverName, host, sessionToken, onClose }: SshTerminalModalProps) {
+	const closeButtonRef = useRef<HTMLButtonElement>(null);
 	const termRef = useRef<HTMLDivElement>(null);
 	const wsRef = useRef<WebSocket | null>(null);
 	const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
@@ -67,6 +69,12 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 		}
 		fitAddonRef.current = null;
 	}
+
+	const dialogRef = useDialogFocus<HTMLDivElement>({
+		open: true,
+		onClose,
+		initialFocusRef: closeButtonRef,
+	});
 
 	useEffect(() => {
 		if (!termRef.current) return;
@@ -299,6 +307,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
 			<div
+				ref={dialogRef}
 				role="dialog"
 				data-ssh-terminal-dialog="true"
 				style={{
@@ -355,6 +364,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</button>
 						)}
 						<button
+							ref={closeButtonRef}
 							type="button"
 							onClick={onClose}
 							aria-label="关闭 SSH 终端"
@@ -380,7 +390,11 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
 								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">⭐ 常用命令</h4>
 								<div className="mb-2 flex gap-1.5">
+									<label htmlFor={`ssh-favorite-command-${serverId}`} className="sr-only">
+										添加常用 SSH 命令
+									</label>
 									<input
+										id={`ssh-favorite-command-${serverId}`}
 										value={newFavorite}
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}

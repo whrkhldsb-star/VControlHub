@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T11:58:30Z",
+  "updatedAt": "2026-06-08T12:23:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,38 +58,37 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "file-navigation",
-    "title": "File browser history navigation",
-    "startedAt": "2026-06-08T11:37:00Z",
-    "finishedAt": "2026-06-08T11:58:30Z",
+    "id": "ssh-dialog-focus",
+    "title": "SSH terminal shared dialog focus",
+    "startedAt": "2026-06-08T12:08:00Z",
+    "finishedAt": "2026-06-08T12:23:30Z",
     "status": "deployed_verified",
-    "summary": "Files SPA directory navigation now creates real browser history entries and restores folder/search/node state on back/forward without page reload.",
+    "summary": "SSH terminal modal now uses the shared dialog focus hook and has an explicit favorite-command label.",
     "changeContract": {
       "files": [
-        "src/app/files/files-browser-spa.tsx",
-        "src/app/files/__tests__/files-browser-spa.test.tsx",
+        "src/components/ssh-terminal-modal.tsx",
+        "src/components/__tests__/ssh-terminal-modal.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Targeted verification: npx vitest run src/app/files/__tests__/files-browser-spa.test.tsx passed 10/10.",
+        "Audit found dialog-focus/file-navigation completed and production healthy, but README still listed SSH terminal focus trap/restore as a remaining architecture issue.",
+        "Targeted verification: npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx passed 3/3.",
         "Typecheck: npm run typecheck passed.",
-        "Directory-tree and breadcrumb navigation use history.pushState for real /files path entries.",
-        "Browser popstate restores path/search/scope/nodeId from the URL and reloads /api/files/list without rewriting history."
+        "SSH terminal now reuses useDialogFocus for initial focus, Escape close, Tab containment, and trigger focus restore."
       ],
       "remaining": [
-        "Wire useDialogFocus into the SSH terminal modal.",
-        "Improve SSH terminal mobile layout and remaining placeholder-only labels."
+        "Improve SSH terminal mobile layout.",
+        "Continue visible-label cleanup for remaining placeholder-only controls."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 993 tests plus Next build, runtime build, and deploy-assets.",
-      "services": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded caddy; all active.",
-      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "status": "https://whrkhldsb.qzz.io/api/status returned healthy for database, VPS management, and storage.",
-      "routes": "https://whrkhldsb.qzz.io/files returned 307 when unauthenticated, as expected.",
-      "logs": "Recent vcontrolhub-next and vcontrolhub-ssh-ws logs clean for error/warn/failed/exception scan."
+      "verify": "npm run verify passed: 213 test files / 995 tests plus Next build, runtime build, deploy-assets.",
+      "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart/reload.",
+      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
+      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3.",
+      "logs": "journalctl scan for next/ssh-ws errors/warnings since deploy returned clean."
     }
   },
   "runPolicy": {
