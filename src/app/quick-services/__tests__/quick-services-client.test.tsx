@@ -194,7 +194,9 @@ describe("QuickServicesClient", () => {
 		render(<QuickServicesClient canManage />);
 		await userEvent.click(await screen.findByRole("button", { name: /已安装/ }));
 
-		const accessLink = await screen.findByRole("link", { name: "访问" });
+		const accessLink = (await screen.findAllByRole("link", { name: /访问.*公开直连端口/ })).find((link) => link.getAttribute("title"));
 		expect(accessLink).toHaveAttribute("href", "http://82.158.91.159:5244/");
+		expect(accessLink).toHaveAttribute("title", expect.stringContaining("不经过 VControlHub 登录鉴权"));
+		expect(await screen.findByText("公开直连端口")).toBeInTheDocument();
 	});
 });

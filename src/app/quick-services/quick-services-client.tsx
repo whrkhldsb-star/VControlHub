@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
+import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -443,7 +443,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		.filter((item): item is CatalogItem => Boolean(item));
 	const runningItems = installed.filter((item) => item.status === "running");
 	const errorItems = installed.filter((item) => item.status === "error");
-	const quickServiceAccessUrl = (item: CatalogItem) => buildQuickServiceAccessUrl({
+	const quickServiceAccess = (item: CatalogItem) => buildQuickServiceAccessDescriptor({
 		port: item.port,
 		defaultPort: item.defaultPort,
 		browserHost: hostName,
@@ -501,14 +501,15 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					</div>
 					<div className="mt-4 grid gap-2 sm:grid-cols-2">
 						{runningItems.slice(0, 4).map((item) => {
-							const accessUrl = quickServiceAccessUrl(item);
+							const access = quickServiceAccess(item);
 							return (
-								<a key={item.slug} href={accessUrl ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!accessUrl} className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
+								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? `${item.name} 访问入口，${access.label}` : `${item.name} 访问入口未配置`} className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-white light:text-slate-900">{item.icon} {item.name}</span>
 										<span className="text-[10px] text-emerald-200 light:text-emerald-800">:{item.port ?? item.defaultPort}</span>
 									</div>
-									<p className="mt-1 truncate text-[11px] text-slate-400 light:text-slate-600">{accessUrl ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
+									<p className="mt-1 truncate text-[11px] text-slate-400 light:text-slate-600">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
+									{access ? <p className="mt-2 text-[10px] font-medium text-amber-200 light:text-amber-800">{access.label}</p> : null}
 								</a>
 							);
 						})}
@@ -958,12 +959,13 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 	};
 
 	const displayPort = item.port ?? item.defaultPort;
-	const accessUrl = buildQuickServiceAccessUrl({
+	const access = buildQuickServiceAccessDescriptor({
 		port: item.port,
 		defaultPort: item.defaultPort,
 		browserHost: typeof window !== "undefined" ? window.location.hostname : null,
 		configuredHost: publicHost,
 		protocol: typeof window !== "undefined" ? window.location.protocol : null,
+		path: item.path,
 	});
 	const isRemote = item.source !== "local";
 
@@ -1015,8 +1017,8 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 				)}
 				{tab === "installed" && (
 					<>
-						{item.status === "running" && accessUrl && (
-							<a href={accessUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white light:text-slate-900 hover:bg-emerald-400 transition">
+						{item.status === "running" && access && (
+							<a href={access.url} target="_blank" rel="noreferrer" aria-label={`访问 ${item.name}（${access.label}）`} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white light:text-slate-900 hover:bg-emerald-400 transition">
 								访问
 							</a>
 						)}

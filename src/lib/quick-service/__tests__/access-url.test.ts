@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuickServiceAccessUrl, normalizeQuickServicePublicHost } from "../access-url";
+import { buildQuickServiceAccessDescriptor, buildQuickServiceAccessUrl, normalizeQuickServicePublicHost } from "../access-url";
 
 describe("quick service access URLs", () => {
 	it("strips protocol and existing ports from configured public host before appending service port", () => {
@@ -17,5 +17,21 @@ describe("quick service access URLs", () => {
 
 	it("preserves app subpaths when building sidebar and launch URLs", () => {
 		expect(buildQuickServiceAccessUrl({ defaultPort: 3000, port: 31000, configuredHost: "https://apps.example.com", path: "admin/" })).toBe("https://apps.example.com:31000/admin/");
+	});
+
+	it("marks generated host-port links as direct public port access", () => {
+		expect(buildQuickServiceAccessDescriptor({ defaultPort: 5244, port: 5244, configuredHost: "82.158.91.159" })).toMatchObject({
+			url: "http://82.158.91.159:5244/",
+			mode: "direct-port",
+			label: "公开直连端口",
+		});
+	});
+
+	it("marks https port 443 entries as reverse-proxy access", () => {
+		expect(buildQuickServiceAccessDescriptor({ defaultPort: 443, port: 443, configuredHost: "https://apps.example.com", path: "/vault" })).toMatchObject({
+			url: "https://apps.example.com:443/vault",
+			mode: "reverse-proxy",
+			label: "反代 HTTPS",
+		});
 	});
 });

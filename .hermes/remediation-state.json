@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T09:22:30Z",
+  "updatedAt": "2026-06-08T09:44:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,24 +58,23 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T09:10:00Z",
-    "finishedAt": "2026-06-08T09:22:30Z",
-    "target": "ai-tool-auth",
+    "startedAt": "2026-06-08T09:23:00Z",
+    "finishedAt": "2026-06-08T09:44:30Z",
+    "target": "runtime-boundaries",
     "status": "deployed_smoke_passed_pending_commit",
-    "summary": "Hardened AI Hosted Tools authorization: auto-approved hosted SSH execution now requires server:ssh in hosted-service, dangerous hosted action approval/rejection requires ai:action:approve instead of requester self-approval, and approved execution rechecks approver SSH permission.",
+    "summary": "Made QuickService runtime access boundaries explicit by classifying generated access entries as direct public host-port links or reverse-proxy HTTPS and surfacing direct-port warnings in the overview and installed service cards.",
     "changeContract": {
-      "qaPathId": "ai-tool-auth",
-      "userJourney": "AI chat hosting can still use low-risk diagnostics for users with SSH access, while dangerous AI tool calls require a distinct approver with hosted-action approval permission and SSH execution permission.",
+      "qaPathId": "runtime-boundaries",
+      "userJourney": "Operators opening QuickService running apps can distinguish public direct-port links from reverse-proxy entries before exposing or sharing them.",
       "evidence": [
-        "Implementation: executeSafeAction accepts a session context and fails closed before server lookup when server:ssh is missing.",
-        "Implementation: approveHostedAction/rejectHostedAction require ai:action:approve and no longer allow requester self-approval.",
-        "Implementation: approved execution reuses the approver session and rechecks server:ssh before SSH.",
-        "API guard: PATCH /api/ai/hosted-actions/:id now requires ai:action:approve.",
-        "Regression: hosted approval/service/API guard targeted tests passed 13/13.",
+        "Implementation: buildQuickServiceAccessDescriptor returns url, mode, label, and boundary description while buildQuickServiceAccessUrl remains backwards-compatible.",
+        "UI: /quick-services running overview labels direct host-port access as 公开直连端口.",
+        "UI: installed service access buttons include accessible-name/title warnings that direct links do not pass through VControlHub login.",
+        "Regression: QuickService access URL descriptor tests and QuickServices client tests passed 13/13.",
         "Static verification: npm run typecheck passed.",
-        "Full verification: git diff --check and npm run verify passed with 211 test files / 976 tests plus Next build, runtime build, and deploy-assets.",
+        "Full verification: npm run verify passed with 211 test files / 978 tests plus Next build, runtime build, and deploy-assets.",
         "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart/reload.",
-        "Health check: https://whrkhldsb.qzz.io/api/status returned healthy 3/3 after the expected restart-window 502 retry.",
+        "Health check: https://whrkhldsb.qzz.io/api/status returned healthy 3/3.",
         "Smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
         "Log proof: recent vcontrolhub-next and vcontrolhub-ssh-ws logs had no error/warn/failed/exception lines after deployment."
       ]
