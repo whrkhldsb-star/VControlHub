@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T12:39:30Z",
+  "updatedAt": "2026-06-08T13:18:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,36 +58,37 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "ssh-mobile-layout",
-    "title": "SSH terminal mobile layout",
-    "startedAt": "2026-06-08T12:28:00Z",
-    "finishedAt": "2026-06-08T12:39:30Z",
+    "id": "text-preview-labels",
+    "title": "Text preview visible labels",
+    "startedAt": "2026-06-08T12:54:30Z",
+    "finishedAt": "2026-06-08T13:18:30Z",
     "status": "deployed_verified",
-    "summary": "SSH terminal modal now uses a mobile-friendly vertical layout and responsive command panel.",
+    "summary": "Text preview search and line jump controls now have visible labels instead of placeholder-only discoverability.",
     "changeContract": {
       "files": [
-        "src/components/ssh-terminal-modal.tsx",
-        "src/components/__tests__/ssh-terminal-modal.test.tsx",
+        "src/app/files/preview/text-preview-client.tsx",
+        "src/app/files/preview/__tests__/text-preview-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "README open item identified SSH terminal fixed 400px height and horizontal side panel as a mobile layout issue.",
-        "Targeted verification: npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx passed 4/4.",
+        "README residual identified text preview search/jump as placeholder-only accessibility gap.",
+        "Targeted verification: npx vitest run src/app/files/preview/__tests__/text-preview-client.test.tsx passed 2/2.",
         "Typecheck: npm run typecheck passed.",
-        "Layout now uses small-screen scroll shell, wrapping header actions, full-width mobile command panel, and clamp-based terminal height."
+        "Regression asserts visible labels, label-based input, and actual scrollIntoView invocation for line jump."
       ],
       "remaining": [
-        "Visible labels for remaining placeholder-only controls, especially text preview search/jump."
+        "Continue scanning other placeholder-only or low-visibility controls."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 996 tests plus Next build, runtime build, deploy-assets.",
+      "verify": "npm run verify passed: 213 test files / 997 tests plus Next build, runtime build, deploy-assets.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3.",
-      "logs": "journalctl scan for next/ssh-ws errors/warnings since deploy returned clean."
+      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /files/preview unauthenticated probe returned 307.",
+      "logs": "journalctl scan for next/ssh-ws errors/warnings since deploy returned clean.",
+      "swap": "Host swap restored to existing /swapfile only: 6G total, /swapfile2 removed from swapon and /etc/fstab."
     }
   },
   "runPolicy": {

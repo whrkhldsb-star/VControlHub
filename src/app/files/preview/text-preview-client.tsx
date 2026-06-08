@@ -468,24 +468,35 @@ export function TextPreviewClient({
 				) : null}
 				{!editMode ? (
 					<>
-						<div className="flex items-center gap-1">
+						<div className="flex flex-col gap-1">
+							<label htmlFor="text-preview-search" className="text-[11px] font-medium text-slate-400 light:text-slate-600">
+								搜索文本
+							</label>
 							<input
+								id="text-preview-search"
 								type="text"
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								placeholder="搜索..."
-								className="w-28 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+								placeholder="输入关键词"
+								className="w-36 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
 							/>
 						</div>
-						<div className="flex items-center gap-1">
-							<input
-								type="text"
-								value={jumpLine}
-								onChange={(e) => setJumpLine(e.target.value)}
-								onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
-								placeholder="跳转行号"
-								className="w-20 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-							/>
+						<div className="flex items-end gap-1">
+							<div className="flex flex-col gap-1">
+								<label htmlFor="text-preview-jump-line" className="text-[11px] font-medium text-slate-400 light:text-slate-600">
+									跳转行号
+								</label>
+								<input
+									id="text-preview-jump-line"
+									type="text"
+									inputMode="numeric"
+									value={jumpLine}
+									onChange={(e) => setJumpLine(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
+									placeholder="如 42"
+									className="w-24 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-slate-300 light:text-slate-700 placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+								/>
+							</div>
 							<button
 								type="button"
 								onClick={handleJumpToLine}

@@ -45,4 +45,32 @@ describe("TextPreviewClient editable mode", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("已保存 17 B");
     expect(screen.queryByRole("dialog", { name: "保存前差异预览" })).not.toBeInTheDocument();
   });
+
+  it("shows visible labels for search and line jump controls", async () => {
+    const actor = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => "alpha\nbeta\ngamma\n",
+    }));
+
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" />);
+
+    const searchLabel = await screen.findByText("搜索文本");
+    const jumpLabel = screen.getByText("跳转行号");
+    expect(searchLabel).toBeVisible();
+    expect(jumpLabel).toBeVisible();
+
+    const searchInput = screen.getByRole("textbox", { name: "搜索文本" });
+    const jumpInput = screen.getByRole("textbox", { name: "跳转行号" });
+    await actor.type(searchInput, "beta");
+    await actor.type(jumpInput, "2");
+    await actor.click(screen.getByRole("button", { name: "跳转" }));
+
+    expect(searchInput).toHaveValue("beta");
+    expect(jumpInput).toHaveValue("2");
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
+  });
 });
