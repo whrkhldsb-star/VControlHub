@@ -178,7 +178,50 @@ describe("ServersPage", () => {
       "/files?nodeId=node_1",
     );
     expect(screen.getByText("1 条待处理")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "运行实时探测" })).toBeInTheDocument();
     expect(screen.getAllByText("prod-root-key").length).toBeGreaterThan(1);
+  });
+
+  it("runs realtime diagnostics from the server card and renders monitor results", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        cpu: { usagePercent: 12.5 },
+        memory: { usagePercent: 48.2 },
+        disk: [{ mount: "/", usagePercent: 71 }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
+
+    render(await ServersPage());
+    await user.click(screen.getByRole("button", { name: /查看详情/ }));
+    await user.click(screen.getByRole("button", { name: "运行实时探测" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/servers/monitor?serverId=srv_1",
+      { cache: "no-store" },
+    );
+    expect(await screen.findByText(/探测成功：CPU 12.5% · 内存 48.2%，磁盘 \/ 71%/)).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("shows realtime diagnostic failures without hiding the guidance", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ error: "连接失败: timeout" }),
+    }));
+    serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
+
+    render(await ServersPage());
+    await user.click(screen.getByRole("button", { name: /查看详情/ }));
+    await user.click(screen.getByRole("button", { name: "运行实时探测" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("探测失败：连接失败: timeout");
+    expect(screen.getByText("诊断下一步")).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it("renders password-connected server without ssh key metadata", async () => {

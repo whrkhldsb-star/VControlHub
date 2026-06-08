@@ -5,6 +5,12 @@ import { useState } from "react";
 
 import { ServerCardActions } from "./server-card-actions";
 
+type DiagnosticRunState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "success"; summary: string; checkedAt: string }
+  | { status: "error"; message: string; checkedAt: string };
+
 type ServerOverviewCardProps = {
   server: {
     id: string;
@@ -49,6 +55,7 @@ export function ServerOverviewCard({
   canUseSshTerminal,
 }: ServerOverviewCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? "网站中转";
   const detailsId = `server-details-${server.id}`;
   const managedStatusLabel = server.enabled ? "已启用" : "已停用";
@@ -90,6 +97,45 @@ export function ServerOverviewCard({
       href: server.pendingCommandCount > 0 ? "/requests" : null,
     },
   ] as const;
+
+  const runRealtimeDiagnostics = async () => {
+    setDiagnosticRun({ status: "loading" });
+    try {
+      const response = await fetch(`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`, {
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => null);
+      const checkedAt = new Date().toLocaleString("zh-CN", { hour12: false });
+
+      if (!response.ok) {
+        setDiagnosticRun({
+          status: "error",
+          message: payload?.error ?? `监控接口返回 ${response.status}`,
+          checkedAt,
+        });
+        return;
+      }
+      if (payload?.error) {
+        setDiagnosticRun({ status: "error", message: payload.error, checkedAt });
+        return;
+      }
+
+      const diskText = Array.isArray(payload?.disk) && payload.disk.length > 0
+        ? `，磁盘 ${payload.disk[0].mount} ${payload.disk[0].usagePercent}%`
+        : "";
+      setDiagnosticRun({
+        status: "success",
+        summary: `CPU ${payload?.cpu?.usagePercent ?? "--"}% · 内存 ${payload?.memory?.usagePercent ?? "--"}%${diskText}`,
+        checkedAt,
+      });
+    } catch (error) {
+      setDiagnosticRun({
+        status: "error",
+        message: error instanceof Error ? error.message : "实时探测失败",
+        checkedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
+      });
+    }
+  };
 
   return (
     <article className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04] light:border-slate-200 light:bg-white light:shadow-sm light:hover:bg-slate-50">
@@ -259,6 +305,34 @@ export function ServerOverviewCard({
               >
                 查看实时监控 JSON
               </Link>
+            </div>
+            <div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/35 p-3 light:border-slate-200 light:bg-white">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-xs font-medium text-white light:text-slate-950">实时探测</div>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-500 light:text-slate-600">
+                    点击后通过现有监控接口发起一次 SSH 只读采样，失败时会显示连接、权限或远端命令错误。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={runRealtimeDiagnostics}
+                  disabled={diagnosticRun.status === "loading" || !server.enabled}
+                  className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-900"
+                >
+                  {diagnosticRun.status === "loading" ? "探测中..." : "运行实时探测"}
+                </button>
+              </div>
+              {diagnosticRun.status === "success" ? (
+                <div role="status" className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-800">
+                  探测成功：{diagnosticRun.summary}（{diagnosticRun.checkedAt}）
+                </div>
+              ) : null}
+              {diagnosticRun.status === "error" ? (
+                <div role="alert" className="mt-3 rounded-lg border border-rose-400/20 bg-rose-400/10 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50 light:text-rose-800">
+                  探测失败：{diagnosticRun.message}（{diagnosticRun.checkedAt}）
+                </div>
+              ) : null}
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {diagnosticItems.map((item) => (
