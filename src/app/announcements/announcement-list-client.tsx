@@ -88,11 +88,19 @@ export function AnnouncementList({
       {/* Search and filter bar */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <label
+            htmlFor="announcements-search"
+            className="mb-1 block text-xs font-medium text-slate-400 light:text-slate-600"
+          >
+            搜索公告
+          </label>
+          <Search size={14} className="absolute left-3 top-[2.35rem] text-slate-500" />
           <input
+            id="announcements-search"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索公告标题、内容…"
+            placeholder="标题、内容…"
             className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>

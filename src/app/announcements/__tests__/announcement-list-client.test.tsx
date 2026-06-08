@@ -20,6 +20,15 @@ const announcements = [
     startsAt: "2026-05-30T00:00:00.000Z",
     expiresAt: null,
   },
+  {
+    id: "ann-2",
+    title: "功能上线",
+    body: "新看板已发布",
+    level: "success",
+    pinned: false,
+    startsAt: "2026-05-31T00:00:00.000Z",
+    expiresAt: null,
+  },
 ];
 
 function renderList() {
@@ -34,6 +43,18 @@ describe("AnnouncementList", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(csrfFetch).mockResolvedValue({});
+  });
+
+  it("shows a visible label for announcement search and filters by label-based input", async () => {
+    renderList();
+
+    expect(screen.getByText("搜索公告")).toBeInTheDocument();
+    const searchInput = screen.getByRole("searchbox", { name: "搜索公告" });
+
+    await userEvent.type(searchInput, "看板");
+
+    expect(screen.getByText("功能上线")).toBeInTheDocument();
+    expect(screen.queryByText("维护公告")).not.toBeInTheDocument();
   });
 
   it("uses an accessible confirmation dialog instead of native confirm before deleting", async () => {

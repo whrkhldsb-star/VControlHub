@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T15:16:30Z",
+  "updatedAt": "2026-06-08T15:36:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,35 +58,35 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "snippets-search-label",
-    "title": "Visible label for snippets search",
-    "startedAt": "2026-06-08T15:08:30Z",
-    "finishedAt": "2026-06-08T15:16:30Z",
+    "id": "announcements-search-label",
+    "title": "Visible label for announcements search",
+    "startedAt": "2026-06-08T15:28:30Z",
+    "finishedAt": "2026-06-08T15:36:30Z",
     "status": "deployed",
-    "summary": "/snippets search now has a visible 搜索代码片段 label and placeholder is only a hint.",
+    "summary": "/announcements search now has a visible 搜索公告 label and placeholder is only a hint.",
     "changeContract": {
       "files": [
-        "src/app/snippets/snippet-list-client.tsx",
-        "src/app/snippets/__tests__/snippet-list-client.test.tsx",
+        "src/app/announcements/announcement-list-client.tsx",
+        "src/app/announcements/__tests__/announcement-list-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Snippet searchbox has visible label 搜索代码片段.",
+        "Announcement searchbox has visible label 搜索公告.",
         "Regression locates searchbox by role/name and verifies filtering behavior.",
-        "Targeted SnippetList regression passed 4/4.",
+        "Targeted AnnouncementList regression passed 4/4.",
         "Typecheck passed."
       ],
       "remaining": [
-        "Continue placeholder-only patrol for media/image-bed/tickets/announcements and lower-traffic forms."
+        "Continue placeholder-only patrol for media/image-bed/tickets/audit and lower-traffic forms."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 1002 tests, Next build, runtime build, deploy-assets OK.",
+      "verify": "npm run verify passed: 213 test files / 1003 tests, Next build, runtime build, deploy-assets OK.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status returned healthy 3/3; /snippets unauthenticated probe returned 307.",
+      "status": "https://whrkhldsb.qzz.io/api/status returned healthy 3/3; /announcements unauthenticated probe returned 307.",
       "logs": "No error/warn/failed/exception lines in recent next/ssh-ws logs after deployment.",
       "swap": "Only /swapfile 6G active."
     }
