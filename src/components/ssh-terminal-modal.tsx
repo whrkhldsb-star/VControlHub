@@ -305,7 +305,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 	};
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={onClose}>
+		<div className="fixed inset-0 z-50 flex items-stretch justify-center overflow-y-auto bg-black/80 p-2 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
 			<div
 				ref={dialogRef}
 				role="dialog"
@@ -318,10 +318,10 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				aria-modal="true"
 				aria-labelledby={`ssh-terminal-title-${serverId}`}
 				aria-describedby={`ssh-terminal-host-${serverId}`}
-				className="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-3xl border border-white/10 bg-slate-900 text-white shadow-2xl light:border-slate-200 light:bg-white light:text-slate-950"
+				className="my-auto flex max-h-none min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl light:border-slate-200 light:bg-white light:text-slate-950 sm:max-h-[92vh] sm:rounded-3xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<div className="flex items-center justify-between border-b border-white/10 px-6 py-4 light:border-slate-200">
+				<div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 light:border-slate-200 sm:px-6 md:flex-row md:items-center md:justify-between">
 					<div className="flex items-center gap-3">
 						<span className="text-xl" aria-hidden="true">💻</span>
 						<div>
@@ -331,7 +331,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<p id={`ssh-terminal-host-${serverId}`} className="text-xs text-slate-400 light:text-slate-600">{host}</p>
 						</div>
 					</div>
-					<div className="flex items-center gap-3">
+					<div className="flex flex-wrap items-center gap-2 sm:gap-3 md:justify-end">
 						<span
 							role="status"
 							aria-live="polite"
@@ -381,12 +381,16 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 					</div>
 				)}
 
-				<div className="flex flex-1 gap-0 overflow-hidden p-4">
-					<div className="flex-1 overflow-hidden">
-						<div ref={termRef} className="h-full w-full overflow-hidden rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0e1a]" style={{ minHeight: "400px" }} />
+				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 sm:p-4 lg:flex-row lg:overflow-hidden">
+					<div className="min-h-0 flex-1 overflow-hidden">
+						<div
+							ref={termRef}
+							data-testid="ssh-terminal-surface"
+							className="h-[clamp(320px,58vh,560px)] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e1a] light:border-slate-200 lg:h-full lg:min-h-[400px]"
+						/>
 					</div>
 					{showSidePanel && (
-						<div className="ml-3 flex w-64 shrink-0 flex-col gap-3 overflow-y-auto">
+						<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-64">
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
 								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">⭐ 常用命令</h4>
 								<div className="mb-2 flex gap-1.5">

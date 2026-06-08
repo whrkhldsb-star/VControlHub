@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T12:23:30Z",
+  "updatedAt": "2026-06-08T12:39:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,12 +58,12 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "ssh-dialog-focus",
-    "title": "SSH terminal shared dialog focus",
-    "startedAt": "2026-06-08T12:08:00Z",
-    "finishedAt": "2026-06-08T12:23:30Z",
+    "id": "ssh-mobile-layout",
+    "title": "SSH terminal mobile layout",
+    "startedAt": "2026-06-08T12:28:00Z",
+    "finishedAt": "2026-06-08T12:39:30Z",
     "status": "deployed_verified",
-    "summary": "SSH terminal modal now uses the shared dialog focus hook and has an explicit favorite-command label.",
+    "summary": "SSH terminal modal now uses a mobile-friendly vertical layout and responsive command panel.",
     "changeContract": {
       "files": [
         "src/components/ssh-terminal-modal.tsx",
@@ -73,18 +73,17 @@
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Audit found dialog-focus/file-navigation completed and production healthy, but README still listed SSH terminal focus trap/restore as a remaining architecture issue.",
-        "Targeted verification: npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx passed 3/3.",
+        "README open item identified SSH terminal fixed 400px height and horizontal side panel as a mobile layout issue.",
+        "Targeted verification: npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx passed 4/4.",
         "Typecheck: npm run typecheck passed.",
-        "SSH terminal now reuses useDialogFocus for initial focus, Escape close, Tab containment, and trigger focus restore."
+        "Layout now uses small-screen scroll shell, wrapping header actions, full-width mobile command panel, and clamp-based terminal height."
       ],
       "remaining": [
-        "Improve SSH terminal mobile layout.",
-        "Continue visible-label cleanup for remaining placeholder-only controls."
+        "Visible labels for remaining placeholder-only controls, especially text preview search/jump."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 995 tests plus Next build, runtime build, deploy-assets.",
+      "verify": "npm run verify passed: 213 test files / 996 tests plus Next build, runtime build, deploy-assets.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
       "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3.",

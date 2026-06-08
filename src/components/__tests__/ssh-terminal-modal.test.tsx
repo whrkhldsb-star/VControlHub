@@ -65,9 +65,36 @@ describe("SshTerminalModal", () => {
     const dialog = screen.getByRole("dialog", { name: "SSH 终端 — prod-vps" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAccessibleDescription("203.0.113.10:22");
+    expect(dialog).toHaveClass("sm:max-h-[92vh]");
+    expect(dialog).toHaveClass("sm:rounded-3xl");
     expect(screen.getByRole("status")).toHaveTextContent("连接中");
     expect(screen.getByRole("button", { name: "📋 命令面板" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: "关闭 SSH 终端" })).toBeInTheDocument();
+  });
+
+  it("uses a mobile-friendly vertical terminal and command panel layout", async () => {
+    const user = userEvent.setup();
+    render(
+      <SshTerminalModal
+        serverId="srv_1"
+        serverName="prod-vps"
+        host="203.0.113.10:22"
+        sessionToken="session-token"
+        onClose={vi.fn()}
+      />,
+    );
+
+    const terminalSurface = screen.getByTestId("ssh-terminal-surface");
+    expect(terminalSurface).toHaveClass("lg:min-h-[400px]");
+
+    await user.click(screen.getByRole("button", { name: "📋 命令面板" }));
+
+    const favoriteInput = screen.getByLabelText("添加常用 SSH 命令");
+    let sidePanel = favoriteInput.parentElement;
+    while (sidePanel && !sidePanel.classList.contains("lg:w-64")) {
+      sidePanel = sidePanel.parentElement;
+    }
+    expect(sidePanel).toHaveClass("max-h-[50vh]", "w-full", "lg:w-64");
   });
 
   it("manages focus with the shared dialog focus behavior", async () => {
