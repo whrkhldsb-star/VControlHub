@@ -80,11 +80,19 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       {/* Search and filter bar */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <label
+            htmlFor="snippets-search"
+            className="mb-1 block text-xs font-medium text-slate-400 light:text-slate-600"
+          >
+            搜索代码片段
+          </label>
+          <Search size={14} className="absolute left-3 top-[2.15rem] text-slate-500" />
           <input
+            id="snippets-search"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索标题、内容、标签…"
+            placeholder="标题、内容、标签…"
             className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>

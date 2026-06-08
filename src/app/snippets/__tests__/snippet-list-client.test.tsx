@@ -39,6 +39,19 @@ describe("SnippetList", () => {
     });
   });
 
+  it("shows a visible label for snippet search and filters by label-based input", async () => {
+    renderList();
+
+    expect(screen.getByText("搜索代码片段")).toBeInTheDocument();
+    const searchInput = screen.getByRole("searchbox", { name: "搜索代码片段" });
+    expect(searchInput).toHaveAttribute("placeholder", "标题、内容、标签…");
+
+    await userEvent.type(searchInput, "missing");
+
+    expect(screen.getByText("无匹配结果")).toBeInTheDocument();
+    expect(screen.queryByText("部署脚本")).not.toBeInTheDocument();
+  });
+
   it("uses an accessible confirmation dialog instead of native confirm before deleting", async () => {
     const confirmSpy = vi.spyOn(window, "confirm");
     renderList();

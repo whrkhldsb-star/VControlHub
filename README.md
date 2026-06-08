@@ -382,7 +382,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **SSH 终端弹窗已优化移动端布局。** 终端弹窗在小屏改为可滚动纵向布局，头部操作区允许换行，命令面板从固定右侧栏变为移动端全宽堆叠、桌面端保留 64 宽侧栏；终端画布高度从固定 400px 改为 `clamp(320px,58vh,560px)`，桌面端继续保留 400px 最小高度，手机上不再强制横向拥挤。
 - [x] **文本预览搜索/跳转已补可见标签。** `/files/preview` 的只读文本预览工具栏不再只依赖 placeholder：搜索框显示“搜索文本”标签，跳转输入显示“跳转行号”标签并保留数字输入提示，测试覆盖按 label 输入关键词/行号并触发滚动跳转。
 - [x] **文件浏览搜索已补可见标签。** `/files` 主搜索框新增“搜索文件名”可见 label，placeholder 改为范围提示（当前目录/全部文件），测试覆盖按 label 定位搜索输入，文件浏览搜索不再只依赖占位符说明。
-- [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索、Docker 日志、Docker 删除确认和 SSH 终端已具备统一 dialog focus 管理；文件浏览 SPA 已支持目录导航 pushState 与 popstate 恢复；SSH 终端已完成移动端纵向布局和响应式命令面板；文本预览搜索/跳转和文件浏览搜索已补可见 label，后续继续巡检其它 placeholder-only/低可见度控件。
+- [x] **代码片段搜索已补可见标签。** `/snippets` 列表搜索框新增“搜索代码片段”可见 label，placeholder 缩小为标题/内容/标签提示，回归测试按 searchbox 名称输入并确认过滤结果。
+- [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索、Docker 日志、Docker 删除确认和 SSH 终端已具备统一 dialog focus 管理；文件浏览 SPA 已支持目录导航 pushState 与 popstate 恢复；SSH 终端已完成移动端纵向布局和响应式命令面板；文本预览搜索/跳转、文件浏览搜索和代码片段搜索已补可见 label，后续继续巡检其它 placeholder-only/低可见度控件。
 - [x] **AI Provider 与应用源 URL 出网边界收紧。** AI Provider 的 `baseUrl` 和 QuickService 自定义应用源 URL 现在复用统一公网 HTTP(S) URL 校验，拒绝携带凭据、localhost、回环、内网、链路本地和常见 metadata 主机地址，并在创建/更新 Provider、创建应用源和服务端 fetch 应用源前二次拦截；默认 OpenAI Base URL 仍保持 `https://api.openai.com/v1`。后续仍建议用生产 egress policy / 代理 allowlist / DNS 解析与重定向复检继续防御 DNS rebinding 和重定向到私网。
 - [x] **登录态 LOCAL/SFTP 下载流层已统一。** `/api/storage/local` 和 `/api/storage/sftp-download` 现在复用统一 Storage Stream helper 处理 Range 解析、`Accept-Ranges`、`Content-Range`、`Content-Length`、`Content-Disposition`、私有缓存头和 Node→Web stream 转换；SFTP 普通下载新增 `Range` / `206` / `416` 行为，远端流关闭或出错时会释放 SSH 连接，文件预览/大文件拖动不再因为登录态普通下载路径缺少 Range 语义而退化。
 - [x] **公开目录分享已支持整体打包下载。** 公开分享页的目录卡片现在提供“下载整个目录”，调用 `/api/share/[token]?archive=1` 直接流式返回 `tar.gz`；公开 token 下载与登录态 `/api/storage/archive-download` 复用同一 Storage Archive helper 生成 LOCAL/SFTP tar.gz、中文文件名 `Content-Disposition` 和 SSH 流关闭逻辑，避免公开目录只能逐个文件下载。

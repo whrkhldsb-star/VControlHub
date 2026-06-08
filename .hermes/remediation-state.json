@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T14:58:30Z",
+  "updatedAt": "2026-06-08T15:16:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,37 +58,35 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "preview-boundary-disclosure",
-    "title": "File preview boundary disclosure in file list actions",
-    "startedAt": "2026-06-08T14:45:00Z",
-    "finishedAt": "2026-06-08T14:58:30Z",
+    "id": "snippets-search-label",
+    "title": "Visible label for snippets search",
+    "startedAt": "2026-06-08T15:08:30Z",
+    "finishedAt": "2026-06-08T15:16:30Z",
     "status": "deployed",
-    "summary": "/files preview actions now disclose Office download fallback and archive controlled-list/extract boundaries before opening preview pages.",
+    "summary": "/snippets search now has a visible 搜索代码片段 label and placeholder is only a hint.",
     "changeContract": {
       "files": [
-        "src/app/files/file-entry-utils.ts",
-        "src/app/files/file-list-client.tsx",
-        "src/app/files/__tests__/file-list-client.test.tsx",
+        "src/app/snippets/snippet-list-client.tsx",
+        "src/app/snippets/__tests__/snippet-list-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Office file preview action accessible name is 打开 Office 下载提示 <name> with title explaining no public online render.",
-        "Archive preview action accessible name is 查看压缩包内容 <name> with title explaining LOCAL controlled extraction vs remote list/download.",
-        "Targeted FileListClient regression passed 18/18.",
+        "Snippet searchbox has visible label 搜索代码片段.",
+        "Regression locates searchbox by role/name and verifies filtering behavior.",
+        "Targeted SnippetList regression passed 4/4.",
         "Typecheck passed."
       ],
       "remaining": [
-        "README/API docs can further document Office/archive boundaries.",
-        "Archive extraction can be expanded with finer format/permission/quota controls."
+        "Continue placeholder-only patrol for media/image-bed/tickets/announcements and lower-traffic forms."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 1001 tests, Next build, runtime build, deploy-assets OK.",
+      "verify": "npm run verify passed: 213 test files / 1002 tests, Next build, runtime build, deploy-assets OK.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status returned healthy 3/3; /files unauthenticated probe returned 307.",
+      "status": "https://whrkhldsb.qzz.io/api/status returned healthy 3/3; /snippets unauthenticated probe returned 307.",
       "logs": "No error/warn/failed/exception lines in recent next/ssh-ws logs after deployment.",
       "swap": "Only /swapfile 6G active."
     }
