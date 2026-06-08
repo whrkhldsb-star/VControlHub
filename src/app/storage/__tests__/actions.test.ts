@@ -4,6 +4,7 @@ const {
   requirePermissionMock,
   prismaMock,
   createFileEntryMock,
+  restoreFileEntryMock,
   createRemoteDirectoryMock,
   deleteRemoteFileMock,
   renameRemoteFileMock,
@@ -32,6 +33,7 @@ const {
     },
   },
   createFileEntryMock: vi.fn(),
+  restoreFileEntryMock: vi.fn(),
   createRemoteDirectoryMock: vi.fn(),
   deleteRemoteFileMock: vi.fn(),
   renameRemoteFileMock: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/storage/service", () => ({
   createFileEntry: createFileEntryMock,
+  restoreFileEntry: restoreFileEntryMock,
   createStorageNode: vi.fn(),
   deleteStorageNode: vi.fn(),
   listStorageNodes: vi.fn(),
@@ -84,6 +87,7 @@ import {
   deleteFileEntryAction,
   permanentDeleteFileEntryAction,
   renameFileEntryAction,
+  restoreFileEntryAction,
 } from "../actions";
 
 function folderForm(input: {
@@ -304,13 +308,19 @@ describe("SFTP file entry actions", () => {
     });
   });
 
-  it("deletes the remote SFTP file before soft-deleting its DB entry", async () => {
+  it("soft-deletes the indexed SFTP entry before deleting the remote backing file", async () => {
     prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "entry-1" });
 
     const result = await deleteFileEntryAction(null, entryForm("entry-1"));
 
     expect(result.success).toContain("old.txt");
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "entry-1" },
+        data: { isDeleted: true },
+      }),
+    );
     expect(deleteRemoteFileMock).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "203.0.113.10",
@@ -318,12 +328,27 @@ describe("SFTP file entry actions", () => {
         isDirectory: false,
       }),
     );
-    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "entry-1" },
-        data: { isDeleted: true },
-      }),
-    );
+  });
+
+  it("does not delete the backing file when recycle-bin indexing fails", async () => {
+    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    prismaMock.fileEntry.update.mockRejectedValueOnce(new Error("database unavailable"));
+
+    const result = await deleteFileEntryAction(null, entryForm("entry-1"));
+
+    expect(result).toEqual({ error: "database unavailable" });
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("restores through the storage service so physical existence is checked", async () => {
+    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(sftpEntry());
+    restoreFileEntryMock.mockResolvedValueOnce({ id: "entry-1" });
+
+    const result = await restoreFileEntryAction(null, entryForm("entry-1"));
+
+    expect(result).toEqual({ success: "已恢复 old.txt" });
+    expect(restoreFileEntryMock).toHaveBeenCalledWith({ fileEntryId: "entry-1" });
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("permanently deletes the remote SFTP directory before deleting DB rows", async () => {
@@ -404,7 +429,7 @@ describe("SFTP file entry actions", () => {
     );
   });
 
-  it("fails LOCAL soft delete when the disk delete fails and avoids DB mutation", async () => {
+  it("keeps the DB entry in recycle bin when LOCAL backing deletion fails", async () => {
     prismaMock.fileEntry.findUnique.mockResolvedValueOnce({
       id: "local-file",
       name: "report.txt",
@@ -420,13 +445,21 @@ describe("SFTP file entry actions", () => {
         server: null,
       },
     });
-    unlinkMock.mockRejectedValueOnce(new Error("ENOENT"));
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "local-file" });
+    unlinkMock.mockRejectedValueOnce(new Error("disk busy"));
 
     const result = await deleteFileEntryAction(null, entryForm("local-file"));
 
-    expect(unlinkMock).toHaveBeenCalled();
-    expect(result).toEqual({ error: "ENOENT" });
-    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+    expect(unlinkMock).toHaveBeenCalledWith("/srv/storage/reports/report.txt");
+    expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "local-file" },
+        data: { isDeleted: true },
+      }),
+    );
+    expect(result.success).toContain("已将 report.txt 移至回收站");
+    expect(result.success).toContain("物理文件删除失败");
+    expect(result.success).toContain("disk busy");
   });
 
   it("renames LOCAL files on disk before updating indexed paths", async () => {

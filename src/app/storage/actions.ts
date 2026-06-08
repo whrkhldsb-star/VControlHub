@@ -12,6 +12,7 @@ import {
   listStorageNodes,
   updateStorageNode,
   deleteStorageNode,
+  restoreFileEntry,
 } from "@/lib/storage/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
@@ -520,13 +521,6 @@ export async function deleteFileEntryAction(
       return { error: "文件条目不存在" } satisfies StorageActionState;
     }
 
-    await deleteBackingObject({
-      storageNode: entry.storageNode,
-      relativePath: entry.relativePath,
-      isDirectory: entry.entryType === "DIRECTORY",
-      tolerateMissing: false,
-    });
-
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
       await prisma.fileEntry.updateMany({
@@ -543,6 +537,30 @@ export async function deleteFileEntryAction(
       data: { isDeleted: true },
     });
 
+    let backingDeleteWarning: string | null = null;
+    try {
+      await deleteBackingObject({
+        storageNode: entry.storageNode,
+        relativePath: entry.relativePath,
+        isDirectory: entry.entryType === "DIRECTORY",
+        tolerateMissing: false,
+      });
+    } catch (error) {
+      backingDeleteWarning =
+        error instanceof Error ? error.message : "物理文件删除失败";
+      writeAuditLog({
+        actorType: "SYSTEM",
+        action: "storage.file_delete_backing_failed",
+        severity: "WARNING",
+        detail: {
+          entryId: entry.id,
+          entryName: entry.name,
+          relativePath: entry.relativePath,
+          reason: backingDeleteWarning,
+        },
+      }).catch(() => {});
+    }
+
     writeAuditLog({
       actorType: "USER",
       action: "storage.file_delete",
@@ -555,7 +573,9 @@ export async function deleteFileEntryAction(
     revalidatePath("/files");
 
     return {
-      success: `已将 ${entry.name} 移至回收站`,
+      success: backingDeleteWarning
+        ? `已将 ${entry.name} 移至回收站；物理文件删除失败，索引仍可恢复或稍后重试永久删除：${backingDeleteWarning}`
+        : `已将 ${entry.name} 移至回收站`,
     } satisfies StorageActionState;
   } catch (error) {
     return {
@@ -592,6 +612,8 @@ export async function restoreFileEntryAction(
       return { error: "文件条目不存在" } satisfies StorageActionState;
     }
 
+    await restoreFileEntry({ fileEntryId });
+
     if (entry.entryType === "DIRECTORY") {
       const prefix = entry.relativePath + "/";
       await prisma.fileEntry.updateMany({
@@ -602,11 +624,6 @@ export async function restoreFileEntryAction(
         data: { isDeleted: false },
       });
     }
-
-    await prisma.fileEntry.update({
-      where: { id: fileEntryId },
-      data: { isDeleted: false },
-    });
 
     revalidatePath("/");
     revalidatePath("/storage");

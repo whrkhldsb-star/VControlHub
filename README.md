@@ -381,7 +381,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **登录态 LOCAL/SFTP 下载流层已统一。** `/api/storage/local` 和 `/api/storage/sftp-download` 现在复用统一 Storage Stream helper 处理 Range 解析、`Accept-Ranges`、`Content-Range`、`Content-Length`、`Content-Disposition`、私有缓存头和 Node→Web stream 转换；SFTP 普通下载新增 `Range` / `206` / `416` 行为，远端流关闭或出错时会释放 SSH 连接，文件预览/大文件拖动不再因为登录态普通下载路径缺少 Range 语义而退化。
 - [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** 登录态 LOCAL/SFTP 受控下载已统一 Range/206 流层，媒体库 `/api/media/[id]/stream` 仍有一套局部 Range/header 实现，后续应迁入同一 helper；公开目录分享现在会自动刷新目录索引并可下载目录内具体文件，但尚不能像登录态 `/api/storage/archive-download` 那样一键打包下载整个目录；Office 预览和压缩包在线解压是安全降级入口，主要提供说明/下载，后续应在列表按钮和 README/API 文档里更早提示当前边界，或补专用 share archive endpoint 和受控格式解压。
 - [x] **存储节点元数据授权边界已收紧。** `/api/storage/nodes` 不再让只有 `storage:read` 的普通用户看到所有节点 `basePath` 和服务器绑定信息；拥有 `storage:manage-node` 的管理员/存储管理员仍可看全量节点，普通读者只返回其 `UserStorageAccess.canRead` grant 覆盖的节点，避免未授权目录结构和节点存在性泄露。
-- [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 文件删除仍是先删物理对象再标记数据库，失败时可能出现 DB 与磁盘不一致，恢复也可能只恢复 DB 标记；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
+- [x] **文件回收站索引一致性已加固。** 普通删除现在先把 `FileEntry` 标记为回收站，再 best-effort 删除 LOCAL/SFTP 物理对象；如果物理删除失败，DB 不会继续显示为 active，页面会提示“索引仍可恢复或稍后重试永久删除”，并写入 `storage.file_delete_backing_failed` 审计。恢复入口改为调用服务层 `restoreFileEntry`，会先确认 LOCAL/SFTP 原始物理路径仍存在且类型匹配，避免只恢复 DB 标记。
+- [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 删除/恢复主路径已避免“物理删了但 DB 仍 active”和“只恢复 DB 不确认物理对象”的高风险不一致；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺并发修改提示、保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
 
 ---
