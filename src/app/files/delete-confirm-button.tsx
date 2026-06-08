@@ -14,12 +14,14 @@ export function DeleteConfirmButton({
   fileEntryId,
   entryName,
   entryType,
+  variant = "icon",
   onRefresh,
   onNotify,
 }: {
   fileEntryId: string;
   entryName: string;
   entryType: "FILE" | "DIRECTORY";
+  variant?: "icon" | "menu";
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
@@ -55,7 +57,12 @@ export function DeleteConfirmButton({
         type="button"
         onClick={() => setConfirming(true)}
         title="删除"
-        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20"
+        aria-label={`删除 ${entryName}`}
+        className={
+          variant === "menu"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-rose-100 transition hover:bg-rose-400/10 light:text-rose-900"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/20 light:text-rose-900"
+        }
       >
         <svg
           width="14"
@@ -73,6 +80,7 @@ export function DeleteConfirmButton({
           <line x1="10" y1="11" x2="10" y2="17" />
           <line x1="14" y1="11" x2="14" y2="17" />
         </svg>
+        {variant === "menu" ? <span>删除</span> : null}
       </button>
     );
   }

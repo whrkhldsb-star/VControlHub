@@ -7,12 +7,14 @@ import type { StorageEntry } from "./file-entry-utils";
 type ShareFileButtonProps = {
   entry: StorageEntry;
   compact?: boolean;
+  variant?: "button" | "menu";
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 };
 
 export function ShareFileButton({
   entry,
   compact = false,
+  variant = "button",
   onNotify,
 }: ShareFileButtonProps) {
   const [saving, setSaving] = useState(false);
@@ -70,15 +72,17 @@ export function ShareFileButton({
         title={shareUrl ? "点击重新生成分享链接" : "分享文件"}
         aria-label={label}
         className={
-          compact
+          variant === "menu"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-100 transition hover:bg-emerald-500/10 light:text-emerald-900 disabled:opacity-50"
+            : compact
             ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900 disabled:opacity-50"
             : "inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900 disabled:opacity-50"
         }
       >
         <span aria-hidden="true">🔗</span>
-        {compact ? null : (
+        {variant === "menu" || !compact ? (
           <span>{saving ? "分享中…" : copied ? "已复制" : "分享"}</span>
-        )}
+        ) : null}
       </button>
       {shareUrl || error ? (
         <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-white/10 bg-slate-950 p-3 text-left text-xs shadow-xl light:border-slate-200 light:bg-white">

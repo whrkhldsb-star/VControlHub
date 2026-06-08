@@ -367,10 +367,10 @@ describe("FileListClient", () => {
     expect(
       screen.getAllByRole("button", { name: "更多操作 cover.jpg" }).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByTestId("share-btn").length).toBeGreaterThan(0);
-    expect(screen.getAllByTestId("rename-btn").length).toBeGreaterThan(0);
-    expect(screen.getAllByTestId("move-btn").length).toBeGreaterThan(0);
-    expect(screen.getAllByTestId("delete-btn").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "分享" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "重命名 cover.jpg" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "移动 cover.jpg" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "删除 cover.jpg" }).length).toBeGreaterThan(0);
   });
 
   it("renders archive download actions for readable folders", () => {

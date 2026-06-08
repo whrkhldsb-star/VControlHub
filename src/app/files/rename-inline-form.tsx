@@ -14,6 +14,7 @@ export function RenameInlineForm({
   fileEntryId,
   currentName,
   currentPath,
+  variant = "icon",
   onRefresh,
   onNotify,
 }: {
@@ -21,6 +22,7 @@ export function RenameInlineForm({
   currentName: string;
   currentPath: string;
   entryType: "FILE" | "DIRECTORY";
+  variant?: "icon" | "menu";
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
@@ -69,7 +71,12 @@ export function RenameInlineForm({
         type="button"
         onClick={handleToggle}
         title="重命名"
-        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 light:text-amber-900 transition hover:bg-amber-400/20"
+        aria-label={`重命名 ${currentName}`}
+        className={
+          variant === "menu"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-amber-100 transition hover:bg-amber-400/10 light:text-amber-900"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 transition hover:bg-amber-400/20 light:text-amber-900"
+        }
       >
         <svg
           width="14"
@@ -84,6 +91,7 @@ export function RenameInlineForm({
           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           <path d="m15 5 4 4" />
         </svg>
+        {variant === "menu" ? <span>重命名</span> : null}
       </button>
     );
   }

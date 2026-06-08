@@ -12,6 +12,7 @@ export function MoveInlineForm({
   name,
   relativePath,
   storageNodeId,
+  variant = "icon",
   onRefresh,
   onNotify,
 }: {
@@ -20,6 +21,7 @@ export function MoveInlineForm({
   relativePath: string;
   storageNodeId: string;
   storageNodeName: string;
+  variant?: "icon" | "menu";
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
@@ -65,7 +67,12 @@ export function MoveInlineForm({
         type="button"
         onClick={handleToggle}
         title="移动"
-        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20"
+        aria-label={`移动 ${name}`}
+        className={
+          variant === "menu"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-100 transition hover:bg-emerald-400/10 light:text-emerald-900"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-emerald-100 transition hover:bg-emerald-400/20 light:text-emerald-900"
+        }
       >
         <svg
           width="14"
@@ -80,6 +87,7 @@ export function MoveInlineForm({
           <path d="M5 12h14" />
           <path d="m12 5 7 7-7 7" />
         </svg>
+        {variant === "menu" ? <span>移动</span> : null}
       </button>
     );
   }

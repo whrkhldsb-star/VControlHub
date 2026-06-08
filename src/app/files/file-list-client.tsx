@@ -580,7 +580,7 @@ export function FileListClient({
         </summary>
         <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:border-slate-200 light:bg-white light:shadow-slate-200/70">
           {canShare && entryCanRead(entry) ? (
-            <ShareFileButton entry={entry} compact onNotify={showToast} />
+            <ShareFileButton entry={entry} compact variant="menu" onNotify={showToast} />
           ) : null}
           {entryCanWrite(entry) ? (
             <RenameInlineForm
@@ -588,6 +588,7 @@ export function FileListClient({
               currentName={entry.name}
               currentPath={entry.relativePath}
               entryType={entry.entryType as "FILE" | "DIRECTORY"}
+              variant="menu"
               onRefresh={onRefresh}
               onNotify={showToast}
             />
@@ -599,6 +600,7 @@ export function FileListClient({
               relativePath={entry.relativePath}
               storageNodeId={entry.storageNode.id}
               storageNodeName={entry.storageNode.name}
+              variant="menu"
               onRefresh={onRefresh}
               onNotify={showToast}
             />
@@ -608,6 +610,7 @@ export function FileListClient({
               fileEntryId={entry.id}
               entryName={entry.name}
               entryType={entry.entryType as "FILE" | "DIRECTORY"}
+              variant="menu"
               onRefresh={onRefresh}
               onNotify={showToast}
             />
