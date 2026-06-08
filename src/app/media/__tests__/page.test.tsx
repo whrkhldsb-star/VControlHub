@@ -74,6 +74,9 @@ describe("MediaPage", () => {
     expect(screen.getByRole("link", { name: /🎬 视频\s*3\s*播放 \/ 下载\s*×/ })).toHaveAttribute("href", "/media?q=demo");
     expect(screen.getByRole("link", { name: /🎧 音频\s*2\s*播放 \/ 收藏/ })).toHaveAttribute("href", "/media?type=audio&q=demo");
     expect(screen.getByText("当前视图 1 项")).toBeInTheDocument();
+    const searchInput = screen.getByRole("searchbox", { name: "搜索媒体" });
+    expect(searchInput).toHaveAttribute("name", "q");
+    expect(searchInput).toHaveValue("demo");
     expect(listMediaItemsMock).toHaveBeenCalledWith({ mediaType: "video", q: "demo", favorite: undefined, tag: undefined });
     expect(listMediaTypeCountsMock).toHaveBeenCalledWith({ q: "demo", favorite: undefined, tag: undefined });
   });

@@ -116,13 +116,19 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         {mediaType && <input type="hidden" name="type" value={mediaType} />}
         {favorite && <input type="hidden" name="favorite" value="1" />}
         {tag && <input type="hidden" name="tag" value={tag} />}
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ""}
-          placeholder="搜索文件名、路径、标签…"
-          className="w-full max-w-sm rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50 light:border-slate-200 light:text-slate-900 light:placeholder:text-slate-500"
-        />
+        <div className="flex w-full max-w-sm flex-col gap-1">
+          <label htmlFor="media-search" className="text-xs font-medium text-slate-400 light:text-slate-600">
+            搜索媒体
+          </label>
+          <input
+            id="media-search"
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="文件名、路径、标签…"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50 light:border-slate-200 light:text-slate-900 light:placeholder:text-slate-500"
+          />
+        </div>
         <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 light:text-slate-950">搜索</button>
         {(q || tag || mediaType || favorite) && (
           <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 light:border-slate-200 light:text-slate-600">
