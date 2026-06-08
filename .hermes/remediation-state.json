@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T01:11:04Z",
+  "updatedAt": "2026-06-08T01:50:18Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,23 +58,22 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T01:09:38Z",
-    "finishedAt": "2026-06-08T01:11:04Z",
-    "target": "overall-review-readme-production-health",
-    "status": "verified_no_code_change",
-    "summary": "Completed the due overall-review checkpoint by reconciling README remaining boundaries, live production health, route auth behavior, smoke, logs, process overlap, and git/origin state without product code changes.",
+    "startedAt": "2026-06-08T01:48:38Z",
+    "finishedAt": "2026-06-08T01:50:18Z",
+    "target": "servers-overview-diagnostic-runstate-half-slice",
+    "status": "dirty_closeout_reverted_half_slice_verified",
+    "summary": "Closed the dirty worktree by reverting a half-finished unused Servers overview diagnostic type, then verified targeted Servers/SSH regressions, production smoke, /api/status, services, logs, and origin sync without product deployment.",
     "changeContract": {
-      "qaPathId": "overall-review-readme-production-health",
-      "userJourney": "An operator reviews the shipped product boundary list and verifies that the production shell, public status, protected pages, protected APIs, services, Docker capability, and recent logs remain healthy before selecting the next concrete remediation lane.",
+      "qaPathId": "servers-overview-diagnostic-runstate-half-slice",
+      "userJourney": "An operator opens Servers/VPS overview expecting truthful SSH/SFTP/Direct Gateway diagnostics; the existing dirty diff was inspected before any new QA lane and found to be an unused type-only half-slice with no reachable UI or side effect.",
       "evidence": [
-        "Preflight: Docker available/running; vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker active/enabled; git clean; HEAD == origin/main ed7391f; /api/status 200 with 3/3 healthy checks; main/daily cron last_status ok; recent preflight logs clean.",
-        "No overlapping npm/next/vitest/build/smoke process was running beyond Hermes gateway and language-server processes.",
-        "README current problem list was reviewed; open candidates remain durable job/lease, request-bound backup/SFTP work, true deployment rollback, AI Hosted Tools authorization, Docker/QuickService/Direct Gateway boundary hardening, status truthfulness, accessibility/mobile/browser navigation, SFTP Range/share archive, file-state consistency/list performance, and queued enhancements.",
-        "Production route matrix: /login and /status returned 200; /files, /downloads, /operation-tasks, /quick-services, /servers, /health, /monitoring, /settings, /media, and /image-bed returned 307 unauthenticated; protected APIs /api/quick-services, /api/downloads, /api/operation-tasks, /api/system-health, and /api/settings returned 401.",
-        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
-        "Post-check next/ssh-ws journal scan over 45 minutes found no error/warn/failed/exception/EACCES/permission denied/docker/known_hosts/Server Action matches.",
-        "No temporary QA users, Docker containers, files, SFTP objects, or DB rows were created; no restart/deploy was needed because no product code changed.",
-        "Git remained clean and HEAD == origin/main ed7391f after state/backlog update except for the intentional .hermes evidence files."
+        "Preflight: Docker available/running; vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker active/enabled; main/daily cron last_status ok; HEAD == origin/main 1f92338; /api/status 200; recent preflight logs clean; worktree dirty only at src/app/servers/server-overview-card.tsx.",
+        "Diff inspection showed only a new DiagnosticRunState union type with no references, no rendered control, no API call, and no production-verifiable side effect, so it was reverted as a half-finished slice rather than expanded during a dirty-closeout run.",
+        "No overlapping npm/next/vitest/build/smoke process was running beyond long-lived TypeScript server processes.",
+        "Targeted regression: npx vitest run src/app/servers/__tests__/page.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/app/servers/__tests__/server-actions.test.ts --reporter=dot passed 2 files / 4 tests.",
+        "Production smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
+        "API/status proof: /api/status returned healthy checks 3/3; services stayed active; no restart/deploy was needed because no product behavior changed.",
+        "Cleanup: no temporary QA users, Docker containers, DB rows, files, SFTP objects, restarts, deployments, commits, or production mutations were created in this closeout."
       ]
     }
   },

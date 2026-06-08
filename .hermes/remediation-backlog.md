@@ -225,6 +225,13 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Deployment/status: repaired `.next`/`dist` ownership, restarted `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service`, reloaded Caddy, retried through an initial restart-window 502 to `/api/status` 200 healthy 3/3, smoke passed 25/25, and post-restart Next/SSH-WS logs were clean of new warning/error/failure matches.
 - Cleanup/limits: no temporary QA user, Docker container, SFTP/file, or DB side effect was created; unrelated media diff was reverted. DNS rebinding and redirect-to-private defenses remain future network/egress-policy candidates.
 
+
+### 2026-06-08T01:51:15Z — Servers overview dirty half-slice closeout
+- Scope: preflight found a dirty worktree with only `src/app/servers/server-overview-card.tsx`; dirty-worktree policy selected closeout-only and did not open a new QA lane.
+- Finding/fix: the diff was a half-finished diagnostic run state slice (`DiagnosticRunState` plus unused state) with no rendered UI, API call, or production-verifiable side effect, so it was removed to restore a clean product tree.
+- Evidence: `git diff --check` passed; targeted Servers/SSH Vitest passed 2 files / 4 tests; `/api/status` returned healthy 3/3; `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed 25/25; vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker stayed active; recent service logs were clean.
+- Cleanup/git: no temporary QA users, Docker containers, SFTP/filesystem objects, DB rows, restart, deploy, or product commit was required; product worktree returned clean and HEAD matched origin/main `1f92338` before committing this evidence-only closeout.
+
 ## Last known healthy baseline
 
 - 2026-05-29 comprehensive audit: git clean, `npm run typecheck` passed, `npm run lint` passed, `npm test` passed (160 files / 612 tests), `npm run build` passed, `npm run build:runtime` passed, production services active, `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed 19/19.
