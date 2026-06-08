@@ -78,6 +78,7 @@ model User {
   roles              UserRole[]
   storageAccess      UserStorageAccess[]
   commandRequests    CommandRequest[]    @relation("requester")
+  jobs               Job[]               @relation("jobCreator")
   approvals          CommandApproval[]
   auditLogs          AuditLog[]
   sshKeys            SshKey[]            @relation("SshKeyCreator")
@@ -353,6 +354,46 @@ enum ScheduledTaskStatus {
   ACTIVE
   PAUSED
   DISABLED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Job {
+  id                String    @id @default(cuid())
+  type              String
+  title             String
+  payload           Json
+  status            JobStatus @default(PENDING)
+  priority          Int       @default(0)
+  maxAttempts       Int       @default(3)
+  attempts          Int       @default(0)
+  progress          String?
+  result            Json?
+  errorMessage      String?
+  createdBy         String?
+  availableAt       DateTime  @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  workerId          String?
+  workerHeartbeatAt DateTime?
+  leaseExpiresAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  creator User? @relation("jobCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt, priority, createdAt])
+  @@index([status, leaseExpiresAt])
+  @@index([type, status])
+  @@index([createdBy, createdAt])
+  @@map("jobs")
 }
 
 model ScheduledTask {

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T07:31:10Z",
+  "updatedAt": "2026-06-08T08:08:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,21 +58,28 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T07:26:51Z",
-    "finishedAt": "2026-06-08T07:39:58Z",
-    "target": "files-create-folder-visible-labels",
-    "status": "files_create_folder_labels_deployed",
-    "summary": "Closed and deployed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels; targeted Files regressions and full npm run verify passed; production restart, /api/status, smoke 25/25, and recent log scan passed.",
+    "startedAt": "2026-06-08T07:42:00Z",
+    "finishedAt": "2026-06-08T08:08:30Z",
+    "target": "durable-jobs-stage-1-queue-base",
+    "status": "durable_job_queue_base_deployed_smoke_passed",
+    "summary": "Added and deployed the first unified Durable Job queue base: DB-backed jobs table/schema/migration, reusable lease/heartbeat/retry/cancel/recovery service, Operation Tasks aggregation, README/backlog residual narrowing, full verify, production migration, restart, health check, smoke 25/25, DB table proof, and recent log check passed.",
     "changeContract": {
-      "qaPathId": "files-create-folder-visible-labels",
-      "userJourney": "An authenticated operator opens /files, expands New folder, and can visually identify both the target storage-node control and folder-name input before submitting.",
+      "qaPathId": "durable-jobs-stage-1-queue-base",
+      "userJourney": "Operators can rely on a single durable job substrate for future long-running work, and newly enqueued jobs will appear in Operation Tasks with status/progress/worker heartbeat metadata.",
       "evidence": [
-        "Preflight: worktree clean, HEAD == origin/main ed87001, vcontrolhub-next/vcontrolhub-ssh-ws/caddy active, /api/status healthy, recent logs clean.",
-        "Implementation: CreateFolderForm now renders visible labels for 目标节点 and 文件夹名称 while preserving existing label associations and initial focus.",
-        "Regression: create-folder form test asserts visible labels and uses getByLabelText for submission; neighboring Files list/page regressions passed 27/27.",
-        "Full verification/deploy: git diff --check passed; npm run verify passed including full Vitest, Next build, runtime build, and deploy-assets; .next/dist ownership repaired and vcontrolhub-next/vcontrolhub-ssh-ws restarted.",
-        "Production: /api/status returned healthy 3/3, ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25, and post-restart next/ssh-ws journal scan had no error/warn/failed matches.",
-        "README/backlog narrowed the remaining accessibility boundary by removing the file-browser placeholder-only label item from the residual list."
+        "Preflight: worktree clean at entry; HEAD == origin/main 655936d0be974925b3d891663c169d0cb64ae660.",
+        "Implementation: Prisma JobStatus/Job model and migration add payload/status/priority/attempts/progress/result/error/lease/worker heartbeat fields with indexes.",
+        "Implementation: src/lib/job/service.ts provides enqueueJob, claimNextJob, heartbeatJob, completeJob, failJob, cancelJob, and recoverStaleRunningJobs.",
+        "Task Center: Operation Task aggregation now includes durable jobs with source=job, progress/error, workerId, workerHeartbeatAt, and /tasks href.",
+        "Regression: src/lib/job/__tests__/service.test.ts and src/lib/operation-task/__tests__/service.test.ts passed 9/9.",
+        "Static verification: npm run prisma:generate and npm run typecheck passed after the targeted regression run.",
+        "Docs: README and remediation backlog now mark the queue base complete while leaving business migration/concurrency/workers as residual work.",
+        "Full verification: git diff --check and npm run verify passed with 210 test files / 967 tests plus Next build, runtime build, and deploy-assets.",
+        "Production migration: npm run prisma:deploy applied 20260608090000_durable_jobs successfully.",
+        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart; initial 502 was the startup window and /api/status returned healthy 3/3 after readiness.",
+        "Smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
+        "DB proof: jobs table exists with 0 rows and expected durable-job columns.",
+        "Log proof: recent vcontrolhub-next and vcontrolhub-ssh-ws logs had no new error/warn/failed/exception matches after deployment."
       ]
     }
   },
