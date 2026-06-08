@@ -60,4 +60,14 @@ describe("NotificationListClient", () => {
 
     expect(screen.getByRole("link", { name: "查看详情 →" })).toHaveAttribute("href", "/notifications");
   });
+
+  it("keeps destructive actions reachable by keyboard focus and small screens", () => {
+    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} />);
+
+    const deleteButton = screen.getByRole("button", { name: "删除" });
+    expect(deleteButton).toHaveClass("opacity-100");
+    expect(deleteButton).toHaveClass("sm:group-focus-within:opacity-100");
+    expect(deleteButton).toHaveClass("focus-visible:ring-2");
+    expect(deleteButton.closest("article")).toHaveClass("focus-within:ring-2");
+  });
 });
