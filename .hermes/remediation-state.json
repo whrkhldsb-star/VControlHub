@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T13:41:30Z",
+  "updatedAt": "2026-06-08T13:39:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -61,13 +61,14 @@
     "id": "files-search-visible-label",
     "title": "Files search visible label",
     "startedAt": "2026-06-08T13:20:00Z",
-    "finishedAt": "2026-06-08T13:41:30Z",
-    "status": "deployed",
+    "finishedAt": "2026-06-08T13:39:30Z",
+    "status": "deployed_verified",
     "summary": "Files browser main search input now has a visible label and uses placeholder only for scope hint text.",
     "changeContract": {
       "files": [
         "src/app/files/files-browser-spa.tsx",
         "src/app/files/__tests__/files-browser-spa.test.tsx",
+        "src/app/files/__tests__/page.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
@@ -77,19 +78,22 @@
         "Read-only scan found the /files main search input relied on placeholder text without a visible label.",
         "Targeted verification: npx vitest run src/app/files/__tests__/files-browser-spa.test.tsx passed 11/11.",
         "Typecheck: npm run typecheck passed.",
-        "Regression asserts visible 搜索文件名 label and label-addressable textbox."
+        "Regression asserts visible 搜索文件名 label and label-addressable textbox.",
+        "Targeted rerun: npx vitest run src/app/files/__tests__/files-browser-spa.test.tsx src/app/files/__tests__/page.test.tsx --reporter=dot passed 2 files / 19 tests.",
+        "Full verification rerun: npm run verify passed 213 files / 998 tests, Next build, runtime build, and deploy-assets.",
+        "Production deployment: chown .next/dist, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded caddy.service.",
+        "Production closeout: /api/status healthy 3/3, /files unauthenticated 307 to login, smoke 25/25, recent next/ssh-ws logs clean."
       ],
       "remaining": [
         "Continue scanning remaining placeholder-only controls such as snippets/media/image-bed/tickets where appropriate."
       ]
     },
     "deployment": {
-      "verify": "npm run verify completed: 213 test files / 998 tests passed; Next build, runtime build, and deploy-assets completed. deploy-assets rechecked after overlapping build finished.",
-      "services": "systemctl restart vcontrolhub-next.service vcontrolhub-ssh-ws.service; vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active.",
-      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /files unauth probe returned 307.",
-      "logs": "journalctl next/ssh-ws last 5 minutes had no error/warn/failed/exception matches.",
-      "swap": "swap remained limited to /swapfile 6G."
+      "verify": "git diff --check passed; targeted Files SPA/page regressions passed 2 files / 19 tests; npm run typecheck passed; npm run lint -- --max-warnings=0 passed; npm run verify passed 213 files / 998 tests plus Next build, runtime build, deploy-assets.",
+      "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active after restart/reload.",
+      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
+      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /files unauthenticated probe returned 307 to /login?next=%2Ffiles.",
+      "logs": "journalctl scan for vcontrolhub-next.service and vcontrolhub-ssh-ws.service since restart returned clean."
     }
   },
   "runPolicy": {

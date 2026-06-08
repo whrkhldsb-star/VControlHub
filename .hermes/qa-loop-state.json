@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-08T11:20:00Z",
-  "runCounter": 54,
-  "lastRunStatus": "dialog_focus_deployed_committed_pushed",
-  "lastRunTarget": "docker-dialog-focus",
+  "updatedAt": "2026-06-08T13:39:30Z",
+  "runCounter": 55,
+  "lastRunStatus": "files_search_label_deployed_committed_pending",
+  "lastRunTarget": "files-search-visible-label",
   "overallReviewDue": true,
-  "note": "Dirty-closeout only because preflight found product/.hermes changes. Closed and deployed the Docker dialog focus accessibility slice: added reusable useDialogFocus, wired Docker logs dialog and removal confirmation to labelled modal semantics, Escape close, focus trap, initial focus, and trigger focus restoration. Evidence: git diff --check passed; npx vitest run src/app/docker/__tests__/page.test.tsx --reporter=dot passed 4/4; npm run typecheck passed; npm run lint -- --max-warnings=0 passed; npm run verify passed with full Vitest, Next build, runtime build, and deploy-assets; vcontrolhub-next/vcontrolhub-ssh-ws restarted and caddy reloaded; /api/status healthy 3/3; smoke 25/25; recent next/ssh-ws logs clean. This was run counter 54, so the next clean-worktree cron tick should perform the scheduled every-6-run overall review instead of opening a narrow dirty closeout. Next candidates: wire useDialogFocus into the SSH terminal modal, improve SSH terminal mobile layout, add visible labels for remaining placeholder-only controls, and complete browser-history navigation state for file browsing."
+  "note": "Dirty-closeout only because preflight found product/.hermes changes. Closed and deployed the /files search visible-label slice: main file search now has a visible 搜索文件名 label, placeholder text is scope guidance only, SPA and SSR page regressions locate the textbox by label, targeted tests passed 2 files / 19 tests, typecheck/lint passed, npm run verify passed 213 files / 998 tests with Next build/runtime/deploy-assets, production services restarted/reloaded, /api/status healthy 3/3, /files unauth 307 to login, smoke 25/25, recent next/ssh-ws logs clean. Docker is available for future Quick Services lanes, but this tick stayed on dirty closeout. Because runCounter is now 55 and overallReviewDue remains true from run 54, the next clean-worktree tick should perform the scheduled overall review before opening a new narrow QA lane."
 }
