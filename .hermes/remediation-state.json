@@ -59,10 +59,10 @@
   },
   "lastRun": {
     "startedAt": "2026-06-08T07:26:51Z",
-    "finishedAt": "2026-06-08T07:31:10Z",
+    "finishedAt": "2026-06-08T07:39:58Z",
     "target": "files-create-folder-visible-labels",
-    "status": "files_create_folder_labels_verified",
-    "summary": "Closed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels, and Files form/list/page regressions passed.",
+    "status": "files_create_folder_labels_deployed",
+    "summary": "Closed and deployed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels; targeted Files regressions and full npm run verify passed; production restart, /api/status, smoke 25/25, and recent log scan passed.",
     "changeContract": {
       "qaPathId": "files-create-folder-visible-labels",
       "userJourney": "An authenticated operator opens /files, expands New folder, and can visually identify both the target storage-node control and folder-name input before submitting.",
@@ -70,6 +70,8 @@
         "Preflight: worktree clean, HEAD == origin/main ed87001, vcontrolhub-next/vcontrolhub-ssh-ws/caddy active, /api/status healthy, recent logs clean.",
         "Implementation: CreateFolderForm now renders visible labels for 目标节点 and 文件夹名称 while preserving existing label associations and initial focus.",
         "Regression: create-folder form test asserts visible labels and uses getByLabelText for submission; neighboring Files list/page regressions passed 27/27.",
+        "Full verification/deploy: git diff --check passed; npm run verify passed including full Vitest, Next build, runtime build, and deploy-assets; .next/dist ownership repaired and vcontrolhub-next/vcontrolhub-ssh-ws restarted.",
+        "Production: /api/status returned healthy 3/3, ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25, and post-restart next/ssh-ws journal scan had no error/warn/failed matches.",
         "README/backlog narrowed the remaining accessibility boundary by removing the file-browser placeholder-only label item from the residual list."
       ]
     }

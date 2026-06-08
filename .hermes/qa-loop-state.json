@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-08T07:31:10Z",
+  "updatedAt": "2026-06-08T07:39:58Z",
   "runCounter": 51,
-  "lastRunStatus": "files_create_folder_labels_verified",
+  "lastRunStatus": "files_create_folder_labels_deployed",
   "lastRunTarget": "files-create-folder-visible-labels",
   "overallReviewDue": false,
-  "note": "Closed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels, and Files form/list/page regressions passed. Preflight: HEAD==origin/main ed87001, services active, /api/status healthy, recent logs clean. Remaining accessibility candidates: text-preview search/jump labels, SSH terminal/Docker log focus management, browser-back directory navigation."
+  "note": "Closed and deployed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels. Evidence: targeted Files regressions 27/27, npm run verify passed, vcontrolhub-next/vcontrolhub-ssh-ws restarted, /api/status healthy, smoke 25/25, recent logs clean. Preflight: HEAD==origin/main ed87001, services active, Docker available. Remaining accessibility candidates: text-preview search/jump labels, SSH terminal/Docker log focus management, browser-back directory navigation."
 }
