@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T08:08:30Z",
+  "updatedAt": "2026-06-08T08:29:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,27 +58,26 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T07:42:00Z",
-    "finishedAt": "2026-06-08T08:08:30Z",
-    "target": "durable-jobs-stage-1-queue-base",
-    "status": "durable_job_queue_base_deployed_smoke_passed",
-    "summary": "Added and deployed the first unified Durable Job queue base: DB-backed jobs table/schema/migration, reusable lease/heartbeat/retry/cancel/recovery service, Operation Tasks aggregation, README/backlog residual narrowing, full verify, production migration, restart, health check, smoke 25/25, DB table proof, and recent log check passed.",
+    "startedAt": "2026-06-08T08:10:00Z",
+    "finishedAt": "2026-06-08T08:29:30Z",
+    "target": "background-backup-sftp-stage-1-sftp-sync-durable-job",
+    "status": "sftp_sync_background_job_deployed_smoke_passed",
+    "summary": "Migrated explicit SFTP sync API writes onto the durable job queue by default, preserved wait=1 synchronous compatibility, started the storage.sftp-sync worker from the custom server, verified full quality gate, deployed to production, confirmed worker startup, healthy status, smoke 25/25, and clean recent logs.",
     "changeContract": {
-      "qaPathId": "durable-jobs-stage-1-queue-base",
-      "userJourney": "Operators can rely on a single durable job substrate for future long-running work, and newly enqueued jobs will appear in Operation Tasks with status/progress/worker heartbeat metadata.",
+      "qaPathId": "background-backup-sftp-stage-1-sftp-sync-durable-job",
+      "userJourney": "Operators triggering SFTP sync get an immediate background task id instead of blocking the HTTP request while recursive remote scans run; legacy synchronous callers can opt in with wait=1.",
       "evidence": [
-        "Preflight: worktree clean at entry; HEAD == origin/main 655936d0be974925b3d891663c169d0cb64ae660.",
-        "Implementation: Prisma JobStatus/Job model and migration add payload/status/priority/attempts/progress/result/error/lease/worker heartbeat fields with indexes.",
-        "Implementation: src/lib/job/service.ts provides enqueueJob, claimNextJob, heartbeatJob, completeJob, failJob, cancelJob, and recoverStaleRunningJobs.",
-        "Task Center: Operation Task aggregation now includes durable jobs with source=job, progress/error, workerId, workerHeartbeatAt, and /tasks href.",
-        "Regression: src/lib/job/__tests__/service.test.ts and src/lib/operation-task/__tests__/service.test.ts passed 9/9.",
-        "Static verification: npm run prisma:generate and npm run typecheck passed after the targeted regression run.",
-        "Docs: README and remediation backlog now mark the queue base complete while leaving business migration/concurrency/workers as residual work.",
-        "Full verification: git diff --check and npm run verify passed with 210 test files / 967 tests plus Next build, runtime build, and deploy-assets.",
-        "Production migration: npm run prisma:deploy applied 20260608090000_durable_jobs successfully.",
-        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart; initial 502 was the startup window and /api/status returned healthy 3/3 after readiness.",
+        "Implementation: POST /api/storage/sftp-sync defaults to enqueueJob(storage.sftp-sync) and returns 202 with jobId/taskId/status/message.",
+        "Compatibility: POST /api/storage/sftp-sync?wait=1 keeps the prior synchronous syncSftpDirectoryEntries response and status semantics.",
+        "Worker: src/lib/storage/sftp-sync-job.ts claims storage.sftp-sync jobs, heartbeats, executes existing sync service, completes jobs with result, and retries no-progress failures.",
+        "Runtime: src/server.ts starts the SFTP sync durable job worker with the other process workers.",
+        "Regression: route/worker/job/operation-task targeted tests passed 15/15.",
+        "Static verification: npm run typecheck passed.",
+        "Full verification: git diff --check and npm run verify passed with 211 test files / 971 tests plus Next build, runtime build, and deploy-assets.",
+        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart.",
+        "Health check: https://whrkhldsb.qzz.io/api/status returned healthy 3/3.",
         "Smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
-        "DB proof: jobs table exists with 0 rows and expected durable-job columns.",
+        "Worker proof: recent vcontrolhub-next journal shows SFTP sync job worker started with a vcontrolhub:sftp-sync worker id.",
         "Log proof: recent vcontrolhub-next and vcontrolhub-ssh-ws logs had no new error/warn/failed/exception matches after deployment."
       ]
     }
@@ -96,7 +95,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 1,
+    "successfulRemediationRunsSinceFreshAudit": 2,
     "skippedOverlapRuns": 0
   },
   "blockers": [

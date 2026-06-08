@@ -47,6 +47,10 @@ export async function enqueueJob(input: EnqueueJobInput) {
   });
 }
 
+export async function getJob(jobId: string) {
+  return prisma.job.findUnique({ where: { id: jobId } });
+}
+
 export async function claimNextJob(options: ClaimJobOptions) {
   const now = options.now ?? new Date();
   const leaseExpiresAt = futureFrom(now, options.leaseMs ?? DEFAULT_LEASE_MS);

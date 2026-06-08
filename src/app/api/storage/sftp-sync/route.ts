@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { enqueueJob } from "@/lib/job/service";
+import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
@@ -80,24 +82,43 @@ export async function POST(request: Request) {
         );
       }
 
-      try {
-        const result = await syncSftpDirectoryEntries({
-          node,
-          remotePath,
-          recursive,
-          maxDepth,
-        });
-        const status = result.errors.length === 0 ? 200 : result.synced > 0 || result.created > 0 || result.updated > 0 || result.deleted > 0 ? 207 : 504;
-        return NextResponse.json({
-          success: result.errors.length === 0,
-          ...result,
-        }, { status });
-      } catch (error) {
-        return NextResponse.json(
-          { error: error instanceof Error ? error.message : "同步失败" },
-          { status: 400 },
-        );
+      const waitForCompletion = new URL(request.url).searchParams.get("wait") === "1";
+      if (waitForCompletion) {
+        try {
+          const result = await syncSftpDirectoryEntries({
+            node,
+            remotePath,
+            recursive,
+            maxDepth,
+          });
+          const status = result.errors.length === 0 ? 200 : result.synced > 0 || result.created > 0 || result.updated > 0 || result.deleted > 0 ? 207 : 504;
+          return NextResponse.json({
+            success: result.errors.length === 0,
+            ...result,
+          }, { status });
+        } catch (error) {
+          return NextResponse.json(
+            { error: error instanceof Error ? error.message : "同步失败" },
+            { status: 400 },
+          );
+        }
       }
+
+      const job = await enqueueJob({
+        type: SFTP_SYNC_JOB_TYPE,
+        title: `SFTP 同步：${node.name}`,
+        payload: { nodeId, remotePath, recursive, maxDepth },
+        createdBy: session.userId,
+        maxAttempts: 3,
+      });
+      return NextResponse.json({
+        success: true,
+        queued: true,
+        jobId: job.id,
+        taskId: `job:${job.id}`,
+        status: job.status,
+        message: "SFTP 同步已加入后台任务，可在任务中心查看进度。",
+      }, { status: 202 });
     },
   );
 }

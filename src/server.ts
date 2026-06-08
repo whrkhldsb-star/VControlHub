@@ -19,6 +19,7 @@ import { createLogger } from "@/lib/logging";
 import { startCommandMaintenanceWorker } from "@/lib/command/worker";
 import { startScheduledTaskWorker } from "@/lib/scheduled-task/worker";
 import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
+import { startSftpSyncJobWorker } from "@/lib/storage/sftp-sync-job";
 
 const logger = createLogger("server");
 
@@ -35,6 +36,7 @@ async function main() {
 	await startCommandMaintenanceWorker();
 	await startScheduledTaskWorker();
 	await startAlertEvaluationWorker();
+	await startSftpSyncJobWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);
