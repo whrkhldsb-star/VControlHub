@@ -59,9 +59,9 @@
   },
   "lastRun": {
     "startedAt": "2026-06-08T09:23:00Z",
-    "finishedAt": "2026-06-08T09:44:30Z",
+    "finishedAt": "2026-06-08T09:49:30Z",
     "target": "runtime-boundaries",
-    "status": "deployed_smoke_passed_pending_commit",
+    "status": "completed_verified_deployed_committed",
     "summary": "Made QuickService runtime access boundaries explicit by classifying generated access entries as direct public host-port links or reverse-proxy HTTPS and surfacing direct-port warnings in the overview and installed service cards.",
     "changeContract": {
       "qaPathId": "runtime-boundaries",
@@ -73,10 +73,11 @@
         "Regression: QuickService access URL descriptor tests and QuickServices client tests passed 13/13.",
         "Static verification: npm run typecheck passed.",
         "Full verification: npm run verify passed with 211 test files / 978 tests plus Next build, runtime build, and deploy-assets.",
-        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart/reload.",
-        "Health check: https://whrkhldsb.qzz.io/api/status returned healthy 3/3.",
+        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker were active after restart/reload.",
+        "Health check: https://whrkhldsb.qzz.io/api/status returned healthy 3/3 after one expected restart-window 502 retry.",
         "Smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
-        "Log proof: recent vcontrolhub-next and vcontrolhub-ssh-ws logs had no error/warn/failed/exception lines after deployment."
+        "Log proof: recent vcontrolhub-next and vcontrolhub-ssh-ws logs had no error/warn/failed/exception lines after deployment.",
+        "Git closeout: product slice was committed and pushed as e4ed3e9 on main/origin by a concurrent closeout; this run reconciled state only."
       ]
     }
   },
