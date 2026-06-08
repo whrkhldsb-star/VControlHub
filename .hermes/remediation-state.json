@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T10:58:30Z",
+  "updatedAt": "2026-06-08T11:20:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,39 +58,38 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "share-archive",
-    "title": "Public directory share archive streaming",
-    "startedAt": "2026-06-08T10:34:00Z",
-    "finishedAt": "2026-06-08T10:58:30Z",
+    "id": "dialog-focus",
+    "title": "Unified Dialog Focus base for Docker logs",
+    "startedAt": "2026-06-08T11:00:00Z",
+    "finishedAt": "2026-06-08T11:20:30Z",
     "status": "deployed_verified",
-    "summary": "Public directory share pages can download the whole shared directory as a tar.gz archive through /api/share/:token?archive=1, reusing the authenticated storage archive helper.",
+    "summary": "Added a reusable dialog focus hook and wired Docker logs/removal dialogs to labelled modal semantics, Escape close, focus trap, and trigger focus restoration.",
     "changeContract": {
       "files": [
-        "src/lib/storage/archive-stream.ts",
-        "src/app/api/storage/archive-download/route.ts",
-        "src/app/api/share/[token]/route.ts",
-        "src/app/api/share/[token]/__tests__/route.test.ts",
-        "src/app/share/[token]/page.tsx",
+        "src/lib/a11y/use-dialog-focus.ts",
+        "src/app/docker/docker-page-client.tsx",
+        "src/app/docker/__tests__/page.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Targeted verification: npx vitest run src/app/api/share/[token]/__tests__/route.test.ts src/app/api/storage/archive-download/__tests__/route.test.ts passed 7/7.",
+        "Targeted verification: npx vitest run src/app/docker/__tests__/page.test.tsx passed 4/4.",
         "Typecheck: npm run typecheck passed.",
-        "Public share token route preserves existing file and child path download behavior while adding archive=1 for directory tokens.",
-        "Authenticated and public archive routes reuse shared LOCAL/SFTP tar.gz stream helper with RFC 5987 filename and SSH stream cleanup."
+        "Docker logs dialog now has role=dialog, aria-modal, labelled title, named close button, Escape close, and focus restore to the Logs trigger.",
+        "Docker remove confirmation dialog now reuses the same focus-management hook."
       ],
       "remaining": [
-        "Migrate media stream range/header code into the shared streaming helper.",
-        "Document or extend controlled archive extraction boundaries."
+        "Wire useDialogFocus into the SSH terminal modal.",
+        "Improve SSH terminal mobile layout and remaining placeholder-only labels.",
+        "Complete browser-history navigation state for file browsing."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 test files / 991 tests, Next build, runtime build, deploy asset verification.",
+      "verify": "npm run verify passed: 213 test files / 992 tests, Next build, runtime build, deploy asset verification.",
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "https://whrkhldsb.qzz.io/api/status healthy; invalid public share page returned 200 and invalid archive API returned 404.",
+      "status": "https://whrkhldsb.qzz.io/api/status healthy; /docker unauthenticated returned 307.",
       "logs": "No recent error/warn/failed/exception lines for next/ssh-ws units after deploy."
     }
   },
@@ -107,7 +106,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": [

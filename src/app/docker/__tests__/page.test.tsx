@@ -98,4 +98,29 @@ describe("DockerPage", () => {
 			}),
 		));
 	});
+
+	it("opens container logs as an accessible focus-managed dialog", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("stats=")) return {};
+			if (url.includes("logs=")) return { data: "server started\nready" };
+			return { data: [runningContainer] };
+		});
+
+		render(<DockerPageClient />);
+
+		expect(await screen.findByText("web")).toBeInTheDocument();
+		const logsButton = screen.getByRole("button", { name: "日志" });
+		await user.click(logsButton);
+
+		const dialog = await screen.findByRole("dialog", { name: /容器日志/ });
+		expect(dialog).toHaveAttribute("aria-modal", "true");
+		expect(screen.getByText("server started", { exact: false })).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByRole("button", { name: "关闭容器日志" })).toHaveFocus());
+
+		await user.keyboard("{Escape}");
+		expect(screen.queryByRole("dialog", { name: /容器日志/ })).not.toBeInTheDocument();
+		await waitFor(() => expect(logsButton).toHaveFocus());
+	});
 });

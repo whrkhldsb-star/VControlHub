@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageShell } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 interface Container {
@@ -64,6 +65,12 @@ export default function DockerPage() {
 	);
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
+	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
+	const closeLogsDialog = useCallback(() => setLogsId(null), []);
+	const removeCancelButtonRef = useRef<HTMLButtonElement>(null);
+	const logsCloseButtonRef = useRef<HTMLButtonElement>(null);
+	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
+	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
 
 	const fetchContainers = async () => {
 		try {
@@ -340,8 +347,9 @@ export default function DockerPage() {
 			)}
 
 			{pendingRemoval && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="presentation" onClick={() => setPendingRemoval(null)}>
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="presentation" onClick={closeRemovalDialog}>
 					<div
+						ref={removalDialogRef}
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="docker-remove-confirm-title"
@@ -354,8 +362,9 @@ export default function DockerPage() {
 						</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button
+								ref={removeCancelButtonRef}
 								type="button"
-								onClick={() => setPendingRemoval(null)}
+								onClick={closeRemovalDialog}
 								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]"
 							>
 								取消
@@ -374,15 +383,29 @@ export default function DockerPage() {
 			)}
 
 			{logsId && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setLogsId(null)}>
-					<div className="w-full max-w-2xl mx-4 bg-slate-950 light:bg-white border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="presentation" onClick={closeLogsDialog}>
+					<div
+						ref={logsDialogRef}
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="docker-logs-dialog-title"
+						tabIndex={-1}
+						className="w-full max-w-2xl mx-4 bg-slate-950 light:bg-white border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col"
+						onClick={(e) => e.stopPropagation()}
+					>
 						<div className="flex items-center justify-between mb-3">
-							<h3 className="text-sm font-medium text-white light:text-slate-900">容器日志 — {logsId.slice(0, 12)}</h3>
-							<button onClick={() => setLogsId(null)} className="text-slate-500 hover:text-slate-300">
-								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-white light:text-slate-900">容器日志 — {logsId.slice(0, 12)}</h3>
+							<button
+								ref={logsCloseButtonRef}
+								type="button"
+								onClick={closeLogsDialog}
+								aria-label="关闭容器日志"
+								className="rounded-lg p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300 light:hover:bg-slate-100 light:hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
+							>
+								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>
 						</div>
-						<pre className="flex-1 overflow-auto text-[11px] text-slate-300 light:text-slate-700 bg-black/40 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
+						<pre className="flex-1 overflow-auto text-[11px] text-slate-300 light:text-slate-700 bg-black/40 light:bg-slate-100 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
 					</div>
 				</div>
 			)}
