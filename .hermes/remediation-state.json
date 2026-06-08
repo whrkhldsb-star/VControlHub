@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T07:12:30Z",
+  "updatedAt": "2026-06-08T07:31:10Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,19 +58,19 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T07:07:39Z",
-    "finishedAt": "2026-06-08T07:12:30Z",
-    "target": "global-search-focus-restore",
-    "status": "functional_sweep_small_fix_verified",
-    "summary": "Comprehensive functional availability sweep identified remaining larger candidates and closed a small accessibility/function gap: GlobalSearch now restores focus to the opener after Escape/backdrop close, with targeted regressions passing.",
+    "startedAt": "2026-06-08T07:26:51Z",
+    "finishedAt": "2026-06-08T07:31:10Z",
+    "target": "files-create-folder-visible-labels",
+    "status": "files_create_folder_labels_verified",
+    "summary": "Closed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels, and Files form/list/page regressions passed.",
     "changeContract": {
-      "qaPathId": "global-search-focus-restore",
-      "userJourney": "An authenticated keyboard user opens global search from the visible sidebar button, inspects results, then closes with Escape or backdrop and focus returns to the triggering control.",
+      "qaPathId": "files-create-folder-visible-labels",
+      "userJourney": "An authenticated operator opens /files, expands New folder, and can visually identify both the target storage-node control and folder-name input before submitting.",
       "evidence": [
-        "Preflight: worktree clean, HEAD == origin/main 63dbb5c, services active, /api/status healthy, recent service logs clean.",
-        "Static/README sweep identified broad remaining candidates and selected the smallest closable accessibility/function gap from README P2.",
-        "Regression: GlobalSearch visible-opener focus restore test plus existing search/sidebar tests passed 15/15.",
-        "Implementation: GlobalSearch records document.activeElement when opened and restores it on Escape/backdrop close; navigation clears the return target."
+        "Preflight: worktree clean, HEAD == origin/main ed87001, vcontrolhub-next/vcontrolhub-ssh-ws/caddy active, /api/status healthy, recent logs clean.",
+        "Implementation: CreateFolderForm now renders visible labels for 目标节点 and 文件夹名称 while preserving existing label associations and initial focus.",
+        "Regression: create-folder form test asserts visible labels and uses getByLabelText for submission; neighboring Files list/page regressions passed 27/27.",
+        "README/backlog narrowed the remaining accessibility boundary by removing the file-browser placeholder-only label item from the residual list."
       ]
     }
   },

@@ -85,7 +85,7 @@ export function CreateFolderForm({
       <input type="hidden" name="currentPath" value={currentPath} />
       {storageNodes.length > 1 ? (
         <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
-          <span className="sr-only">目标节点</span>
+          <span>目标节点</span>
           <select
             name="storageNodeId"
             value={selectedNodeId}
@@ -103,7 +103,7 @@ export function CreateFolderForm({
         <input type="hidden" name="storageNodeId" value={selectedNodeId} />
       )}
       <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
-        <span className="sr-only">文件夹名称</span>
+        <span>文件夹名称</span>
         <input
           ref={inputRef}
           name="folderName"

@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-08T07:12:30Z",
-  "runCounter": 50,
-  "lastRunStatus": "functional_sweep_small_fix_verified",
-  "lastRunTarget": "global-search-focus-restore",
+  "updatedAt": "2026-06-08T07:31:10Z",
+  "runCounter": 51,
+  "lastRunStatus": "files_create_folder_labels_verified",
+  "lastRunTarget": "files-create-folder-visible-labels",
   "overallReviewDue": false,
-  "note": "Comprehensive functional availability sweep identified remaining larger candidates and closed a small accessibility/function gap: GlobalSearch now restores focus to the opener after Escape/backdrop close, with targeted regressions passing. Preflight: git clean, HEAD==origin/main 63dbb5c, services active, /api/status healthy, logs clean. Remaining candidates: durable jobs, request-bound backup/SFTP, true deployment rollback, AI hosted-tool authorization, share/archive/media stream, broader focus/mobile navigation."
+  "note": "Closed a Files create-folder form accessibility/completeness gap: the expanded form now exposes visible target-node and folder-name labels, and Files form/list/page regressions passed. Preflight: HEAD==origin/main ed87001, services active, /api/status healthy, recent logs clean. Remaining accessibility candidates: text-preview search/jump labels, SSH terminal/Docker log focus management, browser-back directory navigation."
 }

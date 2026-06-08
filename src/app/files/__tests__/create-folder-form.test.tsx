@@ -40,6 +40,8 @@ describe("CreateFolderForm", () => {
 
     await user.click(screen.getByRole("button", { name: "新建文件夹" }));
 
+    expect(screen.getByText("目标节点")).toBeVisible();
+    expect(screen.getByText("文件夹名称")).toBeVisible();
     expect(screen.getByLabelText("目标节点")).toHaveValue("node_sftp");
   });
 
@@ -56,7 +58,7 @@ describe("CreateFolderForm", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "新建文件夹" }));
-    await user.type(screen.getByPlaceholderText("输入文件夹名"), "reports");
+    await user.type(screen.getByLabelText("文件夹名称"), "reports");
     await user.click(screen.getByRole("button", { name: "创建" }));
 
     await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1));
