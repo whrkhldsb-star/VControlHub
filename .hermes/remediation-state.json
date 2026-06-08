@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T16:05:00Z",
+  "updatedAt": "2026-06-08T17:22:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,41 +58,31 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "backups-create-server-action-durable-job",
-    "title": "Backups create form durable job parity",
-    "startedAt": "2026-06-08T16:34:24Z",
-    "finishedAt": "2026-06-08T16:51:00Z",
+    "id": "backups-durable-job-i18n-truthfulness",
+    "title": "Backups Durable Job English copy truthfulness",
+    "startedAt": "2026-06-08T17:05:00Z",
+    "finishedAt": "2026-06-08T17:22:00Z",
     "status": "completed",
-    "summary": "/backups create form now enqueues backup.create Durable Jobs instead of running deploy/backup.sh synchronously in the server action.",
+    "summary": "/backups English DOM translations now match the queued Durable Job backup creation model.",
     "changeContract": {
       "files": [
-        "src/app/backups/actions.ts",
-        "src/app/backups/page.tsx",
-        "src/app/backups/__tests__/actions.test.ts",
-        "src/app/backups/__tests__/page.test.tsx",
+        "src/lib/i18n/dom-translations.ts",
+        "src/lib/i18n/__tests__/dom-translations.test.ts",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json",
         ".hermes/qa-loop-state.json"
       ],
       "evidence": [
-        "createBackupAction creates a PENDING BackupRecord and enqueueJob(backup.create) with backupId payload.",
-        "Backups page copy describes Durable Job queued status semantics and old immediate-execution copy is absent.",
-        "Authenticated production POST /api/backups returned 202 with jobId/taskId, and Prisma showed matching Job/BackupRecord before cleanup.",
-        "Targeted backups action/page/API tests passed 8/8, typecheck, lint, and full npm run verify passed."
+        "English DOM fallback translates the create backup form as Create and queue backup.",
+        "Production authenticated /backups HTML contains the queued source copy and no old immediate deploy/backup.sh source copy.",
+        "Built .next static bundle contains the new English copy.",
+        "Targeted tests, lint, typecheck, full verify, restart, smoke, status, and log scan passed."
       ],
       "remaining": [
-        "Migrate QuickService install/update/uninstall to Durable Job with history/config diff/rollback.",
-        "Continue backup retention, offsite backup, and restore-drill automation."
+        "QuickService install/update/uninstall durable-job migration with config diff/history/rollback.",
+        "Backup retention, offsite backup, and restore-drill automation."
       ]
-    },
-    "deployment": {
-      "verify": "npm run verify passed: full Vitest suite, Next build, runtime build, and deploy-assets OK.",
-      "services": "vcontrolhub-next, vcontrolhub-ssh-ws and caddy active after restart/reload.",
-      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "/api/status returned 200 with healthy 3/3 after restart.",
-      "logs": "recent next/ssh-ws log scan found no error/warn/failed/exception entries; worker startup logs included command, scheduled-task, backup-job, alert-evaluation, and sftp-sync workers.",
-      "cleanup": "Deleted the backup durable-job canary BackupRecord/Job and temporary helper files; qa_cron_backup_* users remaining 0."
     }
   },
   "runPolicy": {
@@ -108,7 +98,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": [

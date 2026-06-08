@@ -6,6 +6,15 @@ describe("DOM i18n fallback catalog", () => {
   it("translates server-rendered backup page copy that is not wired to useI18n yet", () => {
     expect(getDomTextTranslation("备份与迁移", "en")).toBe("Backups & Migration");
     expect(getDomTextTranslation("创建定时备份", "en")).toBe("Create scheduled backup");
+    expect(getDomTextTranslation("创建并执行备份", "en")).toBe("Create and queue backup");
+    expect(
+      getDomTextTranslation(
+        "提交后会创建可审计备份记录并排入 Durable Job 后台队列；页面可刷新查看 PENDING/RUNNING/COMPLETED 或 FAILED 状态。",
+        "en",
+      ),
+    ).toBe(
+      "After submission, an auditable backup record is created and queued into the Durable Job background queue. Refresh the page to view PENDING, RUNNING, COMPLETED, or FAILED status.",
+    );
     expect(getDomTextTranslation("只有 COMPLETED 状态的备份可以执行恢复。", "en")).toBe("Only COMPLETED backups can be restored.");
   });
 

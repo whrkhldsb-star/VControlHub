@@ -1,8 +1,36 @@
 {
-  "updatedAt": "2026-06-08T16:51:00Z",
-  "runCounter": 59,
-  "lastRunStatus": "backup_create_durable_job_form_deployed",
-  "lastRunTarget": "backups-create-server-action-durable-job",
+  "updatedAt": "2026-06-08T17:22:00Z",
+  "runCounter": 60,
+  "lastRunStatus": "backups_durable_job_i18n_deployed",
+  "lastRunTarget": "backups-durable-job-i18n-truthfulness",
   "overallReviewDue": false,
-  "note": "Environment capability: deterministic preflight showed Docker 20.10.24 available/running, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active+enabled, main/daily cron ok, git clean and HEAD==origin/main 4678100, /api/status and /login 200, protected pages 307, unauth /api/quick-services 401, and recent logs clean. Selected user journey: /backups create-backup form/server-action path, because README says backups have moved to Durable Job but the form still called runBackupRecord synchronously, leaving a request-bound long task. Change: createBackupAction now creates a PENDING BackupRecord and enqueueJob(backup.create) with payload backupId/createdBy/maxAttempts, matching the API durable path; /backups copy now states Durable Job queue semantics; added server-action regressions. Evidence matrix: browser_or_dom represented by BackupsPage regression proving the Durable Job copy is rendered and old immediate-execution copy is absent; api used authenticated production POST /api/backups with CSRF/session cookie returning 202, backup.status PENDING, jobId present, taskId prefix job; db_or_persisted_config inspected Prisma Job type backup.create status PENDING with backupId and createdBy plus BackupRecord DATABASE/PENDING/note/filePathPrefix backups; background_task_or_process verified worker startup logs for command, scheduled-task, backup-job, alert-evaluation, and sftp-sync after restart; runtime_or_ui_side_effect is the create form no longer blocks on deploy/backup.sh in the request and production API enqueues the job; permissions unchanged and unauth protected routes still guarded by smoke/preflight; regression passed git diff --check, targeted backups action/page/API tests 8/8, typecheck, lint --max-warnings=0, and full npm run verify (Vitest suite plus Next build/runtime/deploy-assets); production /api/status 200 healthy 3/3, smoke 25/25, services active after restart/reload, recent next/ssh-ws logs only clean worker startup evidence. Cleanup: removed the canary backup record/job, temporary token/body/helper scripts, no QA users or Docker containers created. Git/origin: pending README/state/backlog commit after this write; origin was 4678100 on entry. Next improvement candidates: migrate QuickService install/update/uninstall into Durable Job, add QuickService update history/config diff/rollback, add stale SFTP inventory reconciliation, and keep placeholder-only accessibility patrol for image-bed/tickets/audit/AI."
+  "note": "Environment capability: Docker available/running, services active, git clean/origin-synced on entry, /api/status and /login healthy in deterministic preflight, recent logs clean, and swap steady at one 6G /swapfile. Selected user journey: /backups English-language create backup form truthfulness after backup creation moved to Durable Job. Change: DOM i18n fallback now translates 创建并执行备份 as Create and queue backup and translates the description to Durable Job background queue/PENDING-RUNNING-COMPLETED-FAILED refresh semantics; old immediate deploy/backup.sh wording is absent. Evidence: targeted dom translation/bridge tests passed 8/8; authenticated production curl for /backups with vps-locale=en returned 200 and showed the new queued source copy, old sync source copy absent, and DOM bridge present; built .next static chunk contains the new English copy. Regression: git diff --check passed, targeted i18n tests passed, npm run typecheck passed, npm run lint -- --max-warnings=0 passed, full npm run verify passed with 214 files / 1005 tests plus Next build/runtime/deploy-assets. Production: after chown/restart/reload, first /api/status hit a transient 502 restart-window but retry returned 200 healthy 3/3, services active, worker startup logs normal, smoke 25/25 passed, /backups unauth 307 and /api/status 200, filtered logs clean. Cleanup: deleted temporary qa_cron_i18n user and temp helper/session files. Next candidates: QuickService durable job migration/config diff/history/rollback, storage/Direct Gateway real probe, stale SFTP inventory reconciliation, backup retention/offsite/restore drills.",
+  "lastRun": {
+    "id": "backups-durable-job-i18n-truthfulness",
+    "title": "Backups Durable Job English copy truthfulness",
+    "startedAt": "2026-06-08T17:05:00Z",
+    "finishedAt": "2026-06-08T17:22:00Z",
+    "status": "completed",
+    "summary": "/backups English DOM translations now match the queued Durable Job backup creation model.",
+    "changeContract": {
+      "files": [
+        "src/lib/i18n/dom-translations.ts",
+        "src/lib/i18n/__tests__/dom-translations.test.ts",
+        "README.md",
+        ".hermes/remediation-backlog.md",
+        ".hermes/remediation-state.json",
+        ".hermes/qa-loop-state.json"
+      ],
+      "evidence": [
+        "English DOM fallback translates the create backup form as Create and queue backup.",
+        "Production authenticated /backups HTML contains the queued source copy and no old immediate deploy/backup.sh source copy.",
+        "Built .next static bundle contains the new English copy.",
+        "Targeted tests, lint, typecheck, full verify, restart, smoke, status, and log scan passed."
+      ],
+      "remaining": [
+        "QuickService install/update/uninstall durable-job migration with config diff/history/rollback.",
+        "Backup retention, offsite backup, and restore-drill automation."
+      ]
+    }
+  }
 }
