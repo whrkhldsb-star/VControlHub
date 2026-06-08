@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T06:58:58Z",
+  "updatedAt": "2026-06-08T07:12:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,21 +58,19 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T06:51:21Z",
-    "finishedAt": "2026-06-08T06:58:58Z",
-    "target": "global-search-sidebar-discoverability-downloads-purge-closeout",
-    "status": "dirty_closeout_verified_deployed",
-    "summary": "Closed the dirty QA batch 1 navigation/downloads slice: sidebar now has a visible global-search opener wired to the existing overlay event, Downloads purge semantics are covered, full verification passed, production was restarted, smoke passed, and logs stayed clean.",
+    "startedAt": "2026-06-08T07:07:39Z",
+    "finishedAt": "2026-06-08T07:12:30Z",
+    "target": "global-search-focus-restore",
+    "status": "functional_sweep_small_fix_verified",
+    "summary": "Comprehensive functional availability sweep identified remaining larger candidates and closed a small accessibility/function gap: GlobalSearch now restores focus to the opener after Escape/backdrop close, with targeted regressions passing.",
     "changeContract": {
-      "qaPathId": "global-search-sidebar-discoverability-downloads-purge-closeout",
-      "userJourney": "An authenticated operator can discover and open global search from a visible sidebar control when the keyboard shortcut is unavailable, while Downloads terminal task history can be purged without touching active remote processes.",
+      "qaPathId": "global-search-focus-restore",
+      "userJourney": "An authenticated keyboard user opens global search from the visible sidebar button, inspects results, then closes with Escape or backdrop and focus returns to the triggering control.",
       "evidence": [
-        "Environment capability: dirty-worktree preflight showed Docker available/running, services vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active+enabled, main/daily cron ok, /api/status healthy, recent logs clean, and HEAD == origin/main 867834f before closeout.",
-        "Browser/DOM regression evidence: AppSidebar exposes a visible button named 全局搜索 with Control+K Meta+K metadata and dispatches vcontrolhub:open-global-search; GlobalSearch opens from that event and focuses the labelled combobox.",
-        "API/process regression evidence: Downloads DELETE purge tests prove terminal task rows are hard-deleted without removeDownload/remote SSH cancellation, and active RUNNING/PENDING tasks return 409 until cancelled.",
-        "Verification commands: git diff --check passed; targeted Vitest for global-search/app-sidebar/downloads route passed 36/36; npm run typecheck passed; npm run lint -- --max-warnings=0 passed; npm run verify passed with full Vitest, Next build, runtime build, and deploy-assets.",
-        "Production: .next/dist ownership repaired, vcontrolhub-next and vcontrolhub-ssh-ws restarted and Caddy reloaded; /api/status recovered from one expected restart-window 502 to 200 healthy 3/3; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25; /downloads 307, /api/quick-services 401, /login 200.",
-        "Logs/cleanup: vcontrolhub-next/vcontrolhub-ssh-ws post-restart log scan over 10 minutes had no error/warn/failed/exception matches; no temporary QA users, DB rows, files, SFTP objects, or Docker containers were created."
+        "Preflight: worktree clean, HEAD == origin/main 63dbb5c, services active, /api/status healthy, recent service logs clean.",
+        "Static/README sweep identified broad remaining candidates and selected the smallest closable accessibility/function gap from README P2.",
+        "Regression: GlobalSearch visible-opener focus restore test plus existing search/sidebar tests passed 15/15.",
+        "Implementation: GlobalSearch records document.activeElement when opened and restores it on Escape/backdrop close; navigation clears the return target."
       ]
     }
   },

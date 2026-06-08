@@ -90,6 +90,7 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 	const [query, setQuery] = useState("");
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const router = useRouter();
 	const { locale, t } = useI18n();
 	const searchItems = useMemo(() => localizeSearchItems(locale), [locale]);
@@ -107,10 +108,25 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 			)
 		: searchItems;
 
+	const closeSearch = useCallback(() => {
+		setOpen(false);
+		setQuery("");
+		const returnTarget = returnFocusRef.current;
+		returnFocusRef.current = null;
+		setTimeout(() => returnTarget?.focus(), 0);
+	}, []);
+
+	const openSearch = useCallback(() => {
+		const activeElement = document.activeElement;
+		returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+		setOpen(true);
+	}, []);
+
 	const navigate = useCallback(
 		(item: SearchItem) => {
 			setOpen(false);
 			setQuery("");
+			returnFocusRef.current = null;
 			router.push(item.href);
 		},
 		[router]
@@ -118,30 +134,32 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 
 	useEffect(() => {
 		if (externalOpenSignal > 0) {
-			setOpen(true);
+			openSearch();
 		}
-	}, [externalOpenSignal]);
+	}, [externalOpenSignal, openSearch]);
 
 	useEffect(() => {
-		const handleOpenSearch = () => setOpen(true);
-		window.addEventListener("vcontrolhub:open-global-search", handleOpenSearch);
-		return () => window.removeEventListener("vcontrolhub:open-global-search", handleOpenSearch);
-	}, []);
+		window.addEventListener("vcontrolhub:open-global-search", openSearch);
+		return () => window.removeEventListener("vcontrolhub:open-global-search", openSearch);
+	}, [openSearch]);
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
 				e.preventDefault();
-				setOpen((v) => !v);
+				if (open) {
+					closeSearch();
+				} else {
+					openSearch();
+				}
 			}
 			if (e.key === "Escape" && open) {
-				setOpen(false);
-				setQuery("");
+				closeSearch();
 			}
 		};
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [open]);
+	}, [closeSearch, open, openSearch]);
 
 	useEffect(() => {
 		if (open) {
@@ -172,7 +190,7 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] bg-black/60 light:bg-slate-900/60 backdrop-blur-sm" onClick={() => { setOpen(false); setQuery(""); }}>
+		<div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] bg-black/60 light:bg-slate-900/60 backdrop-blur-sm" onClick={closeSearch}>
 			<div
 				role="dialog"
 				aria-modal="true"

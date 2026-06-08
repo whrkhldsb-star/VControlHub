@@ -62,6 +62,28 @@ describe("GlobalSearch", () => {
 		await waitFor(() => expect(screen.getByRole("combobox", { name: "搜索页面和操作" })).toHaveFocus());
 	});
 
+	it("restores focus to the visible opener when Escape closes the dialog", async () => {
+		const user = userEvent.setup();
+		render(
+			<I18nProvider initialLocale="zh">
+				<button type="button" onClick={() => window.dispatchEvent(new Event("vcontrolhub:open-global-search"))}>
+					全局搜索
+				</button>
+				<GlobalSearch />
+			</I18nProvider>,
+		);
+
+		const opener = screen.getByRole("button", { name: "全局搜索" });
+		await user.click(opener);
+		expect(await screen.findByRole("dialog", { name: "全局搜索" })).toBeInTheDocument();
+		await waitFor(() => expect(screen.getByRole("combobox", { name: "搜索页面和操作" })).toHaveFocus());
+
+		await user.keyboard("{Escape}");
+
+		await waitFor(() => expect(opener).toHaveFocus());
+		expect(screen.queryByRole("dialog", { name: "全局搜索" })).not.toBeInTheDocument();
+	});
+
 	it("routes health search results to the real health dashboard page", () => {
 		const healthItem = getSearchItems().find((item) => item.label === "健康看板");
 

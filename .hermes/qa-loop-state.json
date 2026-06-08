@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-08T06:58:58Z",
-  "runCounter": 49,
-  "lastRunStatus": "dirty_closeout_verified_deployed",
-  "lastRunTarget": "global-search-sidebar-discoverability-downloads-purge-closeout",
+  "updatedAt": "2026-06-08T07:12:30Z",
+  "runCounter": 50,
+  "lastRunStatus": "functional_sweep_small_fix_verified",
+  "lastRunTarget": "global-search-focus-restore",
   "overallReviewDue": false,
-  "note": "Run 49 was dirty-worktree closeout only. Environment capability: Docker 20.10.24 available/running, vcontrolhub-next/vcontrolhub-ssh-ws/caddy/docker active+enabled, main/daily cron ok, /api/status healthy, recent logs clean, and HEAD == origin/main 867834f while the worktree carried only global-search/sidebar/downloads changes. Selected user journey: QA batch 1 shell navigation/global-search discoverability plus Downloads terminal-history purge guardrail. Evidence matrix: browser_or_dom covered by regressions proving a visible sidebar button named 全局搜索 opens the GlobalSearch dialog and focuses the labelled combobox; api/process covered Downloads DELETE purge tests proving terminal task rows are hard-deleted without removeDownload or remote SSH cancellation and active tasks return 409 until cancelled; permissions stayed guarded (/downloads 307, /api/quick-services 401); production smoke passed 25/25 after restart; /api/status recovered from one expected restart-window 502 to 200 healthy 3/3; logs clean and services active. Defects found/fixed: hidden-only global search entry was made discoverable, and Downloads purge semantics were regression-covered. Cleanup: no QA users, DB rows, files, SFTP objects, or Docker containers were created. Next candidates remain durable job/lease for long tasks, backup/SFTP request-bound work, true deployment rollback, AI Hosted Tools authorization, Docker/QuickService/Direct Gateway hardening, SFTP Range/share archive, file-state/list-performance, and broader focus-management/mobile navigation closure."
+  "note": "Comprehensive functional availability sweep identified remaining larger candidates and closed a small accessibility/function gap: GlobalSearch now restores focus to the opener after Escape/backdrop close, with targeted regressions passing. Preflight: git clean, HEAD==origin/main 63dbb5c, services active, /api/status healthy, logs clean. Remaining candidates: durable jobs, request-bound backup/SFTP, true deployment rollback, AI hosted-tool authorization, share/archive/media stream, broader focus/mobile navigation."
 }
