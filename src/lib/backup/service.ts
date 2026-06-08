@@ -69,8 +69,15 @@ export async function createBackupRecord(input: { type: BackupType; createdBy?: 
 }
 
 export async function runBackupRecord(input: { type: BackupType; createdBy?: string; note?: string; projectRoot?: string }) {
-  const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
   const record = await createBackupRecord(input);
+  return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot });
+}
+
+export async function runExistingBackupRecord(input: { id: string; projectRoot?: string }) {
+  const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
+  const record = await getBackupRecord(input.id);
+  if (!record) throw new Error("备份记录不存在");
+  if (!isBackupType(record.type)) throw new Error("备份类型无效");
   let outputPath: string;
   try {
     outputPath = resolveBackupPath(projectRoot, record.filePath);
@@ -78,7 +85,7 @@ export async function runBackupRecord(input: { type: BackupType; createdBy?: str
     const message = error instanceof Error ? error.message : "备份路径无效";
     return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: message.slice(0, 2000) });
   }
-  const args = input.type === "FILES" ? ["--files", outputPath] : input.type === "FULL" ? ["--full", outputPath] : [outputPath];
+  const args = record.type === "FILES" ? ["--files", outputPath] : record.type === "FULL" ? ["--full", outputPath] : [outputPath];
 
   await updateBackupRecordStatus(record.id, { status: "RUNNING" });
 

@@ -4,12 +4,20 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
     runBackupRecord: vi.fn(),
+    createBackupRecord: vi.fn(),
+    enqueueJob: vi.fn(),
     listBackupRecords: vi.fn(),
   },
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
-vi.mock("@/lib/backup/service", () => ({ runBackupRecord: mocks.runBackupRecord, listBackupRecords: mocks.listBackupRecords }));
+vi.mock("@/lib/backup/service", () => ({
+  runBackupRecord: mocks.runBackupRecord,
+  createBackupRecord: mocks.createBackupRecord,
+  listBackupRecords: mocks.listBackupRecords,
+}));
+vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
+vi.mock("@/lib/backup/job-worker", () => ({ BACKUP_CREATE_JOB_TYPE: "backup.create" }));
 
 const route = await import("../route");
 
@@ -18,6 +26,8 @@ describe("/api/backups", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", user: { id: "u1" } } });
     mocks.listBackupRecords.mockResolvedValue([{ id: "bak1" }]);
+    mocks.createBackupRecord.mockImplementation(async (input: any) => ({ id: "bak1", status: "PENDING", ...input }));
+    mocks.enqueueJob.mockResolvedValue({ id: "job1", status: "PENDING" });
     mocks.runBackupRecord.mockImplementation(async (input: any) => ({ id: "bak1", status: "COMPLETED", ...input }));
   });
 
@@ -28,8 +38,17 @@ describe("/api/backups", () => {
     expect(mocks.listBackupRecords).not.toHaveBeenCalled();
   });
 
-  it("creates and executes backups only with valid type and normalized note", async () => {
+  it("queues backup creation as a durable background job by default", async () => {
     const req = new Request("http://local/api/backups", { method: "POST", body: JSON.stringify({ type: "FULL", note: "  before upgrade  " }) });
+    const res = await route.POST(req);
+    expect(res.status).toBe(202);
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade" });
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1" } }));
+    await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1" }, jobId: "job1", taskId: "job:job1" });
+  });
+
+  it("supports wait=1 for legacy synchronous backup execution", async () => {
+    const req = new Request("http://local/api/backups?wait=1", { method: "POST", body: JSON.stringify({ type: "FULL", note: "  before upgrade  " }) });
     const res = await route.POST(req);
     expect(res.status).toBe(201);
     expect(mocks.runBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade" });
@@ -50,7 +69,8 @@ describe("/api/backups", () => {
     const res = await route.POST(req);
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("http://local/backups");
-    expect(mocks.runBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade" });
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade" });
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1" } }));
   });
 
 });

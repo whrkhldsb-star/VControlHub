@@ -3,7 +3,9 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     commandTemplate: { findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
-    deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    deploymentRun: { create: vi.fn(), update: vi.fn(), findMany: vi.fn(), findUnique: vi.fn() },
+    deploymentSnapshot: { create: vi.fn() },
+    deploymentRollbackRun: { create: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -16,16 +18,17 @@ vi.mock("@/lib/command-template/service", async () => {
 const commandService = await import("@/lib/command/service");
 const commandTemplateService = await import("@/lib/command-template/service");
 
-const { createDeploymentRunFromTemplate, listDeploymentRuns, listDeploymentTemplates } = await import("../service");
+const { createDeploymentRunFromTemplate, createDeploymentRollbackRun, listDeploymentRuns, listDeploymentTemplates } = await import("../service");
 
 describe("deployment service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"] });
-    mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
+    mockPrisma.commandTemplate.findUnique.mockResolvedValue({ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"] });
+    mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isActive: true }]);
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
     mockPrisma.commandTemplate.create.mockResolvedValue({});
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
+    mockPrisma.deploymentSnapshot.create.mockImplementation(async ({ data }: any) => ({ id: "snap1", ...data }));
     mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }));
   });
 
@@ -34,6 +37,9 @@ describe("deployment service", () => {
 
     expect(run.commandRequestId).toBe("cmd1");
     expect(mockPrisma.deploymentRun.create.mock.calls[0][0].data.renderedCommand).toBe("apt install nginx");
+    expect(mockPrisma.deploymentSnapshot.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ deployCommand: "apt install nginx", rollbackCommand: "apt remove nginx", sourceRunId: "dep1" }),
+    });
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
   });
 
@@ -83,9 +89,35 @@ describe("deployment service", () => {
     });
   });
 
+  it("creates a real rollback run from the immutable deployment snapshot", async () => {
+    mockPrisma.deploymentRun.findUnique.mockResolvedValue({
+      id: "dep1",
+      template: { id: "tmpl1", name: "Nginx" },
+      snapshot: {
+        id: "snap1",
+        templateName: "Nginx",
+        rollbackCommand: "apt remove nginx",
+        serverIds: ["srv1"],
+      },
+    });
+    mockPrisma.deploymentRollbackRun.create.mockImplementation(async ({ data }: any) => ({ id: "rb1", ...data }));
+    mockPrisma.deploymentRollbackRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where.id, ...data }));
+
+    const rollback = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1", reason: "bad deploy" });
+
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
+      title: "回滚部署：Nginx",
+      command: "apt remove nginx",
+      reason: "bad deploy",
+      serverIds: ["srv1"],
+      submissionMode: "assistant",
+    }));
+    expect(rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1", status: "PENDING" });
+  });
+
   it("lists templates for the deployment page without rendering secrets", async () => {
     const templates = await listDeploymentTemplates();
-    expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", variables: ["pkg"], isActive: true }]);
+    expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isActive: true }]);
     expect(commandTemplateService.seedBuiltinTemplates).toHaveBeenCalled();
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
   });
@@ -168,11 +200,11 @@ describe("deployment service", () => {
         errorMessage: "关联命令请求已失败。",
         completedAt: expect.any(Date),
       },
-      include: {
+      include: expect.objectContaining({
         template: true,
         creator: { select: { username: true, displayName: true } },
         commandRequest: { select: { status: true } },
-      },
+      }),
     });
     expect(runs[0]).toMatchObject({
       id: "dep_failed",

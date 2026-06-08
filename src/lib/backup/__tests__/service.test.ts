@@ -29,9 +29,13 @@ describe("backup service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.BACKUP_DIR = "/var/backups/vcontrolhub";
-    mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
+    let lastCreatedBackupRecord: any = null;
+    mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => {
+      lastCreatedBackupRecord = { id: "bak1", ...data };
+      return lastCreatedBackupRecord;
+    });
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
-    mockPrisma.backupRecord.findUnique.mockResolvedValue({ id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz" });
+    mockPrisma.backupRecord.findUnique.mockImplementation(async () => lastCreatedBackupRecord ?? { id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz" });
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
     runFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
       cb(null, { stdout: "ok", stderr: "" });

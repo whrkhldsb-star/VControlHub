@@ -90,6 +90,7 @@ model User {
   shareLinks         ShareLink[]
   backupRecords      BackupRecord[]
   deploymentRuns     DeploymentRun[]
+  deploymentRollbackRuns DeploymentRollbackRun[]
   snippets           Snippet[]
   apiTokens          ApiToken[]
   announcements      Announcement[]
@@ -208,6 +209,7 @@ model CommandRequest {
  targets CommandTarget[]
   executionLogs ExecutionLog[]
   deploymentRuns DeploymentRun[]
+  deploymentRollbackRuns DeploymentRollbackRun[]
 
  @@index([status, createdAt])
  @@index([requesterId, createdAt])
@@ -458,6 +460,7 @@ model CommandTemplate {
   name        String
   description String?
   command     String
+  rollbackCommand String?
   variables   String[] // list of {{var}} placeholders
   tags        String[]
   isBuiltin   Boolean  @default(false)
@@ -624,6 +627,8 @@ model DeploymentRun {
   id               String    @id @default(cuid())
   templateId       String
   commandRequestId String?
+  snapshotId       String?   @unique
+  rollbackOfRunId  String?
   status           String    @default("PENDING")
   variables        Json
   renderedCommand  String
@@ -637,9 +642,61 @@ model DeploymentRun {
   template CommandTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   commandRequest CommandRequest? @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
   creator  User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  snapshot DeploymentSnapshot? @relation("deploymentSnapshotSource", fields: [snapshotId], references: [id], onDelete: SetNull)
+  rollbackOf DeploymentRun? @relation("deploymentRollbackRuns", fields: [rollbackOfRunId], references: [id], onDelete: SetNull)
+  rollbackRuns DeploymentRun[] @relation("deploymentRollbackRuns")
+  rollbackAttempts DeploymentRollbackRun[] @relation("deploymentRollbackSource")
 
   @@index([status, createdAt])
+  @@index([snapshotId])
+  @@index([rollbackOfRunId])
   @@map("deployment_runs")
+}
+
+model DeploymentSnapshot {
+  id              String   @id @default(cuid())
+  sourceRunId     String?  @unique
+  templateId      String
+  templateName    String
+  deployCommand   String
+  rollbackCommand String?
+  variables       Json
+  serverIds       String[]
+  createdBy       String?
+  createdAt       DateTime @default(now())
+
+  sourceRun DeploymentRun? @relation("deploymentSnapshotSource")
+  rollbackRuns DeploymentRollbackRun[]
+
+  @@index([templateId, createdAt])
+  @@index([createdAt])
+  @@map("deployment_snapshots")
+}
+
+model DeploymentRollbackRun {
+  id               String    @id @default(cuid())
+  sourceRunId      String
+  snapshotId       String
+  commandRequestId String?
+  status           String    @default("PENDING")
+  rollbackCommand  String
+  serverIds        String[]
+  reason           String?
+  createdBy        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  completedAt      DateTime?
+  errorMessage     String?
+
+  sourceRun DeploymentRun @relation("deploymentRollbackSource", fields: [sourceRunId], references: [id], onDelete: Cascade)
+  snapshot DeploymentSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  commandRequest CommandRequest? @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
+  creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([sourceRunId, createdAt])
+  @@index([snapshotId, createdAt])
+  @@index([status, createdAt])
+  @@map("deployment_rollback_runs")
 }
 
 model Snippet {

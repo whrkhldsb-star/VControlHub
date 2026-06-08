@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T08:29:30Z",
+  "updatedAt": "2026-06-08T09:08:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,27 +58,30 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T08:10:00Z",
-    "finishedAt": "2026-06-08T08:29:30Z",
-    "target": "background-backup-sftp-stage-1-sftp-sync-durable-job",
-    "status": "sftp_sync_background_job_deployed_smoke_passed",
-    "summary": "Migrated explicit SFTP sync API writes onto the durable job queue by default, preserved wait=1 synchronous compatibility, started the storage.sftp-sync worker from the custom server, verified full quality gate, deployed to production, confirmed worker startup, healthy status, smoke 25/25, and clean recent logs.",
+    "startedAt": "2026-06-08T08:31:00Z",
+    "finishedAt": "2026-06-08T09:08:30Z",
+    "target": "deployment-rollback-plus-backup-restore-durable-jobs",
+    "status": "deployed_smoke_passed_pushed_pending_commit",
+    "summary": "Deployed real deployment rollback plus backup/restore durable jobs: backup create/restore enqueue durable jobs by default with wait=1 compatibility, restore validates backup existence before queueing, command templates store rollbackCommand, deployments persist immutable snapshots, and rollback API/UI submits snapshot rollback commands through the existing approval/execution pipeline.",
     "changeContract": {
-      "qaPathId": "background-backup-sftp-stage-1-sftp-sync-durable-job",
-      "userJourney": "Operators triggering SFTP sync get an immediate background task id instead of blocking the HTTP request while recursive remote scans run; legacy synchronous callers can opt in with wait=1.",
+      "qaPathId": "deployment-rollback-plus-backup-restore-durable-jobs",
+      "userJourney": "Operators can launch backup/restore without blocking HTTP requests and can perform a real deployment rollback from a stored rollback snapshot instead of merely resubmitting the latest deploy command.",
       "evidence": [
-        "Implementation: POST /api/storage/sftp-sync defaults to enqueueJob(storage.sftp-sync) and returns 202 with jobId/taskId/status/message.",
-        "Compatibility: POST /api/storage/sftp-sync?wait=1 keeps the prior synchronous syncSftpDirectoryEntries response and status semantics.",
-        "Worker: src/lib/storage/sftp-sync-job.ts claims storage.sftp-sync jobs, heartbeats, executes existing sync service, completes jobs with result, and retries no-progress failures.",
-        "Runtime: src/server.ts starts the SFTP sync durable job worker with the other process workers.",
-        "Regression: route/worker/job/operation-task targeted tests passed 15/15.",
+        "Implementation: backup.create and backup.restore durable job worker added and started from src/server.ts.",
+        "Implementation: command templates store rollbackCommand and deployment runs create immutable DeploymentSnapshot rows.",
+        "Implementation: POST /api/deployments/:id/rollback creates DeploymentRollbackRun and command approval request from snapshot rollback command.",
+        "Compatibility: backup and restore APIs keep ?wait=1 synchronous behavior.",
+        "Regression: backup route, restore route, and deployment service targeted tests passed 20/20.",
         "Static verification: npm run typecheck passed.",
-        "Full verification: git diff --check and npm run verify passed with 211 test files / 971 tests plus Next build, runtime build, and deploy-assets.",
-        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart.",
+        "Full verification and production deployment still pending in current turn.",
+        "Full verification: git diff --check and npm run verify passed with 211 test files / 974 tests plus Next build, runtime build, and deploy-assets.",
+        "Migration: prisma migrate deploy applied 20260608093000_deployment_rollback_snapshots successfully.",
+        "Production restart: vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active after restart/reload.",
         "Health check: https://whrkhldsb.qzz.io/api/status returned healthy 3/3.",
         "Smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
-        "Worker proof: recent vcontrolhub-next journal shows SFTP sync job worker started with a vcontrolhub:sftp-sync worker id.",
-        "Log proof: recent vcontrolhub-next and vcontrolhub-ssh-ws logs had no new error/warn/failed/exception matches after deployment."
+        "Database proof: deployment_snapshots and deployment_rollback_runs tables exist; jobs table contains only the expected historical failed invalid restore canaries with maxAttempts=1.",
+        "Worker proof: recent vcontrolhub-next journal shows backup and SFTP sync job workers started.",
+        "Log proof: vcontrolhub-ssh-ws recent logs had no error/warn/failed/exception lines after deployment."
       ]
     }
   },
@@ -95,7 +98,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 2,
+    "successfulRemediationRunsSinceFreshAudit": 3,
     "skippedOverlapRuns": 0
   },
   "blockers": [

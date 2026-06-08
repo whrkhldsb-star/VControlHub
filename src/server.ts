@@ -18,6 +18,7 @@ import { setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { startCommandMaintenanceWorker } from "@/lib/command/worker";
 import { startScheduledTaskWorker } from "@/lib/scheduled-task/worker";
+import { startBackupJobWorker } from "@/lib/backup/job-worker";
 import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
 import { startSftpSyncJobWorker } from "@/lib/storage/sftp-sync-job";
 
@@ -35,6 +36,7 @@ async function main() {
 	await app.prepare();
 	await startCommandMaintenanceWorker();
 	await startScheduledTaskWorker();
+	startBackupJobWorker();
 	await startAlertEvaluationWorker();
 	await startSftpSyncJobWorker();
 

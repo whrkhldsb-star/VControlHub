@@ -6,6 +6,7 @@ export type CreateTemplateInput = {
 	name: string;
 	description?: string;
 	command: string;
+	rollbackCommand?: string | null;
 	variables?: string[];
 	tags?: string[];
 	createdById?: string;
@@ -19,6 +20,10 @@ export function extractVariables(command: string): string[] {
 	const matches = command.match(/\{\{(\w+)\}\}/g);
 	if (!matches) return [];
 	return [...new Set(matches.map((m) => m.replace(/\{\{|\}\}/g, "")))];
+}
+
+export function extractTemplateVariables(command: string, rollbackCommand?: string | null): string[] {
+	return [...new Set([...extractVariables(command), ...extractVariables(rollbackCommand || "")])];
 }
 
 /* ── Render command with variables ────────────────────────── */
@@ -60,7 +65,8 @@ export async function seedBuiltinTemplates() {
 				name: tmpl.name,
 				description: tmpl.description ?? null,
 				command: tmpl.command,
-				variables: tmpl.variables ?? extractVariables(tmpl.command),
+				rollbackCommand: tmpl.rollbackCommand ?? null,
+				variables: tmpl.variables ?? extractTemplateVariables(tmpl.command, tmpl.rollbackCommand),
 				tags: tmpl.tags ?? [],
 				isBuiltin: true,
 			},
@@ -85,7 +91,8 @@ export async function createTemplate(input: CreateTemplateInput) {
 			name: input.name,
 			description: input.description ?? null,
 			command: input.command,
-			variables: input.variables ?? extractVariables(input.command),
+			rollbackCommand: input.rollbackCommand?.trim() || null,
+			variables: input.variables ?? extractTemplateVariables(input.command, input.rollbackCommand),
 			tags: input.tags ?? [],
 			isBuiltin: false,
 			createdById: input.createdById ?? null,
@@ -97,9 +104,15 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput) {
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
 	if (input.description !== undefined) data.description = input.description;
-	if (input.command !== undefined) {
-		data.command = input.command;
-		data.variables = input.variables ?? extractVariables(input.command);
+	if (input.command !== undefined || input.rollbackCommand !== undefined) {
+		const existing = input.command !== undefined && input.rollbackCommand !== undefined
+			? null
+			: await prisma.commandTemplate.findUnique({ where: { id }, select: { command: true, rollbackCommand: true } });
+		const command = input.command ?? existing?.command ?? "";
+		const rollbackCommand = input.rollbackCommand !== undefined ? input.rollbackCommand : existing?.rollbackCommand;
+		if (input.command !== undefined) data.command = input.command;
+		if (input.rollbackCommand !== undefined) data.rollbackCommand = input.rollbackCommand?.trim() || null;
+		data.variables = input.variables ?? extractTemplateVariables(command, rollbackCommand);
 	}
 	if (input.tags !== undefined) data.tags = input.tags;
 	return prisma.commandTemplate.update({ where: { id }, data });

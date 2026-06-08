@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const postSchema = z.object({
 	name: z.string().min(1),
 	command: z.string().min(1),
+	rollbackCommand: z.string().optional().nullable(),
 	description: z.string().optional(),
 	variables: z.array(z.string()).optional(),
 	tags: z.array(z.string()).optional(),
@@ -19,6 +20,7 @@ const patchSchema = z.object({
 	id: z.string().min(1),
 	name: z.string().min(1).optional(),
 	command: z.string().min(1).optional(),
+	rollbackCommand: z.string().optional().nullable(),
 	description: z.string().optional(),
 	variables: z.array(z.string()).optional(),
 	tags: z.array(z.string()).optional(),
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
 		const templates = await listTemplates();
 		const serialized = templates.map((t) => ({
 			id: t.id, name: t.name, description: t.description,
-			command: t.command, variables: t.variables, tags: t.tags,
+			command: t.command, rollbackCommand: t.rollbackCommand, variables: t.variables, tags: t.tags,
 			isBuiltin: t.isBuiltin,
 			createdAt: t.createdAt.toISOString(),
 			creator: t.creator ? { username: t.creator.username, displayName: t.creator.displayName } : null,
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
 		}
 		const body = parsed.data;
 		const template = await createTemplate({
-			name: body.name, description: body.description, command: body.command,
+			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
 			tags: body.tags, createdById: session?.userId ?? "",
 		});
 		auditUserAction(session?.userId ?? "", "command_template.create", auditTemplateDetail(template));

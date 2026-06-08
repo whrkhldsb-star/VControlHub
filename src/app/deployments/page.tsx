@@ -6,6 +6,7 @@ import { PageShell, EmptyState } from "@/components/page-shell";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
 import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
+import { RollbackDeployButton } from "./rollback-deploy-button";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<div className="mt-1">进入审批链路，审批通过后自动执行并记录日志</div>
 					</div>
 				</div>
-				<p className="mt-3 text-xs text-slate-500">每次部署都会生成唯一的运行记录，支持一键重发回退。所有操作经过审批链路，确保可审计。</p>
+				<p className="mt-3 text-xs text-slate-500">每次部署都会保存不可变快照；配置了回滚命令的模板可执行真实回滚，未配置时仍可按原模板重发。所有操作经过审批链路，确保可审计。</p>
 			</section>
 			{formError && (
 				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200 light:text-rose-800">
@@ -84,25 +85,26 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				</section>
 			)}
 			{canRun && latestRun && (
-				<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
+				<section className="mb-6 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70 light:text-cyan-800/70">快速回退</p>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70 light:text-emerald-800/70">真实回滚</p>
 							<h2 className="mt-1 text-sm font-semibold text-white light:text-slate-900">最近部署：{latestRun.template.name}</h2>
-							<p className="mt-1 text-xs text-slate-400 light:text-slate-600">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 审批 {latestRun.commandRequestId || "待创建"}</p>
+							<p className="mt-1 text-xs text-slate-400 light:text-slate-600">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 快照 {latestRun.snapshotId || "待生成"}</p>
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{latestRun.renderedCommand}</code>
-					<div className="mt-4">
+					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{latestRun.snapshot?.rollbackCommand || "该部署快照没有回滚命令，可使用重发作为兼容操作。"}</code>
+					<div className="mt-4 flex flex-wrap items-center gap-3">
+						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
 						<ResendDeployButton
 							templateId={latestRun.templateId}
 							variables={latestRun.variables as Record<string, string> | null}
 							serverIds={latestRun.serverIds}
-							reason={`快速回退重发：${latestRun.template.name}`}
-							label="重发最近部署"
+							reason={`重新提交部署：${latestRun.template.name}`}
+							label="重新提交部署"
 						/>
-						<span className="mt-2 block text-xs text-slate-500">会重新进入审批链路并保留审计记录。</span>
+						<span className="text-xs text-slate-500">真实回滚执行快照中的 rollback command；重新提交部署会再次执行原模板。</span>
 					</div>
 				</section>
 			)}
@@ -119,9 +121,16 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{r.renderedCommand}</code>
+							{r.snapshot?.rollbackCommand && <code className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50 light:text-emerald-800">Rollback: {r.snapshot.rollbackCommand}</code>}
+							{r.rollbackAttempts?.length > 0 && (
+								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3 py-2 text-xs text-emerald-100 light:text-emerald-800">
+									最近回滚：{r.rollbackAttempts[0].status} · 审批 {r.rollbackAttempts[0].commandRequestId || "待创建"} · {r.rollbackAttempts[0].createdAt.toLocaleString("zh-CN")}
+								</div>
+							)}
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
 							{canRun && (
-								<div className="mt-3">
+								<div className="mt-3 flex flex-wrap gap-2">
+									<RollbackDeployButton runId={r.id} templateName={r.template.name} disabled={!r.snapshot?.rollbackCommand} />
 									<ResendDeployButton
 										templateId={r.templateId}
 										variables={r.variables as Record<string, string> | null}

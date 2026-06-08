@@ -6,7 +6,7 @@ import { useToast } from "@/components/toast-provider";
 
 type Template = {
 	id: string; name: string; description: string | null;
-	command: string; variables: string[]; tags: string[];
+	command: string; rollbackCommand?: string | null; variables: string[]; tags: string[];
 	isBuiltin: boolean; createdAt: string;
 	creator: { username: string; displayName: string | null } | null;
 };
@@ -160,6 +160,11 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2 light:border-slate-200 light:bg-slate-50 light:text-slate-800">
 								{tmpl.command}
 							</div>
+							{tmpl.rollbackCommand && (
+								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-2 font-mono text-xs text-emerald-100 line-clamp-2 light:border-emerald-200 light:bg-emerald-50 light:text-emerald-800">
+									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-emerald-300 light:text-emerald-700">Rollback</span>{tmpl.rollbackCommand}
+								</div>
+							)}
 							{tmpl.variables.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 {tmpl.variables.map((v) => {
@@ -270,6 +275,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [command, setCommand] = useState("");
+	const [rollbackCommand, setRollbackCommand] = useState("");
 	const [tags, setTags] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -283,7 +289,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					name, description: description || null, command,
+					name, description: description || null, command, rollbackCommand: rollbackCommand.trim() || null,
 					tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
 				}),
 			});
@@ -311,6 +317,11 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">命令内容</label>
 				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:border-slate-200 light:bg-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
 				<p className="text-[11px] text-slate-600">使用 `{"{{变量名}}"}` 作为占位符，下发时填入实际值</p>
+			</div>
+			<div className="space-y-1.5">
+				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">回滚命令（可选）</label>
+				<textarea value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder="cd {{project_dir}} && docker compose up -d previous" className="w-full rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
+				<p className="text-[11px] text-slate-600">部署运行会保存这份命令快照；之后“真实回滚”会执行快照里的回滚命令，而不是重发部署命令。</p>
 			</div>
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">标签（逗号分隔）</label>
