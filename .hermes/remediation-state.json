@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T00:33:42Z",
+  "updatedAt": "2026-06-08T01:11:04Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,26 +58,23 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T00:13:38Z",
-    "finishedAt": "2026-06-08T00:33:42Z",
-    "target": "files-media-dense-actions-closeout",
-    "status": "verified_deployed_pending_commit",
-    "summary": "Closed dirty Files/Media/installer slice: dense file actions moved under More with toast feedback, media scan/player continuity improved, and installer runtime roots respect non-default APP_SLUG.",
+    "startedAt": "2026-06-08T01:09:38Z",
+    "finishedAt": "2026-06-08T01:11:04Z",
+    "target": "overall-review-readme-production-health",
+    "status": "verified_no_code_change",
+    "summary": "Completed the due overall-review checkpoint by reconciling README remaining boundaries, live production health, route auth behavior, smoke, logs, process overlap, and git/origin state without product code changes.",
     "changeContract": {
-      "qaPathId": "files-media-dense-actions-closeout",
-      "userJourney": "An operator scans media, browses dense file rows/cards, performs share/rename/move/delete from a predictable More menu with visible feedback, and opens media playback with download/source/previous-next continuity.",
+      "qaPathId": "overall-review-readme-production-health",
+      "userJourney": "An operator reviews the shipped product boundary list and verifies that the production shell, public status, protected pages, protected APIs, services, Docker capability, and recent logs remain healthy before selecting the next concrete remediation lane.",
       "evidence": [
-        "Preflight: Docker available/running; services active/enabled; HEAD == origin/main 5b5587f; /api/status 200; protected routes guarded; logs clean; worktree dirty so no new QA lane opened.",
-        "git diff --check passed.",
-        "Targeted Vitest passed: file-list-client, media-scan-button, media service — 3 files / 25 tests.",
-        "npm run typecheck passed.",
-        "npm run lint -- --max-warnings=0 passed.",
-        "npm run verify passed: 208 files / 944 tests plus Next build, runtime build, deploy-assets.",
-        "make installer-fakeroot passed: deploy preflight 23 passed / 7 skipped and covered DOMAIN/Caddy, no-DOMAIN/Apache, SKIP_PACKAGES, DESTDIR, slug identifiers, DATABASE_URL sync.",
-        "Production activation completed after confirming no build process: chown -R vcontrolhub:vcontrolhub .next dist; restarted vcontrolhub-next and vcontrolhub-ssh-ws; reloaded caddy; services active.",
-        "/api/status returned healthy 3/3 and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-        "Post-restart next/ssh-ws filtered journal scan found no error/warn/failed/exception matches.",
-        "No temporary QA users, Docker containers, files, SFTP objects, or DB rows were created."
+        "Preflight: Docker available/running; vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker active/enabled; git clean; HEAD == origin/main ed7391f; /api/status 200 with 3/3 healthy checks; main/daily cron last_status ok; recent preflight logs clean.",
+        "No overlapping npm/next/vitest/build/smoke process was running beyond Hermes gateway and language-server processes.",
+        "README current problem list was reviewed; open candidates remain durable job/lease, request-bound backup/SFTP work, true deployment rollback, AI Hosted Tools authorization, Docker/QuickService/Direct Gateway boundary hardening, status truthfulness, accessibility/mobile/browser navigation, SFTP Range/share archive, file-state consistency/list performance, and queued enhancements.",
+        "Production route matrix: /login and /status returned 200; /files, /downloads, /operation-tasks, /quick-services, /servers, /health, /monitoring, /settings, /media, and /image-bed returned 307 unauthenticated; protected APIs /api/quick-services, /api/downloads, /api/operation-tasks, /api/system-health, and /api/settings returned 401.",
+        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
+        "Post-check next/ssh-ws journal scan over 45 minutes found no error/warn/failed/exception/EACCES/permission denied/docker/known_hosts/Server Action matches.",
+        "No temporary QA users, Docker containers, files, SFTP objects, or DB rows were created; no restart/deploy was needed because no product code changed.",
+        "Git remained clean and HEAD == origin/main ed7391f after state/backlog update except for the intentional .hermes evidence files."
       ]
     }
   },
@@ -94,7 +91,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 34,
+    "successfulRemediationRunsSinceFreshAudit": 0,
     "skippedOverlapRuns": 0
   },
   "blockers": [
