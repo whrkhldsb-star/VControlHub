@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T13:39:30Z",
+  "updatedAt": "2026-06-08T13:45:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -61,8 +61,8 @@
     "id": "files-search-visible-label",
     "title": "Files search visible label",
     "startedAt": "2026-06-08T13:20:00Z",
-    "finishedAt": "2026-06-08T13:39:30Z",
-    "status": "deployed_verified",
+    "finishedAt": "2026-06-08T13:45:30Z",
+    "status": "deployed_verified_ci_failed",
     "summary": "Files browser main search input now has a visible label and uses placeholder only for scope hint text.",
     "changeContract": {
       "files": [
@@ -82,9 +82,11 @@
         "Targeted rerun: npx vitest run src/app/files/__tests__/files-browser-spa.test.tsx src/app/files/__tests__/page.test.tsx --reporter=dot passed 2 files / 19 tests.",
         "Full verification rerun: npm run verify passed 213 files / 998 tests, Next build, runtime build, and deploy-assets.",
         "Production deployment: chown .next/dist, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded caddy.service.",
-        "Production closeout: /api/status healthy 3/3, /files unauthenticated 307 to login, smoke 25/25, recent next/ssh-ws logs clean."
+        "Production closeout: /api/status healthy 3/3, /files unauthenticated 307 to login, smoke 25/25, recent next/ssh-ws logs clean.",
+        "GitHub Actions for HEAD 8564cbd completed failure in CI job Test step; setup/typecheck/lint succeeded and Build was skipped. Public API denied job-log download with 403 admin-rights requirement, so exact failing test was not retrievable in this cron context. Local npm run verify on the same checkout passed npm test 213/998 plus build/runtime/deploy-assets before deploy."
       ],
       "remaining": [
+        "Investigate GitHub Actions Test-step failure for commit 8564cbd with authenticated log access or rerun CI; local verify passed, so likely CI-only or environment-specific until proven otherwise.",
         "Continue scanning remaining placeholder-only controls such as snippets/media/image-bed/tickets where appropriate."
       ]
     },
@@ -93,7 +95,8 @@
       "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
       "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /files unauthenticated probe returned 307 to /login?next=%2Ffiles.",
-      "logs": "journalctl scan for vcontrolhub-next.service and vcontrolhub-ssh-ws.service since restart returned clean."
+      "logs": "journalctl scan for vcontrolhub-next.service and vcontrolhub-ssh-ws.service since restart returned clean.",
+      "ci": "GitHub Actions run 27141648013 for 8564cbd completed failure in Test step; logs require admin rights and were unavailable via public API. Local verify passed fully before deploy."
     }
   },
   "runPolicy": {

@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-06-08T13:39:30Z",
+  "updatedAt": "2026-06-08T13:45:30Z",
   "runCounter": 55,
-  "lastRunStatus": "files_search_label_deployed_committed_pending",
+  "lastRunStatus": "files_search_label_deployed_ci_failed",
   "lastRunTarget": "files-search-visible-label",
   "overallReviewDue": true,
-  "note": "Dirty-closeout only because preflight found product/.hermes changes. Closed and deployed the /files search visible-label slice: main file search now has a visible 搜索文件名 label, placeholder text is scope guidance only, SPA and SSR page regressions locate the textbox by label, targeted tests passed 2 files / 19 tests, typecheck/lint passed, npm run verify passed 213 files / 998 tests with Next build/runtime/deploy-assets, production services restarted/reloaded, /api/status healthy 3/3, /files unauth 307 to login, smoke 25/25, recent next/ssh-ws logs clean. Docker is available for future Quick Services lanes, but this tick stayed on dirty closeout. Because runCounter is now 55 and overallReviewDue remains true from run 54, the next clean-worktree tick should perform the scheduled overall review before opening a new narrow QA lane."
+  "note": "Dirty-closeout only because preflight found product/.hermes changes. Closed and deployed the /files search visible-label slice: main file search now has a visible 搜索文件名 label, placeholder text is scope guidance only, SPA and SSR page regressions locate the textbox by label, targeted tests passed 2 files / 19 tests, typecheck/lint passed, npm run verify passed 213 files / 998 tests with Next build/runtime/deploy-assets, production services restarted/reloaded, /api/status healthy 3/3, /files unauth 307 to login, smoke 25/25, recent next/ssh-ws logs clean. Docker is available for future Quick Services lanes, but this tick stayed on dirty closeout. Because runCounter is now 55 and overallReviewDue remains true from run 54, the next clean-worktree tick should perform the scheduled overall review before opening a new narrow QA lane. GitHub Actions for evidence commit 8564cbd completed failure in the Test step; public job metadata showed setup/typecheck/lint success and build skipped, but job logs require admin rights. Local npm run verify passed fully, so next clean tick should first retrieve CI logs/rerun CI before broad review if authenticated access is available."
 }
