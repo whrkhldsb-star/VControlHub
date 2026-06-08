@@ -163,6 +163,21 @@ describe("FilesBrowserSpa", () => {
     );
   });
 
+  it("shows a visible label for the file search input", () => {
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    expect(screen.getByText("搜索文件名")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "搜索文件名" })).toHaveAttribute(
+      "placeholder",
+      "在当前目录搜索…",
+    );
+  });
+
   it("refreshes the SPA file list after upload completes", async () => {
     render(
       <FilesBrowserSpa

@@ -723,18 +723,24 @@ export function FilesBrowserSpa({
                 currentPath={data.currentPath}
                 onScopeChange={handleScopeChange}
               />
-              <div className="flex flex-1 gap-3">
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.currentTarget.value)}
-                  placeholder={
-                    data.searchScope === "all"
-                      ? "搜索全部文件名…"
-                      : "搜索当前目录文件名…"
-                  }
-                  className="flex-1 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
-                />
+              <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-end sm:gap-3">
+                <div className="flex flex-1 flex-col gap-1">
+                  <label htmlFor="files-search-query" className="text-xs font-medium text-slate-400 light:text-slate-600">
+                    搜索文件名
+                  </label>
+                  <input
+                    id="files-search-query"
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.currentTarget.value)}
+                    placeholder={
+                      data.searchScope === "all"
+                        ? "在全部文件中搜索…"
+                        : "在当前目录搜索…"
+                    }
+                    className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                  />
+                </div>
                 <button
                   type="submit"
                   className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"

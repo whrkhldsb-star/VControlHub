@@ -349,8 +349,8 @@ describe("FilesPage", () => {
       screen.getByRole("button", { name: "新建文件夹" }),
     ).not.toBeDisabled();
     expect(
-      screen.getByPlaceholderText("搜索当前目录文件名…"),
-    ).toBeInTheDocument();
+      screen.getByRole("textbox", { name: "搜索文件名" }),
+    ).toHaveAttribute("placeholder", "在当前目录搜索…");
     expect(screen.getAllByText(/主控本机/).length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "⬆ 上传文件" })).toHaveAttribute(
       "href",
