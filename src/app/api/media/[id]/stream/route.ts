@@ -7,70 +7,17 @@ import { NextResponse } from "next/server";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { buildContentDisposition } from "@/lib/http/content-disposition";
-import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { expandStorageBasePath, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { normalizeRemoteRelativePath, normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
+import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:media:stream");
-
-type RangeSpec = { start: number; end: number; status: 200 | 206 };
-
-function parseRange(rangeHeader: string | null, size: number): RangeSpec | Response {
-  if (!rangeHeader) return { start: 0, end: Math.max(size - 1, 0), status: 200 };
-  const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
-  if (!match || size <= 0) {
-    return new Response(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
-  }
-
-  const [, rawStart, rawEnd] = match;
-  let start: number;
-  let end: number;
-
-  if (!rawStart && rawEnd) {
-    const suffixLength = Number(rawEnd);
-    if (!Number.isFinite(suffixLength) || suffixLength <= 0) {
-      return new Response(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
-    }
-    start = Math.max(size - suffixLength, 0);
-    end = size - 1;
-  } else {
-    start = Number(rawStart);
-    end = rawEnd ? Number(rawEnd) : size - 1;
-  }
-
-  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || start >= size) {
-    return new Response(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
-  }
-
-  return { start, end: Math.min(end, size - 1), status: 206 };
-}
-
-function commonHeaders(input: {
-  mimeType: string;
-  fileName: string;
-  fileSize: number;
-  range: RangeSpec;
-  download: boolean;
-}) {
-  const headers = new Headers();
-  const contentLength = input.fileSize === 0 ? 0 : input.range.end - input.range.start + 1;
-  headers.set("content-type", input.mimeType || "application/octet-stream");
-  headers.set("accept-ranges", "bytes");
-  headers.set("content-length", String(contentLength));
-  headers.set("cache-control", "private, no-store");
-  headers.set("content-disposition", buildContentDisposition(input.download ? "attachment" : "inline", input.fileName));
-  if (input.range.status === 206) {
-    headers.set("content-range", `bytes ${input.range.start}-${input.range.end}/${input.fileSize}`);
-  }
-  return headers;
-}
 
 function resolveManagedLocalPath(basePath: string, relativePath: string) {
   const normalizedPath = normalizeStorageRelativePath(relativePath);
@@ -92,13 +39,13 @@ function connectSsh(config: ConnectConfig): Promise<Client> {
 }
 
 function openSftpStream(client: Client, remotePath: string, rangeHeader: string | null) {
-  return new Promise<{ stream: import("stream").Readable; stat: { size: number }; range: RangeSpec }>((resolve, reject) => {
+  return new Promise<{ stream: import("stream").Readable; stat: { size: number }; range: StorageByteRange }>((resolve, reject) => {
     client.sftp((err, sftp) => {
       if (err) return reject(err);
       sftp.stat(remotePath, (statErr, stats) => {
         if (statErr) return reject(statErr);
         if (!stats.isFile()) return reject(new Error("目标不是可播放文件"));
-        const range = parseRange(rangeHeader, stats.size);
+        const range = parseStorageRange(rangeHeader, stats.size);
         if (range instanceof Response) return reject(Object.assign(new Error("Range Not Satisfiable"), { response: range }));
         const stream = sftp.createReadStream(remotePath, { start: range.start, end: range.end });
         resolve({ stream: stream as import("stream").Readable, stat: { size: stats.size }, range });
@@ -136,12 +83,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       ({ absolutePath: localPath } = resolveManagedLocalPath(node.basePath, item.relativePath));
       const fileStat = await stat(localPath);
       if (!fileStat.isFile()) return NextResponse.json({ error: "目标不是可播放文件" }, { status: 400 });
-      const range = parseRange(request.headers.get("range"), fileStat.size);
+      const range = parseStorageRange(request.headers.get("range"), fileStat.size);
       if (range instanceof Response) return range;
       const stream = createReadStream(localPath, { start: range.start, end: range.end });
-      return new Response(nodeStreamToWeb(stream), {
-        status: range.status,
-        headers: commonHeaders({ mimeType: item.mimeType, fileName: item.name, fileSize: fileStat.size, range, download }),
+      return storageStreamResponse({
+        stream,
+        range,
+        contentType: item.mimeType,
+        fileName: item.name,
+        fileSize: fileStat.size,
+        download,
       });
     } catch (error) {
       logger.error("read local media stream failed", error, { id });
@@ -195,7 +146,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       timeout: 10000,
     });
     const { stream, stat: remoteStat, range } = await openSftpStream(client, normalizedRemotePath, request.headers.get("range"));
-    const webStream = nodeStreamToWeb(stream);
     stream.on("close", () => {
       client?.end();
       client = null;
@@ -204,9 +154,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       client?.end();
       client = null;
     });
-    return new Response(webStream, {
-      status: range.status,
-      headers: commonHeaders({ mimeType: item.mimeType, fileName: item.name, fileSize: remoteStat.size, range, download }),
+    return storageStreamResponse({
+      stream,
+      range,
+      contentType: item.mimeType,
+      fileName: item.name,
+      fileSize: remoteStat.size,
+      download,
     });
   } catch (error) {
     client?.end();

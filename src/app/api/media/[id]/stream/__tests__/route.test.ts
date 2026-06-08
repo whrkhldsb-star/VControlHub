@@ -69,6 +69,9 @@ describe("media stream route", () => {
     expect(response.status).toBe(206);
     expect(response.headers.get("content-range")).toBe("bytes 100-199/1000");
     expect(response.headers.get("content-length")).toBe("100");
+    expect(response.headers.get("accept-ranges")).toBe("bytes");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("content-disposition")).toContain("inline");
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({
         storageNodeId: "node-local",
@@ -76,6 +79,27 @@ describe("media stream route", () => {
         operation: "read",
       }),
     );
+  });
+
+  it("returns shared 416 range headers for unsatisfiable LOCAL media ranges", async () => {
+    const response = await GET(
+      new Request("https://example.test/api/media/media-1/stream", { headers: { range: "bytes=2000-3000" } }),
+      { params: Promise.resolve({ id: "media-1" }) },
+    );
+
+    expect(response.status).toBe(416);
+    expect(response.headers.get("content-range")).toBe("bytes */1000");
+  });
+
+  it("uses shared attachment headers when downloading LOCAL media", async () => {
+    const response = await GET(new Request("https://example.test/api/media/media-1/stream?download=1"), {
+      params: Promise.resolve({ id: "media-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-length")).toBe("1000");
+    expect(response.headers.get("content-disposition")).toContain("attachment");
+    expect(response.headers.get("content-disposition")).toContain("clip.mp4");
   });
 
   it("fails closed before reading the file when storage authorization denies access", async () => {

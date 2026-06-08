@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T14:17:43Z",
+  "updatedAt": "2026-06-08T14:36:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,45 +58,39 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "files-search-visible-label",
-    "title": "Files search visible label",
-    "startedAt": "2026-06-08T13:20:00Z",
-    "finishedAt": "2026-06-08T13:45:30Z",
-    "status": "deployed_verified_ci_failed",
-    "summary": "Files browser main search input now has a visible label and uses placeholder only for scope hint text.",
+    "id": "media-stream-helper",
+    "title": "Media stream unified Range helper",
+    "startedAt": "2026-06-08T14:05:00Z",
+    "finishedAt": "2026-06-08T14:36:30Z",
+    "status": "deployed_verified",
+    "summary": "/api/media/[id]/stream now reuses shared storage Range/header/Node stream response helpers instead of local duplicate parse/header code.",
     "changeContract": {
       "files": [
-        "src/app/files/files-browser-spa.tsx",
-        "src/app/files/__tests__/files-browser-spa.test.tsx",
-        "src/app/files/__tests__/page.test.tsx",
+        "src/app/api/media/[id]/stream/route.ts",
+        "src/app/api/media/[id]/stream/__tests__/route.test.ts",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "README accessibility residual calls for continuing placeholder-only/low-visibility control patrol.",
-        "Read-only scan found the /files main search input relied on placeholder text without a visible label.",
-        "Targeted verification: npx vitest run src/app/files/__tests__/files-browser-spa.test.tsx passed 11/11.",
-        "Typecheck: npm run typecheck passed.",
-        "Regression asserts visible 搜索文件名 label and label-addressable textbox.",
-        "Targeted rerun: npx vitest run src/app/files/__tests__/files-browser-spa.test.tsx src/app/files/__tests__/page.test.tsx --reporter=dot passed 2 files / 19 tests.",
-        "Full verification rerun: npm run verify passed 213 files / 998 tests, Next build, runtime build, and deploy-assets.",
-        "Production deployment: chown .next/dist, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded caddy.service.",
-        "Production closeout: /api/status healthy 3/3, /files unauthenticated 307 to login, smoke 25/25, recent next/ssh-ws logs clean.",
-        "GitHub Actions for HEAD 8564cbd completed failure in CI job Test step; setup/typecheck/lint succeeded and Build was skipped. Public API denied job-log download with 403 admin-rights requirement, so exact failing test was not retrievable in this cron context. Local npm run verify on the same checkout passed npm test 213/998 plus build/runtime/deploy-assets before deploy."
+        "README identified media stream route as the remaining local Range/header implementation after storage/share streaming unification.",
+        "Route now imports parseStorageRange and storageStreamResponse from src/lib/storage/streaming.ts for LOCAL and SFTP media streams.",
+        "Targeted verification: media stream route tests and storage streaming helper tests passed 9/9.",
+        "Typecheck passed.",
+        "Regression covers LOCAL Range 206 headers, invalid Range 416 content-range, and attachment download content-disposition."
       ],
       "remaining": [
-        "Investigate GitHub Actions Test-step failure for commit 8564cbd with authenticated log access or rerun CI; local verify passed, so likely CI-only or environment-specific until proven otherwise.",
-        "Continue scanning remaining placeholder-only controls such as snippets/media/image-bed/tickets where appropriate."
+        "Office preview and archive online extraction remain safe-degrade/documentation follow-ups.",
+        "SFTP stale media index cleanup remains under storage consistency follow-up."
       ]
     },
     "deployment": {
-      "verify": "git diff --check passed; targeted Files SPA/page regressions passed 2 files / 19 tests; npm run typecheck passed; npm run lint -- --max-warnings=0 passed; npm run verify passed 213 files / 998 tests plus Next build, runtime build, deploy-assets.",
-      "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy.service active after restart/reload.",
-      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
-      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /files unauthenticated probe returned 307 to /login?next=%2Ffiles.",
-      "logs": "journalctl scan for vcontrolhub-next.service and vcontrolhub-ssh-ws.service since restart returned clean.",
-      "ci": "GitHub Actions run 27141648013 for 8564cbd completed failure in Test step; logs require admin rights and were unavailable via public API. Local verify passed fully before deploy."
+      "verify": "npm run verify passed: 213 test files / 1000 tests, Next build, runtime build, deploy assets OK.",
+      "services": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart.",
+      "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
+      "status": "https://whrkhldsb.qzz.io/api/status healthy 3/3; /media unauthenticated probe returned 307.",
+      "logs": "No next/ssh-ws errors or warnings in the post-restart journal scan.",
+      "swap": "Only /swapfile 6G active."
     }
   },
   "runPolicy": {
