@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
-import { runBackupRecord } from "@/lib/backup/service";
+import { enqueueJob } from "@/lib/job/service";
+import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
+import { createBackupRecord } from "@/lib/backup/service";
 
 export type BackupActionState = {
   success: boolean;
@@ -29,10 +31,17 @@ export async function createBackupAction(_prev: BackupActionState, formData: For
     return { success: false, error: "备注最多 500 个字符" };
   }
 
-  await runBackupRecord({
+  const backup = await createBackupRecord({
     type: type as "DATABASE" | "FILES" | "FULL",
     createdBy: session.userId,
     note: note || undefined,
+  });
+  await enqueueJob({
+    type: BACKUP_CREATE_JOB_TYPE,
+    title: `创建${type}备份`,
+    payload: { backupId: backup.id },
+    createdBy: session.userId,
+    maxAttempts: 1,
   });
   revalidatePath("/backups");
   return { success: true };

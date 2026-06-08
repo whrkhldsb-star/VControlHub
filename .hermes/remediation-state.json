@@ -58,37 +58,41 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "media-search-label",
-    "title": "Visible label for media search",
-    "startedAt": "2026-06-08T15:43:00Z",
-    "finishedAt": "2026-06-08T16:05:00Z",
+    "id": "backups-create-server-action-durable-job",
+    "title": "Backups create form durable job parity",
+    "startedAt": "2026-06-08T16:34:24Z",
+    "finishedAt": "2026-06-08T16:51:00Z",
     "status": "completed",
-    "summary": "/media search now has a visible 搜索媒体 label and placeholder is only a hint.",
+    "summary": "/backups create form now enqueues backup.create Durable Jobs instead of running deploy/backup.sh synchronously in the server action.",
     "changeContract": {
       "files": [
-        "src/app/media/page.tsx",
-        "src/app/media/__tests__/page.test.tsx",
+        "src/app/backups/actions.ts",
+        "src/app/backups/page.tsx",
+        "src/app/backups/__tests__/actions.test.ts",
+        "src/app/backups/__tests__/page.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
-        ".hermes/remediation-state.json"
+        ".hermes/remediation-state.json",
+        ".hermes/qa-loop-state.json"
       ],
       "evidence": [
-        "Media searchbox has visible label 搜索媒体.",
-        "Regression locates searchbox by role/name and verifies q value is preserved.",
-        "Targeted MediaPage regression passed 2/2.",
-        "Typecheck passed."
+        "createBackupAction creates a PENDING BackupRecord and enqueueJob(backup.create) with backupId payload.",
+        "Backups page copy describes Durable Job queued status semantics and old immediate-execution copy is absent.",
+        "Authenticated production POST /api/backups returned 202 with jobId/taskId, and Prisma showed matching Job/BackupRecord before cleanup.",
+        "Targeted backups action/page/API tests passed 8/8, typecheck, lint, and full npm run verify passed."
       ],
       "remaining": [
-        "Continue placeholder-only patrol for image-bed/tickets/audit/AI and lower-traffic forms."
+        "Migrate QuickService install/update/uninstall to Durable Job with history/config diff/rollback.",
+        "Continue backup retention, offsite backup, and restore-drill automation."
       ]
     },
     "deployment": {
-      "verify": "npm run verify passed: 213 files / 1003 tests; Next build/runtime/deploy-assets OK.",
+      "verify": "npm run verify passed: full Vitest suite, Next build, runtime build, and deploy-assets OK.",
       "services": "vcontrolhub-next, vcontrolhub-ssh-ws and caddy active after restart/reload.",
       "smoke": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "status": "/api/status healthy 3/3 after restart; /media unauthenticated probe returned 307.",
-      "logs": "recent next/ssh-ws log scan found no error/warn/failed/exception entries.",
-      "swap": "steady /swapfile 6G only; no temporary swap files."
+      "status": "/api/status returned 200 with healthy 3/3 after restart.",
+      "logs": "recent next/ssh-ws log scan found no error/warn/failed/exception entries; worker startup logs included command, scheduled-task, backup-job, alert-evaluation, and sftp-sync workers.",
+      "cleanup": "Deleted the backup durable-job canary BackupRecord/Job and temporary helper files; qa_cron_backup_* users remaining 0."
     }
   },
   "runPolicy": {
