@@ -56,11 +56,15 @@ type FileListClientProps = {
   onRefresh?: () => void;
 };
 
-
 /* ── view mode type ───────────────────────────────────────────────── */
 
 type ViewMode = "list" | "grid" | "details";
 type BatchProgress = { done: number; total: number; errors: string[] };
+type FileToast = {
+  id: number;
+  type: "success" | "error" | "info";
+  message: string;
+};
 
 /* ── main component ───────────────────────────────────────────────── */
 
@@ -76,8 +80,18 @@ export function FileListClient({
   onFolderClick,
   onRefresh,
 }: FileListClientProps) {
-
   const router = useRouter();
+  const [toasts, setToasts] = useState<FileToast[]>([]);
+  const showToast = useCallback((type: FileToast["type"], message: string) => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((current) => [...current.slice(-2), { id, type, message }]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 3800);
+  }, []);
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
   const fileListId = useId();
   const batchToolbarTitleId = `${fileListId}-batch-toolbar-title`;
   const batchToolbarDescriptionId = `${fileListId}-batch-toolbar-description`;
@@ -174,12 +188,13 @@ export function FileListClient({
   );
   const selectableFiles = useMemo(
     () =>
-      visibleFiles.filter((file) => entryCanWrite(file) || entryCanDelete(file)),
+      visibleFiles.filter(
+        (file) => entryCanWrite(file) || entryCanDelete(file),
+      ),
     [visibleFiles, entryCanWrite, entryCanDelete],
   );
   const folderCanWrite = useCallback(
-    (folder: FolderProp) =>
-      folder.capabilities?.canWrite ?? canEditLocalFiles,
+    (folder: FolderProp) => folder.capabilities?.canWrite ?? canEditLocalFiles,
     [canEditLocalFiles],
   );
 
@@ -263,7 +278,8 @@ export function FileListClient({
   const selectedEntriesCanMove =
     selectedCount > 0 && selectedFileEntries.every(entryCanWrite);
   const allSelected =
-    selectableFiles.length > 0 && allFileIds.every((id) => effectiveSelectedIdSet.has(id));
+    selectableFiles.length > 0 &&
+    allFileIds.every((id) => effectiveSelectedIdSet.has(id));
   const someSelected = selectedCount > 0 && !allSelected;
 
   const toggleAll = useCallback(() => {
@@ -279,23 +295,26 @@ export function FileListClient({
     }
   }, [allSelected, allFileIds, currentSelectionScopeKey]);
 
-  const toggleOne = useCallback((id: string) => {
-    setSelectedScopeKey(currentSelectionScopeKey);
-    setBatchAction("none");
-    setMoveTargetDir("");
-    setProgress({ done: 0, total: 0, errors: [] });
-    setMoveProgress({ done: 0, total: 0, errors: [] });
-    setSelectedIds((prev) => {
-      const base = selectedScopeMatches ? prev : new Set<string>();
-      const next = new Set(base);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, [currentSelectionScopeKey, selectedScopeMatches]);
+  const toggleOne = useCallback(
+    (id: string) => {
+      setSelectedScopeKey(currentSelectionScopeKey);
+      setBatchAction("none");
+      setMoveTargetDir("");
+      setProgress({ done: 0, total: 0, errors: [] });
+      setMoveProgress({ done: 0, total: 0, errors: [] });
+      setSelectedIds((prev) => {
+        const base = selectedScopeMatches ? prev : new Set<string>();
+        const next = new Set(base);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+    },
+    [currentSelectionScopeKey, selectedScopeMatches],
+  );
 
   const clearSelection = useCallback(() => {
     setSelectedScopeKey(currentSelectionScopeKey);
@@ -334,15 +353,25 @@ export function FileListClient({
         router.refresh();
       }
       if (errors.length === 0) {
+        showToast("success", `已删除 ${ids.length} 个文件`);
         clearSelection();
         return;
       }
+      showToast("error", `批量删除完成，但有 ${errors.length} 个文件失败`);
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
       setProgress({ done: completed, total: ids.length, errors: [...errors] });
     });
-  }, [effectiveSelectedIds, files, router, clearSelection, onRefresh, currentSelectionScopeKey]);
+  }, [
+    effectiveSelectedIds,
+    files,
+    router,
+    clearSelection,
+    onRefresh,
+    currentSelectionScopeKey,
+    showToast,
+  ]);
 
   const handleBatchMove = useCallback(() => {
     setBatchAction("moving");
@@ -390,9 +419,11 @@ export function FileListClient({
         router.refresh();
       }
       if (errors.length === 0) {
+        showToast("success", `已移动 ${ids.length} 个文件`);
         clearSelection();
         return;
       }
+      showToast("error", `批量移动完成，但有 ${errors.length} 个文件失败`);
       setBatchAction("none");
       setSelectedScopeKey(currentSelectionScopeKey);
       setSelectedIds(new Set(ids));
@@ -402,7 +433,16 @@ export function FileListClient({
         errors: [...errors],
       });
     });
-  }, [effectiveSelectedIds, moveTargetDir, files, router, clearSelection, onRefresh, currentSelectionScopeKey]);
+  }, [
+    effectiveSelectedIds,
+    moveTargetDir,
+    files,
+    router,
+    clearSelection,
+    onRefresh,
+    currentSelectionScopeKey,
+    showToast,
+  ]);
 
   const emptyMessage = searchQuery
     ? `未找到匹配 "${searchQuery}" 的文件。`
@@ -436,9 +476,11 @@ export function FileListClient({
         title="资料详情"
         aria-label={`资料详情 ${entry.name}`}
         onClick={() => setDetailEntryId(entry.id)}
-        className={compact
-          ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-500/10 text-violet-100 transition hover:bg-violet-500/20 light:text-violet-900"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-2.5 py-1.5 text-xs text-violet-100 transition hover:bg-violet-500/20 light:text-violet-900"}
+        className={
+          compact
+            ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-violet-400/30 bg-violet-500/10 text-violet-100 transition hover:bg-violet-500/20 light:text-violet-900"
+            : "inline-flex items-center gap-1.5 rounded-lg border border-violet-400/30 bg-violet-500/10 px-2.5 py-1.5 text-xs text-violet-100 transition hover:bg-violet-500/20 light:text-violet-900"
+        }
       >
         <svg
           width="15"
@@ -478,9 +520,11 @@ export function FileListClient({
         download={downloadUrl.startsWith("/") ? true : undefined}
         target={downloadUrl.startsWith("/") ? undefined : "_blank"}
         rel={downloadUrl.startsWith("/") ? undefined : "noopener noreferrer"}
-        className={compact
-          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white"}
+        className={
+          compact
+            ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
+            : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white"
+        }
       >
         <DownloadIcon />
         {compact ? null : <span>下载</span>}
@@ -501,13 +545,75 @@ export function FileListClient({
         title="下载目录归档"
         aria-label={`下载目录 ${folder.displayName ?? folder.name}`}
         download
-        className={compact
-          ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
-          : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"}
+        className={
+          compact
+            ? "inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white"
+            : "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 hover:text-white"
+        }
       >
         <DownloadIcon />
         {compact ? null : <span>下载</span>}
       </Link>
+    );
+  }
+
+  function renderMoreActions(entry: StorageEntry, compact = false) {
+    const hasMoreActions =
+      (canShare && entryCanRead(entry) && entry.entryType === "FILE") ||
+      entryCanWrite(entry) ||
+      (canDelete && entryCanDelete(entry));
+    if (!hasMoreActions) return null;
+    return (
+      <details className="relative inline-flex group/more">
+        <summary
+          role="button"
+          title="更多操作"
+          aria-label={`更多操作 ${entry.name}`}
+          className={
+            compact
+              ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white light:border-slate-200 light:text-slate-700 light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+              : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white light:border-slate-200 light:text-slate-700 light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+          }
+        >
+          <span aria-hidden="true">⋯</span>
+          {compact ? null : <span>更多</span>}
+        </summary>
+        <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:border-slate-200 light:bg-white light:shadow-slate-200/70">
+          {canShare && entryCanRead(entry) ? (
+            <ShareFileButton entry={entry} compact onNotify={showToast} />
+          ) : null}
+          {entryCanWrite(entry) ? (
+            <RenameInlineForm
+              fileEntryId={entry.id}
+              currentName={entry.name}
+              currentPath={entry.relativePath}
+              entryType={entry.entryType as "FILE" | "DIRECTORY"}
+              onRefresh={onRefresh}
+              onNotify={showToast}
+            />
+          ) : null}
+          {entryCanWrite(entry) ? (
+            <MoveInlineForm
+              fileEntryId={entry.id}
+              name={entry.name}
+              relativePath={entry.relativePath}
+              storageNodeId={entry.storageNode.id}
+              storageNodeName={entry.storageNode.name}
+              onRefresh={onRefresh}
+              onNotify={showToast}
+            />
+          ) : null}
+          {canDelete && entryCanDelete(entry) ? (
+            <DeleteConfirmButton
+              fileEntryId={entry.id}
+              entryName={entry.name}
+              entryType={entry.entryType as "FILE" | "DIRECTORY"}
+              onRefresh={onRefresh}
+              onNotify={showToast}
+            />
+          ) : null}
+        </div>
+      </details>
     );
   }
 
@@ -525,40 +631,14 @@ export function FileListClient({
           <Link
             href={previewHref}
             title="预览"
+            aria-label={`预览 ${entry.name}`}
             className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
           >
             <PreviewIcon />
           </Link>
         ) : null}
-        {renderDownloadActions(entry, downloadUrl, compact)}
-        {canShare && entryCanRead(entry) ? <ShareFileButton entry={entry} compact={compact} /> : null}
-        {entryCanWrite(entry) ? (
-          <RenameInlineForm
-            fileEntryId={entry.id}
-            currentName={entry.name}
-            currentPath={entry.relativePath}
-            entryType={entry.entryType as "FILE" | "DIRECTORY"}
-            onRefresh={onRefresh}
-          />
-        ) : null}
-        {entryCanWrite(entry) ? (
-          <MoveInlineForm
-            fileEntryId={entry.id}
-            name={entry.name}
-            relativePath={entry.relativePath}
-            storageNodeId={entry.storageNode.id}
-            storageNodeName={entry.storageNode.name}
-            onRefresh={onRefresh}
-          />
-        ) : null}
-        {canDelete && entryCanDelete(entry) ? (
-          <DeleteConfirmButton
-            fileEntryId={entry.id}
-            entryName={entry.name}
-            entryType={entry.entryType as "FILE" | "DIRECTORY"}
-            onRefresh={onRefresh}
-          />
-        ) : null}
+        {renderDownloadActions(entry, downloadUrl, true)}
+        {renderMoreActions(entry, compact)}
       </div>
     );
   }
@@ -583,7 +663,9 @@ export function FileListClient({
             >
               <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" />
             </svg>
-            <p className="text-sm text-slate-400 light:text-slate-600">{emptyMessage}</p>
+            <p className="text-sm text-slate-400 light:text-slate-600">
+              {emptyMessage}
+            </p>
           </div>
         ) : null}
 
@@ -682,47 +764,9 @@ export function FileListClient({
                 </div>
               </div>
 
-              {/* Action bar — always visible, icon buttons */}
+              {/* Action bar — common actions stay visible, secondary actions live under 更多 */}
               <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40 light:bg-white/40">
-                {renderDetailAction(entry, true)}
-                {entry.previewable && entryCanRead(entry) ? (
-                  <Link
-                    href={previewHref}
-                    title="预览"
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
-                  >
-                    <PreviewIcon />
-                  </Link>
-                ) : null}
-                {renderDownloadActions(entry, downloadUrl, true)}
-                {canShare && entryCanRead(entry) ? <ShareFileButton entry={entry} compact /> : null}
-                {entryCanWrite(entry) ? (
-                  <RenameInlineForm
-                    fileEntryId={entry.id}
-                    currentName={entry.name}
-                    currentPath={entry.relativePath}
-                    entryType={entry.entryType as "FILE" | "DIRECTORY"}
-                    onRefresh={onRefresh}
-                  />
-                ) : null}
-                {entryCanWrite(entry) ? (
-                  <MoveInlineForm
-                    fileEntryId={entry.id}
-                    name={entry.name}
-                    relativePath={entry.relativePath}
-                    storageNodeId={entry.storageNode.id}
-                    storageNodeName={entry.storageNode.name}
-                    onRefresh={onRefresh}
-                  />
-                ) : null}
-                {canDelete && entryCanDelete(entry) ? (
-                  <DeleteConfirmButton
-                    fileEntryId={entry.id}
-                    entryName={entry.name}
-                    entryType={entry.entryType as "FILE" | "DIRECTORY"}
-                    onRefresh={onRefresh}
-                  />
-                ) : null}
+                {renderFileActions(entry, downloadUrl, previewHref, true)}
               </div>
             </div>
           );
@@ -740,7 +784,9 @@ export function FileListClient({
       <div className="divide-y divide-white/[0.04]">
         {sortedFolders.length === 0 && sortedFiles.length === 0 ? (
           <div className="px-6 py-16 text-center">
-            <p className="text-sm text-slate-400 light:text-slate-600">{emptyMessage}</p>
+            <p className="text-sm text-slate-400 light:text-slate-600">
+              {emptyMessage}
+            </p>
           </div>
         ) : null}
 
@@ -795,6 +841,7 @@ export function FileListClient({
                   currentPath={folder.path}
                   entryType="DIRECTORY"
                   onRefresh={onRefresh}
+                  onNotify={showToast}
                 />
               ) : null}
               {renderFolderDownloadAction(folder)}
@@ -806,6 +853,7 @@ export function FileListClient({
                   storageNodeId={folder.sourceKeys[0] ?? ""}
                   storageNodeName={folder.sourceValues[0] ?? ""}
                   onRefresh={onRefresh}
+                  onNotify={showToast}
                 />
               ) : null}
             </div>
@@ -999,6 +1047,7 @@ export function FileListClient({
                         currentPath={folder.path}
                         entryType="DIRECTORY"
                         onRefresh={onRefresh}
+                        onNotify={showToast}
                       />
                     ) : null}
                     {renderFolderDownloadAction(folder, true)}
@@ -1010,6 +1059,7 @@ export function FileListClient({
                         storageNodeId={folder.sourceKeys[0] ?? ""}
                         storageNodeName={folder.sourceValues[0] ?? ""}
                         onRefresh={onRefresh}
+                        onNotify={showToast}
                       />
                     ) : null}
                   </div>
@@ -1058,7 +1108,9 @@ export function FileListClient({
                         {entry.relativePath}
                       </p>
                     </div>
-                    <div className="text-slate-300 light:text-slate-700">{entry.sizeLabel}</div>
+                    <div className="text-slate-300 light:text-slate-700">
+                      {entry.sizeLabel}
+                    </div>
                     <div className="text-slate-400 light:text-slate-600 truncate text-xs">
                       {entry.storageNode.name}
                     </div>
@@ -1066,44 +1118,7 @@ export function FileListClient({
                       {entry.updatedAt ? formatDate(entry.updatedAt) : "—"}
                     </div>
                     <div className="flex flex-wrap gap-1">
-                      {renderDetailAction(entry, true)}
-                      {entry.previewable && entryCanRead(entry) ? (
-                        <Link
-                          href={previewHref}
-                          title="预览"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
-                        >
-                          <PreviewIcon />
-                        </Link>
-                      ) : null}
-                      {renderDownloadActions(entry, downloadUrl, true)}
-                      {entryCanWrite(entry) ? (
-                        <RenameInlineForm
-                          fileEntryId={entry.id}
-                          currentName={entry.name}
-                          currentPath={entry.relativePath}
-                          entryType={entry.entryType as "FILE" | "DIRECTORY"}
-                          onRefresh={onRefresh}
-                        />
-                      ) : null}
-                      {entryCanWrite(entry) ? (
-                        <MoveInlineForm
-                          fileEntryId={entry.id}
-                          name={entry.name}
-                          relativePath={entry.relativePath}
-                          storageNodeId={entry.storageNode.id}
-                          storageNodeName={entry.storageNode.name}
-                          onRefresh={onRefresh}
-                        />
-                      ) : null}
-                      {canDelete && entryCanDelete(entry) ? (
-                        <DeleteConfirmButton
-                          fileEntryId={entry.id}
-                          entryName={entry.name}
-                          entryType={entry.entryType as "FILE" | "DIRECTORY"}
-                          onRefresh={onRefresh}
-                        />
-                      ) : null}
+                      {renderFileActions(entry, downloadUrl, previewHref, true)}
                     </div>
                   </div>
                 );
@@ -1159,6 +1174,7 @@ export function FileListClient({
                       currentPath={folder.path}
                       entryType="DIRECTORY"
                       onRefresh={onRefresh}
+                      onNotify={showToast}
                     />
                   ) : null}
                   {folderCanWrite(folder) && folder.entryId ? (
@@ -1169,6 +1185,7 @@ export function FileListClient({
                       storageNodeId={folder.sourceKeys[0] ?? ""}
                       storageNodeName={folder.sourceValues[0] ?? ""}
                       onRefresh={onRefresh}
+                      onNotify={showToast}
                     />
                   ) : null}
                 </div>
@@ -1223,44 +1240,7 @@ export function FileListClient({
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1 pl-9">
-                  {renderDetailAction(entry, true)}
-                  {entry.previewable && entryCanRead(entry) ? (
-                    <Link
-                      href={previewHref}
-                      title="预览"
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-500/20"
-                    >
-                      <PreviewIcon />
-                    </Link>
-                  ) : null}
-                  {renderDownloadActions(entry, downloadUrl, true)}
-                  {entryCanWrite(entry) ? (
-                    <RenameInlineForm
-                      fileEntryId={entry.id}
-                      currentName={entry.name}
-                      currentPath={entry.relativePath}
-                      entryType={entry.entryType as "FILE" | "DIRECTORY"}
-                      onRefresh={onRefresh}
-                    />
-                  ) : null}
-                  {entryCanWrite(entry) ? (
-                    <MoveInlineForm
-                      fileEntryId={entry.id}
-                      name={entry.name}
-                      relativePath={entry.relativePath}
-                      storageNodeId={entry.storageNode.id}
-                      storageNodeName={entry.storageNode.name}
-                      onRefresh={onRefresh}
-                    />
-                  ) : null}
-                  {canDelete && entryCanDelete(entry) ? (
-                    <DeleteConfirmButton
-                      fileEntryId={entry.id}
-                      entryName={entry.name}
-                      entryType={entry.entryType as "FILE" | "DIRECTORY"}
-                      onRefresh={onRefresh}
-                    />
-                  ) : null}
+                  {renderFileActions(entry, downloadUrl, previewHref, true)}
                 </div>
               </div>
             );
@@ -1276,6 +1256,42 @@ export function FileListClient({
 
   return (
     <>
+      {toasts.length > 0 ? (
+        <div
+          className="fixed left-1/2 top-4 z-[70] flex w-[min(92vw,520px)] -translate-x-1/2 flex-col gap-2"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              role={toast.type === "error" ? "alert" : "status"}
+              className={[
+                "flex items-start justify-between gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur-xl",
+                toast.type === "success"
+                  ? "border-emerald-300/40 bg-emerald-500/95 text-white shadow-emerald-950/30"
+                  : "",
+                toast.type === "error"
+                  ? "border-rose-300/40 bg-rose-500/95 text-white shadow-rose-950/30"
+                  : "",
+                toast.type === "info"
+                  ? "border-cyan-300/40 bg-cyan-500/95 text-white shadow-cyan-950/30"
+                  : "",
+              ].join(" ")}
+            >
+              <span>{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => dismissToast(toast.id)}
+                className="rounded-full px-1.5 text-white/80 hover:bg-white/15 hover:text-white"
+                aria-label="关闭提醒"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="mt-6 overflow-x-auto rounded-2xl border border-white/[0.08]">
         {/* View mode toggle header bar */}
         <div className="flex items-center justify-between bg-white/[0.03] px-5 py-2.5 border-b border-white/[0.06]">
@@ -1405,10 +1421,15 @@ export function FileListClient({
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300 light:text-violet-700">
                   资料详情
                 </p>
-                <h2 id="file-detail-panel-title" className="mt-1 truncate text-lg font-semibold">
+                <h2
+                  id="file-detail-panel-title"
+                  className="mt-1 truncate text-lg font-semibold"
+                >
                   {detailEntry.name}
                 </h2>
-                <p className="mt-1 truncate text-xs text-slate-500">{detailEntry.relativePath}</p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  {detailEntry.relativePath}
+                </p>
               </div>
               <button
                 type="button"
@@ -1423,11 +1444,15 @@ export function FileListClient({
                 <div className="grid gap-3 text-sm sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-slate-500">存储节点</p>
-                    <p className="mt-1 font-medium">{detailEntry.storageNode.name}</p>
+                    <p className="mt-1 font-medium">
+                      {detailEntry.storageNode.name}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">驱动</p>
-                    <p className="mt-1 font-medium">{detailEntry.storageNode.driver}</p>
+                    <p className="mt-1 font-medium">
+                      {detailEntry.storageNode.driver}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">大小</p>
@@ -1436,18 +1461,24 @@ export function FileListClient({
                   <div>
                     <p className="text-xs text-slate-500">修改时间</p>
                     <p className="mt-1 font-medium">
-                      {detailEntry.updatedAt ? formatDate(detailEntry.updatedAt) : "—"}
+                      {detailEntry.updatedAt
+                        ? formatDate(detailEntry.updatedAt)
+                        : "—"}
                     </p>
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-xs text-slate-500">访问方式</p>
-                    <p className="mt-1 font-medium">{detailEntry.directAccess.description}</p>
+                    <p className="mt-1 font-medium">
+                      {detailEntry.directAccess.description}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-slate-200 light:text-slate-800">快捷操作</h3>
+                <h3 className="text-sm font-semibold text-slate-200 light:text-slate-800">
+                  快捷操作
+                </h3>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {detailEntry.previewable && entryCanRead(detailEntry) ? (
                     <Link
@@ -1483,7 +1514,9 @@ export function FileListClient({
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-slate-200 light:text-slate-800">管理操作</h3>
+                <h3 className="text-sm font-semibold text-slate-200 light:text-slate-800">
+                  管理操作
+                </h3>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {entryCanWrite(detailEntry) ? (
                     <RenameInlineForm
@@ -1492,6 +1525,7 @@ export function FileListClient({
                       currentPath={detailEntry.relativePath}
                       entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
                       onRefresh={onRefresh}
+                      onNotify={showToast}
                     />
                   ) : null}
                   {entryCanWrite(detailEntry) ? (
@@ -1502,6 +1536,7 @@ export function FileListClient({
                       storageNodeId={detailEntry.storageNode.id}
                       storageNodeName={detailEntry.storageNode.name}
                       onRefresh={onRefresh}
+                      onNotify={showToast}
                     />
                   ) : null}
                   {canDelete && entryCanDelete(detailEntry) ? (
@@ -1510,6 +1545,7 @@ export function FileListClient({
                       entryName={detailEntry.name}
                       entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
                       onRefresh={onRefresh}
+                      onNotify={showToast}
                     />
                   ) : null}
                 </div>
@@ -1550,7 +1586,8 @@ export function FileListClient({
             文件批量操作
           </span>
           <span id={batchToolbarDescriptionId} className="sr-only">
-            已选择 {selectedCount} 个文件，可取消选择或执行当前权限允许的批量操作。
+            已选择 {selectedCount}{" "}
+            个文件，可取消选择或执行当前权限允许的批量操作。
           </span>
           {batchAction === "confirm-delete" ? (
             <>
@@ -1597,7 +1634,9 @@ export function FileListClient({
             </>
           ) : batchAction === "moving" ? (
             <>
-              <span className="text-sm text-slate-200 light:text-slate-800">目标路径：</span>
+              <span className="text-sm text-slate-200 light:text-slate-800">
+                目标路径：
+              </span>
               <input
                 type="text"
                 value={moveTargetDir}

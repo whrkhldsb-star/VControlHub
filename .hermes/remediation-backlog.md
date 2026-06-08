@@ -297,3 +297,10 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Boundary evidence: state-changing PATCH without CSRF returned 403 `CSRF token 验证失败`; invalid mixed HTTP + magnet batch POST returned 400 `磁力/BT 链接需单独创建任务，请勿与普通链接混在同一批量中`; refresh for a missing task returned 404 `任务不存在`.
 - Production/status/logs: `/api/status` returned HTTP 200 with 3 checks; `./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub` passed 25/25; recent Next/SSH-WS journal scan for error/warn/failed/exception/CSRF/download/aria2/EACCES matches was clean.
 - Cleanup: temporary `qa_cron_downloads_*` user deleted, `qa_cron_*` remaining count 0, no canary DownloadTask rows were created, and temporary credential/script files were removed from `/tmp`.
+
+### 2026-06-08T00:33:42Z — Files/Media dense-actions dirty closeout
+- Scope: run 42/42 was due for a broad review, but entry worktree was dirty, so policy selected closeout-only for the existing Files/Media/installer slice instead of opening a new QA lane.
+- Fixes: `/files` keeps detail/preview/download as primary actions and moves share/rename/move/delete into a More menu with unified toast feedback; media scan infers MIME from filename/path for `application/octet-stream` rows and media player adds previous/next/download/source continuity; installer runtime roots now follow non-default `APP_SLUG` when legacy vcontrolhub defaults leak in.
+- Evidence: targeted Vitest 3 files / 25 tests passed; `npm run typecheck` passed; `npm run lint -- --max-warnings=0` passed; full `npm run verify` passed (208 files / 944 tests plus Next build/runtime/deploy-assets); `make installer-fakeroot` passed (23 passed / 7 skipped).
+- Production: repaired `.next`/`dist` ownership, restarted `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service`, reloaded Caddy, `/api/status` healthy 3/3, smoke 25/25 passed, recent next/ssh-ws logs clean.
+- Cleanup: no temporary QA users, Docker containers, SFTP/filesystem objects, or DB rows were created; no cleanup required.

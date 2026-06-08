@@ -2,7 +2,11 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { FileListClient, type FileProp, type FolderProp } from "../file-list-client";
+import {
+  FileListClient,
+  type FileProp,
+  type FolderProp,
+} from "../file-list-client";
 
 const pushMock = vi.hoisted(() => vi.fn());
 const refreshMock = vi.hoisted(() => vi.fn());
@@ -22,28 +26,60 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("../delete-confirm-button", () => ({
   DeleteConfirmButton: (props: { fileEntryId: string; entryName: string }) =>
-    React.createElement("button", { type: "button", "data-testid": "delete-btn", "data-file-entry-id": props.fileEntryId }, `删除 ${props.entryName}`),
+    React.createElement(
+      "button",
+      {
+        type: "button",
+        "data-testid": "delete-btn",
+        "data-file-entry-id": props.fileEntryId,
+      },
+      `删除 ${props.entryName}`,
+    ),
 }));
 
 vi.mock("../rename-inline-form", () => ({
-  RenameInlineForm: (props: { fileEntryId: string; currentName: string; entryType: string }) =>
+  RenameInlineForm: (props: {
+    fileEntryId: string;
+    currentName: string;
+    entryType: string;
+  }) =>
     React.createElement(
       "button",
-      { type: "button", "data-testid": "rename-btn", "data-entry-type": props.entryType, "data-file-entry-id": props.fileEntryId },
+      {
+        type: "button",
+        "data-testid": "rename-btn",
+        "data-entry-type": props.entryType,
+        "data-file-entry-id": props.fileEntryId,
+      },
       `重命名 ${props.currentName}`,
     ),
 }));
 
 vi.mock("../move-inline-form", () => ({
   MoveInlineForm: (props: { fileEntryId: string; name: string }) =>
-    React.createElement("button", { type: "button", "data-testid": "move-btn", "data-file-entry-id": props.fileEntryId }, `移动 ${props.name}`),
+    React.createElement(
+      "button",
+      {
+        type: "button",
+        "data-testid": "move-btn",
+        "data-file-entry-id": props.fileEntryId,
+      },
+      `移动 ${props.name}`,
+    ),
 }));
 
 vi.mock("../share-file-button", () => ({
-  ShareFileButton: (props: { entry: { id: string; name: string }; compact?: boolean }) =>
+  ShareFileButton: (props: {
+    entry: { id: string; name: string };
+    compact?: boolean;
+  }) =>
     React.createElement(
       "button",
-      { type: "button", "data-testid": "share-btn", "data-file-entry-id": props.entry.id },
+      {
+        type: "button",
+        "data-testid": "share-btn",
+        "data-file-entry-id": props.entry.id,
+      },
       props.compact ? "分享" : `分享 ${props.entry.name}`,
     ),
 }));
@@ -143,7 +179,9 @@ const directoryMimeFile: FileProp = {
   mimeType: "inode/directory",
 };
 
-function renderFileList(overrides: Partial<React.ComponentProps<typeof FileListClient>> = {}) {
+function renderFileList(
+  overrides: Partial<React.ComponentProps<typeof FileListClient>> = {},
+) {
   return render(
     <FileListClient
       folders={overrides.folders ?? [folder]}
@@ -153,7 +191,10 @@ function renderFileList(overrides: Partial<React.ComponentProps<typeof FileListC
       canShare={overrides.canShare ?? false}
       currentPath={overrides.currentPath ?? ""}
       searchQuery={overrides.searchQuery ?? ""}
-      selectionScopeSeed={overrides.selectionScopeSeed ?? `${overrides.currentPath ?? ""}\u0000${overrides.searchQuery ?? ""}`}
+      selectionScopeSeed={
+        overrides.selectionScopeSeed ??
+        `${overrides.currentPath ?? ""}\u0000${overrides.searchQuery ?? ""}`
+      }
       onFolderClick={overrides.onFolderClick ?? vi.fn()}
       onRefresh={overrides.onRefresh ?? vi.fn()}
     />,
@@ -175,8 +216,12 @@ describe("FileListClient", () => {
     const { container } = renderFileList();
 
     expect(screen.getByRole("button", { name: /photos/ })).toBeInTheDocument();
-    expect(container.querySelector('[data-testid="folder-thumbnail-overlay"]')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-testid="file-thumbnail-overlay"] img')).toHaveAttribute(
+    expect(
+      container.querySelector('[data-testid="folder-thumbnail-overlay"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-testid="file-thumbnail-overlay"] img'),
+    ).toHaveAttribute(
       "src",
       "/api/storage/local?path=photos%2Fcover.jpg&nodeId=node_1",
     );
@@ -211,7 +256,9 @@ describe("FileListClient", () => {
     expect(gridButton).toHaveAttribute("aria-pressed", "true");
 
     renderFileList();
-    expect(screen.getAllByRole("button", { name: "图标视图" })[1]).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getAllByRole("button", { name: "图标视图" })[1],
+    ).toHaveAttribute("aria-pressed", "true");
   });
 
   it("renders the table view without the type column so headers match row cells", () => {
@@ -223,8 +270,12 @@ describe("FileListClient", () => {
     expect(screen.getByText("修改时间")).toBeInTheDocument();
     expect(screen.queryByText("类型")).not.toBeInTheDocument();
     expect(screen.queryByText("image/jpeg")).not.toBeInTheDocument();
-    expect(container.querySelector('[data-testid="file-table-scroll"]')).toHaveClass("overflow-x-auto");
-    expect(container.querySelector('[data-testid="file-table-inner"]')).toHaveClass("min-w-[1180px]");
+    expect(
+      container.querySelector('[data-testid="file-table-scroll"]'),
+    ).toHaveClass("overflow-x-auto");
+    expect(
+      container.querySelector('[data-testid="file-table-inner"]'),
+    ).toHaveClass("min-w-[1180px]");
   });
 
   it("sorts by numeric file size instead of formatted labels", () => {
@@ -233,10 +284,16 @@ describe("FileListClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "按大小排序" }));
 
     const table = screen.getByTestId("file-table-inner");
-    const fileNames = Array.from(table.querySelectorAll("a.truncate.font-medium"))
+    const fileNames = Array.from(
+      table.querySelectorAll("a.truncate.font-medium"),
+    )
       .map((node) => node.textContent)
       .filter((name): name is string => Boolean(name));
-    expect(fileNames.slice(0, 3)).toEqual(["report.pdf", "cover.jpg", "archive.zip"]);
+    expect(fileNames.slice(0, 3)).toEqual([
+      "report.pdf",
+      "cover.jpg",
+      "archive.zip",
+    ]);
   });
 
   it("clears effective selection when path or search filters change while preserving sort state", () => {
@@ -273,8 +330,12 @@ describe("FileListClient", () => {
     );
 
     expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "按大小排序" })).toHaveTextContent("↑");
-    expect(screen.getAllByRole("link", { name: "report.pdf" })[0]).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "按大小排序" }),
+    ).toHaveTextContent("↑");
+    expect(
+      screen.getAllByRole("link", { name: "report.pdf" })[0],
+    ).toBeInTheDocument();
   });
 
   it("renders one effective attachment-capable download action instead of website and direct choices", () => {
@@ -283,7 +344,9 @@ describe("FileListClient", () => {
     expect(screen.queryByText("下载流量")).not.toBeInTheDocument();
     expect(screen.queryByText("网站")).not.toBeInTheDocument();
     expect(screen.queryByText("直连")).not.toBeInTheDocument();
-    const downloadLinks = screen.getAllByRole("link", { name: "下载 movie.mp4" });
+    const downloadLinks = screen.getAllByRole("link", {
+      name: "下载 movie.mp4",
+    });
     expect(downloadLinks[0]).toHaveAttribute(
       "href",
       "/api/storage/sftp-download?nodeId=node_sftp&path=media%2Fmovie.mp4&download=1",
@@ -292,10 +355,30 @@ describe("FileListClient", () => {
     expect(downloadLinks[0]).not.toHaveAttribute("target");
   });
 
+  it("keeps secondary file actions under a More menu across dense file rows", () => {
+    renderFileList({ files: [imageFile], folders: [], canShare: true });
+
+    expect(
+      screen.getAllByRole("button", { name: "资料详情 cover.jpg" }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("link", { name: "下载 cover.jpg" }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("button", { name: "更多操作 cover.jpg" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("share-btn").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("rename-btn").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("move-btn").length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("delete-btn").length).toBeGreaterThan(0);
+  });
+
   it("renders archive download actions for readable folders", () => {
     renderFileList({ files: [], folders: [folder] });
 
-    expect(screen.getAllByRole("link", { name: "下载目录 photos" })[0]).toHaveAttribute(
+    expect(
+      screen.getAllByRole("link", { name: "下载目录 photos" })[0],
+    ).toHaveAttribute(
       "href",
       "/api/storage/archive-download?nodeId=node_1&path=photos",
     );
@@ -304,28 +387,34 @@ describe("FileListClient", () => {
   it("opens an asset detail panel that consolidates preview, download, share, and media actions", () => {
     renderFileList({ files: [imageFile], folders: [], canShare: true });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0],
+    );
 
     const dialog = screen.getByRole("dialog", { name: "cover.jpg" });
     expect(dialog).toHaveTextContent("资料详情");
     expect(dialog).toHaveTextContent("photos/cover.jpg");
     expect(dialog).toHaveTextContent("本机存储");
-    expect(screen.getByRole("link", { name: "预览 / 在线编辑" })).toHaveAttribute(
-      "href",
-      expect.stringContaining("/files/preview?"),
-    );
+    expect(
+      screen.getByRole("link", { name: "预览 / 在线编辑" }),
+    ).toHaveAttribute("href", expect.stringContaining("/files/preview?"));
     expect(screen.getByRole("link", { name: "下载文件" })).toHaveAttribute(
       "href",
       "/api/storage/local?path=photos%2Fcover.jpg&nodeId=node_1&download=1",
     );
-    expect(screen.getByRole("link", { name: "在媒体库中查找" })).toHaveAttribute(
-      "href",
-      "/media?q=cover.jpg&type=image",
-    );
-    expect(screen.getAllByTestId("share-btn").some((button) => button.textContent === "分享 cover.jpg")).toBe(true);
+    expect(
+      screen.getByRole("link", { name: "在媒体库中查找" }),
+    ).toHaveAttribute("href", "/media?q=cover.jpg&type=image");
+    expect(
+      screen
+        .getAllByTestId("share-btn")
+        .some((button) => button.textContent === "分享 cover.jpg"),
+    ).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "关闭" }));
-    expect(screen.queryByRole("dialog", { name: "cover.jpg" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "cover.jpg" }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides detail panel actions when entry read permission is denied", () => {
@@ -341,12 +430,22 @@ describe("FileListClient", () => {
       canShare: true,
     });
 
-    fireEvent.click(screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0],
+    );
 
-    expect(screen.getByRole("dialog", { name: "cover.jpg" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "预览 / 在线编辑" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "下载文件" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "在媒体库中查找" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "cover.jpg" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "预览 / 在线编辑" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "下载文件" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "在媒体库中查找" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryAllByTestId("share-btn")).toHaveLength(0);
   });
 
@@ -361,7 +460,9 @@ describe("FileListClient", () => {
       ],
     });
 
-    expect(screen.queryByRole("link", { name: /cover\.jpg/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /cover\.jpg/ }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("选择 cover.jpg")).not.toBeInTheDocument();
     expect(screen.queryAllByTestId("delete-btn")).toHaveLength(0);
     fireEvent.click(screen.getByLabelText("全选文件"));
@@ -371,18 +472,32 @@ describe("FileListClient", () => {
   it("uses per-entry capabilities for batch actions", () => {
     renderFileList({
       files: [
-        { ...imageFile, capabilities: { canRead: true, canWrite: true, canDelete: false } },
-        { ...archiveFile, capabilities: { canRead: true, canWrite: false, canDelete: true } },
+        {
+          ...imageFile,
+          capabilities: { canRead: true, canWrite: true, canDelete: false },
+        },
+        {
+          ...archiveFile,
+          capabilities: { canRead: true, canWrite: false, canDelete: true },
+        },
       ],
     });
 
     fireEvent.click(firstFileCheckbox("cover.jpg"));
-    expect(screen.getByRole("button", { name: "批量移动" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "批量删除" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "批量移动" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "批量删除" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(firstFileCheckbox("archive.zip"));
-    expect(screen.queryByRole("button", { name: "批量移动" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "批量删除" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "批量移动" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "批量删除" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps batch delete selection open and reports per-file failures", async () => {
@@ -398,9 +513,17 @@ describe("FileListClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
-    await waitFor(() => expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByRole("alert", { name: /批量操作完成/ })).toBeInTheDocument());
-    expect(screen.getByRole("region", { name: "文件批量操作" })).toHaveAccessibleDescription(
+    await waitFor(() =>
+      expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(2),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("alert", { name: /批量操作完成/ }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("region", { name: "文件批量操作" }),
+    ).toHaveAccessibleDescription(
       "已选择 2 个文件，可取消选择或执行当前权限允许的批量操作。",
     );
     expect(onRefresh).toHaveBeenCalledTimes(1);
@@ -421,17 +544,28 @@ describe("FileListClient", () => {
     fireEvent.click(firstFileCheckbox("archive.zip"));
     fireEvent.click(firstFileCheckbox("report.pdf"));
     fireEvent.click(screen.getByRole("button", { name: "批量移动" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "批量移动目标路径" }), { target: { value: "archive" } });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "批量移动目标路径" }),
+      { target: { value: "archive" } },
+    );
     fireEvent.click(screen.getByRole("button", { name: "确认移动" }));
 
     await waitFor(() => expect(moveFileActionMock).toHaveBeenCalledTimes(3));
-    await waitFor(() => expect(screen.getByRole("alert", { name: /批量操作完成/ })).toBeInTheDocument());
-    expect(screen.getByRole("region", { name: "文件批量操作" })).toHaveAccessibleDescription(
+    await waitFor(() =>
+      expect(
+        screen.getByRole("alert", { name: /批量操作完成/ }),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("region", { name: "文件批量操作" }),
+    ).toHaveAccessibleDescription(
       "已选择 3 个文件，可取消选择或执行当前权限允许的批量操作。",
     );
     expect(onRefresh).toHaveBeenCalledTimes(1);
     expect(screen.getByText("已选 3 个文件")).toBeInTheDocument();
-    expect(screen.getByText(/archive\.zip: 目标目录不存在/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/archive\.zip: 目标目录不存在/),
+    ).toBeInTheDocument();
   });
 
   it("drops stale batch UI when the selection scope seed changes", async () => {
@@ -455,8 +589,14 @@ describe("FileListClient", () => {
     fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
-    await waitFor(() => expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole("alert", { name: /批量操作完成/ })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(1),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("alert", { name: /批量操作完成/ }),
+      ).toBeInTheDocument(),
+    );
     expect(screen.getByText(/节点不可写/)).toBeInTheDocument();
 
     rerender(
@@ -473,9 +613,12 @@ describe("FileListClient", () => {
       />,
     );
 
-    expect(screen.queryByRole("region", { name: "文件批量操作" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert", { name: /批量操作完成/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "文件批量操作" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("alert", { name: /批量操作完成/ }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/节点不可写/)).not.toBeInTheDocument();
   });
-
 });

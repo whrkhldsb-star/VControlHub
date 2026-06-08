@@ -13,7 +13,8 @@ export function classifyMedia(
 }
 
 function extensionOf(nameOrPath?: string | null) {
-  const basename = (nameOrPath ?? "").trim().toLowerCase().split(/[\\/]/).at(-1) ?? "";
+  const basename =
+    (nameOrPath ?? "").trim().toLowerCase().split(/[\\/]/).at(-1) ?? "";
   const index = basename.lastIndexOf(".");
   return index > 0 ? basename.slice(index) : "";
 }
@@ -81,7 +82,12 @@ const mediaItemSelect = {
 } as const;
 
 export async function listMediaItems(
-  input: { mediaType?: "image" | "video" | "audio"; q?: string; favorite?: boolean; tag?: string } = {},
+  input: {
+    mediaType?: "image" | "video" | "audio";
+    q?: string;
+    favorite?: boolean;
+    tag?: string;
+  } = {},
 ) {
   const q = input.q?.trim();
   const tag = input.tag?.trim();
@@ -130,7 +136,11 @@ export async function listMediaTypeCounts(
   });
   const counts = { image: 0, video: 0, audio: 0 };
   for (const row of grouped) {
-    if (row.mediaType === "image" || row.mediaType === "video" || row.mediaType === "audio") {
+    if (
+      row.mediaType === "image" ||
+      row.mediaType === "video" ||
+      row.mediaType === "audio"
+    ) {
       counts[row.mediaType] = row._count._all;
     }
   }
@@ -207,9 +217,26 @@ export async function scanMediaFromFileEntries(userId?: string) {
     },
   });
 
+  const staleFileEntries = await prisma.fileEntry.findMany({
+    where: {
+      OR: [{ isDeleted: true }, { entryType: { not: "FILE" } }],
+    },
+    select: { id: true },
+    take: 1000,
+  });
+  const staleFileEntryIds = staleFileEntries.map((entry) => entry.id);
+  const cleanup = staleFileEntryIds.length
+    ? await prisma.mediaItem.deleteMany({
+        where: { fileEntryId: { in: staleFileEntryIds } },
+      })
+    : { count: 0 };
+
   let upserted = 0;
   for (const entry of entries) {
-    const mediaType = classifyMedia(entry.mimeType, entry.name || entry.relativePath);
+    const mediaType = classifyMedia(
+      entry.mimeType,
+      entry.name || entry.relativePath,
+    );
     if (!mediaType) continue;
     const indexedMimeType = inferMediaMimeType({
       mimeType: entry.mimeType,
@@ -243,7 +270,7 @@ export async function scanMediaFromFileEntries(userId?: string) {
     upserted += 1;
   }
 
-  return { scanned: entries.length, upserted };
+  return { scanned: entries.length, upserted, removed: cleanup.count };
 }
 
 export async function updateMediaTags(input: {

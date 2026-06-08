@@ -21,14 +21,22 @@ describe("MediaScanButton", () => {
 
   it("runs the media scan API and reports scanned/upserted counts", async () => {
     const user = userEvent.setup();
-    vi.mocked(csrfFetch).mockResolvedValueOnce({ scanned: 4, upserted: 3 });
+    vi.mocked(csrfFetch).mockResolvedValueOnce({
+      scanned: 4,
+      upserted: 3,
+      removed: 2,
+    });
 
     render(<MediaScanButton />);
 
     await user.click(screen.getByRole("button", { name: "扫描媒体索引" }));
 
-    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/media", { method: "POST" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("扫描完成：发现 4 个媒体文件，更新 3 条索引");
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith("/api/media", { method: "POST" }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "扫描完成：发现 4 个媒体文件，更新 3 条索引，清理 2 条失效索引",
+    );
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
 
@@ -40,7 +48,9 @@ describe("MediaScanButton", () => {
 
     await user.click(screen.getByRole("button", { name: "扫描媒体索引" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("存储索引读取失败");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "存储索引读取失败",
+    );
     expect(screen.getByRole("button", { name: "扫描媒体索引" })).toBeEnabled();
     expect(refreshMock).not.toHaveBeenCalled();
   });

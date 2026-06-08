@@ -5,86 +5,105 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { StorageEntry } from "./file-entry-utils";
 
 type ShareFileButtonProps = {
-	entry: StorageEntry;
-	compact?: boolean;
+  entry: StorageEntry;
+  compact?: boolean;
+  onNotify?: (type: "success" | "error" | "info", message: string) => void;
 };
 
-export function ShareFileButton({ entry, compact = false }: ShareFileButtonProps) {
-	const [saving, setSaving] = useState(false);
-	const [shareUrl, setShareUrl] = useState("");
-	const [copied, setCopied] = useState(false);
-	const [error, setError] = useState("");
+export function ShareFileButton({
+  entry,
+  compact = false,
+  onNotify,
+}: ShareFileButtonProps) {
+  const [saving, setSaving] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
-	const canShare = entry.entryType === "FILE";
-	const label = useMemo(() => (compact ? "分享" : `分享 ${entry.name}`), [compact, entry.name]);
+  const canShare = entry.entryType === "FILE";
+  const label = useMemo(
+    () => (compact ? "分享" : `分享 ${entry.name}`),
+    [compact, entry.name],
+  );
 
-	async function copy(text: string) {
-		try {
-			await navigator.clipboard.writeText(text);
-			setCopied(true);
-			window.setTimeout(() => setCopied(false), 1800);
-		} catch {
-			setCopied(false);
-		}
-	}
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
 
-	async function handleShare() {
-		if (!canShare || saving) return;
-		setSaving(true);
-		setError("");
-		try {
-			const data = await csrfFetch<{ token: string }>("/api/share-links", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ fileEntryId: entry.id }),
-			});
-			const url = `${window.location.origin}/share/${data.token}`;
-			setShareUrl(url);
-			await copy(url);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "创建分享链接失败");
-		} finally {
-			setSaving(false);
-		}
-	}
+  async function handleShare() {
+    if (!canShare || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await csrfFetch<{ token: string }>("/api/share-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileEntryId: entry.id }),
+      });
+      const url = `${window.location.origin}/share/${data.token}`;
+      setShareUrl(url);
+      await copy(url);
+      onNotify?.("success", "分享链接已生成并复制到剪贴板");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "创建分享链接失败";
+      setError(message);
+      onNotify?.("error", message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
-	if (!canShare) return null;
+  if (!canShare) return null;
 
-	return (
-		<div className="relative inline-flex">
-			<button
-				type="button"
-				onClick={handleShare}
-				disabled={saving}
-				title={shareUrl ? "点击重新生成分享链接" : "分享文件"}
-				aria-label={label}
-				className={
-					compact
-						? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900 disabled:opacity-50"
-						: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900 disabled:opacity-50"
-				}
-			>
-				<span aria-hidden="true">🔗</span>
-				{compact ? null : <span>{saving ? "分享中…" : copied ? "已复制" : "分享"}</span>}
-			</button>
-			{shareUrl || error ? (
-				<div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-white/10 bg-slate-950 p-3 text-left text-xs shadow-xl light:border-slate-200 light:bg-white">
-					{error ? <p className="text-rose-300 light:text-rose-700">{error}</p> : null}
-					{shareUrl ? (
-						<div className="space-y-2">
-							<p className="font-medium text-emerald-200 light:text-emerald-800">分享链接已生成{copied ? "并复制" : ""}</p>
-							<code className="block break-all rounded-lg bg-white/[0.04] p-2 text-slate-300 light:bg-slate-50 light:text-slate-700">{shareUrl}</code>
-							<button
-								type="button"
-								onClick={() => copy(shareUrl)}
-								className="rounded-lg border border-emerald-400/30 px-2 py-1 text-emerald-100 light:text-emerald-800"
-							>
-								{copied ? "已复制 ✓" : "复制链接"}
-							</button>
-						</div>
-					) : null}
-				</div>
-			) : null}
-		</div>
-	);
+  return (
+    <div className="relative inline-flex">
+      <button
+        type="button"
+        onClick={handleShare}
+        disabled={saving}
+        title={shareUrl ? "点击重新生成分享链接" : "分享文件"}
+        aria-label={label}
+        className={
+          compact
+            ? "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/10 text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900 disabled:opacity-50"
+            : "inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-500/20 light:text-emerald-900 disabled:opacity-50"
+        }
+      >
+        <span aria-hidden="true">🔗</span>
+        {compact ? null : (
+          <span>{saving ? "分享中…" : copied ? "已复制" : "分享"}</span>
+        )}
+      </button>
+      {shareUrl || error ? (
+        <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border border-white/10 bg-slate-950 p-3 text-left text-xs shadow-xl light:border-slate-200 light:bg-white">
+          {error ? (
+            <p className="text-rose-300 light:text-rose-700">{error}</p>
+          ) : null}
+          {shareUrl ? (
+            <div className="space-y-2">
+              <p className="font-medium text-emerald-200 light:text-emerald-800">
+                分享链接已生成{copied ? "并复制" : ""}
+              </p>
+              <code className="block break-all rounded-lg bg-white/[0.04] p-2 text-slate-300 light:bg-slate-50 light:text-slate-700">
+                {shareUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => copy(shareUrl)}
+                className="rounded-lg border border-emerald-400/30 px-2 py-1 text-emerald-100 light:text-emerald-800"
+              >
+                {copied ? "已复制 ✓" : "复制链接"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }

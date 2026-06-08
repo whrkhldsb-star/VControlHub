@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-07T23:05:19Z",
+  "updatedAt": "2026-06-08T00:33:42Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,28 +58,26 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-07T22:47:37Z",
-    "finishedAt": "2026-06-07T23:05:19Z",
-    "target": "ai-provider-app-source-url-boundary",
-    "status": "verified_deployed_committing",
-    "summary": "Closed AI Provider and QuickService app-source static URL egress boundary by reusing a shared public HTTP(S) URL normalizer and deploying it to production.",
+    "startedAt": "2026-06-08T00:13:38Z",
+    "finishedAt": "2026-06-08T00:33:42Z",
+    "target": "files-media-dense-actions-closeout",
+    "status": "verified_deployed_pending_commit",
+    "summary": "Closed dirty Files/Media/installer slice: dense file actions moved under More with toast feedback, media scan/player continuity improved, and installer runtime roots respect non-default APP_SLUG.",
     "changeContract": {
-      "qaPathId": "ai-provider-app-source-url-boundary",
-      "userJourney": "An operator configures AI Provider base URLs or QuickService custom app sources; the server must reject localhost/private/link-local/metadata destinations before persistence or outbound fetch while preserving the default OpenAI base URL.",
+      "qaPathId": "files-media-dense-actions-closeout",
+      "userJourney": "An operator scans media, browses dense file rows/cards, performs share/rename/move/delete from a predictable More menu with visible feedback, and opens media playback with download/source/previous-next continuity.",
       "evidence": [
-        "Preflight: Docker available, services active/enabled, git clean, HEAD == origin/main b910a66, /api/status 200 healthy, recent logs clean",
-        "Reused storage direct-access public-host checks as normalizePublicHttpUrl and exported isUnsafePublicHttpHost",
-        "AI Provider create/update now normalizes baseUrl through the public HTTP(S) URL boundary; default remains https://api.openai.com/v1",
-        "QuickService app-source POST and server-side fetch now validate custom source URLs before persistence/fetch",
-        "npx vitest run src/lib/ai/service.test.ts src/lib/quick-service/__tests__/adapters.test.ts src/lib/storage/__tests__/schema.test.ts --reporter=dot passed 11/11",
-        "git diff --check passed",
-        "npm run typecheck passed",
-        "npm run lint -- --max-warnings=0 passed",
-        "npm run verify passed: Vitest 208 files / 944 tests plus Next build, runtime build, deploy-assets",
-        "Production services restarted after .next/dist ownership repair; first immediate /api/status hit transient 502, retry returned 200 healthy 3/3",
-        "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25",
-        "Post-restart next/ssh-ws filtered journal scan found no new error/warn/failed/exception matches; pre-restart media-stream No such file logs were unrelated",
-        "No temporary QA users, Docker containers, files, SFTP objects, or DB rows were created; unrelated media diff was reverted"
+        "Preflight: Docker available/running; services active/enabled; HEAD == origin/main 5b5587f; /api/status 200; protected routes guarded; logs clean; worktree dirty so no new QA lane opened.",
+        "git diff --check passed.",
+        "Targeted Vitest passed: file-list-client, media-scan-button, media service — 3 files / 25 tests.",
+        "npm run typecheck passed.",
+        "npm run lint -- --max-warnings=0 passed.",
+        "npm run verify passed: 208 files / 944 tests plus Next build, runtime build, deploy-assets.",
+        "make installer-fakeroot passed: deploy preflight 23 passed / 7 skipped and covered DOMAIN/Caddy, no-DOMAIN/Apache, SKIP_PACKAGES, DESTDIR, slug identifiers, DATABASE_URL sync.",
+        "Production activation completed after confirming no build process: chown -R vcontrolhub:vcontrolhub .next dist; restarted vcontrolhub-next and vcontrolhub-ssh-ws; reloaded caddy; services active.",
+        "/api/status returned healthy 3/3 and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
+        "Post-restart next/ssh-ws filtered journal scan found no error/warn/failed/exception matches.",
+        "No temporary QA users, Docker containers, files, SFTP objects, or DB rows were created."
       ]
     }
   },
@@ -96,7 +94,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 33,
+    "successfulRemediationRunsSinceFreshAudit": 34,
     "skippedOverlapRuns": 0
   },
   "blockers": [

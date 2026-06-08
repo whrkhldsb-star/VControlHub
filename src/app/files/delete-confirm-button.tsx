@@ -3,52 +3,86 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { deleteFileEntryAction, type StorageActionState } from "../storage/actions";
+import {
+  deleteFileEntryAction,
+  type StorageActionState,
+} from "../storage/actions";
 
 const initialState: StorageActionState = {};
 
 export function DeleteConfirmButton({
- fileEntryId,
- entryName,
- entryType,
- onRefresh,
+  fileEntryId,
+  entryName,
+  entryType,
+  onRefresh,
+  onNotify,
 }: {
- fileEntryId: string;
- entryName: string;
- entryType: "FILE" | "DIRECTORY";
- onRefresh?: () => void;
+  fileEntryId: string;
+  entryName: string;
+  entryType: "FILE" | "DIRECTORY";
+  onRefresh?: () => void;
+  onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
- const router = useRouter();
- const [confirming, setConfirming] = useState(false);
- const [state, formAction] = useActionState(deleteFileEntryAction, initialState);
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [state, formAction] = useActionState(
+    deleteFileEntryAction,
+    initialState,
+  );
 
- function handleCancel() {
- setConfirming(false);
- }
+  function handleCancel() {
+    setConfirming(false);
+  }
 
- useEffect(() => {
- if (!state.success) return;
- if (onRefresh) { onRefresh(); } else { router.refresh(); }
- }, [onRefresh, router, state.success]);
+  useEffect(() => {
+    if (!state.success) return;
+    onNotify?.("success", state.success);
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      router.refresh();
+    }
+  }, [onNotify, onRefresh, router, state.success]);
 
-	if (!confirming) {
-		return (
-			<button
-				type="button"
-				onClick={() => setConfirming(true)}
-				title="删除"
-				className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20"
-			>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-			</button>
-		);
-	}
+  useEffect(() => {
+    if (!state.error) return;
+    onNotify?.("error", state.error);
+  }, [onNotify, state.error]);
+
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        title="删除"
+        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 6h18" />
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </svg>
+      </button>
+    );
+  }
 
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <span className="text-sm text-rose-200 light:text-rose-800">
-        确认删除 {entryName}{entryType === "DIRECTORY" ? " 及其内容" : ""}？
+        确认删除 {entryName}
+        {entryType === "DIRECTORY" ? " 及其内容" : ""}？
       </span>
       <button
         type="submit"
@@ -63,12 +97,6 @@ export function DeleteConfirmButton({
       >
         取消
       </button>
-      {state.error ? (
-        <span className="text-xs text-rose-300">{state.error}</span>
-      ) : null}
-      {state.success ? (
-        <span className="text-xs text-emerald-300 light:text-emerald-700">{state.success}</span>
-      ) : null}
     </form>
   );
 }

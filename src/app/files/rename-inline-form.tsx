@@ -3,71 +3,121 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { renameFileEntryAction, type StorageActionState } from "../storage/actions";
+import {
+  renameFileEntryAction,
+  type StorageActionState,
+} from "../storage/actions";
 
 const initialState: StorageActionState = {};
 
 export function RenameInlineForm({
- fileEntryId,
- currentName,
-	currentPath,
-	onRefresh,
+  fileEntryId,
+  currentName,
+  currentPath,
+  onRefresh,
+  onNotify,
 }: {
- fileEntryId: string;
- currentName: string;
- currentPath: string;
- entryType: "FILE" | "DIRECTORY";
- onRefresh?: () => void;
+  fileEntryId: string;
+  currentName: string;
+  currentPath: string;
+  entryType: "FILE" | "DIRECTORY";
+  onRefresh?: () => void;
+  onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
- const router = useRouter();
- const [editing, setEditing] = useState(false);
- const [newName, setNewName] = useState(currentName);
- const inputRef = useRef<HTMLInputElement | null>(null);
- const [state, formAction] = useActionState(renameFileEntryAction, initialState);
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [newName, setNewName] = useState(currentName);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [state, formAction] = useActionState(
+    renameFileEntryAction,
+    initialState,
+  );
 
- function handleToggle() {
- setEditing(true);
- setNewName(currentName);
- setTimeout(() => inputRef.current?.focus(), 0);
- }
+  function handleToggle() {
+    setEditing(true);
+    setNewName(currentName);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
 
- function handleCancel() {
- setEditing(false);
- setNewName(currentName);
- }
+  function handleCancel() {
+    setEditing(false);
+    setNewName(currentName);
+  }
 
- useEffect(() => {
- 	if (!state.success) return;
- 	// Surface the success message briefly, then close + refresh.
- 	const t = setTimeout(() => {
- 		setEditing(false);
- 		if (onRefresh) { onRefresh(); } else { router.refresh(); }
- 	}, 700);
- 	return () => clearTimeout(t);
- }, [state.success, onRefresh, router]);
+  useEffect(() => {
+    if (!state.success) return;
+    onNotify?.("success", state.success);
+    const t = setTimeout(() => {
+      setEditing(false);
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        router.refresh();
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [state.success, onNotify, onRefresh, router]);
 
-	if (!editing) {
-		return (
-			<button
-				type="button"
-				onClick={handleToggle}
-				title="重命名"
-				className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 light:text-amber-900 transition hover:bg-amber-400/20"
-			>
-				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
-			</button>
-		);
-	}
+  useEffect(() => {
+    if (!state.error) return;
+    onNotify?.("error", state.error);
+  }, [state.error, onNotify]);
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={handleToggle}
+        title="重命名"
+        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 light:text-amber-900 transition hover:bg-amber-400/20"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+          <path d="m15 5 4 4" />
+        </svg>
+      </button>
+    );
+  }
 
   const lastSlashIndex = currentPath.lastIndexOf("/");
-  const pathPrefix = lastSlashIndex >= 0 ? currentPath.substring(0, lastSlashIndex + 1) : "";
-  const previewPath = newName.trim() ? `${pathPrefix}${newName.trim()}`: currentPath; return ( <form action={formAction} className="flex flex-wrap items-center gap-3"> <input type="hidden" name="fileEntryId" value={fileEntryId} /> <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700"> <span className="sr-only">新名称</span> <input ref={inputRef} name="newName" value={newName} onChange={(event) => setNewName(event.currentTarget.value)} required minLength={1} maxLength={255} pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
+  const pathPrefix =
+    lastSlashIndex >= 0 ? currentPath.substring(0, lastSlashIndex + 1) : "";
+  const previewPath = newName.trim()
+    ? `${pathPrefix}${newName.trim()}`
+    : currentPath;
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-3">
+      {" "}
+      <input type="hidden" name="fileEntryId" value={fileEntryId} />{" "}
+      <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
+        {" "}
+        <span className="sr-only">新名称</span>{" "}
+        <input
+          ref={inputRef}
+          name="newName"
+          value={newName}
+          onChange={(event) => setNewName(event.currentTarget.value)}
+          required
+          minLength={1}
+          maxLength={255}
+          pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder="输入新名称"
           className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400"
         />
       </label>
       {newName.trim() && newName !== currentName ? (
-        <span className="text-xs text-slate-400 light:text-slate-600">路径：/{previewPath}</span>
+        <span className="text-xs text-slate-400 light:text-slate-600">
+          路径：/{previewPath}
+        </span>
       ) : null}
       <button
         type="submit"
@@ -83,12 +133,6 @@ export function RenameInlineForm({
       >
         取消
       </button>
-      {state.error ? (
-        <span className="text-xs text-rose-300">{state.error}</span>
-      ) : null}
-      {state.success ? (
-        <span className="text-xs text-emerald-300 light:text-emerald-700">{state.success}</span>
-      ) : null}
     </form>
   );
 }
