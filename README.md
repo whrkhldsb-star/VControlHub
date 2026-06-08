@@ -385,7 +385,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **代码片段搜索已补可见标签。** `/snippets` 列表搜索框新增“搜索代码片段”可见 label，placeholder 缩小为标题/内容/标签提示，回归测试按 searchbox 名称输入并确认过滤结果。
 - [x] **公告搜索已补可见标签。** `/announcements` 列表搜索框新增“搜索公告”可见 label，placeholder 缩小为标题/内容提示，回归测试按 searchbox 名称输入并确认过滤结果。
 - [x] **媒体库搜索已补可见标签。** `/media` 筛选表单的搜索框新增“搜索媒体”可见 label，placeholder 缩小为文件名/路径/标签提示，回归测试按 searchbox 名称定位并确认查询值保留。
-- [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索、Docker 日志、Docker 删除确认和 SSH 终端已具备统一 dialog focus 管理；文件浏览 SPA 已支持目录导航 pushState 与 popstate 恢复；SSH 终端已完成移动端纵向布局和响应式命令面板；文本预览搜索/跳转、文件浏览搜索、代码片段搜索、公告搜索和媒体库搜索已补可见 label，后续继续巡检其它 placeholder-only/低可见度控件。
+- [x] **备份创建表单已补可见标签。** `/backups` 的“创建并执行备份”表单不再只靠下拉框内容和备注 placeholder 传达字段含义；备份类型和备份备注都有可见 label，回归测试按 label 查询默认备份类型和备注提示，保证键盘、低视力和翻译场景下仍能理解一次性备份创建入口。
+- [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索、Docker 日志、Docker 删除确认和 SSH 终端已具备统一 dialog focus 管理；文件浏览 SPA 已支持目录导航 pushState 与 popstate 恢复；SSH 终端已完成移动端纵向布局和响应式命令面板；文本预览搜索/跳转、文件浏览搜索、代码片段搜索、公告搜索、媒体库搜索和备份创建表单已补可见 label，后续继续巡检其它 placeholder-only/低可见度控件。
 - [x] **AI Provider 与应用源 URL 出网边界收紧。** AI Provider 的 `baseUrl` 和 QuickService 自定义应用源 URL 现在复用统一公网 HTTP(S) URL 校验，拒绝携带凭据、localhost、回环、内网、链路本地和常见 metadata 主机地址，并在创建/更新 Provider、创建应用源和服务端 fetch 应用源前二次拦截；默认 OpenAI Base URL 仍保持 `https://api.openai.com/v1`。后续仍建议用生产 egress policy / 代理 allowlist / DNS 解析与重定向复检继续防御 DNS rebinding 和重定向到私网。
 - [x] **登录态 LOCAL/SFTP 下载流层已统一。** `/api/storage/local` 和 `/api/storage/sftp-download` 现在复用统一 Storage Stream helper 处理 Range 解析、`Accept-Ranges`、`Content-Range`、`Content-Length`、`Content-Disposition`、私有缓存头和 Node→Web stream 转换；SFTP 普通下载新增 `Range` / `206` / `416` 行为，远端流关闭或出错时会释放 SSH 连接，文件预览/大文件拖动不再因为登录态普通下载路径缺少 Range 语义而退化。
 - [x] **公开目录分享已支持整体打包下载。** 公开分享页的目录卡片现在提供“下载整个目录”，调用 `/api/share/[token]?archive=1` 直接流式返回 `tar.gz`；公开 token 下载与登录态 `/api/storage/archive-download` 复用同一 Storage Archive helper 生成 LOCAL/SFTP tar.gz、中文文件名 `Content-Disposition` 和 SSH 流关闭逻辑，避免公开目录只能逐个文件下载。
@@ -425,7 +426,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。
 - [ ] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表也已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；继续让存储/直连入口接入 SFTP/Direct Gateway 专项探测。
-- [ ] 可访问性收口：为 SSH 终端、Docker 日志、全局搜索等弹窗统一补 focus trap、Escape、focus restore；为文本预览搜索/跳转、文件浏览搜索、SSH 命令输入等补显式 label/aria-label。
+- [ ] 可访问性收口：全局搜索、Docker 日志、Docker 删除确认、SSH 终端、文件/媒体/公告/代码片段搜索、文本预览搜索/跳转和备份创建表单已补关键 focus/label；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。
 - [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。
 
 ### P3 — 长期愿景

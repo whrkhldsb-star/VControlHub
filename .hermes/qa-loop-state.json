@@ -1,35 +1,53 @@
 {
-  "updatedAt": "2026-06-08T17:22:00Z",
-  "runCounter": 60,
-  "lastRunStatus": "backups_durable_job_i18n_deployed",
-  "lastRunTarget": "backups-durable-job-i18n-truthfulness",
+  "updatedAt": "2026-06-08T17:52:20Z",
+  "runCounter": 61,
+  "lastRunStatus": "backups_create_form_visible_labels_completed_verified_deployed",
+  "lastRunTarget": "backups-create-form-visible-labels",
   "overallReviewDue": false,
-  "note": "Environment capability: Docker available/running, services active, git clean/origin-synced on entry, /api/status and /login healthy in deterministic preflight, recent logs clean, and swap steady at one 6G /swapfile. Selected user journey: /backups English-language create backup form truthfulness after backup creation moved to Durable Job. Change: DOM i18n fallback now translates 创建并执行备份 as Create and queue backup and translates the description to Durable Job background queue/PENDING-RUNNING-COMPLETED-FAILED refresh semantics; old immediate deploy/backup.sh wording is absent. Evidence: targeted dom translation/bridge tests passed 8/8; authenticated production curl for /backups with vps-locale=en returned 200 and showed the new queued source copy, old sync source copy absent, and DOM bridge present; built .next static chunk contains the new English copy. Regression: git diff --check passed, targeted i18n tests passed, npm run typecheck passed, npm run lint -- --max-warnings=0 passed, full npm run verify passed with 214 files / 1005 tests plus Next build/runtime/deploy-assets. Production: after chown/restart/reload, first /api/status hit a transient 502 restart-window but retry returned 200 healthy 3/3, services active, worker startup logs normal, smoke 25/25 passed, /backups unauth 307 and /api/status 200, filtered logs clean. Cleanup: deleted temporary qa_cron_i18n user and temp helper/session files. Next candidates: QuickService durable job migration/config diff/history/rollback, storage/Direct Gateway real probe, stale SFTP inventory reconciliation, backup retention/offsite/restore drills.",
+  "note": "Environment capability: Docker available/running, git clean/origin-synced on entry, services active, /api/status healthy, no verify/build/deploy overlap beyond non-production tsserver LSP, logs clean, swap steady at one 6G /swapfile. Selected user journey: /backups create/schedule backup form accessibility after Durable Job backup creation. Closed with visible htmlFor/id labels, regression coverage, production authenticated DOM proof, full npm run verify, restart, smoke 25/25, clean logs, and QA user cleanup.",
   "lastRun": {
-    "id": "backups-durable-job-i18n-truthfulness",
-    "title": "Backups Durable Job English copy truthfulness",
-    "startedAt": "2026-06-08T17:05:00Z",
-    "finishedAt": "2026-06-08T17:22:00Z",
-    "status": "completed",
-    "summary": "/backups English DOM translations now match the queued Durable Job backup creation model.",
+    "id": "backups-create-form-visible-labels",
+    "title": "Backups create/schedule form visible labels",
+    "startedAt": "2026-06-08T17:34:25Z",
+    "finishedAt": "2026-06-08T17:52:20Z",
+    "status": "completed_verified_deployed",
+    "summary": "/backups create and schedule backup forms now use visible htmlFor/id labels for backup type, note, and cron controls; production DOM and full deploy smoke passed.",
+    "evidenceMatrix": {
+      "browser_or_dom": "Production browser logged in with temporary admin qa_cron_backup_label_20260608, opened /backups, and DOM proof confirmed create-backup-type SELECT DATABASE, create-backup-note INPUT with placeholder “可选：记录触发原因或范围”, schedule-backup-type SELECT DATABASE, and schedule-backup-cron INPUT value “0 3 * * *” are all present with visible label associations. Viewport/clientWidth 1910 equaled scrollWidth 1910 and no alert text was present.",
+      "api": "Public /api/status returned HTTP 200 healthy 3/3 after deployment; unauthenticated /backups returned 307 to /login?next=%2Fbackups, preserving the protected route boundary.",
+      "db_or_persisted_config": "Temporary qa_cron_backup_label_20260608 admin user was created only for production browser verification, then Prisma cleanup deleted 1 matching user and verified remaining qa_cron_* users 0.",
+      "filesystem_or_sftp": "No product filesystem/SFTP mutation was intended. Build artifacts were verified after npm run verify and ownership repaired for .next/dist before service restart.",
+      "background_task_or_process": "No overlapping verify/build/deploy process was active at selection time; production vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy handled the restarted deployment and smoke checks.",
+      "runtime_or_ui_side_effect": "The /backups create and schedule forms now expose visible labels through htmlFor/id instead of wrapping controls in labels, avoiding the DOM i18n bridge pitfall that previously removed nested select elements.",
+      "permissions": "The authenticated browser proof used a temporary admin session; unauthenticated protected-route behavior remained a 307 redirect and no QA user remains.",
+      "regression": [
+        "git diff --check passed",
+        "npx vitest run src/app/backups/__tests__/page.test.tsx passed after adding label-query coverage for both backup type selects",
+        "npm run typecheck passed",
+        "npm run verify passed: full Vitest 214 files / 1005 tests, Next build, runtime build, deploy-assets"
+      ],
+      "production": "Repaired ownership with chown -R vcontrolhub:vcontrolhub .next dist, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded/restarted caddy, confirmed /api/status 200 healthy, and ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed ALL 25 CHECKS.",
+      "logs": "Recent journal scan over vcontrolhub-next.service and vcontrolhub-ssh-ws.service for error|warn|failed|exception|EACCES|permission denied|Could not find a production build|Server Action returned no matches. Swap stayed at a single 6G /swapfile with about 1.0G used.",
+      "cleanup": "Deleted temporary qa_cron_backup_label_20260608 and verified qa_cron_* remaining 0; no canary files or containers were created."
+    },
     "changeContract": {
       "files": [
-        "src/lib/i18n/dom-translations.ts",
-        "src/lib/i18n/__tests__/dom-translations.test.ts",
+        "src/app/backups/create-backup-form.tsx",
+        "src/app/backups/schedule-backup-form.tsx",
+        "src/app/backups/__tests__/page.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json",
         ".hermes/qa-loop-state.json"
       ],
       "evidence": [
-        "English DOM fallback translates the create backup form as Create and queue backup.",
-        "Production authenticated /backups HTML contains the queued source copy and no old immediate deploy/backup.sh source copy.",
-        "Built .next static bundle contains the new English copy.",
-        "Targeted tests, lint, typecheck, full verify, restart, smoke, status, and log scan passed."
+        "Backup create form exposes visible labels for backup type and note.",
+        "Scheduled backup form keeps label-queryable type and Cron controls despite DOM i18n bridge translation.",
+        "Regression queries both backup type selects by label and production DOM proves the controls remain rendered."
       ],
       "remaining": [
-        "QuickService install/update/uninstall durable-job migration with config diff/history/rollback.",
-        "Backup retention, offsite backup, and restore-drill automation."
+        "Continue placeholder-only/low-visibility control patrol on lower-traffic pages such as image-bed/tickets/audit/AI.",
+        "QuickService durable job migration/config diff/history/rollback remains a higher-value P1 candidate."
       ]
     }
   }

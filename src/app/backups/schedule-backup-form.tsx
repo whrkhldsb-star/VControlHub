@@ -17,6 +17,9 @@ const TYPE_LABEL: Record<BackupType, string> = {
   FULL: "完整",
 };
 
+const scheduleBackupTypeSelectId = "schedule-backup-type";
+const scheduleCronInputId = "schedule-backup-cron";
+
 function describeCronPreview(expr: string) {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
@@ -78,18 +81,18 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
   return (
     <form onSubmit={createSchedule} className="mt-4 space-y-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.04] p-4">
       <div className="grid gap-3 md:grid-cols-[180px_1fr]">
-        <label className="space-y-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
-          备份类型
-          <select value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 light:text-slate-900">
+        <div className="space-y-1.5">
+          <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-slate-400 light:text-slate-600">备份类型</label>
+          <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 light:text-slate-900">
             <option value="DATABASE">数据库备份</option>
             <option value="FILES">文件备份</option>
             <option value="FULL">完整备份</option>
           </select>
-        </label>
-        <label className="space-y-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
-          Cron 表达式
-          <input value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm font-mono text-slate-100 light:text-slate-900" />
-        </label>
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-slate-400 light:text-slate-600">Cron 表达式</label>
+          <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm font-mono text-slate-100 light:text-slate-900" />
+        </div>
       </div>
       <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
       <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{command}</code>

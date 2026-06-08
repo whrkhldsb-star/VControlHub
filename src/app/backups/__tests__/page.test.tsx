@@ -77,6 +77,9 @@ describe("BackupsPage", () => {
     expect(screen.getByText("创建并执行备份")).toBeInTheDocument();
     expect(screen.getByText(/创建可审计备份记录并排入 Durable Job 后台队列/)).toBeInTheDocument();
     expect(screen.queryByText(/提交后会立即在服务器执行对应的 deploy\/backup\.sh 模式/)).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("备份类型")).toHaveLength(2);
+    expect(screen.getAllByLabelText("备份类型")[0]).toHaveValue("DATABASE");
+    expect(screen.getByLabelText("备份备注")).toHaveAttribute("placeholder", "例如：升级前备份");
     expect(screen.getByRole("button", { name: "创建并执行" })).toBeInTheDocument();
 
     expect(screen.getByText("备份策略概览")).toBeInTheDocument();
