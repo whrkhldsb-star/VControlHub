@@ -367,7 +367,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **部署“回滚”目前只是重发最近部署（P1）。** `/deployments` 的“快速回退/按此记录重发”会用同一模板、变量和服务器重新提交部署，并不是快照级回滚、上个版本恢复或失败自动回退；README 已改为“最近部署重发”，后续需要补真实回滚语义。
 - [ ] **AI Hosted Tools 授权边界仍需收紧（P1）。** `/api/ai/chat` 只要求 `ai:chat`，启用 Hosting 后模型可携带 `serverId` 触发托管工具；`get_server_status`、`read_server_logs`、`check_service_status` 等低风险工具会自动批准并通过 SSH 执行，目前未按 `server:ssh`、服务器所有权或细粒度节点授权再校验。`read_server_logs` 虽做 shell quoting 和路径字符限制，但未限制在 `/var/log` 等安全目录；危险工具会进入审批流，但默认“原请求者可批准自己的操作”，不等同管理员审批。后续需要增加服务器级授权校验、只读工具目录白名单、审批人分离/管理员审批策略。
 - [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 模块只管理 Hub 所在机器的 `/var/run/docker.sock`，不是跨 VPS 容器控制台；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，但第三方模板仍属于供应链输入，且安装/更新还缺配置 diff、失败回滚和历史日志。Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，需要反代 TLS/VPN/防火墙或改造默认部署。
-- [ ] **公开状态与运行态展示仍可能过于乐观（P2）。** `/status` 已把启用 VPS/存储节点文案从“服务在线”改为“已启用/已配置，未做实时 SSH/SFTP/直连探测”，不再把资产配置伪装成实时可达；但公开状态页、VPS 列表徽章和存储/直连入口仍未接入真实 SSH、Direct Gateway、SFTP 存储可达性探测，后续应补真实健康探测或继续在列表层明确展示“未实时探测”。
+- [ ] **公开状态与运行态展示仍可能过于乐观（P2）。** `/status` 已把启用 VPS/存储节点文案从“服务在线”改为“已启用/已配置，未做实时 SSH/SFTP/直连探测”，`/servers` 列表徽章也改为“启用 · 待探测”并在卡片层提示列表状态不代表实时在线，详情页可运行 SSH 只读实时探测；后续仍需把存储/直连入口接入 SFTP/Direct Gateway 专项探测。
 - [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索已具备 `dialog` 语义、初始聚焦和 Escape 关闭，但仍缺 focus trap/focus restore；SSH 终端缺 Escape/focus trap/focus restore，且固定 `minHeight: 400px`、横向命令侧栏在手机上仍易拥挤；Docker 日志弹窗缺 `role="dialog"` / `aria-modal` / 标题关联、Escape 和焦点管理；文本预览搜索/跳转、文件浏览搜索、SSH 常用命令输入等仍依赖 placeholder 而缺显式 label；文件浏览使用 `replaceState` 更新目录 URL，浏览器后退不能逐级回到上一个目录。
 - [x] **AI Provider 与应用源 URL 出网边界收紧。** AI Provider 的 `baseUrl` 和 QuickService 自定义应用源 URL 现在复用统一公网 HTTP(S) URL 校验，拒绝携带凭据、localhost、回环、内网、链路本地和常见 metadata 主机地址，并在创建/更新 Provider、创建应用源和服务端 fetch 应用源前二次拦截；默认 OpenAI Base URL 仍保持 `https://api.openai.com/v1`。后续仍建议用生产 egress policy / 代理 allowlist / DNS 解析与重定向复检继续防御 DNS rebinding 和重定向到私网。
 - [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** SFTP 音视频预览目前仍复用 `/api/storage/sftp-download` 普通下载流，缺少 `Range` / `206` 支持，和媒体库 `/api/media/[id]/stream` 已有受控流能力不一致，大文件拖动播放体验可能不稳定；公开目录分享现在会自动刷新目录索引并可下载目录内具体文件，但尚不能像登录态 `/api/storage/archive-download` 那样一键打包下载整个目录；Office 预览和压缩包在线解压是安全降级入口，主要提供说明/下载，后续应在列表按钮和 README/API 文档里更早提示当前边界，或补专用 storage media stream、share archive endpoint 和受控格式解压。
@@ -400,7 +400,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 备份策略管理：UI 化定时备份入口已完成，继续补后台任务化执行、异地备份、恢复验证、保留策略自动清理。
 - [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。
-- [ ] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”；继续让 VPS 列表徽章、存储/直连入口接入 SSH/SFTP/Direct Gateway 探测，或在列表层明确展示“未实时探测”。
+- [ ] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表也已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；继续让存储/直连入口接入 SFTP/Direct Gateway 专项探测。
 - [ ] 可访问性收口：为 SSH 终端、Docker 日志、全局搜索等弹窗统一补 focus trap、Escape、focus restore；为文本预览搜索/跳转、文件浏览搜索、SSH 命令输入等补显式 label/aria-label。
 - [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。
 

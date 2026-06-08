@@ -131,7 +131,8 @@ describe("ServersPage", () => {
       "aria-controls",
       "server-details-srv_1",
     );
-    expect(screen.getByRole("status", { name: "节点状态：已启用" })).toHaveTextContent("启用");
+    expect(screen.getByRole("status", { name: "节点实时状态：启用 · 待探测" })).toHaveTextContent("启用 · 待探测");
+    expect(screen.getByText(/列表状态未代表 SSH\/SFTP\/直连实时在线/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "hk-prod-1 VPS 详情" })).not.toBeInTheDocument();
     expect(screen.queryByText("连接与状态")).not.toBeInTheDocument();
     expect(screen.queryByText("最近命令投递")).not.toBeInTheDocument();

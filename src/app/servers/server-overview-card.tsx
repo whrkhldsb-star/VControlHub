@@ -58,7 +58,13 @@ export function ServerOverviewCard({
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? "网站中转";
   const detailsId = `server-details-${server.id}`;
-  const managedStatusLabel = server.enabled ? "已启用" : "已停用";
+  const listHealthLabel = server.enabled ? "启用 · 待探测" : "停用";
+  const listHealthDescription = server.enabled
+    ? "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。"
+    : "节点已停用，不会接收新的 SSH、文件或直连操作。";
+  const listHealthToneClass = server.enabled
+    ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50 light:text-amber-800"
+    : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:border-slate-300 light:bg-slate-100 light:text-slate-700";
   const diagnosticItems = [
     {
       label: "SSH 交互连接",
@@ -156,10 +162,11 @@ export function ServerOverviewCard({
         </div>
         <span
           role="status"
-          aria-label={`节点状态：${managedStatusLabel}`}
-          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${server.enabled ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/25 light:bg-emerald-50 light:text-emerald-800" : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:border-slate-300 light:bg-slate-100 light:text-slate-700"}`}
+          aria-label={`节点实时状态：${listHealthLabel}`}
+          title={listHealthDescription}
+          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${listHealthToneClass}`}
         >
-          {server.enabled ? "启用" : "停用"}
+          {listHealthLabel}
         </span>
       </div>
 
@@ -175,6 +182,9 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} 条`}
         />
       </div>
+      <p className="mt-2 rounded-lg border border-amber-400/10 bg-amber-400/[0.04] px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50 light:text-amber-800">
+        {listHealthDescription}
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         {server.enabled && canUseSshTerminal ? (
