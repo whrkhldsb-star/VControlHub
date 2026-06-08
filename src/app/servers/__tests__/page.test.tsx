@@ -163,6 +163,21 @@ describe("ServersPage", () => {
     expect(screen.getByText("连接与状态")).toBeInTheDocument();
     expect(screen.getByText(/状态徽章表示 VControlHub 是否允许该 VPS 接收操作/)).toBeInTheDocument();
     expect(screen.getByText(/直连访问异常/)).toBeInTheDocument();
+    expect(screen.getByText("诊断下一步")).toBeInTheDocument();
+    expect(screen.getByText(/节点“启用”只表示允许接收操作/)).toBeInTheDocument();
+    expect(screen.getByText("SSH 交互连接")).toBeInTheDocument();
+    expect(screen.getByText("SFTP / 文件管理")).toBeInTheDocument();
+    expect(screen.getByText("Direct Gateway")).toBeInTheDocument();
+    expect(screen.getByText("命令审批队列")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看实时监控 JSON" })).toHaveAttribute(
+      "href",
+      "/api/servers/monitor?serverId=srv_1",
+    );
+    expect(screen.getAllByRole("link", { name: "打开相关入口" })[0]).toHaveAttribute(
+      "href",
+      "/files?nodeId=node_1",
+    );
+    expect(screen.getByText("1 条待处理")).toBeInTheDocument();
     expect(screen.getAllByText("prod-root-key").length).toBeGreaterThan(1);
   });
 

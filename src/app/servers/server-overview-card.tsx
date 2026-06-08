@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { ServerCardActions } from "./server-card-actions";
@@ -28,7 +29,7 @@ type ServerOverviewCardProps = {
       targetStatus: string;
     }>;
     sshKey: { name: string; fingerprint?: string | null } | null;
-    storageNode?: { name: string; basePath: string } | null;
+    storageNode?: { id: string; name: string; basePath: string } | null;
     directGateway?: {
       enabled: boolean;
       statusLabel: string;
@@ -51,6 +52,44 @@ export function ServerOverviewCard({
   const directLabel = server.directGateway?.statusLabel ?? "网站中转";
   const detailsId = `server-details-${server.id}`;
   const managedStatusLabel = server.enabled ? "已启用" : "已停用";
+  const diagnosticItems = [
+    {
+      label: "SSH 交互连接",
+      status: server.enabled && canUseSshTerminal ? "可验证" : server.enabled ? "缺少权限" : "节点停用",
+      tone: server.enabled && canUseSshTerminal ? "success" : "warning",
+      detail: server.enabled
+        ? "从详情操作区打开 SSH 终端，确认凭据、网络和远端 shell 是否真实可用。"
+        : "先启用节点后再进行实时连接诊断。",
+      href: null,
+    },
+    {
+      label: "SFTP / 文件管理",
+      status: server.storageNode ? "已绑定" : "未绑定",
+      tone: server.storageNode ? "success" : "warning",
+      detail: server.storageNode
+        ? `文件入口将使用 ${server.storageNode.name} · ${server.storageNode.basePath}。`
+        : "未绑定存储节点时，文件浏览、媒体索引和直连文件代理都缺少真实目录边界。",
+      href: server.storageNode ? `/files?nodeId=${encodeURIComponent(server.storageNode.id)}` : null,
+    },
+    {
+      label: "Direct Gateway",
+      status: server.directGateway?.enabled ? "已配置" : "网站中转",
+      tone: server.directGateway?.enabled ? "success" : "info",
+      detail: server.directGateway?.enabled
+        ? "直连签名链接已配置；仍需通过文件下载/媒体播放或目标端口探测确认公网可达。"
+        : "当前会回退到网站服务器中转，适合先保证可用性，再决定是否启用直连。",
+      href: server.directGateway?.publicUrl ?? null,
+    },
+    {
+      label: "命令审批队列",
+      status: server.pendingCommandCount > 0 ? `${server.pendingCommandCount} 条待处理` : "无待审批",
+      tone: server.pendingCommandCount > 0 ? "warning" : "success",
+      detail: server.pendingCommandCount > 0
+        ? "先处理审批中心里的待审批命令，避免诊断结果被排队任务遮蔽。"
+        : "没有待审批命令阻塞当前节点操作。",
+      href: server.pendingCommandCount > 0 ? "/requests" : null,
+    },
+  ] as const;
 
   return (
     <article className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04] light:border-slate-200 light:bg-white light:shadow-sm light:hover:bg-slate-50">
@@ -204,6 +243,53 @@ export function ServerOverviewCard({
             ) : null}
           </section>
 
+          <section className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035] p-3 light:border-cyan-700/15 light:bg-cyan-50">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-cyan-100 light:text-cyan-950">
+                  诊断下一步
+                </h3>
+                <p className="mt-1 text-[11px] leading-5 text-slate-400 light:text-slate-700">
+                  这里展示的是可执行诊断入口：节点“启用”只表示允许接收操作，不等于 SSH、SFTP 或 Direct Gateway 实时在线。
+                </p>
+              </div>
+              <Link
+                href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
+                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20 light:bg-white light:text-cyan-900"
+              >
+                查看实时监控 JSON
+              </Link>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {diagnosticItems.map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-lg border border-white/[0.05] bg-slate-950/35 p-3 light:border-slate-200 light:bg-white"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-white light:text-slate-950">
+                      {item.label}
+                    </span>
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] ${statusToneClass(item.tone)}`}>
+                      {item.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[11px] leading-5 text-slate-500 light:text-slate-600">
+                    {item.detail}
+                  </p>
+                  {item.href ? (
+                    <Link
+                      href={item.href}
+                      className="mt-2 inline-flex text-[11px] font-medium text-cyan-200 underline-offset-4 hover:underline light:text-cyan-800"
+                    >
+                      打开相关入口
+                    </Link>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+
           <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
             <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
               最近命令投递
@@ -259,4 +345,14 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <span className="truncate text-sm text-white light:text-slate-900">{value}</span>
     </div>
   );
+}
+
+function statusToneClass(tone: "success" | "warning" | "info") {
+  if (tone === "success") {
+    return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-800";
+  }
+  if (tone === "warning") {
+    return "border-amber-400/25 bg-amber-400/10 text-amber-200 light:border-amber-700/20 light:bg-amber-50 light:text-amber-800";
+  }
+  return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50 light:text-sky-800";
 }
