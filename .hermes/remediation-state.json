@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-08T01:50:18Z",
+  "updatedAt": "2026-06-08T04:38:51Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,22 +58,21 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "startedAt": "2026-06-08T01:48:38Z",
-    "finishedAt": "2026-06-08T01:50:18Z",
-    "target": "servers-overview-diagnostic-runstate-half-slice",
-    "status": "dirty_closeout_reverted_half_slice_verified",
-    "summary": "Closed the dirty worktree by reverting a half-finished unused Servers overview diagnostic type, then verified targeted Servers/SSH regressions, production smoke, /api/status, services, logs, and origin sync without product deployment.",
+    "startedAt": "2026-06-08T04:19:20Z",
+    "finishedAt": "2026-06-08T04:38:51Z",
+    "target": "backups-datetime-media-stream-closeout",
+    "status": "dirty_closeout_verified_deployed_uncommitted",
+    "summary": "Closed the existing dirty Backups/Media slice by validating deterministic backup timestamp rendering and separating media list selects from stream-only SFTP credentials, then deployed verified artifacts to production without committing pending major-round bundle.",
     "changeContract": {
-      "qaPathId": "servers-overview-diagnostic-runstate-half-slice",
-      "userJourney": "An operator opens Servers/VPS overview expecting truthful SSH/SFTP/Direct Gateway diagnostics; the existing dirty diff was inspected before any new QA lane and found to be an unused type-only half-slice with no reachable UI or side effect.",
+      "qaPathId": "backups-datetime-media-stream-closeout",
+      "userJourney": "An operator opens Backups and Media after a deployment expecting stable backup timestamps and media cards/detail playback to stream LOCAL/SFTP files without list APIs hydrating credentials unnecessarily.",
       "evidence": [
-        "Preflight: Docker available/running; vcontrolhub-next, vcontrolhub-ssh-ws, caddy, and docker active/enabled; main/daily cron last_status ok; HEAD == origin/main 1f92338; /api/status 200; recent preflight logs clean; worktree dirty only at src/app/servers/server-overview-card.tsx.",
-        "Diff inspection showed only a new DiagnosticRunState union type with no references, no rendered control, no API call, and no production-verifiable side effect, so it was reverted as a half-finished slice rather than expanded during a dirty-closeout run.",
-        "No overlapping npm/next/vitest/build/smoke process was running beyond long-lived TypeScript server processes.",
-        "Targeted regression: npx vitest run src/app/servers/__tests__/page.test.tsx src/components/__tests__/ssh-terminal-modal.test.tsx src/app/servers/__tests__/server-actions.test.ts --reporter=dot passed 2 files / 4 tests.",
-        "Production smoke: ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
-        "API/status proof: /api/status returned healthy checks 3/3; services stayed active; no restart/deploy was needed because no product behavior changed.",
-        "Cleanup: no temporary QA users, Docker containers, DB rows, files, SFTP objects, restarts, deployments, commits, or production mutations were created in this closeout."
+        "Preflight: Docker available/running; services active/enabled; HEAD == origin/main ee4250f; /api/status and /login healthy; worktree dirty at src/app/backups/page.tsx, src/lib/media/service.ts, and src/lib/datetime/format.ts.",
+        "Diff inspection found a deterministic datetime formatter for Backups and a Media service select change. The slice was narrowed to keep listMediaItems free of SFTP secrets while getMediaItem retains stream-only credentials for SFTP playback.",
+        "Targeted regressions: npx vitest run src/app/api/media/[id]/stream/__tests__/route.test.ts src/app/backups/__tests__/page.test.tsx src/lib/media/service.test.ts --reporter=dot passed 3 files / 13 tests.",
+        "Quality gates: git diff --check, npm run typecheck, npm run lint -- --max-warnings=0, and npm run verify all passed; verify included full Vitest, Next build, runtime build, and deploy-assets.",
+        "Deploy/production: confirmed no active build/verify processes beyond tsserver, .next/BUILD_ID and dist artifacts existed, chown repaired ownership, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, all services active, smoke 25/25 passed, /api/status healthy on retry after a restart-window 502.",
+        "Cleanup: no temp QA users, Docker containers, DB rows, or production data mutations were created; test temp files were under OS tmp and removed by test afterEach."
       ]
     }
   },
@@ -90,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 0,
+    "successfulRemediationRunsSinceFreshAudit": 1,
     "skippedOverlapRuns": 0
   },
   "blockers": [

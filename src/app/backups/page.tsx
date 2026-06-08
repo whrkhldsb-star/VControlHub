@@ -6,6 +6,7 @@ import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
+import { formatZhDateTime } from "@/lib/datetime/format";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export default async function BackupsPage() {
 						<h2 className="text-sm font-semibold text-white light:text-slate-900">备份策略概览</h2>
 						<p className="mt-1 text-xs text-slate-500">按备份类型汇总数量和容量，辅助规划定时备份、异地备份与保留策略。</p>
 					</div>
-					<p className="text-xs text-slate-500">最近完成：{summary.latestCompletedAt ? summary.latestCompletedAt.toLocaleString("zh-CN") : "暂无"}</p>
+					<p className="text-xs text-slate-500">最近完成：{formatZhDateTime(summary.latestCompletedAt, "暂无")}</p>
 				</div>
 				<div className="mt-4 grid gap-3 md:grid-cols-3">
 					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
@@ -100,13 +101,13 @@ export default async function BackupsPage() {
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-white light:text-slate-900">{b.type} · {b.status}</h3>
-									<p className="mt-1 text-xs text-slate-500">{b.filePath} · {b.createdAt.toLocaleString("zh-CN")}</p>
+									<p className="mt-1 text-xs text-slate-500">{b.filePath} · {formatZhDateTime(b.createdAt)}</p>
 								</div>
 								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400 light:text-slate-600">{b.creator?.displayName || b.creator?.username || "system"}</span>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
 								<span>大小：{formatBackupSize(b.fileSize)}</span>
-								<span>完成：{b.completedAt ? b.completedAt.toLocaleString("zh-CN") : "未完成"}</span>
+								<span>完成：{b.completedAt ? formatZhDateTime(b.completedAt) : "未完成"}</span>
 								{b.errorMessage && <span className="text-rose-300">错误：{b.errorMessage}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-slate-400 light:text-slate-600">{b.note}</p>}

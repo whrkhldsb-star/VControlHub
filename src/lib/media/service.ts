@@ -81,6 +81,33 @@ const mediaItemSelect = {
   },
 } as const;
 
+const mediaStreamItemSelect = {
+  ...mediaItemSelect,
+  storageNode: {
+    select: {
+      id: true,
+      name: true,
+      basePath: true,
+      driver: true,
+      directAccessMode: true,
+      publicBaseUrl: true,
+      serverId: true,
+      server: {
+        select: {
+          id: true,
+          name: true,
+          host: true,
+          port: true,
+          username: true,
+          connectionType: true,
+          password: true,
+          sshKey: { select: { privateKey: true } },
+        },
+      },
+    },
+  },
+} as const;
+
 export async function listMediaItems(
   input: {
     mediaType?: "image" | "video" | "audio";
@@ -170,7 +197,7 @@ export async function listMediaTags() {
 export async function getMediaItem(id: string) {
   return prisma.mediaItem.findUnique({
     where: { id },
-    select: mediaItemSelect,
+    select: mediaStreamItemSelect,
   });
 }
 

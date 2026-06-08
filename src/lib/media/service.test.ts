@@ -5,6 +5,7 @@ const { mockPrisma } = vi.hoisted(() => ({
     mediaItem: {
       upsert: vi.fn(),
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       deleteMany: vi.fn(),
       update: vi.fn(),
       groupBy: vi.fn(),
@@ -17,6 +18,7 @@ const {
   scanMediaFromFileEntries,
   listMediaItems,
   listMediaTypeCounts,
+  getMediaItem,
 } = await import("./service");
 describe("media service", () => {
   beforeEach(() => {
@@ -148,6 +150,74 @@ describe("media service", () => {
           ],
         }),
         _count: { _all: true },
+      }),
+    );
+  });
+
+  it("counts media types across the current non-type filters", async () => {
+    mockPrisma.mediaItem.groupBy.mockResolvedValue([
+      { mediaType: "image", _count: { _all: 3 } },
+      { mediaType: "audio", _count: { _all: 2 } },
+    ]);
+
+    const counts = await listMediaTypeCounts({
+      q: "summer",
+      favorite: true,
+      tag: "cover",
+    });
+
+    expect(counts).toEqual({ image: 3, video: 0, audio: 2 });
+    expect(mockPrisma.mediaItem.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ["mediaType"],
+        where: expect.objectContaining({
+          favorite: true,
+          tags: { has: "cover" },
+          OR: [
+            { name: { contains: "summer", mode: "insensitive" } },
+            { relativePath: { contains: "summer", mode: "insensitive" } },
+            { tags: { has: "summer" } },
+          ],
+        }),
+        _count: { _all: true },
+      }),
+    );
+  });
+
+  it("keeps media list queries free of SFTP secrets", async () => {
+    mockPrisma.mediaItem.findMany.mockResolvedValue([]);
+
+    await listMediaItems();
+
+    const select = mockPrisma.mediaItem.findMany.mock.calls[0][0].select;
+    expect(select.storageNode.select.server.select).toEqual({
+      id: true,
+      name: true,
+      host: true,
+    });
+  });
+
+  it("selects connection credentials only for media stream lookups", async () => {
+    mockPrisma.mediaItem.findUnique.mockResolvedValue(null);
+
+    await getMediaItem("media_1");
+
+    expect(mockPrisma.mediaItem.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "media_1" },
+        select: expect.objectContaining({
+          storageNode: expect.objectContaining({
+            select: expect.objectContaining({
+              server: {
+                select: expect.objectContaining({
+                  connectionType: true,
+                  password: true,
+                  sshKey: { select: { privateKey: true } },
+                }),
+              },
+            }),
+          }),
+        }),
       }),
     );
   });

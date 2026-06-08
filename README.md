@@ -355,6 +355,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **分享中心真实文件选择闭环** — `/shares` 现在可直接像文件管理一样按存储节点浏览目录、勾选文件/文件夹并批量创建分享链接，不再要求跳转 `/files` 后从单行入口分享；公开目录分享落地页会在访问时自动刷新 LOCAL/SFTP 目录索引（非递归一层），避免真实目录已有文件但 DB 未同步时显示“暂无已索引文件”。
 - [x] **文件资料详情工作流入口** — `/files` 的列表、图标和详情视图现在统一提供“资料详情”面板，集中展示存储节点、驱动、路径、大小、修改时间和访问方式，并把预览/在线编辑、受控下载、分享、媒体库搜索、重命名、移动、删除收束到同一个真实文件入口，避免用户在文件管理、分享和媒体库之间来回猜路径。
 - [x] **文件列表高密度操作与反馈收口** — `/files` 的文件行/卡片保留资料详情、预览和下载为一级动作，把分享、重命名、移动、删除收束到“更多操作”菜单，并用统一 toast/alert 反馈单项与批量操作结果；媒体扫描会按文件扩展名补齐 `application/octet-stream` 的真实媒体 MIME，媒体播放页提供上一项/下一项、下载和回源入口，减少大目录里操作按钮拥挤和媒体详情断层。
+- [x] **媒体 stream 与前端水合回归收口** — `/api/media/[id]/stream` 已把列表查询与播放查询拆分，列表不再取 SFTP 密码/私钥，播放流在授权后才加载服务器 `connectionType`、密码或私钥，密码型 SFTP 媒体在生产 Range 请求中恢复 `206` 图片/视频流；`/backups` 改用固定时区日期格式，生产 CDP 回归确认 `/files`、`/backups`、`/media`、`/ai` 等核心页面不再出现 React hydration #418。
 
 ### 目前仍存在的问题 / 使用边界
 
@@ -372,7 +373,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **AI Provider 与应用源 URL 出网边界收紧。** AI Provider 的 `baseUrl` 和 QuickService 自定义应用源 URL 现在复用统一公网 HTTP(S) URL 校验，拒绝携带凭据、localhost、回环、内网、链路本地和常见 metadata 主机地址，并在创建/更新 Provider、创建应用源和服务端 fetch 应用源前二次拦截；默认 OpenAI Base URL 仍保持 `https://api.openai.com/v1`。后续仍建议用生产 egress policy / 代理 allowlist / DNS 解析与重定向复检继续防御 DNS rebinding 和重定向到私网。
 - [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** SFTP 音视频预览目前仍复用 `/api/storage/sftp-download` 普通下载流，缺少 `Range` / `206` 支持，和媒体库 `/api/media/[id]/stream` 已有受控流能力不一致，大文件拖动播放体验可能不稳定；公开目录分享现在会自动刷新目录索引并可下载目录内具体文件，但尚不能像登录态 `/api/storage/archive-download` 那样一键打包下载整个目录；Office 预览和压缩包在线解压是安全降级入口，主要提供说明/下载，后续应在列表按钮和 README/API 文档里更早提示当前边界，或补专用 storage media stream、share archive endpoint 和受控格式解压。
 - [x] **存储节点元数据授权边界已收紧。** `/api/storage/nodes` 不再让只有 `storage:read` 的普通用户看到所有节点 `basePath` 和服务器绑定信息；拥有 `storage:manage-node` 的管理员/存储管理员仍可看全量节点，普通读者只返回其 `UserStorageAccess.canRead` grant 覆盖的节点，避免未授权目录结构和节点存在性泄露。
-- [ ] **文件状态一致性和存储列表性能仍需治理（P2）。** 文件删除仍是先删物理对象再标记数据库，失败时可能出现 DB 与磁盘不一致，恢复也可能只恢复 DB 标记；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
+- [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 文件删除仍是先删物理对象再标记数据库，失败时可能出现 DB 与磁盘不一致，恢复也可能只恢复 DB 标记；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺并发修改提示、保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
 
 ---
