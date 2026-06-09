@@ -1,7 +1,7 @@
 import { JobStatus } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
+import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
 import { evaluateAlerts } from "./service";
@@ -12,6 +12,8 @@ export const ALERT_EVALUATION_JOB_TYPE = "alert.evaluate";
 
 const ALERT_EVALUATION_INTERVAL_MS = 60_000;
 const ALERT_EVALUATION_LEASE_MS = 60_000;
+const ALERT_EVALUATION_RETENTION_KEEP_LATEST = 25;
+const ALERT_EVALUATION_RETENTION_DAYS = 7;
 const ALERT_EVALUATION_WORKER_ID = `${process.env.HOSTNAME || "vcontrolhub"}:alert:${process.pid}`;
 
 type AlertEvaluationWorkerState = {
@@ -56,6 +58,22 @@ async function enqueueAlertEvaluationJob(reason: string) {
   });
 }
 
+async function pruneCompletedAlertEvaluationJobs() {
+  const olderThan = new Date(Date.now() - ALERT_EVALUATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  try {
+    const result = await pruneCompletedJobsByType({
+      type: ALERT_EVALUATION_JOB_TYPE,
+      keepLatest: ALERT_EVALUATION_RETENTION_KEEP_LATEST,
+      olderThan,
+    });
+    if (result.count > 0) {
+      logger.info("Pruned completed alert evaluation jobs", { count: result.count, keepLatest: ALERT_EVALUATION_RETENTION_KEEP_LATEST, olderThan: olderThan.toISOString() });
+    }
+  } catch (error) {
+    logger.warn("Failed to prune completed alert evaluation jobs", { error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
   const state = getWorkerState();
   if (state.running) {
@@ -73,6 +91,7 @@ export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
       await heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, { leaseMs: ALERT_EVALUATION_LEASE_MS, progress: "正在评估告警规则" });
       const result = await evaluateAlerts();
       await completeJob(job.id, ALERT_EVALUATION_WORKER_ID, result ?? { evaluated: true });
+      await pruneCompletedAlertEvaluationJobs();
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : "告警评估失败";

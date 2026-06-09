@@ -22,6 +22,12 @@ export type ClaimJobOptions = {
   now?: Date;
 };
 
+export type PruneCompletedJobsByTypeOptions = {
+  type: string;
+  keepLatest?: number;
+  olderThan?: Date;
+};
+
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 
 function futureFrom(now: Date, ms: number) {
@@ -170,6 +176,29 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
       workerHeartbeatAt: null,
       leaseExpiresAt: null,
       errorMessage: "后台执行器心跳过期，已重新入队",
+    },
+  });
+}
+
+export async function pruneCompletedJobsByType(options: PruneCompletedJobsByTypeOptions) {
+  const type = options.type.trim();
+  if (!type) return { count: 0 };
+
+  const keepLatest = Math.max(1, Math.floor(options.keepLatest ?? 25));
+  const retained = await prisma.job.findMany({
+    where: { type, status: JobStatus.COMPLETED },
+    select: { id: true },
+    orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+    take: keepLatest,
+  });
+  const retainedIds = retained.map((job) => job.id);
+
+  return prisma.job.deleteMany({
+    where: {
+      type,
+      status: JobStatus.COMPLETED,
+      ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
+      ...(options.olderThan ? { completedAt: { lt: options.olderThan } } : {}),
     },
   });
 }

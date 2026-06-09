@@ -13,6 +13,7 @@ const { evaluateAlertsMock, infoMock, warnMock, errorMock, jobMocks, jobIds } = 
     heartbeatJob: vi.fn(),
     completeJob: vi.fn(),
     failJob: vi.fn(),
+    pruneCompletedJobsByType: vi.fn(),
   },
 }));
 
@@ -34,6 +35,7 @@ vi.mock("@/lib/job/service", () => ({
   heartbeatJob: jobMocks.heartbeatJob,
   completeJob: jobMocks.completeJob,
   failJob: jobMocks.failJob,
+  pruneCompletedJobsByType: jobMocks.pruneCompletedJobsByType,
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -44,7 +46,7 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
-import { startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "./alert-worker";
+import { runAlertEvaluationJobWorkerOnce, startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "./alert-worker";
 
 async function flushPromises() {
   await Promise.resolve();
@@ -70,6 +72,7 @@ describe("alert evaluation worker", () => {
     jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
     jobMocks.completeJob.mockResolvedValue({ count: 1 });
     jobMocks.failJob.mockResolvedValue({ count: 1 });
+    jobMocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
     stopAlertEvaluationWorkerForTests();
   });
 
@@ -83,6 +86,7 @@ describe("alert evaluation worker", () => {
     expect(jobMocks.claimNextJob).toHaveBeenCalledWith(expect.objectContaining({ types: ["alert.evaluate"] }));
     expect(evaluateAlertsMock).toHaveBeenCalledTimes(1);
     expect(jobMocks.completeJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), { evaluated: true });
+    expect(jobMocks.pruneCompletedJobsByType).toHaveBeenCalledWith(expect.objectContaining({ type: "alert.evaluate", keepLatest: 25, olderThan: expect.any(Date) }));
 
     await vi.runOnlyPendingTimersAsync();
     expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(2);
@@ -97,6 +101,16 @@ describe("alert evaluation worker", () => {
 
     expect(jobMocks.failJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), "eval boom", { retryAfterMs: 60_000 });
     expect(errorMock).toHaveBeenCalledWith("Alert evaluation failed", expect.objectContaining({ jobId: "job-1", error: "eval boom" }));
+  });
+
+  it("keeps alert evaluation successful when completed-job pruning fails", async () => {
+    jobMocks.pruneCompletedJobsByType.mockRejectedValueOnce(new Error("prune boom"));
+
+    await runAlertEvaluationJobWorkerOnce("manual-test");
+
+    expect(jobMocks.completeJob).toHaveBeenCalledWith("job-1", expect.stringContaining(":alert:"), { evaluated: true });
+    expect(warnMock).toHaveBeenCalledWith("Failed to prune completed alert evaluation jobs", { error: "prune boom" });
+    expect(errorMock).not.toHaveBeenCalled();
   });
 
   it("skips overlapping ticks while a previous evaluation is still running", async () => {

@@ -8,6 +8,8 @@ const { mockPrisma } = vi.hoisted(() => ({
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       updateMany: vi.fn(),
+      findMany: vi.fn(),
+      deleteMany: vi.fn(),
       fields: { maxAttempts: "maxAttempts" },
     },
     $transaction: vi.fn(async (callback: any) => callback(mockPrisma)),
@@ -16,7 +18,7 @@ const { mockPrisma } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
-const { cancelJob, claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, recoverStaleRunningJobs } = await import("../service");
+const { cancelJob, claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType, recoverStaleRunningJobs } = await import("../service");
 
 describe("durable job service", () => {
   beforeEach(() => {
@@ -106,5 +108,29 @@ describe("durable job service", () => {
       where: expect.objectContaining({ status: "RUNNING" }),
       data: expect.objectContaining({ status: "PENDING", errorMessage: "后台执行器心跳过期，已重新入队" }),
     }));
+  });
+
+  it("prunes only old completed jobs outside the retained latest set", async () => {
+    const olderThan = new Date("2026-06-01T00:00:00Z");
+    mockPrisma.job.findMany.mockResolvedValue([{ id: "keep-new" }, { id: "keep-recent" }]);
+    mockPrisma.job.deleteMany.mockResolvedValue({ count: 8 });
+
+    const result = await pruneCompletedJobsByType({ type: " alert.evaluate ", keepLatest: 2, olderThan });
+
+    expect(mockPrisma.job.findMany).toHaveBeenCalledWith({
+      where: { type: "alert.evaluate", status: "COMPLETED" },
+      select: { id: true },
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+      take: 2,
+    });
+    expect(mockPrisma.job.deleteMany).toHaveBeenCalledWith({
+      where: {
+        type: "alert.evaluate",
+        status: "COMPLETED",
+        id: { notIn: ["keep-new", "keep-recent"] },
+        completedAt: { lt: olderThan },
+      },
+    });
+    expect(result).toEqual({ count: 8 });
   });
 });
