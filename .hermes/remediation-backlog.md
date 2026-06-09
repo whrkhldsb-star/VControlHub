@@ -375,3 +375,13 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Closeout evidence: focused backup retry regression passed 3/3, `npm run typecheck` passed, and full `npm run verify` passed including full Vitest, Next build, runtime build, and deploy-assets.
 - Production: build artifacts existed, `.next`/`dist` ownership repaired, `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service` restarted, Caddy reloaded, `/api/status` returned 200 with the known storage待探测 warning, smoke passed 25/25, `/backups` and `/operation-tasks` unauthenticated probes redirected to login, recent service logs were clean, and single 6G `/swapfile` remained steady.
 - Residual: offsite backups, automated restore drills, backup retention cleanup, and long-term Operation Tasks archival/export remain future slices.
+
+
+### 2026-06-09T15:53:31Z — Command template visible labels
+- Scope: README P2 accessibility patrol slice for `/templates`; no API or deployment semantics changed.
+- Change contract: add explicit visible label + `id/htmlFor` associations to command template creation fields and one-click deployment variable inputs, then prove create/deploy user journeys by label-based regression.
+- Fixes: `模板名称`, `描述`, `命令内容`, `回滚命令（可选）`, `标签（逗号分隔）`, and `变量 project_dir` are now reachable by label instead of relying on placeholder text or visual `{{变量}}=` fragments.
+- Verification: `git diff --check` passed; focused `TemplateListClient` regression passed 6/6; `npm run typecheck` passed; full `npm run verify` passed including Prisma generate, typecheck, lint, full tests, Next build, runtime build, and deploy-assets.
+- Production: build artifacts existed, `.next`/`dist` ownership repaired, `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service` restarted, Caddy reloaded, `/api/status` returned 200 with the known storage待探测 warning, smoke passed 25/25, authenticated `/templates` HTML showed the command-template page, authenticated `/api/command-templates` returned 12 templates with `project_dir` variable metadata, recent service logs were clean, and single 6G `/swapfile` remained steady.
+- Cleanup: temporary QA user `qa_templates_1781021716` and cookie/HTML/API temp files were deleted; no product DB rows, Docker containers, backup artifacts, or filesystem artifacts remain.
+- Residual: continue placeholder-only/low-visibility patrol on other complex pages, plus mobile overflow/touch-target verification for remaining dense panels.

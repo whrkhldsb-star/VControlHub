@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T15:39:56Z",
+  "updatedAt": "2026-06-09T16:22:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -49,55 +49,53 @@
   ],
   "lastHealthyBaseline": {
     "date": "2026-06-09",
-    "typecheck": "passed via npm run verify",
+    "typecheck": "passed via targeted npm run typecheck and full npm run verify",
     "lint": "passed via npm run verify",
-    "tests": "QuickService API/client regressions 21/21; full Vitest 215 files / 1020 tests passed via npm run verify",
+    "tests": "TemplateListClient focused regression 6/6 passed; full suite passed via npm run verify",
     "build": "passed via npm run verify",
     "runtimeBuild": "passed via npm run verify",
-    "smoke": "25/25 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; /quick-services 307 auth guard; quick-service-job-worker startup logged; recent logs clean; single 6G /swapfile preserved"
+    "smoke": "25/25 passed after templates visible-label deploy",
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; authenticated /templates HTML/API proof passed; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "backup-retry-feedback-semantics",
-    "title": "Backup retry feedback status semantics",
-    "startedAt": "2026-06-09T15:30:00Z",
-    "finishedAt": "2026-06-09T15:39:56Z",
+    "id": "templates-visible-labels",
+    "title": "Command template visible labels",
+    "startedAt": "2026-06-09T15:46:33Z",
+    "finishedAt": "2026-06-09T16:22:00Z",
     "status": "completed_verified_deployed",
-    "summary": "Backup retry queued success feedback now uses role=status while failures remain role=alert, preserving the Operation Tasks link for job tracking.",
-    "stage": "stage-33-backup-retry-feedback-semantics",
-    "selectedReadmeItem": "README P2 备份记录运维解释：补齐重试排队成功/失败反馈的可访问语义。",
+    "summary": "Command template create and one-click deploy variable fields now use explicit visible labels with id/htmlFor associations instead of relying on placeholders or visual variable fragments.",
+    "stage": "stage-34-templates-visible-labels",
+    "selectedReadmeItem": "README P2 可访问性收口：补齐 /templates 命令模板创建与一键下发变量输入的可见 label。",
     "changeContract": {
       "files": [
-        "src/app/backups/retry-backup-record-button.tsx",
-        "src/app/backups/__tests__/retry-backup-record-button.test.tsx",
+        "src/app/templates/template-list-client.tsx",
+        "src/app/templates/__tests__/template-list-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "success regression asserts role=status plus /operation-tasks link",
-        "failure regression asserts role=alert and no stale status region",
-        "full verify before production deploy"
+        "Create template form fields are reachable by visible labels",
+        "One-click deploy template variable input is reachable by visible label",
+        "No API/deployment semantics changed"
       ],
       "remaining": [
-        "offsite backups",
-        "automated restore drills",
-        "backup retention cleanup",
-        "cross-source operation-task archival/export"
+        "Continue placeholder-only/low-visibility control patrol on other pages",
+        "Mobile overflow and touch target follow-up for remaining complex panels"
       ]
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Targeted React regression renders the /backups retry control, clicks 重试备份, and verifies the queued success message is exposed as role=status with a 任务中心 link; failure path exposes role=alert.",
-      "api": "Production /api/status returned 200 with known storage warning; unauthenticated /backups and /operation-tasks both redirected 307 to login, preserving protected route boundaries. No API behavior changed for retry.",
-      "db_or_persisted_config": "No schema or persisted-config change; no backup records or jobs were created during local component tests.",
-      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed; ownership was corrected to vcontrolhub:vcontrolhub before restart.",
-      "background_task_or_process": "No verify/build/next-build process remained before restart; services restarted cleanly after full npm run verify.",
-      "runtime_or_ui_side_effect": "Operators and assistive technologies can distinguish backup retry queued success from retry failure without waiting for a page refresh.",
-      "permissions": "Existing CSRF-authenticated retry path and protected /backups page permissions are unchanged.",
-      "regression": "git diff --check passed; focused RetryBackupRecordButton Vitest passed 3/3; npm run typecheck passed; npm run verify passed.",
-      "production": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy were active after restart; /api/status returned 200 overall warning due only to known storage待探测; smoke passed 25/25.",
+      "browser_or_dom": "Targeted React regression opens /templates create and deploy controls, fills fields by visible labels (模板名称/描述/命令内容/回滚命令/标签/变量 project_dir), and verifies expected create/deploy payloads. Production browser login reached /templates and showed authenticated template list; browser CDP became unstable afterward, so production fallback used authenticated HTML/API proof.",
+      "api": "Authenticated production GET /api/command-templates returned 200 with 12 templates; first template Docker Compose 拉取更新 exposed variables [project_dir]. No route contract changed; CSRF fetch payloads for /api/command-templates and /api/deployments remain identical in regression assertions.",
+      "db_or_persisted_config": "No schema or persisted-config change; a temporary admin QA user qa_templates_1781021716 was created only for production login proof and deleted after verification.",
+      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed after npm run verify; .next/dist ownership was corrected to vcontrolhub:vcontrolhub before restart.",
+      "background_task_or_process": "No overlapping verify/build/next-build/vitest/tsc/deploy process was active before deploy; npm run verify completed, then services restarted cleanly.",
+      "runtime_or_ui_side_effect": "Operators can identify and focus command template creation fields and deploy variables without relying on placeholder-only hints or visual {{变量}} fragments.",
+      "permissions": "Existing canCreate/canDeploy UI gates and CSRF-protected API calls are unchanged.",
+      "regression": "git diff --check passed; npx vitest run src/app/templates/__tests__/template-list-client.test.tsx --reporter=dot passed 1 file / 6 tests; npm run typecheck passed; npm run verify passed including Prisma generate, typecheck, lint, full tests, Next build, runtime build, and deploy-assets.",
+      "production": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart; /api/status returned 200 with known storage待探测 warning; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25; authenticated /templates HTML showed 命令模板 and not 登录后台.",
       "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws log scan after restart showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "No temporary QA users, DB rows, Docker containers, backup artifacts, or filesystem objects were created; swap remained a single 6G /swapfile."
+      "cleanup": "Temporary QA user qa_templates_1781021716 and cookie/HTML/API temp files were deleted; no Docker containers, backup artifacts, or persistent DB rows remain; single 6G /swapfile steady state observed."
     }
   },
   "runPolicy": {
@@ -113,7 +111,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 11,
+    "successfulRemediationRunsSinceFreshAudit": 12,
     "skippedOverlapRuns": 0
   },
   "blockers": [

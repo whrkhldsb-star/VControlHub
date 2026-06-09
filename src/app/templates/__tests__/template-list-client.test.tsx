@@ -83,6 +83,7 @@ describe("TemplateListClient", () => {
 		renderClient();
 
 		await user.click(screen.getByRole("button", { name: "一键下发" }));
+		expect(screen.getByLabelText("变量 project_dir")).toBeInTheDocument();
 		await user.click(screen.getByLabelText("生产 VPS"));
 		await user.click(screen.getByRole("button", { name: "提交部署" }));
 
@@ -97,14 +98,45 @@ describe("TemplateListClient", () => {
 		renderClient();
 
 		await user.click(screen.getByRole("button", { name: "一键下发" }));
-		await user.type(screen.getByPlaceholderText("project_dir"), "/srv/app");
+		await user.type(screen.getByLabelText("变量 project_dir"), "/srv/app");
 		await user.click(screen.getByLabelText("生产 VPS"));
 		await user.click(screen.getByRole("button", { name: "提交部署" }));
 
 		expect(await screen.findByText("部署服务不可用")).toBeInTheDocument();
-		expect(screen.getByPlaceholderText("project_dir")).toHaveValue("/srv/app");
+		expect(screen.getByLabelText("变量 project_dir")).toHaveValue("/srv/app");
 		expect(screen.getByLabelText("生产 VPS")).toBeChecked();
 		await waitFor(() => expect(screen.getByRole("button", { name: "提交部署" })).toBeEnabled());
+	});
+
+	it("creates command templates with visible labels instead of placeholder-only fields", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ id: "tmpl_new" }).mockResolvedValueOnce({ templates: [] });
+
+		renderClient();
+
+		await user.click(screen.getByRole("button", { name: "+ 创建模板" }));
+		await user.type(screen.getByLabelText("模板名称"), "重启 Web 服务");
+		await user.type(screen.getByLabelText("描述"), "滚动重启");
+		await user.type(screen.getByLabelText("命令内容"), "systemctl restart nginx");
+		await user.type(screen.getByLabelText("回滚命令（可选）"), "systemctl restart nginx-old");
+		await user.type(screen.getByLabelText("标签（逗号分隔）"), "ops, nginx");
+		await user.click(screen.getByRole("button", { name: "创建模板" }));
+
+		await waitFor(() =>
+			expect(csrfFetch).toHaveBeenCalledWith(
+				"/api/command-templates",
+				expect.objectContaining({
+					method: "POST",
+					body: JSON.stringify({
+						name: "重启 Web 服务",
+						description: "滚动重启",
+						command: "systemctl restart nginx",
+						rollbackCommand: "systemctl restart nginx-old",
+						tags: ["ops", "nginx"],
+					}),
+				}),
+			),
+		);
 	});
 
 	it("submits template launches through deployment runs", async () => {
@@ -114,7 +146,7 @@ describe("TemplateListClient", () => {
 		renderClient();
 
 		await user.click(screen.getByRole("button", { name: "一键下发" }));
-		await user.type(screen.getByPlaceholderText("project_dir"), "/srv/app");
+		await user.type(screen.getByLabelText("变量 project_dir"), "/srv/app");
 		await user.click(screen.getByLabelText("生产 VPS"));
 		await user.click(screen.getByRole("button", { name: "提交部署" }));
 

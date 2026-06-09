@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 
@@ -213,6 +213,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 	onDeploy: (t: Template, s: string[], v: Record<string, string>) => void;
 	loading: boolean;
 }) {
+	const deployFormId = useId();
 	const [open, setOpen] = useState(false);
 	const [vars, setVars] = useState<Record<string, string>>({});
 	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -232,17 +233,21 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 
 	return (
 		<div className="w-full space-y-2.5">
-			{template.variables.map((v) => (
+			{template.variables.map((v) => {
+				const variableInputId = `${deployFormId}-${v}`;
+				const variableLabel = `变量 ${v}`;
+				return (
 				<div key={v} className="flex items-center gap-2">
-{(() => { const lbl = `{{${v}}}=`; return <span className="text-[11px] text-amber-200 light:text-amber-800 font-mono w-24 shrink-0">{lbl}</span>; })()}
+					<label htmlFor={variableInputId} className="text-[11px] text-amber-200 light:text-amber-800 font-mono w-24 shrink-0">{variableLabel}</label>
 					<input
+						id={variableInputId}
 						value={vars[v] ?? ""}
 					onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
-						placeholder={v}
+						placeholder={`{{${v}}}`}
 						className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white light:border-slate-200 light:bg-white light:text-slate-900 font-mono outline-none placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30"
 					/>
 				</div>
-			))}
+			);})}
 			<div className="flex flex-wrap gap-1">
 				{enabledServers.map((s) => (
 					<label key={s.id} className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-400"}`}>
@@ -272,6 +277,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 /* ── Create template form ─────────────────────────────────── */
 
 function CreateTemplateForm({ onClose }: { onClose: () => void }) {
+	const createFormId = useId();
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [command, setCommand] = useState("");
@@ -306,26 +312,26 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			<h3 className="text-lg font-semibold text-white light:text-slate-900">创建命令模板</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{error}</div>}
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">模板名称</label>
-				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：Docker Compose 更新" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">模板名称</label>
+				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：Docker Compose 更新" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">描述</label>
-				<input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选说明" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-description`} className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">描述</label>
+				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选说明" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">命令内容</label>
-				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:border-slate-200 light:bg-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
+				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">命令内容</label>
+				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:border-slate-200 light:bg-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
 				<p className="text-[11px] text-slate-600">使用 `{"{{变量名}}"}` 作为占位符，下发时填入实际值</p>
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">回滚命令（可选）</label>
-				<textarea value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder="cd {{project_dir}} && docker compose up -d previous" className="w-full rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
+				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">回滚命令（可选）</label>
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder="cd {{project_dir}} && docker compose up -d previous" className="w-full rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
 				<p className="text-[11px] text-slate-600">部署运行会保存这份命令快照；之后“真实回滚”会执行快照里的回滚命令，而不是重发部署命令。</p>
 			</div>
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">标签（逗号分隔）</label>
-				<input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="docker, deploy" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-tags`} className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">标签（逗号分隔）</label>
+				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="docker, deploy" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
