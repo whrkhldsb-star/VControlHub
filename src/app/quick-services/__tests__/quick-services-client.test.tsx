@@ -127,6 +127,18 @@ describe("QuickServicesClient", () => {
 		expect(await screen.findByText("已卸载并删除数据目录")).toBeInTheDocument();
 	});
 
+	it("exposes a visible label for the catalog search instead of relying on placeholder text", async () => {
+		const user = userEvent.setup();
+		mockInitialLoads();
+
+		render(<QuickServicesClient canManage />);
+
+		const searchBox = await screen.findByRole("searchbox", { name: "搜索快捷服务" });
+		expect(searchBox).toHaveAttribute("placeholder", "应用名称、描述、镜像…");
+		await user.type(searchBox, "alist");
+		expect(searchBox).toHaveValue("alist");
+	});
+
 	it("shows an update action for installed services and calls the update endpoint", async () => {
 		const user = userEvent.setup();
 		mockInitialLoads();

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T01:49:01Z",
+  "updatedAt": "2026-06-09T02:30:31Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,72 +58,67 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "settings-runtime-current-value-source-feedback",
-    "title": "Settings runtime current value/source/restart feedback",
-    "startedAt": "2026-06-09T01:21:44Z",
-    "finishedAt": "2026-06-09T01:49:01Z",
+    "id": "quick-services-search-visible-label",
+    "title": "Quick Services catalog search visible label closeout",
+    "startedAt": "2026-06-09T02:18:45Z",
+    "finishedAt": "2026-06-09T02:30:31Z",
     "status": "completed_verified_deployed",
-    "summary": "Closed the Settings runtime-feedback sub-slice: admins now see current runtime values, configuration source, apply location, env/range, and restart boundary for runtime parameters. README/backlog were narrowed so high-risk rollback/audit remains residual.",
+    "summary": "Dirty worktree closeout for /quick-services accessibility: the catalog search now has a visible label, semantic search input, placeholder-only hint text, regression coverage, full verify, production restart, smoke, browser proof, and clean logs.",
     "evidenceMatrix": {
-      "browser_or_dom": "Authenticated production /settings HTML returned 200 and contained 系统设置, 运行参数, 当前运行值来自数据库设置、环境变量或系统默认值, 当前运行值, 来源：, 环境变量：, 生效位置：, and 需重启.",
-      "api": "Preflight and post-deploy /api/status returned 200 healthy 3/3; unauthenticated /settings redirected 307 to /login?next=%2Fsettings.",
-      "db_or_persisted_config": "getRuntimeSettingSummaries reads persisted Setting rows and distinguishes database, environment, default, and invalid-database fallback sources.",
-      "filesystem_or_sftp": "No storage/SFTP mutation. Build artifacts existed after verify: .next/BUILD_ID, dist/server.js, dist/ssh-ws-proxy.js; .next/dist ownership corrected to vcontrolhub:vcontrolhub.",
-      "background_task_or_process": "No active verify/build/next-build/deploy processes remained before restart; restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded Caddy, all active.",
-      "runtime_or_ui_side_effect": "/settings runtime inputs will show current effective values and restart boundaries to admins after deployment.",
-      "permissions": "Server component only loads global settings/runtime summaries for canManage admins; non-admins still receive empty settings/runtime arrays.",
-      "regression": "git diff --check passed; targeted Settings/runtime/API tests passed (3 files / 31 tests); npm run typecheck passed; full npm run verify passed (214 files / 1012 tests plus Next build/runtime/deploy-assets).",
-      "production": "/api/status healthy 3/3 after restart; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25; services active.",
+      "browser_or_dom": "Production browser login reached /quick-services; snapshot exposed searchbox “搜索快捷服务”; typing alist populated the search input. DOM probe confirmed #quick-service-search type=search, visible label text=搜索快捷服务, inputValue=alist, no role=alert text, and no horizontal overflow (scrollWidth == clientWidth == 1910).",
+      "api": "Preflight /api/status returned 200 healthy 3/3; post-deploy /api/status returned 200 healthy 3/3; unauthenticated /quick-services redirected 307 to /login?next=%2Fquick-services.",
+      "db_or_persisted_config": "No database/config mutation for this UI accessibility slice; production Quick Services counts remained visible (0 running, 2 stopped, 42 installable in browser snapshot).",
+      "filesystem_or_sftp": "No storage/SFTP mutation. Build artifacts existed after verify: .next/BUILD_ID, dist/server.js, dist/ssh-ws-proxy.js; .next/dist ownership corrected to vcontrolhub:vcontrolhub before restart.",
+      "background_task_or_process": "Preflight found no active verify/build/deploy process beyond editor tsservers. npm run verify completed successfully; services restarted after artifact/ownership checks; vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy stayed active.",
+      "runtime_or_ui_side_effect": "/quick-services catalog search is no longer placeholder-only: the visible label remains on screen while the placeholder only lists examples (应用名称、描述、镜像…).",
+      "permissions": "Authenticated browser session was required for /quick-services; unauthenticated route stayed protected with 307 redirect.",
+      "regression": "git diff --check passed; npx vitest run src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed 1 file / 8 tests; npm run typecheck passed; npm run verify passed including full Vitest, Next build, runtime build, and deploy-assets.",
+      "production": "Post-restart /api/status healthy 3/3; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; changed protected route /quick-services returned expected 307 when unauthenticated; services active.",
       "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed no error/warn/failed/exception matches.",
-      "cleanup": "No temporary QA users/files/containers/DB rows were created. Temporary session-cookie/HTML helper files under /tmp and .hermes/tmp-session.ts were removed. Single 6G /swapfile steady state preserved."
+      "cleanup": "No temporary QA users/files/containers/DB rows were created. Browser session used existing admin credentials. Single 6G /swapfile steady state preserved."
     },
     "changeContract": {
       "files": [
-        "src/lib/runtime-settings/service.ts",
-        "src/lib/runtime-settings/service.test.ts",
-        "src/app/settings/page.tsx",
-        "src/app/settings/settings-client.tsx",
-        "src/app/settings/__tests__/settings-client.test.tsx",
+        "src/app/quick-services/quick-services-client.tsx",
+        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Runtime setting source/current-value summaries",
-        "Settings admin UI runtime disclosure",
-        "Targeted Settings/runtime regressions",
-        "Typecheck/full verify",
-        "Production /settings DOM proof after restart"
+        "Quick Services visible search label and semantic searchbox",
+        "Targeted QuickServicesClient regression",
+        "Full verify",
+        "Production /quick-services browser DOM proof",
+        "Smoke/status/log/swap checks"
       ],
       "remaining": [
-        "Run targeted tests, typecheck, full npm run verify",
-        "Confirm build artifacts and restart services safely",
-        "Run smoke, /api/status, protected route and authenticated /settings DOM proof, logs/swap checks",
-        "Commit/push and confirm HEAD == origin/main with clean worktree",
-        "Future slice: high-risk settings rollback/audit information"
+        "QuickService durable job migration/config diff/rollback/history",
+        "SFTP/Direct Gateway live probes",
+        "Further placeholder-only/low-visibility control patrol"
       ]
     },
-    "stage": "stage-25-settings-runtime-current-value-source-feedback",
-    "selectedReadmeItem": "设置页运行时反馈：当前运行值、配置来源、生效位置、是否需要重启；高风险设置回滚/审计保留为 residual",
+    "stage": "stage-26-quick-services-search-visible-label",
+    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）：快捷服务搜索 placeholder-only 控件闭环",
     "verification": [
-      "Entry dirty worktree was a coherent Settings runtime-feedback slice; HEAD == origin/main 39bb9fd before closeout.",
-      "Preflight services active and /api/status healthy 3/3; recent logs clean; swap steady state single 6G /swapfile.",
+      "Entry worktree dirty with coherent /quick-services search-label slice; HEAD == origin/main 9392748 before closeout.",
+      "Preflight services active; /api/status healthy 3/3; Docker available; recent logs clean; single 6G /swapfile steady state.",
       "git diff --check passed.",
-      "npx vitest run src/app/settings/__tests__/settings-client.test.tsx src/lib/runtime-settings/service.test.ts src/app/api/settings/__tests__/route.test.ts --reporter=dot passed: 3 files / 31 tests.",
+      "npx vitest run src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed: 1 file / 8 tests.",
       "npm run typecheck passed.",
-      "npm run verify passed: 214 files / 1012 tests plus Next build, runtime bundle, deploy-assets validation.",
-      ".next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed after build; ownership corrected to vcontrolhub:vcontrolhub.",
-      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all services active.",
+      "npm run verify passed including full Vitest, Next build, runtime build, deploy-assets.",
+      ".next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed; ownership corrected to vcontrolhub:vcontrolhub.",
+      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all active.",
       "/api/status returned 200 healthy 3/3 after restart.",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "Unauthenticated /settings redirected 307 to /login?next=%2Fsettings.",
-      "Authenticated production /settings HTML contained runtime current-value/source/env/apply-location/restart guidance.",
-      "Recent next/ssh-ws logs clean; swap steady state single 6G /swapfile preserved."
+      "Unauthenticated /quick-services redirected 307 to login.",
+      "Authenticated production browser confirmed searchbox name 搜索快捷服务, type search, alist input behavior, no alerts, and no horizontal overflow.",
+      "Recent logs clean; swap steady state single 6G /swapfile preserved."
     ],
     "residualWork": [
-      "Settings high-risk setting rollback/audit UI and persisted change history.",
       "QuickService durable job migration/config diff/rollback/history.",
-      "SFTP/Direct Gateway live probes and status truthfulness follow-up."
+      "SFTP/Direct Gateway live probes and status truthfulness follow-up.",
+      "Continue scanning lower-traffic placeholder-only controls."
     ]
   },
   "runPolicy": {
@@ -139,7 +134,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 5,
+    "successfulRemediationRunsSinceFreshAudit": 6,
     "skippedOverlapRuns": 0
   },
   "blockers": [

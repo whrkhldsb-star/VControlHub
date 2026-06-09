@@ -535,19 +535,25 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</section>
 
 			{/* Search bar */}
-			<div className="relative">
-				<input
-					type="text"
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
-					placeholder="搜索应用名称、描述、镜像…"
-					className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
-				/>
-				{search && (
-					<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white light:hover:text-slate-900 text-xs">
-						✕
-					</button>
-				)}
+			<div className="space-y-1.5">
+				<label htmlFor="quick-service-search" className="block text-xs font-medium text-slate-400 light:text-slate-600">
+					搜索快捷服务
+				</label>
+				<div className="relative">
+					<input
+						id="quick-service-search"
+						type="search"
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder="应用名称、描述、镜像…"
+						className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
+					/>
+					{search && (
+						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white light:hover:text-slate-900 text-xs">
+							✕
+						</button>
+					)}
+				</div>
 			</div>
 
 			{tab === "store" && !search && recommendedItems.length > 0 && (
