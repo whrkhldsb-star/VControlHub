@@ -76,6 +76,32 @@ export default async function BackupsPage() {
 				</div>
 			</section>
 
+			<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div>
+						<h2 className="text-sm font-semibold text-white light:text-slate-900">备份失败原因聚合</h2>
+						<p className="mt-1 text-xs text-slate-500">按最近 200 条备份记录中的 FAILED 错误文本归类，优先定位路径、权限、超时、存储空间或脚本执行问题。</p>
+					</div>
+					<p className="text-xs text-slate-500">失败记录：{summary.failedRecords}</p>
+				</div>
+				{summary.failureSummary.length === 0 ? (
+					<p className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200 light:text-emerald-700">暂无失败备份记录。</p>
+				) : (
+					<div className="mt-4 grid gap-3 md:grid-cols-2">
+						{summary.failureSummary.map((item) => (
+							<div key={item.category} className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 light:bg-rose-50">
+								<div className="flex items-center justify-between gap-3">
+									<p className="text-xs font-semibold text-rose-200 light:text-rose-700">{item.label}</p>
+									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100 light:text-rose-700">{item.count} 条</span>
+								</div>
+								{item.latestRecordPath && <p className="mt-2 text-xs text-slate-500">最新记录：{item.latestRecordPath}</p>}
+								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-slate-400 light:text-slate-600">{item.latestMessage}</p>}
+							</div>
+						))}
+					</div>
+				)}
+			</section>
+
 			{canCreate && (
 				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 					<h2 className="text-sm font-semibold text-white light:text-slate-900">创建并执行备份</h2>

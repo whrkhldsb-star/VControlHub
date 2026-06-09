@@ -115,6 +115,12 @@ describe("BackupsPage", () => {
     expect(screen.getByText("DATABASE").closest("div")).toHaveTextContent("1 个 · 1.0 MB");
     expect(screen.getByText("FILES").closest("div")).toHaveTextContent("1 个 · 2.0 MB");
     expect(screen.getByText("FULL").closest("div")).toHaveTextContent("1 个 · 3.0 MB");
+    expect(screen.getByRole("heading", { name: "备份失败原因聚合" })).toBeInTheDocument();
+    expect(screen.getByText(/按最近 200 条备份记录中的 FAILED 错误文本归类/)).toBeInTheDocument();
+    expect(screen.getByText("失败记录：1")).toBeInTheDocument();
+    expect(screen.getByText("权限或只读路径")).toBeInTheDocument();
+    expect(screen.getByText("最新记录：backups/failed.sql.gz")).toBeInTheDocument();
+    expect(screen.getByText("readonly path")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "创建定时备份" })).toBeInTheDocument();
     expect(screen.getByText(/选择备份类型、Cron 与执行节点后/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "创建定时备份" })).toBeInTheDocument();

@@ -25,8 +25,20 @@ type BackupRecordForSummary = {
   status: string;
   filePath?: string | null;
   fileSize?: string | number | bigint | null;
+  errorMessage?: string | null;
+  note?: string | null;
   createdAt: Date;
   completedAt?: Date | null;
+};
+
+type BackupFailureCategory = "path" | "permission" | "timeout" | "script" | "missing" | "storage" | "unknown";
+
+export type BackupFailureSummaryItem = {
+  category: BackupFailureCategory;
+  label: string;
+  count: number;
+  latestMessage: string | null;
+  latestRecordPath: string | null;
 };
 
 export type BackupPolicySummary = {
@@ -39,6 +51,7 @@ export type BackupPolicySummary = {
   oldestCompletedAt: Date | null;
   recordsOlderThan30Days: number;
   byType: Record<BackupType, { count: number; sizeBytes: number }>;
+  failureSummary: BackupFailureSummaryItem[];
   largestCompleted: { type: string; filePath?: string | null; sizeBytes: number } | null;
 };
 
@@ -119,6 +132,58 @@ function parseBackupSizeBytes(value: string | number | bigint | null | undefined
   return numeric;
 }
 
+const backupFailureCategoryLabels: Record<BackupFailureCategory, string> = {
+  path: "路径无效或越界",
+  permission: "权限或只读路径",
+  timeout: "执行超时",
+  script: "备份脚本执行失败",
+  missing: "文件或目录不存在",
+  storage: "存储空间或写入失败",
+  unknown: "未归类失败",
+};
+
+function classifyBackupFailure(message: string | null | undefined): BackupFailureCategory {
+  const value = (message || "").toLowerCase();
+  if (/permission|denied|readonly|read-only|只读|权限|eacces|eperm/.test(value)) return "permission";
+  if (/路径|path|portable|traversal|invalid/.test(value)) return "path";
+  if (/timeout|timed out|超时/.test(value)) return "timeout";
+  if (/no such file|enoent|not found|不存在|missing/.test(value)) return "missing";
+  if (/no space|enospc|disk|write|写入|空间/.test(value)) return "storage";
+  if (/exit code|command failed|backup\.sh|restore-db\.sh|脚本|执行失败/.test(value)) return "script";
+  return "unknown";
+}
+
+function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailureSummaryItem[] {
+  const grouped = new Map<BackupFailureCategory, BackupFailureSummaryItem & { latestAt: Date }>();
+  for (const record of records) {
+    if (record.status !== "FAILED") continue;
+    const category = classifyBackupFailure(record.errorMessage);
+    const latestAt = record.completedAt ?? record.createdAt;
+    const existing = grouped.get(category);
+    if (!existing) {
+      grouped.set(category, {
+        category,
+        label: backupFailureCategoryLabels[category],
+        count: 1,
+        latestMessage: record.errorMessage || record.note || null,
+        latestRecordPath: record.filePath ?? null,
+        latestAt,
+      });
+      continue;
+    }
+    existing.count += 1;
+    if (latestAt >= existing.latestAt) {
+      existing.latestAt = latestAt;
+      existing.latestMessage = record.errorMessage || record.note || null;
+      existing.latestRecordPath = record.filePath ?? null;
+    }
+  }
+
+  return Array.from(grouped.values())
+    .sort((a, b) => b.count - a.count || b.latestAt.getTime() - a.latestAt.getTime())
+    .map(({ latestAt: _latestAt, ...item }) => item);
+}
+
 export function formatBackupSize(value: string | number | bigint | null | undefined) {
   const size = parseBackupSizeBytes(value);
   if (size <= 0) return "待生成";
@@ -176,6 +241,7 @@ export function summarizeBackupPolicy(records: BackupRecordForSummary[], now = n
     oldestCompletedAt,
     recordsOlderThan30Days,
     byType,
+    failureSummary: summarizeBackupFailures(records),
     largestCompleted,
   };
 }

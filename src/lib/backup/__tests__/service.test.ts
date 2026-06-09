@@ -252,23 +252,29 @@ describe("backup service", () => {
     expect(runFileMock).not.toHaveBeenCalled();
   });
 
-  it("summarizes backup policy capacity, type mix, and retention hints", () => {
+  it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {
     const summary = summarizeBackupPolicy([
       { type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz", fileSize: "1048576", createdAt: new Date("2026-04-01T00:00:00Z"), completedAt: new Date("2026-04-01T00:00:00Z") },
       { type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", fileSize: 2 * 1024 * 1024, createdAt: new Date("2026-05-20T00:00:00Z"), completedAt: new Date("2026-05-20T00:00:00Z") },
-      { type: "FULL", status: "FAILED", fileSize: "999999", createdAt: new Date("2026-05-21T00:00:00Z") },
+      { type: "FULL", status: "FAILED", filePath: "backups/full.tar.gz", fileSize: "999999", errorMessage: "readonly path", createdAt: new Date("2026-05-21T00:00:00Z") },
+      { type: "FILES", status: "FAILED", filePath: "backups/files-old.tar.gz", fileSize: null, errorMessage: "EACCES: permission denied", createdAt: new Date("2026-05-23T00:00:00Z") },
+      { type: "DATABASE", status: "FAILED", filePath: "backups/missing.sql.gz", fileSize: null, errorMessage: "No such file or directory", createdAt: new Date("2026-05-24T00:00:00Z") },
       { type: "DATABASE", status: "RUNNING", fileSize: null, createdAt: new Date("2026-05-22T00:00:00Z") },
     ], new Date("2026-06-01T00:00:00Z"));
 
-    expect(summary.totalRecords).toBe(4);
+    expect(summary.totalRecords).toBe(6);
     expect(summary.completedRecords).toBe(2);
-    expect(summary.failedRecords).toBe(1);
+    expect(summary.failedRecords).toBe(3);
     expect(summary.runningRecords).toBe(1);
     expect(summary.totalCompletedSizeBytes).toBe(3 * 1024 * 1024);
     expect(summary.recordsOlderThan30Days).toBe(1);
     expect(summary.byType.DATABASE).toEqual({ count: 1, sizeBytes: 1024 * 1024 });
     expect(summary.byType.FILES).toEqual({ count: 1, sizeBytes: 2 * 1024 * 1024 });
     expect(summary.byType.FULL).toEqual({ count: 0, sizeBytes: 0 });
+    expect(summary.failureSummary).toEqual([
+      { category: "permission", label: "权限或只读路径", count: 2, latestMessage: "EACCES: permission denied", latestRecordPath: "backups/files-old.tar.gz" },
+      { category: "missing", label: "文件或目录不存在", count: 1, latestMessage: "No such file or directory", latestRecordPath: "backups/missing.sql.gz" },
+    ]);
     expect(summary.largestCompleted).toEqual({ type: "FILES", filePath: "backups/files.tar.gz", sizeBytes: 2 * 1024 * 1024 });
   });
 
