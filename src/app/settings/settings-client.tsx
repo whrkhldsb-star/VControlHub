@@ -4,10 +4,12 @@ import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 import type { RuntimeSettingSummary } from "@/lib/runtime-settings/service";
+import type { SettingUpdateMetadata } from "@/lib/settings/service";
 
 type Props = {
 	settings: Record<string, string>;
 	runtimeSettings?: RuntimeSettingSummary[];
+	settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
 	canManage: boolean;
 	twoFactorEnabled?: boolean;
 };
@@ -33,6 +35,27 @@ const RUNTIME_NUMBER_RULES: Record<string, { label: string; min: number; max: nu
 	"runtime.aiProviderListLimit": { label: "AI 提供商列表上限", min: 10, max: 500 },
 	"runtime.aiConversationListLimit": { label: "AI 对话列表上限", min: 20, max: 1_000 },
 };
+
+const SECTION_KEYS: Record<string, string[]> = {
+	platform: ["platform.name", "platform.logo"],
+	session: ["session.timeout", "password.minLength", "password.requireUppercase", "password.requireNumber", "password.requireSpecial"],
+	runtime: Object.keys(RUNTIME_NUMBER_RULES),
+	smtp: ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from", "smtp.alertRecipients"],
+};
+
+function formatMetadataDate(value: Date | string | null) {
+	if (!value) return "暂无记录";
+	const date = value instanceof Date ? value : new Date(value);
+	if (Number.isNaN(date.getTime())) return "暂无记录";
+	return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function latestSectionMetadata(keys: string[], metadata: Record<string, SettingUpdateMetadata>) {
+	return keys
+		.map((key) => metadata[key])
+		.filter((item): item is SettingUpdateMetadata => Boolean(item?.updatedAt))
+		.sort((a, b) => new Date(b.updatedAt as Date).getTime() - new Date(a.updatedAt as Date).getTime())[0] ?? null;
+}
 
 function parseInteger(value: string, label: string, min: number, max: number) {
 	const parsed = Number(value);
@@ -78,7 +101,7 @@ function validateSettingValue(key: string, value: string) {
 	}
 }
 
-export function SettingsClient({ settings: initialSettings, runtimeSettings = [], canManage, twoFactorEnabled = false }: Props) {
+export function SettingsClient({ settings: initialSettings, runtimeSettings = [], settingUpdateMetadata = {}, canManage, twoFactorEnabled = false }: Props) {
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
@@ -156,9 +179,12 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 
 			{/* Platform */}
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-				<div>
-					<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🌐 平台信息</h2>
-					<p className="mt-1 text-xs text-slate-500">保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。</p>
+				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+					<div>
+						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🌐 平台信息</h2>
+						<p className="mt-1 text-xs text-slate-500">保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。</p>
+					</div>
+					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.platform, settingUpdateMetadata)} />
 				</div>
 				<Field label="平台名称" value={settings["platform.name"] ?? ""} onChange={(v) => updateField("platform.name", v)} placeholder="VPS 统一管控平台" helperText="不能为空，最多 80 个字符；用于页面标题和公开品牌文案。" />
 				<Field label="Logo URL" value={settings["platform.logo"] ?? ""} onChange={(v) => updateField("platform.logo", v)} placeholder="https://example.com/logo.png" helperText="留空则不显示 Logo；支持 http(s) 或 /icon.png 这类站内路径。" />
@@ -167,9 +193,12 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 
 			{/* Session */}
 			<section id="password" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-				<div>
-					<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🔐 会话与安全</h2>
-					<p className="mt-1 text-xs text-slate-500">会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。</p>
+				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+					<div>
+						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🔐 会话与安全</h2>
+						<p className="mt-1 text-xs text-slate-500">会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。</p>
+					</div>
+					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.session, settingUpdateMetadata)} />
 				</div>
 				<Field label="会话超时（秒）" value={settings["session.timeout"] ?? ""} onChange={(v) => updateField("session.timeout", v)} placeholder="86400" type="number" helperText="300–2592000 秒；已有 session 不会被 retroactively 缩短。" />
 				<Field label="密码最小长度" value={settings["password.minLength"] ?? ""} onChange={(v) => updateField("password.minLength", v)} placeholder="8" type="number" helperText="8–128 位；保存后立即约束新密码。" />
@@ -189,6 +218,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 					<div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50 light:text-cyan-800">
 						当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
 					</div>
+					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.runtime, settingUpdateMetadata)} />
 				</div>
 				<div className="grid gap-4 md:grid-cols-2">
 					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandExecutionTimeoutMs")} />
@@ -216,7 +246,10 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"}
 						</p>
 					</div>
-					<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
+					<div className="flex flex-col gap-3 sm:items-end">
+						<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.smtp, settingUpdateMetadata)} />
+						<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
+					</div>
 				</div>
 				<div className="grid gap-4 md:grid-cols-2" aria-disabled={settings["smtp.enabled"] !== "true"}>
 					<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
@@ -233,6 +266,16 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 }
 
 /* ── Sub-components ───────────────────────────────────────── */
+
+function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) {
+	return (
+		<div className="rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50 light:text-amber-800">
+			<p className="font-semibold">最近修改</p>
+			<p>时间：{formatMetadataDate(metadata?.updatedAt ?? null)}</p>
+			<p>修改人：{metadata?.actorName ?? "暂无审计记录"}</p>
+		</div>
+	);
+}
 
 function Field({ label, value, onChange, placeholder, type = "text", autoComplete, disabled = false, helperText, runtimeSummary }: {
 	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string; disabled?: boolean; helperText?: string; runtimeSummary?: RuntimeSettingSummary;

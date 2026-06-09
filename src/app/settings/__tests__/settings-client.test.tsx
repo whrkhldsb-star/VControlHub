@@ -154,6 +154,26 @@ describe("SettingsClient", () => {
     expect(screen.getAllByText(/需重启对应服务/).length).toBeGreaterThan(0);
   });
 
+  it("surfaces latest setting update audit metadata per high-risk section", () => {
+    render(<SettingsClient settings={{}} canManage settingUpdateMetadata={{
+      "runtime.commandExecutionTimeoutMs": {
+        updatedAt: new Date("2026-06-02T03:04:05Z"),
+        actorId: "u1",
+        actorName: "Alice Admin",
+      },
+      "smtp.enabled": {
+        updatedAt: new Date("2026-06-01T03:04:05Z"),
+        actorId: "u2",
+        actorName: "Ops User",
+      },
+    }} />);
+
+    expect(screen.getAllByText("最近修改").length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByText("修改人：Alice Admin")).toBeInTheDocument();
+    expect(screen.getByText("修改人：Ops User")).toBeInTheDocument();
+    expect(screen.getAllByText("修改人：暂无审计记录").length).toBeGreaterThanOrEqual(1);
+  });
+
   it("keeps Settings light-theme form label overrides in the CSS compatibility layer", () => {
     const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
 

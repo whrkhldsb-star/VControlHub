@@ -37,6 +37,21 @@ const DEFAULTS: Record<string, string> = {
 	),
 };
 
+export type SettingUpdateMetadata = {
+	updatedAt: Date | null;
+	actorId: string | null;
+	actorName: string | null;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function auditKeys(detail: unknown): string[] {
+	if (!isRecord(detail) || !Array.isArray(detail.keys)) return [];
+	return detail.keys.filter((key): key is string => typeof key === "string");
+}
+
 /* ── Get / Set ────────────────────────────────────────────── */
 export async function getSetting(key: string): Promise<string> {
 	const row = await prisma.setting.findUnique({ where: { key }, select: { key: true, value: true } });
@@ -50,6 +65,50 @@ export async function getAllSettings(): Promise<Record<string, string>> {
 	for (const row of rows) {
 		result[row.key] = isSensitiveKey(row.key) ? safeDecrypt(row.value) : row.value;
 	}
+	return result;
+}
+
+export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<string, SettingUpdateMetadata>> {
+	const uniqueKeys = [...new Set(keys)];
+	const result = Object.fromEntries(
+		uniqueKeys.map((key) => [key, { updatedAt: null, actorId: null, actorName: null }])
+	) as Record<string, SettingUpdateMetadata>;
+
+	if (uniqueKeys.length === 0) return result;
+
+	const [settings, auditLogs] = await Promise.all([
+		prisma.setting.findMany({
+			where: { key: { in: uniqueKeys } },
+			select: { key: true, updatedAt: true },
+		}),
+		prisma.auditLog.findMany({
+			where: { action: "settings.update" },
+			select: {
+				actorId: true,
+				createdAt: true,
+				detail: true,
+				actor: { select: { username: true, displayName: true } },
+			},
+			orderBy: { createdAt: "desc" },
+			take: 100,
+		}),
+	]);
+
+	for (const setting of settings) {
+		result[setting.key].updatedAt = setting.updatedAt;
+	}
+
+	for (const log of auditLogs) {
+		for (const key of auditKeys(log.detail)) {
+			if (!result[key] || result[key].actorName) continue;
+			result[key] = {
+				updatedAt: log.createdAt,
+				actorId: log.actorId,
+				actorName: log.actor?.displayName || log.actor?.username || log.actorId || "未知用户",
+			};
+		}
+	}
+
 	return result;
 }
 

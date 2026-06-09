@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { getAllSettings } from "@/lib/settings/service";
+import { getAllSettings, getSettingUpdateMetadata } from "@/lib/settings/service";
 import { getRuntimeSettingSummaries } from "@/lib/runtime-settings/service";
 import { prisma } from "@/lib/db";
 
@@ -9,13 +9,46 @@ import { PageShell } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
+const SETTINGS_AUDIT_KEYS = [
+	"platform.name",
+	"platform.logo",
+	"session.timeout",
+	"password.minLength",
+	"password.requireUppercase",
+	"password.requireNumber",
+	"password.requireSpecial",
+	"runtime.commandExecutionTimeoutMs",
+	"runtime.commandOutputLimitBytes",
+	"runtime.commandStaleRunningAfterMs",
+	"runtime.commandExecutionHeartbeatMs",
+	"runtime.commandReconcileIntervalMs",
+	"runtime.sftpSyncDirectoryTimeoutMs",
+	"runtime.sshWsHeartbeatIntervalMs",
+	"runtime.sshKeepaliveIntervalMs",
+	"runtime.sshKeepaliveCountMax",
+	"runtime.operationTaskListLimit",
+	"runtime.aiProviderListLimit",
+	"runtime.aiConversationListLimit",
+	"smtp.enabled",
+	"smtp.host",
+	"smtp.port",
+	"smtp.user",
+	"smtp.pass",
+	"smtp.from",
+	"smtp.alertRecipients",
+];
+
 export default async function SettingsPage() {
 	const session = await requireSession();
 	const canManage = sessionHasPermission(session, "user:manage");
 
-	const [settings, runtimeSettings] = canManage
-		? await Promise.all([getAllSettings(), getRuntimeSettingSummaries()])
-		: [{}, []];
+	const [settings, runtimeSettings, settingUpdateMetadata] = canManage
+		? await Promise.all([
+			getAllSettings(),
+			getRuntimeSettingSummaries(),
+			getSettingUpdateMetadata(SETTINGS_AUDIT_KEYS),
+		])
+		: [{}, [], {}];
 	const userSecurity = await prisma.user.findUnique({
 		where: { id: session.userId },
 		select: { twoFactorEnabled: true },
@@ -30,7 +63,7 @@ export default async function SettingsPage() {
 						配置平台名称、安全策略、邮件通知等全局参数
 					</p>
 				</header>
-				<SettingsClient settings={settings} runtimeSettings={runtimeSettings} canManage={canManage} twoFactorEnabled={twoFactorEnabled} />
+				<SettingsClient settings={settings} runtimeSettings={runtimeSettings} settingUpdateMetadata={settingUpdateMetadata} canManage={canManage} twoFactorEnabled={twoFactorEnabled} />
 		</PageShell>
 	);
 }
