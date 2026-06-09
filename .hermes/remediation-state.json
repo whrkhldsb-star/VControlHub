@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T16:44:00Z",
+  "updatedAt": "2026-06-09T17:31:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,45 +58,25 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production backups page chunk contains 输入 RESTORE 确认恢复 and no old 确认文本 label; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "backups-restore-confirm-visible-label",
-    "title": "Backup restore confirmation visible label",
-    "startedAt": "2026-06-09T16:31:33Z",
-    "finishedAt": "2026-06-09T16:44:00Z",
-    "status": "completed_verified_deployed",
-    "summary": "The /backups restore confirmation dialog now exposes the dangerous RESTORE confirmation requirement in the visible input label instead of relying on placeholder/supporting text.",
-    "stage": "stage-35-backups-restore-confirm-visible-label",
-    "selectedReadmeItem": "README P2 可访问性收口：补齐 /backups 执行恢复确认输入的明确可见 label。",
-    "changeContract": {
-      "files": [
-        "src/app/backups/restore-backup-button.tsx",
-        "src/app/backups/__tests__/restore-backup-button.test.tsx",
-        "README.md",
-        ".hermes/remediation-backlog.md",
-        ".hermes/remediation-state.json"
+    "id": "operation-tasks-csv-export",
+    "stage": "completed_deployed_verified",
+    "selectedReadmeItem": "任务中心可观测性仍需继续治理（P2）",
+    "journey": "Operator filters /operation-tasks and exports the current task-center result set as CSV for external audit/offline analysis.",
+    "changeContract": "Add additive format=csv export to /api/operation-tasks using the existing task:read guard and filtered/sorted result model; add a visible UI export link without changing task execution semantics.",
+    "evidence": {
+      "preflight": "Clean git on entry at 20f1d5b; HEAD matched origin/main; no verify/build/test/deploy processes; services active; /api/status 200 warning only for known storage unprobed state; recent logs clean; single 6G /swapfile steady.",
+      "browser_or_dom": "Authenticated browser login as temporary admin qa_op_tasks_csv_1781025 reached /operation-tasks, showed heading 统一任务中心 and link 导出当前结果 CSV with href /api/operation-tasks?format=csv; DOM probe showed no alerts and no horizontal overflow.",
+      "api": "Authenticated browser-context fetch /api/operation-tasks?format=csv&status=attention&taskType=alert.evaluate&sort=attention returned 200, content-type text/csv; charset=utf-8, content-disposition attachment; filename=\"operation-tasks.csv\", header id,source,sourceId,taskType,status,title,actor,createdAt,updatedAt,progress,logPreview,foldedCount,href.",
+      "regression": [
+        "git diff --check passed",
+        "focused Operation Tasks API/client/service Vitest passed 19/19",
+        "npm run typecheck passed",
+        "full npm run verify passed on rerun; first run had unrelated SSH terminal focus flake that passed in focused rerun"
       ],
-      "evidence": [
-        "Restore dialog input is reachable by visible label 输入 RESTORE 确认恢复",
-        "Wrong confirmation keeps the restore action disabled and does not call the API",
-        "Correct confirmation still posts the unchanged CSRF restore payload"
-      ],
-      "remaining": [
-        "Continue placeholder-only/low-visibility patrol on lower-traffic controls",
-        "Continue larger P2/P3 feature work such as backup retention/offsite drills and QuickService config diff/rollback"
-      ]
+      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; smoke 25/25 passed; /api/status 200 with known storage待探测 warning; unauth /operation-tasks redirected to login; recent logs clean.",
+      "cleanup": "Temporary QA user qa_op_tasks_csv_1781025 and /tmp helper/password files were deleted; remaining qa_op_tasks_csv_* users count 0; single 6G /swapfile steady."
     },
-    "evidenceMatrix": {
-      "browser_or_dom": "Production browser logged in with temporary qa_restore_label_1781023417 admin user and reached /backups; page rendered 备份与迁移 and a completed backup restore button with no horizontal overflow. Browser click did not surface the client dialog through CDP, so production DOM proof was completed through the deployed backups page chunk.",
-      "api": "No restore API contract changed. RestoreBackupButton regression proves correct confirmation still calls /api/backups/bak1/restore via csrfFetch with POST and body {confirm:\"RESTORE\"}; wrong confirmation keeps the button disabled and csrfFetch uncalled.",
-      "db_or_persisted_config": "Temporary admin QA user qa_restore_label_1781023417 was created for production login proof and deleted after verification; cleanup count for qa_restore_label_* is 0. No BackupRecord or Job was created because no real restore was submitted.",
-      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed after npm run verify; .next/dist ownership was corrected to vcontrolhub:vcontrolhub before restart. No storage/SFTP mutation was part of this slice.",
-      "background_task_or_process": "Preflight and pre-restart checks found no overlapping npm run verify/build, next build, vitest, tsc, or smoke process. Full npm run verify completed successfully before restart.",
-      "runtime_or_ui_side_effect": "Operators now see the explicit visible label 输入 RESTORE 确认恢复 on the dangerous restore confirmation input; production static chunk /_next/static/chunks/app/backups/page-64c0837a29ab5f91.js contains the new label once and no old 确认文本 label.",
-      "permissions": "Authenticated /backups access was required for browser proof. Existing backup:restore gate and disabled restore buttons for non-COMPLETED records remain unchanged.",
-      "regression": "git diff --check passed; npx vitest run src/app/backups/__tests__/restore-backup-button.test.tsx --reporter=dot passed 1 file / 3 tests; npm run typecheck passed; npm run verify passed including full tests, Next build, runtime build, and deploy-assets.",
-      "production": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy active after restart; /api/status returned 200 with known storage待探测 warning; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws log scan after restart showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "Temporary QA user and helper scripts/cookie/chunk temp files were removed; qa_restore_label_* remaining count is 0; single 6G /swapfile steady state observed."
-    }
+    "residual": "Task Center still needs cross-source long-term archive/retention policy for large command/download/backup/deployment history."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -111,7 +91,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 13,
+    "successfulRemediationRunsSinceFreshAudit": 14,
     "skippedOverlapRuns": 0
   },
   "blockers": [

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { listOperationTaskResult, type OperationTaskListSort, type OperationTaskStatus } from "@/lib/operation-task/service";
+import { listOperationTaskResult, type OperationTask, type OperationTaskListSort, type OperationTaskStatus } from "@/lib/operation-task/service";
 
 const allowedStatuses = new Set<OperationTaskStatus>(["pending", "running", "completed", "failed", "cancelled", "paused"]);
 const allowedSorts = new Set<OperationTaskListSort>(["recent", "attention"]);
@@ -23,6 +23,34 @@ function parseSort(value: string | null): OperationTaskListSort | undefined {
   return allowedSorts.has(value as OperationTaskListSort) ? value as OperationTaskListSort : undefined;
 }
 
+function csvCell(value: string | number | null | undefined) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+function taskToCsvRow(task: OperationTask) {
+  return [
+    task.id,
+    task.source,
+    task.sourceId,
+    task.taskType,
+    task.status,
+    task.title,
+    task.actor,
+    task.createdAt,
+    task.updatedAt,
+    task.progress,
+    task.logPreview?.join("\n"),
+    task.foldedCount,
+    task.href,
+  ].map(csvCell).join(",");
+}
+
+function operationTasksCsv(tasks: OperationTask[]) {
+  const header = ["id", "source", "sourceId", "taskType", "status", "title", "actor", "createdAt", "updatedAt", "progress", "logPreview", "foldedCount", "href"].join(",");
+  return [header, ...tasks.map(taskToCsvRow)].join("\n");
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -33,12 +61,22 @@ export async function GET(request: Request) {
       const searchParams = new URL(request.url).searchParams;
       const limitParam = searchParams.get("limit");
       const limit = limitParam === null ? undefined : Number(limitParam);
-      return NextResponse.json(await listOperationTaskResult({
+      const result = await listOperationTaskResult({
         limit,
         status: parseStatusFilter(searchParams.get("status")),
         taskType: parseTaskTypeFilter(searchParams.get("taskType")),
         sort: parseSort(searchParams.get("sort")),
-      }));
+      });
+      if (searchParams.get("format") === "csv") {
+        return new Response(operationTasksCsv(result.tasks), {
+          headers: {
+            "content-type": "text/csv; charset=utf-8",
+            "content-disposition": 'attachment; filename="operation-tasks.csv"',
+            "cache-control": "no-store",
+          },
+        });
+      }
+      return NextResponse.json(result);
     },
   );
 }

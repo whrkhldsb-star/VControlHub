@@ -38,6 +38,11 @@ function getRefreshPath(statusFilter: string, taskTypeFilter: string, sort: stri
   return `/api/operation-tasks${query ? `?${query}` : ""}`;
 }
 
+function getExportPath(statusFilter: string, taskTypeFilter: string, sort: string) {
+  const path = getRefreshPath(statusFilter, taskTypeFilter, sort);
+  return `${path}${path.includes("?") ? "&" : "?"}format=csv`;
+}
+
 export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [sourceSummary, setSourceSummary] = useState(initialSourceSummary);
@@ -123,6 +128,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             </select>
           </label>
           <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? "刷新中..." : "应用筛选"}</button>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-medium text-cyan-100 light:text-cyan-800 hover:bg-cyan-400/20">导出当前结果 CSV</a>
         </div>
       </div>
       <div className="divide-y divide-white/[0.06]">

@@ -105,6 +105,27 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByLabelText("失败原因聚合")).toHaveTextContent("最新：告警规则评估失败");
   });
 
+  it("links CSV export to the current task filters", async () => {
+    const actor = userEvent.setup();
+
+    render(<OperationTaskListClient initialTasks={[{
+      ...initialTasks[0],
+      id: "job:alert_seed",
+      source: "job",
+      sourceId: "alert_seed",
+      title: "告警规则评估",
+      status: "completed",
+      taskType: "alert.evaluate",
+    }]} initialSourceSummary={[]} initialFailureSummary={[]} />);
+
+    expect(screen.getByRole("link", { name: "导出当前结果 CSV" })).toHaveAttribute("href", "/api/operation-tasks?format=csv");
+    await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
+    await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
+    await actor.selectOptions(screen.getByLabelText("排序偏好"), "attention");
+
+    expect(screen.getByRole("link", { name: "导出当前结果 CSV" })).toHaveAttribute("href", "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention&format=csv");
+  });
+
   it("renders folded periodic job metadata without losing source navigation", async () => {
     render(<OperationTaskListClient initialTasks={[{
       id: "job:alert_new",
