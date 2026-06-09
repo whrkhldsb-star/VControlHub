@@ -80,6 +80,68 @@ describe("operation task service", () => {
     expect(mockPrisma.commandRequest.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 42 }));
   });
 
+  it("folds completed high-frequency alert evaluation jobs without hiding active or failed evaluations", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([
+      {
+        id: "alert_new",
+        type: "alert.evaluate",
+        title: "告警规则评估",
+        status: "COMPLETED",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        progress: "已评估 2 条规则",
+        errorMessage: null,
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+      {
+        id: "alert_old",
+        type: "alert.evaluate",
+        title: "告警规则评估",
+        status: "COMPLETED",
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+        updatedAt: new Date("2026-01-03T00:00:00Z"),
+        progress: "已评估 1 条规则",
+        errorMessage: null,
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+      {
+        id: "alert_failed",
+        type: "alert.evaluate",
+        title: "告警规则评估",
+        status: "FAILED",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        updatedAt: new Date("2026-01-02T00:00:00Z"),
+        progress: null,
+        errorMessage: "SMTP failed",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+    ]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const tasks = await listOperationTasks({ limit: 10 });
+
+    expect(tasks.map((task) => task.id)).toEqual(["job:alert_new", "job:alert_failed"]);
+    expect(tasks[0]).toMatchObject({
+      taskType: "alert.evaluate",
+      status: "completed",
+      foldedCount: 2,
+      progress: "已评估 2 条规则",
+    });
+    expect(tasks[1]).toMatchObject({
+      taskType: "alert.evaluate",
+      status: "failed",
+      progress: "SMTP failed",
+    });
+    expect(tasks[1].foldedCount).toBeUndefined();
+  });
+
   it("maps active deployment command requests as running operation tasks", async () => {
     mockPrisma.job.findMany.mockResolvedValue([]);
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);

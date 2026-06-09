@@ -19,6 +19,8 @@ export type OperationTask = {
   href?: string;
   workerId?: string | null;
   workerHeartbeatAt?: string | null;
+  taskType?: string | null;
+  foldedCount?: number;
 };
 
 type JobTaskRow = Prisma.JobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -60,6 +62,44 @@ function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeat
   return `后台执行器 ${input.workerId ?? "未知"} · ${heartbeatText}`;
 }
 
+const FOLDABLE_COMPLETED_JOB_TYPES = new Set(["alert.evaluate"]);
+
+function foldCompletedPeriodicJobs(tasks: OperationTask[]) {
+  const folded = new Map<string, OperationTask>();
+  const visible: OperationTask[] = [];
+
+  for (const task of tasks) {
+    if (task.source !== "job" || task.status !== "completed" || !task.taskType || !FOLDABLE_COMPLETED_JOB_TYPES.has(task.taskType)) {
+      visible.push(task);
+      continue;
+    }
+
+    const existing = folded.get(task.taskType);
+    if (!existing) {
+      const representative = { ...task, foldedCount: 1 };
+      folded.set(task.taskType, representative);
+      visible.push(representative);
+      continue;
+    }
+
+    existing.foldedCount = (existing.foldedCount ?? 1) + 1;
+    if (new Date(task.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+      existing.id = task.id;
+      existing.sourceId = task.sourceId;
+      existing.title = task.title;
+      existing.createdAt = task.createdAt;
+      existing.updatedAt = task.updatedAt;
+      existing.actor = task.actor;
+      existing.progress = task.progress;
+      existing.href = task.href;
+      existing.workerId = task.workerId;
+      existing.workerHeartbeatAt = task.workerHeartbeatAt;
+    }
+  }
+
+  return visible;
+}
+
 export async function listOperationTasks(options: { limit?: number } = {}): Promise<OperationTask[]> {
   const configuredLimit = await getOperationTaskListLimit();
   const requestedLimit = options.limit ?? configuredLimit;
@@ -75,7 +115,7 @@ export async function listOperationTasks(options: { limit?: number } = {}): Prom
   ]);
 
   const tasks: OperationTask[] = [
-    ...jobs.map((item: JobTaskRow) => ({ id: `job:${item.id}`, source: "job" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress ?? item.errorMessage, workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, href: "/tasks" })),
+    ...jobs.map((item: JobTaskRow) => ({ id: `job:${item.id}`, source: "job" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress ?? item.errorMessage, workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, href: "/tasks", taskType: item.type })),
     ...commands.map((item: CommandTaskRow) => ({ id: `command:${item.id}`, source: "command" as const, sourceId: item.id, title: item.title, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.requester), progress: formatWorkerProgress(item), workerId: item.workerId, workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null, href: "/requests" })),
     ...scheduled.map((item: ScheduledTaskRow) => ({ id: `scheduled:${item.id}`, source: "scheduled" as const, sourceId: item.id, title: item.name, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.lastResult, href: "/scheduled-tasks" })),
     ...downloads.map((item: DownloadTaskRow) => ({ id: `download:${item.id}`, source: "download" as const, sourceId: item.id, title: item.fileName || item.url, status: mapOperationStatus(item.status), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.progress, href: "/downloads" })),
@@ -84,5 +124,7 @@ export async function listOperationTasks(options: { limit?: number } = {}): Prom
     ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null, workerId: item.commandRequest?.workerId ?? null, workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null, href: "/deployments" })),
   ];
 
-  return tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, limit);
+  return foldCompletedPeriodicJobs(tasks)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
 }

@@ -47,4 +47,24 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByText("重启服务")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
   });
+
+  it("renders folded periodic job metadata without losing source navigation", async () => {
+    render(<OperationTaskListClient initialTasks={[{
+      id: "job:alert_new",
+      source: "job",
+      sourceId: "alert_new",
+      title: "告警规则评估",
+      status: "completed",
+      createdAt: "2026-01-04T00:00:00.000Z",
+      updatedAt: "2026-01-04T00:00:00.000Z",
+      taskType: "alert.evaluate",
+      foldedCount: 18,
+      href: "/tasks",
+    }]} />);
+
+    expect(screen.getByText("后台")).toBeInTheDocument();
+    expect(screen.getByText("alert.evaluate")).toBeInTheDocument();
+    expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "查看来源 →" })).toHaveAttribute("href", "/tasks");
+  });
 });
