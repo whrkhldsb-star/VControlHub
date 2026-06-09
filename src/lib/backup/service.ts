@@ -295,3 +295,15 @@ export async function voidBackupRecord(input: { id: string; reason: string }) {
     : `${prefix}：${reason}`;
   return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage });
 }
+
+export async function prepareBackupRecordRetry(input: { id: string }) {
+  const record = await getBackupRecord(input.id);
+  if (!record) throw new Error("备份记录不存在");
+  if (record.status === "COMPLETED") throw new Error("已完成备份不能重试");
+  if (record.status === "RUNNING") throw new Error("运行中的备份不能重试");
+  if (record.status === "PENDING") throw new Error("排队中的备份不能重复排队");
+  if (record.status !== "FAILED") throw new Error("只能重试失败的备份记录");
+  if (!isBackupType(record.type)) throw new Error("备份类型无效");
+  assertPortableBackupPath(record.filePath);
+  return updateBackupRecordStatus(record.id, { status: "PENDING", errorMessage: null });
+}

@@ -76,6 +76,18 @@ vi.mock("@/lib/backup/service", async () => {
         note: "历史排队记录",
         creator: { username: "admin", displayName: "Admin" },
       },
+      {
+        id: "bak-failed",
+        type: "DATABASE",
+        status: "FAILED",
+        filePath: "backups/failed.sql.gz",
+        createdAt: new Date("2026-05-31T00:00:00.000Z"),
+        fileSize: null,
+        completedAt: null,
+        errorMessage: "readonly path",
+        note: "失败记录",
+        creator: { username: "admin", displayName: "Admin" },
+      },
     ]),
   };
 });
@@ -114,8 +126,9 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "执行恢复" })).toHaveLength(4);
-    expect(screen.getByRole("button", { name: "标记作废" })).toBeInTheDocument();
-    expect(screen.getByText("对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。"));
+    expect(screen.getAllByRole("button", { name: "执行恢复" })).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "重试备份" })).toBeInTheDocument();
+    expect(screen.getAllByText("对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。")).toHaveLength(2);
   });
 });

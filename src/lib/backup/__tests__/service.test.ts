@@ -20,6 +20,7 @@ const {
   runBackupRecord,
   updateBackupRecordStatus,
   voidBackupRecord,
+  prepareBackupRecordRetry,
   restoreBackupRecord,
   listBackupRecords,
   formatBackupSize,
@@ -167,6 +168,31 @@ describe("backup service", () => {
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-running", type: "DATABASE", status: "RUNNING", filePath: "backups/db.sql.gz" });
     await expect(voidBackupRecord({ id: "bak-running", reason: "cleanup" })).rejects.toThrow("运行中的备份不能作废");
+  });
+
+  it("prepares failed backup records for retry without deleting audit history", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-failed", type: "DATABASE", status: "FAILED", filePath: "backups/failed.sql.gz", errorMessage: "readonly path" });
+    mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak-failed", ...data }));
+
+    const record = await prepareBackupRecordRetry({ id: "bak-failed" });
+
+    expect(record.status).toBe("PENDING");
+    expect(record.errorMessage).toBeNull();
+    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak-failed" }, data: { status: "PENDING", errorMessage: null } });
+  });
+
+  it("refuses unsafe backup retry states and paths", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-completed", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz" });
+    await expect(prepareBackupRecordRetry({ id: "bak-completed" })).rejects.toThrow("已完成备份不能重试");
+
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-running", type: "DATABASE", status: "RUNNING", filePath: "backups/db.sql.gz" });
+    await expect(prepareBackupRecordRetry({ id: "bak-running" })).rejects.toThrow("运行中的备份不能重试");
+
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-pending", type: "DATABASE", status: "PENDING", filePath: "backups/db.sql.gz" });
+    await expect(prepareBackupRecordRetry({ id: "bak-pending" })).rejects.toThrow("排队中的备份不能重复排队");
+
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-bad-path", type: "DATABASE", status: "FAILED", filePath: "../db.sql.gz" });
+    await expect(prepareBackupRecordRetry({ id: "bak-bad-path" })).rejects.toThrow("备份路径必须是可移植的相对路径");
   });
 
   it("builds restore command from a portable backup path without auto-executing dangerous restore", () => {

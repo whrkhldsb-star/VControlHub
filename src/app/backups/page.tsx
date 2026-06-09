@@ -6,6 +6,7 @@ import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
+import { RetryBackupRecordButton } from "./retry-backup-record-button";
 import { VoidBackupRecordButton } from "./void-backup-record-button";
 import { formatZhDateTime } from "@/lib/datetime/format";
 
@@ -121,7 +122,8 @@ export default async function BackupsPage() {
 								</div>
 							)}
 							{canCreate && b.status !== "COMPLETED" && (
-								<div className="mt-3">
+								<div className="mt-3 flex flex-wrap items-start gap-3">
+									{b.status === "FAILED" && <RetryBackupRecordButton backupId={b.id} status={b.status} />}
 									<VoidBackupRecordButton backupId={b.id} status={b.status} />
 									<p className="mt-1 text-xs text-slate-500">对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。</p>
 								</div>
