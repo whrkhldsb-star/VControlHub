@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { OperationTask, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/service";
+import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/service";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 const sourceLabels: Record<string, string> = { job: "后台", command: "命令", scheduled: "定时", download: "下载", sync: "同步", backup: "备份", deployment: "部署" };
@@ -32,9 +32,10 @@ function getRefreshPath(statusFilter: string, taskTypeFilter: string) {
   return `/api/operation-tasks${query ? `?${query}` : ""}`;
 }
 
-export function OperationTaskListClient({ initialTasks, initialSourceSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[] }) {
+export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [sourceSummary, setSourceSummary] = useState(initialSourceSummary);
+  const [failureSummary, setFailureSummary] = useState(initialFailureSummary);
   const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]["value"]>("all");
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -47,6 +48,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter));
       setTasks(data.tasks ?? []);
       setSourceSummary(data.sourceSummary ?? []);
+      setFailureSummary(data.failureSummary ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "刷新任务中心失败");
     } finally { setRefreshing(false); }
@@ -69,6 +71,21 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-3">
           <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-white light:text-slate-900">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-slate-500">总计 {item.total}</span></div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600"><span>需处理 {item.attention}</span><span>失败 {item.failed}</span><span>运行中 {item.running}</span><span>待处理 {item.pending}</span></div>
+        </div>)}
+      </div>}
+    </section>
+    <section aria-label="失败原因聚合" className="rounded-xl border border-rose-400/15 bg-rose-500/[0.04] p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-white light:text-slate-900">失败原因聚合</h2>
+          <p className="mt-1 text-xs text-slate-500">按当前筛选结果归类失败任务，优先处理重复出现的失败模式。</p>
+        </div>
+        <div className="text-xs text-slate-500">共 {failureSummary.reduce((total, item) => total + item.total, 0)} 条失败</div>
+      </div>
+      {failureSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">当前筛选结果暂无失败任务</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {failureSummary.map((item) => <div key={item.reason} className="rounded-lg border border-rose-400/15 bg-rose-500/[0.05] px-3 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-white light:text-slate-900">{item.reason}</span><span className="rounded-md border border-rose-400/20 bg-rose-400/10 px-2 py-1 text-xs text-rose-100 light:text-rose-800">{item.total} 条</span></div>
+          <p className="mt-2 text-xs text-slate-500">来源：{item.sources.map((source) => sourceLabels[source] ?? source).join("、")} · 最新：{item.latestTitle}</p>
         </div>)}
       </div>}
     </section>

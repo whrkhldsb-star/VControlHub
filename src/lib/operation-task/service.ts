@@ -23,6 +23,15 @@ export type OperationTask = {
   foldedCount?: number;
 };
 
+export type OperationTaskFailureSummary = {
+  reason: string;
+  total: number;
+  sources: OperationTaskSource[];
+  latestTaskId: string;
+  latestTitle: string;
+  latestAt: string;
+};
+
 export type OperationTaskSourceSummary = {
   source: OperationTaskSource;
   total: number;
@@ -35,6 +44,7 @@ export type OperationTaskSourceSummary = {
 export type OperationTaskListResult = {
   tasks: OperationTask[];
   sourceSummary: OperationTaskSourceSummary[];
+  failureSummary: OperationTaskFailureSummary[];
 };
 
 type JobTaskRow = Prisma.JobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -155,6 +165,40 @@ function summarizeOperationTaskSources(tasks: OperationTask[]): OperationTaskSou
   return Array.from(summary.values()).sort((a, b) => b.attention - a.attention || b.total - a.total || a.source.localeCompare(b.source));
 }
 
+function normalizeFailureReason(task: OperationTask) {
+  const text = `${task.title} ${task.progress ?? ""}`.toLowerCase();
+  if (/permission|denied|forbidden|unauthorized|401|403|权限|拒绝/.test(text)) return "权限或认证失败";
+  if (/timeout|timed out|超时|deadline/.test(text)) return "执行超时";
+  if (/no such file|not found|missing|不存在|未找到/.test(text)) return "文件或资源不存在";
+  if (/connect|network|econn|dns|socket|网络|连接/.test(text)) return "网络或连接失败";
+  if (/smtp|email|mail|webhook|telegram|通知/.test(text)) return "通知发送失败";
+  if (/backup|restore|备份|恢复/.test(text)) return "备份或恢复失败";
+  return task.taskType ? `${task.taskType} 失败` : `${task.source} 失败`;
+}
+
+function summarizeOperationTaskFailures(tasks: OperationTask[]): OperationTaskFailureSummary[] {
+  const summary = new Map<string, OperationTaskFailureSummary & { sourceSet: Set<OperationTaskSource> }>();
+  for (const task of tasks) {
+    if (task.status !== "failed") continue;
+    const reason = normalizeFailureReason(task);
+    const existing = summary.get(reason);
+    if (!existing) {
+      summary.set(reason, { reason, total: 1, sourceSet: new Set([task.source]), sources: [task.source], latestTaskId: task.id, latestTitle: task.title, latestAt: task.updatedAt });
+      continue;
+    }
+    existing.total += 1;
+    existing.sourceSet.add(task.source);
+    if (new Date(task.updatedAt).getTime() > new Date(existing.latestAt).getTime()) {
+      existing.latestTaskId = task.id;
+      existing.latestTitle = task.title;
+      existing.latestAt = task.updatedAt;
+    }
+  }
+  return Array.from(summary.values())
+    .map(({ sourceSet, ...item }) => ({ ...item, sources: Array.from(sourceSet).sort() }))
+    .sort((a, b) => b.total - a.total || new Date(b.latestAt).getTime() - new Date(a.latestAt).getTime() || a.reason.localeCompare(b.reason));
+}
+
 export async function listOperationTasks(options: OperationTaskListOptions = {}): Promise<OperationTask[]> {
   const result = await listOperationTaskResult(options);
   return result.tasks;
@@ -191,5 +235,6 @@ export async function listOperationTaskResult(options: OperationTaskListOptions 
   return {
     tasks: filteredTasks,
     sourceSummary: summarizeOperationTaskSources(filteredTasks),
+    failureSummary: summarizeOperationTaskFailures(filteredTasks),
   };
 }

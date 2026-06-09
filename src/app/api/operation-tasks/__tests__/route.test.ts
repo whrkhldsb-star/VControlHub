@@ -23,6 +23,7 @@ describe("/api/operation-tasks", () => {
     mocks.listOperationTaskResult.mockResolvedValue({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
       sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
+      failureSummary: [],
     });
   });
 
@@ -37,6 +38,7 @@ describe("/api/operation-tasks", () => {
     await expect(response.json()).resolves.toEqual({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
       sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
+      failureSummary: [],
     });
   });
 

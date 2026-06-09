@@ -27,6 +27,7 @@ const initialTasks: OperationTask[] = [
   },
 ];
 const initialSourceSummary = [{ source: "command" as const, total: 1, attention: 1, failed: 0, running: 0, pending: 1 }];
+const initialFailureSummary = [{ reason: "执行超时", total: 1, sources: ["command" as const], latestTaskId: "command:cmd_1", latestTitle: "重启服务", latestAt: "2026-01-01T00:00:00.000Z" }];
 
 describe("OperationTaskListClient", () => {
   beforeEach(() => {
@@ -34,19 +35,22 @@ describe("OperationTaskListClient", () => {
   });
 
   it("renders initial source aggregation counts", () => {
-    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} />);
+    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} initialFailureSummary={initialFailureSummary} />);
 
     const summary = screen.getByLabelText("来源聚合");
     expect(summary).toHaveTextContent("命令");
     expect(summary).toHaveTextContent("总计 1");
     expect(summary).toHaveTextContent("待处理 1");
+    const failure = screen.getByLabelText("失败原因聚合");
+    expect(failure).toHaveTextContent("执行超时");
+    expect(failure).toHaveTextContent("最新：重启服务");
   });
 
   it("surfaces refresh failures and keeps the existing task list visible", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("任务中心刷新失败"));
 
-    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} />);
+    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} initialFailureSummary={initialFailureSummary} />);
 
     expect(screen.getByText("重启服务")).toBeInTheDocument();
     expect(screen.getByText("worker worker-1")).toBeInTheDocument();
@@ -71,6 +75,7 @@ describe("OperationTaskListClient", () => {
         taskType: "alert.evaluate",
       }],
       sourceSummary: [{ source: "job", total: 1, attention: 1, failed: 1, running: 0, pending: 0 }],
+      failureSummary: [{ reason: "通知发送失败", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "告警规则评估失败", latestAt: "2026-01-01T00:00:00.000Z" }],
     });
 
     render(<OperationTaskListClient initialTasks={[{
@@ -81,7 +86,7 @@ describe("OperationTaskListClient", () => {
       title: "告警规则评估",
       status: "completed",
       taskType: "alert.evaluate",
-    }]} initialSourceSummary={[{ source: "job", total: 1, attention: 0, failed: 0, running: 0, pending: 0 }]} />);
+    }]} initialSourceSummary={[{ source: "job", total: 1, attention: 0, failed: 0, running: 0, pending: 0 }]} initialFailureSummary={[]} />);
 
     await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
     await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
@@ -91,6 +96,8 @@ describe("OperationTaskListClient", () => {
     expect(await screen.findByText("告警规则评估失败")).toBeInTheDocument();
     expect(screen.getByLabelText("来源聚合")).toHaveTextContent("后台");
     expect(screen.getByLabelText("来源聚合")).toHaveTextContent("失败 1");
+    expect(screen.getByLabelText("失败原因聚合")).toHaveTextContent("通知发送失败");
+    expect(screen.getByLabelText("失败原因聚合")).toHaveTextContent("最新：告警规则评估失败");
   });
 
   it("renders folded periodic job metadata without losing source navigation", async () => {

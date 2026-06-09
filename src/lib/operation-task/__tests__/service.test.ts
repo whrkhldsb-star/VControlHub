@@ -242,6 +242,46 @@ describe("operation task service", () => {
     ]);
   });
 
+  it("summarizes failed operation tasks by normalized failure reason", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([
+      {
+        id: "alert_failed",
+        type: "alert.evaluate",
+        title: "告警规则评估",
+        status: "FAILED",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        progress: null,
+        errorMessage: "SMTP failed",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+      {
+        id: "backup_failed",
+        type: "backup.create",
+        title: "创建备份",
+        status: "FAILED",
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+        updatedAt: new Date("2026-01-03T00:00:00Z"),
+        progress: null,
+        errorMessage: "backup failed: no such file",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+    ]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const result = await listOperationTaskResult({ limit: 10, status: "failed" });
+
+    expect(result.failureSummary).toEqual([
+      { reason: "通知发送失败", total: 1, sources: ["job"], latestTaskId: "job:alert_failed", latestTitle: "告警规则评估", latestAt: "2026-01-04T00:00:00.000Z" },
+      { reason: "文件或资源不存在", total: 1, sources: ["job"], latestTaskId: "job:backup_failed", latestTitle: "创建备份", latestAt: "2026-01-03T00:00:00.000Z" },
+    ]);
+  });
+
   it("maps active deployment command requests as running operation tasks", async () => {
     mockPrisma.job.findMany.mockResolvedValue([]);
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);
