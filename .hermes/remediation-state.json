@@ -58,25 +58,30 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production backups page chunk contains 输入 RESTORE 确认恢复 and no old 确认文本 label; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "operation-tasks-csv-export",
+    "id": "quick-service-lifecycle-task-logging",
     "stage": "completed_deployed_verified",
-    "selectedReadmeItem": "任务中心可观测性仍需继续治理（P2）",
-    "journey": "Operator filters /operation-tasks and exports the current task-center result set as CSV for external audit/offline analysis.",
-    "changeContract": "Add additive format=csv export to /api/operation-tasks using the existing task:read guard and filtered/sorted result model; add a visible UI export link without changing task execution semantics.",
+    "selectedReadmeItem": "Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）中的 QuickService 生命周期任务日志可观测子切片",
+    "journey": "Operator triggers a queued QuickService lifecycle action and uses Operation Tasks to inspect action-specific progress plus final logPreview context without leaving the task-center triage flow.",
+    "changeContract": "Enhance quick_service.lifecycle worker observability only: reuse existing Job progress/result.logPreview fields, do not add schema, and do not change Docker install/update/start/stop/sync/uninstall semantics.",
     "evidence": {
-      "preflight": "Clean git on entry at 20f1d5b; HEAD matched origin/main; no verify/build/test/deploy processes; services active; /api/status 200 warning only for known storage unprobed state; recent logs clean; single 6G /swapfile steady.",
-      "browser_or_dom": "Authenticated browser login as temporary admin qa_op_tasks_csv_1781025 reached /operation-tasks, showed heading 统一任务中心 and link 导出当前结果 CSV with href /api/operation-tasks?format=csv; DOM probe showed no alerts and no horizontal overflow.",
-      "api": "Authenticated browser-context fetch /api/operation-tasks?format=csv&status=attention&taskType=alert.evaluate&sort=attention returned 200, content-type text/csv; charset=utf-8, content-disposition attachment; filename=\"operation-tasks.csv\", header id,source,sourceId,taskType,status,title,actor,createdAt,updatedAt,progress,logPreview,foldedCount,href.",
+      "preflight": "Clean git on entry at 73eaa39 matching origin/main; no verify/build/test/deploy overlap; vcontrolhub-next, vcontrolhub-ssh-ws, caddy active; /api/status 200; recent next/ssh-ws logs clean; Docker available; single 6G /swapfile steady.",
+      "browser_or_dom": "User-facing surface is the existing Operation Tasks progress/logPreview renderer; focused service regressions prove the QuickService lifecycle worker now supplies those fields, and production auth-boundary probes for /operation-tasks and /quick-services returned 307 to login after deployment.",
+      "api": "No API contract change; QuickService lifecycle APIs continue returning queued durable jobs while the worker enriches existing job progress/result fields consumed by /api/operation-tasks.",
+      "db_or_persisted_config": "No migration or new table; Job.progress heartbeat values and completeJob result.logPreview carry the new observability payload.",
+      "background_task_or_process": "Focused worker regression exercised runQuickServiceJobWorkerOnce for quick_service.lifecycle update jobs and verified heartbeat/completeJob calls, including updateService health/logTail in logPreview.",
+      "runtime_or_ui_side_effect": "Task Center can now show specific lifecycle stages such as preparing update and updating/rebuilding plus a final log preview with health/log tail for QuickService lifecycle jobs.",
+      "permissions": "No permission boundary changed; lifecycle actions remain behind existing QuickService auth/CSRF route guards and /operation-tasks remains protected.",
       "regression": [
-        "git diff --check passed",
-        "focused Operation Tasks API/client/service Vitest passed 19/19",
+        "git diff --check passed after removing trailing blank line",
+        "npx vitest run src/lib/quick-service/job-worker.test.ts src/lib/operation-task/__tests__/service.test.ts --reporter=dot passed: 2 files / 12 tests",
         "npm run typecheck passed",
-        "full npm run verify passed on rerun; first run had unrelated SSH terminal focus flake that passed in focused rerun"
+        "npm run verify passed: 222 files / 1061 tests plus Next build/runtime/deploy-assets"
       ],
-      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; smoke 25/25 passed; /api/status 200 with known storage待探测 warning; unauth /operation-tasks redirected to login; recent logs clean.",
-      "cleanup": "Temporary QA user qa_op_tasks_csv_1781025 and /tmp helper/password files were deleted; remaining qa_op_tasks_csv_* users count 0; single 6G /swapfile steady."
+      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; smoke 25/25 passed; /api/status 200 with known storage待探测 warning; unauth /operation-tasks and /quick-services redirected to login; recent logs clean; single 6G /swapfile preserved.",
+      "logs": "Preflight recent journal scan for vcontrolhub-next/vcontrolhub-ssh-ws found no error/warn/failed/exception/EACCES/docker/known_hosts/Server Action matches.",
+      "cleanup": "No temporary QA users, containers, DB records, or filesystem artifacts were created; no cleanup required."
     },
-    "residual": "Task Center still needs cross-source long-term archive/retention policy for large command/download/backup/deployment history."
+    "residual": "QuickService residuals are now safer failed-job rollback, true config diff/rollback history, Direct Gateway TLS/VPN/firewall/default transport hardening, and broader task archive/retention policy; config preview and basic lifecycle log observability are no longer residual."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -1199,49 +1204,52 @@
       "summary": "QuickService queued lifecycle success messages now expose a direct Task Center link when the API returns taskId, and success/error message regions have status/alert semantics."
     }
   ],
-  "lastRunAt": "2026-06-09T06:35:40Z",
+  "lastRunAt": "2026-06-09T22:54:20Z",
   "lastCompletedSlice": {
-    "id": "quick-service-task-center-link",
-    "title": "QuickService queued task center link",
-    "startedAt": "2026-06-09T06:24:29Z",
-    "finishedAt": "2026-06-09T06:35:40Z",
-    "status": "completed_verified_deployed",
-    "summary": "QuickService queued lifecycle success messages now expose a direct Task Center link when the API returns taskId, and success/error message regions have status/alert semantics.",
-    "stage": "stage-32-quick-service-task-center-observability",
-    "selectedReadmeItem": "README P2 QuickService 生命周期：durable job 排队后补齐用户可点击的任务中心追踪入口。",
+    "id": "quick-service-lifecycle-task-logging",
+    "title": "QuickService lifecycle task logging observability",
+    "startedAt": "2026-06-09T17:36:33Z",
+    "finishedAt": "2026-06-09T22:54:20Z",
+    "status": "completed_deployed_verified",
+    "summary": "QuickService lifecycle worker now records action-specific progress heartbeats and completion logPreview summaries for Operation Tasks triage, without schema or Docker behavior changes.",
+    "stage": "stage-33-quick-service-lifecycle-task-logging",
+    "selectedReadmeItem": "Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）中的 QuickService 生命周期任务日志可观测子切片",
     "changeContract": {
       "files": [
-        "src/app/quick-services/quick-services-client.tsx",
-        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
+        "src/lib/quick-service/job-worker.ts",
+        "src/lib/quick-service/job-worker.test.ts",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "install/update/uninstall queued client regressions assert 查看任务中心 link",
-        "full verify and production smoke after deploy",
-        "protected /quick-services and /operation-tasks route probes"
+        "focused worker regression verifies action-specific heartbeat progress",
+        "focused worker regression verifies completeJob result.logPreview includes update health/log tail",
+        "Operation Tasks service regression remains compatible with logPreview extraction"
       ],
       "remaining": [
-        "QuickService config diff",
         "QuickService failed-job rollback",
-        "cross-process concurrency limits",
-        "richer lifecycle log streaming",
-        "Direct Gateway TLS/VPN/firewall hardening"
+        "true config diff/rollback history",
+        "Direct Gateway transport hardening"
       ]
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Client regressions cover queued install/update/uninstall messages rendering a visible 查看任务中心 link to /operation-tasks and status/alert semantics for feedback regions.",
-      "api": "Production /api/status returned 200 with the known storage warning summary; /quick-services and /operation-tasks unauthenticated probes returned 307 to login, preserving auth boundaries.",
-      "db_or_persisted_config": "No schema or persisted config change was required; this slice consumes the existing taskId returned by QuickService durable lifecycle APIs.",
-      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership was corrected to vcontrolhub:vcontrolhub.",
-      "background_task_or_process": "No normal verify/build/next-build process was left running before restart; only editor tsserver processes were present. Existing QuickService durable worker remains the task execution substrate.",
-      "runtime_or_ui_side_effect": "Operators can click 查看任务中心 directly from queued QuickService lifecycle success feedback instead of manually navigating or copying a job id.",
-      "permissions": "The new link points to the already protected /operation-tasks page; unauthenticated production probe redirects to /login?next=%2Foperation-tasks.",
-      "regression": "git diff --check passed; targeted QuickServices client Vitest passed 10/10; npm run typecheck passed; npm run verify passed with full Vitest/Next build/runtime build/deploy-assets.",
-      "production": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded Caddy, services were active, /api/status returned 200 warning due to 4 storage nodes待探测, and smoke passed 25/25.",
-      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws log scan after restart showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "No temporary QA users, containers, filesystem objects, or DB rows were created in this UI/observability slice; swap remained a single 6G /swapfile."
+      "preflight": "Clean git on entry at 73eaa39 matching origin/main; no verify/build/test/deploy overlap; vcontrolhub-next, vcontrolhub-ssh-ws, caddy active; /api/status 200; recent next/ssh-ws logs clean; Docker available; single 6G /swapfile steady.",
+      "browser_or_dom": "User-facing surface is the existing Operation Tasks progress/logPreview renderer; focused service regressions prove the QuickService lifecycle worker now supplies those fields, and production auth-boundary probes for /operation-tasks and /quick-services returned 307 to login after deployment.",
+      "api": "No API contract change; QuickService lifecycle APIs continue returning queued durable jobs while the worker enriches existing job progress/result fields consumed by /api/operation-tasks.",
+      "db_or_persisted_config": "No migration or new table; Job.progress heartbeat values and completeJob result.logPreview carry the new observability payload.",
+      "background_task_or_process": "Focused worker regression exercised runQuickServiceJobWorkerOnce for quick_service.lifecycle update jobs and verified heartbeat/completeJob calls, including updateService health/logTail in logPreview.",
+      "runtime_or_ui_side_effect": "Task Center can now show specific lifecycle stages such as preparing update and updating/rebuilding plus a final log preview with health/log tail for QuickService lifecycle jobs.",
+      "permissions": "No permission boundary changed; lifecycle actions remain behind existing QuickService auth/CSRF route guards and /operation-tasks remains protected.",
+      "regression": [
+        "git diff --check passed after removing trailing blank line",
+        "npx vitest run src/lib/quick-service/job-worker.test.ts src/lib/operation-task/__tests__/service.test.ts --reporter=dot passed: 2 files / 12 tests",
+        "npm run typecheck passed",
+        "npm run verify passed: 222 files / 1061 tests plus Next build/runtime/deploy-assets"
+      ],
+      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; smoke 25/25 passed; /api/status 200 with known storage待探测 warning; unauth /operation-tasks and /quick-services redirected to login; recent logs clean; single 6G /swapfile preserved.",
+      "logs": "Preflight recent journal scan for vcontrolhub-next/vcontrolhub-ssh-ws found no error/warn/failed/exception/EACCES/docker/known_hosts/Server Action matches.",
+      "cleanup": "No temporary QA users, containers, DB records, or filesystem artifacts were created; no cleanup required."
     }
   },
   "lastVerification": [
@@ -1260,13 +1268,14 @@
       "logs: recent next/ssh-ws journal grep found no error/fail/warn/exception/traceback entries"
     ]
   },
-  "last_updated": "2026-06-07T13:58:24.877779+00:00",
-  "current_focus": "smtp_email_alert_channel_deployed",
+  "last_updated": "2026-06-09T22:54:20Z",
+  "current_focus": "quick_service_lifecycle_task_logging_observability",
   "last_evidence": [
-    "targeted: npx vitest run src/lib/notification/email.test.ts src/lib/alert/__tests__/service.test.ts src/lib/health/__tests__/service.test.ts src/app/api/settings/__tests__/route.test.ts src/app/settings/__tests__/settings-client.test.tsx --reporter=dot => 5 files / 33 tests passed",
-    "typecheck: npm run typecheck -- --pretty false => passed",
-    "lint: npm run lint -- --max-warnings=0 => passed",
-    "full verify: npm run verify => 204 files / 922 tests passed plus Next build/runtime build/deploy assets passed"
+    "git diff --check passed after removing trailing blank line",
+    "npx vitest run src/lib/quick-service/job-worker.test.ts src/lib/operation-task/__tests__/service.test.ts --reporter=dot passed: 2 files / 12 tests",
+    "npm run typecheck passed",
+    "npm run verify passed: 222 files / 1061 tests plus Next build/runtime/deploy-assets",
+    "production restart and smoke passed: 25/25; /api/status 200 warning-only for known storage待探测; logs clean"
   ],
   "last_deploy_evidence": [
     "npm run build:runtime => dist/server.js and dist/ssh-ws-proxy.js built",

@@ -382,7 +382,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **QuickService 生命周期已迁入 Durable Job worker。** 安装、启动、停止、状态刷新、更新和卸载 API 现在只做权限/输入/端口校验并返回 `202 + jobId/taskId`；后台 `quick_service.lifecycle` worker 通过共享 Job 队列 claim/heartbeat/complete/fail 后再执行 Docker side effect，`/quick-services` 成功提示也改为“已排队，可在任务中心查看进度”，避免拉镜像、重建容器或删除数据目录继续占用 HTTP 请求。
 - [x] **QuickService 排队任务可观测入口补齐。** `/quick-services` 的安装、启动/停止、状态刷新、更新和卸载在返回 `taskId` 后，成功提示会直接提供“查看任务中心”链接，操作员无需复制 job id 或猜测入口即可追踪 durable job 进度；提示区同时补 `status/alert` 语义，排队成功与错误反馈可被辅助技术区分。
 - [x] **QuickService 同服务并发生命周期任务已收敛。** `enqueueQuickServiceJob()` 现在会在入队前查找同一 `slug` 的 `PENDING/RUNNING` 生命周期任务，安装、启动/停止、状态刷新、更新和卸载如果遇到已有任务会直接返回现有 `jobId/taskId`，API 响应带 `reused` 与“已有进行中任务”提示，避免同一服务被连点或跨进程重复入队后同时拉镜像、重建或卸载。
-- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，安装/更新前已展示非敏感配置摘要与公开端口风险确认，生命周期写操作已排入 Durable Job worker 而不是占用 HTTP 请求，排队提示已提供任务中心入口，且同一服务未完成生命周期任务会被复用而不是跨进程重复入队；第三方模板仍属于供应链输入，后续主要补失败回滚、配置 diff 和更细日志流。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
+- [x] **QuickService 生命周期任务阶段日志已接入任务中心。** `quick_service.lifecycle` worker 现在会按安装、启动/停止、状态刷新、更新和卸载动作写入更具体的 heartbeat progress，并在完成结果中保留安全截断的 `logPreview`，任务中心“最近日志”可直接看到拉取镜像、重建容器、健康检查或同步结果摘要，不必先跳到审计或容器日志里定位。
+- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，安装/更新前已展示非敏感配置摘要与公开端口风险确认，生命周期写操作已排入 Durable Job worker 而不是占用 HTTP 请求，排队提示已提供任务中心入口，同一服务未完成生命周期任务会被复用而不是跨进程重复入队，且任务中心已能展示阶段进度与完成日志摘要；第三方模板仍属于供应链输入，后续主要补失败回滚、真实配置变更 diff/回滚记录和 Direct Gateway 传输边界加固。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
 - [x] **公开状态存储健康摘要已接入最近探测结果。** `/status` 与 `/api/status` 不再只按“已配置存储节点数量”给出乐观健康结论，而是汇总最近存储节点健康探测的健康/异常/待探测数量；公开输出仍不暴露 SFTP/Direct Gateway 主机、端口、路径或凭据。`/files` 存储节点管理里的“立即检测”继续作为写入该公开摘要的专项探测入口。
 - [x] **Docker 日志弹窗已接入统一 Dialog Focus 管理。** 新增 `useDialogFocus` 客户端 hook，封装打开后初始聚焦、Escape 关闭、Tab/Shift+Tab 焦点循环和关闭后恢复触发按钮焦点；Docker 日志弹窗现在具备 `role="dialog"`、`aria-modal`、标题关联、命名关闭按钮和 light/dark 可读日志面板，删除确认弹窗也复用同一焦点管理底座。
 - [x] **文件浏览 SPA 已支持浏览器历史后退/前进。** 文件目录树和面包屑里的真实目录导航现在使用 `history.pushState` 写入 `/files?path=...&nodeId=...`，刷新、上传完成、新建文件夹和搜索等原地更新仍使用 `replaceState` 避免污染历史栈；浏览器 `popstate` 会从当前 URL 恢复 path/search/scope/nodeId 并重新拉取 `/api/files/list`，后退/前进可以逐级回到上一个目录。
@@ -445,7 +446,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] 告警增强：静默期、Webhook 测试发送和 email/SMTP 真实发送已完成；后续继续补 Telegram 等通知渠道配置、失败重试和告警历史趋势。
 
 ### P2 — 用户体验和可运营性
-- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件，并已纳入统一 durable job worker；排队提示已能直达任务中心，同一服务未完成生命周期任务会被复用以避免跨进程重复入队，继续补配置 diff、失败回滚和更细日志流。
+- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件，并已纳入统一 durable job worker；排队提示已能直达任务中心，同一服务未完成生命周期任务会被复用以避免跨进程重复入队，任务中心已能展示阶段进度与完成日志摘要，继续补失败回滚、真实配置变更 diff/回滚记录和 Direct Gateway 传输边界加固。
 - [ ] 在线文件编辑器：本机文本编辑/保存/权限边界、差异预览和保存确认已完成，继续补并发修改检测、保存后可选重载服务和 SFTP 编辑。
 - [x] 媒体库 / 图床融合：图片模式已合并批量上传、目标存储目录、已有存储图片发布外链和图片搜索；媒体库已补一等图片/视频/音频切换，主导航不再暴露独立图床模块，外链管理作为图片工作区辅助入口。
 - [x] 文件管理资料流：`/files` 已补“资料详情”面板，把预览/编辑、下载、分享、媒体库搜索和管理动作集中到真实文件入口；后续继续把文件详情与媒体详情做更深的双向状态同步。

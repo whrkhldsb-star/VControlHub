@@ -36,7 +36,8 @@ vi.mock("./service", () => ({
 	updateService: vi.fn(),
 }));
 
-const { enqueueQuickServiceJob, QUICK_SERVICE_JOB_TYPE } = await import("./job-worker");
+const { enqueueQuickServiceJob, runQuickServiceJobWorkerOnce, QUICK_SERVICE_JOB_TYPE } = await import("./job-worker");
+const quickService = await import("./service");
 
 describe("QuickService lifecycle job enqueue", () => {
 	beforeEach(() => {
@@ -81,6 +82,36 @@ describe("QuickService lifecycle job enqueue", () => {
 			title: "QuickService sync: alist",
 			payload: { action: "sync", slug: "alist" },
 			maxAttempts: 1,
+		}));
+	});
+});
+
+describe("QuickService lifecycle job worker observability", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mocks.heartbeatJob.mockResolvedValue({ count: 1 });
+		mocks.completeJob.mockResolvedValue({ count: 1 });
+		mocks.failJob.mockResolvedValue({ count: 1 });
+	});
+
+	it("records update progress and a log preview result for task-center triage", async () => {
+		mocks.claimNextJob.mockResolvedValueOnce({ id: "job_update", payload: { action: "update", slug: "alist" } });
+		vi.mocked(quickService.updateService).mockResolvedValueOnce({ status: "running", health: "healthy", logTail: "old line\nservice ready" });
+
+		await expect(runQuickServiceJobWorkerOnce({ started: true, running: false, timer: null }, "test")).resolves.toBe(true);
+
+		expect(mocks.heartbeatJob).toHaveBeenNthCalledWith(1, "job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
+			progress: "准备执行 QuickService update: alist",
+		}));
+		expect(mocks.heartbeatJob).toHaveBeenNthCalledWith(2, "job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
+			progress: "正在更新 alist：拉取镜像并重建容器",
+		}));
+		expect(mocks.completeJob).toHaveBeenCalledWith("job_update", expect.stringContaining(":quick-service:"), expect.objectContaining({
+			action: "update",
+			slug: "alist",
+			status: "running",
+			health: "healthy",
+			logPreview: "更新完成：alist\n健康状态：healthy\nold line\nservice ready",
 		}));
 	});
 });
