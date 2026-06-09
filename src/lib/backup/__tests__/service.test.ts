@@ -272,8 +272,22 @@ describe("backup service", () => {
     expect(summary.byType.FILES).toEqual({ count: 1, sizeBytes: 2 * 1024 * 1024 });
     expect(summary.byType.FULL).toEqual({ count: 0, sizeBytes: 0 });
     expect(summary.failureSummary).toEqual([
-      { category: "permission", label: "权限或只读路径", count: 2, latestMessage: "EACCES: permission denied", latestRecordPath: "backups/files-old.tar.gz" },
-      { category: "missing", label: "文件或目录不存在", count: 1, latestMessage: "No such file or directory", latestRecordPath: "backups/missing.sql.gz" },
+      {
+        category: "permission",
+        label: "权限或只读路径",
+        remediation: "优先确认 BACKUP_DIR 或 /var/backups/<slug> 是可写目录，并把旧的仓库内只读路径失败记录标记作废或重试到新的系统备份根。",
+        count: 2,
+        latestMessage: "EACCES: permission denied",
+        latestRecordPath: "backups/files-old.tar.gz",
+      },
+      {
+        category: "missing",
+        label: "文件或目录不存在",
+        remediation: "确认备份脚本引用的源目录、restore 目标或历史 artifact 仍存在；对已不存在的旧 artifact 保留审计并标记作废。",
+        count: 1,
+        latestMessage: "No such file or directory",
+        latestRecordPath: "backups/missing.sql.gz",
+      },
     ]);
     expect(summary.largestCompleted).toEqual({ type: "FILES", filePath: "backups/files.tar.gz", sizeBytes: 2 * 1024 * 1024 });
   });

@@ -120,6 +120,7 @@ describe("BackupsPage", () => {
     expect(screen.getByText("失败记录：1")).toBeInTheDocument();
     expect(screen.getByText("权限或只读路径")).toBeInTheDocument();
     expect(screen.getByText("最新记录：backups/failed.sql.gz")).toBeInTheDocument();
+    expect(screen.getByText(/建议：优先确认 BACKUP_DIR 或 \/var\/backups\/<slug> 是可写目录/)).toBeInTheDocument();
     expect(screen.getByText("readonly path")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "创建定时备份" })).toBeInTheDocument();
     expect(screen.getByText(/选择备份类型、Cron 与执行节点后/)).toBeInTheDocument();

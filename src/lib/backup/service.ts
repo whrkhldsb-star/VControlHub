@@ -36,6 +36,7 @@ type BackupFailureCategory = "path" | "permission" | "timeout" | "script" | "mis
 export type BackupFailureSummaryItem = {
   category: BackupFailureCategory;
   label: string;
+  remediation: string;
   count: number;
   latestMessage: string | null;
   latestRecordPath: string | null;
@@ -142,6 +143,16 @@ const backupFailureCategoryLabels: Record<BackupFailureCategory, string> = {
   unknown: "未归类失败",
 };
 
+const backupFailureRemediation: Record<BackupFailureCategory, string> = {
+  path: "检查备份记录的 portable path，避免绝对路径、..、反斜杠或跨目录片段；必要时作废旧记录后重新创建备份。",
+  permission: "优先确认 BACKUP_DIR 或 /var/backups/<slug> 是可写目录，并把旧的仓库内只读路径失败记录标记作废或重试到新的系统备份根。",
+  timeout: "检查备份体积、网络/磁盘 IO 与 30 分钟执行窗口；必要时拆分文件备份或改为后台低峰执行。",
+  script: "查看对应 Durable Job 日志和 deploy/backup.sh 输出，先修复脚本依赖、环境变量或数据库连接后再重试。",
+  missing: "确认备份脚本引用的源目录、restore 目标或历史 artifact 仍存在；对已不存在的旧 artifact 保留审计并标记作废。",
+  storage: "检查磁盘空间、inode、挂载只读状态和备份目录写入权限；释放空间或切换 BACKUP_DIR 后再重试。",
+  unknown: "保留错误片段并到任务中心查看完整日志；若能稳定复现，再按路径/权限/脚本/存储方向细分处理。",
+};
+
 function classifyBackupFailure(message: string | null | undefined): BackupFailureCategory {
   const value = (message || "").toLowerCase();
   if (/permission|denied|readonly|read-only|只读|权限|eacces|eperm/.test(value)) return "permission";
@@ -164,6 +175,7 @@ function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailu
       grouped.set(category, {
         category,
         label: backupFailureCategoryLabels[category],
+        remediation: backupFailureRemediation[category],
         count: 1,
         latestMessage: record.errorMessage || record.note || null,
         latestRecordPath: record.filePath ?? null,

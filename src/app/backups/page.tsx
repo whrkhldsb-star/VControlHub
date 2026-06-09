@@ -95,6 +95,7 @@ export default async function BackupsPage() {
 									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100 light:text-rose-700">{item.count} 条</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-slate-500">最新记录：{item.latestRecordPath}</p>}
+								<p className="mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300 light:border-slate-200 light:bg-white/60 light:text-slate-700">建议：{item.remediation}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-slate-400 light:text-slate-600">{item.latestMessage}</p>}
 							</div>
 						))}
