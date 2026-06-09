@@ -12,6 +12,20 @@ import { MoveInlineForm } from "./move-inline-form";
 import { ShareFileButton } from "./share-file-button";
 import { DownloadIcon, FileTypeIcon, PreviewIcon } from "./file-entry-icons";
 import {
+	entryCanDelete as canDeleteEntry,
+	entryCanRead as canReadEntry,
+	entryCanWrite as canWriteEntry,
+	folderCanWrite as canWriteFolder,
+	getSelectableFiles,
+	getSelectionSummary,
+	getVisibleFiles,
+	sortFiles,
+	sortFolders,
+	type FileListSortDir,
+	type FileListSortKey,
+	type FolderProp,
+} from "./file-list-model";
+import {
   buildArchiveDownloadHref,
   buildForcedDownloadHref,
   buildSearchHref,
@@ -24,23 +38,8 @@ import {
   type StorageEntry,
 } from "./file-entry-utils";
 
-/* ── serialisable folder type (no Map) ────────────────────────────── */
-
-export type FolderProp = {
-  name: string;
-  displayName?: string;
-  path: string;
-  entryId?: string | null;
-  storageNodeId?: string | null;
-  relativePath?: string | null;
-  capabilities?: FileProp["capabilities"];
-  fileCount: number;
-  folderCount: number;
-  sourceKeys: string[];
-  sourceValues: string[];
-};
-
 export type { FileProp } from "./file-entry-utils";
+export type { FolderProp } from "./file-list-model";
 
 /* ── component props ──────────────────────────────────────────────── */
 
@@ -133,12 +132,10 @@ export function FileListClient({
   }, []);
 
   // Sort state
-  type SortKey = "name" | "size" | "source" | "updated";
-  type SortDir = "asc" | "desc";
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = useState<FileListSortKey>("name");
+  const [sortDir, setSortDir] = useState<FileListSortDir>("asc");
 
-  const toggleSort = useCallback((key: SortKey) => {
+  const toggleSort = useCallback((key: FileListSortKey) => {
     setSortKey((prev) => {
       if (prev === key) {
         setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -149,78 +146,47 @@ export function FileListClient({
     });
   }, []);
 
-  const sortedFolders = useMemo(() => {
-    const arr = [...folders];
-    if (sortKey === "name")
-      arr.sort((a, b) =>
-        (a.displayName ?? a.name).localeCompare(
-          b.displayName ?? b.name,
-          "zh-CN",
-        ),
-      );
-    if (sortDir === "desc") arr.reverse();
-    return arr;
-  }, [folders, sortKey, sortDir]);
-
-  const visibleFiles = useMemo(
-    () =>
-      files.filter(
-        (file) =>
-          file.entryType !== "DIRECTORY" && file.mimeType !== "inode/directory",
-      ),
-    [files],
+  const capabilityFallbacks = useMemo(
+    () => ({ canEditLocalFiles, canDelete }),
+    [canEditLocalFiles, canDelete],
   );
+  const sortedFolders = useMemo(
+    () => sortFolders(folders, sortKey, sortDir),
+    [folders, sortKey, sortDir],
+  );
+
+  const visibleFiles = useMemo(() => getVisibleFiles(files), [files]);
   const currentSelectionScopeKey =
     selectionScopeSeed ?? `${currentPath}\u0000${searchQuery}`;
   const entryCanRead = useCallback(
-    (entry: { capabilities?: FileProp["capabilities"] }) =>
-      entry.capabilities?.canRead ?? true,
+    (entry: { capabilities?: FileProp["capabilities"] }) => canReadEntry(entry),
     [],
   );
   const entryCanWrite = useCallback(
     (entry: { capabilities?: FileProp["capabilities"] }) =>
-      entry.capabilities?.canWrite ?? canEditLocalFiles,
+      canWriteEntry(entry, { canEditLocalFiles }),
     [canEditLocalFiles],
   );
   const entryCanDelete = useCallback(
     (entry: { capabilities?: FileProp["capabilities"] }) =>
-      entry.capabilities?.canDelete ?? canDelete,
+      canDeleteEntry(entry, { canDelete }),
     [canDelete],
   );
   const selectableFiles = useMemo(
-    () =>
-      visibleFiles.filter(
-        (file) => entryCanWrite(file) || entryCanDelete(file),
-      ),
-    [visibleFiles, entryCanWrite, entryCanDelete],
+    () => getSelectableFiles(visibleFiles, capabilityFallbacks),
+    [visibleFiles, capabilityFallbacks],
   );
   const folderCanWrite = useCallback(
-    (folder: FolderProp) => folder.capabilities?.canWrite ?? canEditLocalFiles,
+    (folder: FolderProp) => canWriteFolder(folder, { canEditLocalFiles }),
     [canEditLocalFiles],
   );
 
-  const sortedFiles = useMemo(() => {
-    const arr = [...visibleFiles];
-    const cmp = (a: FileProp, b: FileProp) => {
-      switch (sortKey) {
-        case "name":
-          return a.name.localeCompare(b.name, "zh-CN");
-        case "size":
-          return (a.sizeBytes ?? -1) - (b.sizeBytes ?? -1);
-        case "source":
-          return a.storageNodeName.localeCompare(b.storageNodeName, "zh-CN");
-        case "updated":
-          return (a.updatedAt ?? "").localeCompare(b.updatedAt ?? "");
-        default:
-          return 0;
-      }
-    };
-    arr.sort(cmp);
-    if (sortDir === "desc") arr.reverse();
-    return arr;
-  }, [visibleFiles, sortKey, sortDir]);
+  const sortedFiles = useMemo(
+    () => sortFiles(visibleFiles, sortKey, sortDir),
+    [visibleFiles, sortKey, sortDir],
+  );
 
-  function SortIcon({ col, label }: { col: SortKey; label: string }) {
+  function SortIcon({ col, label }: { col: FileListSortKey; label: string }) {
     const active = sortKey === col;
     return (
       <button
@@ -255,33 +221,32 @@ export function FileListClient({
   });
   const [isPending, startTransition] = useTransition();
 
-  const allFileIds = selectableFiles.map((f) => f.id);
-  const selectableFileIdSet = useMemo(() => new Set(allFileIds), [allFileIds]);
   const selectedScopeMatches = selectedScopeKey === currentSelectionScopeKey;
-  const effectiveSelectedIds = useMemo(
+  const selectionSummary = useMemo(
     () =>
-      selectedScopeMatches
-        ? [...selectedIds].filter((id) => selectableFileIdSet.has(id))
-        : [],
-    [selectedIds, selectableFileIdSet, selectedScopeMatches],
+      getSelectionSummary({
+        visibleFiles,
+        selectableFiles,
+        selectedIds,
+        selectedScopeMatches,
+        fallbacks: capabilityFallbacks,
+      }),
+    [
+      visibleFiles,
+      selectableFiles,
+      selectedIds,
+      selectedScopeMatches,
+      capabilityFallbacks,
+    ],
   );
-  const effectiveSelectedIdSet = useMemo(
-    () => new Set(effectiveSelectedIds),
-    [effectiveSelectedIds],
-  );
-  const selectedCount = effectiveSelectedIds.length;
-  const selectedFileEntries = useMemo(
-    () => visibleFiles.filter((file) => effectiveSelectedIdSet.has(file.id)),
-    [visibleFiles, effectiveSelectedIdSet],
-  );
-  const selectedEntriesCanDelete =
-    selectedCount > 0 && selectedFileEntries.every(entryCanDelete);
-  const selectedEntriesCanMove =
-    selectedCount > 0 && selectedFileEntries.every(entryCanWrite);
-  const allSelected =
-    selectableFiles.length > 0 &&
-    allFileIds.every((id) => effectiveSelectedIdSet.has(id));
-  const someSelected = selectedCount > 0 && !allSelected;
+  const allFileIds = selectionSummary.selectableFileIds;
+  const effectiveSelectedIds = selectionSummary.effectiveSelectedIds;
+  const effectiveSelectedIdSet = selectionSummary.effectiveSelectedIdSet;
+  const selectedCount = selectionSummary.selectedCount;
+  const selectedEntriesCanDelete = selectionSummary.selectedEntriesCanDelete;
+  const selectedEntriesCanMove = selectionSummary.selectedEntriesCanMove;
+  const allSelected = selectionSummary.allSelected;
+  const someSelected = selectionSummary.someSelected;
 
   const toggleAll = useCallback(() => {
     setSelectedScopeKey(currentSelectionScopeKey);

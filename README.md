@@ -407,8 +407,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **存储节点元数据授权边界已收紧。** `/api/storage/nodes` 不再让只有 `storage:read` 的普通用户看到所有节点 `basePath` 和服务器绑定信息；拥有 `storage:manage-node` 的管理员/存储管理员仍可看全量节点，普通读者只返回其 `UserStorageAccess.canRead` grant 覆盖的节点，避免未授权目录结构和节点存在性泄露。
 - [x] **文件回收站索引一致性已加固。** 普通删除现在先把 `FileEntry` 标记为回收站，再 best-effort 删除 LOCAL/SFTP 物理对象；如果物理删除失败，DB 不会继续显示为 active，页面会提示“索引仍可恢复或稍后重试永久删除”，并写入 `storage.file_delete_backing_failed` 审计。恢复入口改为调用服务层 `restoreFileEntry`，会先确认 LOCAL/SFTP 原始物理路径仍存在且类型匹配，避免只恢复 DB 标记。
 - [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 删除/恢复主路径已避免“物理删了但 DB 仍 active”和“只恢复 DB 不确认物理对象”的高风险不一致；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
+- [x] **文件列表 model 消肿已启动。** `/files` 大客户端已把目录/文件排序、目录条目过滤、可批量选择文件判定和选择摘要计算抽到 `file-list-model` 纯逻辑模块，并新增 model 单测覆盖排序、过滤、权限 fallback 和选择作用域，后续文件管理 UI 调整可先改可单测模型而不是继续堆进 1600+ 行客户端。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
-- [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端、存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进大组件拆分、Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。
+- [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端仍需继续拆分 UI 子组件/批量操作 hook，存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界仍较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进 Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。
 
 ---
 
