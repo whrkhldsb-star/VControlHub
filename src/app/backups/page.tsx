@@ -6,6 +6,7 @@ import { PageShell, EmptyState } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
+import { VoidBackupRecordButton } from "./void-backup-record-button";
 import { formatZhDateTime } from "@/lib/datetime/format";
 
 export const dynamic = "force-dynamic";
@@ -117,6 +118,12 @@ export default async function BackupsPage() {
 									<code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
 									{b.status !== "COMPLETED" && <p className="text-xs text-slate-500">只有 COMPLETED 状态的备份可以执行恢复。</p>}
+								</div>
+							)}
+							{canCreate && b.status !== "COMPLETED" && (
+								<div className="mt-3">
+									<VoidBackupRecordButton backupId={b.id} status={b.status} />
+									<p className="mt-1 text-xs text-slate-500">对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。</p>
 								</div>
 							)}
 						</div>

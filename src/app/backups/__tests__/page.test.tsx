@@ -64,6 +64,18 @@ vi.mock("@/lib/backup/service", async () => {
         note: null,
         creator: { username: "admin", displayName: "Admin" },
       },
+      {
+        id: "bak-pending",
+        type: "DATABASE",
+        status: "PENDING",
+        filePath: "backups/stale.sql.gz",
+        createdAt: new Date("2026-05-30T00:00:00.000Z"),
+        fileSize: null,
+        completedAt: null,
+        errorMessage: null,
+        note: "历史排队记录",
+        creator: { username: "admin", displayName: "Admin" },
+      },
     ]),
   };
 });
@@ -102,6 +114,8 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "执行恢复" })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: "执行恢复" })).toHaveLength(4);
+    expect(screen.getByRole("button", { name: "标记作废" })).toBeInTheDocument();
+    expect(screen.getByText("对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。"));
   });
 });

@@ -281,3 +281,17 @@ export async function updateBackupRecordStatus(
   if (input.errorMessage !== undefined) data.errorMessage = input.errorMessage;
   return prisma.backupRecord.update({ where: { id }, data });
 }
+
+export async function voidBackupRecord(input: { id: string; reason: string }) {
+  const record = await getBackupRecord(input.id);
+  if (!record) throw new Error("备份记录不存在");
+  if (record.status === "COMPLETED") throw new Error("已完成备份不能作废");
+  if (record.status === "RUNNING") throw new Error("运行中的备份不能作废");
+  const reason = input.reason.trim().slice(0, 500);
+  if (!reason) throw new Error("作废原因不能为空");
+  const prefix = "已作废";
+  const errorMessage = record.errorMessage?.includes(prefix)
+    ? record.errorMessage
+    : `${prefix}：${reason}`;
+  return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage });
+}

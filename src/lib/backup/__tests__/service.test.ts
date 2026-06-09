@@ -19,6 +19,7 @@ const {
   resolveBackupPath,
   runBackupRecord,
   updateBackupRecordStatus,
+  voidBackupRecord,
   restoreBackupRecord,
   listBackupRecords,
   formatBackupSize,
@@ -147,6 +148,25 @@ describe("backup service", () => {
     expect(record.fileSize).toBe("1234");
     expect(record.completedAt).toBe(completedAt);
     expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak1" }, data: { status: "COMPLETED", fileSize: "1234", completedAt } });
+  });
+
+  it("marks stale pending or failed backup records void without deleting audit history", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-pending", type: "DATABASE", status: "PENDING", filePath: "backups/stale.sql.gz", errorMessage: null });
+    mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak-pending", ...data }));
+
+    const record = await voidBackupRecord({ id: "bak-pending", reason: "历史排队记录不再执行" });
+
+    expect(record.status).toBe("FAILED");
+    expect(record.errorMessage).toBe("已作废：历史排队记录不再执行");
+    expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({ where: { id: "bak-pending" }, data: { status: "FAILED", errorMessage: "已作废：历史排队记录不再执行" } });
+  });
+
+  it("refuses to void completed or running backup records", async () => {
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-completed", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz" });
+    await expect(voidBackupRecord({ id: "bak-completed", reason: "cleanup" })).rejects.toThrow("已完成备份不能作废");
+
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak-running", type: "DATABASE", status: "RUNNING", filePath: "backups/db.sql.gz" });
+    await expect(voidBackupRecord({ id: "bak-running", reason: "cleanup" })).rejects.toThrow("运行中的备份不能作废");
   });
 
   it("builds restore command from a portable backup path without auto-executing dangerous restore", () => {
