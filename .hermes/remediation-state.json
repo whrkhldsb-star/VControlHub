@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T06:35:40Z",
+  "updatedAt": "2026-06-09T15:39:56Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,47 +58,46 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; /quick-services 307 auth guard; quick-service-job-worker startup logged; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "quick-service-task-center-link",
-    "title": "QuickService queued task center link",
-    "startedAt": "2026-06-09T06:24:29Z",
-    "finishedAt": "2026-06-09T06:35:40Z",
+    "id": "backup-retry-feedback-semantics",
+    "title": "Backup retry feedback status semantics",
+    "startedAt": "2026-06-09T15:30:00Z",
+    "finishedAt": "2026-06-09T15:39:56Z",
     "status": "completed_verified_deployed",
-    "summary": "QuickService queued lifecycle success messages now expose a direct Task Center link when the API returns taskId, and success/error message regions have status/alert semantics.",
-    "stage": "stage-32-quick-service-task-center-observability",
-    "selectedReadmeItem": "README P2 QuickService 生命周期：durable job 排队后补齐用户可点击的任务中心追踪入口。",
+    "summary": "Backup retry queued success feedback now uses role=status while failures remain role=alert, preserving the Operation Tasks link for job tracking.",
+    "stage": "stage-33-backup-retry-feedback-semantics",
+    "selectedReadmeItem": "README P2 备份记录运维解释：补齐重试排队成功/失败反馈的可访问语义。",
     "changeContract": {
       "files": [
-        "src/app/quick-services/quick-services-client.tsx",
-        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
+        "src/app/backups/retry-backup-record-button.tsx",
+        "src/app/backups/__tests__/retry-backup-record-button.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "install/update/uninstall queued client regressions assert 查看任务中心 link",
-        "full verify and production smoke after deploy",
-        "protected /quick-services and /operation-tasks route probes"
+        "success regression asserts role=status plus /operation-tasks link",
+        "failure regression asserts role=alert and no stale status region",
+        "full verify before production deploy"
       ],
       "remaining": [
-        "QuickService config diff",
-        "QuickService failed-job rollback",
-        "cross-process concurrency limits",
-        "richer lifecycle log streaming",
-        "Direct Gateway TLS/VPN/firewall hardening"
+        "offsite backups",
+        "automated restore drills",
+        "backup retention cleanup",
+        "cross-source operation-task archival/export"
       ]
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Client regressions cover queued install/update/uninstall messages rendering a visible 查看任务中心 link to /operation-tasks and status/alert semantics for feedback regions.",
-      "api": "Production /api/status returned 200 with the known storage warning summary; /quick-services and /operation-tasks unauthenticated probes returned 307 to login, preserving auth boundaries.",
-      "db_or_persisted_config": "No schema or persisted config change was required; this slice consumes the existing taskId returned by QuickService durable lifecycle APIs.",
-      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership was corrected to vcontrolhub:vcontrolhub.",
-      "background_task_or_process": "No normal verify/build/next-build process was left running before restart; only editor tsserver processes were present. Existing QuickService durable worker remains the task execution substrate.",
-      "runtime_or_ui_side_effect": "Operators can click 查看任务中心 directly from queued QuickService lifecycle success feedback instead of manually navigating or copying a job id.",
-      "permissions": "The new link points to the already protected /operation-tasks page; unauthenticated production probe redirects to /login?next=%2Foperation-tasks.",
-      "regression": "git diff --check passed; targeted QuickServices client Vitest passed 10/10; npm run typecheck passed; npm run verify passed with full Vitest/Next build/runtime build/deploy-assets.",
-      "production": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded Caddy, services were active, /api/status returned 200 warning due to 4 storage nodes待探测, and smoke passed 25/25.",
+      "browser_or_dom": "Targeted React regression renders the /backups retry control, clicks 重试备份, and verifies the queued success message is exposed as role=status with a 任务中心 link; failure path exposes role=alert.",
+      "api": "Production /api/status returned 200 with known storage warning; unauthenticated /backups and /operation-tasks both redirected 307 to login, preserving protected route boundaries. No API behavior changed for retry.",
+      "db_or_persisted_config": "No schema or persisted-config change; no backup records or jobs were created during local component tests.",
+      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed; ownership was corrected to vcontrolhub:vcontrolhub before restart.",
+      "background_task_or_process": "No verify/build/next-build process remained before restart; services restarted cleanly after full npm run verify.",
+      "runtime_or_ui_side_effect": "Operators and assistive technologies can distinguish backup retry queued success from retry failure without waiting for a page refresh.",
+      "permissions": "Existing CSRF-authenticated retry path and protected /backups page permissions are unchanged.",
+      "regression": "git diff --check passed; focused RetryBackupRecordButton Vitest passed 3/3; npm run typecheck passed; npm run verify passed.",
+      "production": "vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy were active after restart; /api/status returned 200 overall warning due only to known storage待探测; smoke passed 25/25.",
       "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws log scan after restart showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "No temporary QA users, containers, filesystem objects, or DB rows were created in this UI/observability slice; swap remained a single 6G /swapfile."
+      "cleanup": "No temporary QA users, DB rows, Docker containers, backup artifacts, or filesystem objects were created; swap remained a single 6G /swapfile."
     }
   },
   "runPolicy": {
@@ -114,7 +113,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 10,
+    "successfulRemediationRunsSinceFreshAudit": 11,
     "skippedOverlapRuns": 0
   },
   "blockers": [

@@ -367,3 +367,11 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Evidence: `git diff --check` passed; targeted QuickServices client regression passed 10/10; `npm run typecheck` passed; full `npm run verify` passed including full Vitest, Next build, runtime build, and deploy-assets.
 - Production: build artifacts existed, `.next`/`dist` ownership repaired, `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service` restarted, Caddy reloaded, `/api/status` returned 200 with the known 4-storage-node 待探测 warning, smoke passed 25/25, `/quick-services` and `/operation-tasks` unauthenticated probes redirected to login, and recent service logs were clean.
 - Residual: QuickService config diff, failed-job rollback, cross-process concurrency limits, richer lifecycle log streaming, and Direct Gateway TLS/VPN/firewall hardening remain future slices.
+
+### 2026-06-09T15:30:00Z — Backup retry feedback semantics
+- Scope: README P2 backup operations observability/accessibility slice; no backup job was started by this code change.
+- Change contract: keep `/api/backups/[id]/retry` and Durable Job behavior unchanged, but make the `/backups` retry success message an explicit `role="status"` region while preserving error `role="alert"` and the existing `/operation-tasks` link.
+- Evidence target: focused `RetryBackupRecordButton` regressions for success link/status and failure alert, then typecheck/full verify/deploy/smoke before commit.
+- Closeout evidence: focused backup retry regression passed 3/3, `npm run typecheck` passed, and full `npm run verify` passed including full Vitest, Next build, runtime build, and deploy-assets.
+- Production: build artifacts existed, `.next`/`dist` ownership repaired, `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service` restarted, Caddy reloaded, `/api/status` returned 200 with the known storage待探测 warning, smoke passed 25/25, `/backups` and `/operation-tasks` unauthenticated probes redirected to login, recent service logs were clean, and single 6G `/swapfile` remained steady.
+- Residual: offsite backups, automated restore drills, backup retention cleanup, and long-term Operation Tasks archival/export remain future slices.
