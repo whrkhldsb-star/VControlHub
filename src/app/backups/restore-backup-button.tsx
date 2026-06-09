@@ -80,7 +80,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
               恢复 <span className="font-semibold text-white light:text-slate-900">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200 light:text-rose-800">{CONFIRM_TEXT}</span> 后继续。
             </p>
             <label className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
-              确认文本
+              输入 RESTORE 确认恢复
               <input
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
