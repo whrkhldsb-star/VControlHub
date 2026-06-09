@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T05:15:12Z",
+  "updatedAt": "2026-06-09T05:42:13Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,67 +58,67 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with storage warning from 4待探测 nodes instead of false healthy; /status HTML showed storage health counts and no secret-like fields; unauth /files 307; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "quick-service-lifecycle-history-audit",
-    "title": "QuickService lifecycle history audit coverage",
-    "startedAt": "2026-06-09T05:03:28Z",
-    "finishedAt": "2026-06-09T05:15:12Z",
+    "id": "quick-service-install-update-config-preview",
+    "title": "QuickService install/update configuration preview",
+    "startedAt": "2026-06-09T05:23:28Z",
+    "finishedAt": "2026-06-09T05:42:13Z",
     "status": "completed_verified_deployed",
-    "summary": "QuickService lifecycle operations now write bounded audit history for install/start/stop/sync/update/uninstall with started/succeeded/failed events, so operators can trace recent container lifecycle changes instead of only seeing current status.",
+    "summary": "QuickService install/update now shows a non-sensitive Docker configuration preview and public-port risk confirmation before any install/update side effect; canceling the dialog does not call the API.",
     "evidenceMatrix": {
-      "browser_or_dom": "Changed route stayed production-protected: unauthenticated /quick-services returned 307 to /login?next=%2Fquick-services after deploy; README now records the lifecycle-history closure and narrows the QuickService residual.",
-      "api": "QuickService service layer exposes listQuickServiceHistory(limit) reading prisma.auditLog where action startsWith quick_service. and clamps take to 50; post-deploy /api/status returned 200 with overall warning only from known storage待探测 state.",
-      "db_or_persisted_config": "Lifecycle events persist through AuditLog with action quick_service.<install|start|stop|sync|update|uninstall>.<started|succeeded|failed>, INFO for non-failures and WARNING for failed Docker lifecycle operations; history reads latest entries by createdAt desc.",
-      "filesystem_or_sftp": "No storage/SFTP data was mutated. Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart and ownership was corrected to vcontrolhub:vcontrolhub.",
-      "background_task_or_process": "No overlapping npm run verify/build, next build, vitest, tsc, deploy, or restart process was active on entry; only non-production tsserver LSP processes were present. Docker remains available for QuickServices per deterministic preflight.",
-      "runtime_or_ui_side_effect": "Start/stop/sync/update/uninstall now produce auditable operator history, including recreated-container start mode, missing-container sync semantics, update health, deleteVolumes intent, and truncated Docker failure summaries.",
-      "permissions": "The changed QuickService page remained authentication-gated with 307 when unauthenticated; audit writes use USER actors when a userId exists and SYSTEM otherwise.",
-      "regression": "git diff --check passed; npx vitest run src/lib/quick-service/__tests__/service.test.ts --reporter=dot passed 22/22; npm run typecheck passed; npm run verify passed with 215 files / 1018 tests plus Next build, runtime build, and deploy-assets.",
-      "production": "After artifact checks and chown, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service and reloaded Caddy; all services active; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
+      "browser_or_dom": "Changed route remains production-protected: unauthenticated /quick-services returned 307 to /login?next=%2Fquick-services after deploy. Client regressions cover the visible install/update confirmation dialogs, cancel behavior, and confirm behavior.",
+      "api": "/api/quick-services catalog mapping now returns envKeyCount, volumesJson, and extraPorts without returning envJson values; post-deploy /api/status returned 200 with the known storage待探测 warning state.",
+      "db_or_persisted_config": "No DB schema or persisted QuickService rows were mutated. The API exposes non-sensitive template-derived summary metadata only.",
+      "filesystem_or_sftp": "No storage/SFTP data was touched. Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart and ownership was corrected to vcontrolhub:vcontrolhub.",
+      "background_task_or_process": "Docker is available per preflight; no overlapping npm verify/build/next build/vitest/tsc/deploy/restart process was active before build/restart, aside from non-production tsserver LSP processes.",
+      "runtime_or_ui_side_effect": "Install and update flows now require an explicit configuration confirmation showing image, container-to-host port mapping, extra ports, env key count, host mounts, and public-port login-boundary warning before POST/PATCH.",
+      "permissions": "The Quick Services page remains auth-gated; unauthenticated production request returned 307 to login. No temporary QA user was created.",
+      "regression": "git diff --check passed; npx vitest run src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed 10/10; npm run typecheck passed; npm run verify passed including Vitest, Next build, runtime build, and deploy-assets.",
+      "production": "After artifact checks and chown, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service and reloaded Caddy; all services active; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25; /api/status returned 200.",
       "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "No temporary QA users, files, DB rows, or containers were created. Single 6G /swapfile steady state preserved."
+      "cleanup": "No temp users, files, DB rows, containers, or QuickService side effects were created. Single 6G /swapfile steady state preserved."
     },
     "changeContract": {
       "files": [
-        "src/lib/quick-service/service.ts",
-        "src/lib/quick-service/__tests__/service.test.ts",
+        "src/app/api/quick-services/route.ts",
+        "src/app/quick-services/quick-services-client.tsx",
+        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "QuickService lifecycle audit service regressions",
-        "Bounded history read clamp regression",
+        "QuickServicesClient install/update preview regressions",
+        "No env value exposure in API/client contract",
         "Full verify",
         "Smoke/status/protected-route/log/swap checks"
       ],
       "remaining": [
-        "QuickService config diff before install/update.",
-        "QuickService failure rollback beyond best-effort cleanup.",
+        "QuickService safer install/update rollback.",
         "QuickService install/update/uninstall durable worker and cross-process lease migration.",
-        "Direct Gateway TLS/VPN/firewall default deployment hardening."
+        "Direct Gateway transport encryption/default network boundary hardening."
       ]
     },
-    "stage": "stage-29-quick-service-lifecycle-history",
-    "selectedReadmeItem": "P2 快捷服务生命周期：补齐操作历史，剩余配置 diff、失败回滚、durable job/lease",
+    "stage": "stage-30-quick-service-config-preview",
+    "selectedReadmeItem": "P1 Docker / QuickService / Direct Gateway deployment boundary: close QuickService install/update config preview before side effects",
     "verification": [
-      "Entry dirty worktree was coherent QuickService lifecycle audit slice: src/lib/quick-service/service.ts only before this closeout continued.",
-      "HEAD matched origin/main at 08c928b7712cc52b5ac2c1669d43933b3f01f077 before changes.",
-      "No overlapping npm run verify/build, next build, vitest, tsc, deploy, or restart process was running before validation.",
+      "Entry worktree clean and HEAD matched origin/main e1f3663414b0388e4d233e7b22cd326cd0b02e50.",
+      "No overlapping verify/build/deploy/restart processes at start; only non-production tsserver LSP processes observed.",
+      "Services active and /api/status 200 on preflight; Docker available; single 6G /swapfile steady state.",
       "git diff --check passed.",
-      "npx vitest run src/lib/quick-service/__tests__/service.test.ts --reporter=dot passed 22/22.",
+      "npx vitest run src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed 10/10.",
       "npm run typecheck passed.",
-      "npm run verify passed: 215 files / 1018 tests plus Next build, runtime build, and deploy-assets.",
+      "npm run verify passed with Vitest, Next build, runtime build, and deploy-assets.",
       "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership corrected.",
       "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all active.",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "/api/status returned 200 with known storage warning summary.",
+      "/api/status returned 200 with known storage待探测 warning summary.",
       "Unauthenticated /quick-services redirected 307 to login.",
       "Recent logs clean; swap steady state single 6G /swapfile preserved."
     ],
     "residualWork": [
-      "QuickService config diff and safer rollback for install/update failures.",
+      "QuickService safer install/update rollback.",
       "QuickService install/update/uninstall durable worker and cross-process lease migration.",
-      "Direct Gateway transport encryption/default network boundary hardening."
+      "Direct Gateway TLS/VPN/firewall default deployment hardening."
     ]
   },
   "runPolicy": {
@@ -134,7 +134,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 8,
+    "successfulRemediationRunsSinceFreshAudit": 9,
     "skippedOverlapRuns": 0
   },
   "blockers": [
@@ -1337,5 +1337,5 @@
   ],
   "lastUpdatedAt": "2026-06-07T16:22:34.044067+00:00",
   "activeStage": "file-inventory",
-  "successfulRemediationRunsSinceFreshAudit": 1
+  "successfulRemediationRunsSinceFreshAudit": 9
 }

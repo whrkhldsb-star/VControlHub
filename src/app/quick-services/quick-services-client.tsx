@@ -16,6 +16,9 @@ interface CatalogItem {
 	defaultPort: number;
 	internalPort: number | null;
 	path: string;
+	envKeyCount?: number;
+	volumesJson?: Array<{ host: string; container: string }> | null;
+	extraPorts?: Array<{ host: number; container: number }> | null;
 	status: string;
 	id: string | null;
 	containerId: string | null;
@@ -78,6 +81,26 @@ const QUICK_SERVICE_PUBLIC_HOST = process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_H
 
 type Tab = "store" | "community" | "installed" | "sources";
 
+type ConfigPreviewAction = "install" | "update";
+
+interface ConfigPreview {
+	action: ConfigPreviewAction;
+	item: CatalogItem;
+	port: number;
+}
+
+function getEnvCount(item: CatalogItem): number {
+	return item.envKeyCount ?? 0;
+}
+
+function getVolumeMounts(item: CatalogItem): Array<{ host: string; container: string }> {
+	return item.volumesJson ?? [];
+}
+
+function getPrimaryContainerPort(item: CatalogItem): number {
+	return item.internalPort ?? item.defaultPort;
+}
+
 function sortByPriority(items: CatalogItem[]): CatalogItem[] {
 	return [...items].sort((a, b) => {
 		const rank = (item: CatalogItem) => {
@@ -116,6 +139,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [sourcePreset, setSourcePreset] = useState<(typeof SOURCE_PRESETS)[number]["key"] | null>(null);
 	// Install dialog state
 	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
+	const [configPreview, setConfigPreview] = useState<ConfigPreview | null>(null);
 	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string; deleteVolumes: boolean } | null>(null);
 	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
@@ -218,7 +242,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
 	};
 
-	const doInstall = async () => {
+	const requestInstall = () => {
 		if (!installDialog) return;
 		const port = Number(customPort);
 		if (isNaN(port) || port < 1 || port > 65535) {
@@ -229,21 +253,46 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			setMessage({ type: "err", text: `端口 ${port} 已被占用（${portCheck.usedBy}），请更换端口` });
 			return;
 		}
-		setActionSlug(installDialog.slug);
+		const item = [...catalog, ...remoteCatalog].find((candidate) => candidate.slug === installDialog.slug);
+		if (!item) {
+			setMessage({ type: "err", text: "未找到待安装服务配置，请刷新后重试" });
+			return;
+		}
+		setConfigPreview({ action: "install", item, port });
+	};
+
+	const doInstall = async (preview: ConfigPreview) => {
+		setActionSlug(preview.item.slug);
+		setConfigPreview(null);
 		closeInstallDialog();
 		try {
 			await csrfFetch("/api/quick-services", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ slug: installDialog.slug, customPort: port }),
+				body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port }),
 			});
-			setMessage({ type: "ok", text: `${installDialog.name} 安装任务已提交，正在拉取镜像…` });
+			setMessage({ type: "ok", text: `${preview.item.name} 安装任务已提交，正在拉取镜像…` });
 			setTimeout(fetchCatalog, 1500);
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "安装失败" });
 		} finally {
 			setActionSlug(null);
 		}
+	};
+
+	const requestUpdate = (item: CatalogItem) => {
+		setConfigPreview({ action: "update", item, port: item.port ?? item.defaultPort });
+	};
+
+	const confirmConfigPreview = () => {
+		if (!configPreview) return;
+		if (configPreview.action === "install") {
+			doInstall(configPreview);
+			return;
+		}
+		const target = configPreview.item;
+		setConfigPreview(null);
+		doAction(target.slug, "update");
 	};
 
 	const doAction = async (slug: string, action: string) => {
@@ -451,6 +500,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		protocol: typeof window !== "undefined" ? window.location.protocol : null,
 		path: item.path,
 	});
+	const installPreviewItem = installDialog ? allItems.find((item) => item.slug === installDialog.slug) : null;
+	const installPreviewContainerPort = installPreviewItem ? getPrimaryContainerPort(installPreviewItem) : installDialog?.defaultPort;
+	const installPreviewEnvCount = installPreviewItem ? getEnvCount(installPreviewItem) : 0;
+	const installPreviewVolumeCount = installPreviewItem ? getVolumeMounts(installPreviewItem).length : 0;
 	const accessHostLabel = quickServicePublicHost || hostName || "当前主机";
 	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");
 	const lastSyncedSource = sources
@@ -575,7 +628,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								onInstall={() => openInstallDialog(item)}
 								onStart={() => doAction(item.slug, "start")}
 								onStop={() => doAction(item.slug, "stop")}
-								onUpdate={() => doAction(item.slug, "update")}
+								onUpdate={() => requestUpdate(item)}
 								onSync={() => doAction(item.slug, "sync")}
 								onUninstall={() => requestUninstall(item)}
 								publicHost={quickServicePublicHost}
@@ -742,7 +795,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									onInstall={() => openInstallDialog(item)}
 									onStart={() => doAction(item.slug, "start")}
 									onStop={() => doAction(item.slug, "stop")}
-									onUpdate={() => doAction(item.slug, "update")}
+									onUpdate={() => requestUpdate(item)}
 									onSync={() => doAction(item.slug, "sync")}
 									onUninstall={() => requestUninstall(item)}
 									publicHost={quickServicePublicHost}
@@ -819,6 +872,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								</div>
 							)}
 
+							<div className="rounded-xl border border-cyan-400/15 bg-cyan-500/[0.06] p-3 text-xs text-cyan-100 light:text-cyan-900">
+								<div className="font-semibold">安装前配置预览</div>
+								<div className="mt-2 grid gap-1.5 text-cyan-100/80 light:text-cyan-900/75">
+									<span>镜像：{installPreviewItem?.image ?? "待刷新"}</span>
+									<span>容器端口：{installPreviewContainerPort ?? "-"} → 宿主端口 {customPort || installDialog.defaultPort}</span>
+									<span>环境变量：{installPreviewEnvCount} 个键（不展示密钥值）</span>
+									<span>宿主机挂载：{installPreviewVolumeCount} 条</span>
+								</div>
+							</div>
+
 							<div className="flex items-center gap-2 text-[10px] text-slate-500">
 								<span>推荐端口: {installDialog.defaultPort}</span>
 								<button
@@ -843,11 +906,52 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								取消
 							</button>
 							<button
-								onClick={doInstall}
+								onClick={requestInstall}
 								disabled={portCheck?.checking || (portCheck ? !portCheck.available : false)}
 								className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
 							>
 								确认安装
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{configPreview && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setConfigPreview(null)}>
+					<div
+						role="dialog"
+						aria-modal="true"
+						aria-label={configPreview.action === "install" ? "确认安装配置" : "确认更新配置"}
+						className="w-full max-w-lg mx-4 rounded-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl light:bg-white"
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-2">
+							{configPreview.action === "install" ? "确认安装配置" : "确认更新配置"}
+						</h3>
+						<p className="text-sm leading-6 text-slate-300 light:text-slate-700">
+							{configPreview.action === "install" ? "安装会拉取镜像并创建 qs-* 容器。" : "更新会拉取当前镜像并重建 qs-* 容器。"}请确认端口、挂载和公开访问边界后继续。
+						</p>
+						<div className="mt-4 grid gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-700">
+							<div><span className="text-slate-500">服务：</span>{configPreview.item.name} ({configPreview.item.slug})</div>
+							<div><span className="text-slate-500">镜像：</span>{configPreview.item.image}</div>
+							<div><span className="text-slate-500">端口：</span>容器 {getPrimaryContainerPort(configPreview.item)} → 宿主机 {configPreview.port}</div>
+							<div><span className="text-slate-500">额外端口：</span>{(configPreview.item.extraPorts ?? []).length > 0 ? configPreview.item.extraPorts!.map((port) => `${port.container}→${port.host}`).join("、") : "无"}</div>
+							<div><span className="text-slate-500">环境变量：</span>{getEnvCount(configPreview.item)} 个键（不展示密钥值）</div>
+							<div>
+								<span className="text-slate-500">宿主机挂载：</span>
+								{getVolumeMounts(configPreview.item).length > 0 ? getVolumeMounts(configPreview.item).map((volume) => `${volume.host} → ${volume.container}`).join("；") : "无"}
+							</div>
+						</div>
+						<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/[0.08] p-3 text-xs leading-5 text-amber-100 light:text-amber-900">
+							公开端口不会经过 VControlHub 登录鉴权；若服务暴露到公网，请确认防火墙、VPN、反代或应用自身账号已配置。
+						</div>
+						<div className="mt-6 flex items-center justify-end gap-3">
+							<button type="button" onClick={() => setConfigPreview(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] transition">
+								取消
+							</button>
+							<button type="button" onClick={confirmConfigPreview} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition">
+								{configPreview.action === "install" ? "确认安装" : "确认更新"}
 							</button>
 						</div>
 					</div>

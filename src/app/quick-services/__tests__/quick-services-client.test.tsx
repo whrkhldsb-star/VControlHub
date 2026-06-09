@@ -20,6 +20,9 @@ const catalogResponse = {
 			defaultPort: 5244,
 			internalPort: 5244,
 			path: "/",
+			envKeyCount: 2,
+			volumesJson: [{ host: "/opt/alist/data", container: "/opt/alist/data" }],
+			extraPorts: [],
 			status: "running",
 			id: "service_1",
 			containerId: "container_1",
@@ -30,6 +33,34 @@ const catalogResponse = {
 	],
 	remoteCatalog: [],
 	usedPorts: [5244],
+	publicHost: "82.158.91.159",
+};
+
+const availableCatalogResponse = {
+	catalog: [
+		{
+			slug: "alist",
+			name: "AList",
+			category: "storage",
+			icon: "📁",
+			description: "File list",
+			image: "xhofe/alist:latest",
+			defaultPort: 5244,
+			internalPort: 5244,
+			path: "/",
+			envKeyCount: 2,
+			volumesJson: [{ host: "/opt/alist/data", container: "/opt/alist/data" }],
+			extraPorts: [],
+			status: "available",
+			id: null,
+			containerId: null,
+			port: null,
+			error: null,
+			source: "local",
+		},
+	],
+	remoteCatalog: [],
+	usedPorts: [],
 	publicHost: "82.158.91.159",
 };
 
@@ -139,7 +170,7 @@ describe("QuickServicesClient", () => {
 		expect(searchBox).toHaveValue("alist");
 	});
 
-	it("shows an update action for installed services and calls the update endpoint", async () => {
+	it("shows an update action with a configuration preview before calling the update endpoint", async () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 		vi.mocked(csrfFetch)
@@ -150,6 +181,14 @@ describe("QuickServicesClient", () => {
 		await user.click(await screen.findByRole("button", { name: /已安装/ }));
 		await user.click(screen.getByRole("button", { name: "更新" }));
 
+		const dialog = screen.getByRole("dialog", { name: "确认更新配置" });
+		expect(dialog).toHaveTextContent("xhofe/alist:latest");
+		expect(dialog).toHaveTextContent("容器 5244 → 宿主机 5244");
+		expect(dialog).toHaveTextContent("/opt/alist/data → /opt/alist/data");
+		expect(csrfFetch).not.toHaveBeenCalledWith("/api/quick-services/alist", expect.objectContaining({ method: "PATCH" }));
+
+		await user.click(within(dialog).getByRole("button", { name: "确认更新" }));
+
 		await waitFor(() => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services/alist", expect.objectContaining({
 				method: "PATCH",
@@ -159,6 +198,56 @@ describe("QuickServicesClient", () => {
 		expect(await screen.findByText(/更新完成，已拉取镜像并重建容器/)).toBeInTheDocument();
 	expect(screen.getByText(/健康状态：healthy/)).toBeInTheDocument();
 	expect(screen.getByText(/最近日志：service ready/)).toBeInTheDocument();
+	});
+
+	it("cancels install from the configuration preview without creating a service", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(availableCatalogResponse)
+			.mockResolvedValueOnce(sourcesResponse)
+			.mockResolvedValueOnce({ available: true, usedBy: null });
+
+		render(<QuickServicesClient canManage />);
+		await user.click(await screen.findByRole("button", { name: /本地精选/ }));
+		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]);
+		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
+		expect(screen.getByText("安装前配置预览")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "确认安装" }));
+
+		const dialog = screen.getByRole("dialog", { name: "确认安装配置" });
+		expect(dialog).toHaveTextContent("环境变量：2 个键");
+		await user.click(within(dialog).getByRole("button", { name: "取消" }));
+
+		expect(screen.queryByRole("dialog", { name: "确认安装配置" })).not.toBeInTheDocument();
+		expect(csrfFetch).not.toHaveBeenCalledWith("/api/quick-services", expect.objectContaining({ method: "POST" }));
+	});
+
+	it("confirms install only after the configuration preview", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch)
+			.mockResolvedValueOnce(availableCatalogResponse)
+			.mockResolvedValueOnce(sourcesResponse)
+			.mockResolvedValueOnce({ available: true, usedBy: null })
+			.mockResolvedValueOnce({ id: "service_1", slug: "alist", status: "installing" })
+			.mockResolvedValueOnce(catalogResponse);
+
+		render(<QuickServicesClient canManage />);
+		await user.click(await screen.findByRole("button", { name: /本地精选/ }));
+		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]);
+		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
+		await user.click(screen.getByRole("button", { name: "确认安装" }));
+
+		const dialog = screen.getByRole("dialog", { name: "确认安装配置" });
+		expect(dialog).toHaveTextContent("公开端口不会经过 VControlHub 登录鉴权");
+		expect(csrfFetch).not.toHaveBeenCalledWith("/api/quick-services", expect.objectContaining({ method: "POST" }));
+		await user.click(within(dialog).getByRole("button", { name: "确认安装" }));
+
+		await waitFor(() => {
+			expect(csrfFetch).toHaveBeenCalledWith("/api/quick-services", expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ slug: "alist", customPort: 5244 }),
+			}));
+		});
 	});
 
 	it("uses an in-app confirmation before deleting an app source", async () => {
