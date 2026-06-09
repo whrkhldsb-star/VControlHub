@@ -408,6 +408,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **文件回收站索引一致性已加固。** 普通删除现在先把 `FileEntry` 标记为回收站，再 best-effort 删除 LOCAL/SFTP 物理对象；如果物理删除失败，DB 不会继续显示为 active，页面会提示“索引仍可恢复或稍后重试永久删除”，并写入 `storage.file_delete_backing_failed` 审计。恢复入口改为调用服务层 `restoreFileEntry`，会先确认 LOCAL/SFTP 原始物理路径仍存在且类型匹配，避免只恢复 DB 标记。
 - [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 删除/恢复主路径已避免“物理删了但 DB 仍 active”和“只恢复 DB 不确认物理对象”的高风险不一致；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
 - [x] **文件列表 model 消肿已启动。** `/files` 大客户端已把目录/文件排序、目录条目过滤、可批量选择文件判定和选择摘要计算抽到 `file-list-model` 纯逻辑模块，并新增 model 单测覆盖排序、过滤、权限 fallback 和选择作用域，后续文件管理 UI 调整可先改可单测模型而不是继续堆进 1600+ 行客户端。
+- [x] **2026-06-09 全面审查基线完成。** 本轮只读审查确认生产登录、`/servers`、`/files`、`/quick-services`、`/backups`、`/operation-tasks`、`/settings` 等代表性页面未出现 SSR 崩溃、应用错误或横向溢出；服务均为 active，`/api/status` 为 storage 待探测导致的 warning；`npm run typecheck` 与 `npm run lint -- --quiet` 均通过。审查同时确认 README 主任务仍大体适配当前项目，但存在任务中心告警评估 job 刷屏、备份历史 PENDING/FAILED 可解释性、README 汇总项与细分项重复度偏高等需要继续治理的真实问题。
+- [ ] **任务中心可观测性去噪仍需治理（P1/P2）。** 当前 `alert.evaluate` durable job 已累计 563 条 completed 记录，`/operation-tasks` 最近任务前 100 条可被同类“告警规则评估”完全占满，命令、备份、下载、部署等其它任务容易被淹没。后续需补任务类型筛选/分组、同类周期任务折叠、失败/运行中优先视图、按来源聚合计数和更适合 cron 高频任务的保留策略，避免统一任务中心“可用但不可读”。
+- [ ] **备份记录运维解释与遗留状态清理仍需补齐（P2）。** 生产 `/backups` 页面可正常渲染并展示 Durable Job 队列语义，但仍可见历史 `Read-only file system` 失败记录和 1 条 `PENDING` 数据库备份记录；后续需要为长期 PENDING/FAILED 备份提供显式重试、作废/归档、失败原因归类、历史只读路径错误的迁移说明和清理入口，避免用户把历史失败误判为当前备份运行故障。
+- [ ] **README 任务层级与追踪方式需要轻量治理（P2）。** 当前 README 的“使用边界”汇总项与 P2/P3 细分项存在多处重复表达，适合继续保留为产品路线图，但后续应给长期待办加稳定编号、合并重复描述、把“已完成主体 + 剩余增强”拆成更清晰的残余任务，并在测试名/QA evidence/代码位置中引用编号，降低后台循环重复审查和误关任务的概率。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
 - [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端仍需继续拆分 UI 子组件/批量操作 hook，存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界仍较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进 Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。
 
