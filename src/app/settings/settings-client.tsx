@@ -3,9 +3,11 @@
 import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
+import type { RuntimeSettingSummary } from "@/lib/runtime-settings/service";
 
 type Props = {
 	settings: Record<string, string>;
+	runtimeSettings?: RuntimeSettingSummary[];
 	canManage: boolean;
 	twoFactorEnabled?: boolean;
 };
@@ -76,7 +78,7 @@ function validateSettingValue(key: string, value: string) {
 	}
 }
 
-export function SettingsClient({ settings: initialSettings, canManage, twoFactorEnabled = false }: Props) {
+export function SettingsClient({ settings: initialSettings, runtimeSettings = [], canManage, twoFactorEnabled = false }: Props) {
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
@@ -88,6 +90,7 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 		setSaved(false);
 		setSavedMessage(null);
 	};
+	const runtimeSummaryByKey = new Map(runtimeSettings.map((item) => [item.key, item]));
 
 	const handleSave = useCallback(async (section: string, keys: string[]) => {
 		const validationErrors = keys
@@ -178,23 +181,28 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 
 			{/* Runtime tuning */}
 			<section id="runtime" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-				<div>
-					<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">⚙️ 运行参数</h2>
-					<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。</p>
+				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+					<div>
+						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">⚙️ 运行参数</h2>
+						<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。</p>
+					</div>
+					<div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50 light:text-cyan-800">
+						当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
+					</div>
 				</div>
 				<div className="grid gap-4 md:grid-cols-2">
-					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" />
-					<Field label="命令输出保留上限（字节）" value={settings["runtime.commandOutputLimitBytes"] ?? "262144"} onChange={(v) => updateField("runtime.commandOutputLimitBytes", v)} placeholder="262144" type="number" />
-					<Field label="命令卡死判定时间（毫秒）" value={settings["runtime.commandStaleRunningAfterMs"] ?? "600000"} onChange={(v) => updateField("runtime.commandStaleRunningAfterMs", v)} placeholder="600000" type="number" />
-					<Field label="命令执行心跳间隔（毫秒）" value={settings["runtime.commandExecutionHeartbeatMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandExecutionHeartbeatMs", v)} placeholder="60000" type="number" />
-					<Field label="命令维护扫描间隔（毫秒，需重启）" value={settings["runtime.commandReconcileIntervalMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandReconcileIntervalMs", v)} placeholder="60000" type="number" />
-					<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" />
-					<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" />
-					<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" />
-					<Field label="SSH keepalive 容忍次数（需重启，默认强保活）" value={settings["runtime.sshKeepaliveCountMax"] ?? "60"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="60" type="number" />
-					<Field label="任务中心列表上限（条）" value={settings["runtime.operationTaskListLimit"] ?? "100"} onChange={(v) => updateField("runtime.operationTaskListLimit", v)} placeholder="100" type="number" />
-					<Field label="AI 提供商列表上限（条）" value={settings["runtime.aiProviderListLimit"] ?? "100"} onChange={(v) => updateField("runtime.aiProviderListLimit", v)} placeholder="100" type="number" />
-					<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" />
+					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandExecutionTimeoutMs")} />
+					<Field label="命令输出保留上限（字节）" value={settings["runtime.commandOutputLimitBytes"] ?? "262144"} onChange={(v) => updateField("runtime.commandOutputLimitBytes", v)} placeholder="262144" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandOutputLimitBytes")} />
+					<Field label="命令卡死判定时间（毫秒）" value={settings["runtime.commandStaleRunningAfterMs"] ?? "600000"} onChange={(v) => updateField("runtime.commandStaleRunningAfterMs", v)} placeholder="600000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandStaleRunningAfterMs")} />
+					<Field label="命令执行心跳间隔（毫秒）" value={settings["runtime.commandExecutionHeartbeatMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandExecutionHeartbeatMs", v)} placeholder="60000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandExecutionHeartbeatMs")} />
+					<Field label="命令维护扫描间隔（毫秒，需重启）" value={settings["runtime.commandReconcileIntervalMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandReconcileIntervalMs", v)} placeholder="60000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandReconcileIntervalMs")} />
+					<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sftpSyncDirectoryTimeoutMs")} />
+					<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sshWsHeartbeatIntervalMs")} />
+					<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sshKeepaliveIntervalMs")} />
+					<Field label="SSH keepalive 容忍次数（需重启，默认强保活）" value={settings["runtime.sshKeepaliveCountMax"] ?? "60"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="60" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sshKeepaliveCountMax")} />
+					<Field label="任务中心列表上限（条）" value={settings["runtime.operationTaskListLimit"] ?? "100"} onChange={(v) => updateField("runtime.operationTaskListLimit", v)} placeholder="100" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.operationTaskListLimit")} />
+					<Field label="AI 提供商列表上限（条）" value={settings["runtime.aiProviderListLimit"] ?? "100"} onChange={(v) => updateField("runtime.aiProviderListLimit", v)} placeholder="100" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.aiProviderListLimit")} />
+					<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.aiConversationListLimit")} />
 				</div>
 				<SaveButton onClick={() => handleSave("runtime", ["runtime.commandExecutionTimeoutMs", "runtime.commandOutputLimitBytes", "runtime.commandStaleRunningAfterMs", "runtime.commandExecutionHeartbeatMs", "runtime.commandReconcileIntervalMs", "runtime.sftpSyncDirectoryTimeoutMs", "runtime.sshWsHeartbeatIntervalMs", "runtime.sshKeepaliveIntervalMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit", "runtime.aiProviderListLimit", "runtime.aiConversationListLimit"])} saving={saving} />
 			</section>
@@ -226,11 +234,13 @@ export function SettingsClient({ settings: initialSettings, canManage, twoFactor
 
 /* ── Sub-components ───────────────────────────────────────── */
 
-function Field({ label, value, onChange, placeholder, type = "text", autoComplete, disabled = false, helperText }: {
-	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string; disabled?: boolean; helperText?: string;
+function Field({ label, value, onChange, placeholder, type = "text", autoComplete, disabled = false, helperText, runtimeSummary }: {
+	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string; disabled?: boolean; helperText?: string; runtimeSummary?: RuntimeSettingSummary;
 }) {
 	const inputId = useId();
 	const helperId = useId();
+	const runtimeId = useId();
+	const describedBy = [helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
 	return (
 		<div className={`space-y-1.5 rounded-lg border p-3 transition ${disabled ? "border-white/[0.04] bg-slate-950/20 opacity-70 light:border-slate-200 light:bg-slate-100/80" : "border-transparent bg-white/[0.01] light:border-slate-200 light:bg-white"}`}>
 			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide light:text-slate-700">{label}</label>
@@ -242,10 +252,18 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 				placeholder={placeholder}
 				autoComplete={autoComplete}
 				disabled={disabled}
-				aria-describedby={helperText ? helperId : undefined}
+				aria-describedby={describedBy}
 				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:border-slate-300 light:bg-slate-50 light:text-slate-950 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
 			/>
 			{helperText && <p id={helperId} className="text-xs text-white light:text-slate-500">{helperText}</p>}
+			{runtimeSummary && (
+				<div id={runtimeId} className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-600">
+					<p>当前运行值：<strong className="text-white light:text-slate-900">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}</p>
+					<p>生效位置：{runtimeSummary.applies}</p>
+					<p>环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}{runtimeSummary.unit}</p>
+					{runtimeSummary.requiresRestart && <p className="font-medium text-amber-200 light:text-amber-700">保存后需重启对应服务才会改变已启动进程。</p>}
+				</div>
+			)}
 		</div>
 	);
 }

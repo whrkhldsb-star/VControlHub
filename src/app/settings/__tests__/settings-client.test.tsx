@@ -130,6 +130,30 @@ describe("SettingsClient", () => {
     expect(screen.getByText(/任务中心和 AI 列表上限相关项会立即生效/)).toBeInTheDocument();
   });
 
+  it("surfaces runtime setting sources, active values, apply locations, and restart boundaries", () => {
+    render(<SettingsClient settings={{}} canManage runtimeSettings={[{
+      key: "runtime.commandReconcileIntervalMs",
+      label: "命令维护扫描间隔",
+      unit: "毫秒",
+      env: "COMMAND_RECONCILE_INTERVAL_MS",
+      value: 45000,
+      defaultValue: 60000,
+      min: 5000,
+      max: 3600000,
+      source: "environment",
+      sourceLabel: "环境变量",
+      applies: "需要重启服务后重新安排后台扫描定时器",
+      requiresRestart: true,
+    }]} />);
+
+    expect(screen.getByText(/当前运行值来自数据库设置、环境变量或系统默认值/)).toBeInTheDocument();
+    expect(screen.getByText(/当前运行值：/)).toBeInTheDocument();
+    expect(screen.getByText("45000")).toBeInTheDocument();
+    expect(screen.getByText(/来源：环境变量/)).toBeInTheDocument();
+    expect(screen.getByText(/COMMAND_RECONCILE_INTERVAL_MS/)).toBeInTheDocument();
+    expect(screen.getAllByText(/需重启对应服务/).length).toBeGreaterThan(0);
+  });
+
   it("keeps Settings light-theme form label overrides in the CSS compatibility layer", () => {
     const css = fs.readFileSync(path.join(process.cwd(), "src/app/globals.css"), "utf8");
 

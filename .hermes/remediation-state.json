@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T00:36:30Z",
+  "updatedAt": "2026-06-09T01:49:01Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,71 +58,72 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "docker-hub-host-boundary-disclosure",
-    "title": "Docker hub-host socket boundary disclosure",
-    "startedAt": "2026-06-09T00:21:44Z",
-    "finishedAt": "2026-06-09T00:36:30Z",
+    "id": "settings-runtime-current-value-source-feedback",
+    "title": "Settings runtime current value/source/restart feedback",
+    "startedAt": "2026-06-09T01:21:44Z",
+    "finishedAt": "2026-06-09T01:49:01Z",
     "status": "completed_verified_deployed",
-    "summary": "Closed the Docker portion of the deployment-boundary item by exposing hub-host Docker socket scope metadata in /api/docker/containers and rendering a visible /docker warning before container lifecycle actions. QuickService config diff/rollback/history and Direct Gateway TLS/VPN/firewall hardening remain as the narrowed P1 residual.",
+    "summary": "Closed the Settings runtime-feedback sub-slice: admins now see current runtime values, configuration source, apply location, env/range, and restart boundary for runtime parameters. README/backlog were narrowed so high-risk rollback/audit remains residual.",
     "evidenceMatrix": {
-      "browser_or_dom": "Authenticated production /docker render returned 200 and SSR/HTML contained the page title, visible “运行边界：本机 Docker socket” disclosure, /var/run/docker.sock socket path, and the “不是跨 VPS 容器控制台” warning before Docker actions.",
-      "api": "Unauthenticated /api/docker/containers remained 401. Authenticated /api/docker/containers returned ok=true with dockerScope.scope=hub-host, socketPath=/var/run/docker.sock, a cross-VPS warning, and 2 container rows.",
-      "db_or_persisted_config": "No database schema/config changes were required; the scope metadata is derived from the fixed host Docker socket contract.",
-      "filesystem_or_sftp": "No SFTP/storage mutation. Build artifacts were present and ownership was corrected to vcontrolhub:vcontrolhub before restart.",
-      "background_task_or_process": "No Docker container lifecycle was executed in this slice; the user journey is disclosure/authorization boundary truthfulness. Full verify/build completed and no build/test/deploy processes remained before restart.",
-      "runtime_or_ui_side_effect": "Production /docker now tells operators the page manages only the VControlHub host Docker socket, not remote VPS containers, before lifecycle buttons are used.",
-      "permissions": "Protected-route behavior stayed intact: /docker redirects to login and /api/docker/containers returns 401 when unauthenticated; the warning explains docker:manage is close to host container-management power.",
-      "regression": "Targeted Docker API/page regressions passed 7/7; typecheck and full npm run verify passed.",
-      "production": "Services active; /api/status 200 healthy 3/3; smoke-test passed 25/25 after restart.",
-      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no error/warn/failed matches after deployment.",
-      "cleanup": "No temporary QA users or product data were created. Temporary /tmp cookie/API files were removed or left outside the repo; git status contains only intended product/docs/state files."
+      "browser_or_dom": "Authenticated production /settings HTML returned 200 and contained 系统设置, 运行参数, 当前运行值来自数据库设置、环境变量或系统默认值, 当前运行值, 来源：, 环境变量：, 生效位置：, and 需重启.",
+      "api": "Preflight and post-deploy /api/status returned 200 healthy 3/3; unauthenticated /settings redirected 307 to /login?next=%2Fsettings.",
+      "db_or_persisted_config": "getRuntimeSettingSummaries reads persisted Setting rows and distinguishes database, environment, default, and invalid-database fallback sources.",
+      "filesystem_or_sftp": "No storage/SFTP mutation. Build artifacts existed after verify: .next/BUILD_ID, dist/server.js, dist/ssh-ws-proxy.js; .next/dist ownership corrected to vcontrolhub:vcontrolhub.",
+      "background_task_or_process": "No active verify/build/next-build/deploy processes remained before restart; restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded Caddy, all active.",
+      "runtime_or_ui_side_effect": "/settings runtime inputs will show current effective values and restart boundaries to admins after deployment.",
+      "permissions": "Server component only loads global settings/runtime summaries for canManage admins; non-admins still receive empty settings/runtime arrays.",
+      "regression": "git diff --check passed; targeted Settings/runtime/API tests passed (3 files / 31 tests); npm run typecheck passed; full npm run verify passed (214 files / 1012 tests plus Next build/runtime/deploy-assets).",
+      "production": "/api/status healthy 3/3 after restart; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25; services active.",
+      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed no error/warn/failed/exception matches.",
+      "cleanup": "No temporary QA users/files/containers/DB rows were created. Temporary session-cookie/HTML helper files under /tmp and .hermes/tmp-session.ts were removed. Single 6G /swapfile steady state preserved."
     },
     "changeContract": {
       "files": [
-        "src/app/api/docker/containers/route.ts",
-        "src/app/docker/docker-page-client.tsx",
-        "src/app/docker/__tests__/page.test.tsx",
-        "src/app/api/docker/containers/__tests__/route.test.ts",
+        "src/lib/runtime-settings/service.ts",
+        "src/lib/runtime-settings/service.test.ts",
+        "src/app/settings/page.tsx",
+        "src/app/settings/settings-client.tsx",
+        "src/app/settings/__tests__/settings-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "API dockerScope metadata",
-        "visible /docker boundary panel",
-        "Docker page/API regressions",
-        "typecheck"
+        "Runtime setting source/current-value summaries",
+        "Settings admin UI runtime disclosure",
+        "Targeted Settings/runtime regressions",
+        "Typecheck/full verify",
+        "Production /settings DOM proof after restart"
       ],
       "remaining": [
-        "run git diff --check",
-        "run full npm run verify",
-        "deploy/restart/smoke",
-        "commit/push after production proof",
-        "QuickService durable install/update jobs with config diff/rollback/history",
-        "Direct Gateway TLS/VPN/firewall defaults and live SFTP/Direct Gateway probes"
+        "Run targeted tests, typecheck, full npm run verify",
+        "Confirm build artifacts and restart services safely",
+        "Run smoke, /api/status, protected route and authenticated /settings DOM proof, logs/swap checks",
+        "Commit/push and confirm HEAD == origin/main with clean worktree",
+        "Future slice: high-risk settings rollback/audit information"
       ]
     },
-    "stage": "stage-24-docker-hub-host-boundary-disclosure",
-    "selectedReadmeItem": "Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）",
+    "stage": "stage-25-settings-runtime-current-value-source-feedback",
+    "selectedReadmeItem": "设置页运行时反馈：当前运行值、配置来源、生效位置、是否需要重启；高风险设置回滚/审计保留为 residual",
     "verification": [
-      "git diff --check passed",
-      "npx vitest run src/app/docker/__tests__/page.test.tsx src/app/api/docker/containers/__tests__/route.test.ts --reporter=dot passed: 2 files / 7 tests",
-      "npm run typecheck passed",
-      "npm run verify passed: Vitest, Next build, runtime build, and deploy-assets validation completed successfully",
-      ".next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed after build; .next/dist ownership corrected to vcontrolhub:vcontrolhub before restart",
-      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded/restarted Caddy; all services active",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed: 25/25 checks",
-      "/api/status returned 200 healthy 3/3 after restart",
-      "Unauthenticated /docker redirected 307 to /login?next=%2Fdocker and unauthenticated /api/docker/containers returned 401",
-      "Authenticated /docker HTML contained Docker 容器, 运行边界：本机 Docker socket, /var/run/docker.sock, and 不是跨 VPS 容器控制台",
-      "Authenticated /api/docker/containers returned dockerScope.scope=hub-host, socketPath=/var/run/docker.sock, warning containing 跨 VPS, and 2 containers",
-      "Recent next/ssh-ws journal scan showed no error/warn/failed matches; services remained active",
-      "Swap steady state preserved: single /swapfile at 6.0GiB with no temporary swapfile2"
+      "Entry dirty worktree was a coherent Settings runtime-feedback slice; HEAD == origin/main 39bb9fd before closeout.",
+      "Preflight services active and /api/status healthy 3/3; recent logs clean; swap steady state single 6G /swapfile.",
+      "git diff --check passed.",
+      "npx vitest run src/app/settings/__tests__/settings-client.test.tsx src/lib/runtime-settings/service.test.ts src/app/api/settings/__tests__/route.test.ts --reporter=dot passed: 3 files / 31 tests.",
+      "npm run typecheck passed.",
+      "npm run verify passed: 214 files / 1012 tests plus Next build, runtime bundle, deploy-assets validation.",
+      ".next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed after build; ownership corrected to vcontrolhub:vcontrolhub.",
+      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all services active.",
+      "/api/status returned 200 healthy 3/3 after restart.",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
+      "Unauthenticated /settings redirected 307 to /login?next=%2Fsettings.",
+      "Authenticated production /settings HTML contained runtime current-value/source/env/apply-location/restart guidance.",
+      "Recent next/ssh-ws logs clean; swap steady state single 6G /swapfile preserved."
     ],
     "residualWork": [
-      "QuickService install/update/uninstall still needs durable jobs, config diff, rollback, and history.",
-      "Direct Gateway still needs stronger default TLS/VPN/firewall posture and live probing.",
-      "Docker group / docker:manage host-root-equivalent security posture remains documented as a deployment hardening follow-up."
+      "Settings high-risk setting rollback/audit UI and persisted change history.",
+      "QuickService durable job migration/config diff/rollback/history.",
+      "SFTP/Direct Gateway live probes and status truthfulness follow-up."
     ]
   },
   "runPolicy": {
@@ -138,7 +139,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 4,
+    "successfulRemediationRunsSinceFreshAudit": 5,
     "skippedOverlapRuns": 0
   },
   "blockers": [

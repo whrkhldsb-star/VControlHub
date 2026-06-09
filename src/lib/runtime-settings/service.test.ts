@@ -4,6 +4,7 @@ const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
     setting: {
       findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
   },
 }));
@@ -17,6 +18,8 @@ const {
   getOperationTaskListLimit,
   getAiProviderListLimit,
   getAiConversationListLimit,
+  getRuntimeSettingFallback,
+  getRuntimeSettingSummaries,
   normalizeRuntimeSettingValue,
 } = await import("./service");
 
@@ -97,5 +100,27 @@ describe("runtime settings", () => {
     await expect(getAiConversationListLimit()).resolves.toBe(350);
     expect(() => normalizeRuntimeSettingValue("runtime.aiProviderListLimit", "1")).toThrow(/AI 提供商列表上限/);
     expect(() => normalizeRuntimeSettingValue("runtime.aiConversationListLimit", "5000")).toThrow(/AI 对话列表上限/);
+  });
+
+  it("uses environment fallback when summarizing runtime values without persisted rows", () => {
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "180000";
+    expect(getRuntimeSettingFallback("runtime.commandExecutionTimeoutMs")).toBe(180000);
+  });
+
+  it("summarizes current values with source and restart metadata", async () => {
+    process.env.COMMAND_EXECUTION_TIMEOUT_MS = "180000";
+    prismaMock.setting.findMany.mockResolvedValueOnce([
+      { key: "runtime.commandReconcileIntervalMs", value: "45000" },
+      { key: "runtime.sshKeepaliveCountMax", value: "999" },
+    ]);
+
+    const summaries = await getRuntimeSettingSummaries();
+    const commandTimeout = summaries.find((item) => item.key === "runtime.commandExecutionTimeoutMs");
+    const reconcile = summaries.find((item) => item.key === "runtime.commandReconcileIntervalMs");
+    const invalidKeepalive = summaries.find((item) => item.key === "runtime.sshKeepaliveCountMax");
+
+    expect(commandTimeout).toMatchObject({ value: 180000, source: "environment", sourceLabel: "环境变量", requiresRestart: false });
+    expect(reconcile).toMatchObject({ value: 45000, source: "database", sourceLabel: "数据库设置", requiresRestart: true });
+    expect(invalidKeepalive).toMatchObject({ value: 60, source: "invalid-database", sourceLabel: "数据库值无效，已回退", requiresRestart: true });
   });
 });

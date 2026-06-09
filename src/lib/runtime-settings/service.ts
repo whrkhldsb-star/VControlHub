@@ -113,6 +113,23 @@ export const RUNTIME_SETTING_DEFINITIONS = {
 
 export type RuntimeSettingKey = keyof typeof RUNTIME_SETTING_DEFINITIONS;
 
+export type RuntimeSettingSource = "database" | "environment" | "default" | "invalid-database";
+
+export type RuntimeSettingSummary = {
+  key: RuntimeSettingKey;
+  label: string;
+  unit: string;
+  env: string;
+  value: number;
+  defaultValue: number;
+  min: number;
+  max: number;
+  source: RuntimeSettingSource;
+  sourceLabel: string;
+  applies: string;
+  requiresRestart: boolean;
+};
+
 export function isRuntimeSettingKey(key: string): key is RuntimeSettingKey {
   return Object.prototype.hasOwnProperty.call(RUNTIME_SETTING_DEFINITIONS, key);
 }
@@ -135,9 +152,69 @@ function readPositiveEnvNumber(envName: string, fallback: number): number {
   return Number.isFinite(raw) && raw > 0 ? raw : fallback;
 }
 
+function runtimeSettingSourceLabel(source: RuntimeSettingSource) {
+  switch (source) {
+    case "database":
+      return "数据库设置";
+    case "environment":
+      return "环境变量";
+    case "invalid-database":
+      return "数据库值无效，已回退";
+    default:
+      return "系统默认值";
+  }
+}
+
+function runtimeSettingRequiresRestart(applies: string) {
+  return applies.includes("需要重启");
+}
+
 export function getRuntimeSettingFallback(key: RuntimeSettingKey): number {
   const definition = RUNTIME_SETTING_DEFINITIONS[key];
   return readPositiveEnvNumber(definition.env, definition.defaultValue);
+}
+
+function resolveRuntimeSettingSummary(key: RuntimeSettingKey, persistedValue?: string | null): RuntimeSettingSummary {
+  const definition = RUNTIME_SETTING_DEFINITIONS[key];
+  const envValue = process.env[definition.env];
+  const fallback = getRuntimeSettingFallback(key);
+  let source: RuntimeSettingSource = envValue && Number.isFinite(Number(envValue)) && Number(envValue) > 0 ? "environment" : "default";
+  let value = fallback;
+
+  if (persistedValue) {
+    try {
+      value = Number(normalizeRuntimeSettingValue(key, persistedValue));
+      source = "database";
+    } catch {
+      value = fallback;
+      source = "invalid-database";
+    }
+  }
+
+  return {
+    key,
+    label: definition.label,
+    unit: definition.unit,
+    env: definition.env,
+    value,
+    defaultValue: definition.defaultValue,
+    min: definition.min,
+    max: definition.max,
+    source,
+    sourceLabel: runtimeSettingSourceLabel(source),
+    applies: definition.applies,
+    requiresRestart: runtimeSettingRequiresRestart(definition.applies),
+  };
+}
+
+export async function getRuntimeSettingSummaries(): Promise<RuntimeSettingSummary[]> {
+  const keys = Object.keys(RUNTIME_SETTING_DEFINITIONS) as RuntimeSettingKey[];
+  const rows = await prisma.setting.findMany({
+    where: { key: { in: keys } },
+    select: { key: true, value: true },
+  });
+  const rowMap = new Map(rows.map((row) => [row.key, row.value]));
+  return keys.map((key) => resolveRuntimeSettingSummary(key, rowMap.get(key)));
 }
 
 type RuntimeSettingDelegate = {
