@@ -32,10 +32,19 @@ describe("/api/operation-tasks", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("task:read");
-    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 999 });
+    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 999, status: undefined, taskType: undefined });
     await expect(response.json()).resolves.toEqual({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
     });
+  });
+
+  it("passes status and task type filters to the bounded task service", async () => {
+    const response = await route.GET(
+      new Request("http://local/api/operation-tasks?status=failed,running&taskType=alert.evaluate&limit=50"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 50, status: ["failed", "running"], taskType: "alert.evaluate" });
   });
 
   it("returns shared API permission failures without calling the service", async () => {

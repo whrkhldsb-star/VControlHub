@@ -142,6 +142,57 @@ describe("operation task service", () => {
     expect(tasks[1].foldedCount).toBeUndefined();
   });
 
+  it("filters tasks by status and durable job type after folding noisy completed jobs", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([
+      {
+        id: "alert_completed",
+        type: "alert.evaluate",
+        title: "告警规则评估",
+        status: "COMPLETED",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        progress: "已评估 2 条规则",
+        errorMessage: null,
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+      {
+        id: "alert_failed",
+        type: "alert.evaluate",
+        title: "告警规则评估",
+        status: "FAILED",
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+        updatedAt: new Date("2026-01-03T00:00:00Z"),
+        progress: null,
+        errorMessage: "SMTP failed",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+      {
+        id: "backup_failed",
+        type: "backup.create",
+        title: "创建备份",
+        status: "FAILED",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        updatedAt: new Date("2026-01-02T00:00:00Z"),
+        progress: null,
+        errorMessage: "backup failed",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+    ]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const tasks = await listOperationTasks({ limit: 10, status: "failed", taskType: "alert.evaluate" });
+
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]).toMatchObject({ id: "job:alert_failed", status: "failed", taskType: "alert.evaluate", progress: "SMTP failed" });
+  });
+
   it("maps active deployment command requests as running operation tasks", async () => {
     mockPrisma.job.findMany.mockResolvedValue([]);
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);

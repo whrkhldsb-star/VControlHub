@@ -100,7 +100,34 @@ function foldCompletedPeriodicJobs(tasks: OperationTask[]) {
   return visible;
 }
 
-export async function listOperationTasks(options: { limit?: number } = {}): Promise<OperationTask[]> {
+export type OperationTaskListFilters = {
+  status?: OperationTaskStatus | OperationTaskStatus[];
+  taskType?: string;
+};
+
+export type OperationTaskListOptions = OperationTaskListFilters & { limit?: number };
+
+function normalizeStatusFilter(status: OperationTaskListFilters["status"]) {
+  if (!status) return null;
+  return new Set(Array.isArray(status) ? status : [status]);
+}
+
+function normalizeTaskTypeFilter(taskType: string | undefined) {
+  const value = taskType?.trim();
+  return value ? value : null;
+}
+
+function filterOperationTasks(tasks: OperationTask[], filters: OperationTaskListFilters) {
+  const statuses = normalizeStatusFilter(filters.status);
+  const taskType = normalizeTaskTypeFilter(filters.taskType);
+  return tasks.filter((task) => {
+    if (statuses && !statuses.has(task.status)) return false;
+    if (taskType && task.taskType !== taskType) return false;
+    return true;
+  });
+}
+
+export async function listOperationTasks(options: OperationTaskListOptions = {}): Promise<OperationTask[]> {
   const configuredLimit = await getOperationTaskListLimit();
   const requestedLimit = options.limit ?? configuredLimit;
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit);
@@ -124,7 +151,7 @@ export async function listOperationTasks(options: { limit?: number } = {}): Prom
     ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null, workerId: item.commandRequest?.workerId ?? null, workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null, href: "/deployments" })),
   ];
 
-  return foldCompletedPeriodicJobs(tasks)
+  return filterOperationTasks(foldCompletedPeriodicJobs(tasks), options)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 }

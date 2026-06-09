@@ -41,11 +41,43 @@ describe("OperationTaskListClient", () => {
     expect(screen.getByText("重启服务")).toBeInTheDocument();
     expect(screen.getByText("worker worker-1")).toBeInTheDocument();
     expect(screen.getByText(/后台执行器 worker-1/)).toBeInTheDocument();
-    await actor.click(screen.getByRole("button", { name: "刷新" }));
+    await actor.click(screen.getByRole("button", { name: "应用筛选" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("任务中心刷新失败");
     expect(screen.getByText("重启服务")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "刷新" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "应用筛选" })).toBeEnabled());
+  });
+
+  it("refreshes with status and task type filters", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValue({
+      tasks: [{
+        ...initialTasks[0],
+        id: "job:alert_failed",
+        source: "job",
+        sourceId: "alert_failed",
+        title: "告警规则评估失败",
+        status: "failed",
+        taskType: "alert.evaluate",
+      }],
+    });
+
+    render(<OperationTaskListClient initialTasks={[{
+      ...initialTasks[0],
+      id: "job:alert_seed",
+      source: "job",
+      sourceId: "alert_seed",
+      title: "告警规则评估",
+      status: "completed",
+      taskType: "alert.evaluate",
+    }]} />);
+
+    await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
+    await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
+    await actor.click(screen.getByRole("button", { name: "应用筛选" }));
+
+    expect(csrfFetch).toHaveBeenCalledWith("/api/operation-tasks?status=failed&taskType=alert.evaluate");
+    expect(await screen.findByText("告警规则评估失败")).toBeInTheDocument();
   });
 
   it("renders folded periodic job metadata without losing source navigation", async () => {
@@ -63,7 +95,7 @@ describe("OperationTaskListClient", () => {
     }]} />);
 
     expect(screen.getByText("后台")).toBeInTheDocument();
-    expect(screen.getByText("alert.evaluate")).toBeInTheDocument();
+    expect(screen.getAllByText("alert.evaluate").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("已折叠 18 次周期完成记录")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "查看来源 →" })).toHaveAttribute("href", "/tasks");
   });
