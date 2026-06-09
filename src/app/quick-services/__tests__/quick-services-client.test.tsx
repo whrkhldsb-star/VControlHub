@@ -116,7 +116,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({})
+			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_1" })
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
@@ -131,14 +131,14 @@ describe("QuickServicesClient", () => {
 				body: JSON.stringify({ deleteVolumes: false }),
 			});
 		});
-		expect(await screen.findByText("已卸载，数据目录已保留")).toBeInTheDocument();
+		expect(await screen.findByText(/卸载已排队（job:job_qs_1），数据目录将保留/)).toBeInTheDocument();
 	});
 
 	it("confirms uninstall with optional service data directory removal", async () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({})
+			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_2" })
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
@@ -155,7 +155,7 @@ describe("QuickServicesClient", () => {
 				body: JSON.stringify({ deleteVolumes: true }),
 			});
 		});
-		expect(await screen.findByText("已卸载并删除数据目录")).toBeInTheDocument();
+		expect(await screen.findByText(/卸载并删除数据目录已排队（job:job_qs_2）/)).toBeInTheDocument();
 	});
 
 	it("exposes a visible label for the catalog search instead of relying on placeholder text", async () => {
@@ -174,7 +174,7 @@ describe("QuickServicesClient", () => {
 		const user = userEvent.setup();
 		mockInitialLoads();
 		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce({ success: true, status: "running", updated: true, health: "healthy", logTail: "service ready\nlistening on 5244" })
+			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_3" })
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
@@ -195,9 +195,7 @@ describe("QuickServicesClient", () => {
 				body: JSON.stringify({ action: "update" }),
 			}));
 		});
-		expect(await screen.findByText(/更新完成，已拉取镜像并重建容器/)).toBeInTheDocument();
-	expect(screen.getByText(/健康状态：healthy/)).toBeInTheDocument();
-	expect(screen.getByText(/最近日志：service ready/)).toBeInTheDocument();
+		expect(await screen.findByText(/更新已排队（job:job_qs_3），后台将拉取镜像并重建容器/)).toBeInTheDocument();
 	});
 
 	it("cancels install from the configuration preview without creating a service", async () => {
@@ -228,7 +226,7 @@ describe("QuickServicesClient", () => {
 			.mockResolvedValueOnce(availableCatalogResponse)
 			.mockResolvedValueOnce(sourcesResponse)
 			.mockResolvedValueOnce({ available: true, usedBy: null })
-			.mockResolvedValueOnce({ id: "service_1", slug: "alist", status: "installing" })
+			.mockResolvedValueOnce({ success: true, queued: true, taskId: "job:job_qs_4" })
 			.mockResolvedValueOnce(catalogResponse);
 
 		render(<QuickServicesClient canManage />);
@@ -248,6 +246,7 @@ describe("QuickServicesClient", () => {
 				body: JSON.stringify({ slug: "alist", customPort: 5244 }),
 			}));
 		});
+		expect(await screen.findByText(/AList 安装已排队（job:job_qs_4）/)).toBeInTheDocument();
 	});
 
 	it("uses an in-app confirmation before deleting an app source", async () => {

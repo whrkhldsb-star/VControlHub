@@ -21,6 +21,7 @@ import { startScheduledTaskWorker } from "@/lib/scheduled-task/worker";
 import { startBackupJobWorker } from "@/lib/backup/job-worker";
 import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
 import { startSftpSyncJobWorker } from "@/lib/storage/sftp-sync-job";
+import { startQuickServiceJobWorker } from "@/lib/quick-service/job-worker";
 
 const logger = createLogger("server");
 
@@ -39,6 +40,7 @@ async function main() {
 	startBackupJobWorker();
 	await startAlertEvaluationWorker();
 	await startSftpSyncJobWorker();
+	await startQuickServiceJobWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);

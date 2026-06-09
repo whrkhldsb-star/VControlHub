@@ -13,6 +13,7 @@ const { mocks } = vi.hoisted(() => ({
     uninstallService: vi.fn(),
     syncServiceStatus: vi.fn(),
     updateService: vi.fn(),
+    enqueueQuickServiceJob: vi.fn(),
     getDockerEnvironmentStatus: vi.fn(),
     getRemoteApps: vi.fn(),
   },
@@ -34,6 +35,9 @@ vi.mock("@/lib/quick-service/service", () => ({
   syncServiceStatus: mocks.syncServiceStatus,
   updateService: mocks.updateService,
   getDockerEnvironmentStatus: mocks.getDockerEnvironmentStatus,
+}));
+vi.mock("@/lib/quick-service/job-worker", () => ({
+  enqueueQuickServiceJob: mocks.enqueueQuickServiceJob,
 }));
 vi.mock("@/lib/quick-service/app-source-sync", () => ({
   getRemoteApps: mocks.getRemoteApps,
@@ -69,6 +73,7 @@ describe("/api/quick-services routes", () => {
     mocks.uninstallService.mockResolvedValue(undefined);
     mocks.syncServiceStatus.mockResolvedValue("running");
     mocks.updateService.mockResolvedValue({ status: "running", health: "healthy", logTail: "ready" });
+    mocks.enqueueQuickServiceJob.mockResolvedValue({ job: { id: "job_qs_1", status: "PENDING" }, taskId: "job:job_qs_1" });
     mocks.getRemoteApps.mockResolvedValue([]);
   });
 
@@ -103,25 +108,32 @@ describe("/api/quick-services routes", () => {
     expect(json.usedPorts).toEqual([{ port: 3000, usedBy: "vcontrolhub" }]);
   });
 
-  it("installs a local service for the authorized user", async () => {
+  it("queues local service installation for the authorized user", async () => {
     const response = await rootRoute.POST(new Request("http://local/api/quick-services", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ slug: "alist", customPort: 5244 }),
     }));
 
-    expect(response.status).toBe(201);
-    expect(mocks.installService).toHaveBeenCalledWith({
-      template: expect.objectContaining({ slug: "alist", initialPassword: expect.any(String) }),
-      userId: "u1",
-      customPort: 5244,
-      installNoticeCredentials: [
-        { label: "账号", value: "admin" },
-        { label: "初始密码", value: expect.any(String) },
-      ],
-      installNoticeNotes: ["AList 初始管理员密码已在容器启动后自动设置。"],
+    expect(response.status).toBe(202);
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith({
+      title: "安装快捷服务：AList",
+      createdBy: "u1",
+      payload: expect.objectContaining({
+        action: "install",
+        slug: "alist",
+        template: expect.objectContaining({ slug: "alist", initialPassword: expect.any(String) }),
+        customPort: 5244,
+        installNoticeCredentials: [
+          { label: "账号", value: "admin" },
+          { label: "初始密码", value: expect.any(String) },
+        ],
+        installNoticeNotes: ["AList 初始管理员密码已在容器启动后自动设置。"],
+      }),
     });
-    const json = await body(response) as { notice: { credentials: Array<{ label: string; value: string }> } };
+    expect(mocks.installService).not.toHaveBeenCalled();
+    const json = await body(response) as { notice: { credentials: Array<{ label: string; value: string }> }; queued: boolean; jobId: string; taskId: string };
+    expect(json).toMatchObject({ queued: true, jobId: "job_qs_1", taskId: "job:job_qs_1" });
     expect(json.notice.credentials).toEqual([
       { label: "账号", value: "admin" },
       { label: "初始密码", value: expect.any(String) },
@@ -142,8 +154,8 @@ describe("/api/quick-services routes", () => {
     expect(mocks.installService).not.toHaveBeenCalled();
   });
 
-  it("maps install-time port conflicts to 409", async () => {
-    mocks.installService.mockRejectedValueOnce(new Error("端口 5244 已被占用"));
+  it("maps enqueue-time port conflicts to 409", async () => {
+    mocks.enqueueQuickServiceJob.mockRejectedValueOnce(new Error("端口 5244 已被占用"));
 
     const response = await rootRoute.POST(new Request("http://local/api/quick-services", {
       method: "POST",
@@ -155,36 +167,39 @@ describe("/api/quick-services routes", () => {
     expect(await body(response)).toEqual({ error: "端口 5244 已被占用", portConflict: true });
   });
 
-  it("runs slug actions through the guarded route", async () => {
+  it("queues slug actions through the guarded route", async () => {
     const response = await slugRoute.PATCH(new Request("http://local/api/quick-services/alist", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "sync" }),
     }), { params: Promise.resolve({ slug: "alist" }) });
 
-    expect(response.status).toBe(200);
-    expect(await body(response)).toEqual({ success: true, status: "running" });
-    expect(mocks.syncServiceStatus).toHaveBeenCalledWith("alist");
+    expect(response.status).toBe(202);
+    expect(await body(response)).toMatchObject({ success: true, queued: true, jobId: "job_qs_1", taskId: "job:job_qs_1", status: "PENDING" });
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ createdBy: "u1", payload: { action: "sync", slug: "alist" } }));
+    expect(mocks.syncServiceStatus).not.toHaveBeenCalled();
   });
 
-  it("updates a service through the guarded slug route", async () => {
+  it("queues service update through the guarded slug route", async () => {
     const response = await slugRoute.PATCH(new Request("http://local/api/quick-services/alist", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "update" }),
     }), { params: Promise.resolve({ slug: "alist" }) });
 
-    expect(response.status).toBe(200);
-    expect(await body(response)).toEqual({ success: true, status: "running", health: "healthy", logTail: "ready", updated: true });
-    expect(mocks.updateService).toHaveBeenCalledWith("alist");
+    expect(response.status).toBe(202);
+    expect(await body(response)).toMatchObject({ success: true, queued: true, jobId: "job_qs_1", taskId: "job:job_qs_1" });
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "update", slug: "alist" } }));
+    expect(mocks.updateService).not.toHaveBeenCalled();
   });
 
-  it("uninstalls services through the guarded route", async () => {
+  it("queues service uninstall through the guarded route", async () => {
     const response = await slugRoute.DELETE(new Request("http://local/api/quick-services/alist", { method: "DELETE" }), { params: Promise.resolve({ slug: "alist" }) });
 
-    expect(response.status).toBe(200);
-    expect(await body(response)).toEqual({ success: true, deleteVolumes: false });
-    expect(mocks.uninstallService).toHaveBeenCalledWith("alist", { deleteVolumes: false });
+    expect(response.status).toBe(202);
+    expect(await body(response)).toMatchObject({ success: true, queued: true, deleteVolumes: false, jobId: "job_qs_1", taskId: "job:job_qs_1" });
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: false } }));
+    expect(mocks.uninstallService).not.toHaveBeenCalled();
   });
 
   it("passes deleteVolumes option when uninstalling with data removal", async () => {
@@ -194,9 +209,9 @@ describe("/api/quick-services routes", () => {
       body: JSON.stringify({ deleteVolumes: true }),
     }), { params: Promise.resolve({ slug: "alist" }) });
 
-    expect(response.status).toBe(200);
-    expect(await body(response)).toEqual({ success: true, deleteVolumes: true });
-    expect(mocks.uninstallService).toHaveBeenCalledWith("alist", { deleteVolumes: true });
+    expect(response.status).toBe(202);
+    expect(await body(response)).toMatchObject({ success: true, queued: true, deleteVolumes: true });
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({ payload: { action: "uninstall", slug: "alist", deleteVolumes: true } }));
   });
 
   it("checks and allocates ports", async () => {

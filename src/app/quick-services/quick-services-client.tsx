@@ -31,6 +31,10 @@ interface CatalogItem {
 
 interface QuickServiceActionResult {
 	success?: boolean;
+	queued?: boolean;
+	jobId?: string;
+	taskId?: string;
+	message?: string;
 	status?: string;
 	updated?: boolean;
 	health?: string | null;
@@ -266,12 +270,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setConfigPreview(null);
 		closeInstallDialog();
 		try {
-			await csrfFetch("/api/quick-services", {
+			const data = await csrfFetch<QuickServiceActionResult>("/api/quick-services", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port }),
 			});
-			setMessage({ type: "ok", text: `${preview.item.name} 安装任务已提交，正在拉取镜像…` });
+			setMessage({ type: "ok", text: data.taskId ? `${preview.item.name} 安装已排队（${data.taskId}），可在任务中心查看进度。` : `${preview.item.name} 安装任务已提交，正在拉取镜像…` });
 			setTimeout(fetchCatalog, 1500);
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "安装失败" });
@@ -309,7 +313,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			]
 				.filter(Boolean)
 				.join("；");
-			const actionMessages: Record<string, string> = {
+			const queuedSuffix = data.taskId ? `（${data.taskId}）` : "";
+			const actionMessages: Record<string, string> = data.queued ? {
+				start: `启动已排队${queuedSuffix}，可在任务中心查看进度。`,
+				stop: `停止已排队${queuedSuffix}，可在任务中心查看进度。`,
+				sync: `状态刷新已排队${queuedSuffix}，可在任务中心查看进度。`,
+				update: `更新已排队${queuedSuffix}，后台将拉取镜像并重建容器。`,
+			} : {
 				start: "已启动",
 				stop: "已停止",
 				sync: data.status === "running" ? "状态已刷新：运行中" : "状态已刷新：已停止",
@@ -334,12 +344,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setPendingUninstall(null);
 		setActionSlug(target.slug);
 		try {
-			await csrfFetch(`/api/quick-services/${target.slug}`, {
+			const data = await csrfFetch<QuickServiceActionResult>(`/api/quick-services/${target.slug}`, {
 				method: "DELETE",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ deleteVolumes: target.deleteVolumes }),
 			});
-			setMessage({ type: "ok", text: target.deleteVolumes ? "已卸载并删除数据目录" : "已卸载，数据目录已保留" });
+			const taskLabel = data.taskId ? `（${data.taskId}）` : "";
+			setMessage({ type: "ok", text: data.queued ? (target.deleteVolumes ? `卸载并删除数据目录已排队${taskLabel}` : `卸载已排队${taskLabel}，数据目录将保留`) : (target.deleteVolumes ? "已卸载并删除数据目录" : "已卸载，数据目录已保留") });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "卸载失败" });

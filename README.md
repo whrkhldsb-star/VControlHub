@@ -368,7 +368,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **远端文件代理范围收紧** — `/api/servers/[id]/file-proxy` 启动临时 Python 代理前必须确认服务器绑定了 SFTP 存储节点，生成脚本时把 `SERVE_DIR` 限制到该节点 `basePath`，并在目标主机内做 realpath 边界校验；代理现在优先使用 `Authorization: Bearer` 或 `X-VControlHub-Proxy-Token` header 校验 token，只保留 query token 作为旧客户端兼容兜底，同时把 CORS 从 `*` 收紧到发起请求的 Hub origin 并补充 `Referrer-Policy: no-referrer` / `nosniff`。
 - [x] **统一 Durable Job 队列底座已落地。** 新增 DB-backed `jobs` 表与 `JobStatus`，提供 enqueue、lease claim、heartbeat、retry/fail、cancel、stale RUNNING recovery、progress/result/error 记录等通用服务；任务中心已把 durable job 纳入统一聚合，后续备份/恢复、SFTP 同步、QuickService 安装/更新、下载执行和告警评估可以逐步迁移到同一队列，而不是继续各自依赖请求内长任务或进程内 fire-and-forget。
 - [x] **命令执行可取消入口已产品化。** `/requests` 审批中心现在会在待审批/已批准/运行中的命令请求上展示“取消命令”操作；审批人可填写可选原因，经 CSRF 保护调用 `/api/commands` 取消接口，后端会终止当前进程内仍在运行的 SSH 子进程或把未完成目标标记为 `CANCELLED`，页面成功后刷新状态，失败时保留弹窗并用独立错误提示区展示原因。
-- [ ] **后台任务业务迁移与并发控制仍在进行（P1）。** Durable Job 底座目前已承接 SFTP 同步、备份创建、备份恢复和告警评估；命令执行已具备后台 SSH 执行、心跳、陈旧 RUNNING 恢复、输出/超时 guardrail、并发目标执行和用户可见取消入口。后续仍需把命令/部署、QuickService、下载 direct/relay、定时任务补实际 durable worker，补全局/按用户/按节点并发上限、可观测日志流和生产级 worker 部署策略。
+- [ ] **后台任务业务迁移与并发控制仍在进行（P1）。** Durable Job 底座目前已承接 SFTP 同步、备份创建、备份恢复、告警评估和 QuickService 生命周期；命令执行已具备后台 SSH 执行、心跳、陈旧 RUNNING 恢复、输出/超时 guardrail、并发目标执行和用户可见取消入口。后续仍需把命令/部署、下载 direct/relay、定时任务补实际 durable worker，补全局/按用户/按节点并发上限、可观测日志流和生产级 worker 部署策略。
 - [x] **备份/恢复已迁入 Durable Job。** 备份创建先持久化 `BackupRecord`，再由 `backup.create` worker 执行 `deploy/backup.sh`；恢复 API 会先校验备份存在和 `RESTORE` 确认，再排入 `backup.restore` worker 执行恢复，避免 30 分钟脚本继续占用 HTTP 请求。旧调用可通过 `?wait=1` 保留同步执行路径，后续继续补异地备份、自动恢复演练、保留策略自动清理和更细进度日志。
 - [x] **告警评估已迁入 Durable Job。** 告警 worker 不再直接在定时器内调用 `evaluateAlerts()`；每轮先去重排入/认领 `alert.evaluate` job，再通过共享 job service 记录 heartbeat、失败重试、完成结果和 workerId，任务中心可以看到告警评估的运行状态，进程重启或失败时也不会只留下不可见的定时器日志。
 - [x] **邮件告警通道已接入 SMTP** — SMTP 设置页新增告警收件人配置，保存时校验并规范化邮箱列表；告警测试发送现在会真实调用 SMTP 邮件通道并返回发送/拒收结果，真实告警评估也会在 `email` 渠道选中时 best-effort 发送邮件，不再是“可选但不可发送”的死路径。后续仍可继续补失败重试和发送历史。
@@ -379,7 +379,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **Docker 本机运行边界已产品化。** `/api/docker/containers` 列表响应现在返回 `dockerScope`，明确该模块只操作 VControlHub 所在主机的 `/var/run/docker.sock`；`/docker` 页面在容器操作按钮之前展示“本机 Docker socket”警示，提示它不是跨 VPS 容器控制台，且 `docker:manage` 权限接近本机容器管理能力，避免用户把 Hub 主机 Docker 与远端 VPS 容器混淆。
 - [x] **QuickService 生命周期历史已接入审计日志。** 安装、启动、停止、状态同步、更新和卸载现在都会写入 `quick_service.*.started/succeeded/failed` 审计事件，失败事件保留截断后的 Docker 错误摘要，`listQuickServiceHistory()` 以最新 50 条为上限读取历史，避免操作员只能看到当前状态而无法追溯最近生命周期动作。
 - [x] **QuickService 安装/更新配置预览已补齐。** `/api/quick-services` 目录响应现在只返回非敏感配置摘要（环境变量键数量、宿主机挂载、额外端口），不下发环境变量值；`/quick-services` 在安装端口确认后、更新按钮执行前都会弹出配置确认层，展示镜像、容器端口到宿主端口、挂载和公开端口风险，取消不会触发 Docker install/update side effect。
-- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，安装/更新前已展示非敏感配置摘要与公开端口风险确认；第三方模板仍属于供应链输入，后续主要补失败回滚和 install/update/uninstall durable worker/lease。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
+- [x] **QuickService 生命周期已迁入 Durable Job worker。** 安装、启动、停止、状态刷新、更新和卸载 API 现在只做权限/输入/端口校验并返回 `202 + jobId/taskId`；后台 `quick_service.lifecycle` worker 通过共享 Job 队列 claim/heartbeat/complete/fail 后再执行 Docker side effect，`/quick-services` 成功提示也改为“已排队，可在任务中心查看进度”，避免拉镜像、重建容器或删除数据目录继续占用 HTTP 请求。
+- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，安装/更新前已展示非敏感配置摘要与公开端口风险确认，生命周期写操作已排入 Durable Job worker 而不是占用 HTTP 请求；第三方模板仍属于供应链输入，后续主要补失败回滚、配置 diff 和更细的 worker lease/并发/日志可观测性。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
 - [x] **公开状态存储健康摘要已接入最近探测结果。** `/status` 与 `/api/status` 不再只按“已配置存储节点数量”给出乐观健康结论，而是汇总最近存储节点健康探测的健康/异常/待探测数量；公开输出仍不暴露 SFTP/Direct Gateway 主机、端口、路径或凭据。`/files` 存储节点管理里的“立即检测”继续作为写入该公开摘要的专项探测入口。
 - [x] **Docker 日志弹窗已接入统一 Dialog Focus 管理。** 新增 `useDialogFocus` 客户端 hook，封装打开后初始聚焦、Escape 关闭、Tab/Shift+Tab 焦点循环和关闭后恢复触发按钮焦点；Docker 日志弹窗现在具备 `role="dialog"`、`aria-modal`、标题关联、命名关闭按钮和 light/dark 可读日志面板，删除确认弹窗也复用同一焦点管理底座。
 - [x] **文件浏览 SPA 已支持浏览器历史后退/前进。** 文件目录树和面包屑里的真实目录导航现在使用 `history.pushState` 写入 `/files?path=...&nodeId=...`，刷新、上传完成、新建文件夹和搜索等原地更新仍使用 `replaceState` 避免污染历史栈；浏览器 `popstate` 会从当前 URL 恢复 path/search/scope/nodeId 并重新拉取 `/api/files/list`，后退/前进可以逐级回到上一个目录。
@@ -421,7 +422,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] 告警增强：静默期、Webhook 测试发送和 email/SMTP 真实发送已完成；后续继续补 Telegram 等通知渠道配置、失败重试和告警历史趋势。
 
 ### P2 — 用户体验和可运营性
-- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件；继续补配置 diff、失败回滚，并纳入统一 durable job/lease，避免安装/更新/卸载继续依赖请求内长任务或进程内锁。
+- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件，并已纳入统一 durable job worker；继续补配置 diff、失败回滚、跨进程并发上限和更细日志流。
 - [ ] 在线文件编辑器：本机文本编辑/保存/权限边界、差异预览和保存确认已完成，继续补并发修改检测、保存后可选重载服务和 SFTP 编辑。
 - [x] 媒体库 / 图床融合：图片模式已合并批量上传、目标存储目录、已有存储图片发布外链和图片搜索；媒体库已补一等图片/视频/音频切换，主导航不再暴露独立图床模块，外链管理作为图片工作区辅助入口。
 - [x] 文件管理资料流：`/files` 已补“资料详情”面板，把预览/编辑、下载、分享、媒体库搜索和管理动作集中到真实文件入口；后续继续把文件详情与媒体详情做更深的双向状态同步。

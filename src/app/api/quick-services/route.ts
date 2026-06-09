@@ -5,9 +5,9 @@ const installSchema = z.object({ slug: z.string().min(1), customPort: z.number()
 
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import { prepareInstallSecrets } from "@/lib/quick-service/install-notice";
+import { enqueueQuickServiceJob } from "@/lib/quick-service/job-worker";
 import {
 	listQuickServices,
-	installService,
 	checkPort,
 	getUsedPorts,
 	getDockerEnvironmentStatus,
@@ -124,13 +124,26 @@ export async function POST(request: Request) {
 		}
 
 		const prepared = prepareInstallSecrets(template);
-		const svc = await installService({
-			template: prepared.template,
-			userId: session?.userId ?? "",
-			customPort,
-			installNoticeCredentials: prepared.credentials,
-			installNoticeNotes: prepared.notes,
+		const { job, taskId } = await enqueueQuickServiceJob({
+			title: `安装快捷服务：${template.name}`,
+			createdBy: session?.userId ?? null,
+			payload: {
+				action: "install",
+				slug: template.slug,
+				template: prepared.template,
+				customPort,
+				installNoticeCredentials: prepared.credentials,
+				installNoticeNotes: prepared.notes,
+			},
 		});
-		return NextResponse.json({ service: svc, notice: { credentials: prepared.credentials, notes: prepared.notes } }, { status: 201 });
+		return NextResponse.json({
+			success: true,
+			queued: true,
+			jobId: job.id,
+			taskId,
+			status: job.status,
+			notice: { credentials: prepared.credentials, notes: prepared.notes },
+			message: "QuickService 安装已加入后台任务，可在任务中心查看进度。",
+		}, { status: 202 });
 	});
 }
