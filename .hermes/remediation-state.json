@@ -48,77 +48,77 @@
     "operator guidance"
   ],
   "lastHealthyBaseline": {
-    "date": "2026-06-01",
-    "typecheck": "passed",
-    "lint": "passed with existing client-effect warnings only",
-    "tests": "Files tree/API, media service/card, preview direct-access, and traffic summary regressions 14/14 passed",
-    "build": "passed",
-    "runtimeBuild": "passed",
-    "smoke": "19/19 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
+    "date": "2026-06-09",
+    "typecheck": "passed via npm run verify",
+    "lint": "passed via npm run verify",
+    "tests": "Requests page/button/API/command-service regressions passed; full Vitest passed via npm run verify",
+    "build": "passed via npm run verify",
+    "runtimeBuild": "passed via npm run verify",
+    "smoke": "25/25 passed",
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy 3/3; /requests unauth 307; authenticated production browser DOM showed cancel buttons and confirmation dialog; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "quick-services-search-visible-label",
-    "title": "Quick Services catalog search visible label closeout",
-    "startedAt": "2026-06-09T02:18:45Z",
-    "finishedAt": "2026-06-09T02:30:31Z",
+    "id": "command-cancellation-ui-closeout",
+    "title": "Command cancellation UI closeout",
+    "startedAt": "2026-06-09T03:30:00Z",
+    "finishedAt": "2026-06-09T03:44:30Z",
     "status": "completed_verified_deployed",
-    "summary": "Dirty worktree closeout for /quick-services accessibility: the catalog search now has a visible label, semantic search input, placeholder-only hint text, regression coverage, full verify, production restart, smoke, browser proof, and clean logs.",
+    "summary": "Dirty worktree closeout for /requests command cancellation: pending/approved/running command requests now expose a cancel action with confirmation, optional reason, CSRF-protected API call, router refresh, failure alert, full verify, production restart, smoke, browser proof, and clean logs.",
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser login reached /quick-services; snapshot exposed searchbox “搜索快捷服务”; typing alist populated the search input. DOM probe confirmed #quick-service-search type=search, visible label text=搜索快捷服务, inputValue=alist, no role=alert text, and no horizontal overflow (scrollWidth == clientWidth == 1910).",
-      "api": "Preflight /api/status returned 200 healthy 3/3; post-deploy /api/status returned 200 healthy 3/3; unauthenticated /quick-services redirected 307 to /login?next=%2Fquick-services.",
-      "db_or_persisted_config": "No database/config mutation for this UI accessibility slice; production Quick Services counts remained visible (0 running, 2 stopped, 42 installable in browser snapshot).",
-      "filesystem_or_sftp": "No storage/SFTP mutation. Build artifacts existed after verify: .next/BUILD_ID, dist/server.js, dist/ssh-ws-proxy.js; .next/dist ownership corrected to vcontrolhub:vcontrolhub before restart.",
-      "background_task_or_process": "Preflight found no active verify/build/deploy process beyond editor tsservers. npm run verify completed successfully; services restarted after artifact/ownership checks; vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy stayed active.",
-      "runtime_or_ui_side_effect": "/quick-services catalog search is no longer placeholder-only: the visible label remains on screen while the placeholder only lists examples (应用名称、描述、镜像…).",
-      "permissions": "Authenticated browser session was required for /quick-services; unauthenticated route stayed protected with 307 redirect.",
-      "regression": "git diff --check passed; npx vitest run src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed 1 file / 8 tests; npm run typecheck passed; npm run verify passed including full Vitest, Next build, runtime build, and deploy-assets.",
-      "production": "Post-restart /api/status healthy 3/3; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; changed protected route /quick-services returned expected 307 when unauthenticated; services active.",
-      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed no error/warn/failed/exception matches.",
-      "cleanup": "No temporary QA users/files/containers/DB rows were created. Browser session used existing admin credentials. Single 6G /swapfile steady state preserved."
+      "browser_or_dom": "Production browser login reached /requests; snapshot exposed two visible cancel buttons with aria labels like 取消命令：部署：查看服务状态. After client hydration, clicking the cancel control opened the confirmation dialog text 确认取消命令… with optional reason copy; no production cancellation was submitted.",
+      "api": "Post-deploy /api/status returned 200 healthy 3/3; unauthenticated /requests redirected 307 to /login?next=%2Frequests; existing /api/commands cancellation route regressions passed with the UI button tests.",
+      "db_or_persisted_config": "No production DB mutation was performed during browser proof; cancellation dialog was opened but confirm was not submitted. Existing pending command request rows remained visible for verification.",
+      "filesystem_or_sftp": "No storage/SFTP mutation. Build artifacts existed after verify: .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js.",
+      "background_task_or_process": "Main remediation cron was paused during manual dirty closeout to avoid concurrent worktree writes. npm run verify completed successfully; services restarted after artifact checks; vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy stayed active.",
+      "runtime_or_ui_side_effect": "/requests now exposes a user-visible cancellation path for PENDING_APPROVAL/APPROVED/RUNNING command requests instead of requiring backend-only cancellation knowledge.",
+      "permissions": "Cancel action is only rendered with the same approval permission gate used by command review controls; unauthenticated /requests stayed protected with 307 redirect.",
+      "regression": "git diff --check passed; targeted Requests page/button/API/command-service tests passed; npm run verify passed including full Vitest, Next build, runtime build, and deploy-assets.",
+      "production": "Post-restart /api/status healthy 3/3; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; changed protected route /requests returned expected 307 when unauthenticated; services active.",
+      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed only expected restart/startup info and no error/warn/failed/exception entries.",
+      "cleanup": "No temporary QA users/files/containers/DB rows were created. Browser proof used existing admin credentials. Single 6G /swapfile steady state preserved."
     },
     "changeContract": {
       "files": [
-        "src/app/quick-services/quick-services-client.tsx",
-        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
+        "src/app/requests/page.tsx",
+        "src/app/requests/cancel-command-button.tsx",
+        "src/app/requests/__tests__/page.test.tsx",
+        "src/app/requests/__tests__/cancel-command-button.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Quick Services visible search label and semantic searchbox",
-        "Targeted QuickServicesClient regression",
+        "Requests cancel command action and confirmation dialog",
+        "Targeted Requests/API/command-service regressions",
         "Full verify",
-        "Production /quick-services browser DOM proof",
+        "Production /requests browser DOM proof",
         "Smoke/status/log/swap checks"
       ],
       "remaining": [
-        "QuickService durable job migration/config diff/rollback/history",
-        "SFTP/Direct Gateway live probes",
-        "Further placeholder-only/low-visibility control patrol"
+        "Command/deployment execution durable worker migration",
+        "Cross-process cancellation and node/user concurrency limits",
+        "Streamed command/deployment logs in the task center"
       ]
     },
-    "stage": "stage-26-quick-services-search-visible-label",
-    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）：快捷服务搜索 placeholder-only 控件闭环",
+    "stage": "stage-27-command-cancellation-ui",
+    "selectedReadmeItem": "后台任务业务迁移与并发控制仍在进行（P1）：命令执行取消入口产品化",
     "verification": [
-      "Entry worktree dirty with coherent /quick-services search-label slice; HEAD == origin/main 9392748 before closeout.",
-      "Preflight services active; /api/status healthy 3/3; Docker available; recent logs clean; single 6G /swapfile steady state.",
+      "Entry worktree dirty with coherent /requests command-cancel slice; main cron paused for manual closeout.",
       "git diff --check passed.",
-      "npx vitest run src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed: 1 file / 8 tests.",
-      "npm run typecheck passed.",
-      "npm run verify passed including full Vitest, Next build, runtime build, deploy-assets.",
-      ".next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed; ownership corrected to vcontrolhub:vcontrolhub.",
+      "npm test -- src/app/requests/__tests__/cancel-command-button.test.tsx src/app/requests/__tests__/page.test.tsx passed.",
+      "npm test -- src/app/api/commands/__tests__/route.test.ts src/lib/command/__tests__/service.test.ts src/app/requests/__tests__/cancel-command-button.test.tsx src/app/requests/__tests__/page.test.tsx passed.",
+      "npm run verify passed including full tests, Next build, runtime build, and deploy-assets.",
       "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all active.",
       "/api/status returned 200 healthy 3/3 after restart.",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "Unauthenticated /quick-services redirected 307 to login.",
-      "Authenticated production browser confirmed searchbox name 搜索快捷服务, type search, alist input behavior, no alerts, and no horizontal overflow.",
+      "Unauthenticated /requests redirected 307 to login.",
+      "Authenticated production browser confirmed cancel buttons on two pending requests and confirmation dialog after hydration; no cancellation submitted.",
       "Recent logs clean; swap steady state single 6G /swapfile preserved."
     ],
     "residualWork": [
-      "QuickService durable job migration/config diff/rollback/history.",
-      "SFTP/Direct Gateway live probes and status truthfulness follow-up.",
-      "Continue scanning lower-traffic placeholder-only controls."
+      "Move command/deployment final execution into DB-backed durable workers.",
+      "Add cross-process cancellation, node/user concurrency limits, and streamed logs.",
+      "Continue QuickService durable job/config diff/rollback/history work."
     ]
   },
   "runPolicy": {
@@ -134,7 +134,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 6,
+    "successfulRemediationRunsSinceFreshAudit": 7,
     "skippedOverlapRuns": 0
   },
   "blockers": [

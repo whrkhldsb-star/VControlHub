@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getPendingActions } from "@/lib/ai/hosted-service";
 import { listCommandRequests } from "@/lib/command/service";
 import { ReviewCommandForm } from "./review-command-form";
+import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
 import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
 
@@ -144,6 +145,9 @@ export default async function RequestsPage() {
 								</div>
 
 								{canApprove && request.status === "PENDING_APPROVAL" && <ReviewCommandForm commandRequestId={request.id} />}
+								{canApprove && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
+									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
+								)}
 							</article>
 						))
 					)}

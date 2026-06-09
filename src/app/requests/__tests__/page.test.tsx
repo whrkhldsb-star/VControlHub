@@ -20,6 +20,12 @@ vi.mock("../review-command-form", () => ({
   ),
 }));
 
+vi.mock("../cancel-command-button", () => ({
+  CancelCommandButton: ({ commandRequestId }: { commandRequestId: string; commandTitle: string }) => (
+    <div data-testid="cancel-command-button">取消按钮：{commandRequestId}</div>
+  ),
+}));
+
 vi.mock("@/lib/command/service", () => ({
   listCommandRequests: vi.fn().mockResolvedValue([
     {
@@ -106,5 +112,6 @@ describe("RequestsPage", () => {
     expect(screen.getByText("命令审批已通过，任务正在进入执行器队列。")).toBeInTheDocument();
     expect(screen.getByText(/后台执行器 worker-old/)).toBeInTheDocument();
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
+    expect(screen.getAllByTestId("cancel-command-button")).toHaveLength(2);
   });
 });

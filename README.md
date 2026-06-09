@@ -367,7 +367,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **在线文本文件编辑权限边界收紧** — `/api/files/editable/[id]` 读取和保存现在都会把当前 session 传入存储服务，并在解析 LOCAL 文件条目后调用 `assertStorageAccess` 校验对应存储节点与相对路径；读取需要具体 `read` 授权，保存会按新内容字节数校验 `write` 授权/配额，避免只有全局 `storage:read/write` 的用户通过文件条目 ID 绕过细粒度路径授权。
 - [x] **远端文件代理范围收紧** — `/api/servers/[id]/file-proxy` 启动临时 Python 代理前必须确认服务器绑定了 SFTP 存储节点，生成脚本时把 `SERVE_DIR` 限制到该节点 `basePath`，并在目标主机内做 realpath 边界校验；代理现在优先使用 `Authorization: Bearer` 或 `X-VControlHub-Proxy-Token` header 校验 token，只保留 query token 作为旧客户端兼容兜底，同时把 CORS 从 `*` 收紧到发起请求的 Hub origin 并补充 `Referrer-Policy: no-referrer` / `nosniff`。
 - [x] **统一 Durable Job 队列底座已落地。** 新增 DB-backed `jobs` 表与 `JobStatus`，提供 enqueue、lease claim、heartbeat、retry/fail、cancel、stale RUNNING recovery、progress/result/error 记录等通用服务；任务中心已把 durable job 纳入统一聚合，后续备份/恢复、SFTP 同步、QuickService 安装/更新、下载执行和告警评估可以逐步迁移到同一队列，而不是继续各自依赖请求内长任务或进程内 fire-and-forget。
-- [ ] **后台任务业务迁移与并发控制仍在进行（P1）。** Durable Job 底座目前已承接 SFTP 同步、备份创建、备份恢复和告警评估：显式写操作默认返回 `202 + jobId/taskId`，告警评估由 `alert.evaluate` durable job 统一记录 lease/heartbeat/retry/结果，任务中心可展示进度和结果；`?wait=1` 仅作为旧同步响应兼容路径保留。后续仍需为 QuickService、下载 direct/relay、定时任务补实际 worker、全局/按用户/按节点并发上限、可观测日志流和生产级 worker 部署策略。
+- [x] **命令执行可取消入口已产品化。** `/requests` 审批中心现在会在待审批/已批准/运行中的命令请求上展示“取消命令”操作；审批人可填写可选原因，经 CSRF 保护调用 `/api/commands` 取消接口，后端会终止当前进程内仍在运行的 SSH 子进程或把未完成目标标记为 `CANCELLED`，页面成功后刷新状态，失败时保留弹窗并用独立错误提示区展示原因。
+- [ ] **后台任务业务迁移与并发控制仍在进行（P1）。** Durable Job 底座目前已承接 SFTP 同步、备份创建、备份恢复和告警评估；命令执行已具备后台 SSH 执行、心跳、陈旧 RUNNING 恢复、输出/超时 guardrail、并发目标执行和用户可见取消入口。后续仍需把命令/部署、QuickService、下载 direct/relay、定时任务补实际 durable worker，补全局/按用户/按节点并发上限、可观测日志流和生产级 worker 部署策略。
 - [x] **备份/恢复已迁入 Durable Job。** 备份创建先持久化 `BackupRecord`，再由 `backup.create` worker 执行 `deploy/backup.sh`；恢复 API 会先校验备份存在和 `RESTORE` 确认，再排入 `backup.restore` worker 执行恢复，避免 30 分钟脚本继续占用 HTTP 请求。旧调用可通过 `?wait=1` 保留同步执行路径，后续继续补异地备份、自动恢复演练、保留策略自动清理和更细进度日志。
 - [x] **告警评估已迁入 Durable Job。** 告警 worker 不再直接在定时器内调用 `evaluateAlerts()`；每轮先去重排入/认领 `alert.evaluate` job，再通过共享 job service 记录 heartbeat、失败重试、完成结果和 workerId，任务中心可以看到告警评估的运行状态，进程重启或失败时也不会只留下不可见的定时器日志。
 - [x] **邮件告警通道已接入 SMTP** — SMTP 设置页新增告警收件人配置，保存时校验并规范化邮箱列表；告警测试发送现在会真实调用 SMTP 邮件通道并返回发送/拒收结果，真实告警评估也会在 `email` 渠道选中时 best-effort 发送邮件，不再是“可选但不可发送”的死路径。后续仍可继续补失败重试和发送历史。
@@ -435,6 +436,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P3 — 长期愿景
 - [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。
+- [ ] 命令/部署执行 durable worker：现有命令请求已支持后台执行、心跳、陈旧恢复、超时/输出限制、并发目标执行和审批中心取消入口；下一步把命令/部署最终执行迁入 DB-backed job worker，并补跨进程取消、按节点并发上限和可观测日志流。
 - [ ] RBAC 角色视角巡检：为管理员、运维、只读用户提供可复用的页面按钮/API 权限一致性巡检，减少“按钮可见但点击 403”或“API 可调但页面没入口”的漂移。
 - [ ] 站内 QA 报告产品化：把 canary/cron QA 结果、失败模块、修复建议、部署版本和最近 smoke evidence 展示到产品内，方便从 Web 端追踪质量状态。
 - [ ] 多租户/团队空间：资源隔离、配额管理、权限继承。
