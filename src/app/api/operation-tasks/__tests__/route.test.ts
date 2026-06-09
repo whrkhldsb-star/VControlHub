@@ -34,7 +34,7 @@ describe("/api/operation-tasks", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("task:read");
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 999, status: undefined, taskType: undefined });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 999, status: undefined, taskType: undefined, sort: undefined });
     await expect(response.json()).resolves.toEqual({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
       sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
@@ -42,13 +42,22 @@ describe("/api/operation-tasks", () => {
     });
   });
 
-  it("passes status and task type filters to the bounded task service", async () => {
+  it("passes status, task type, and sort filters to the bounded task service", async () => {
     const response = await route.GET(
-      new Request("http://local/api/operation-tasks?status=failed,running&taskType=alert.evaluate&limit=50"),
+      new Request("http://local/api/operation-tasks?status=failed,running&taskType=alert.evaluate&sort=attention&limit=50"),
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 50, status: ["failed", "running"], taskType: "alert.evaluate" });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 50, status: ["failed", "running"], taskType: "alert.evaluate", sort: "attention" });
+  });
+
+  it("ignores unsupported sort values", async () => {
+    const response = await route.GET(
+      new Request("http://local/api/operation-tasks?sort=oldest"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: undefined, status: undefined, taskType: undefined, sort: undefined });
   });
 
   it("returns shared API permission failures without calling the service", async () => {

@@ -282,6 +282,43 @@ describe("operation task service", () => {
     ]);
   });
 
+  it("orders attention tasks before completed tasks when requested", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([
+      {
+        id: "completed_new",
+        type: "backup.create",
+        title: "最新完成任务",
+        status: "COMPLETED",
+        createdAt: new Date("2026-01-05T00:00:00Z"),
+        updatedAt: new Date("2026-01-05T00:00:00Z"),
+        progress: null,
+        errorMessage: null,
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+      {
+        id: "failed_old",
+        type: "backup.create",
+        title: "较早失败任务",
+        status: "FAILED",
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+        progress: null,
+        errorMessage: "backup failed",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+    ]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const tasks = await listOperationTasks({ limit: 10, sort: "attention" });
+
+    expect(tasks.map((task) => task.id)).toEqual(["job:failed_old", "job:completed_new"]);
+  });
+
   it("maps active deployment command requests as running operation tasks", async () => {
     mockPrisma.job.findMany.mockResolvedValue([]);
     mockPrisma.commandRequest.findMany.mockResolvedValue([]);

@@ -124,9 +124,12 @@ function foldCompletedPeriodicJobs(tasks: OperationTask[]) {
   return visible;
 }
 
+export type OperationTaskListSort = "recent" | "attention";
+
 export type OperationTaskListFilters = {
   status?: OperationTaskStatus | OperationTaskStatus[];
   taskType?: string;
+  sort?: OperationTaskListSort;
 };
 
 export type OperationTaskListOptions = OperationTaskListFilters & { limit?: number };
@@ -148,6 +151,19 @@ function filterOperationTasks(tasks: OperationTask[], filters: OperationTaskList
     if (statuses && !statuses.has(task.status)) return false;
     if (taskType && task.taskType !== taskType) return false;
     return true;
+  });
+}
+
+const attentionRank: Partial<Record<OperationTaskStatus, number>> = { failed: 0, running: 1, pending: 2 };
+
+function sortOperationTasks(tasks: OperationTask[], sort: OperationTaskListSort | undefined) {
+  return tasks.sort((a, b) => {
+    if (sort === "attention") {
+      const rankA = attentionRank[a.status] ?? 3;
+      const rankB = attentionRank[b.status] ?? 3;
+      if (rankA !== rankB) return rankA - rankB;
+    }
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 }
 
@@ -229,8 +245,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions 
   ];
 
   const foldedTasks = foldCompletedPeriodicJobs(tasks);
-  const filteredTasks = filterOperationTasks(foldedTasks, options)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const filteredTasks = sortOperationTasks(filterOperationTasks(foldedTasks, options), options.sort)
     .slice(0, limit);
   return {
     tasks: filteredTasks,

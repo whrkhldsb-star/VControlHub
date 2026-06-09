@@ -44,6 +44,7 @@ describe("OperationTaskListClient", () => {
     const failure = screen.getByLabelText("失败原因聚合");
     expect(failure).toHaveTextContent("执行超时");
     expect(failure).toHaveTextContent("最新：重启服务");
+    expect(screen.getByLabelText("排序偏好")).toHaveValue("recent");
   });
 
   it("surfaces refresh failures and keeps the existing task list visible", async () => {
@@ -90,9 +91,10 @@ describe("OperationTaskListClient", () => {
 
     await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
     await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
+    await actor.selectOptions(screen.getByLabelText("排序偏好"), "attention");
     await actor.click(screen.getByRole("button", { name: "应用筛选" }));
 
-    expect(csrfFetch).toHaveBeenCalledWith("/api/operation-tasks?status=failed&taskType=alert.evaluate");
+    expect(csrfFetch).toHaveBeenCalledWith("/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention");
     expect(await screen.findByText("告警规则评估失败")).toBeInTheDocument();
     expect(screen.getByLabelText("来源聚合")).toHaveTextContent("后台");
     expect(screen.getByLabelText("来源聚合")).toHaveTextContent("失败 1");

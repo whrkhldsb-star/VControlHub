@@ -23,11 +23,17 @@ const statusFilters = [
   { label: "已完成", value: "completed" },
 ] as const;
 
-function getRefreshPath(statusFilter: string, taskTypeFilter: string) {
+const sortOptions = [
+  { label: "最新优先", value: "recent" },
+  { label: "需处理优先", value: "attention" },
+] as const;
+
+function getRefreshPath(statusFilter: string, taskTypeFilter: string, sort: string) {
   const params = new URLSearchParams();
   if (statusFilter === "attention") params.set("status", "failed,running,pending");
   else if (statusFilter !== "all") params.set("status", statusFilter);
   if (taskTypeFilter !== "all") params.set("taskType", taskTypeFilter);
+  if (sort !== "recent") params.set("sort", sort);
   const query = params.toString();
   return `/api/operation-tasks${query ? `?${query}` : ""}`;
 }
@@ -38,6 +44,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [failureSummary, setFailureSummary] = useState(initialFailureSummary);
   const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]["value"]>("all");
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
+  const [sort, setSort] = useState<(typeof sortOptions)[number]["value"]>("recent");
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
@@ -45,7 +52,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
     setRefreshing(true);
     setError(null);
     try {
-      const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter));
+      const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter, sort));
       setTasks(data.tasks ?? []);
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
@@ -107,6 +114,12 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             <select value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className="min-w-44 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 light:bg-white light:text-slate-900">
               <option value="all">全部类型</option>
               {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-slate-400 light:text-slate-700">
+            <span className="mb-1 block">排序偏好</span>
+            <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-w-36 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 light:bg-white light:text-slate-900">
+              {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 light:text-slate-700 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? "刷新中..." : "应用筛选"}</button>

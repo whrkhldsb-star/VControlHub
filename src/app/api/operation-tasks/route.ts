@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { listOperationTaskResult, type OperationTaskStatus } from "@/lib/operation-task/service";
+import { listOperationTaskResult, type OperationTaskListSort, type OperationTaskStatus } from "@/lib/operation-task/service";
 
 const allowedStatuses = new Set<OperationTaskStatus>(["pending", "running", "completed", "failed", "cancelled", "paused"]);
+const allowedSorts = new Set<OperationTaskListSort>(["recent", "attention"]);
 
 function parseStatusFilter(value: string | null): OperationTaskStatus | OperationTaskStatus[] | undefined {
   if (!value) return undefined;
@@ -15,6 +16,11 @@ function parseStatusFilter(value: string | null): OperationTaskStatus | Operatio
 function parseTaskTypeFilter(value: string | null) {
   const taskType = value?.trim();
   return taskType || undefined;
+}
+
+function parseSort(value: string | null): OperationTaskListSort | undefined {
+  if (!value) return undefined;
+  return allowedSorts.has(value as OperationTaskListSort) ? value as OperationTaskListSort : undefined;
 }
 
 export const dynamic = "force-dynamic";
@@ -31,6 +37,7 @@ export async function GET(request: Request) {
         limit,
         status: parseStatusFilter(searchParams.get("status")),
         taskType: parseTaskTypeFilter(searchParams.get("taskType")),
+        sort: parseSort(searchParams.get("sort")),
       }));
     },
   );
