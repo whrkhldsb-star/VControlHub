@@ -571,6 +571,7 @@ describe("storage service", () => {
         fileEntryId: "file_save",
         content: "new content",
         session: storageSession,
+        expectedUpdatedAt: "2026-04-20T01:02:03.000Z",
       });
 
       await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("new content");
@@ -587,6 +588,52 @@ describe("storage service", () => {
         previousByteSize: 3,
         updatedAt: updatedAt.toISOString(),
       });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects stale editable saves when the stored file version changed", async () => {
+    vi.clearAllMocks();
+    const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-editable-stale-"));
+    const relativePath = "docs/notes.txt";
+    const absolutePath = path.join(tempRoot, relativePath);
+    await mkdir(path.dirname(absolutePath), { recursive: true });
+    await writeFileToDisk(absolutePath, "newer on disk", "utf8");
+
+    vi.mocked(prisma.fileEntry.findUnique).mockResolvedValueOnce({
+      id: "file_stale",
+      name: "notes.txt",
+      entryType: "FILE",
+      mimeType: "text/plain",
+      size: BigInt(13),
+      checksumSha256: null,
+      relativePath,
+      storageNodeId: "node_1",
+      parentId: null,
+      isDeleted: false,
+      createdAt: new Date(),
+      updatedAt: new Date("2026-04-22T01:02:03.000Z"),
+      storageNode: {
+        id: "node_1",
+        name: "主控本机",
+        driver: "LOCAL",
+        basePath: tempRoot,
+      },
+    } as any);
+
+    try {
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      await expect(
+        saveLocalEditableFileDraft({
+          fileEntryId: "file_stale",
+          content: "overwrite attempt",
+          session: storageSession,
+          expectedUpdatedAt: "2026-04-20T01:02:03.000Z",
+        }),
+      ).rejects.toThrow("文件已被其他操作更新");
+      await expect(readFileToDisk(absolutePath, "utf8")).resolves.toBe("newer on disk");
+      expect(prisma.fileEntry.update).not.toHaveBeenCalled();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

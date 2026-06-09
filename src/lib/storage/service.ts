@@ -1035,6 +1035,7 @@ export async function getLocalEditableFileDraft(input: {
     relativePath: entry.relativePath,
     content,
     byteSize: fileStat.size,
+    lastModifiedMs: fileStat.mtimeMs,
     updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
   };
 }
@@ -1043,6 +1044,8 @@ export async function saveLocalEditableFileDraft(input: {
   fileEntryId: string;
   content: string;
   session: SessionPayload;
+  expectedUpdatedAt?: string | null;
+  expectedLastModifiedMs?: number | null;
 }) {
   const content = String(input.content ?? "");
   const byteSize = Buffer.byteLength(content, "utf8");
@@ -1059,6 +1062,19 @@ export async function saveLocalEditableFileDraft(input: {
       writeBytes: byteSize,
     },
   );
+
+  const currentUpdatedAt = entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
+  if (input.expectedUpdatedAt && currentUpdatedAt && input.expectedUpdatedAt !== currentUpdatedAt) {
+    throw new Error("文件已被其他操作更新，请重新加载后再保存");
+  }
+
+  if (
+    typeof input.expectedLastModifiedMs === "number" &&
+    Number.isFinite(input.expectedLastModifiedMs) &&
+    Math.abs(fileStat.mtimeMs - input.expectedLastModifiedMs) > 1
+  ) {
+    throw new Error("文件内容已在磁盘上发生变化，请重新加载后再保存");
+  }
 
   await writeFile(absolutePath, content, "utf8");
   const nextStat = await stat(absolutePath);
@@ -1077,6 +1093,7 @@ export async function saveLocalEditableFileDraft(input: {
     relativePath: entry.relativePath,
     byteSize: nextStat.size,
     previousByteSize: fileStat.size,
+    lastModifiedMs: nextStat.mtimeMs,
     updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
   };
 }

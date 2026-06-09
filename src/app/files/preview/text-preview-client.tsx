@@ -246,6 +246,7 @@ const LANG_LABELS: Record<string, string> = {
 type EditableDraft = {
 	content: string;
 	byteSize: number;
+	lastModifiedMs?: number | null;
 	updatedAt?: string | null;
 };
 
@@ -254,6 +255,7 @@ type SaveResponse = {
 	file: {
 		byteSize: number;
 		previousByteSize?: number;
+		lastModifiedMs?: number | null;
 		updatedAt?: string | null;
 	};
 };
@@ -275,6 +277,7 @@ export function TextPreviewClient({
 	const [jumpLine, setJumpLine] = useState("");
 	const [previewMeta, setPreviewMeta] = useState<PreviewMetaState>(INITIAL_PREVIEW_META);
 	const [draft, setDraft] = useState("");
+	const [draftVersion, setDraftVersion] = useState<{ updatedAt?: string | null; lastModifiedMs?: number | null }>({});
 	const { editMode, showDiffReview, saveStatus, saveMessage } = previewMeta;
 	const setEditMode = useCallback((editMode: boolean) => {
 		setPreviewMeta((current) => ({ ...current, editMode }));
@@ -316,9 +319,14 @@ export function TextPreviewClient({
 		const load = async () => {
 			try {
 				let content: string;
+				let nextDraftVersion: { updatedAt?: string | null; lastModifiedMs?: number | null } = {};
 				if (canEdit && fileEntryId) {
 					const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`);
 					content = data.draft.content;
+					nextDraftVersion = {
+						updatedAt: data.draft.updatedAt,
+						lastModifiedMs: data.draft.lastModifiedMs,
+					};
 				} else {
 					const res = await fetch(href);
 					if (!res.ok) throw new Error(`加载失败: ${res.status}`);
@@ -327,6 +335,7 @@ export function TextPreviewClient({
 				if (!cancelled) {
 					setState({ loading: false, content, error: null });
 					setDraft(content);
+					setDraftVersion(nextDraftVersion);
 				}
 			} catch (err) {
 				if (!cancelled) {
@@ -363,9 +372,17 @@ export function TextPreviewClient({
 		try {
 			const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
 				method: "PUT",
-				body: JSON.stringify({ content: draft }),
+				body: JSON.stringify({
+					content: draft,
+					expectedUpdatedAt: draftVersion.updatedAt,
+					expectedLastModifiedMs: draftVersion.lastModifiedMs,
+				}),
 			});
 			setState({ loading: false, content: draft, error: null });
+			setDraftVersion({
+				updatedAt: response.file.updatedAt,
+				lastModifiedMs: response.file.lastModifiedMs,
+			});
 			setEditMode(false);
 			setShowDiffReview(false);
 			setSaveStatus("saved");
@@ -374,7 +391,7 @@ export function TextPreviewClient({
 			setSaveStatus("error");
 			setSaveMessage(err instanceof Error ? err.message : "保存失败");
 		}
-	}, [draft, fileEntryId, setEditMode, setSaveMessage, setSaveStatus, setShowDiffReview]);
+	}, [draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setSaveMessage, setSaveStatus, setShowDiffReview]);
 
 	if (state.loading) {
 		return (
@@ -416,7 +433,7 @@ export function TextPreviewClient({
 				<span className="text-xs text-slate-500">{totalLines} 行</span>
 				{canEdit ? (
 					<span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 light:text-emerald-800">
-						可在线编辑
+						可在线编辑 · 保存会校验并发修改
 					</span>
 				) : null}
 				{saveMessage ? (
@@ -516,6 +533,9 @@ export function TextPreviewClient({
 							<h3 className="text-sm font-semibold text-amber-100 light:text-amber-900">保存前差异预览</h3>
 							<p className="mt-1 text-xs text-amber-100/80 light:text-amber-900/80">
 								请确认变更后再写入文件：新增 {diffSummary.added} 行，删除 {diffSummary.removed} 行，修改 {diffSummary.changed} 行。
+							</p>
+							<p className="mt-1 text-xs text-amber-100/70 light:text-amber-900/70">
+								保存时会校验打开草稿后的文件时间戳；如果文件已被其它窗口或磁盘操作修改，将拒绝覆盖并提示重新加载。
 							</p>
 						</div>
 						<div className="flex gap-2">

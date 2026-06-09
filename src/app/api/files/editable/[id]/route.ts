@@ -12,6 +12,8 @@ export const dynamic = "force-dynamic";
 
 const saveSchema = z.object({
   content: z.string().max(512 * 1024, "文件超过 512 KB，暂不支持在线编辑"),
+  expectedUpdatedAt: z.string().datetime().optional().nullable(),
+  expectedLastModifiedMs: z.number().finite().nonnegative().optional().nullable(),
 });
 
 export async function GET(
@@ -58,6 +60,8 @@ export async function PUT(
         fileEntryId: id,
         content: parsed.data.content,
         session,
+        expectedUpdatedAt: parsed.data.expectedUpdatedAt,
+        expectedLastModifiedMs: parsed.data.expectedLastModifiedMs,
       });
       return NextResponse.json({ success: true, file: result });
     },
