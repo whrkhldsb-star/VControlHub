@@ -408,6 +408,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **文件回收站索引一致性已加固。** 普通删除现在先把 `FileEntry` 标记为回收站，再 best-effort 删除 LOCAL/SFTP 物理对象；如果物理删除失败，DB 不会继续显示为 active，页面会提示“索引仍可恢复或稍后重试永久删除”，并写入 `storage.file_delete_backing_failed` 审计。恢复入口改为调用服务层 `restoreFileEntry`，会先确认 LOCAL/SFTP 原始物理路径仍存在且类型匹配，避免只恢复 DB 标记。
 - [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 删除/恢复主路径已避免“物理删了但 DB 仍 active”和“只恢复 DB 不确认物理对象”的高风险不一致；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
+- [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端、存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进大组件拆分、Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。
 
 ---
 
@@ -435,6 +436,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **设置页高风险设置回滚/风险确认仍需补齐（P2）。** 运行参数当前值、配置来源、生效位置、重启边界，以及各高风险设置区最近修改人/时间已展示；后续继续补回滚入口、改动前后 diff 和危险设置风险确认。
 - [ ] 备份策略管理：UI 化定时备份入口已完成，继续补后台任务化执行、异地备份、恢复验证、保留策略自动清理。
 - [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。
+- [ ] 可维护性热点拆分：优先把 `src/app/files/file-list-client.tsx`、`src/app/storage/actions.ts`、AI/QuickService 大客户端拆成领域 hook、薄 actions、纯展示组件和可单测 helper，减少单文件变更半径。
+- [ ] API 回归测试基线：为有状态 `src/app/api/**/route.ts` 建立相邻 route 测试覆盖，至少包含权限拒绝、参数校验和一个成功路径，优先补 AI providers/chat、status/audit、QuickService slug、2FA 等缺口。
+- [ ] 领域模块边界治理：按 files/storage/quick-service/command/ai/backup 固化 domain service、adapter、route DTO 与 client DTO 边界，避免页面层直接依赖内部 DB 形状或复制业务判断。
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。
 - [x] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；存储公开摘要已汇总最近 SFTP/LOCAL 健康探测结果。
 - [ ] 可访问性收口：全局搜索、Docker 日志、Docker 删除确认、SSH 终端、文件/媒体/公告/代码片段搜索、文本预览搜索/跳转和备份创建表单已补关键 focus/label；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。
@@ -444,6 +448,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。
 - [ ] 命令/部署执行 durable worker：现有命令请求已支持后台执行、心跳、陈旧恢复、超时/输出限制、并发目标执行和审批中心取消入口；下一步把命令/部署最终执行迁入 DB-backed job worker，并补跨进程取消、按节点并发上限和可观测日志流。
 - [ ] RBAC 角色视角巡检：为管理员、运维、只读用户提供可复用的页面按钮/API 权限一致性巡检，减少“按钮可见但点击 403”或“API 可调但页面没入口”的漂移。
+- [ ] 统一操作反馈模型：沉淀共享 `ActionResult`、toast/alert、任务中心链接和错误展示约定，避免每个页面重复实现排队成功、部分失败、可重试和权限失败反馈。
+- [ ] README/测试追踪标签：给长期待办建立稳定编号并在测试名、QA evidence 或相关代码注释中引用，方便确认某个 README 缺口是否已有自动化守护。
+- [ ] 路由与导航真源：维护 sidebar → route → permission → API 的机器可读清单，供全局搜索、权限巡检、README QA 和浏览器 smoke 共用，减少旧路径或隐藏入口漂移。
 - [ ] 站内 QA 报告产品化：把 canary/cron QA 结果、失败模块、修复建议、部署版本和最近 smoke evidence 展示到产品内，方便从 Web 端追踪质量状态。
 - [ ] 多租户/团队空间：资源隔离、配额管理、权限继承。
 - [ ] 成本追踪：VPS 费用、带宽/存储用量、月度报告。
