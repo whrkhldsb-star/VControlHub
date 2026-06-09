@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T02:30:31Z",
+  "updatedAt": "2026-06-09T04:24:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -51,73 +51,73 @@
     "date": "2026-06-09",
     "typecheck": "passed via npm run verify",
     "lint": "passed via npm run verify",
-    "tests": "Requests page/button/API/command-service regressions passed; full Vitest passed via npm run verify",
+    "tests": "Public status storage health regressions passed; full Vitest 215 files / 1016 tests passed via npm run verify",
     "build": "passed via npm run verify",
     "runtimeBuild": "passed via npm run verify",
     "smoke": "25/25 passed",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy 3/3; /requests unauth 307; authenticated production browser DOM showed cancel buttons and confirmation dialog; recent logs clean; single 6G /swapfile preserved"
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with storage warning from 4待探测 nodes instead of false healthy; /status HTML showed storage health counts and no secret-like fields; unauth /files 307; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "command-cancellation-ui-closeout",
-    "title": "Command cancellation UI closeout",
-    "startedAt": "2026-06-09T03:30:00Z",
-    "finishedAt": "2026-06-09T03:44:30Z",
+    "id": "public-status-storage-health-truthfulness",
+    "title": "Public status storage health truthfulness",
+    "startedAt": "2026-06-09T04:10:28Z",
+    "finishedAt": "2026-06-09T04:24:30Z",
     "status": "completed_verified_deployed",
-    "summary": "Dirty worktree closeout for /requests command cancellation: pending/approved/running command requests now expose a cancel action with confirmation, optional reason, CSRF-protected API call, router refresh, failure alert, full verify, production restart, smoke, browser proof, and clean logs.",
+    "summary": "Public /status and /api/status now summarize persisted storage-node health probe fields instead of classifying configured storage inventory as healthy; public output remains sanitized and Direct Gateway transport hardening remains in the P1 residual.",
     "evidenceMatrix": {
-      "browser_or_dom": "Production browser login reached /requests; snapshot exposed two visible cancel buttons with aria labels like 取消命令：部署：查看服务状态. After client hydration, clicking the cancel control opened the confirmation dialog text 确认取消命令… with optional reason copy; no production cancellation was submitted.",
-      "api": "Post-deploy /api/status returned 200 healthy 3/3; unauthenticated /requests redirected 307 to /login?next=%2Frequests; existing /api/commands cancellation route regressions passed with the UI button tests.",
-      "db_or_persisted_config": "No production DB mutation was performed during browser proof; cancellation dialog was opened but confirm was not submitted. Existing pending command request rows remained visible for verification.",
-      "filesystem_or_sftp": "No storage/SFTP mutation. Build artifacts existed after verify: .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js.",
-      "background_task_or_process": "Main remediation cron was paused during manual dirty closeout to avoid concurrent worktree writes. npm run verify completed successfully; services restarted after artifact checks; vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy stayed active.",
-      "runtime_or_ui_side_effect": "/requests now exposes a user-visible cancellation path for PENDING_APPROVAL/APPROVED/RUNNING command requests instead of requiring backend-only cancellation knowledge.",
-      "permissions": "Cancel action is only rendered with the same approval permission gate used by command review controls; unauthenticated /requests stayed protected with 307 redirect.",
-      "regression": "git diff --check passed; targeted Requests page/button/API/command-service tests passed; npm run verify passed including full Vitest, Next build, runtime build, and deploy-assets.",
-      "production": "Post-restart /api/status healthy 3/3; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; changed protected route /requests returned expected 307 when unauthenticated; services active.",
-      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed only expected restart/startup info and no error/warn/failed/exception entries.",
-      "cleanup": "No temporary QA users/files/containers/DB rows were created. Browser proof used existing admin credentials. Single 6G /swapfile steady state preserved."
+      "browser_or_dom": "Production /status HTML contained storage health count wording: 最近探测健康, 待探测, and 不会在公开状态页展示; sanitized HTML check found no secret-like fields such as basePath/DATABASE_URL/token/private/password/secret.",
+      "api": "Post-deploy /api/status returned 200 with database and VPS healthy plus storage warning: 已配置 4 个存储节点，0 个最近探测健康，0 个异常，4 个待探测; unauthenticated /files stayed protected with 307 to /login?next=%2Ffiles.",
+      "db_or_persisted_config": "getPublicStatus reads persisted storageNode healthStatus and lastHealthCheckAt only; no live SFTP/Direct Gateway host/port/path data is exposed in the public JSON.",
+      "filesystem_or_sftp": "No storage/SFTP mutation was performed; build artifacts existed after verify: .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js.",
+      "background_task_or_process": "No overlapping verify/build/deploy processes on entry; npm run verify completed successfully; services restarted after artifact/ownership checks; vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy are active.",
+      "runtime_or_ui_side_effect": "Public status no longer reports configured storage as simply healthy; unknown/unprobed storage now contributes a public warning while preserving fast public readiness and using /files storage-node probe as the writer.",
+      "permissions": "/api/status and /status remain public but sanitized; changed protected-route probe /files remained authentication-gated with 307.",
+      "regression": "git diff --check passed; npm test -- src/lib/status/service.test.ts passed 3 tests; npm run typecheck passed; npm run verify passed with 215 files / 1016 tests plus Next build/runtime/deploy-assets.",
+      "production": "After chown/restart/reload, /api/status returned 200; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; services active.",
+      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
+      "cleanup": "No temporary QA users/files/containers/DB rows were created. Single 6G /swapfile steady state preserved."
     },
     "changeContract": {
       "files": [
-        "src/app/requests/page.tsx",
-        "src/app/requests/cancel-command-button.tsx",
-        "src/app/requests/__tests__/page.test.tsx",
-        "src/app/requests/__tests__/cancel-command-button.test.tsx",
+        "src/lib/status/service.ts",
+        "src/lib/status/service.test.ts",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Requests cancel command action and confirmation dialog",
-        "Targeted Requests/API/command-service regressions",
+        "Public /api/status storage warning/counts",
+        "Public /status DOM/HTML wording and sanitization",
+        "Targeted status-service regressions",
         "Full verify",
-        "Production /requests browser DOM proof",
         "Smoke/status/log/swap checks"
       ],
       "remaining": [
-        "Command/deployment execution durable worker migration",
-        "Cross-process cancellation and node/user concurrency limits",
-        "Streamed command/deployment logs in the task center"
+        "Direct Gateway HTTPS/VPN/firewall default deployment hardening",
+        "Direct Gateway reachability probe distinct from SFTP/LOCAL health",
+        "QuickService config diff/failure rollback/update history durable-job work"
       ]
     },
-    "stage": "stage-27-command-cancellation-ui",
-    "selectedReadmeItem": "后台任务业务迁移与并发控制仍在进行（P1）：命令执行取消入口产品化",
+    "stage": "stage-28-public-status-storage-health",
+    "selectedReadmeItem": "状态真实性：公开状态存储健康摘要接入最近探测结果",
     "verification": [
-      "Entry worktree dirty with coherent /requests command-cancel slice; main cron paused for manual closeout.",
+      "Entry worktree clean and HEAD matched origin/main at 7877894cc62fd73ed7322f7e2df1399886691cd9.",
+      "No overlapping npm run verify/build, next build, vitest, tsc, deploy, or restart process was running before the slice.",
       "git diff --check passed.",
-      "npm test -- src/app/requests/__tests__/cancel-command-button.test.tsx src/app/requests/__tests__/page.test.tsx passed.",
-      "npm test -- src/app/api/commands/__tests__/route.test.ts src/lib/command/__tests__/service.test.ts src/app/requests/__tests__/cancel-command-button.test.tsx src/app/requests/__tests__/page.test.tsx passed.",
-      "npm run verify passed including full tests, Next build, runtime build, and deploy-assets.",
+      "npm test -- src/lib/status/service.test.ts passed 3/3.",
+      "npm run typecheck passed.",
+      "npm run verify passed: 215 files / 1016 tests plus Next build, runtime build, and deploy-assets.",
+      "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership corrected.",
       "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all active.",
-      "/api/status returned 200 healthy 3/3 after restart.",
+      "/api/status returned 200 with storage warning and 4待探测 nodes instead of false healthy.",
+      "/status HTML contained storage probe summary wording and no secret-like fields.",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "Unauthenticated /requests redirected 307 to login.",
-      "Authenticated production browser confirmed cancel buttons on two pending requests and confirmation dialog after hydration; no cancellation submitted.",
+      "Unauthenticated /files redirected 307 to login.",
       "Recent logs clean; swap steady state single 6G /swapfile preserved."
     ],
     "residualWork": [
-      "Move command/deployment final execution into DB-backed durable workers.",
-      "Add cross-process cancellation, node/user concurrency limits, and streamed logs.",
+      "Direct Gateway transport encryption/default network boundary hardening.",
+      "Add Direct Gateway reachability probe and repair guidance separate from storage SFTP/LOCAL health.",
       "Continue QuickService durable job/config diff/rollback/history work."
     ]
   },
@@ -134,7 +134,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 7,
+    "successfulRemediationRunsSinceFreshAudit": 8,
     "skippedOverlapRuns": 0
   },
   "blockers": [
