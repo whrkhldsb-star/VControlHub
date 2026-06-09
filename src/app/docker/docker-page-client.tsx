@@ -35,6 +35,12 @@ type ContainerStats = {
 	pids: number;
 };
 
+type DockerScope = {
+	scope: "hub-host";
+	socketPath: string;
+	warning: string;
+};
+
 function formatBytes(bytes: number) {
 	const units = ["B", "KB", "MB", "GB", "TB"];
 	let value = Math.max(0, Number.isFinite(bytes) ? bytes : 0);
@@ -65,6 +71,7 @@ export default function DockerPage() {
 	);
 	const [grouped, setGrouped] = useState<ComposeGroup[]>([]);
 	const [ungrouped, setUngrouped] = useState<Container[]>([]);
+	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
 	const removeCancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -78,6 +85,9 @@ export default function DockerPage() {
 			if (data.error) {
 				setError(data.error);
 				return;
+			}
+			if (data.dockerScope && typeof data.dockerScope === "object") {
+				setDockerScope(data.dockerScope as DockerScope);
 			}
 			if (data.data && Array.isArray(data.data)) {
 				const nextContainers = data.data as Container[];
@@ -211,7 +221,19 @@ export default function DockerPage() {
 	return (
 		<PageShell>
 			<h1 className="text-2xl font-bold mb-1">Docker 容器</h1>
-			<p className="text-slate-400 light:text-slate-600 mb-4">管理本机 Docker 容器</p>
+			<p className="text-slate-400 light:text-slate-600 mb-4">管理 VControlHub 所在主机的 Docker 容器</p>
+			<section
+				aria-labelledby="docker-scope-title"
+				className="mb-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50 light:text-amber-900"
+			>
+				<h2 id="docker-scope-title" className="text-sm font-semibold">运行边界：本机 Docker socket</h2>
+				<p className="mt-1 leading-relaxed">
+					{dockerScope?.warning ?? "Docker 模块仅操作 VControlHub 所在主机的 Docker socket，不是跨 VPS 容器控制台；具备 docker:manage 的用户等同拥有本机容器管理能力。"}
+				</p>
+				<p className="mt-2 text-xs text-amber-200/80 light:text-amber-800/80">
+					Socket：{dockerScope?.socketPath ?? "/var/run/docker.sock"} · 远端 VPS 容器请通过对应节点的 SSH/Direct Gateway/QuickService 部署链路管理。
+				</p>
+			</section>
 			<div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mb-6">
 				<span>支持按 compose 项目浏览</span>
 				<span className="text-slate-600">·</span>

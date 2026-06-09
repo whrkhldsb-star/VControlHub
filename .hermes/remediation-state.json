@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T00:16:00Z",
+  "updatedAt": "2026-06-09T00:36:30Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,55 +58,72 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status healthy; /files /media /traffic unauth 307, related APIs 401, logged-in Files/Media/Traffic API+DOM proof succeeded; recent logs clean"
   },
   "lastRun": {
-    "id": "online-text-editor-stale-save-guard",
-    "title": "Online text editor stale-save concurrency guard",
-    "startedAt": "2026-06-08T23:52:54Z",
-    "finishedAt": "2026-06-09T00:16:00Z",
+    "id": "docker-hub-host-boundary-disclosure",
+    "title": "Docker hub-host socket boundary disclosure",
+    "startedAt": "2026-06-09T00:21:44Z",
+    "finishedAt": "2026-06-09T00:36:30Z",
     "status": "completed_verified_deployed",
-    "summary": "LOCAL text-file editable drafts now carry DB updatedAt and disk lastModifiedMs version markers; saves echo those markers and the storage service rejects stale writes when the file changed after draft load, while the UI keeps the user draft and surfaces the conflict.",
+    "summary": "Closed the Docker portion of the deployment-boundary item by exposing hub-host Docker socket scope metadata in /api/docker/containers and rendering a visible /docker warning before container lifecycle actions. QuickService config diff/rollback/history and Direct Gateway TLS/VPN/firewall hardening remain as the narrowed P1 residual.",
     "evidenceMatrix": {
-      "browser_or_dom": "Code/UI regression covers the /files/preview editor badge, save-confirmation copy, versioned PUT body, and stale-conflict alert while keeping draft text in the textbox. Production protected-route probe for /files/preview returned 307 to login with next preserved, confirming deployed auth boundary for the changed UI route.",
-      "api": "/api/files/editable/[id] PUT schema now accepts expectedUpdatedAt and expectedLastModifiedMs and forwards them to the storage service. Post-deploy unauthenticated /api/files/editable/probe returned 401, and /api/status returned 200 healthy 3/3 after one restart-window 502 retry.",
-      "db_or_persisted_config": "Draft version uses FileEntry.updatedAt plus disk stat mtimeMs; save response returns refreshed updatedAt/lastModifiedMs and previousByteSize after DB update.",
-      "filesystem_or_sftp": "LOCAL filesystem writes now compare the opened draft mtime against current stat before writing, preventing direct disk edits from being overwritten. Full verify regenerated .next BUILD_ID g21EmbSO40XWx6Mm_5Hnn plus dist/server.js and dist/ssh-ws-proxy.js; no production canary file was created.",
-      "background_task_or_process": "Preflight found no active verify/build/deploy processes before this slice. No background worker surface changed.",
-      "runtime_or_ui_side_effect": "The editor displays concurrency-check copy, sends version markers on save, updates its saved draft version after success, and preserves unsaved text on conflict failures.",
-      "permissions": "Existing editable route/session and storage access checks are preserved; this slice does not broaden editable scope beyond LOCAL text files.",
-      "regression": [
-        "git diff --check passed",
-        "npx vitest run src/lib/storage/__tests__/service.test.ts src/app/files/preview/__tests__/text-preview-client.test.tsx --reporter=dot passed 23/23",
-        "npm run typecheck passed",
-        "npm run verify passed: full Vitest 214 files / 1008 tests, Next build, runtime build, deploy-assets"
-      ],
-      "production": "Artifacts existed (.next/BUILD_ID g21EmbSO40XWx6Mm_5Hnn, dist/server.js, dist/ssh-ws-proxy.js); ownership repaired with chown -R vcontrolhub:vcontrolhub .next dist; vcontrolhub-next.service and vcontrolhub-ssh-ws.service restarted; caddy reloaded; /api/status returned 200 healthy after one restart-window 502; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed ALL 25 CHECKS; /files/preview unauth returned 307 to login and /api/files/editable/probe returned 401.",
-      "logs": "Post-restart next/ssh-ws journal scan over the closeout window found no error/warn/failed/exception/EACCES/permission denied matches. Services vcontrolhub-next, vcontrolhub-ssh-ws, and caddy are active. Swap steady state remained a single 6G /swapfile, about 522 MiB used.",
-      "cleanup": "No temporary QA user, Docker container, or production canary file was created. Repo-root stray artifact scan pending before commit."
+      "browser_or_dom": "Authenticated production /docker render returned 200 and SSR/HTML contained the page title, visible “运行边界：本机 Docker socket” disclosure, /var/run/docker.sock socket path, and the “不是跨 VPS 容器控制台” warning before Docker actions.",
+      "api": "Unauthenticated /api/docker/containers remained 401. Authenticated /api/docker/containers returned ok=true with dockerScope.scope=hub-host, socketPath=/var/run/docker.sock, a cross-VPS warning, and 2 container rows.",
+      "db_or_persisted_config": "No database schema/config changes were required; the scope metadata is derived from the fixed host Docker socket contract.",
+      "filesystem_or_sftp": "No SFTP/storage mutation. Build artifacts were present and ownership was corrected to vcontrolhub:vcontrolhub before restart.",
+      "background_task_or_process": "No Docker container lifecycle was executed in this slice; the user journey is disclosure/authorization boundary truthfulness. Full verify/build completed and no build/test/deploy processes remained before restart.",
+      "runtime_or_ui_side_effect": "Production /docker now tells operators the page manages only the VControlHub host Docker socket, not remote VPS containers, before lifecycle buttons are used.",
+      "permissions": "Protected-route behavior stayed intact: /docker redirects to login and /api/docker/containers returns 401 when unauthenticated; the warning explains docker:manage is close to host container-management power.",
+      "regression": "Targeted Docker API/page regressions passed 7/7; typecheck and full npm run verify passed.",
+      "production": "Services active; /api/status 200 healthy 3/3; smoke-test passed 25/25 after restart.",
+      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws logs had no error/warn/failed matches after deployment.",
+      "cleanup": "No temporary QA users or product data were created. Temporary /tmp cookie/API files were removed or left outside the repo; git status contains only intended product/docs/state files."
     },
     "changeContract": {
       "files": [
-        "src/lib/storage/service.ts",
-        "src/app/api/files/editable/[id]/route.ts",
-        "src/app/files/preview/text-preview-client.tsx",
-        "src/lib/storage/__tests__/service.test.ts",
-        "src/app/files/preview/__tests__/text-preview-client.test.tsx",
+        "src/app/api/docker/containers/route.ts",
+        "src/app/docker/docker-page-client.tsx",
+        "src/app/docker/__tests__/page.test.tsx",
+        "src/app/api/docker/containers/__tests__/route.test.ts",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "versioned draft GET/PUT",
-        "stale disk/DB change rejection",
-        "UI conflict alert preserving edits",
-        "targeted regressions",
-        "full verify/deploy/smoke pending"
+        "API dockerScope metadata",
+        "visible /docker boundary panel",
+        "Docker page/API regressions",
+        "typecheck"
       ],
       "remaining": [
-        "SFTP editable flow/concurrency model",
-        "optional diff/merge reload UI",
-        "service-reload-after-save affordance",
-        "QuickService/download/scheduled-task durable-job migration follow-ups"
+        "run git diff --check",
+        "run full npm run verify",
+        "deploy/restart/smoke",
+        "commit/push after production proof",
+        "QuickService durable install/update jobs with config diff/rollback/history",
+        "Direct Gateway TLS/VPN/firewall defaults and live SFTP/Direct Gateway probes"
       ]
-    }
+    },
+    "stage": "stage-24-docker-hub-host-boundary-disclosure",
+    "selectedReadmeItem": "Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）",
+    "verification": [
+      "git diff --check passed",
+      "npx vitest run src/app/docker/__tests__/page.test.tsx src/app/api/docker/containers/__tests__/route.test.ts --reporter=dot passed: 2 files / 7 tests",
+      "npm run typecheck passed",
+      "npm run verify passed: Vitest, Next build, runtime build, and deploy-assets validation completed successfully",
+      ".next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed after build; .next/dist ownership corrected to vcontrolhub:vcontrolhub before restart",
+      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded/restarted Caddy; all services active",
+      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed: 25/25 checks",
+      "/api/status returned 200 healthy 3/3 after restart",
+      "Unauthenticated /docker redirected 307 to /login?next=%2Fdocker and unauthenticated /api/docker/containers returned 401",
+      "Authenticated /docker HTML contained Docker 容器, 运行边界：本机 Docker socket, /var/run/docker.sock, and 不是跨 VPS 容器控制台",
+      "Authenticated /api/docker/containers returned dockerScope.scope=hub-host, socketPath=/var/run/docker.sock, warning containing 跨 VPS, and 2 containers",
+      "Recent next/ssh-ws journal scan showed no error/warn/failed matches; services remained active",
+      "Swap steady state preserved: single /swapfile at 6.0GiB with no temporary swapfile2"
+    ],
+    "residualWork": [
+      "QuickService install/update/uninstall still needs durable jobs, config diff, rollback, and history.",
+      "Direct Gateway still needs stronger default TLS/VPN/firewall posture and live probing.",
+      "Docker group / docker:manage host-root-equivalent security posture remains documented as a deployment hardening follow-up."
+    ]
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -121,7 +138,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 3,
+    "successfulRemediationRunsSinceFreshAudit": 4,
     "skippedOverlapRuns": 0
   },
   "blockers": [

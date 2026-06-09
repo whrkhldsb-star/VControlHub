@@ -28,12 +28,19 @@ const containerActionSchema = z.object({
 const DOCKER_SOCKET = "/var/run/docker.sock";
 const DOCKER_API_HOST = "localhost";
 const DOCKER_UNAVAILABLE_CODES = new Set(["ENOENT", "ECONNREFUSED", "EACCES"]);
+const hubHostDockerScope = {
+  scope: "hub-host",
+  socketPath: DOCKER_SOCKET,
+  warning:
+    "Docker 模块仅操作 VControlHub 所在主机的 Docker socket，不是跨 VPS 容器控制台；具备 docker:manage 的用户等同拥有本机容器管理能力。",
+};
 const dockerUnavailableResponse = {
   ok: true,
   status: 200,
   data: [],
   dockerAvailable: false,
   message: "Docker 未安装或 Docker socket 不可用",
+  dockerScope: hubHostDockerScope,
 };
 
 function isDockerSocketUnavailable(error: unknown) {
@@ -59,7 +66,7 @@ function dockerRequest(
   apiPath: string,
   method = "GET",
   body?: string,
-): Promise<{ ok: boolean; status: number; data: unknown }> {
+): Promise<{ ok: boolean; status: number; data: unknown; dockerScope?: typeof hubHostDockerScope; dockerAvailable?: boolean; message?: string }> {
   return new Promise((resolve) => {
     const options: http.RequestOptions = {
       socketPath: DOCKER_SOCKET,
@@ -90,6 +97,7 @@ function dockerRequest(
           ok: res.statusCode! >= 200 && res.statusCode! < 300,
           status: res.statusCode!,
           data,
+          dockerScope: hubHostDockerScope,
         });
       });
     });
@@ -188,7 +196,7 @@ export async function GET(req: NextRequest) {
       }
 
       const result = await dockerRequest("/containers/json?all=true");
-      return NextResponse.json(result);
+      return NextResponse.json({ ...result, dockerScope: hubHostDockerScope });
     },
   );
 }

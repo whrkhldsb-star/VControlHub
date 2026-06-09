@@ -29,8 +29,24 @@ describe("DockerPage", () => {
 		vi.mocked(csrfFetch).mockImplementation(async (input) => {
 			const url = String(input);
 			if (url.includes("stats=")) return {};
-			return { data: [runningContainer] };
+			return {
+				data: [runningContainer],
+				dockerScope: {
+					scope: "hub-host",
+					socketPath: "/var/run/docker.sock",
+					warning: "Docker 模块仅操作 VControlHub 所在主机的 Docker socket，不是跨 VPS 容器控制台；具备 docker:manage 的用户等同拥有本机容器管理能力。",
+				},
+			};
 		});
+	});
+
+	it("shows the hub-host Docker socket boundary before container actions", async () => {
+		render(<DockerPageClient />);
+
+		expect(await screen.findByText("web")).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: "运行边界：本机 Docker socket" })).toBeInTheDocument();
+		expect(screen.getByText(/不是跨 VPS 容器控制台/)).toBeInTheDocument();
+		expect(screen.getByText(/\/var\/run\/docker\.sock/)).toBeInTheDocument();
 	});
 
 	it("surfaces Docker action API errors instead of silently ignoring failures", async () => {
