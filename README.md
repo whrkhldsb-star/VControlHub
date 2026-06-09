@@ -411,7 +411,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **2026-06-09 全面审查基线完成。** 本轮只读审查确认生产登录、`/servers`、`/files`、`/quick-services`、`/backups`、`/operation-tasks`、`/settings` 等代表性页面未出现 SSR 崩溃、应用错误或横向溢出；服务均为 active，`/api/status` 为 storage 待探测导致的 warning；`npm run typecheck` 与 `npm run lint -- --quiet` 均通过。审查同时确认 README 主任务仍大体适配当前项目，但存在任务中心告警评估 job 刷屏、备份历史 PENDING/FAILED 可解释性、README 汇总项与细分项重复度偏高等需要继续治理的真实问题。
 - [x] **任务中心高频周期任务折叠已上线。** `/api/operation-tasks` 现在会为 durable job 暴露 `taskType`，并把已完成的 `alert.evaluate` 周期任务按类型折叠为最新一条代表记录，前端显示“已折叠 N 次周期完成记录”和来源类型；运行中/失败的告警评估不会被隐藏，命令、备份、下载、部署等其它任务不再被 completed 告警评估刷屏完全淹没。
 - [x] **任务中心排查筛选入口已补齐。** `/operation-tasks` 现在提供状态筛选（全部/需处理/失败/运行中/待处理/已完成）和 durable job `taskType` 筛选，刷新时会把筛选条件传给 `/api/operation-tasks?status=...&taskType=...`；后端会在统一任务聚合后保留运行中/失败/待处理优先视图，方便从告警评估、备份、部署等 job 类型快速缩小排查范围。
-- [ ] **任务中心可观测性仍需继续治理（P1/P2）。** 任务中心已完成同类高频 completed 告警评估折叠、状态筛选和 durable job 类型筛选；后续仍需补按来源聚合计数、失败原因聚合、失败/运行中置顶排序偏好、更细日志流和更适合 cron 高频任务的保留/归档策略，避免长期历史数据继续拉低排查效率。
+- [x] **任务中心来源聚合计数已补齐。** `/api/operation-tasks` 现在随当前状态/taskType 筛选结果返回 `sourceSummary`，按命令、后台、下载、备份、部署等来源汇总总数与需处理/失败/运行中/待处理数量；`/operation-tasks` 页面新增“来源聚合”卡片，操作员能先判断噪音主要来自哪类任务，再进入列表或来源页面继续排查。
+- [ ] **任务中心可观测性仍需继续治理（P1/P2）。** 任务中心已完成同类高频 completed 告警评估折叠、状态筛选、durable job 类型筛选和按来源聚合计数；后续仍需补失败原因聚合、失败/运行中置顶排序偏好、更细日志流和更适合 cron 高频任务的保留/归档策略，避免长期历史数据继续拉低排查效率。
 - [x] **备份遗留状态作废入口已补齐。** `/backups` 会为历史 `PENDING/FAILED` 备份记录展示“标记作废”维护动作，调用 `/api/backups/[id]/void` 写入明确作废原因并保持 `FAILED` 审计状态；已完成备份和运行中备份不能被作废，避免把历史只读路径失败或长期排队记录误判为当前备份运行故障。
 - [x] **备份失败记录重试入口已补齐。** `/backups` 会为 `FAILED` 备份记录展示“重试备份”维护动作，调用 `/api/backups/[id]/retry` 把同一审计记录重置为 `PENDING` 并重新排入 `backup.create` Durable Job；完成/运行中/已排队记录不会重复排队，成功后页面提示可到任务中心追踪 `job:*` 进度。
 - [ ] **备份记录运维解释仍需继续治理（P2）。** 历史 PENDING/FAILED 记录已有显式作废入口，FAILED 记录已有 durable job 重试入口；后续仍需补失败原因归类、历史只读路径错误迁移说明、异地备份/自动恢复演练与保留策略自动清理，形成完整备份运维闭环。

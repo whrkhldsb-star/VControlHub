@@ -26,17 +26,27 @@ const initialTasks: OperationTask[] = [
     progress: "后台执行器 worker-1 · 心跳 2026/1/1 08:01:00",
   },
 ];
+const initialSourceSummary = [{ source: "command" as const, total: 1, attention: 1, failed: 0, running: 0, pending: 1 }];
 
 describe("OperationTaskListClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  it("renders initial source aggregation counts", () => {
+    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} />);
+
+    const summary = screen.getByLabelText("来源聚合");
+    expect(summary).toHaveTextContent("命令");
+    expect(summary).toHaveTextContent("总计 1");
+    expect(summary).toHaveTextContent("待处理 1");
+  });
+
   it("surfaces refresh failures and keeps the existing task list visible", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("任务中心刷新失败"));
 
-    render(<OperationTaskListClient initialTasks={initialTasks} />);
+    render(<OperationTaskListClient initialTasks={initialTasks} initialSourceSummary={initialSourceSummary} />);
 
     expect(screen.getByText("重启服务")).toBeInTheDocument();
     expect(screen.getByText("worker worker-1")).toBeInTheDocument();
@@ -60,6 +70,7 @@ describe("OperationTaskListClient", () => {
         status: "failed",
         taskType: "alert.evaluate",
       }],
+      sourceSummary: [{ source: "job", total: 1, attention: 1, failed: 1, running: 0, pending: 0 }],
     });
 
     render(<OperationTaskListClient initialTasks={[{
@@ -70,7 +81,7 @@ describe("OperationTaskListClient", () => {
       title: "告警规则评估",
       status: "completed",
       taskType: "alert.evaluate",
-    }]} />);
+    }]} initialSourceSummary={[{ source: "job", total: 1, attention: 0, failed: 0, running: 0, pending: 0 }]} />);
 
     await actor.selectOptions(screen.getByLabelText("状态筛选"), "failed");
     await actor.selectOptions(screen.getByLabelText("任务类型"), "alert.evaluate");
@@ -78,6 +89,8 @@ describe("OperationTaskListClient", () => {
 
     expect(csrfFetch).toHaveBeenCalledWith("/api/operation-tasks?status=failed&taskType=alert.evaluate");
     expect(await screen.findByText("告警规则评估失败")).toBeInTheDocument();
+    expect(screen.getByLabelText("来源聚合")).toHaveTextContent("后台");
+    expect(screen.getByLabelText("来源聚合")).toHaveTextContent("失败 1");
   });
 
   it("renders folded periodic job metadata without losing source navigation", async () => {

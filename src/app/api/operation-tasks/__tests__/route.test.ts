@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
-    listOperationTasks: vi.fn(),
+    listOperationTaskResult: vi.fn(),
   },
 }));
 
@@ -11,7 +11,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
 }));
 vi.mock("@/lib/operation-task/service", () => ({
-  listOperationTasks: mocks.listOperationTasks,
+  listOperationTaskResult: mocks.listOperationTaskResult,
 }));
 
 const route = await import("../route");
@@ -20,9 +20,10 @@ describe("/api/operation-tasks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1" } });
-    mocks.listOperationTasks.mockResolvedValue([
-      { id: "download:dl1", title: "a.iso" },
-    ]);
+    mocks.listOperationTaskResult.mockResolvedValue({
+      tasks: [{ id: "download:dl1", title: "a.iso" }],
+      sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
+    });
   });
 
   it("passes the caller limit to the bounded task service", async () => {
@@ -32,9 +33,10 @@ describe("/api/operation-tasks", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("task:read");
-    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 999, status: undefined, taskType: undefined });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 999, status: undefined, taskType: undefined });
     await expect(response.json()).resolves.toEqual({
       tasks: [{ id: "download:dl1", title: "a.iso" }],
+      sourceSummary: [{ source: "download", total: 1, attention: 1, failed: 0, running: 1, pending: 0 }],
     });
   });
 
@@ -44,7 +46,7 @@ describe("/api/operation-tasks", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.listOperationTasks).toHaveBeenCalledWith({ limit: 50, status: ["failed", "running"], taskType: "alert.evaluate" });
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith({ limit: 50, status: ["failed", "running"], taskType: "alert.evaluate" });
   });
 
   it("returns shared API permission failures without calling the service", async () => {
@@ -57,6 +59,6 @@ describe("/api/operation-tasks", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(mocks.listOperationTasks).not.toHaveBeenCalled();
+    expect(mocks.listOperationTaskResult).not.toHaveBeenCalled();
   });
 });

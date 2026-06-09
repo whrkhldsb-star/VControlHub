@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { listOperationTasks, type OperationTaskStatus } from "@/lib/operation-task/service";
+import { listOperationTaskResult, type OperationTaskStatus } from "@/lib/operation-task/service";
 
 const allowedStatuses = new Set<OperationTaskStatus>(["pending", "running", "completed", "failed", "cancelled", "paused"]);
 
@@ -27,13 +27,11 @@ export async function GET(request: Request) {
       const searchParams = new URL(request.url).searchParams;
       const limitParam = searchParams.get("limit");
       const limit = limitParam === null ? undefined : Number(limitParam);
-      return NextResponse.json({
-        tasks: await listOperationTasks({
-          limit,
-          status: parseStatusFilter(searchParams.get("status")),
-          taskType: parseTaskTypeFilter(searchParams.get("taskType")),
-        }),
-      });
+      return NextResponse.json(await listOperationTaskResult({
+        limit,
+        status: parseStatusFilter(searchParams.get("status")),
+        taskType: parseTaskTypeFilter(searchParams.get("taskType")),
+      }));
     },
   );
 }

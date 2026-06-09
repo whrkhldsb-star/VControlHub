@@ -17,7 +17,7 @@ vi.mock("@/lib/runtime-settings/service", () => ({
   getOperationTaskListLimit: vi.fn(async () => 100),
 }));
 
-const { listOperationTasks } = await import("../service");
+const { listOperationTasks, listOperationTaskResult } = await import("../service");
 const { getOperationTaskListLimit } = await import("@/lib/runtime-settings/service");
 
 describe("operation task service", () => {
@@ -191,6 +191,55 @@ describe("operation task service", () => {
 
     expect(tasks).toHaveLength(1);
     expect(tasks[0]).toMatchObject({ id: "job:alert_failed", status: "failed", taskType: "alert.evaluate", progress: "SMTP failed" });
+  });
+
+  it("summarizes filtered operation tasks by source for triage", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([
+      {
+        id: "job_failed",
+        type: "backup.create",
+        title: "创建备份",
+        status: "FAILED",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        progress: null,
+        errorMessage: "backup failed",
+        workerId: null,
+        workerHeartbeatAt: null,
+        creator: null,
+      },
+    ]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([
+      {
+        id: "cmd_pending",
+        title: "重启服务",
+        status: "PENDING_APPROVAL",
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+        updatedAt: new Date("2026-01-03T00:00:00Z"),
+        workerId: null,
+        workerHeartbeatAt: null,
+        requester: null,
+      },
+      {
+        id: "cmd_done",
+        title: "查看日志",
+        status: "COMPLETED",
+        createdAt: new Date("2026-01-02T00:00:00Z"),
+        updatedAt: new Date("2026-01-02T00:00:00Z"),
+        workerId: null,
+        workerHeartbeatAt: null,
+        requester: null,
+      },
+    ]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const result = await listOperationTaskResult({ limit: 10, status: ["failed", "pending", "running"] });
+
+    expect(result.tasks.map((task) => task.id)).toEqual(["job:job_failed", "command:cmd_pending"]);
+    expect(result.sourceSummary).toEqual([
+      { source: "command", total: 1, attention: 1, failed: 0, running: 0, pending: 1 },
+      { source: "job", total: 1, attention: 1, failed: 1, running: 0, pending: 0 },
+    ]);
   });
 
   it("maps active deployment command requests as running operation tasks", async () => {

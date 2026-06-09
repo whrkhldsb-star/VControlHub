@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { OperationTask, OperationTaskStatus } from "@/lib/operation-task/service";
+import type { OperationTask, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/service";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 const sourceLabels: Record<string, string> = { job: "后台", command: "命令", scheduled: "定时", download: "下载", sync: "同步", backup: "备份", deployment: "部署" };
@@ -32,8 +32,9 @@ function getRefreshPath(statusFilter: string, taskTypeFilter: string) {
   return `/api/operation-tasks${query ? `?${query}` : ""}`;
 }
 
-export function OperationTaskListClient({ initialTasks }: { initialTasks: OperationTask[] }) {
+export function OperationTaskListClient({ initialTasks, initialSourceSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[] }) {
   const [tasks, setTasks] = useState(initialTasks);
+  const [sourceSummary, setSourceSummary] = useState(initialSourceSummary);
   const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]["value"]>("all");
   const [taskTypeFilter, setTaskTypeFilter] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +46,7 @@ export function OperationTaskListClient({ initialTasks }: { initialTasks: Operat
     try {
       const data = await csrfFetch(getRefreshPath(statusFilter, taskTypeFilter));
       setTasks(data.tasks ?? []);
+      setSourceSummary(data.sourceSummary ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "刷新任务中心失败");
     } finally { setRefreshing(false); }
@@ -55,6 +57,21 @@ export function OperationTaskListClient({ initialTasks }: { initialTasks: Operat
     <div className="grid gap-3 sm:grid-cols-4">
       {[["running","运行中"],["pending","待处理"],["failed","失败"],["completed","已完成"]].map(([key,label]) => <div key={key} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white light:text-slate-900">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
     </div>
+    <section aria-label="来源聚合" className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-white light:text-slate-900">来源聚合</h2>
+          <p className="mt-1 text-xs text-slate-500">按任务来源汇总当前筛选结果，优先显示失败/运行中/待处理数量。</p>
+        </div>
+        <div className="text-xs text-slate-500">共 {tasks.length} 条</div>
+      </div>
+      {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">暂无来源分布</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-white light:text-slate-900">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-slate-500">总计 {item.total}</span></div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600"><span>需处理 {item.attention}</span><span>失败 {item.failed}</span><span>运行中 {item.running}</span><span>待处理 {item.pending}</span></div>
+        </div>)}
+      </div>}
+    </section>
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
       <div className="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>

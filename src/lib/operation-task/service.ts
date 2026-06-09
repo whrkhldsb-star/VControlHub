@@ -23,6 +23,20 @@ export type OperationTask = {
   foldedCount?: number;
 };
 
+export type OperationTaskSourceSummary = {
+  source: OperationTaskSource;
+  total: number;
+  attention: number;
+  failed: number;
+  running: number;
+  pending: number;
+};
+
+export type OperationTaskListResult = {
+  tasks: OperationTask[];
+  sourceSummary: OperationTaskSourceSummary[];
+};
+
 type JobTaskRow = Prisma.JobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } } } }>;
 type ScheduledTaskRow = Prisma.ScheduledTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -127,7 +141,26 @@ function filterOperationTasks(tasks: OperationTask[], filters: OperationTaskList
   });
 }
 
+function summarizeOperationTaskSources(tasks: OperationTask[]): OperationTaskSourceSummary[] {
+  const summary = new Map<OperationTaskSource, OperationTaskSourceSummary>();
+  for (const task of tasks) {
+    const item = summary.get(task.source) ?? { source: task.source, total: 0, attention: 0, failed: 0, running: 0, pending: 0 };
+    item.total += 1;
+    if (task.status === "failed") item.failed += 1;
+    if (task.status === "running") item.running += 1;
+    if (task.status === "pending") item.pending += 1;
+    if (["failed", "running", "pending"].includes(task.status)) item.attention += 1;
+    summary.set(task.source, item);
+  }
+  return Array.from(summary.values()).sort((a, b) => b.attention - a.attention || b.total - a.total || a.source.localeCompare(b.source));
+}
+
 export async function listOperationTasks(options: OperationTaskListOptions = {}): Promise<OperationTask[]> {
+  const result = await listOperationTaskResult(options);
+  return result.tasks;
+}
+
+export async function listOperationTaskResult(options: OperationTaskListOptions = {}): Promise<OperationTaskListResult> {
   const configuredLimit = await getOperationTaskListLimit();
   const requestedLimit = options.limit ?? configuredLimit;
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : configuredLimit, 1), configuredLimit);
@@ -151,7 +184,12 @@ export async function listOperationTasks(options: OperationTaskListOptions = {})
     ...deployments.map((item: DeploymentTaskRow) => ({ id: `deployment:${item.id}`, source: "deployment" as const, sourceId: item.id, title: item.template.name, status: resolveDeploymentOperationStatus(item), createdAt: toIso(item.createdAt), updatedAt: toIso(item.updatedAt), actor: actorName(item.creator), progress: item.commandRequest ? formatWorkerProgress(item.commandRequest) : null, workerId: item.commandRequest?.workerId ?? null, workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null, href: "/deployments" })),
   ];
 
-  return filterOperationTasks(foldCompletedPeriodicJobs(tasks), options)
+  const foldedTasks = foldCompletedPeriodicJobs(tasks);
+  const filteredTasks = filterOperationTasks(foldedTasks, options)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
+  return {
+    tasks: filteredTasks,
+    sourceSummary: summarizeOperationTaskSources(filteredTasks),
+  };
 }
