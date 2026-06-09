@@ -124,7 +124,7 @@ export async function POST(request: Request) {
 		}
 
 		const prepared = prepareInstallSecrets(template);
-		const { job, taskId } = await enqueueQuickServiceJob({
+		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `安装快捷服务：${template.name}`,
 			createdBy: session?.userId ?? null,
 			payload: {
@@ -139,11 +139,12 @@ export async function POST(request: Request) {
 		return NextResponse.json({
 			success: true,
 			queued: true,
+			reused,
 			jobId: job.id,
 			taskId,
 			status: job.status,
 			notice: { credentials: prepared.credentials, notes: prepared.notes },
-			message: "QuickService 安装已加入后台任务，可在任务中心查看进度。",
+			message: reused ? "该服务已有进行中的生命周期任务，已返回现有任务。" : "QuickService 安装已加入后台任务，可在任务中心查看进度。",
 		}, { status: 202 });
 	});
 }

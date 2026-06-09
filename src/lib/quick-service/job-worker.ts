@@ -1,5 +1,6 @@
-import { Prisma } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
+import { prisma } from "@/lib/db";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import type { QuickServiceCredential } from "@/lib/quick-service/install-notice";
@@ -110,12 +111,26 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 	throw new Error(`不支持的 QuickService 操作：${action}`);
 }
 
+async function findActiveQuickServiceJob(slug: string) {
+	return prisma.job.findFirst({
+		where: {
+			type: QUICK_SERVICE_JOB_TYPE,
+			status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+			payload: { path: ["slug"], equals: slug },
+		},
+		orderBy: [{ priority: "desc" }, { availableAt: "asc" }, { createdAt: "asc" }],
+	});
+}
+
 export async function enqueueQuickServiceJob(input: {
 	title: string;
 	payload: QuickServiceJobPayload;
 	createdBy?: string | null;
 	priority?: number;
 }) {
+	const activeJob = await findActiveQuickServiceJob(input.payload.slug);
+	if (activeJob) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
+
 	const job = await enqueueJob({
 		type: QUICK_SERVICE_JOB_TYPE,
 		title: input.title,
@@ -124,7 +139,7 @@ export async function enqueueQuickServiceJob(input: {
 		priority: input.priority ?? 10,
 		maxAttempts: 1,
 	});
-	return { job, taskId: `job:${job.id}` };
+	return { job, taskId: `job:${job.id}`, reused: false };
 }
 
 async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue }) {

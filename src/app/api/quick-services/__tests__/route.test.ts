@@ -73,7 +73,7 @@ describe("/api/quick-services routes", () => {
     mocks.uninstallService.mockResolvedValue(undefined);
     mocks.syncServiceStatus.mockResolvedValue("running");
     mocks.updateService.mockResolvedValue({ status: "running", health: "healthy", logTail: "ready" });
-    mocks.enqueueQuickServiceJob.mockResolvedValue({ job: { id: "job_qs_1", status: "PENDING" }, taskId: "job:job_qs_1" });
+    mocks.enqueueQuickServiceJob.mockResolvedValue({ job: { id: "job_qs_1", status: "PENDING" }, taskId: "job:job_qs_1", reused: false });
     mocks.getRemoteApps.mockResolvedValue([]);
   });
 

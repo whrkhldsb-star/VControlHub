@@ -15,7 +15,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		const parsed = serviceActionSchema.safeParse(await request.json());
 		if (!parsed.success) return NextResponse.json({ error: "输入参数无效，支持: start/stop/sync/update" }, { status: 400 });
 		const { action } = parsed.data;
-		const { job, taskId } = await enqueueQuickServiceJob({
+		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `QuickService ${action}: ${slug}`,
 			createdBy: session?.userId ?? null,
 			payload: { action, slug },
@@ -23,10 +23,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		return NextResponse.json({
 			success: true,
 			queued: true,
+			reused,
 			jobId: job.id,
 			taskId,
 			status: job.status,
-			message: "QuickService 操作已加入后台任务，可在任务中心查看进度。",
+			message: reused ? "该服务已有进行中的生命周期任务，已返回现有任务。" : "QuickService 操作已加入后台任务，可在任务中心查看进度。",
 		}, { status: 202 });
 	});
 }
@@ -43,7 +44,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		const parsed = uninstallSchema.safeParse(await readOptionalJson(request));
 		if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
 		const deleteVolumes = parsed.data?.deleteVolumes === true;
-		const { job, taskId } = await enqueueQuickServiceJob({
+		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: `卸载快捷服务：${slug}`,
 			createdBy: session?.userId ?? null,
 			payload: { action: "uninstall", slug, deleteVolumes },
@@ -51,11 +52,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		return NextResponse.json({
 			success: true,
 			queued: true,
+			reused,
 			jobId: job.id,
 			taskId,
 			status: job.status,
 			deleteVolumes,
-			message: "QuickService 卸载已加入后台任务，可在任务中心查看进度。",
+			message: reused ? "该服务已有进行中的生命周期任务，已返回现有任务。" : "QuickService 卸载已加入后台任务，可在任务中心查看进度。",
 		}, { status: 202 });
 	});
 }
