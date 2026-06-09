@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T04:24:30Z",
+  "updatedAt": "2026-06-09T05:15:12Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,67 +58,67 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with storage warning from 4待探测 nodes instead of false healthy; /status HTML showed storage health counts and no secret-like fields; unauth /files 307; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "public-status-storage-health-truthfulness",
-    "title": "Public status storage health truthfulness",
-    "startedAt": "2026-06-09T04:10:28Z",
-    "finishedAt": "2026-06-09T04:24:30Z",
+    "id": "quick-service-lifecycle-history-audit",
+    "title": "QuickService lifecycle history audit coverage",
+    "startedAt": "2026-06-09T05:03:28Z",
+    "finishedAt": "2026-06-09T05:15:12Z",
     "status": "completed_verified_deployed",
-    "summary": "Public /status and /api/status now summarize persisted storage-node health probe fields instead of classifying configured storage inventory as healthy; public output remains sanitized and Direct Gateway transport hardening remains in the P1 residual.",
+    "summary": "QuickService lifecycle operations now write bounded audit history for install/start/stop/sync/update/uninstall with started/succeeded/failed events, so operators can trace recent container lifecycle changes instead of only seeing current status.",
     "evidenceMatrix": {
-      "browser_or_dom": "Production /status HTML contained storage health count wording: 最近探测健康, 待探测, and 不会在公开状态页展示; sanitized HTML check found no secret-like fields such as basePath/DATABASE_URL/token/private/password/secret.",
-      "api": "Post-deploy /api/status returned 200 with database and VPS healthy plus storage warning: 已配置 4 个存储节点，0 个最近探测健康，0 个异常，4 个待探测; unauthenticated /files stayed protected with 307 to /login?next=%2Ffiles.",
-      "db_or_persisted_config": "getPublicStatus reads persisted storageNode healthStatus and lastHealthCheckAt only; no live SFTP/Direct Gateway host/port/path data is exposed in the public JSON.",
-      "filesystem_or_sftp": "No storage/SFTP mutation was performed; build artifacts existed after verify: .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js.",
-      "background_task_or_process": "No overlapping verify/build/deploy processes on entry; npm run verify completed successfully; services restarted after artifact/ownership checks; vcontrolhub-next.service, vcontrolhub-ssh-ws.service, and caddy are active.",
-      "runtime_or_ui_side_effect": "Public status no longer reports configured storage as simply healthy; unknown/unprobed storage now contributes a public warning while preserving fast public readiness and using /files storage-node probe as the writer.",
-      "permissions": "/api/status and /status remain public but sanitized; changed protected-route probe /files remained authentication-gated with 307.",
-      "regression": "git diff --check passed; npm test -- src/lib/status/service.test.ts passed 3 tests; npm run typecheck passed; npm run verify passed with 215 files / 1016 tests plus Next build/runtime/deploy-assets.",
-      "production": "After chown/restart/reload, /api/status returned 200; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; services active.",
+      "browser_or_dom": "Changed route stayed production-protected: unauthenticated /quick-services returned 307 to /login?next=%2Fquick-services after deploy; README now records the lifecycle-history closure and narrows the QuickService residual.",
+      "api": "QuickService service layer exposes listQuickServiceHistory(limit) reading prisma.auditLog where action startsWith quick_service. and clamps take to 50; post-deploy /api/status returned 200 with overall warning only from known storage待探测 state.",
+      "db_or_persisted_config": "Lifecycle events persist through AuditLog with action quick_service.<install|start|stop|sync|update|uninstall>.<started|succeeded|failed>, INFO for non-failures and WARNING for failed Docker lifecycle operations; history reads latest entries by createdAt desc.",
+      "filesystem_or_sftp": "No storage/SFTP data was mutated. Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart and ownership was corrected to vcontrolhub:vcontrolhub.",
+      "background_task_or_process": "No overlapping npm run verify/build, next build, vitest, tsc, deploy, or restart process was active on entry; only non-production tsserver LSP processes were present. Docker remains available for QuickServices per deterministic preflight.",
+      "runtime_or_ui_side_effect": "Start/stop/sync/update/uninstall now produce auditable operator history, including recreated-container start mode, missing-container sync semantics, update health, deleteVolumes intent, and truncated Docker failure summaries.",
+      "permissions": "The changed QuickService page remained authentication-gated with 307 when unauthenticated; audit writes use USER actors when a userId exists and SYSTEM otherwise.",
+      "regression": "git diff --check passed; npx vitest run src/lib/quick-service/__tests__/service.test.ts --reporter=dot passed 22/22; npm run typecheck passed; npm run verify passed with 215 files / 1018 tests plus Next build, runtime build, and deploy-assets.",
+      "production": "After artifact checks and chown, restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service and reloaded Caddy; all services active; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks.",
       "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan after deploy showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "No temporary QA users/files/containers/DB rows were created. Single 6G /swapfile steady state preserved."
+      "cleanup": "No temporary QA users, files, DB rows, or containers were created. Single 6G /swapfile steady state preserved."
     },
     "changeContract": {
       "files": [
-        "src/lib/status/service.ts",
-        "src/lib/status/service.test.ts",
+        "src/lib/quick-service/service.ts",
+        "src/lib/quick-service/__tests__/service.test.ts",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "Public /api/status storage warning/counts",
-        "Public /status DOM/HTML wording and sanitization",
-        "Targeted status-service regressions",
+        "QuickService lifecycle audit service regressions",
+        "Bounded history read clamp regression",
         "Full verify",
-        "Smoke/status/log/swap checks"
+        "Smoke/status/protected-route/log/swap checks"
       ],
       "remaining": [
-        "Direct Gateway HTTPS/VPN/firewall default deployment hardening",
-        "Direct Gateway reachability probe distinct from SFTP/LOCAL health",
-        "QuickService config diff/failure rollback/update history durable-job work"
+        "QuickService config diff before install/update.",
+        "QuickService failure rollback beyond best-effort cleanup.",
+        "QuickService install/update/uninstall durable worker and cross-process lease migration.",
+        "Direct Gateway TLS/VPN/firewall default deployment hardening."
       ]
     },
-    "stage": "stage-28-public-status-storage-health",
-    "selectedReadmeItem": "状态真实性：公开状态存储健康摘要接入最近探测结果",
+    "stage": "stage-29-quick-service-lifecycle-history",
+    "selectedReadmeItem": "P2 快捷服务生命周期：补齐操作历史，剩余配置 diff、失败回滚、durable job/lease",
     "verification": [
-      "Entry worktree clean and HEAD matched origin/main at 7877894cc62fd73ed7322f7e2df1399886691cd9.",
-      "No overlapping npm run verify/build, next build, vitest, tsc, deploy, or restart process was running before the slice.",
+      "Entry dirty worktree was coherent QuickService lifecycle audit slice: src/lib/quick-service/service.ts only before this closeout continued.",
+      "HEAD matched origin/main at 08c928b7712cc52b5ac2c1669d43933b3f01f077 before changes.",
+      "No overlapping npm run verify/build, next build, vitest, tsc, deploy, or restart process was running before validation.",
       "git diff --check passed.",
-      "npm test -- src/lib/status/service.test.ts passed 3/3.",
+      "npx vitest run src/lib/quick-service/__tests__/service.test.ts --reporter=dot passed 22/22.",
       "npm run typecheck passed.",
-      "npm run verify passed: 215 files / 1016 tests plus Next build, runtime build, and deploy-assets.",
+      "npm run verify passed: 215 files / 1018 tests plus Next build, runtime build, and deploy-assets.",
       "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership corrected.",
       "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all active.",
-      "/api/status returned 200 with storage warning and 4待探测 nodes instead of false healthy.",
-      "/status HTML contained storage probe summary wording and no secret-like fields.",
       "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25 checks.",
-      "Unauthenticated /files redirected 307 to login.",
+      "/api/status returned 200 with known storage warning summary.",
+      "Unauthenticated /quick-services redirected 307 to login.",
       "Recent logs clean; swap steady state single 6G /swapfile preserved."
     ],
     "residualWork": [
-      "Direct Gateway transport encryption/default network boundary hardening.",
-      "Add Direct Gateway reachability probe and repair guidance separate from storage SFTP/LOCAL health.",
-      "Continue QuickService durable job/config diff/rollback/history work."
+      "QuickService config diff and safer rollback for install/update failures.",
+      "QuickService install/update/uninstall durable worker and cross-process lease migration.",
+      "Direct Gateway transport encryption/default network boundary hardening."
     ]
   },
   "runPolicy": {

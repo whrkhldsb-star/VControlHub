@@ -3,6 +3,7 @@ import { execFile, execFileSync } from "child_process";
 import { promisify } from "util";
 
 import { prisma } from "@/lib/db";
+import { writeAuditLog } from "@/lib/audit/service";
 import { createNotification } from "@/lib/notification/service";
 import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
 import type { ServiceTemplate } from "./types";
@@ -184,6 +185,28 @@ function dockerErrorMessage(error: unknown): string {
 	return String(error);
 }
 
+async function writeQuickServiceAudit(input: {
+	userId?: string | null;
+	action: "install" | "start" | "stop" | "sync" | "update" | "uninstall";
+	slug: string;
+	status: "started" | "succeeded" | "failed";
+	detail?: Record<string, string | number | boolean | null>;
+}) {
+	try {
+		await writeAuditLog({
+			actorType: input.userId ? "USER" : "SYSTEM",
+			actorId: input.userId ?? undefined,
+			action: `quick_service.${input.action}.${input.status}`,
+			severity: input.status === "failed" ? "WARNING" : "INFO",
+			detail: {
+				slug: input.slug,
+				...input.detail,
+			},
+		});
+	} catch {
+	}
+}
+
 function getContainerHealth(containerName: string): string | null {
 	try {
 		const health = dockerExecSync(["inspect", "--format={{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}", containerName], 10_000).trim();
@@ -319,6 +342,15 @@ export async function listQuickServices() {
 	});
 }
 
+export async function listQuickServiceHistory(limit = 20) {
+	return prisma.auditLog.findMany({
+		where: { action: { startsWith: "quick_service." } },
+		orderBy: { createdAt: "desc" },
+		take: Math.max(1, Math.min(limit, 50)),
+		select: { id: true, action: true, severity: true, detail: true, createdAt: true, actor: { select: { username: true, displayName: true } } },
+	});
+}
+
 export async function getQuickService(slug: string) {
 	return prisma.quickService.findUnique({
 		where: { slug },
@@ -349,6 +381,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	}
 
 	validateTemplate(template);
+	await writeQuickServiceAudit({ userId, action: "install", slug: template.slug, status: "started", detail: { image: template.image, requestedPort: customPort ?? null } });
 	const hostPort = customPort ?? allocatePort(template.defaultPort);
 	assertTemplatePortsAvailable(template, hostPort);
 
@@ -403,6 +436,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			msg = `${msg}; 清理残留容器失败: ${dockerErrorMessage(cleanupErr)}`;
 		}
 		await prisma.quickService.update({ where: { id: svc.id }, data: { status: "error", error: msg } });
+		await writeQuickServiceAudit({ userId, action: "install", slug: template.slug, status: "failed", detail: { image: template.image, port: hostPort, error: msg.slice(0, 500) } });
 		await notifyQuickServiceInstallFailure(userId, template, msg);
 	});
 
@@ -447,6 +481,7 @@ async function startDockerContainer(serviceId: string, tmpl: ServiceTemplate, ho
 		where: { id: serviceId },
 		data: { status: "running", containerId, error: null },
 	});
+	await writeQuickServiceAudit({ userId: notice?.userId, action: "install", slug: tmpl.slug, status: "succeeded", detail: { image: tmpl.image, port: hostPort, containerId } });
 	await notifyQuickServiceInstallSuccess(notice?.userId, tmpl, hostPort, notice?.credentials ?? [], notice?.notes ?? []);
 }
 
@@ -496,6 +531,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
 		if (!svc) throw new Error("服务不存在");
 		assertServiceNotBusy(svc, "卸载");
+		await writeQuickServiceAudit({ action: "uninstall", slug: svc.slug, status: "started", detail: { deleteVolumes: options.deleteVolumes === true } });
 
 		const containerName = safeContainerName(svc.slug);
 		try {
@@ -503,6 +539,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
+			await writeQuickServiceAudit({ action: "uninstall", slug: svc.slug, status: "failed", detail: { error: msg.slice(0, 500) } });
 			throw new Error(`卸载失败: ${msg}`);
 		}
 
@@ -513,6 +550,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 		}
 
 		await prisma.quickService.delete({ where: { slug } });
+		await writeQuickServiceAudit({ action: "uninstall", slug: svc.slug, status: "succeeded", detail: { deleteVolumes: options.deleteVolumes === true } });
 	});
 }
 
@@ -521,11 +559,13 @@ export async function startService(slug: string) {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
 		if (!svc) throw new Error("服务不存在");
 		assertServiceNotBusy(svc, "启动");
+		await writeQuickServiceAudit({ action: "start", slug: svc.slug, status: "started" });
 
 		const containerName = safeContainerName(svc.slug);
 		try {
 			dockerExecSync(["start", containerName], 30_000);
 			await prisma.quickService.update({ where: { slug }, data: { status: "running", error: null } });
+			await writeQuickServiceAudit({ action: "start", slug: svc.slug, status: "succeeded", detail: { mode: "existing-container" } });
 		} catch {
 			const tmpl: ServiceTemplate = {
 				slug: svc.slug,
@@ -544,9 +584,11 @@ export async function startService(slug: string) {
 			};
 			try {
 				await startDockerContainer(svc.id, tmpl, svc.port);
+				await writeQuickServiceAudit({ action: "start", slug: svc.slug, status: "succeeded", detail: { mode: "recreated-container" } });
 			} catch (err) {
 				const msg = dockerErrorMessage(err);
 				await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
+				await writeQuickServiceAudit({ action: "start", slug: svc.slug, status: "failed", detail: { error: msg.slice(0, 500) } });
 				throw new Error(`启动失败: ${msg}`);
 			}
 		}
@@ -559,6 +601,7 @@ export async function updateService(slug: string) {
 		if (!svc) throw new Error("服务不存在");
 		assertServiceNotBusy(svc, "更新");
 		const containerName = safeContainerName(svc.slug);
+		await writeQuickServiceAudit({ action: "update", slug: svc.slug, status: "started", detail: { image: svc.image } });
 
 		const tmpl: ServiceTemplate = {
 			slug: svc.slug,
@@ -582,10 +625,12 @@ export async function updateService(slug: string) {
 			await startDockerContainer(svc.id, tmpl, svc.port);
 			const health = getContainerHealth(containerName);
 			const logTail = getContainerLogTail(containerName);
+			await writeQuickServiceAudit({ action: "update", slug: svc.slug, status: "succeeded", detail: { image: svc.image, health } });
 			return { status: "running", health, logTail };
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `更新失败: ${msg}` } });
+			await writeQuickServiceAudit({ action: "update", slug: svc.slug, status: "failed", detail: { image: svc.image, error: msg.slice(0, 500) } });
 			throw new Error(`更新失败: ${msg}`);
 		}
 	});
@@ -596,14 +641,17 @@ export async function stopService(slug: string) {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
 		if (!svc) throw new Error("服务不存在");
 		assertServiceNotBusy(svc, "停止");
+		await writeQuickServiceAudit({ action: "stop", slug: svc.slug, status: "started" });
 
 		const containerName = safeContainerName(svc.slug);
 		try {
 			dockerExecSync(["stop", containerName], 30_000);
 			await prisma.quickService.update({ where: { slug }, data: { status: "stopped", error: null } });
+			await writeQuickServiceAudit({ action: "stop", slug: svc.slug, status: "succeeded" });
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
+			await writeQuickServiceAudit({ action: "stop", slug: svc.slug, status: "failed", detail: { error: msg.slice(0, 500) } });
 			throw new Error(`停止失败: ${msg}`);
 		}
 	});
@@ -612,15 +660,18 @@ export async function stopService(slug: string) {
 export async function syncServiceStatus(slug: string) {
 	const svc = await prisma.quickService.findUnique({ where: { slug } });
 	if (!svc) throw new Error("服务不存在");
+	await writeQuickServiceAudit({ action: "sync", slug: svc.slug, status: "started" });
 
 	const containerName = safeContainerName(svc.slug);
 	try {
 		const state = dockerExecSync(["inspect", "--format={{.State.Status}}", containerName], 10_000).trim();
 		const status = state === "running" ? "running" : "stopped";
 		await prisma.quickService.update({ where: { slug }, data: { status, error: null } });
+		await writeQuickServiceAudit({ action: "sync", slug: svc.slug, status: "succeeded", detail: { status } });
 		return status;
 	} catch {
 		await prisma.quickService.update({ where: { slug }, data: { status: "stopped" } });
+		await writeQuickServiceAudit({ action: "sync", slug: svc.slug, status: "succeeded", detail: { status: "stopped", missingContainer: true } });
 		return "stopped";
 	}
 }

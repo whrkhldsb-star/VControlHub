@@ -377,7 +377,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **AI Hosted Tools 授权边界已收紧。** 托管工具执行授权下沉到 `hosted-service`：自动批准的只读 SSH 工具即使从聊天流或后续服务调用触发，也必须携带具备 `server:ssh` 的会话上下文；危险工具审批改为必须具备 `ai:action:approve`，不再允许原请求者自批自己的高风险操作，批准后的执行还会再次校验审批人的 `server:ssh`。`/api/ai/hosted-actions/[id]` 现在由共享 API guard 强制 `ai:action:approve`。后续仍可继续补服务器所有权/按节点细粒度授权、只读日志目录白名单和审批人分离审计报表。
 - [x] **QuickService 访问边界已显式化。** 快捷服务运行概览和已安装卡片不再只给一个“访问”按钮：访问 URL 现在会生成结构化描述，明确标注“公开直连端口”或“反代 HTTPS”，并在按钮标题/可访问名称里提示直连端口不会经过 VControlHub 登录鉴权，需依赖防火墙、VPN 或应用自身鉴权后再暴露。
 - [x] **Docker 本机运行边界已产品化。** `/api/docker/containers` 列表响应现在返回 `dockerScope`，明确该模块只操作 VControlHub 所在主机的 `/var/run/docker.sock`；`/docker` 页面在容器操作按钮之前展示“本机 Docker socket”警示，提示它不是跨 VPS 容器控制台，且 `docker:manage` 权限接近本机容器管理能力，避免用户把 Hub 主机 Docker 与远端 VPS 容器混淆。
-- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，但第三方模板仍属于供应链输入，且安装/更新还缺配置 diff、失败回滚和历史日志。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
+- [x] **QuickService 生命周期历史已接入审计日志。** 安装、启动、停止、状态同步、更新和卸载现在都会写入 `quick_service.*.started/succeeded/failed` 审计事件，失败事件保留截断后的 Docker 错误摘要，`listQuickServiceHistory()` 以最新 50 条为上限读取历史，避免操作员只能看到当前状态而无法追溯最近生命周期动作。
+- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，但第三方模板仍属于供应链输入，且安装/更新还缺配置 diff、失败回滚和 durable worker/lease。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
 - [x] **公开状态存储健康摘要已接入最近探测结果。** `/status` 与 `/api/status` 不再只按“已配置存储节点数量”给出乐观健康结论，而是汇总最近存储节点健康探测的健康/异常/待探测数量；公开输出仍不暴露 SFTP/Direct Gateway 主机、端口、路径或凭据。`/files` 存储节点管理里的“立即检测”继续作为写入该公开摘要的专项探测入口。
 - [x] **Docker 日志弹窗已接入统一 Dialog Focus 管理。** 新增 `useDialogFocus` 客户端 hook，封装打开后初始聚焦、Escape 关闭、Tab/Shift+Tab 焦点循环和关闭后恢复触发按钮焦点；Docker 日志弹窗现在具备 `role="dialog"`、`aria-modal`、标题关联、命名关闭按钮和 light/dark 可读日志面板，删除确认弹窗也复用同一焦点管理底座。
 - [x] **文件浏览 SPA 已支持浏览器历史后退/前进。** 文件目录树和面包屑里的真实目录导航现在使用 `history.pushState` 写入 `/files?path=...&nodeId=...`，刷新、上传完成、新建文件夹和搜索等原地更新仍使用 `replaceState` 避免污染历史栈；浏览器 `popstate` 会从当前 URL 恢复 path/search/scope/nodeId 并重新拉取 `/api/files/list`，后退/前进可以逐级回到上一个目录。
@@ -419,7 +420,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] 告警增强：静默期、Webhook 测试发送和 email/SMTP 真实发送已完成；后续继续补 Telegram 等通知渠道配置、失败重试和告警历史趋势。
 
 ### P2 — 用户体验和可运营性
-- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，继续补配置 diff、失败回滚、更新历史，并纳入统一 durable job/lease，避免安装/更新/卸载继续依赖请求内长任务或进程内锁。
+- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件；继续补配置 diff、失败回滚，并纳入统一 durable job/lease，避免安装/更新/卸载继续依赖请求内长任务或进程内锁。
 - [ ] 在线文件编辑器：本机文本编辑/保存/权限边界、差异预览和保存确认已完成，继续补并发修改检测、保存后可选重载服务和 SFTP 编辑。
 - [x] 媒体库 / 图床融合：图片模式已合并批量上传、目标存储目录、已有存储图片发布外链和图片搜索；媒体库已补一等图片/视频/音频切换，主导航不再暴露独立图床模块，外链管理作为图片工作区辅助入口。
 - [x] 文件管理资料流：`/files` 已补“资料详情”面板，把预览/编辑、下载、分享、媒体库搜索和管理动作集中到真实文件入口；后续继续把文件详情与媒体详情做更深的双向状态同步。

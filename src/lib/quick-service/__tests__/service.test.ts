@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock, rmSyncMock } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -9,14 +9,19 @@ const { prismaMock, execFileSyncMock, execFileMock, mkdirSyncMock, rmSyncMock } 
 			update: vi.fn(),
 			delete: vi.fn(),
 		},
+		auditLog: {
+			findMany: vi.fn(),
+		},
 	},
 	execFileSyncMock: vi.fn(),
 	execFileMock: vi.fn(),
 	mkdirSyncMock: vi.fn(),
 	rmSyncMock: vi.fn(),
+	writeAuditLogMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/audit/service", () => ({ writeAuditLog: writeAuditLogMock }));
 vi.mock("node:fs", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("node:fs")>();
 	return { ...actual, default: { ...actual, mkdirSync: mkdirSyncMock, rmSync: rmSyncMock }, mkdirSync: mkdirSyncMock, rmSync: rmSyncMock };
@@ -27,7 +32,7 @@ vi.mock("child_process", () => ({
 	execFile: execFileMock,
 }));
 
-import { checkPort, getDockerEnvironmentStatus, installService, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
+import { checkPort, getDockerEnvironmentStatus, installService, listQuickServiceHistory, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {
@@ -292,6 +297,38 @@ describe("quick service docker lifecycle", () => {
 			where: { slug: "demo" },
 			data: { status: "stopped", error: null },
 		});
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.start.started" }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.start.succeeded" }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.stop.started" }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.stop.succeeded" }));
+	});
+
+	it("writes bounded Quick Service lifecycle history and clamps reads", async () => {
+		prismaMock.auditLog.findMany.mockResolvedValueOnce([]);
+
+		await listQuickServiceHistory(500);
+
+		expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: { action: { startsWith: "quick_service." } },
+			take: 50,
+		}));
+	});
+
+	it("audits uninstall failures before surfacing docker errors", async () => {
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-7", slug: "demo" });
+		execFileSyncMock.mockImplementationOnce(() => {
+			throw Object.assign(new Error("docker daemon unavailable"), { stderr: "permission denied" });
+		});
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await expect(uninstallService("demo")).rejects.toThrow("卸载失败: permission denied");
+
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.uninstall.started" }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.uninstall.failed",
+			severity: "WARNING",
+			detail: expect.objectContaining({ slug: "demo", error: "permission denied" }),
+		}));
 	});
 
 	it("rejects concurrent operations on the same service slug", async () => {
@@ -346,6 +383,11 @@ describe("quick service docker lifecycle", () => {
 			where: { id: "svc-update" },
 			data: { status: "running", containerId: "abcdef123456", error: null },
 		});
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.update.started" }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.update.succeeded",
+			detail: expect.objectContaining({ slug: "demo", image: "example/demo:latest", health: "healthy" }),
+		}));
 	});
 
 	it("marks update failures as service errors", async () => {
@@ -376,6 +418,11 @@ describe("quick service docker lifecycle", () => {
 			where: { slug: "demo" },
 			data: { status: "error", error: "更新失败: manifest unknown" },
 		});
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.update.failed",
+			severity: "WARNING",
+			detail: expect.objectContaining({ slug: "demo", error: "manifest unknown" }),
+		}));
 	});
 
 	it("rejects lifecycle operations while a service is still installing", async () => {
@@ -432,5 +479,10 @@ describe("quick service docker lifecycle", () => {
 			expect.objectContaining({ timeout: 10_000, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }),
 		);
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "stopped" } });
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.sync.started" }));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.sync.succeeded",
+			detail: expect.objectContaining({ slug: "demo", status: "stopped", missingContainer: true }),
+		}));
 	});
 });
