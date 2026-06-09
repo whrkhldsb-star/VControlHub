@@ -41,6 +41,12 @@ interface QuickServiceActionResult {
 	logTail?: string | null;
 }
 
+interface QuickServiceMessage {
+	type: "ok" | "err";
+	text: string;
+	taskId?: string | null;
+}
+
 interface DockerEnvironmentStatus {
 	available: boolean;
 	running: boolean;
@@ -135,7 +141,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("community");
 	const [actionSlug, setActionSlug] = useState<string | null>(null);
-	const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+	const [message, setMessage] = useState<QuickServiceMessage | null>(null);
 	const [newSourceName, setNewSourceName] = useState("");
 	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
 	const [newSourceUrl, setNewSourceUrl] = useState("");
@@ -275,7 +281,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port }),
 			});
-			setMessage({ type: "ok", text: data.taskId ? `${preview.item.name} 安装已排队（${data.taskId}），可在任务中心查看进度。` : `${preview.item.name} 安装任务已提交，正在拉取镜像…` });
+			setMessage({ type: "ok", text: data.taskId ? `${preview.item.name} 安装已排队（${data.taskId}），可在任务中心查看进度。` : `${preview.item.name} 安装任务已提交，正在拉取镜像…`, taskId: data.taskId });
 			setTimeout(fetchCatalog, 1500);
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "安装失败" });
@@ -325,7 +331,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				sync: data.status === "running" ? "状态已刷新：运行中" : "状态已刷新：已停止",
 				update: updateDetails ? `更新完成，已拉取镜像并重建容器；${updateDetails}` : "更新完成，已拉取镜像并重建容器",
 			};
-			setMessage({ type: "ok", text: actionMessages[action] ?? "操作完成" });
+			setMessage({ type: "ok", text: actionMessages[action] ?? "操作完成", taskId: data.taskId });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "操作失败" });
@@ -350,7 +356,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				body: JSON.stringify({ deleteVolumes: target.deleteVolumes }),
 			});
 			const taskLabel = data.taskId ? `（${data.taskId}）` : "";
-			setMessage({ type: "ok", text: data.queued ? (target.deleteVolumes ? `卸载并删除数据目录已排队${taskLabel}` : `卸载已排队${taskLabel}，数据目录将保留`) : (target.deleteVolumes ? "已卸载并删除数据目录" : "已卸载，数据目录已保留") });
+			setMessage({ type: "ok", text: data.queued ? (target.deleteVolumes ? `卸载并删除数据目录已排队${taskLabel}` : `卸载已排队${taskLabel}，数据目录将保留`) : (target.deleteVolumes ? "已卸载并删除数据目录" : "已卸载，数据目录已保留"), taskId: data.taskId });
 			fetchCatalog();
 		} catch (err) {
 			setMessage({ type: "err", text: err instanceof Error ? err.message : "卸载失败" });
@@ -538,8 +544,13 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Message */}
 			{message && (
-				<div className={`rounded-lg px-4 py-3 text-sm ${message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
-					{message.text}
+				<div role={message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
+					<span>{message.text}</span>
+					{message.taskId ? (
+						<a href="/operation-tasks" className="ml-3 inline-flex rounded-md border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
+							查看任务中心
+						</a>
+					) : null}
 				</div>
 			)}
 

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-09T05:42:13Z",
+  "updatedAt": "2026-06-09T06:35:40Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,73 +58,48 @@
     "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; /quick-services 307 auth guard; quick-service-job-worker startup logged; recent logs clean; single 6G /swapfile preserved"
   },
   "lastRun": {
-    "id": "quick-service-lifecycle-durable-job-migration",
-    "title": "QuickService lifecycle Durable Job migration",
-    "startedAt": "2026-06-09T06:04:29Z",
-    "finishedAt": "2026-06-09T06:18:05Z",
+    "id": "quick-service-task-center-link",
+    "title": "QuickService queued task center link",
+    "startedAt": "2026-06-09T06:24:29Z",
+    "finishedAt": "2026-06-09T06:35:40Z",
     "status": "completed_verified_deployed",
-    "summary": "QuickService install/start/stop/sync/update/uninstall now enqueue durable lifecycle jobs and return queued job/task metadata instead of executing Docker operations in the HTTP request.",
-    "stage": "stage-31-quick-service-lifecycle-durable-job",
-    "selectedReadmeItem": "P2 QuickService 生命周期纳入统一 durable job/lease，避免安装/更新/卸载继续依赖请求内长任务或进程内锁。",
+    "summary": "QuickService queued lifecycle success messages now expose a direct Task Center link when the API returns taskId, and success/error message regions have status/alert semantics.",
+    "stage": "stage-32-quick-service-task-center-observability",
+    "selectedReadmeItem": "README P2 QuickService 生命周期：durable job 排队后补齐用户可点击的任务中心追踪入口。",
     "changeContract": {
       "files": [
-        "src/server.ts",
-        "src/lib/quick-service/job-worker.ts",
-        "src/app/api/quick-services/route.ts",
-        "src/app/api/quick-services/[slug]/route.ts",
         "src/app/quick-services/quick-services-client.tsx",
-        "src/app/api/quick-services/__tests__/route.test.ts",
         "src/app/quick-services/__tests__/quick-services-client.test.tsx",
         "README.md",
         ".hermes/remediation-backlog.md",
         ".hermes/remediation-state.json"
       ],
       "evidence": [
-        "QuickService API lifecycle routes return 202 queued job/task metadata",
-        "Client action copy distinguishes queued background work from completed Docker side effects",
-        "Targeted API/client regressions",
-        "Full verify and production smoke before commit"
+        "install/update/uninstall queued client regressions assert 查看任务中心 link",
+        "full verify and production smoke after deploy",
+        "protected /quick-services and /operation-tasks route probes"
       ],
       "remaining": [
-        "QuickService safer rollback/config diff",
-        "Cross-process concurrency limits and richer lifecycle log streaming",
-        "Direct Gateway TLS/VPN/firewall deployment hardening"
+        "QuickService config diff",
+        "QuickService failed-job rollback",
+        "cross-process concurrency limits",
+        "richer lifecycle log streaming",
+        "Direct Gateway TLS/VPN/firewall hardening"
       ]
     },
     "evidenceMatrix": {
-      "browser_or_dom": "Production /quick-services remains protected and redirects unauthenticated users to /login?next=%2Fquick-services; client regressions cover visible queued operation messages for install/update/uninstall/start/stop/sync.",
-      "api": "QuickService POST/PATCH/DELETE route regressions prove 202 responses with queued=true, jobId, taskId, and no direct install/update/uninstall/sync service calls from the request route; production /api/status returned 200 after deploy.",
-      "db_or_persisted_config": "Durable job enqueue path uses the shared jobs table; no schema migration required because JobKind quick_service.lifecycle already exists.",
-      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart and ownership was corrected to vcontrolhub:vcontrolhub; no storage/SFTP data touched.",
-      "background_task_or_process": "src/server.ts starts the QuickService lifecycle worker alongside existing durable workers; post-restart journal shows quick-service-job-worker started with workerId vcontrolhub:quick-service:496497.",
-      "runtime_or_ui_side_effect": "Operators see queued/Operation Tasks copy instead of synchronous completion copy after QuickService lifecycle actions.",
-      "permissions": "Routes keep docker:manage guard and createdBy is populated from the authenticated session when enqueueing.",
-      "regression": "git diff --check passed; targeted QuickService API/client regressions passed 21/21; npm run typecheck passed; npm run verify passed with 215 files / 1020 tests plus Next build/runtime build/deploy-assets.",
-      "production": "After chown/restart/reload, vcontrolhub-next, vcontrolhub-ssh-ws, and caddy were active; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25; /api/status returned 200 with known storage待探测 warning summary; /quick-services unauth returned 307 to login.",
-      "logs": "Recent next/ssh-ws log scan after deploy showed QuickService worker startup and no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
-      "cleanup": "No temp users, containers, DB rows, helper artifacts, or QuickService lifecycle side effects were created. Single 6G /swapfile steady state preserved."
-    },
-    "verification": [
-      "Entry preflight: Docker available, services active, /api/status 200, HEAD matched origin/main a846197, dirty worktree limited to QuickService durable worker slice.",
-      "No overlapping verify/build/deploy/restart processes at start.",
-      "npx vitest run src/app/api/quick-services/__tests__/route.test.ts src/app/quick-services/__tests__/quick-services-client.test.tsx --reporter=dot passed 21/21.",
-      "git diff --check passed.",
-      "Repeated targeted QuickService API/client regressions passed 21/21.",
-      "npm run typecheck passed.",
-      "npm run verify passed: 215 files / 1020 tests, Next build, runtime build, deploy-assets.",
-      "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed; ownership corrected to vcontrolhub:vcontrolhub.",
-      "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service; reloaded Caddy; all active.",
-      "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed 25/25.",
-      "/api/status returned 200 with known storage待探测 warning summary.",
-      "/quick-services unauthenticated request returned 307 to login.",
-      "Journal showed quick-service-job-worker startup and no recent filtered errors.",
-      "Swap steady state preserved as a single 6G /swapfile."
-    ],
-    "residualWork": [
-      "QuickService safer rollback/config diff.",
-      "Cross-process lifecycle concurrency limits and richer log streaming.",
-      "Direct Gateway TLS/VPN/firewall default deployment hardening."
-    ]
+      "browser_or_dom": "Client regressions cover queued install/update/uninstall messages rendering a visible 查看任务中心 link to /operation-tasks and status/alert semantics for feedback regions.",
+      "api": "Production /api/status returned 200 with the known storage warning summary; /quick-services and /operation-tasks unauthenticated probes returned 307 to login, preserving auth boundaries.",
+      "db_or_persisted_config": "No schema or persisted config change was required; this slice consumes the existing taskId returned by QuickService durable lifecycle APIs.",
+      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership was corrected to vcontrolhub:vcontrolhub.",
+      "background_task_or_process": "No normal verify/build/next-build process was left running before restart; only editor tsserver processes were present. Existing QuickService durable worker remains the task execution substrate.",
+      "runtime_or_ui_side_effect": "Operators can click 查看任务中心 directly from queued QuickService lifecycle success feedback instead of manually navigating or copying a job id.",
+      "permissions": "The new link points to the already protected /operation-tasks page; unauthenticated production probe redirects to /login?next=%2Foperation-tasks.",
+      "regression": "git diff --check passed; targeted QuickServices client Vitest passed 10/10; npm run typecheck passed; npm run verify passed with full Vitest/Next build/runtime build/deploy-assets.",
+      "production": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded Caddy, services were active, /api/status returned 200 warning due to 4 storage nodes待探测, and smoke passed 25/25.",
+      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws log scan after restart showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
+      "cleanup": "No temporary QA users, containers, filesystem objects, or DB rows were created in this UI/observability slice; swap remained a single 6G /swapfile."
+    }
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -1186,6 +1161,12 @@
       "type": "canary_code_verified_deployed",
       "target": "login-light-theme-readability",
       "summary": "Login page light/day mode readability fixed and deployed; light/dark browser proof, real login redirect, targeted tests, typecheck, lint, build/runtime build, smoke 24/24, health/log closeout completed."
+    },
+    {
+      "at": "2026-06-09T06:35:40Z",
+      "type": "remediation.completed",
+      "id": "quick-service-task-center-link",
+      "status": "completed_verified_deployed"
     }
   ],
   "resolvedBlockers": [
@@ -1233,10 +1214,59 @@
         "src/lib/settings/service.ts",
         "README.md"
       ]
+    },
+    {
+      "at": "2026-06-09T06:35:40Z",
+      "event": "completed_verified_deployed",
+      "id": "quick-service-task-center-link",
+      "summary": "QuickService queued lifecycle success messages now expose a direct Task Center link when the API returns taskId, and success/error message regions have status/alert semantics."
     }
   ],
-  "lastRunAt": "2026-06-07T13:22:32Z",
-  "lastCompletedSlice": "server_file_proxy_scope_headers_cors",
+  "lastRunAt": "2026-06-09T06:35:40Z",
+  "lastCompletedSlice": {
+    "id": "quick-service-task-center-link",
+    "title": "QuickService queued task center link",
+    "startedAt": "2026-06-09T06:24:29Z",
+    "finishedAt": "2026-06-09T06:35:40Z",
+    "status": "completed_verified_deployed",
+    "summary": "QuickService queued lifecycle success messages now expose a direct Task Center link when the API returns taskId, and success/error message regions have status/alert semantics.",
+    "stage": "stage-32-quick-service-task-center-observability",
+    "selectedReadmeItem": "README P2 QuickService 生命周期：durable job 排队后补齐用户可点击的任务中心追踪入口。",
+    "changeContract": {
+      "files": [
+        "src/app/quick-services/quick-services-client.tsx",
+        "src/app/quick-services/__tests__/quick-services-client.test.tsx",
+        "README.md",
+        ".hermes/remediation-backlog.md",
+        ".hermes/remediation-state.json"
+      ],
+      "evidence": [
+        "install/update/uninstall queued client regressions assert 查看任务中心 link",
+        "full verify and production smoke after deploy",
+        "protected /quick-services and /operation-tasks route probes"
+      ],
+      "remaining": [
+        "QuickService config diff",
+        "QuickService failed-job rollback",
+        "cross-process concurrency limits",
+        "richer lifecycle log streaming",
+        "Direct Gateway TLS/VPN/firewall hardening"
+      ]
+    },
+    "evidenceMatrix": {
+      "browser_or_dom": "Client regressions cover queued install/update/uninstall messages rendering a visible 查看任务中心 link to /operation-tasks and status/alert semantics for feedback regions.",
+      "api": "Production /api/status returned 200 with the known storage warning summary; /quick-services and /operation-tasks unauthenticated probes returned 307 to login, preserving auth boundaries.",
+      "db_or_persisted_config": "No schema or persisted config change was required; this slice consumes the existing taskId returned by QuickService durable lifecycle APIs.",
+      "filesystem_or_sftp": "Build artifacts .next/BUILD_ID, dist/server.js, and dist/ssh-ws-proxy.js existed before restart; ownership was corrected to vcontrolhub:vcontrolhub.",
+      "background_task_or_process": "No normal verify/build/next-build process was left running before restart; only editor tsserver processes were present. Existing QuickService durable worker remains the task execution substrate.",
+      "runtime_or_ui_side_effect": "Operators can click 查看任务中心 directly from queued QuickService lifecycle success feedback instead of manually navigating or copying a job id.",
+      "permissions": "The new link points to the already protected /operation-tasks page; unauthenticated production probe redirects to /login?next=%2Foperation-tasks.",
+      "regression": "git diff --check passed; targeted QuickServices client Vitest passed 10/10; npm run typecheck passed; npm run verify passed with full Vitest/Next build/runtime build/deploy-assets.",
+      "production": "Restarted vcontrolhub-next.service and vcontrolhub-ssh-ws.service, reloaded Caddy, services were active, /api/status returned 200 warning due to 4 storage nodes待探测, and smoke passed 25/25.",
+      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws log scan after restart showed no error/warn/failed/exception/EACCES/permission denied/Server Action/Traceback matches.",
+      "cleanup": "No temporary QA users, containers, filesystem objects, or DB rows were created in this UI/observability slice; swap remained a single 6G /swapfile."
+    }
+  },
   "lastVerification": [
     "npx vitest run src/app/api/servers/[id]/file-proxy/__tests__/route.test.ts --reporter=dot: 5 tests passed",
     "npm run typecheck -- --pretty false: passed",
@@ -1340,7 +1370,7 @@
       ]
     }
   ],
-  "lastUpdatedAt": "2026-06-07T16:22:34.044067+00:00",
+  "lastUpdatedAt": "2026-06-09T06:35:40Z",
   "activeStage": "file-inventory",
-  "successfulRemediationRunsSinceFreshAudit": 9
+  "successfulRemediationRunsSinceFreshAudit": 10
 }

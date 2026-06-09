@@ -132,6 +132,7 @@ describe("QuickServicesClient", () => {
 			});
 		});
 		expect(await screen.findByText(/卸载已排队（job:job_qs_1），数据目录将保留/)).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
 	});
 
 	it("confirms uninstall with optional service data directory removal", async () => {
@@ -196,6 +197,7 @@ describe("QuickServicesClient", () => {
 			}));
 		});
 		expect(await screen.findByText(/更新已排队（job:job_qs_3），后台将拉取镜像并重建容器/)).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
 	});
 
 	it("cancels install from the configuration preview without creating a service", async () => {
@@ -247,6 +249,7 @@ describe("QuickServicesClient", () => {
 			}));
 		});
 		expect(await screen.findByText(/AList 安装已排队（job:job_qs_4）/)).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
 	});
 
 	it("uses an in-app confirmation before deleting an app source", async () => {
