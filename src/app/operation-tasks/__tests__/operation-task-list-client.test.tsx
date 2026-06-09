@@ -24,6 +24,7 @@ const initialTasks: OperationTask[] = [
     workerId: "worker-1",
     workerHeartbeatAt: "2026-01-01T00:01:00.000Z",
     progress: "后台执行器 worker-1 · 心跳 2026/1/1 08:01:00",
+    logPreview: ["systemctl restart app", "service restarted"],
   },
 ];
 const initialSourceSummary = [{ source: "command" as const, total: 1, attention: 1, failed: 0, running: 0, pending: 1 }];
@@ -45,6 +46,8 @@ describe("OperationTaskListClient", () => {
     expect(failure).toHaveTextContent("执行超时");
     expect(failure).toHaveTextContent("最新：重启服务");
     expect(screen.getByLabelText("排序偏好")).toHaveValue("recent");
+    expect(screen.getByLabelText("最近日志：重启服务")).toHaveTextContent("systemctl restart app");
+    expect(screen.getByLabelText("最近日志：重启服务")).toHaveTextContent("service restarted");
   });
 
   it("surfaces refresh failures and keeps the existing task list visible", async () => {

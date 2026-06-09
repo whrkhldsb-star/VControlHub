@@ -48,6 +48,8 @@ describe("operation task service", () => {
         workerId: null,
         workerHeartbeatAt: null,
         requester: { username: "alice", displayName: null },
+        targets: [],
+        executionLogs: [],
       },
     ]);
     mockPrisma.scheduledTask.findMany.mockResolvedValue([]);
@@ -317,6 +319,32 @@ describe("operation task service", () => {
     const tasks = await listOperationTasks({ limit: 10, sort: "attention" });
 
     expect(tasks.map((task) => task.id)).toEqual(["job:failed_old", "job:completed_new"]);
+  });
+
+  it("adds compact log previews from command execution logs and target output", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([
+      {
+        id: "cmd_logs",
+        title: "检查服务日志",
+        status: "FAILED",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        workerId: "worker-command",
+        workerHeartbeatAt: new Date("2026-01-04T00:01:00Z"),
+        requester: { username: "ops", displayName: null },
+        executionLogs: [{ summary: "开始执行" }, { summary: "目标返回错误" }],
+        targets: [{ stdout: "line 1\nline 2", stderr: "fatal: service unavailable" }],
+      },
+    ]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+
+    const tasks = await listOperationTasks({ limit: 10 });
+
+    expect(tasks[0]).toMatchObject({
+      id: "command:cmd_logs",
+      logPreview: ["line 2", "fatal: service unavailable", expect.stringContaining("后台执行器 worker-command")],
+    });
   });
 
   it("maps active deployment command requests as running operation tasks", async () => {
