@@ -33,10 +33,10 @@ function ConnectionTypeFields({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1.5">
-        <label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">
+      <fieldset className="space-y-1.5">
+        <legend className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">
           连接方式
-        </label>
+        </legend>
         <div className="flex gap-2">
           {(["SSH_KEY", "PASSWORD"] as const).map((type) => (
             <button
@@ -54,7 +54,7 @@ function ConnectionTypeFields({
           ))}
         </div>
         <input type="hidden" name="connectionType" value={connectionType} />
-      </div>
+      </fieldset>
 
       {connectionType === "SSH_KEY" ? (
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">

@@ -24,11 +24,10 @@ describe("ServerCreateForm", () => {
     const user = userEvent.setup();
 
     render(<ServerCreateForm sshKeys={[]} />);
+    expect(screen.getByRole("group", { name: "连接方式" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "密码" }));
 
-    const passwordInput = screen.getByPlaceholderText(
-      "留空，不使用默认密码",
-    ) as HTMLInputElement;
+    const passwordInput = screen.getByLabelText("密码") as HTMLInputElement;
     expect(passwordInput).toHaveValue("");
     expect(passwordInput).not.toHaveAttribute("value", expect.stringMatching(/.+/));
   });

@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-10T16:00:00Z",
+  "updatedAt": "2026-06-10T16:55:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -49,33 +49,32 @@
   ],
   "lastHealthyBaseline": {
     "date": "2026-06-10",
-    "typecheck": "passed via npm run verify after downloads create-link visible-label closeout",
+    "typecheck": "passed via npm run verify after server create connection group closeout",
     "lint": "passed via npm run verify",
-    "tests": "focused downloads client regression 6/6 passed; full suite passed via npm run verify (222 files / 1061 tests)",
+    "tests": "focused server-create-form regression 1/1 passed; full suite passed via npm run verify (222 files / 1061 tests)",
     "build": "passed via npm run verify",
     "runtimeBuild": "passed via npm run verify",
-    "smoke": "25/25 passed after downloads label deploy",
-    "production": "services active after restart; /api/status 200 with known storage pending-probe warning; /downloads DOM proved download-url and download-batch-links label associations, no alerts/overflow; recent logs clean"
+    "smoke": "25/25 passed after server-create-form deploy",
+    "production": "services active after restart; /api/status 200 with known storage pending-probe warning; deployed /servers DOM proved connection fieldset legend and password label association, no alerts/overflow; recent logs clean"
   },
   "lastRun": {
-    "id": "downloads-create-link-visible-label-closeout",
+    "id": "servers-create-connection-type-semantic-group-closeout",
     "stage": "completed_deployed_verified",
-    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的 placeholder-only/低可见度控件巡检切片",
-    "journey": "Operator opens /downloads, opens the create-download form, and identifies single-link and batch-link inputs by visible/accessibility labels instead of URL placeholder text.",
-    "changeContract": "UI/accessibility-only closeout for downloads creation link fields: add explicit htmlFor/id associations and update regression coverage to query by accessible names; do not change download API payloads, task creation semantics, targets, or production data.",
+    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的低可见度/语义分组巡检切片",
+    "journey": "Operator opens /servers, selects 添加 VPS, and can understand SSH 密钥/密码 as one connection-type group; selecting password reveals an empty password field addressed by visible label.",
+    "changeContract": "UI/accessibility-only closeout: replace visual-only connection label with fieldset/legend and update regression to query the password input by label; do not change server creation action payloads, SSH credential handling, or production server data.",
     "evidence": {
-      "preflight": "Recovered dirty worktree containing README plus downloads client/test changes; HEAD matched origin/main; services active.",
-      "browser_or_dom": "Authenticated production /downloads opened the create form; DOM proof showed label 下载链接 matched #download-url, label 下载链接（每行一个） matched #download-batch-links, alerts=[], overflow=false.",
+      "browser_or_dom": "Deployed production build at /servers showed fieldset legend 连接方式 with SSH 密钥/密码 buttons; after selecting 密码, label[for=serverPassword] text 密码 matched an empty password input; alerts=[], overflow=false.",
       "regression": [
         "git diff --check passed",
-        "focused npm test -- src/app/downloads/__tests__/downloads-client.test.tsx passed 6/6",
+        "npm test -- src/app/servers/__tests__/server-create-form.test.tsx passed 1/1",
         "npm run verify passed: typecheck, lint, 222 test files / 1061 tests, Next build, runtime build, deploy-assets"
       ],
-      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; smoke passed 25/25; /api/status 200 with known storage pending-probe warning.",
-      "logs": "Recent vcontrolhub-next/vcontrolhub-ssh-ws journal scan found no error/exception/failed/500/hydration/TypeError/ReferenceError matches.",
-      "cleanup": "No production download task, QA user, DB row, Docker container, backup artifact, or filesystem canary artifact was created."
+      "production": "Build artifacts deployed; vcontrolhub-next/vcontrolhub-ssh-ws restarted; Caddy reloaded; smoke passed 25/25; /api/status 200 with known storage pending-probe warning.",
+      "logs": "Recent next/ssh-ws logs showed only worker-start info and no error/exception/failed/500/hydration matches.",
+      "cleanup": "No VPS/server row, credential, QA user, DB row, Docker container, backup artifact, or filesystem canary artifact was created."
     },
-    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on other placeholder-only or dense controls; downloads create-link label gap is closed."
+    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on remaining placeholder-only, visual-only, or dense controls; server create connection-type grouping is closed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -90,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 16,
+    "successfulRemediationRunsSinceFreshAudit": 17,
     "skippedOverlapRuns": 0
   },
   "blockers": [

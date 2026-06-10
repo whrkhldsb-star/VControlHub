@@ -406,3 +406,10 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Verification: `git diff --check` passed; focused downloads client regression passed 6/6; full `npm run verify` passed (222 files / 1061 tests plus Next build, runtime build, deploy-assets).
 - Production: build artifacts deployed, services restarted/reloaded, smoke passed 25/25, `/api/status` returned 200 with known storage pending-probe warning, authenticated `/downloads` DOM proved `download-url` and `download-batch-links` label associations, no alerts, no horizontal overflow, recent service logs clean.
 - Residual: continue placeholder-only/low-visibility/mobile patrol on remaining dense controls.
+
+### 2026-06-10T16:55:00Z — Server create connection type semantic group
+- Scope: README P2 accessibility patrol for `/servers`; no server creation API or credential semantics changed.
+- Fixes: 添加 VPS form now renders SSH 密钥/密码 connection choices inside a `fieldset` with `legend` 连接方式; password regression queries by visible label instead of placeholder text.
+- Verification: `git diff --check` passed; focused server-create-form regression passed 1/1; full `npm run verify` passed (222 files / 1061 tests plus Next build, runtime build, deploy-assets).
+- Production: services restarted/reloaded, smoke passed 25/25, `/api/status` returned 200 with known storage pending-probe warning, deployed `/servers` DOM proved the connection group and empty password label association, no alerts/overflow, recent service logs clean.
+- Residual: continue P2 placeholder-only/low-visibility/mobile patrol on remaining dense controls.
