@@ -157,8 +157,8 @@ describe("AiClient destructive actions", () => {
     expect(promptSpy).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "修改对话标题" })).toBeInTheDocument();
 
-    await user.clear(screen.getByPlaceholderText("输入新的对话标题"));
-    await user.type(screen.getByPlaceholderText("输入新的对话标题"), "新的标题");
+    await user.clear(screen.getByLabelText("新标题"));
+    await user.type(screen.getByLabelText("新标题"), "新的标题");
     await user.click(screen.getByRole("button", { name: "保存标题" }));
 
     await waitFor(() => {

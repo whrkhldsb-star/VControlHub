@@ -727,9 +727,10 @@ if (data.conversation) {
             className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
           >
             <h3 id="rename-conversation-title" className="text-sm font-semibold text-white light:text-slate-900">修改对话标题</h3>
-            <label className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
+            <label htmlFor="rename-conversation-title-input" className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
               新标题
               <input
+                id="rename-conversation-title-input"
                 value={renameTitle}
                 onChange={(event) => setRenameTitle(event.target.value)}
                 autoFocus

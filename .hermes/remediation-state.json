@@ -49,42 +49,38 @@
   ],
   "lastHealthyBaseline": {
     "date": "2026-06-10",
-    "typecheck": "passed via focused scheduled-task regression/typecheck and full npm run verify",
+    "typecheck": "passed via npm run verify after AI rename dialog label closeout",
     "lint": "passed via npm run verify",
-    "tests": "focused scheduled-task client regression 6/6 passed; full suite passed via npm run verify (222 files / 1061 tests)",
+    "tests": "focused AI destructive-actions regression 5/5 passed; full suite passed via npm run verify (222 files / 1061 tests)",
     "build": "passed via npm run verify",
     "runtimeBuild": "passed via npm run verify",
-    "smoke": "25/25 passed after scheduled-tasks form-label deploy",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production /scheduled-tasks browser proof showed explicit labels/group in dark and light, no overflow/alerts; recent logs clean"
+    "smoke": "25/25 passed after AI rename dialog label deploy",
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production /ai loaded after login with no alerts/console errors, but current account had no visible conversation so rename dialog could not be opened without creating production data; recent logs clean"
   },
   "lastRun": {
-    "id": "scheduled-tasks-create-form-accessibility-style-closeout",
+    "id": "ai-rename-dialog-visible-label-closeout",
     "stage": "completed_deployed_verified",
     "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的 placeholder-only/低可见度控件巡检切片",
-    "journey": "Operator opens /scheduled-tasks, expands the create form, and can identify/edit task name, Cron, command, reason, and target-node fields by visible labels/accessibility names in a unified dark/light form style.",
-    "changeContract": "UI/accessibility/style-only closeout for scheduled-task create form: add explicit label associations and shared field style constants; do not change scheduled-task API payload, cron semantics, worker behavior, or deployment/runtime semantics.",
+    "journey": "Operator opens an existing AI conversation, clicks rename, and can identify/edit the new conversation title field by the visible/accessibility label 新标题 instead of depending on placeholder copy.",
+    "changeContract": "UI/accessibility-only closeout for the AI rename dialog: add explicit htmlFor/id association for the new-title input and update regression coverage to query by label; do not change AI provider setup, chat creation, message streaming, conversation PATCH payload, or destructive-action semantics.",
     "evidence": {
-      "preflight": "Clean git on entry at 02fcdc9 matching origin/main; vcontrolhub-next and vcontrolhub-ssh-ws active; no real overlapping build/test/deploy process found; README showed P2 accessibility/low-visibility controls still open.",
-      "browser_or_dom": "Production browser login opened /scheduled-tasks, expanded + 创建定时任务, and DOM proof showed labels 任务名称/Cron 表达式/命令内容/原因 / 备注 plus role=group 目标节点. Dark styles: inputs bg rgb(22,27,34), text rgb(240,246,252), border rgb(33,38,45). Light styles: inputs bg rgb(246,248,250), text rgb(31,35,40) or muted mono text rgb(89,99,110), border rgb(208,215,222), labelColor rgb(89,99,110). overflow=false; alerts=[].",
-      "api": "No API contract changed; scheduled-task create still POSTs name, cronExpression, command, reason, serverIds through existing CSRF client.",
-      "db_or_persisted_config": "No schema or persisted configuration changes; no production task row was created for verification.",
-      "background_task_or_process": "No scheduled-task worker semantics changed; verification stayed at create-form UI/accessibility and regression level.",
-      "runtime_or_ui_side_effect": "Create form fields are now discoverable by visible label/accessibility name and share fieldLabelClass/fieldInputClass/monoFieldInputClass, reducing copied low-contrast class drift.",
-      "permissions": "Authenticated admin browser session was used only to view the protected page; no permission boundary changed and unauth smoke auth checks still passed.",
+      "preflight": "Clean git on entry at bf82942 matching origin/main; vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; no real overlapping build/test/deploy process found; README still showed P2 accessibility/low-visibility controls open.",
+      "browser_or_dom": "Production browser login opened /ai successfully. DOM proof after wait showed buttons for + 新对话, 提供商管理, 收起侧栏, 配置 AI 提供商; no dialogs or alerts were present and bodyHasRename=false because the current production account had no visible conversation. The rename dialog DOM path is covered by the focused regression and unchanged business state was preserved by not creating a production conversation solely for QA.",
+      "api": "No API contract changed; conversation rename still PATCHes /api/ai/conversations/:id with JSON { title } through existing CSRF client.",
+      "db_or_persisted_config": "No schema or persisted configuration changes; no production conversation or provider row was created for verification.",
+      "background_task_or_process": "No background worker semantics changed; verification stayed at AI dialog UI/accessibility and regression level.",
+      "runtime_or_ui_side_effect": "The rename dialog input is now discoverable by visible label/accessibility name 新标题 through explicit htmlFor/id, and regression no longer depends on placeholder text.",
+      "permissions": "Authenticated admin browser session was used only to view the protected AI page; no permission boundary changed and unauth smoke auth checks still passed.",
       "regression": [
         "git diff --check passed",
-        "focused npm test -- src/app/scheduled-tasks/__tests__/scheduled-task-list-client.test.tsx passed 6/6",
-        "npm run typecheck passed",
-        "npm run lint passed",
-        "npm run build passed",
-        "npm run build:runtime passed",
-        "npm run verify passed: 222 files / 1061 tests plus Next build/runtime/deploy-assets"
+        "focused npm test -- src/app/ai/__tests__/ai-client-destructive-actions.test.tsx passed 5/5",
+        "npm run verify passed: typecheck, lint, 222 test files / 1061 tests, Next build, runtime build, and deploy-assets"
       ],
-      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; /api/status 200 with known storage待探测 warning.",
-      "logs": "Post-restart journal scan for vcontrolhub-next/vcontrolhub-ssh-ws over the checked window found no error/exception/failed/500/hydration/TypeError/ReferenceError matches; only normal worker-start info lines appeared.",
+      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; ./deploy/smoke-test.sh passed all 25 checks; /api/status 200 with known storage待探测 warning.",
+      "logs": "Post-restart journal scan for vcontrolhub-next/vcontrolhub-ssh-ws over the checked window found no error/exception/failed/500/hydration/TypeError/ReferenceError matches.",
       "cleanup": "No temporary QA users, DB rows, Docker containers, backup artifacts, or filesystem canary artifacts were created; no cleanup required."
     },
-    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on other low-traffic placeholder-only or dense controls; scheduled-task create form label/style gap is closed."
+    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on other low-traffic placeholder-only or dense controls; AI rename dialog label gap is closed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
