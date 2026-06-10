@@ -355,8 +355,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 					{form.batchMode ? (
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接（每行一个）</label>
-							<textarea aria-label="下载链接（每行一个）" value={form.batchText} onChange={(e) => setForm((p) => ({ ...p, batchText: e.target.value }))}
+							<label htmlFor="download-batch-links" className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接（每行一个）</label>
+							<textarea id="download-batch-links" value={form.batchText} onChange={(e) => setForm((p) => ({ ...p, batchText: e.target.value }))}
 								rows={6} placeholder="https://example.com/file1.zip&#10;https://example.com/file2.zip&#10;https://example.com/file3.iso"
 								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
 							/>
@@ -367,8 +367,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						</div>
 					) : (
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接</label>
-							<input value={form.url} onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
+							<label htmlFor="download-url" className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接</label>
+							<input id="download-url" type="url" value={form.url} onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
 								placeholder="https://example.com/file.zip 或 magnet:?xt=urn:btih:..."
 								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 							/>

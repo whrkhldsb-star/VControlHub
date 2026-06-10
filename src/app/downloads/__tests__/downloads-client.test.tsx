@@ -115,7 +115,7 @@ describe("DownloadsClient", () => {
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 
     await actor.click(await screen.findByRole("button", { name: "+ 新建下载" }));
-    await actor.type(screen.getByPlaceholderText("https://example.com/file.zip 或 magnet:?xt=urn:btih:..."), "https://example.com/a.iso");
+    await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
     await actor.click(screen.getByRole("button", { name: "开始下载" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("目标路径不可写");

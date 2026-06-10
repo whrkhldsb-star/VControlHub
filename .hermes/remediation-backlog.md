@@ -399,3 +399,10 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Production: build artifacts existed; `.next`/`dist` ownership repaired; `vcontrolhub-next.service` and `vcontrolhub-ssh-ws.service` restarted; Caddy reloaded; smoke passed 25/25; `/api/status` returned 200 with known storage待探测 warning; unauth `/operation-tasks` redirected to login; authenticated browser login as temporary QA admin reached `/operation-tasks`, showed “导出当前结果 CSV”, no horizontal overflow/alerts, and authenticated fetch of `/api/operation-tasks?format=csv&status=attention&taskType=alert.evaluate&sort=attention` returned 200 `text/csv` attachment with the expected header row.
 - Cleanup: temporary QA user `qa_op_tasks_csv_1781025`, password/user temp files, and one-off `/tmp` TS scripts were deleted; remaining `qa_op_tasks_csv_*` count is 0; single 6G `/swapfile` steady state preserved and recent next/ssh-ws logs were clean.
 - Residual: cross-source long-term archive/retention policy remains, especially for command/download/backup/deployment histories on large instances.
+
+### 2026-06-10T16:00:00Z — Downloads create-link visible labels
+- Scope: README P2 accessibility patrol for `/downloads`; no download API or task semantics changed.
+- Fixes: single-link and batch-link creation fields now use explicit visible labels with `htmlFor/id`; regression queries by accessible textbox names instead of URL placeholder text.
+- Verification: `git diff --check` passed; focused downloads client regression passed 6/6; full `npm run verify` passed (222 files / 1061 tests plus Next build, runtime build, deploy-assets).
+- Production: build artifacts deployed, services restarted/reloaded, smoke passed 25/25, `/api/status` returned 200 with known storage pending-probe warning, authenticated `/downloads` DOM proved `download-url` and `download-batch-links` label associations, no alerts, no horizontal overflow, recent service logs clean.
+- Residual: continue placeholder-only/low-visibility/mobile patrol on remaining dense controls.
