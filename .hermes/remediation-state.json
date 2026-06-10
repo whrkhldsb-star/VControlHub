@@ -49,38 +49,38 @@
   ],
   "lastHealthyBaseline": {
     "date": "2026-06-10",
-    "typecheck": "passed via npm run verify after AI rename dialog label closeout",
+    "typecheck": "passed via npm run verify after 2FA verification-code visible-label closeout",
     "lint": "passed via npm run verify",
-    "tests": "focused AI destructive-actions regression 5/5 passed; full suite passed via npm run verify (222 files / 1061 tests)",
+    "tests": "focused two-factor settings regression 5/5 passed; full suite passed via npm run verify (222 files / 1061 tests)",
     "build": "passed via npm run verify",
     "runtimeBuild": "passed via npm run verify",
-    "smoke": "25/25 passed after AI rename dialog label deploy",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production /ai loaded after login with no alerts/console errors, but current account had no visible conversation so rename dialog could not be opened without creating production data; recent logs clean"
+    "smoke": "25/25 passed after 2FA verification-code label deploy",
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production /settings 2FA setup panel opened without enabling 2FA, label 6位验证码 matched input id two-factor-setup-code, no alerts/overflow; cancelling returned 2FA to 未启用; recent logs clean"
   },
   "lastRun": {
-    "id": "ai-rename-dialog-visible-label-closeout",
+    "id": "two-factor-verification-code-visible-label-closeout",
     "stage": "completed_deployed_verified",
     "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的 placeholder-only/低可见度控件巡检切片",
-    "journey": "Operator opens an existing AI conversation, clicks rename, and can identify/edit the new conversation title field by the visible/accessibility label 新标题 instead of depending on placeholder copy.",
-    "changeContract": "UI/accessibility-only closeout for the AI rename dialog: add explicit htmlFor/id association for the new-title input and update regression coverage to query by label; do not change AI provider setup, chat creation, message streaming, conversation PATCH payload, or destructive-action semantics.",
+    "journey": "Operator opens /settings account security, starts 2FA setup or disable flow, and can identify the one-time-code input by visible/accessibility labels instead of the 000000 placeholder.",
+    "changeContract": "UI/accessibility-only closeout for 2FA code inputs: add explicit htmlFor/id associations for setup and disable verification-code fields and update regression coverage to query by label; do not change 2FA setup/enable/disable API payloads, QR generation, secret handling, session behavior, or production 2FA state.",
     "evidence": {
-      "preflight": "Clean git on entry at bf82942 matching origin/main; vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; no real overlapping build/test/deploy process found; README still showed P2 accessibility/low-visibility controls open.",
-      "browser_or_dom": "Production browser login opened /ai successfully. DOM proof after wait showed buttons for + 新对话, 提供商管理, 收起侧栏, 配置 AI 提供商; no dialogs or alerts were present and bodyHasRename=false because the current production account had no visible conversation. The rename dialog DOM path is covered by the focused regression and unchanged business state was preserved by not creating a production conversation solely for QA.",
-      "api": "No API contract changed; conversation rename still PATCHes /api/ai/conversations/:id with JSON { title } through existing CSRF client.",
-      "db_or_persisted_config": "No schema or persisted configuration changes; no production conversation or provider row was created for verification.",
-      "background_task_or_process": "No background worker semantics changed; verification stayed at AI dialog UI/accessibility and regression level.",
-      "runtime_or_ui_side_effect": "The rename dialog input is now discoverable by visible label/accessibility name 新标题 through explicit htmlFor/id, and regression no longer depends on placeholder text.",
-      "permissions": "Authenticated admin browser session was used only to view the protected AI page; no permission boundary changed and unauth smoke auth checks still passed.",
+      "preflight": "Recovered from interruption with dirty worktree containing README plus two-factor-settings component/test changes; HEAD 4b4d3d0 matched origin/main; vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active; recent logs showed only normal worker-start info.",
+      "browser_or_dom": "Production browser login opened /settings. Since 2FA was 未启用, clicked 开启两步验证 to render setup without enabling 2FA. DOM proof showed label text 6位验证码, input id two-factor-setup-code, label[for] matched input id, placeholder remained 000000 as format hint, alerts=[], overflow=false. Clicked 取消 and confirmed setupInputExists=false and page returned to 未启用/开启两步验证, so production 2FA state was unchanged.",
+      "api": "No API contract changed; 2FA setup still POSTs /api/auth/2fa/setup, enable still PUTs setup verification then POSTs /api/auth/2fa/enable, disable still POSTs /api/auth/2fa/disable with the same code payload.",
+      "db_or_persisted_config": "No schema or persisted configuration changes; production verification cancelled before enabling 2FA and did not persist a 2FA state change.",
+      "background_task_or_process": "No background worker semantics changed; verification stayed at settings UI/accessibility and regression level.",
+      "runtime_or_ui_side_effect": "Setup code input is discoverable by label 6位验证码 and disable code input by label 当前验证码 through explicit htmlFor/id; tests no longer query placeholder 000000.",
+      "permissions": "Authenticated admin browser session was used only to view settings and open/cancel 2FA setup; no permission boundary changed and unauth smoke auth checks still passed.",
       "regression": [
         "git diff --check passed",
-        "focused npm test -- src/app/ai/__tests__/ai-client-destructive-actions.test.tsx passed 5/5",
+        "focused npm test -- src/components/__tests__/two-factor-settings.test.tsx passed 5/5",
         "npm run verify passed: typecheck, lint, 222 test files / 1061 tests, Next build, runtime build, and deploy-assets"
       ],
       "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; ./deploy/smoke-test.sh passed all 25 checks; /api/status 200 with known storage待探测 warning.",
-      "logs": "Post-restart journal scan for vcontrolhub-next/vcontrolhub-ssh-ws over the checked window found no error/exception/failed/500/hydration/TypeError/ReferenceError matches.",
-      "cleanup": "No temporary QA users, DB rows, Docker containers, backup artifacts, or filesystem canary artifacts were created; no cleanup required."
+      "logs": "Post-restart journal scan for vcontrolhub-next/vcontrolhub-ssh-ws over the checked window found no error/exception/failed/500/hydration/TypeError/ReferenceError matches; only worker-start info appeared.",
+      "cleanup": "No temporary QA users, DB rows, Docker containers, backup artifacts, or filesystem canary artifacts were created; 2FA setup was cancelled before enable, so no cleanup required."
     },
-    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on other low-traffic placeholder-only or dense controls; AI rename dialog label gap is closed."
+    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on other low-traffic placeholder-only or dense controls; 2FA verification-code label gap is closed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",

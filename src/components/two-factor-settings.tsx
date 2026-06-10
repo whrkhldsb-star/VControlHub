@@ -137,8 +137,12 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 					<p className="text-xs text-slate-400 light:text-slate-600">
 						2. 输入验证器 App 中显示的6位验证码：
 					</p>
+					<label htmlFor="two-factor-setup-code" className="block text-xs font-medium text-slate-300 light:text-slate-700">
+						6位验证码
+					</label>
 					<div className="flex gap-2">
 						<input
+							id="two-factor-setup-code"
 							type="text"
 							maxLength={6}
 							value={code}
@@ -166,8 +170,12 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 			{step === "disable" && (
 				<div className="space-y-4">
 					<p className="text-xs text-slate-400 light:text-slate-600">输入验证器 App 中的当前验证码以关闭两步验证：</p>
+					<label htmlFor="two-factor-disable-code" className="block text-xs font-medium text-slate-300 light:text-slate-700">
+						当前验证码
+					</label>
 					<div className="flex gap-2">
 						<input
+							id="two-factor-disable-code"
 							type="text"
 							maxLength={6}
 							value={code}

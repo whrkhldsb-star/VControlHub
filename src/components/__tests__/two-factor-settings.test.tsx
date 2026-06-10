@@ -53,7 +53,7 @@ describe("TwoFactorSettings", () => {
 
 		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
 		expect(await screen.findByText("密钥（手动输入）：")).toBeInTheDocument();
-		await user.type(screen.getByPlaceholderText("000000"), "123456");
+		await user.type(screen.getByLabelText("6位验证码"), "123456");
 		await user.click(screen.getByRole("button", { name: "确认启用" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("启用失败");
@@ -73,7 +73,7 @@ describe("TwoFactorSettings", () => {
 		render(<TwoFactorSettings enabled={false} />);
 
 		await user.click(screen.getByRole("button", { name: "开启两步验证" }));
-		await user.type(await screen.findByPlaceholderText("000000"), "123456");
+		await user.type(await screen.findByLabelText("6位验证码"), "123456");
 		await user.click(screen.getByRole("button", { name: "确认启用" }));
 
 		expect(refreshMock).toHaveBeenCalledTimes(1);
@@ -87,7 +87,7 @@ describe("TwoFactorSettings", () => {
 		render(<TwoFactorSettings enabled={true} />);
 
 		await user.click(screen.getByRole("button", { name: "关闭两步验证" }));
-		await user.type(screen.getByPlaceholderText("000000"), "654321");
+		await user.type(screen.getByLabelText("当前验证码"), "654321");
 		await user.click(screen.getByRole("button", { name: "确认关闭" }));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("关闭失败");
@@ -103,7 +103,7 @@ describe("TwoFactorSettings", () => {
 		render(<TwoFactorSettings enabled={true} />);
 
 		await user.click(screen.getByRole("button", { name: "关闭两步验证" }));
-		await user.type(screen.getByPlaceholderText("000000"), "654321");
+		await user.type(screen.getByLabelText("当前验证码"), "654321");
 		await user.click(screen.getByRole("button", { name: "确认关闭" }));
 
 		expect(refreshMock).toHaveBeenCalledTimes(1);
