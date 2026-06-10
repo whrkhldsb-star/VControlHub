@@ -42,12 +42,13 @@ describe("ScheduledTaskListClient", () => {
     render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate canManage />);
 
     await actor.click(screen.getByRole("button", { name: "+ 创建定时任务" }));
-    await actor.type(screen.getByPlaceholderText("例如：清理日志"), "清理日志");
-    await actor.clear(screen.getByPlaceholderText("0 3 * * *"));
-    await actor.type(screen.getByPlaceholderText("0 3 * * *"), "0 2 * * *");
+    await actor.type(screen.getByRole("textbox", { name: "任务名称" }), "清理日志");
+    await actor.clear(screen.getByRole("textbox", { name: "Cron 表达式" }));
+    await actor.type(screen.getByRole("textbox", { name: "Cron 表达式" }), "0 2 * * *");
     expect(screen.getByText("预览：每天 2:00 执行")).toBeInTheDocument();
-    await actor.type(screen.getByPlaceholderText("df -h"), "journalctl --vacuum-time=7d");
+    await actor.type(screen.getByRole("textbox", { name: "命令内容" }), "journalctl --vacuum-time=7d");
     await actor.click(screen.getByRole("checkbox", { name: "主节点" }));
+    expect(screen.getByRole("group", { name: "目标节点" })).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "创建任务" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/scheduled-tasks", expect.objectContaining({
@@ -101,8 +102,8 @@ describe("ScheduledTaskListClient", () => {
     render(<ScheduledTaskListClient tasks={[]} servers={servers} canCreate canManage />);
 
     await actor.click(screen.getByRole("button", { name: "+ 创建定时任务" }));
-    await actor.type(screen.getByPlaceholderText("例如：清理日志"), "清理日志");
-    await actor.type(screen.getByPlaceholderText("df -h"), "df -h");
+    await actor.type(screen.getByRole("textbox", { name: "任务名称" }), "清理日志");
+    await actor.type(screen.getByRole("textbox", { name: "命令内容" }), "df -h");
     await actor.click(screen.getByRole("checkbox", { name: "主节点" }));
     await actor.click(screen.getByRole("button", { name: "创建任务" }));
 

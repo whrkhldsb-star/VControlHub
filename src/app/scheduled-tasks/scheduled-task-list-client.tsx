@@ -45,6 +45,10 @@ function matchesTask(task: Task, query: string) {
 		.some((value) => String(value).toLowerCase().includes(needle));
 }
 
+const fieldLabelClass = "text-xs font-medium text-slate-300 light:text-slate-700 tracking-wide";
+const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 light:placeholder:text-slate-500 focus:border-cyan-400/30";
+const monoFieldInputClass = `${fieldInputClass} font-mono`;
+
 function describeCronPreview(expr: string) {
 	const parts = expr.trim().split(/\s+/);
 	if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
@@ -294,13 +298,13 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">任务名称</label>
-				<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：清理日志" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>任务名称</label>
+				<input id="scheduled-task-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：清理日志" className={fieldInputClass} />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">Cron 表达式</label>
-				<input value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>Cron 表达式</label>
+				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
 				<p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
@@ -318,19 +322,19 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">命令内容</label>
-				<textarea value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="df -h" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
+				<label htmlFor="scheduled-task-command" className={fieldLabelClass}>命令内容</label>
+				<textarea id="scheduled-task-command" value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="df -h" className={`${monoFieldInputClass} resize-y`} />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">原因 / 备注</label>
-				<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>原因 / 备注</label>
+				<input id="scheduled-task-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="可选" className={fieldInputClass} />
 			</div>
 
 			{enabledServers.length > 0 && (
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">目标节点</label>
-					<div className="grid gap-1.5 sm:grid-cols-2">
+					<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>目标节点</div>
+					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white light:text-slate-900" : "border-white/[0.06] bg-white/[0.03] text-slate-300 light:text-slate-700 hover:bg-white/[0.05]"

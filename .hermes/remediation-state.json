@@ -48,40 +48,43 @@
     "operator guidance"
   ],
   "lastHealthyBaseline": {
-    "date": "2026-06-09",
-    "typecheck": "passed via targeted npm run typecheck and full npm run verify",
+    "date": "2026-06-10",
+    "typecheck": "passed via focused scheduled-task regression/typecheck and full npm run verify",
     "lint": "passed via npm run verify",
-    "tests": "RestoreBackupButton focused regression 3/3 passed; full suite passed via npm run verify",
+    "tests": "focused scheduled-task client regression 6/6 passed; full suite passed via npm run verify (222 files / 1061 tests)",
     "build": "passed via npm run verify",
     "runtimeBuild": "passed via npm run verify",
-    "smoke": "25/25 passed after backups restore-label deploy",
-    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production backups page chunk contains 输入 RESTORE 确认恢复 and no old 确认文本 label; recent logs clean; single 6G /swapfile preserved"
+    "smoke": "25/25 passed after scheduled-tasks form-label deploy",
+    "production": "vcontrolhub-next, vcontrolhub-ssh-ws, and caddy active after restart; /api/status 200 with known storage待探测 warning; production /scheduled-tasks browser proof showed explicit labels/group in dark and light, no overflow/alerts; recent logs clean"
   },
   "lastRun": {
-    "id": "quick-service-lifecycle-task-logging",
+    "id": "scheduled-tasks-create-form-accessibility-style-closeout",
     "stage": "completed_deployed_verified",
-    "selectedReadmeItem": "Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）中的 QuickService 生命周期任务日志可观测子切片",
-    "journey": "Operator triggers a queued QuickService lifecycle action and uses Operation Tasks to inspect action-specific progress plus final logPreview context without leaving the task-center triage flow.",
-    "changeContract": "Enhance quick_service.lifecycle worker observability only: reuse existing Job progress/result.logPreview fields, do not add schema, and do not change Docker install/update/start/stop/sync/uninstall semantics.",
+    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的 placeholder-only/低可见度控件巡检切片",
+    "journey": "Operator opens /scheduled-tasks, expands the create form, and can identify/edit task name, Cron, command, reason, and target-node fields by visible labels/accessibility names in a unified dark/light form style.",
+    "changeContract": "UI/accessibility/style-only closeout for scheduled-task create form: add explicit label associations and shared field style constants; do not change scheduled-task API payload, cron semantics, worker behavior, or deployment/runtime semantics.",
     "evidence": {
-      "preflight": "Clean git on entry at 73eaa39 matching origin/main; no verify/build/test/deploy overlap; vcontrolhub-next, vcontrolhub-ssh-ws, caddy active; /api/status 200; recent next/ssh-ws logs clean; Docker available; single 6G /swapfile steady.",
-      "browser_or_dom": "User-facing surface is the existing Operation Tasks progress/logPreview renderer; focused service regressions prove the QuickService lifecycle worker now supplies those fields, and production auth-boundary probes for /operation-tasks and /quick-services returned 307 to login after deployment.",
-      "api": "No API contract change; QuickService lifecycle APIs continue returning queued durable jobs while the worker enriches existing job progress/result fields consumed by /api/operation-tasks.",
-      "db_or_persisted_config": "No migration or new table; Job.progress heartbeat values and completeJob result.logPreview carry the new observability payload.",
-      "background_task_or_process": "Focused worker regression exercised runQuickServiceJobWorkerOnce for quick_service.lifecycle update jobs and verified heartbeat/completeJob calls, including updateService health/logTail in logPreview.",
-      "runtime_or_ui_side_effect": "Task Center can now show specific lifecycle stages such as preparing update and updating/rebuilding plus a final log preview with health/log tail for QuickService lifecycle jobs.",
-      "permissions": "No permission boundary changed; lifecycle actions remain behind existing QuickService auth/CSRF route guards and /operation-tasks remains protected.",
+      "preflight": "Clean git on entry at 02fcdc9 matching origin/main; vcontrolhub-next and vcontrolhub-ssh-ws active; no real overlapping build/test/deploy process found; README showed P2 accessibility/low-visibility controls still open.",
+      "browser_or_dom": "Production browser login opened /scheduled-tasks, expanded + 创建定时任务, and DOM proof showed labels 任务名称/Cron 表达式/命令内容/原因 / 备注 plus role=group 目标节点. Dark styles: inputs bg rgb(22,27,34), text rgb(240,246,252), border rgb(33,38,45). Light styles: inputs bg rgb(246,248,250), text rgb(31,35,40) or muted mono text rgb(89,99,110), border rgb(208,215,222), labelColor rgb(89,99,110). overflow=false; alerts=[].",
+      "api": "No API contract changed; scheduled-task create still POSTs name, cronExpression, command, reason, serverIds through existing CSRF client.",
+      "db_or_persisted_config": "No schema or persisted configuration changes; no production task row was created for verification.",
+      "background_task_or_process": "No scheduled-task worker semantics changed; verification stayed at create-form UI/accessibility and regression level.",
+      "runtime_or_ui_side_effect": "Create form fields are now discoverable by visible label/accessibility name and share fieldLabelClass/fieldInputClass/monoFieldInputClass, reducing copied low-contrast class drift.",
+      "permissions": "Authenticated admin browser session was used only to view the protected page; no permission boundary changed and unauth smoke auth checks still passed.",
       "regression": [
-        "git diff --check passed after removing trailing blank line",
-        "npx vitest run src/lib/quick-service/job-worker.test.ts src/lib/operation-task/__tests__/service.test.ts --reporter=dot passed: 2 files / 12 tests",
+        "git diff --check passed",
+        "focused npm test -- src/app/scheduled-tasks/__tests__/scheduled-task-list-client.test.tsx passed 6/6",
         "npm run typecheck passed",
+        "npm run lint passed",
+        "npm run build passed",
+        "npm run build:runtime passed",
         "npm run verify passed: 222 files / 1061 tests plus Next build/runtime/deploy-assets"
       ],
-      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; smoke 25/25 passed; /api/status 200 with known storage待探测 warning; unauth /operation-tasks and /quick-services redirected to login; recent logs clean; single 6G /swapfile preserved.",
-      "logs": "Preflight recent journal scan for vcontrolhub-next/vcontrolhub-ssh-ws found no error/warn/failed/exception/EACCES/docker/known_hosts/Server Action matches.",
-      "cleanup": "No temporary QA users, containers, DB records, or filesystem artifacts were created; no cleanup required."
+      "production": "Build artifacts existed; ownership corrected; vcontrolhub-next and vcontrolhub-ssh-ws restarted; Caddy reloaded; services active; ./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub passed all 25 checks; /api/status 200 with known storage待探测 warning.",
+      "logs": "Post-restart journal scan for vcontrolhub-next/vcontrolhub-ssh-ws over the checked window found no error/exception/failed/500/hydration/TypeError/ReferenceError matches; only normal worker-start info lines appeared.",
+      "cleanup": "No temporary QA users, DB rows, Docker containers, backup artifacts, or filesystem canary artifacts were created; no cleanup required."
     },
-    "residual": "QuickService residuals are now safer failed-job rollback, true config diff/rollback history, Direct Gateway TLS/VPN/firewall/default transport hardening, and broader task archive/retention policy; config preview and basic lifecycle log observability are no longer residual."
+    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on other low-traffic placeholder-only or dense controls; scheduled-task create form label/style gap is closed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -96,7 +99,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 14,
+    "successfulRemediationRunsSinceFreshAudit": 15,
     "skippedOverlapRuns": 0
   },
   "blockers": [
