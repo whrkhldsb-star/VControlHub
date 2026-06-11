@@ -29,7 +29,7 @@ function getMonitoringErrorMessage(error: unknown): string {
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-      <h3 className="mb-3 text-xs font-medium text-slate-400 light:text-slate-600">{title}</h3>
+      <h3 className="mb-3 text-xs font-medium text-slate-400">{title}</h3>
       {children}
     </div>
   );
@@ -40,7 +40,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between py-1.5">
       <span className="text-xs text-slate-500">{label}</span>
-      <span className="font-mono text-xs text-white light:text-slate-900">{value}</span>
+      <span className="font-mono text-xs text-white">{value}</span>
     </div>
   );
 }
@@ -106,14 +106,14 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   if (!stats) {
     return (
       <PageShell>
-        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-sm text-rose-100 light:text-rose-900">
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-sm text-rose-100">
           <h1 className="mb-2 text-xl font-semibold text-rose-50">无法获取监控数据</h1>
-          <p className="text-rose-100/80 light:text-rose-900/80">{errorMessage ?? "监控接口暂时没有返回可用数据，请稍后重试。"}</p>
+          <p className="text-rose-100/80/80">{errorMessage ?? "监控接口暂时没有返回可用数据，请稍后重试。"}</p>
           <button
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
-            className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white light:text-slate-900 transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {refreshing ? "重试中..." : "重试"}
           </button>
@@ -125,10 +125,10 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   return (
     <PageShell>
       <h1 className="mb-1 text-2xl font-bold">服务器监控</h1>
-      <p className="mb-6 text-slate-400 light:text-slate-600">实时系统资源监控</p>
+      <p className="mb-6 text-slate-400">实时系统资源监控</p>
 
       {errorMessage ? (
-        <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 light:text-amber-900">
+        <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
           上次刷新失败：{errorMessage}
         </div>
       ) : null}
@@ -146,7 +146,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           type="button"
           onClick={() => setAutoRefresh(!autoRefresh)}
           disabled={refreshIntervalSeconds <= 0}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-slate-700/50 light:bg-slate-200/50 text-slate-400 light:text-slate-600"}`}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-slate-700/50 light:bg-slate-200/50 text-slate-400"}`}
         >
           {autoRefresh ? `● 自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})` : refreshIntervalSeconds <= 0 ? "自动刷新已关闭" : `自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})`}
         </button>
@@ -167,7 +167,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         <Card title="🌐 网络">
           {stats.network.length > 0 ? stats.network.map((n) => (
             <div key={n.iface} className="py-1.5">
-              <div className="font-mono text-xs text-white light:text-slate-900">{n.iface}</div>
+              <div className="font-mono text-xs text-white">{n.iface}</div>
               <div className="text-[10px] text-slate-500">↓ {n.rx} ↑ {n.tx}</div>
             </div>
           )) : <Row label="无数据" value="-" />}
@@ -192,10 +192,10 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             <tbody>
               {stats.topProcesses.map((p) => (
                 <tr key={p.pid} className="border-b border-white/[0.03]">
-                  <td className="py-1.5 font-mono text-slate-400 light:text-slate-600">{p.pid}</td>
+                  <td className="py-1.5 font-mono text-slate-400">{p.pid}</td>
                   <td className="py-1.5 text-right text-amber-400">{p.cpu}</td>
                   <td className="py-1.5 text-right text-cyan-400">{p.mem}</td>
-                  <td className="max-w-[200px] truncate py-1.5 pl-4 text-white light:text-slate-900">{p.cmd}</td>
+                  <td className="max-w-[200px] truncate py-1.5 pl-4 text-white">{p.cmd}</td>
                 </tr>
               ))}
             </tbody>

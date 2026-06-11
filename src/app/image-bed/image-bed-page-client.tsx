@@ -312,42 +312,42 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			<div className="mb-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-emerald-950/20 light:border-slate-200 light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/70">
 				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300 light:text-cyan-700/70">Link Center</p>
-						<h1 className="mt-2 text-3xl font-semibold text-white light:text-slate-950">图片外链中心</h1>
-						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 light:text-slate-600">这里专注管理已发布图片外链：复制 URL / Markdown / HTML、查看来源、批量归档或删除。新增图片优先从媒体库图片工作区进入。</p>
+						<p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300/70">Link Center</p>
+						<h1 className="mt-2 text-3xl font-semibold text-white">图片外链中心</h1>
+						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">这里专注管理已发布图片外链：复制 URL / Markdown / HTML、查看来源、批量归档或删除。新增图片优先从媒体库图片工作区进入。</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
-						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-white transition hover:bg-emerald-400 light:text-emerald-950">🖼 打开图片工作区</Link>
-						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-blue-400/25 bg-blue-500/10 px-4 py-2 font-medium text-blue-300 transition hover:bg-blue-500/20 light:text-blue-800">☁️ 从云盘发布</button>}
+						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-white transition hover:bg-emerald-400">🖼 打开图片工作区</Link>
+						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-blue-400/25 bg-blue-500/10 px-4 py-2 font-medium text-blue-300 transition hover:bg-blue-500/20">☁️ 从云盘发布</button>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white light:text-slate-950">{total}</div><div className="text-slate-400 light:text-slate-600">已发布外链</div></div>
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white light:text-slate-950">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-slate-400 light:text-slate-600">可追溯来源</div></div>
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white light:text-slate-950">{images.filter((img) => img.isPublic).length}</div><div className="text-slate-400 light:text-slate-600">当前页公开</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white">{total}</div><div className="text-slate-400">已发布外链</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-slate-400">可追溯来源</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:border-slate-200 light:bg-white/75"><div className="text-lg font-semibold text-white">{images.filter((img) => img.isPublic).length}</div><div className="text-slate-400">当前页公开</div></div>
 				</div>
 			</div>
 
 			<div className="mb-5 grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
 				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
-					<h2 className="text-sm font-semibold text-white light:text-slate-950">发布路径</h2>
+					<h2 className="text-sm font-semibold text-white">发布路径</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-						<Link href="/media?type=image" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-emerald-100 transition hover:bg-emerald-400/15 light:text-emerald-900"><span className="block text-lg">① 媒体库图片</span><span className="mt-1 block text-xs opacity-75">上传、扫描、卡片发布</span></Link>
-						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-blue-100 transition hover:bg-blue-400/15 light:text-blue-900"><span className="block text-lg">② 云盘路径发布</span><span className="mt-1 block text-xs opacity-75">输入 LOCAL/SFTP 文件路径</span></button>
-						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-left text-amber-100 transition hover:bg-amber-400/15 light:text-amber-900"><span className="block text-lg">③ 兼容直传</span><span className="mt-1 block text-xs opacity-75">仅用于旧流程临时上传</span></button>
+						<Link href="/media?type=image" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-emerald-100 transition hover:bg-emerald-400/15"><span className="block text-lg">① 媒体库图片</span><span className="mt-1 block text-xs opacity-75">上传、扫描、卡片发布</span></Link>
+						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-blue-100 transition hover:bg-blue-400/15"><span className="block text-lg">② 云盘路径发布</span><span className="mt-1 block text-xs opacity-75">输入 LOCAL/SFTP 文件路径</span></button>
+						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-left text-amber-100 transition hover:bg-amber-400/15"><span className="block text-lg">③ 兼容直传</span><span className="mt-1 block text-xs opacity-75">仅用于旧流程临时上传</span></button>
 					</div>
 				</div>
 				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
 					<div className="flex items-center justify-between gap-2">
 						<div>
-							<h2 className="text-sm font-semibold text-white light:text-slate-950">管理视图</h2>
+							<h2 className="text-sm font-semibold text-white">管理视图</h2>
 							<p className="mt-1 text-xs text-slate-500">切换范围、统计和批量操作集中在这里。</p>
 						</div>
 						<button onClick={fetchStats} className="rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20 light:text-purple-700">📊 统计</button>
 					</div>
 					<div className="mt-3 flex flex-wrap gap-2 text-xs">
-						<button onClick={() => { setShowAll(!showAll); }} className={`rounded-full px-3 py-1.5 transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100 light:text-slate-600"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
-						{canWrite && <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }} className={`rounded-full px-3 py-1.5 transition ${batchMode ? "bg-amber-500/20 text-amber-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100 light:text-slate-600"}`}>{batchMode ? "✓ 批量模式" : "☐ 批量模式"}</button>}
+						<button onClick={() => { setShowAll(!showAll); }} className={`rounded-full px-3 py-1.5 transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
+						{canWrite && <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }} className={`rounded-full px-3 py-1.5 transition ${batchMode ? "bg-amber-500/20 text-amber-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100"}`}>{batchMode ? "✓ 批量模式" : "☐ 批量模式"}</button>}
 					</div>
 				</div>
 			</div>
@@ -355,16 +355,16 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Batch Operations Bar */}
 			{batchMode && canWrite && (
 				<div className="mt-3 flex items-center gap-3 p-3 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-xl">
-					<span className="text-xs text-slate-400 light:text-slate-600">已选 {selectedIds.size} 张</span>
-					<button onClick={selectAll} className="px-2 py-1 text-xs bg-slate-700 light:bg-slate-200 text-slate-300 light:text-slate-700 rounded hover:bg-slate-600 transition">
+					<span className="text-xs text-slate-400">已选 {selectedIds.size} 张</span>
+					<button onClick={selectAll} className="px-2 py-1 text-xs bg-slate-700 light:bg-slate-200 text-slate-300 rounded hover:bg-slate-600 transition">
 						{selectedIds.size === images.length ? "取消全选" : "全选"}
 					</button>
 					{canDelete && (
 						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
 					)}
 					<div className="flex items-center gap-1">
-						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 light:bg-white/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 light:text-slate-800 w-28 focus:outline-none focus:border-cyan-400/50" />
-						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 light:text-cyan-700 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
+						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 light:bg-white/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
+						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
 					</div>
 					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 transition disabled:opacity-30">🔄 切换公开</button>
 				</div>
@@ -374,30 +374,30 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{showStats && stats && (
 				<div className="mt-3 p-4 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-xl">
 					<div className="flex items-center justify-between mb-3">
-						<h3 className="text-sm font-semibold text-white light:text-slate-900">📊 图床统计</h3>
+						<h3 className="text-sm font-semibold text-white">📊 图床统计</h3>
 						<button onClick={() => setShowStats(false)} className="text-slate-500 hover:text-slate-300 text-sm">✕</button>
 					</div>
 					<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
 						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">总图片数</div>
-							<div className="text-xl font-bold text-white light:text-slate-900">{stats.totalCount}</div>
+							<div className="text-xl font-bold text-white">{stats.totalCount}</div>
 						</div>
 						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">总存储量</div>
-							<div className="text-xl font-bold text-white light:text-slate-900">{stats.totalSizeMB} MB</div>
+							<div className="text-xl font-bold text-white">{stats.totalSizeMB} MB</div>
 						</div>
 						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">相册数</div>
-							<div className="text-xl font-bold text-white light:text-slate-900">{stats.albums.length}</div>
+							<div className="text-xl font-bold text-white">{stats.albums.length}</div>
 						</div>
 						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">近7天上传</div>
-							<div className="text-xl font-bold text-white light:text-slate-900">{stats.uploadTrend.reduce((s, t) => s + t.count, 0)}</div>
+							<div className="text-xl font-bold text-white">{stats.uploadTrend.reduce((s, t) => s + t.count, 0)}</div>
 						</div>
 					</div>
 					{stats.uploadTrend.length > 0 && (
 						<div className="mb-3">
-							<div className="text-xs text-slate-400 light:text-slate-600 mb-1">📈 上传趋势（近7天）</div>
+							<div className="text-xs text-slate-400 mb-1">📈 上传趋势（近7天）</div>
 							<div className="flex items-end gap-1 h-16">
 								{stats.uploadTrend.map((t) => {
 									const maxCount = Math.max(...stats.uploadTrend.map((x) => x.count), 1);
@@ -415,11 +415,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					)}
 					{stats.albums.length > 0 && (
 						<div>
-							<div className="text-xs text-slate-400 light:text-slate-600 mb-1">📁 相册分布</div>
+							<div className="text-xs text-slate-400 mb-1">📁 相册分布</div>
 							<div className="space-y-1">
 								{stats.albums.slice(0, 5).map((a) => (
 									<div key={a.album} className="flex items-center justify-between text-xs">
-										<span className="text-slate-300 light:text-slate-700">{a.album}</span>
+										<span className="text-slate-300">{a.album}</span>
 										<span className="text-slate-500">{a.count} 张 · {formatSize(a.sizeBytes)}</span>
 									</div>
 								))}
@@ -434,10 +434,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 light:border-amber-200 light:bg-amber-50">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div>
-							<h2 className="text-sm font-semibold text-amber-100 light:text-amber-900">兼容直传入口</h2>
-							<p className="mt-1 text-xs text-amber-100/70 light:text-amber-800">建议优先从 `/media?type=image` 上传和发布；这里保留给历史脚本或临时图片直传，上传后进入下方外链历史统一管理。</p>
+							<h2 className="text-sm font-semibold text-amber-100">兼容直传入口</h2>
+							<p className="mt-1 text-xs text-amber-100/70">建议优先从 `/media?type=image` 上传和发布；这里保留给历史脚本或临时图片直传，上传后进入下方外链历史统一管理。</p>
 						</div>
-						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-400 light:text-emerald-950">打开媒体图片工作区</Link>
+						<Link href="/media?type=image" className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-400">打开媒体图片工作区</Link>
 					</div>
 				</div>
 			)}
@@ -445,11 +445,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			<>
 				<div className="mt-2 flex items-center gap-2 text-xs">
 					<span className="text-slate-500">上传到：</span>
-					<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-2 py-1 text-xs text-slate-300 light:text-slate-700 focus:outline-none focus:border-cyan-400/50">
+					<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50">
 						<option value="">默认存储</option>
 						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
 					</select>
-					<input type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder="目标路径（可选）" className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-2 py-1 text-xs text-slate-300 light:text-slate-700 w-32 focus:outline-none focus:border-cyan-400/50" />
+					<input type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder="目标路径（可选）" className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50" />
 					{!storageNodes.length && <button onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-cyan-400 hover:underline">加载节点</button>}
 				</div>
 				<div
@@ -465,7 +465,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				>
 					<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && handleUpload(e.target.files)} />
 					<div className="text-4xl mb-2">📤</div>
-					<div className="text-sm text-slate-300 light:text-slate-700 font-medium">{uploading ? "上传中..." : "拖拽图片到此处，或点击选择文件"}</div>
+					<div className="text-sm text-slate-300 font-medium">{uploading ? "上传中..." : "拖拽图片到此处，或点击选择文件"}</div>
 					<div className="text-xs text-slate-500 mt-1">支持 JPG / PNG / GIF / WebP / AVIF / SVG，单文件最大 20MB</div>
 				</div>
 			</>
@@ -473,7 +473,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Progress */}
 			{uploadProgress && (
-				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-white/10 light:border-slate-200 bg-slate-900/70 light:bg-white/70 p-4 text-sm text-slate-300 light:text-slate-700">
+				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-white/10 light:border-slate-200 bg-slate-900/70 light:bg-white/70 p-4 text-sm text-slate-300">
 					<div className="flex items-center justify-between gap-3">
 						<span>{uploading ? `正在上传第 ${uploadProgress.current}/${uploadProgress.total} 张` : `已完成 ${uploadProgress.success}/${uploadProgress.total} 张`}</span>
 						<span className="text-xs text-slate-500">成功 {uploadProgress.success} · 失败 {uploadProgress.failure}</span>
@@ -502,10 +502,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
 					onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
-					className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-72"
+					className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-72"
 				/>
 				<button onClick={() => fetchImages(1)} className="px-4 py-2 text-sm bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition">搜索</button>
-				<button onClick={() => { setSearch(""); fetchImages(1); }} className="px-4 py-2 text-sm text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
+				<button onClick={() => { setSearch(""); fetchImages(1); }} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
 			</div>
 
 			{/* Image Grid */}
@@ -538,7 +538,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								{/* Hover overlay */}
 								{!batchMode && (
 									<div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-										<button onClick={() => copyLink(img.publicUrl)} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 light:text-cyan-700 rounded hover:bg-cyan-500/30" title="复制外链">🔗</button>
+										<button onClick={() => copyLink(img.publicUrl)} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30" title="复制外链">🔗</button>
 										<button onClick={() => copyMarkdown(img)} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30" title="复制 Markdown">M↓</button>
 										<button onClick={() => copyHTML(img)} className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30" title="复制 HTML">H</button>
 										{canDelete && (
@@ -547,8 +547,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 									</div>
 								)}
 							</div>
-							<div className="text-xs text-slate-300 light:text-slate-700 truncate" title={img.filename}>{img.filename}</div>
-							<div className="mt-1 truncate text-[10px] text-slate-500 light:text-slate-600" title={formatPublishSource(img)}>来源：{formatPublishSource(img)}</div>
+							<div className="text-xs text-slate-300 truncate" title={img.filename}>{img.filename}</div>
+							<div className="mt-1 truncate text-[10px] text-slate-500" title={formatPublishSource(img)}>来源：{formatPublishSource(img)}</div>
 							<div className="flex items-center justify-between mt-1">
 								<span className="text-[10px] text-slate-500">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">
@@ -566,9 +566,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Pagination */}
 			{totalPages > 1 && (
 				<div className="mt-6 flex items-center justify-center gap-2">
-					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-slate-800 light:bg-slate-100 text-slate-300 light:text-slate-700 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">上一页</button>
-					<span className="text-sm text-slate-400 light:text-slate-600">{page} / {totalPages}</span>
-					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-slate-800 light:bg-slate-100 text-slate-300 light:text-slate-700 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">下一页</button>
+					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-slate-800 light:bg-slate-100 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">上一页</button>
+					<span className="text-sm text-slate-400">{page} / {totalPages}</span>
+					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-slate-800 light:bg-slate-100 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">下一页</button>
 				</div>
 			)}
 
@@ -579,11 +579,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<Image src={previewImage.publicUrl} alt={previewImage.filename} width={800} height={600} loading="lazy" unoptimized className="max-w-full max-h-[85vh] rounded-lg" />
 						<div className="mt-3 flex items-center justify-between">
 							<div>
-								<div className="text-sm text-white light:text-slate-900 font-medium">{previewImage.filename}</div>
-								<div className="text-xs text-slate-400 light:text-slate-600 mt-1">{formatSize(previewImage.sizeBytes)} · {previewImage.mimeType}</div>
+								<div className="text-sm text-white font-medium">{previewImage.filename}</div>
+								<div className="text-xs text-slate-400 mt-1">{formatSize(previewImage.sizeBytes)} · {previewImage.mimeType}</div>
 							</div>
 							<div className="flex gap-2">
-								<button onClick={() => copyLink(previewImage.publicUrl)} className="px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-300 light:text-cyan-700 rounded-lg hover:bg-cyan-500/30">复制外链</button>
+								<button onClick={() => copyLink(previewImage.publicUrl)} className="px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30">复制外链</button>
 								<button onClick={() => copyMarkdown(previewImage)} className="px-3 py-1.5 text-xs bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30">Markdown</button>
 								<button onClick={() => copyHTML(previewImage)} className="px-3 py-1.5 text-xs bg-orange-500/20 text-orange-300 rounded-lg hover:bg-orange-500/30">HTML</button>
 								{canDelete && (
@@ -591,7 +591,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								)}
 							</div>
 						</div>
-						<button onClick={() => setPreviewImage(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 light:bg-slate-100 text-slate-300 light:text-slate-700 rounded-full flex items-center justify-center hover:bg-slate-700 light:hover:bg-slate-200 text-lg">✕</button>
+						<button onClick={() => setPreviewImage(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 light:bg-slate-100 text-slate-300 rounded-full flex items-center justify-center hover:bg-slate-700 light:hover:bg-slate-200 text-lg">✕</button>
 					</div>
 				</div>
 			)}
@@ -600,31 +600,31 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{showPublishModal && (
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowPublishModal(false)}>
 					<div className="bg-slate-900 light:bg-white border border-slate-700 light:border-slate-200 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-4">☁️ 从云盘发布到图床</h3>
+						<h3 className="text-lg font-semibold text-white mb-4">☁️ 从云盘发布到图床</h3>
 						<div className="space-y-3">
 							<div>
-								<label className="text-xs text-slate-400 light:text-slate-600 mb-1 block">存储节点（本地或 SFTP）</label>
-								<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 focus:outline-none focus:border-cyan-400/50">
+								<label className="text-xs text-slate-400 mb-1 block">存储节点（本地或 SFTP）</label>
+								<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400/50">
 									<option value="">选择存储节点</option>
 									{storageNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
 								</select>
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 light:text-slate-600 mb-1 block">文件相对路径</label>
-								<input type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-slate-400 mb-1 block">文件相对路径</label>
+								<input type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 light:text-slate-600 mb-1 block">文件名（可选）</label>
-								<input type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder="默认使用路径中的文件名" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-slate-400 mb-1 block">文件名（可选）</label>
+								<input type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder="默认使用路径中的文件名" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 light:text-slate-600 mb-1 block">相册（可选）</label>
-								<input type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder="归类到相册" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 light:text-slate-800 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-slate-400 mb-1 block">相册（可选）</label>
+								<input type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder="归类到相册" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 						</div>
 						<div className="mt-5 flex items-center justify-end gap-2">
-							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
-							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-white light:text-slate-900 rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">发布</button>
+							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
+							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">发布</button>
 						</div>
 					</div>
 				</div>
@@ -639,17 +639,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						className="bg-slate-900 light:bg-white border border-red-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<h3 className="text-lg font-semibold text-white light:text-slate-900 mb-2">{pendingDelete.type === "single" ? "确认删除图片" : "确认批量删除图片"}</h3>
-						<p className="text-sm leading-6 text-slate-300 light:text-slate-700">
+						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? "确认删除图片" : "确认批量删除图片"}</h3>
+						<p className="text-sm leading-6 text-slate-300">
 							{pendingDelete.type === "single" ? (
-								<>将删除 <span className="font-semibold text-white light:text-slate-900">{pendingDelete.filename}</span>，图片外链将失效。</>
+								<>将删除 <span className="font-semibold text-white">{pendingDelete.filename}</span>，图片外链将失效。</>
 							) : (
-								<>将删除 <span className="font-semibold text-white light:text-slate-900">{pendingDelete.count} 张图片</span>，对应外链将失效。</>
+								<>将删除 <span className="font-semibold text-white">{pendingDelete.count} 张图片</span>，对应外链将失效。</>
 							)}
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
-							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
-							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-red-600 text-white light:text-slate-900 rounded-lg hover:bg-red-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
+							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
+							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
 						</div>
 					</div>
 				</div>
@@ -657,7 +657,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Toast */}
 			{toast && (
-				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-200 text-sm text-slate-200 light:text-slate-800 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
+				<div role={toast.includes("失败") || toast.includes("出错") || toast.includes("超过") ? "alert" : "status"} className="fixed bottom-6 right-6 bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-200 text-sm text-slate-200 px-4 py-2.5 rounded-xl shadow-lg z-50 animate-fade-in">
 					{toast}
 				</div>
 			)}

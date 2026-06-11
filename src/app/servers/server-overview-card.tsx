@@ -144,7 +144,7 @@ export function ServerOverviewCard({
   };
 
   return (
-    <article className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04] light:border-slate-200 light:bg-white light:shadow-sm light:hover:bg-slate-50">
+    <article data-card className="bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -152,11 +152,11 @@ export function ServerOverviewCard({
               className={`h-2 w-2 shrink-0 rounded-full ${server.enabled ? "bg-emerald-400" : "bg-slate-500"}`}
               aria-hidden="true"
             />
-            <h2 className="truncate text-sm font-semibold text-white light:text-slate-950">
+            <h2 className="truncate text-sm font-semibold text-white">
               {server.name}
             </h2>
           </div>
-          <p className="mt-1 truncate text-[11px] text-slate-500 light:text-slate-600">
+          <p className="mt-1 truncate text-[11px] text-slate-500">
             {server.username}@{server.host}:{server.port}
           </p>
         </div>

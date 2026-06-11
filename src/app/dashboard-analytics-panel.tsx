@@ -109,26 +109,26 @@ export function DashboardAnalyticsPanel() {
   }, [data?.downloads]);
 
   return (
-    <section className="mt-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4" aria-labelledby="dashboard-analytics-title">
+    <section data-card className="mt-8 p-4" aria-labelledby="dashboard-analytics-title">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 id="dashboard-analytics-title" className="text-lg font-semibold text-white light:text-slate-900">{t("dashboard.data-trends")}</h2>
+          <h2 id="dashboard-analytics-title" className="text-lg font-semibold text-white">{t("dashboard.data-trends")}</h2>
           <p className="mt-1 text-xs text-slate-500">{t("dashboard.analytics.description")}</p>
         </div>
-        {loading ? <span className="text-xs text-cyan-300 light:text-cyan-700">{t("dashboard.analytics.loading")}</span> : null}
+        {loading ? <span className="text-xs text-cyan-300">{t("dashboard.analytics.loading")}</span> : null}
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:text-amber-900" role="alert">
+        <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="alert">
           {t("dashboard.analytics.unavailable")}: {error}
         </div>
       ) : null}
 
       {!loading && !error && data ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
-          <div className="rounded-xl border border-white/[0.05] bg-slate-950/40 light:bg-white/40 p-4">
+          <div data-card className="bg-slate-950/40 p-4">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-medium text-white light:text-slate-900/80">{t("dashboard.analytics.server-trend")}</h3>
+              <h3 className="text-sm font-medium text-white">{t("dashboard.analytics.server-trend")}</h3>
               {latestServerMetric ? <span className="text-xs text-slate-500">{t("dashboard.analytics.recent")} {formatShortTime(latestServerMetric.time, locale)}</span> : null}
             </div>
             {data.servers?.length ? (
@@ -147,8 +147,8 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div className="rounded-xl border border-white/[0.05] bg-slate-950/40 light:bg-white/40 p-4">
-            <h3 className="text-sm font-medium text-white light:text-slate-900/80">{t("dashboard.analytics.download-trend")}</h3>
+          <div data-card className="bg-slate-950/40 p-4">
+            <h3 className="text-sm font-medium text-white">{t("dashboard.analytics.download-trend")}</h3>
             {data.downloads?.length ? (
               <div className="mt-4" data-testid="download-analytics-chart">
                 <div className="grid grid-cols-4 gap-2 text-xs">
@@ -164,8 +164,8 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div className="rounded-xl border border-white/[0.05] bg-slate-950/40 light:bg-white/40 p-4">
-            <h3 className="text-sm font-medium text-white light:text-slate-900/80">{t("dashboard.analytics.audit-activity")}</h3>
+          <div data-card className="bg-slate-950/40 p-4">
+            <h3 className="text-sm font-medium text-white">{t("dashboard.analytics.audit-activity")}</h3>
             {data.audit?.length ? (
               <SparkBars points={data.audit.map((point) => ({ label: formatShortDate(point.date), value: point.total }))} color="violet" locale={locale} />
             ) : (
@@ -173,8 +173,8 @@ export function DashboardAnalyticsPanel() {
             )}
           </div>
 
-          <div className="rounded-xl border border-white/[0.05] bg-slate-950/40 light:bg-white/40 p-4">
-            <h3 className="text-sm font-medium text-white light:text-slate-900/80">{t("dashboard.analytics.image-bed")}</h3>
+          <div data-card className="bg-slate-950/40 p-4">
+            <h3 className="text-sm font-medium text-white">{t("dashboard.analytics.image-bed")}</h3>
             {data.imageBed?.length ? (
               <div className="mt-4">
                 <SparkBars points={data.imageBed.map((point) => ({ label: formatShortDate(point.date), value: point.count }))} color="pink" locale={locale} />

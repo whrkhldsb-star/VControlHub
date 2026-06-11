@@ -111,12 +111,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             placeholder="搜索动作、用户名或显示名"
-            className="min-w-[240px] flex-1 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+            className="min-w-[240px] flex-1 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
           />
           <button
             type="button"
             onClick={fetchLogs}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
           >
             搜索
           </button>
@@ -126,7 +126,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSearchQuery("");
               setPage(1);
             }}
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
           >
             清除
           </button>
@@ -138,7 +138,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSeverityFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部级别</option>
             <option value="INFO">INFO</option>
@@ -151,7 +151,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setActionFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部类型</option>
             <option value="auth.login">登录</option>
@@ -165,7 +165,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           <button
             type="button"
             onClick={fetchLogs}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
+            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
           >
             ↻ 刷新
           </button>
@@ -188,7 +188,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       </div>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200 light:text-rose-800">
+        <div role="alert" className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
           {error}
         </div>
       )}
@@ -197,7 +197,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       <div className="overflow-hidden rounded-2xl border border-white/10 light:border-slate-200">
         {/* Desktop */}
         <div className="hidden md:block">
-          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400 light:text-slate-600">
+          <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
             <div>时间</div>
             <div>级别</div>
             <div>类型</div>
@@ -207,15 +207,15 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           </div>
           <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
             {loading ? (
-              <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">加载中...</div>
+              <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
             ) : error && !data ? (
-              <div className="px-4 py-10 text-sm text-rose-200 light:text-rose-800">审计日志加载失败，请稍后重试。</div>
+              <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
             ) : !data || data.logs.length === 0 ? (
-              <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">暂无审计日志。</div>
+              <div className="px-4 py-10 text-sm text-slate-400">暂无审计日志。</div>
             ) : (
               data.logs.map((log) => (
                 <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
-                  <div className="text-xs text-slate-400 light:text-slate-600">
+                  <div className="text-xs text-slate-400">
                     {new Date(log.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </div>
                   <div>
@@ -223,11 +223,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                       {log.severity}
                     </span>
                   </div>
-                  <div className="text-white light:text-slate-900">{formatAction(log.action)}</div>
-                  <div className="text-slate-300 light:text-slate-700 truncate">
+                  <div className="text-white">{formatAction(log.action)}</div>
+                  <div className="text-slate-300 truncate">
                     {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType}
                   </div>
-                  <div className="text-xs text-slate-400 light:text-slate-600 truncate font-mono">
+                  <div className="text-xs text-slate-400 truncate font-mono">
                     {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(", ")}
                   </div>
                   <div className="text-xs text-slate-500">{log.actorType}</div>
@@ -240,21 +240,21 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Mobile */}
         <div className="md:hidden divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
           {loading ? (
-            <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">加载中...</div>
+            <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
           ) : error && !data ? (
-            <div className="px-4 py-10 text-sm text-rose-200 light:text-rose-800">审计日志加载失败，请稍后重试。</div>
+            <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
           ) : !data || data.logs.length === 0 ? (
-            <div className="px-4 py-10 text-sm text-slate-400 light:text-slate-600">暂无审计日志。</div>
+            <div className="px-4 py-10 text-sm text-slate-400">暂无审计日志。</div>
           ) : (
             data.logs.map((log) => (
               <div key={log.id} className="px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-white light:text-slate-900 text-sm">{formatAction(log.action)}</span>
+                  <span className="text-white text-sm">{formatAction(log.action)}</span>
                   <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${severityBadge(log.severity)}`}>
                     {log.severity}
                   </span>
                 </div>
-                <div className="text-xs text-slate-400 light:text-slate-600">
+                <div className="text-xs text-slate-400">
                   {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString("zh-CN")}
                 </div>
                 <div className="text-xs text-slate-500 font-mono truncate">
@@ -273,18 +273,18 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
           >
             ← 上一页
           </button>
-          <span className="text-sm text-slate-400 light:text-slate-600">
+          <span className="text-sm text-slate-400">
             第 {data.page} / {data.totalPages} 页 · 共 {data.total} 条
           </span>
           <button
             type="button"
             disabled={page >= data.totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
           >
             下一页 →
           </button>

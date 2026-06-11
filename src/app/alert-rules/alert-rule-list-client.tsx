@@ -128,13 +128,13 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			{rulePendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
 					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
-						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-white light:text-slate-900">删除告警规则</h3>
-						<p className="mt-2 text-sm text-slate-400 light:text-slate-600">确认删除告警规则 <span className="font-medium text-slate-100 light:text-slate-900">{rulePendingDelete.name}</span>？此操作不可恢复。</p>
+						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-white">删除告警规则</h3>
+						<p className="mt-2 text-sm text-slate-400">确认删除告警规则 <span className="font-medium text-slate-100">{rulePendingDelete.name}</span>？此操作不可恢复。</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button
 								type="button"
 								onClick={() => setRulePendingDelete(null)}
-								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]"
+								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
@@ -142,7 +142,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 								type="button"
 								onClick={() => deleteRule(rulePendingDelete.id)}
 								disabled={busyAction === `delete:${rulePendingDelete.id}`}
-								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
 							>
 								{busyAction === `delete:${rulePendingDelete.id}` ? "删除中…" : "确认删除"}
 							</button>
@@ -152,7 +152,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			)}
 			<div className="flex items-center gap-3 flex-wrap">
 				{canManage && !showCreate && (
-					<button onClick={() => setShowCreate(true)} className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition">
+					<button onClick={() => setShowCreate(true)} className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition">
 						+ 创建告警规则
 					</button>
 				)}
@@ -161,7 +161,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						type="button"
 						onClick={triggerNow}
 						disabled={busyAction === "trigger"}
-						className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 light:text-slate-700 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
+						className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{busyAction === "trigger" ? "正在检测…" : "🔍 立即检测"}
 					</button>
@@ -169,20 +169,20 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			</div>
 
 			{actionError && (
-				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100 light:text-rose-900">
+				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
 					{actionError}
 				</div>
 			)}
 
 			{testResult && (
-				<div role="status" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100 light:text-cyan-900">
+				<div role="status" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
 					<p className="font-medium">测试发送结果：{testResult.ruleName}</p>
 					<ul className="mt-2 space-y-1">
 						{testResult.deliveries.map((delivery, index) => (
 							<li key={`${delivery.channel}-${index}`} className="flex flex-wrap gap-2 text-xs">
 								<span className="font-mono uppercase">{delivery.channel}</span>
 								<span>{delivery.status === "sent" ? "已发送" : delivery.status === "failed" ? "失败" : "跳过"}</span>
-								<span className="text-cyan-100/70 light:text-cyan-900/70">{delivery.message}</span>
+								<span className="text-cyan-100/70/70">{delivery.message}</span>
 							</li>
 						))}
 					</ul>
@@ -204,11 +204,11 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						<article key={rule.id} className={`rounded-xl border bg-white/[0.02] p-5 transition-colors duration-150 ${rule.enabled ? "border-white/[0.06] hover:bg-white/[0.04]" : "border-white/[0.04] opacity-60"}`}>
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div>
-									<h2 className="text-lg font-semibold text-white light:text-slate-900">{rule.name}</h2>
+									<h2 className="text-lg font-semibold text-white">{rule.name}</h2>
 									<p className="mt-1 text-xs text-slate-500">
-										当 <span className="text-cyan-300 light:text-cyan-700/80">{metricLabels[rule.metric] ?? rule.metric}</span>{" "}
+										当 <span className="text-cyan-300/80">{metricLabels[rule.metric] ?? rule.metric}</span>{" "}
 										{rule.metric !== "server_offline" && <>
-										<span className="text-white light:text-slate-900/70">{operatorLabels[rule.operator] ?? rule.operator}</span>{" "}
+										<span className="text-white/70">{operatorLabels[rule.operator] ?? rule.operator}</span>{" "}
 										<span className="text-amber-300 font-mono">{rule.threshold}%</span>
 										</>}
 										{rule.durationSeconds > 0 && <span className="text-slate-500"> 持续 {rule.durationSeconds}s</span>}
@@ -221,7 +221,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 											</span>
 										))}
 						{rule.webhookConfigured && (
-							<span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-200 light:text-emerald-800">
+							<span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-200">
 								Webhook 已配置
 							</span>
 						)}
@@ -231,7 +231,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							</span>
 						)}
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
-							<span className="rounded-md border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200 light:text-violet-800">
+							<span className="rounded-md border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200">
 								静默 {rule.silenceWindows?.join("、")}
 							</span>
 						)}
@@ -256,14 +256,14 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						<button
 							onClick={() => testRule(rule)}
 							disabled={busyAction === `test:${rule.id}`}
-							className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+							className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === `test:${rule.id}` ? "发送中…" : "测试发送"}
 						</button>
 						<button
 							onClick={() => setRulePendingDelete(rule)}
 							disabled={busyAction === `delete:${rule.id}`}
-							className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+							className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === `delete:${rule.id}` ? "删除中…" : "删除"}
 						</button>
@@ -334,18 +334,18 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	return (
 		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white light:text-slate-900">创建告警规则</h3>
-			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{error}</div>}
+			<h3 className="text-lg font-semibold text-white">创建告警规则</h3>
+			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertRuleName">规则名称</label>
-				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：CPU 过载告警" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleName">规则名称</label>
+				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：CPU 过载告警" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">监控指标</label>
-					<select value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white light:text-slate-900 outline-none">
+					<label className="text-xs font-medium text-white/50 tracking-wide">监控指标</label>
+					<select value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
 						<option value="cpu_usage">CPU 使用率</option>
 						<option value="mem_usage">内存使用率</option>
 						<option value="disk_usage">磁盘使用率</option>
@@ -353,8 +353,8 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					</select>
 				</div>
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">比较方式</label>
-					<select value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white light:text-slate-900 outline-none">
+					<label className="text-xs font-medium text-white/50 tracking-wide">比较方式</label>
+					<select value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
 						<option value="gt">大于</option>
 						<option value="gte">大于等于</option>
 						<option value="lt">小于</option>
@@ -362,19 +362,19 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					</select>
 				</div>}
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertThreshold">阈值</label>
-					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertThreshold">阈值</label>
+					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
 				</div>}
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertDurationSeconds">持续时间（秒）</label>
-					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertDurationSeconds">持续时间（秒）</label>
+					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
 					<p className="text-xs text-slate-500">0 表示命中即触发。</p>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">目标节点</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide">目标节点</label>
 					<div className="flex flex-wrap gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2">
 						{servers.length === 0 ? (
 							<span className="text-xs text-slate-500">暂无节点，默认匹配全部节点</span>
@@ -393,7 +393,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">通知渠道</label>
+				<label className="text-xs font-medium text-white/50 tracking-wide">通知渠道</label>
 				<div className="flex flex-wrap gap-2">
 					{[{ key: "in_app", label: "站内通知" }, { key: "email", label: "邮件" }, { key: "webhook", label: "Webhook" }].map(({ key, label }) => (
 						<button key={key} type="button" onClick={() => toggleChannel(key)}
@@ -407,19 +407,19 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			{channels.includes("webhook") && (
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">Webhook URL</label>
-					<input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-white/50 tracking-wide">Webhook URL</label>
+					<input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 				</div>
 			)}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">冷却时间（分钟）</label>
-				<input type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30 w-32" />
+				<label className="text-xs font-medium text-white/50 tracking-wide">冷却时间（分钟）</label>
+				<input type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 w-32" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide" htmlFor="alertSilenceWindows">静默期</label>
-				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder="22:00-08:00，可用换行或逗号添加多个" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertSilenceWindows">静默期</label>
+				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder="22:00-08:00，可用换行或逗号添加多个" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 				<p className="text-xs text-slate-500">命中静默期时只记录匹配状态，不发送站内通知或 Webhook。</p>
 			</div>
 
@@ -427,7 +427,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建规则"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 light:text-slate-700 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>

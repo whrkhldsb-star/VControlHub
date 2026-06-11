@@ -107,8 +107,8 @@ describe("SettingsClient", () => {
 
     const commandTimeout = screen.getByLabelText("命令执行超时（毫秒）");
     const fieldCard = commandTimeout.parentElement;
-    expect(fieldCard).toHaveClass("light:border-slate-200");
-    expect(fieldCard?.querySelector("label")).toHaveClass("light:text-slate-700");
+    expect(fieldCard).toHaveClass("rounded-lg");
+    expect(fieldCard).toHaveClass("border");
   });
 
   it("surfaces SSH terminal keepalive runtime settings in the admin Settings UX", () => {

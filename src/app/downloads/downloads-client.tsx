@@ -266,28 +266,28 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 			{/* Global Stats Bar */}
 			{globalStat && (
-				<div className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-wrap items-center gap-6 text-sm">
+				<div data-card className="mb-6 p-4 flex flex-wrap items-center gap-6 text-sm">
 					<div>
 						<span className="text-slate-500">全局下载速度</span>
-						<span className="ml-2 text-cyan-300 light:text-cyan-700 font-mono">{formatSpeed(globalStat.downloadSpeed)}</span>
+						<span className="ml-2 text-cyan-300 font-mono">{formatSpeed(globalStat.downloadSpeed)}</span>
 					</div>
 					<div>
 						<span className="text-slate-500">活跃任务</span>
-						<span className="ml-2 text-white light:text-slate-900 font-medium">{globalStat.numActive}</span>
+						<span className="ml-2 text-white font-medium">{globalStat.numActive}</span>
 					</div>
 					<div>
 						<span className="text-slate-500">等待中</span>
-						<span className="ml-2 text-amber-200 light:text-amber-800">{globalStat.numWaiting}</span>
+						<span className="ml-2 text-amber-200">{globalStat.numWaiting}</span>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
 						<span className="text-xs text-slate-500">全局限速</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 light:text-slate-600 hover:bg-white/[0.06] transition"
+								className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition"
 							>
 								{kb === 0 ? "不限" : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
-						)) : <span className="text-xs text-slate-600 light:text-slate-400">需 manage-node 权限</span>}
+						)) : <span className="text-xs text-slate-600">需 manage-node 权限</span>}
 					</div>
 				</div>
 			)}
@@ -295,7 +295,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{/* Quick Stats */}
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
 				<div className="mb-4 flex gap-3 text-xs text-slate-500">
-					{runningCount > 0 && <span className="text-cyan-300 light:text-cyan-700">⬇ {runningCount} 个下载中</span>}
+					{runningCount > 0 && <span className="text-cyan-300">⬇ {runningCount} 个下载中</span>}
 					{pendingCount > 0 && <span className="text-amber-300">⏳ {pendingCount} 个等待中</span>}
 				</div>
 			)}
@@ -325,12 +325,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				</div>
 				{canManage && servers.length > 0 ? (
 					<button type="button" onClick={() => setShowForm(!showForm)}
-						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
+						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
 					>
 						{showForm ? "取消" : "+ 新建下载"}
 					</button>
 				) : canManage ? (
-					<div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-xs text-amber-100 light:text-amber-900">
+					<div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-xs text-amber-100">
 						暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。
 					</div>
 				) : null}
@@ -338,8 +338,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 			{/* Create form */}
 			{showForm && canManage && (
-				<div className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-					<h3 className="text-lg font-semibold text-white light:text-slate-900">新建下载任务</h3>
+				<div data-card className="mb-6 p-5 space-y-4">
+					<h3 className="text-lg font-semibold text-white">新建下载任务</h3>
 
 					{/* Batch mode toggle */}
 					<div className="flex items-center gap-3">
@@ -355,22 +355,22 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 					{form.batchMode ? (
 						<div className="space-y-1.5">
-							<label htmlFor="download-batch-links" className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接（每行一个）</label>
+							<label htmlFor="download-batch-links" className="text-xs font-medium text-white/50 tracking-wide">下载链接（每行一个）</label>
 							<textarea id="download-batch-links" value={form.batchText} onChange={(e) => setForm((p) => ({ ...p, batchText: e.target.value }))}
 								rows={6} placeholder="https://example.com/file1.zip&#10;https://example.com/file2.zip&#10;https://example.com/file3.iso"
-								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
+								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
 							/>
-							<p className="text-[11px] text-slate-500 light:text-slate-600">
+							<p className="text-[11px] text-slate-500">
 								批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。
 							</p>
-							{batchModeError && <p className="text-[11px] text-rose-300 light:text-rose-700">{batchModeError}</p>}
+							{batchModeError && <p className="text-[11px] text-rose-300">{batchModeError}</p>}
 						</div>
 					) : (
 						<div className="space-y-1.5">
-							<label htmlFor="download-url" className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">下载链接</label>
+							<label htmlFor="download-url" className="text-xs font-medium text-white/50 tracking-wide">下载链接</label>
 							<input id="download-url" type="url" value={form.url} onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
 								placeholder="https://example.com/file.zip 或 magnet:?xt=urn:btih:..."
-								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 							/>
 							{form.url && <p className="text-[11px] text-slate-500">{urlTypeLabel(form.url)}</p>}
 						</div>
@@ -378,59 +378,59 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 					<div className="grid gap-4 sm:grid-cols-2">
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">目标 VPS</label>
+							<label className="text-xs font-medium text-white/50 tracking-wide">目标 VPS</label>
 							<select value={form.serverId} onChange={(e) => handleServerChange(e.target.value)}
-								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30"
+								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
 							>
 								{servers.map((s) => (<option key={s.id} value={s.id}>{s.name} ({s.host})</option>))}
 							</select>
 							{selectedServer && (
-								<div className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${selectedServer.accessTransport === "direct" ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100 light:text-emerald-900" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-100 light:text-amber-900"}`}>
+								<div className={`rounded-lg border px-3 py-2 text-[11px] leading-5 ${selectedServer.accessTransport === "direct" ? "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-100" : "border-amber-400/20 bg-amber-400/[0.06] text-amber-100"}`}>
 									<div className="font-medium">{selectedServer.accessStatusLabel}</div>
 									<div className="mt-0.5 opacity-80">{selectedServer.accessDescription}</div>
 								</div>
 							)}
 						</div>
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">保存路径</label>
+							<label className="text-xs font-medium text-white/50 tracking-wide">保存路径</label>
 							<input value={form.targetPath} onChange={(e) => setForm((p) => ({ ...p, targetPath: e.target.value }))}
-								placeholder="/root/downloads" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+								placeholder="/root/downloads" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 							/>
 						</div>
 					</div>
 
 					<div className="grid gap-4 sm:grid-cols-3">
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">文件名（可选）</label>
+							<label className="text-xs font-medium text-white/50 tracking-wide">文件名（可选）</label>
 							<input value={form.fileName} onChange={(e) => setForm((p) => ({ ...p, fileName: e.target.value }))}
-								placeholder="留空自动" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+								placeholder="留空自动" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 							/>
 						</div>
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">分类</label>
+							<label className="text-xs font-medium text-white/50 tracking-wide">分类</label>
 							<select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30"
+								className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
 							>
 								{categories.map((c) => (<option key={c.value} value={c.value}>{c.icon} {c.label}</option>))}
 							</select>
 						</div>
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">限速 KB/s（可选）</label>
+							<label className="text-xs font-medium text-white/50 tracking-wide">限速 KB/s（可选）</label>
 							<input value={form.maxSpeedKb} onChange={(e) => setForm((p) => ({ ...p, maxSpeedKb: e.target.value }))}
-								type="number" placeholder="不限" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none focus:border-cyan-400/30 placeholder:text-white/20"
+								type="number" placeholder="不限" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 							/>
 						</div>
 					</div>
 
 					{form.url?.startsWith("magnet:") && (
-						<div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] px-4 py-3 text-xs text-amber-200 light:text-amber-800/70">
+						<div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] px-4 py-3 text-xs text-amber-200/70">
 							🧲 磁力链接采用中转模式：本机 aria2 RPC 下载 → SFTP 传输到目标 VPS → 清理临时文件。支持实时进度追踪。
 						</div>
 					)}
 
-					<div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-4 py-3 text-xs leading-5 text-cyan-100 light:text-cyan-900">
+					<div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-4 py-3 text-xs leading-5 text-cyan-100">
 						<p className="font-medium">完成后的“下载文件”按钮和文件管理使用同一套访问策略。</p>
-						<p className="mt-1 text-cyan-100/70 light:text-cyan-900/70">
+						<p className="mt-1 text-cyan-100/70/70">
 							不在下载页单独启动传输模式；选择目标 VPS 后按其存储直连设置显示当前真实模式，直连可用时走 Direct Gateway，未配置或切回中转时走网站 SFTP 中转。
 						</p>
 					</div>
@@ -447,30 +447,30 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{/* Task list */}
 			{loading ? (
 				<div className="py-10 text-sm text-slate-500">加载中...</div>
-			) : filteredTasks.length === 0 && message?.type !== "error" ? (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">⬇️</div>
-					<p className="text-sm text-slate-500">{filter === "ALL" ? "暂无下载任务" : `没有${statusLabel[filter]}的任务`}</p>
-				</div>
-			) : (
-				<div className="space-y-2.5">
-					{filteredTasks.map((task) => {
-						const pct = computePct(task.completedBytes, task.totalBytes);
-						return (
-							<article key={task.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.04] transition-colors duration-150">
-								{/* Header row */}
-								<div className="flex flex-wrap items-center gap-2 mb-2.5">
-									<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge[task.status] ?? ""}`}>
-										{statusLabel[task.status] ?? task.status}
-									</span>
-									<span className="text-[11px] text-slate-500">{urlTypeLabel(task.url)}</span>
-									{task.relayMode && <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-2 py-0.5 text-[10px] text-amber-100 light:text-amber-900">中转</span>}
+		) : filteredTasks.length === 0 && message?.type !== "error" ? (
+			<div data-empty-state className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02]">
+				<div className="text-4xl mb-3">⬇️</div>
+				<p className="text-sm text-slate-500">{filter === "ALL" ? "暂无下载任务" : `没有${statusLabel[filter]}的任务`}</p>
+			</div>
+		) : (
+			<div className="space-y-2.5">
+				{filteredTasks.map((task) => {
+					const pct = computePct(task.completedBytes, task.totalBytes);
+					return (
+						<article data-card key={task.id} className="p-4 hover:bg-white/[0.04]">
+							{/* Header row */}
+							<div className="flex flex-wrap items-center gap-2 mb-2.5">
+								<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge[task.status] ?? ""}`}>
+									{statusLabel[task.status] ?? task.status}
+								</span>
+								<span className="text-[11px] text-slate-500">{urlTypeLabel(task.url)}</span>
+								{task.relayMode && <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
 									{task.category && <span className="text-[11px] text-slate-500">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
-									{task.isBatch && <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[10px] text-cyan-100 light:text-cyan-900">批量</span>}
+									{task.isBatch && <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[10px] text-cyan-100">批量</span>}
 								</div>
 
 								{/* URL */}
-								<div className="text-sm text-white light:text-slate-900 font-mono break-all leading-relaxed">{task.url.length > 120 ? task.url.slice(0, 117) + "…" : task.url}</div>
+								<div className="text-sm text-white font-mono break-all leading-relaxed">{task.url.length > 120 ? task.url.slice(0, 117) + "…" : task.url}</div>
 
 								{/* Progress bar */}
 								{task.status === "RUNNING" && task.totalBytes && parseInt(task.totalBytes) > 0 && (
@@ -499,14 +499,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 								{/* Error */}
 								{task.errorMessage && (
-									<div className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-2 text-xs text-rose-200 light:text-rose-800">{task.errorMessage}</div>
+									<div className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-2 text-xs text-rose-200">{task.errorMessage}</div>
 								)}
 
 								{/* Actions */}
 								<div className="mt-3 flex gap-2">
 									{task.status === "RUNNING" && task.aria2Gid && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "pause")}
-											className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-100 light:text-amber-900 hover:bg-amber-400/10 transition"
+											className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/10 transition"
 										>
 											⏸ 暂停
 										</button>
@@ -517,34 +517,34 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											<input type="number" min={0} step={1024} placeholder="KB/s"
 												defaultValue={task.maxSpeedKb ?? ""}
 												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
-												className="w-16 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-1.5 py-0.5 text-xs text-slate-300 light:text-slate-700 focus:outline-none focus:border-cyan-400/50"
+												className="w-16 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
 											/>
 										</span>
 									)}
 									{task.status === "PENDING" && task.aria2Gid && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "resume")}
-											className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/10 transition"
+											className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
 										>
 											▶ 继续
 										</button>
 									)}
 									{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "cancel")}
-											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 light:text-rose-900 hover:bg-rose-400/10 transition"
+											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
 											✕ 取消
 										</button>
 									)}
 									{canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "refresh")}
-											className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.05] transition"
+											className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 hover:bg-white/[0.05] transition"
 										>
 											🔄 刷新
 										</button>
 									)}
 									{task.downloadAccess && (
 										<a href={task.downloadAccess.href}
-											className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
+											className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
 											title={task.downloadAccess.description}
 										>
 											⬇ {task.downloadAccess.label}
@@ -552,7 +552,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									)}
 									{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "purge")}
-											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 light:text-rose-900 hover:bg-rose-400/10 transition"
+											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
 											🗑 删除记录
 										</button>

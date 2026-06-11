@@ -37,8 +37,8 @@ export function DashboardLocalizedHeader({ username }: { username: string }) {
   const title = useLocalizedText("dashboard.title", "仪表盘");
   const currentUser = useLocalizedText("dashboard.current-user", "当前用户");
   return (
-    <header className="mb-10">
-      <h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">{title}</h1>
+    <header className="mb-8">
+      <h1 className="text-3xl font-semibold tracking-tight text-white">{title}</h1>
       <p className="mt-1.5 text-sm text-slate-500">{currentUser}: {username}</p>
     </header>
   );
@@ -60,13 +60,13 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
     <section data-dashboard-widget="server-status" className="mb-8 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-cyan-300 light:text-cyan-700/70">{eyebrow}</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white light:text-slate-900">{summary.enabled} {onlineSuffix}</h2>
-          <p className="mt-1 text-sm text-slate-400 light:text-slate-600">
+          <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">{eyebrow}</p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">{summary.enabled} {onlineSuffix}</h2>
+          <p className="mt-1 text-sm text-slate-400">
             {managedPrefix} {summary.total} {managedSuffix}, {summary.sshKey} {sshSuffix}, {summary.directGateway} {gatewaySuffix}.
           </p>
         </div>
-        <Link href="/servers" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/15">
+        <Link href="/servers" data-variant="primary" className="px-4 py-2 text-sm">
           {cta}
         </Link>
       </div>
@@ -101,8 +101,8 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
 
   return (
     <section data-dashboard-widget="server-status" className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-        <h2 className="text-sm font-medium text-white light:text-slate-900/80">{coreTitle}</h2>
+      <div data-card className="p-4">
+        <h2 className="text-sm font-medium text-white">{coreTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">
           <StatCard label={vpsNodes} value={String(storage.serverTotal)} accent={false} />
           <StatCard label={enabledNodes} value={String(storage.serverEnabled)} accent={false} />
@@ -110,8 +110,8 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
           <StatCard label={fileEntries} value={String(storage.totalEntries)} accent={false} />
         </div>
       </div>
-      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
-        <h2 className="text-sm font-medium text-white light:text-slate-900/80">{queueTitle}</h2>
+      <div data-card className="p-4">
+        <h2 className="text-sm font-medium text-white">{queueTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <StatCard label={pending} value={String(queue.pendingApprovals)} accent={queue.pendingApprovals > 0} accentColor="amber" />
           <StatCard label={downloads} value={downloadValue} accent={queue.downloads.running > 0} accentColor="cyan" detail={downloadDetail} />
@@ -189,47 +189,47 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
   return (
     <section data-dashboard-widget="audit-log" className="mt-8 grid gap-6 lg:grid-cols-2">
       <div>
-        <h2 className="text-lg font-semibold text-white light:text-slate-900 mb-4">{approvalsTitle}</h2>
+        <h2 className="mb-4 text-lg font-semibold text-white">{approvalsTitle}</h2>
         {recentRequests.length === 0 ? (
           <EmptyState text={noRequests} />
         ) : (
           <div className="space-y-2.5">
             {recentRequests.map((request) => (
-              <article key={request.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.04] transition-colors duration-150">
+              <article data-card key={request.id} className="p-4 hover:bg-white/[0.04]">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-white light:text-slate-900 text-sm truncate">{request.title}</h3>
+                    <h3 className="text-sm font-medium text-white truncate">{request.title}</h3>
                     <p className="mt-0.5 text-xs text-slate-500">
                       {request.requester.displayName || request.requester.username}
                       {request.isAssistantInitiated ? ` · ${assistant}` : ` · ${user}`}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex shrink-0 items-center gap-1.5">
                     <Badge color={request.status === "PENDING_APPROVAL" ? "amber" : request.status === "APPROVED" ? "emerald" : "slate"}>{request.approvalStateLabel}</Badge>
                     <Badge color="slate">{targetPrefix} {request.targetCount} {targetSuffix}</Badge>
                   </div>
                 </div>
-                <p className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 light:text-cyan-900/80 border border-white/[0.04]">{request.command}</p>
+                <p className="mt-2.5 rounded-lg border border-white/[0.04] bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80">{request.command}</p>
               </article>
             ))}
           </div>
         )}
       </div>
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white light:text-slate-900">{auditTitle}</h2>
-          <Link href="/audit" className="text-xs text-cyan-400/80 hover:text-cyan-300 transition-colors">{viewAll}</Link>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-white">{auditTitle}</h2>
+          <Link href="/audit" className="text-xs text-cyan-400/80 transition-colors hover:text-cyan-300">{viewAll}</Link>
         </div>
         {recentAuditLogs.length === 0 ? (
           <EmptyState text={noAudit} />
         ) : (
           <div className="space-y-1.5">
             {recentAuditLogs.map((log) => (
-              <div key={log.id} className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3.5 py-2.5 hover:bg-white/[0.04] transition-colors duration-150">
+              <div key={log.id} className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3.5 py-2.5 transition-colors duration-150 hover:bg-white/[0.04]">
                 <div className="flex items-center gap-2 text-xs">
                   <Badge color={log.severity === "WARNING" ? "amber" : log.severity === "CRITICAL" ? "rose" : "slate"}>{log.action}</Badge>
-                  <span className="text-slate-500 truncate">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}</span>
-                  <time className="ml-auto text-slate-600 shrink-0" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
+                  <span className="truncate text-slate-500">{log.actor?.displayName ?? log.actor?.username ?? (log.actorType === "SYSTEM" ? "系统" : log.actorType)}</span>
+                  <time className="ml-auto shrink-0 text-slate-600" dateTime={log.createdAt} suppressHydrationWarning>{log.formattedCreatedAt}</time>
                 </div>
               </div>
             ))}
@@ -243,9 +243,9 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
 function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: string; title: string; desc: string; icon: React.ReactNode; badge?: string; badgeColor?: "cyan" | "amber" }) {
   const badgeBg = badgeColor === "cyan" ? "bg-cyan-400/10 border-cyan-400/20 text-cyan-200" : "bg-amber-400/10 border-amber-400/20 text-amber-200";
   return (
-    <Link href={href} className="group rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 transition-all duration-150 hover:border-cyan-400/20 hover:bg-cyan-400/[0.04]">
-      <div className="text-slate-400 light:text-slate-600 group-hover:text-cyan-300 transition-colors duration-150">{icon}</div>
-      <div className="mt-3 text-sm font-medium text-white light:text-slate-900">{title}</div>
+    <Link data-card href={href} className="group p-5 transition-all duration-150 hover:border-cyan-400/20 hover:bg-cyan-400/[0.04]">
+      <div className="text-slate-400 transition-colors duration-150 group-hover:text-cyan-300">{icon}</div>
+      <div className="mt-3 text-sm font-medium text-white">{title}</div>
       <p className="mt-1 text-xs text-slate-500">{desc}</p>
       {badge && <span className={`mt-2.5 inline-block rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badgeBg}`}>{badge}</span>}
     </Link>

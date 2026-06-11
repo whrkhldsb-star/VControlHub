@@ -216,14 +216,14 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       <header className="mb-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">
+            <h1 className="text-3xl font-semibold tracking-tight text-white">
               文件与存储管理
             </h1>
             <p className="mt-1.5 text-sm text-slate-500">
               文件浏览、上传下载、存储节点管理一体化
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600">
+          <div className="flex flex-wrap gap-2 text-xs text-slate-400">
             <Link
               href="/audit"
               className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
@@ -251,7 +251,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             文件节点
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white light:text-slate-900">
+          <div className="mt-1.5 text-2xl font-semibold text-white">
             {storage.stats.totalNodes}
           </div>
         </article>
@@ -259,7 +259,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             活跃文件
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white light:text-slate-900">
+          <div className="mt-1.5 text-2xl font-semibold text-white">
             {storage.stats.totalEntries}
           </div>
         </article>
@@ -267,7 +267,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             当前目录
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white light:text-slate-900">
+          <div className="mt-1.5 text-2xl font-semibold text-white">
             {totalItems}
           </div>
         </article>
@@ -275,7 +275,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             回收站
           </div>
-          <div className="mt-1.5 text-2xl font-semibold text-white light:text-slate-900">
+          <div className="mt-1.5 text-2xl font-semibold text-white">
             {storage.stats.deletedEntries}
           </div>
         </article>
@@ -286,31 +286,31 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           href="/files?scope=all"
           className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4 transition hover:bg-cyan-400/[0.1]"
         >
-          <div className="text-sm font-semibold text-white light:text-slate-900">全局文件搜索</div>
-          <p className="mt-1.5 text-sm leading-6 text-slate-300 light:text-slate-700">
+          <div className="text-sm font-semibold text-white">全局文件搜索</div>
+          <p className="mt-1.5 text-sm leading-6 text-slate-300">
             跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。
           </p>
-          <div className="mt-3 text-xs text-cyan-200 light:text-cyan-800">打开全局搜索</div>
+          <div className="mt-3 text-xs text-cyan-200">打开全局搜索</div>
         </Link>
         <Link
           href="/files?scope=current"
           className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]"
         >
-          <div className="text-sm font-semibold text-white light:text-slate-900">当前目录检索</div>
-          <p className="mt-1.5 text-sm leading-6 text-slate-300 light:text-slate-700">
+          <div className="text-sm font-semibold text-white">当前目录检索</div>
+          <p className="mt-1.5 text-sm leading-6 text-slate-300">
             在当前路径内筛选文件名，适合编辑前先缩小范围。
           </p>
-          <div className="mt-3 text-xs text-slate-400 light:text-slate-600">仅当前目录</div>
+          <div className="mt-3 text-xs text-slate-400">仅当前目录</div>
         </Link>
         <Link
           href="/files?tab=recycle"
           className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]"
         >
-          <div className="text-sm font-semibold text-white light:text-slate-900">回收站</div>
-          <p className="mt-1.5 text-sm leading-6 text-slate-300 light:text-slate-700">
+          <div className="text-sm font-semibold text-white">回收站</div>
+          <p className="mt-1.5 text-sm leading-6 text-slate-300">
             查看最近删除的文件，做误删恢复前的快速核对。
           </p>
-          <div className="mt-3 text-xs text-slate-400 light:text-slate-600">进入回收站</div>
+          <div className="mt-3 text-xs text-slate-400">进入回收站</div>
         </Link>
       </section>
 

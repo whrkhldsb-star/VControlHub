@@ -21,9 +21,9 @@ type Props = {
 };
 
 const statusBadge: Record<string, string> = {
-	ACTIVE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200 light:text-emerald-800",
-	PAUSED: "border-amber-400/20 bg-amber-400/10 text-amber-200 light:text-amber-800",
-	DISABLED: "border-slate-400/20 bg-slate-400/10 text-slate-200 light:text-slate-700",
+	ACTIVE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
+	PAUSED: "border-amber-400/20 bg-amber-400/10 text-amber-200",
+	DISABLED: "border-slate-400/20 bg-slate-400/10 text-slate-200",
 };
 
 const statusLabel: Record<string, string> = {
@@ -45,8 +45,8 @@ function matchesTask(task: Task, query: string) {
 		.some((value) => String(value).toLowerCase().includes(needle));
 }
 
-const fieldLabelClass = "text-xs font-medium text-slate-300 light:text-slate-700 tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 light:placeholder:text-slate-500 focus:border-cyan-400/30";
+const fieldLabelClass = "text-xs font-medium text-slate-300 tracking-wide";
+const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 light:placeholder:text-slate-500 focus:border-cyan-400/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function describeCronPreview(expr: string) {
@@ -118,23 +118,23 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 
 	return (
 		<div className="space-y-6">
-			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{actionError}</div>}
+			{actionError && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{actionError}</div>}
 			<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 				<div className="space-y-1">
-					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-slate-400 light:text-slate-600">搜索定时任务 / 执行日志</label>
+					<label htmlFor="scheduled-task-log-search" className="text-xs font-medium text-slate-400">搜索定时任务 / 执行日志</label>
 					<input
 						id="scheduled-task-log-search"
 						type="search"
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder="按名称、命令、Cron、上次结果搜索"
-						className="w-full min-w-[18rem] rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
+						className="w-full min-w-[18rem] rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
 					/>
 				</div>
 				{canCreate && !showCreate && (
 					<button
 						onClick={() => setShowCreate(true)}
-						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
+						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
 					>
 						+ 创建定时任务
 					</button>
@@ -159,13 +159,13 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
-										<h2 className="text-lg font-semibold text-white light:text-slate-900">{task.name}</h2>
+										<h2 className="text-lg font-semibold text-white">{task.name}</h2>
 										<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge[task.status] ?? statusBadge.DISABLED}`}>
 											{statusLabel[task.status] ?? task.status}
 										</span>
 									</div>
-									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300 light:text-cyan-700/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
-									<div className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80 light:text-cyan-900/80 border border-white/[0.04]">
+									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
+									<div className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80/80 border border-white/[0.04]">
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-slate-500">原因：{task.reason}</p>}
@@ -175,8 +175,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										<div>上次运行：{formatTime(task.lastRunAt)}</div>
 										<div>下次运行：{formatTime(task.nextRunAt)}</div>
 									</div>
-									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-slate-50 px-3 py-2 text-[11px] text-slate-400 light:text-slate-700">
-										<div className="mb-1 font-medium text-slate-300 light:text-slate-800">最近执行日志</div>
+									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+										<div className="mb-1 font-medium text-slate-300">最近执行日志</div>
 										<div className="whitespace-pre-wrap break-words">{task.lastResult || "暂无执行记录"}</div>
 									</div>
 								</div>
@@ -184,7 +184,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => retryTask(task.id)}
-											className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20 transition"
+											className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
 										>
 											重试
 										</button>
@@ -194,8 +194,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 											onClick={() => toggleTask(task.id)}
 											className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
 												task.status === "ACTIVE"
-													? "border-amber-400/30 bg-amber-400/10 text-amber-100 light:text-amber-900 hover:bg-amber-400/20"
-													: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/20"
+													? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
+													: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
 											}`}
 										>
 											{task.status === "ACTIVE" ? "暂停" : "恢复"}
@@ -204,7 +204,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => setTaskPendingDelete(task)}
-											className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 light:text-rose-900 hover:bg-rose-400/20 transition"
+											className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition"
 										>
 											删除
 										</button>
@@ -218,15 +218,15 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			{taskPendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 px-4 backdrop-blur-sm" role="presentation">
 					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 light:bg-white p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
-						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white light:text-slate-900">确认删除定时任务</h2>
-						<p className="mt-3 text-sm leading-6 text-slate-300 light:text-slate-700">
-							即将删除定时任务 <span className="font-semibold text-rose-100 light:text-rose-900">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。
+						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">确认删除定时任务</h2>
+						<p className="mt-3 text-sm leading-6 text-slate-300">
+							即将删除定时任务 <span className="font-semibold text-rose-100">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setTaskPendingDelete(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 light:text-slate-800 hover:bg-white/[0.06]">
+							<button type="button" onClick={() => setTaskPendingDelete(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
 								取消
 							</button>
-							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white light:text-slate-900 hover:bg-rose-400">
+							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
 								确认删除
 							</button>
 						</div>
@@ -294,8 +294,8 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	return (
 		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white light:text-slate-900">创建定时任务</h3>
-			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{error}</div>}
+			<h3 className="text-lg font-semibold text-white">创建定时任务</h3>
+			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>任务名称</label>
@@ -305,13 +305,13 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>Cron 表达式</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
+				<p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
 							className={`rounded-md border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
-									? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200 light:text-cyan-900"
+									? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
 									: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]"
 							}`}
 						>
@@ -337,7 +337,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
 							<label key={s.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
-								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white light:text-slate-900" : "border-white/[0.06] bg-white/[0.03] text-slate-300 light:text-slate-700 hover:bg-white/[0.05]"
+								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]"
 							}`}>
 								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-cyan-400" />
 								<span>{s.name}</span>
@@ -351,7 +351,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建任务"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 light:text-slate-700 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>

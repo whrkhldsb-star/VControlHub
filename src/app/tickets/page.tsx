@@ -36,23 +36,23 @@ export default async function Page() {
 	return (
 		<PageShell maxW="max-w-4xl">
 			<header className="mb-6">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Support</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">工单与请求</h1>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Support</p>
+				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">工单与请求</h1>
 				<p className="mt-1.5 text-sm text-slate-500">提交资源申请、问题反馈和运维请求，支持状态流转与评论。</p>
 			</header>
 
 			{canCreate && <div className="mb-6"><CreateTicketForm /></div>}
 
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white light:text-slate-900">工单列表 ({tickets.length})</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">工单列表 ({tickets.length})</div>
 				<div className="divide-y divide-white/[0.06]">
 					{tickets.length === 0 ? <EmptyState text="暂无工单" /> : tickets.map((t) => (
-						<Link key={t.id} href={`/tickets/${t.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]"> <div className="flex items-center justify-between gap-3"> <h3 className="text-sm font-medium text-white light:text-slate-900">{t.title}</h3> <div className="flex items-center gap-2"> <span className="text-xs text-slate-500">{priorityLabels[t.priority] ?? t.priority}</span> <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone[t.status] ?? "border-white/[0.08] text-slate-400 light:text-slate-600"}`}>
+						<Link key={t.id} href={`/tickets/${t.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]"> <div className="flex items-center justify-between gap-3"> <h3 className="text-sm font-medium text-white">{t.title}</h3> <div className="flex items-center gap-2"> <span className="text-xs text-slate-500">{priorityLabels[t.priority] ?? t.priority}</span> <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone[t.status] ?? "border-white/[0.08] text-slate-400"}`}>
 										{statusLabels[t.status] ?? t.status}
 									</span>
 								</div>
 							</div>
-							<p className="mt-1.5 text-xs text-slate-400 light:text-slate-600 line-clamp-2">{t.description}</p>
+							<p className="mt-1.5 text-xs text-slate-400 line-clamp-2">{t.description}</p>
 							<div className="mt-2 flex flex-wrap gap-x-3 text-xs text-slate-500">
 								{t.creator && <span>提交人: {t.creator.displayName || t.creator.username}</span>}
 								{t.assignee && <span>处理人: {t.assignee.displayName || t.assignee.username}</span>}

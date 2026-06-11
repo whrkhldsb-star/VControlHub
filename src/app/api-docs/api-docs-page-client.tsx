@@ -99,9 +99,9 @@ export default function ApiDocsPage() {
 			<div className="mx-auto max-w-7xl space-y-6">
 				<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-300 light:text-cyan-700">OpenAPI</p>
-						<h1 className="mt-2 text-2xl font-semibold text-white light:text-slate-900">API 文档</h1>
-						<p className="mt-2 max-w-2xl text-sm text-slate-400 light:text-slate-600">
+						<p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-300">OpenAPI</p>
+						<h1 className="mt-2 text-2xl font-semibold text-white">API 文档</h1>
+						<p className="mt-2 max-w-2xl text-sm text-slate-400">
 							{spec?.info?.description ?? "VControlHub RESTful API 参考文档。"}
 						</p>
 					</div>
@@ -109,7 +109,7 @@ export default function ApiDocsPage() {
 						href="/api/docs/openapi.json"
 						target="_blank"
 						rel="noreferrer"
-						className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/15"
+						className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15"
 					>
 						OpenAPI JSON
 					</a>
@@ -123,23 +123,23 @@ export default function ApiDocsPage() {
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
 								placeholder="搜索路径、方法、模块或说明"
-								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 light:bg-white/40 px-3 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400"
+								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 light:bg-white/40 px-3 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
 							/>
 						</label>
-						<div className="text-sm text-slate-400 light:text-slate-600">
+						<div className="text-sm text-slate-400">
 							{spec ? `${filtered.length}/${entries.length} 个接口` : "正在加载接口定义..."}
 						</div>
 					</div>
 				</section>
 
 				{error ? (
-					<div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200 light:text-rose-800">
+					<div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">
 						{error}
 					</div>
 				) : null}
 
 				{!spec && !error ? (
-					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-sm text-slate-400 light:text-slate-600">正在加载 API 文档...</div>
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-sm text-slate-400">正在加载 API 文档...</div>
 				) : null}
 
 				{grouped.map(([tag, tagEntries]) => (
@@ -147,10 +147,10 @@ export default function ApiDocsPage() {
 						<div className="border-b border-white/[0.06] px-4 py-3 sm:px-5">
 							<div className="flex flex-wrap items-center justify-between gap-2">
 								<div>
-									<h2 className="text-base font-semibold text-white light:text-slate-900">{tag}</h2>
+									<h2 className="text-base font-semibold text-white">{tag}</h2>
 									{tagDescriptions.get(tag) ? <p className="mt-1 text-xs text-slate-500">{tagDescriptions.get(tag)}</p> : null}
 								</div>
-								<span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-slate-400 light:text-slate-600">{tagEntries.length} 个接口</span>
+								<span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-slate-400">{tagEntries.length} 个接口</span>
 							</div>
 						</div>
 						<div className="divide-y divide-white/[0.06]">
@@ -162,10 +162,10 @@ export default function ApiDocsPage() {
 												<span className={`rounded-md border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-slate-200"}`}>
 													{entry.method}
 												</span>
-												<code className="break-all rounded-md bg-slate-950/60 light:bg-white/60 px-2 py-1 font-mono text-sm text-cyan-100 light:text-cyan-900">/api{entry.path}</code>
+												<code className="break-all rounded-md bg-slate-950/60 light:bg-white/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
 											</div>
-											<h3 className="mt-3 text-sm font-medium text-white light:text-slate-900">{entry.operation.summary ?? "未命名接口"}</h3>
-											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400 light:text-slate-600">{entry.operation.description}</p> : null}
+											<h3 className="mt-3 text-sm font-medium text-white">{entry.operation.summary ?? "未命名接口"}</h3>
+											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400">{entry.operation.description}</p> : null}
 										</div>
 										<div className="flex flex-wrap gap-2 text-xs text-slate-500 lg:justify-end">
 											{entry.operation.parameters?.length ? <span className="rounded-full bg-white/[0.04] px-2 py-1">参数 {entry.operation.parameters.length}</span> : null}

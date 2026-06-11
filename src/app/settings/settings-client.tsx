@@ -162,16 +162,16 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 	return (
 		<div className="space-y-6">
 			{error && (
-				<div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200 light:text-rose-800">{error}</div>
+				<div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200">{error}</div>
 			)}
 			{saved && (
-				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200 light:text-emerald-800">✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}</div>
+				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}</div>
 			)}
 
 			{/* Account security */}
 			<section id="2fa" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div>
-					<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🛡️ 账户安全</h2>
+					<h2 className="text-lg font-semibold text-white flex items-center gap-2">🛡️ 账户安全</h2>
 					<p className="mt-1 text-xs text-slate-500">当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。</p>
 				</div>
 				<TwoFactorSettings enabled={twoFactorEnabled} />
@@ -181,7 +181,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 					<div>
-						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🌐 平台信息</h2>
+						<h2 className="text-lg font-semibold text-white flex items-center gap-2">🌐 平台信息</h2>
 						<p className="mt-1 text-xs text-slate-500">保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。</p>
 					</div>
 					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.platform, settingUpdateMetadata)} />
@@ -195,7 +195,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			<section id="password" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 					<div>
-						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">🔐 会话与安全</h2>
+						<h2 className="text-lg font-semibold text-white flex items-center gap-2">🔐 会话与安全</h2>
 						<p className="mt-1 text-xs text-slate-500">会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。</p>
 					</div>
 					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.session, settingUpdateMetadata)} />
@@ -212,10 +212,10 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			<section id="runtime" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 					<div>
-						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">⚙️ 运行参数</h2>
+						<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
 						<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。</p>
 					</div>
-					<div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50 light:text-cyan-800">
+					<div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50">
 						当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
 					</div>
 					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.runtime, settingUpdateMetadata)} />
@@ -241,7 +241,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			<form className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4" onSubmit={(event) => event.preventDefault()}>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<h2 className="text-lg font-semibold text-white light:text-slate-900 flex items-center gap-2">📧 邮件通知（SMTP）</h2>
+						<h2 className="text-lg font-semibold text-white flex items-center gap-2">📧 邮件通知（SMTP）</h2>
 						<p className="mt-1 text-xs text-slate-500">
 							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"}
 						</p>
@@ -269,7 +269,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 
 function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) {
 	return (
-		<div className="rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50 light:text-amber-800">
+		<div className="rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50">
 			<p className="font-semibold">最近修改</p>
 			<p>时间：{formatMetadataDate(metadata?.updatedAt ?? null)}</p>
 			<p>修改人：{metadata?.actorName ?? "暂无审计记录"}</p>
@@ -286,7 +286,7 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 	const describedBy = [helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
 	return (
 		<div className={`space-y-1.5 rounded-lg border p-3 transition ${disabled ? "border-white/[0.04] bg-slate-950/20 opacity-70 light:border-slate-200 light:bg-slate-100/80" : "border-transparent bg-white/[0.01] light:border-slate-200 light:bg-white"}`}>
-			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide light:text-slate-700">{label}</label>
+			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">{label}</label>
 			<input
 				id={inputId}
 				type={type}
@@ -296,15 +296,15 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 				autoComplete={autoComplete}
 				disabled={disabled}
 				aria-describedby={describedBy}
-				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:border-slate-300 light:bg-slate-50 light:text-slate-950 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
+				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:border-slate-300 light:bg-slate-50 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
 			/>
-			{helperText && <p id={helperId} className="text-xs text-white light:text-slate-500">{helperText}</p>}
+			{helperText && <p id={helperId} className="text-xs text-white">{helperText}</p>}
 			{runtimeSummary && (
-				<div id={runtimeId} className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-600">
-					<p>当前运行值：<strong className="text-white light:text-slate-900">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}</p>
+				<div id={runtimeId} className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300 light:border-slate-200 light:bg-slate-50">
+					<p>当前运行值：<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}</p>
 					<p>生效位置：{runtimeSummary.applies}</p>
 					<p>环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}{runtimeSummary.unit}</p>
-					{runtimeSummary.requiresRestart && <p className="font-medium text-amber-200 light:text-amber-700">保存后需重启对应服务才会改变已启动进程。</p>}
+					{runtimeSummary.requiresRestart && <p className="font-medium text-amber-200">保存后需重启对应服务才会改变已启动进程。</p>}
 				</div>
 			)}
 		</div>
@@ -314,7 +314,7 @@ function Field({ label, value, onChange, placeholder, type = "text", autoComplet
 function SwitchField({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
 	return (
 		<div className="flex items-center justify-between gap-3">
-			<span className="text-sm text-slate-300 light:text-slate-700">{label}</span>
+			<span className="text-sm text-slate-300">{label}</span>
 			<button
 				type="button"
 				role="switch"

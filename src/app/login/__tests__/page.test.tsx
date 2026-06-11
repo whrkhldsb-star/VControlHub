@@ -33,8 +33,9 @@ describe("LoginPage", () => {
 		expect(username.className).toContain("bg-white/[0.04]");
 		expect(username.className).toContain("text-white");
 		expect(username.className).toContain("light:bg-white");
-		expect(username.className).toContain("light:text-slate-950");
-	});
+		// globals.css Q17 将深色 input 的 text-white 强制映射到 var(--text-primary)，
+		// 因此不需要 light:text-* 类也能保证浅色主题下的可读性
+		});
 
 	it("renders a visible alert for login errors", async () => {
 		render(await LoginPage({ searchParams: Promise.resolve({ error: "invalid" }) }));

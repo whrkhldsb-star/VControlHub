@@ -99,13 +99,13 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	return (
 		<div className="space-y-3">
 			{error && (
-				<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 light:text-rose-800">
+				<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
 					{error}
 				</div>
 			)}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
-					<button onClick={markAllRead} className="rounded px-1.5 py-1 text-xs text-cyan-400/80 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:text-cyan-700 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
+					<button onClick={markAllRead} className="rounded px-1.5 py-1 text-xs text-cyan-400/80 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
 						全部标记已读
 					</button>
 				</div>
@@ -123,23 +123,23 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 						<span className="text-lg mt-0.5 shrink-0" aria-hidden="true">{typeIcon[n.type] ?? "🔔"}</span>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center gap-2">
-								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-slate-400 light:text-slate-600" : "text-white light:text-slate-900"}`}>{n.title}</h3>
+								<h3 className={`text-sm font-medium truncate ${n.isRead ? "text-slate-400" : "text-white"}`}>{n.title}</h3>
 								{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0 light:bg-cyan-600" aria-label="未读" />}
 							</div>
-							<p className="mt-1 text-xs text-slate-500 light:text-slate-700 leading-relaxed">{n.message}</p>
+							<p className="mt-1 text-xs text-slate-500 leading-relaxed">{n.message}</p>
 							<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
-								<span className="text-slate-600 light:text-slate-500">{timeAgo(n.createdAt)}</span>
+								<span className="text-slate-600">{timeAgo(n.createdAt)}</span>
 								{n.actionUrl && (
-									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded px-1 py-0.5 text-cyan-400/70 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:text-cyan-700 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
+									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded px-1 py-0.5 text-cyan-400/70 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
 										查看详情 →
 									</Link>
 								)}
 								{!n.isRead && (
-									<button onClick={() => markOneRead(n.id)} className="rounded px-1 py-0.5 text-slate-500 transition hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:text-slate-600 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
+									<button onClick={() => markOneRead(n.id)} className="rounded px-1 py-0.5 text-slate-500 transition hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
 										标为已读
 									</button>
 								)}
-								<button onClick={() => deleteOne(n.id)} className="rounded px-1 py-0.5 text-slate-600 opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:text-slate-500 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+								<button onClick={() => deleteOne(n.id)} className="rounded px-1 py-0.5 text-slate-600 opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
 									删除
 								</button>
 							</div>

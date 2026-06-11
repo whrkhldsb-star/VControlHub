@@ -90,7 +90,7 @@ export function AnnouncementList({
         <div className="relative flex-1">
           <label
             htmlFor="announcements-search"
-            className="mb-1 block text-xs font-medium text-slate-400 light:text-slate-600"
+            className="mb-1 block text-xs font-medium text-slate-400"
           >
             搜索公告
           </label>
@@ -101,13 +101,13 @@ export function AnnouncementList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="标题、内容…"
-            className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
+            className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
-          className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none"
+          className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
         >
           {levels.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? "全部级别" : levelLabels[l] ?? l}</option>
@@ -130,7 +130,7 @@ export function AnnouncementList({
                     {a.pinned && <span className="text-xs text-amber-400">📌 置顶</span>}
                     <span className="text-xs text-slate-500">{levelLabels[a.level] ?? a.level}</span>
                   </div>
-                  <h2 className="mt-1 text-base font-semibold text-white light:text-slate-900">{a.title}</h2>
+                  <h2 className="mt-1 text-base font-semibold text-white">{a.title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500 whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("zh-CN")}</span>
@@ -146,7 +146,7 @@ export function AnnouncementList({
                   )}
                 </div>
               </div>
-              <p className="mt-3 text-sm text-slate-300 light:text-slate-700 whitespace-pre-wrap leading-relaxed">{a.body}</p>
+              <p className="mt-3 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{a.body}</p>
               {a.expiresAt && (
                 <p className="mt-3 text-xs text-slate-500">有效期至 {new Date(a.expiresAt).toLocaleString("zh-CN")}</p>
               )}
@@ -166,14 +166,14 @@ export function AnnouncementList({
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
-            <h3 id="delete-announcement-title" className="text-base font-semibold text-white light:text-slate-900">删除公告</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400 light:text-slate-600">确认删除公告 <span className="font-medium text-slate-100 light:text-slate-900">{pendingDelete.title}</span>？此操作不可恢复。</p>
+            <h3 id="delete-announcement-title" className="text-base font-semibold text-white">删除公告</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">确认删除公告 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
                 取消
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-500/25 disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
                 {deleteBusy ? "正在删除..." : "确认删除"}
               </button>
             </div>
