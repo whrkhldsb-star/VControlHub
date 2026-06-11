@@ -46,7 +46,7 @@ function ConnectionTypeFields({
               className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${
  connectionType === type
  ?"border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-100 light:text-cyan-900 font-medium"
- :"border-white/[0.06] bg-white/[0.03] text-slate-400 light:text-slate-600 hover:bg-white/[0.05]"
+ :"border-white/[0.06] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
  }`}
             >
               {type === "SSH_KEY" ? "SSH 密钥" : "密码"}
@@ -280,7 +280,7 @@ export function ServerCreateForm({
           />
           <div>
             <div className="font-medium text-cyan-100 light:text-cyan-900">启用目标服务器直连</div>
-            <p className="mt-1 text-xs text-slate-400 light:text-slate-600">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct
               Gateway 微服务。
             </p>

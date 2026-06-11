@@ -109,7 +109,7 @@ export function ArchivePreviewClient({
 
 			{entries && entries.length > 0 ? (
 				<div className="rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 overflow-hidden">
-					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-slate-400 light:text-slate-600 font-medium">
+					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
 						<div />
 						<div>名称</div>
 						<div className="text-right">大小</div>
@@ -128,7 +128,7 @@ export function ArchivePreviewClient({
 									)}
 								</div>
 								<div className="truncate text-white">{entry.name}</div>
-								<div className="text-right text-slate-400 light:text-slate-600 text-xs">{entry.isDirectory ? "目录" : formatSize(entry.size)}</div>
+								<div className="text-right text-[var(--text-secondary)] text-xs">{entry.isDirectory ? "目录" : formatSize(entry.size)}</div>
 							</div>
 						))}
 					</div>
@@ -137,7 +137,7 @@ export function ArchivePreviewClient({
 					</div>
 				</div>
 			) : entries && entries.length === 0 ? (
-				<div className="text-sm text-slate-400 light:text-slate-600">压缩包为空</div>
+				<div className="text-sm text-[var(--text-secondary)]">压缩包为空</div>
 			) : null}
 		</div>
 	);

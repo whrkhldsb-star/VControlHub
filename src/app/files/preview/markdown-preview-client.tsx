@@ -299,7 +299,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 
 	if (state.loading) {
 		return (
-			<div className="flex items-center justify-center py-16 text-slate-400 light:text-slate-600">
+			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
 				<span className="animate-pulse text-sm">正在加载…</span>
 			</div>
 		);

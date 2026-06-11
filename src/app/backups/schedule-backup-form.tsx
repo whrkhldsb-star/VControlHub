@@ -82,7 +82,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
     <form onSubmit={createSchedule} className="mt-4 space-y-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.04] p-4">
       <div className="grid gap-3 md:grid-cols-[180px_1fr]">
         <div className="space-y-1.5">
-          <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-slate-400 light:text-slate-600">备份类型</label>
+          <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-[var(--text-secondary)]">备份类型</label>
           <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100">
             <option value="DATABASE">数据库备份</option>
             <option value="FILES">文件备份</option>
@@ -90,14 +90,14 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-slate-400 light:text-slate-600">Cron 表达式</label>
+          <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-[var(--text-secondary)]">Cron 表达式</label>
           <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm font-mono text-slate-100" />
         </div>
       </div>
       <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
       <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{command}</code>
       <div className="space-y-2">
-        <p className="text-xs font-medium text-slate-400 light:text-slate-600">执行节点</p>
+        <p className="text-xs font-medium text-[var(--text-secondary)]">执行节点</p>
         {enabledServers.length === 0 ? (
           <p className="text-xs text-amber-200 light:text-amber-800">暂无可用 VPS 节点，请先在 VPS 管理中启用至少一台节点。</p>
         ) : (

@@ -16,7 +16,7 @@ export function ChangePasswordForm() {
       <input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
       <div>
         <h2 className="text-xl font-semibold text-white">修改登录密码</h2>
-        <p className="mt-2 text-sm text-slate-400 light:text-slate-600">
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
           输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。
         </p>
       </div>
@@ -68,7 +68,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
+    <div className="grid gap-2 text-sm text-[var(--text-secondary)]">
       <label htmlFor={inputId}>{label}</label>
       <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white focus-within:border-cyan-400/60">
         <input

@@ -145,7 +145,7 @@ describe("NotificationBell", () => {
 
     expect(await screen.findByRole("dialog", { name: "通知" })).toBeInTheDocument();
     expect(trigger).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("暂无通知")).toHaveClass("text-slate-400");
+    expect(screen.getByText("暂无通知")).toHaveClass("text-[var(--text-secondary)]");
 
     await user.keyboard("{Escape}");
 

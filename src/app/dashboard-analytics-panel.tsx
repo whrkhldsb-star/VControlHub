@@ -200,7 +200,7 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
   };
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-xs text-slate-400 light:text-slate-600">
+      <div className="mb-1 flex items-center justify-between text-xs text-[var(--text-secondary)]">
         <span>{label}</span>
         <span>{value}%</span>
       </div>

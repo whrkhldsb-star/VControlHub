@@ -47,12 +47,12 @@ export function CreateAnnouncementForm() {
 			{error && <p className="text-xs text-rose-400">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
-					<label htmlFor={titleId} className="text-xs font-medium text-slate-400 light:text-slate-600">标题</label>
+					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">标题</label>
 					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500" />
 					<p id={`${titleId}-hint`} className="text-[11px] text-slate-500">显示在站内公告列表和用户通知区域的公告标题。</p>
 				</div>
 				<div className="grid gap-1.5">
-					<label htmlFor={typeId} className="text-xs font-medium text-slate-400 light:text-slate-600">类型</label>
+					<label htmlFor={typeId} className="text-xs font-medium text-[var(--text-secondary)]">类型</label>
 					<select id={typeId} name="type" defaultValue="info" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100">
 						<option value="info">信息</option>
 						<option value="warning">警告</option>
@@ -62,18 +62,18 @@ export function CreateAnnouncementForm() {
 				</div>
 			</div>
 			<div className="grid gap-1.5">
-				<label htmlFor={contentId} className="text-xs font-medium text-slate-400 light:text-slate-600">内容</label>
+				<label htmlFor={contentId} className="text-xs font-medium text-[var(--text-secondary)]">内容</label>
 				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500 resize-y" />
 				<p id={`${contentId}-hint`} className="text-[11px] text-slate-500">写清影响范围、时间窗口和用户需要执行的操作。</p>
 			</div>
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
-					<label htmlFor={startsAtId} className="text-xs font-medium text-slate-400 light:text-slate-600">生效时间</label>
+					<label htmlFor={startsAtId} className="text-xs font-medium text-[var(--text-secondary)]">生效时间</label>
 					<input id={startsAtId} type="datetime-local" name="startsAt" aria-describedby={`${startsAtId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100" />
 					<p id={`${startsAtId}-hint`} className="text-[11px] text-slate-500">留空表示立即生效。</p>
 				</div>
 				<div className="grid gap-1.5">
-					<label htmlFor={expiresAtId} className="text-xs font-medium text-slate-400 light:text-slate-600">过期时间</label>
+					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">过期时间</label>
 					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100" />
 					<p id={`${expiresAtId}-hint`} className="text-[11px] text-slate-500">留空表示永不过期。</p>
 				</div>

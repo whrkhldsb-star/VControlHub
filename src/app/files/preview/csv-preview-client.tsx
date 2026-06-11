@@ -99,7 +99,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 
 	if (state.loading) {
 		return (
-			<div className="flex items-center justify-center py-16 text-slate-400 light:text-slate-600">
+			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
 				<span className="animate-pulse text-sm">正在加载…</span>
 			</div>
 		);
@@ -116,7 +116,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 
 	if (!state.rows || state.rows.length === 0) {
 		return (
-			<div className="flex flex-col items-center gap-3 py-16 text-slate-400 light:text-slate-600">
+			<div className="flex flex-col items-center gap-3 py-16 text-[var(--text-secondary)]">
 				<span className="text-3xl">📊</span>
 				<p className="text-sm">CSV 文件为空</p>
 			</div>
@@ -127,13 +127,13 @@ export function CsvPreviewClient({ href }: { href: string }) {
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
 				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 light:text-emerald-700 border border-emerald-400/30">CSV 表格预览</span>
-				<span className="text-xs text-slate-400 light:text-slate-600">{dataRows.length} 行 × {colCount} 列</span>
+				<span className="text-xs text-[var(--text-secondary)]">{dataRows.length} 行 × {colCount} 列</span>
 			</div>
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
 				<table className="w-full text-sm">
 					<thead>
 						<tr className="bg-slate-800/80 light:bg-slate-100/80">
-							<th className="px-3 py-2 text-left text-xs font-medium text-slate-400 light:text-slate-600 border-b border-slate-700 light:border-slate-200 w-12">#</th>
+							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-slate-700 light:border-slate-200 w-12">#</th>
 							{header.map((col, i) => (
 								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-cyan-300 light:text-cyan-700 border-b border-slate-700 light:border-slate-200 whitespace-nowrap">{col || `列${i + 1}`}</th>
 							))}
@@ -144,7 +144,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 							<tr key={rowIdx} className={rowIdx % 2 === 0 ? "bg-slate-900/40 light:bg-slate-50" : "bg-slate-950/40 light:bg-white"}>
 								<td className="px-3 py-1.5 text-right text-xs text-slate-600 border-b border-slate-800/50 light:border-slate-300/50">{rowIdx + 1}</td>
 								{header.map((_, colIdx) => (
-									<td key={colIdx} className="px-3 py-1.5 text-slate-300 light:text-slate-700 border-b border-slate-800/50 light:border-slate-300/50 whitespace-nowrap max-w-[300px] truncate">{row[colIdx] ?? ""}</td>
+									<td key={colIdx} className="px-3 py-1.5 text-[var(--text-secondary)] border-b border-slate-800/50 light:border-slate-300/50 whitespace-nowrap max-w-[300px] truncate">{row[colIdx] ?? ""}</td>
 								))}
 							</tr>
 						))}

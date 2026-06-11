@@ -233,7 +233,7 @@ export function AiSettingsPanel({
               onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
               className="rounded border-white/20 bg-black/30 light:bg-slate-900/30 text-cyan-400 focus:ring-cyan-400/30"
             />
-            <span className="text-xs text-slate-300 light:text-slate-700">
+            <span className="text-xs text-[var(--text-secondary)]">
               👁 多模态 (视觉)
               {currentModelSupportsVision && (
                 <span className="text-[9px] text-cyan-400/60 ml-1">推荐</span>
@@ -251,7 +251,7 @@ export function AiSettingsPanel({
  onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
  className="rounded border-white/20 bg-black/30 light:bg-slate-900/30 text-amber-400 focus:ring-amber-400/30"
  />
- <span className="text-xs text-slate-300 light:text-slate-700">
+ <span className="text-xs text-[var(--text-secondary)]">
  🤖 AI托管模式
  <span className="text-[9px] text-amber-400/60 ml-1">AI可操作VPS</span>
  </span>

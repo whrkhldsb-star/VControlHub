@@ -80,7 +80,7 @@ export function CommandCreateForm({
 										?"border-white/[0.04] bg-white/[0.01] text-slate-600 cursor-not-allowed opacity-50"
 										: selectedServerIds.has(server.id)
 											?"border-cyan-400/20 bg-cyan-400/[0.06] text-white"
-											:"border-white/[0.06] bg-white/[0.03] text-slate-300 light:text-slate-700 hover:bg-white/[0.05]"
+											:"border-white/[0.06] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
 								}`}
 							>
 								<input

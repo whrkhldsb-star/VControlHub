@@ -97,7 +97,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	return (
 		<form onSubmit={handleSubmit} className="mt-4 grid gap-4">
 			<div className="grid gap-3 md:grid-cols-2">
-				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					部署模板
 					<select
 						name="templateId"
@@ -108,7 +108,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
 					</select>
 				</label>
-				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					部署原因
 					<input name="reason" maxLength={500} placeholder="例如：上线新版本 / 修复服务异常" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400" />
 				</label>
@@ -124,7 +124,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						{variables.map((name) => (
-							<label key={name} className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
 								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400" />
 							</label>
@@ -151,7 +151,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			</div>
 
 			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3 light:border-slate-200 light:bg-slate-50">
-				<summary className="cursor-pointer text-xs font-medium text-slate-400 light:text-slate-600">预览命令</summary>
+				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">预览命令</summary>
 				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-white light:text-slate-800">{previewCommand(selectedTemplate, variables)}</code>
 			</details>
 

@@ -28,7 +28,7 @@ export function RouteError({
 			</div>
 			<div className="space-y-2">
 				<h2 className="text-lg font-semibold text-white">{title}</h2>
-				<p className="max-w-lg text-sm leading-6 text-slate-400 light:text-slate-600">{error.message || description}</p>
+				<p className="max-w-lg text-sm leading-6 text-[var(--text-secondary)]">{error.message || description}</p>
 				{error.digest ? (
 					<p className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1 text-xs text-slate-500">
 						错误编号：{error.digest}

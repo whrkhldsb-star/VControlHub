@@ -201,13 +201,13 @@ export function FileUploadDropzone({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-white">{title}</h2>
-          <p className="text-sm text-slate-400 light:text-slate-600">{description}</p>
+          <p className="text-sm text-[var(--text-secondary)]">{description}</p>
         </div>
       </div>
 
       <div className={`mt-5 grid gap-4 ${allowNodeSelection ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "md:grid-cols-1"}`}>
         {allowNodeSelection ? (
-          <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
+          <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
             <span>上传到节点</span>
             <select
               aria-label="上传到节点"
@@ -225,7 +225,7 @@ export function FileUploadDropzone({
           </label>
         ) : null}
 
-        <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
+        <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
           <span>{pathLabel}</span>
           <input
             aria-label={pathLabel}
@@ -274,12 +274,12 @@ export function FileUploadDropzone({
         }`}
       >
         <span className="text-base font-medium">{submitLabel}</span>
-        <span className="mt-2 text-sm text-slate-400 light:text-slate-600">
+        <span className="mt-2 text-sm text-[var(--text-secondary)]">
           {uploadEnabled ? (submitting ? "上传中，请稍候..." : "可拖拽或选择多个文件上传，文件夹请切换下方模式。") : "请选择 LOCAL 或 SFTP 节点后再上传。"}
         </span>
       </button>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-400 light:text-slate-600">
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
         <button
           type="button"
           onClick={() => directoryInputRef.current?.click()}
@@ -304,7 +304,7 @@ export function FileUploadDropzone({
       ) : null}
 
       {queue.length > 0 ? (
-        <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 p-3 text-xs text-slate-300 light:text-slate-700">
+        <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 p-3 text-xs text-[var(--text-secondary)]">
           {queue.map((item, index) => (
             <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
               <span className="truncate">

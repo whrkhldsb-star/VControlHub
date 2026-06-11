@@ -56,7 +56,7 @@ export function AiSidebar({
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
  activeConvId === conv.id
  ?"bg-cyan-400/[0.08] text-cyan-100 light:text-cyan-900"
- :"text-slate-400 light:text-slate-600 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800"
+ :"text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800"
  }`}
                 onClick={() => onSelectConv(conv.id)}
               >
@@ -84,7 +84,7 @@ export function AiSidebar({
           <div className="border-t border-white/[0.06] p-2 space-y-1">
             <button
               onClick={onToggleProviders}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.857L8 16H6v2H4v2H2v-2.586l7.44-7.44A6 6 0 0121 9z" />
@@ -93,7 +93,7 @@ export function AiSidebar({
             </button>
             <button
               onClick={() => onToggleSidebar(false)}
-              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition lg:hidden"
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition lg:hidden"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />

@@ -43,7 +43,7 @@ export function StorageNodeManager({
 			<div className="flex items-center justify-between gap-4">
 				<div>
 					<h2 className="text-2xl font-semibold text-white">存储节点</h2>
-					<p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
+					<p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
 						{nodes.length} 个节点 · 本机 {localCount} · SFTP {sftpCount}
 					</p>
 				</div>

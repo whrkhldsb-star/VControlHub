@@ -208,7 +208,7 @@ export function AiProviderPanel({
             <div className="space-y-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3">
               <div className="flex items-center justify-between gap-3">
                 <h4 className="text-xs text-cyan-200 light:text-cyan-800 uppercase tracking-wider">编辑提供商</h4>
-                <button type="button" onClick={cancelEditing} className="text-xs text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800">取消编辑</button>
+                <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800">取消编辑</button>
               </div>
               <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
                 <div>
@@ -235,7 +235,7 @@ export function AiProviderPanel({
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
                   <input type="checkbox" checked={editForm.isDefault} onChange={(e) => setEditForm((f) => f ? ({ ...f, isDefault: e.target.checked }) : f)} className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30" />
-                  <span className="text-xs text-slate-300 light:text-slate-700">设为默认提供商</span>
+                  <span className="text-xs text-[var(--text-secondary)]">设为默认提供商</span>
                 </label>
               </div>
               <button type="button" onClick={saveEditing} className="w-full h-9 rounded-xl bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-sm font-medium hover:bg-cyan-500/30 transition">保存修改</button>
@@ -279,18 +279,18 @@ export function AiProviderPanel({
                 <div className="col-span-2 max-sm:col-span-1 rounded-xl border border-[var(--border)] bg-black/20 p-3 space-y-2">
                   <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
                     <div>
-                      <div className="text-[10px] text-slate-400 light:text-slate-600">模型清单</div>
+                      <div className="text-[10px] text-[var(--text-secondary)]">模型清单</div>
                       <p className="text-[11px] text-slate-500">输入账号密钥后自动拉取模型，然后选择默认模型。</p>
                     </div>
                     <button type="button" onClick={fetchProviderModels} disabled={modelsLoading} className="h-8 px-3 rounded-lg bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-xs font-medium hover:bg-cyan-500/30 transition disabled:opacity-50">
                       {modelsLoading ? "获取中..." : "获取模型清单"}
                     </button>
                   </div>
-                  {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-black/20 p-2 text-[11px] text-slate-300 light:text-slate-700">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? ` 等 ${modelOptions.length} 个` : ""}</div>}
+                  {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-black/20 p-2 text-[11px] text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? ` 等 ${modelOptions.length} 个` : ""}</div>}
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
                   <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30" />
-                  <span className="text-xs text-slate-300 light:text-slate-700">设为默认提供商</span>
+                  <span className="text-xs text-[var(--text-secondary)]">设为默认提供商</span>
                 </label>
               </div>
               <button onClick={onCreateProvider} className="w-full h-9 rounded-xl bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-sm font-medium hover:bg-cyan-500/30 transition">添加提供商</button>

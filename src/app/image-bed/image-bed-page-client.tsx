@@ -496,7 +496,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Search Filter */}
 			<div className="mt-4 flex flex-wrap items-end gap-3">
-				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					图片搜索
 					<input
 						type="search"

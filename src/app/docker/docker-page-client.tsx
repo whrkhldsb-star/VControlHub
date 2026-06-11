@@ -221,7 +221,7 @@ export default function DockerPage() {
 	return (
 		<PageShell>
 			<h1 className="text-2xl font-bold mb-1">Docker 容器</h1>
-			<p className="text-slate-400 light:text-slate-600 mb-4">管理 VControlHub 所在主机的 Docker 容器</p>
+			<p className="text-[var(--text-secondary)] mb-4">管理 VControlHub 所在主机的 Docker 容器</p>
 			<section
 				aria-labelledby="docker-scope-title"
 				className="mb-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50 light:text-amber-900"
@@ -321,7 +321,7 @@ export default function DockerPage() {
 														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 													</>
 												)}
-												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-slate-300 light:text-slate-700 rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
+												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
 												<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 											</div>
 										</div>
@@ -357,7 +357,7 @@ export default function DockerPage() {
 													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 												</>
 											)}
-											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-slate-300 light:text-slate-700 rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
+											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
 											<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 										</div>
 									</div>
@@ -379,7 +379,7 @@ export default function DockerPage() {
 						onClick={(event) => event.stopPropagation()}
 					>
 						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
-						<p className="mt-3 text-sm text-slate-300 light:text-slate-700">
+						<p className="mt-3 text-sm text-[var(--text-secondary)]">
 							即将删除容器 <span className="font-mono text-rose-200 light:text-rose-800">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
 						</p>
 						<div className="mt-5 flex justify-end gap-2">
@@ -387,7 +387,7 @@ export default function DockerPage() {
 								ref={removeCancelButtonRef}
 								type="button"
 								onClick={closeRemovalDialog}
-								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]"
+								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
@@ -427,7 +427,7 @@ export default function DockerPage() {
 								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>
 						</div>
-						<pre className="flex-1 overflow-auto text-[11px] text-slate-300 light:text-slate-700 bg-black/40 light:bg-slate-100 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
+						<pre className="flex-1 overflow-auto text-[11px] text-[var(--text-secondary)] bg-black/40 light:bg-slate-100 rounded-lg p-3 font-mono whitespace-pre-wrap">{logs}</pre>
 					</div>
 				</div>
 			)}

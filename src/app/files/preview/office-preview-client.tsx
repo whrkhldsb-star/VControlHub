@@ -9,7 +9,7 @@ export function OfficePreviewClient({
 	driver: string;
 }) {
 	return (
-		<div className="flex flex-col items-center gap-4 py-12 text-center text-slate-400 light:text-slate-600">
+		<div className="flex flex-col items-center gap-4 py-12 text-center text-[var(--text-secondary)]">
 			<span className="text-6xl">📝</span>
 			<div className="space-y-2">
 				<p className="text-lg text-slate-200">此 Office 文件暂不支持稳定在线渲染预览</p>

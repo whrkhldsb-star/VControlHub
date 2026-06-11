@@ -40,7 +40,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 					<button
 						type="button"
 						onClick={onClose}
-						className="rounded-xl p-2 text-slate-400 light:text-slate-600 hover:bg-white/5 hover:text-white light:hover:text-slate-900 transition"
+						className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-white/5 hover:text-white light:hover:text-slate-900 transition"
 						aria-label="关闭修改密码弹窗"
 					>
 						<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -49,7 +49,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 					</button>
 				</div>
 
-				<p id={descriptionId} className="mb-4 text-sm text-slate-400 light:text-slate-600">
+				<p id={descriptionId} className="mb-4 text-sm text-[var(--text-secondary)]">
 					输入当前密码后设置新密码。修改后不会强制退出，下次登录需使用新密码。
 				</p>
 
@@ -85,7 +85,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 						<button
 							type="button"
 							onClick={onClose}
-							className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-slate-300 light:text-slate-700 hover:bg-white/5 transition"
+							className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-white/5 transition"
 						>
 							取消
 						</button>
@@ -103,7 +103,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 	const [visible, setVisible] = useState(false);
 
 	return (
-		<div className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
+		<div className="grid gap-2 text-sm text-[var(--text-secondary)]">
 			<label htmlFor={inputId}>{label}</label>
 			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white focus-within:border-cyan-400/60">
 				<input

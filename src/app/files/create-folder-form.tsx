@@ -84,7 +84,7 @@ export function CreateFolderForm({
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="currentPath" value={currentPath} />
       {storageNodes.length > 1 ? (
-        <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
+        <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
           <span>目标节点</span>
           <select
             name="storageNodeId"
@@ -102,7 +102,7 @@ export function CreateFolderForm({
       ) : (
         <input type="hidden" name="storageNodeId" value={selectedNodeId} />
       )}
-      <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
+      <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
         <span>文件夹名称</span>
         <input
           ref={inputRef}
@@ -118,7 +118,7 @@ export function CreateFolderForm({
         />
       </label>
       {folderName.trim() ? (
-        <span className="text-xs text-slate-400 light:text-slate-600">路径：/{fullPath}</span>
+        <span className="text-xs text-[var(--text-secondary)]">路径：/{fullPath}</span>
       ) : null}
       <button
         type="submit"
@@ -130,7 +130,7 @@ export function CreateFolderForm({
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+        className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
       >
         取消
       </button>

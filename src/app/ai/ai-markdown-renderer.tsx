@@ -113,7 +113,7 @@ export const renderContent = (content: string) => {
  {tableRows.slice(1).map((row, ri) => (
  <tr key={ri}>
  {row.map((cell, ci) => (
- <td key={ci} className="border border-[var(--border)] px-2 py-1 text-slate-300 light:text-slate-700">{renderInline(cell)}</td>
+ <td key={ci} className="border border-[var(--border)] px-2 py-1 text-[var(--text-secondary)]">{renderInline(cell)}</td>
  ))}
  </tr>
  ))}

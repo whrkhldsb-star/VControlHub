@@ -181,7 +181,7 @@ export default async function MediaPlayerPage({
                   relativePath={item.relativePath}
                 />
               ) : (
-                <div className="py-16 text-center text-sm text-slate-400 light:text-slate-600">
+                <div className="py-16 text-center text-sm text-[var(--text-secondary)]">
                   此媒体类型暂不支持在线预览，请下载后查看。
                 </div>
               )}

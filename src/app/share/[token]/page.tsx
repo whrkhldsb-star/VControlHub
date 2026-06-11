@@ -55,32 +55,32 @@ export default async function SharePage({
               <p className="break-all text-base font-medium text-white">
                 {share.name || share.path}
               </p>
-              <dl className="mt-3 grid gap-1.5 text-xs text-slate-400 light:text-slate-600 sm:grid-cols-2">
+              <dl className="mt-3 grid gap-1.5 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
                 <div className="flex justify-between gap-3">
                   <dt>存储节点</dt>
-                  <dd className="text-slate-300 light:text-slate-700">{share.storageNode?.name ?? "—"}</dd>
+                  <dd className="text-[var(--text-secondary)]">{share.storageNode?.name ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt>类型</dt>
-                  <dd className="text-slate-300 light:text-slate-700">
+                  <dd className="text-[var(--text-secondary)]">
                     {share.entryType === "DIRECTORY" ? "目录" : "文件"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3 sm:col-span-2">
                   <dt>路径</dt>
-                  <dd className="break-all text-right text-slate-300 light:text-slate-700">{share.path}</dd>
+                  <dd className="break-all text-right text-[var(--text-secondary)]">{share.path}</dd>
                 </div>
                 {share.expiresAt ? (
                   <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>有效期至</dt>
-                    <dd className="text-slate-300 light:text-slate-700">
+                    <dd className="text-[var(--text-secondary)]">
                       {new Date(share.expiresAt).toLocaleString("zh-CN")}
                     </dd>
                   </div>
                 ) : (
                   <div className="flex justify-between gap-3">
                     <dt>有效期</dt>
-                    <dd className="text-slate-300 light:text-slate-700">永久有效</dd>
+                    <dd className="text-[var(--text-secondary)]">永久有效</dd>
                   </div>
                 )}
               </dl>

@@ -76,10 +76,10 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             className="w-full max-w-md rounded-2xl border border-rose-400/30 bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30"
           >
             <h3 id="restore-backup-title" className="text-base font-semibold text-white">确认恢复备份</h3>
-            <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">
+            <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               恢复 <span className="font-semibold text-white">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200 light:text-rose-800">{CONFIRM_TEXT}</span> 后继续。
             </p>
-            <label className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
+            <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
               输入 RESTORE 确认恢复
               <input
                 value={confirmText}
@@ -99,7 +99,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                   setConfirmText("");
                   setError(null);
                 }}
-                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
+                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/5 disabled:opacity-50"
               >
                 取消
               </button>

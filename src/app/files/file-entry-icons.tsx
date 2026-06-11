@@ -234,7 +234,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-slate-300 light:text-slate-700"
+        className="text-[var(--text-secondary)]"
       >
         <path
           d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
@@ -257,7 +257,7 @@ export function FileTypeIcon({
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-slate-400 light:text-slate-600"
+      className="text-[var(--text-secondary)]"
     >
       <path
         d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"

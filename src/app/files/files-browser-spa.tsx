@@ -234,7 +234,7 @@ function NodeFilterSelect({
 
   return (
     <div className={compact ? "space-y-2" : "w-full max-w-xl space-y-2"}>
-      <div className="flex items-center justify-between gap-3 text-xs text-slate-400 light:text-slate-600">
+      <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
         <span>
           当前：{getNodeIcon(selectedNode?.driver ?? "")}{" "}
           {getNodeLabel(selectedNode)}
@@ -250,7 +250,7 @@ function NodeFilterSelect({
         ) : null}
       </div>
       <div className="space-y-1">
-        <label htmlFor={searchInputId} className="block text-xs font-medium text-slate-300 light:text-slate-700">
+        <label htmlFor={searchInputId} className="block text-xs font-medium text-[var(--text-secondary)]">
           搜索存储节点
         </label>
         <input
@@ -263,7 +263,7 @@ function NodeFilterSelect({
         />
       </div>
       <div className="space-y-1">
-        <label htmlFor={selectInputId} className="block text-xs font-medium text-slate-300 light:text-slate-700">
+        <label htmlFor={selectInputId} className="block text-xs font-medium text-[var(--text-secondary)]">
           选择存储节点
         </label>
         <select
@@ -371,7 +371,7 @@ function FolderTreeClient({
                     : `打开 ${child.displayName ?? child.name}`
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
-                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-slate-400 light:text-slate-600 hover:bg-white/10 hover:text-white light:hover:text-slate-900"
+                className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-white/10 hover:text-white light:hover:text-slate-900"
               >
                 {hasChildren ? (isExpanded ? "▾" : "▸") : "•"}
               </button>
@@ -426,7 +426,7 @@ function BreadcrumbsClient({
   return (
     <nav
       aria-label="面包屑"
-      className="flex flex-wrap items-center gap-2 text-sm text-slate-400 light:text-slate-600"
+      className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]"
     >
       <button
         type="button"
@@ -633,7 +633,7 @@ export function FilesBrowserSpa({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white">目录树</h2>
-            <p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
+            <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
               按层级展开所有已登记目录，便于快速跳转。
             </p>
           </div>
@@ -642,7 +642,7 @@ export function FilesBrowserSpa({
         {/* Node filter in sidebar - compact for sidebar */}
         {data.nodes.length > 1 ? (
           <div className="mt-4 flex flex-col gap-1.5">
-            <label className="text-xs text-slate-400 light:text-slate-600">
+            <label className="text-xs text-[var(--text-secondary)]">
               按节点筛选
             </label>
             <NodeFilterSelect
@@ -691,7 +691,7 @@ export function FilesBrowserSpa({
                 <h3 className="text-lg font-semibold text-white">
                   切换存储节点
                 </h3>
-                <p className="mt-1 text-sm text-slate-400 light:text-slate-600">
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
                   节点变多后可以先搜索，再从下拉框切换到目标节点；列表会自动按 LOCAL 或 SFTP 节点类型执行浏览、上传、下载和文件操作。
                 </p>
               </div>
@@ -716,7 +716,7 @@ export function FilesBrowserSpa({
                   </span>
                 ) : null}
               </h2>
-              <p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
+              <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
                 {currentPathDisplay.label ? `当前路径：${currentPathDisplay.label}` : "当前路径：全部节点：/"}
               </p>
             </div>
@@ -738,7 +738,7 @@ export function FilesBrowserSpa({
               />
               <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-end sm:gap-3">
                 <div className="flex flex-1 flex-col gap-1">
-                  <label htmlFor="files-search-query" className="text-xs font-medium text-slate-400 light:text-slate-600">
+                  <label htmlFor="files-search-query" className="text-xs font-medium text-[var(--text-secondary)]">
                     搜索文件名
                   </label>
                   <input
@@ -767,7 +767,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+                    className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
                   >
                     清除
                   </button>
@@ -775,7 +775,7 @@ export function FilesBrowserSpa({
               </div>
             </div>
             {data.searchQuery ? (
-              <p className="mt-2 text-xs text-slate-400 light:text-slate-600">
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">
                 搜索 &quot;{data.searchQuery}&quot; —{" "}
                 {data.searchScope === "all" ? "在全部文件中" : "在当前目录"}找到{" "}
                 {data.stats.totalItems} 个结果
@@ -789,10 +789,10 @@ export function FilesBrowserSpa({
                 <h3 className="text-xl font-semibold text-white">
                   当前目录操作
                 </h3>
-                <p className="mt-2 text-sm text-slate-300 light:text-slate-700">
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   当前路径：{currentPathDisplay.label}
                 </p>
-                <p className="mt-1 text-sm text-slate-300 light:text-slate-700">
+                <p className="mt-1 text-sm text-[var(--text-secondary)]">
                   项目数 {data.stats.totalItems}
                   {data.sourceSummary.length > 0
                     ? ` · 来源节点：${data.sourceSummary.join("、")}`
@@ -847,7 +847,7 @@ export function FilesBrowserSpa({
                         ? "没有文件编辑权限，无法新建文件夹"
                         : "当前没有可用的存储节点，无法新建文件夹"
                     }
-                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-400 light:text-slate-600"
+                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
                   >
                     新建文件夹
                   </button>

@@ -60,7 +60,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
         <div role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl light:border-slate-200 light:bg-white">
             <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-white">确认取消命令</h3>
-            <p className="mt-2 text-sm text-slate-400 light:text-slate-600">
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
               将取消“{commandTitle}”。若 SSH 子进程仍在当前执行器内运行，系统会发送终止信号；否则会把仍处于待审批/已批准/运行中的目标标记为 CANCELLED。
             </p>
             <label htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4 block text-sm font-medium text-slate-200">

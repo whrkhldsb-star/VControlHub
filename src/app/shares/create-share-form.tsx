@@ -83,28 +83,28 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">存储节点</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">存储节点</label>
               <select value={nodeId} onChange={(e) => setNodeId(e.target.value)} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900">
                 {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">访问路径</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">访问路径</label>
               <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? "如 /public 或 /docs" : "如 /docs/readme.md"} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">分享类型</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">分享类型</label>
               <select value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900">
                 <option value="DIRECTORY">目录：允许访问路径下所有已索引文件</option>
                 <option value="FILE">单文件：只允许下载该文件</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">名称（可选）</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">名称（可选）</label>
               <input value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
             </div>
             <div>
-              <label className="block text-xs text-slate-400 light:text-slate-600 mb-1">有效期（小时，空=永久）</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1">有效期（小时，空=永久）</label>
               <input type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900" />
             </div>
           </div>

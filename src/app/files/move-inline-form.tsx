@@ -104,7 +104,7 @@ export function MoveInlineForm({
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <input type="hidden" name="currentRelativePath" value={relativePath} />
       <input type="hidden" name="storageNodeId" value={storageNodeId} />
-      <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
+      <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
         <span className="sr-only">目标路径</span>
         <input
           ref={inputRef}
@@ -117,7 +117,7 @@ export function MoveInlineForm({
           className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
         />
       </label>
-      <span className="text-xs text-slate-400 light:text-slate-600">
+      <span className="text-xs text-[var(--text-secondary)]">
         → /{previewPath}
       </span>
       <button
@@ -130,7 +130,7 @@ export function MoveInlineForm({
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+        className="rounded-full border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
       >
         取消
       </button>

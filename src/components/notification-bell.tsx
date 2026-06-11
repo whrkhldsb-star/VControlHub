@@ -150,7 +150,7 @@ export function NotificationBell() {
 		<div className="relative" ref={panelRef}>
 			<button
 				onClick={togglePanel}
-				className="relative flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 hover:bg-white/[0.06] transition"
+				className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800 hover:bg-white/[0.06] transition"
 				aria-label={notificationLabel}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}
@@ -201,7 +201,7 @@ export function NotificationBell() {
 						</div>
 					)}
 					{notifications.length === 0 && !feedback ? (
-						<div className="p-6 text-center text-xs text-slate-400 light:text-slate-600">{emptyLabel}</div>
+						<div className="p-6 text-center text-xs text-[var(--text-secondary)]">{emptyLabel}</div>
 					) : notifications.length > 0 ? (
 						<ul className="divide-y divide-white/[0.04] light:divide-slate-200" aria-label={recentListLabel}>
 							{notifications.slice(0, 10).map((n) => (
@@ -212,7 +212,7 @@ export function NotificationBell() {
 									>
 										<div className="flex items-center gap-2">
 											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0" />}
-											<span className={`text-xs font-medium truncate ${n.isRead ? "text-slate-400 light:text-slate-600" : "text-white"}`}>{n.title}</span>
+											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-white"}`}>{n.title}</span>
 										</div>
 										<p className="mt-1 text-[11px] text-slate-500 light:text-slate-600 truncate">{n.message}</p>
 									</Link>

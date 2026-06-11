@@ -328,7 +328,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<h3 id={`ssh-terminal-title-${serverId}`} className="text-lg font-semibold text-white">
 								SSH 终端 — {serverName}
 							</h3>
-							<p id={`ssh-terminal-host-${serverId}`} className="text-xs text-slate-400 light:text-slate-600">{host}</p>
+							<p id={`ssh-terminal-host-${serverId}`} className="text-xs text-[var(--text-secondary)]">{host}</p>
 						</div>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 sm:gap-3 md:justify-end">
@@ -444,7 +444,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<button
 												key={`${cmd}-${i}`}
 												onClick={() => sendCommand(cmd)}
-												className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-slate-400 light:text-slate-600 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+												className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-cyan-100/80"
 												title={cmd}
 											>
 												{cmd}

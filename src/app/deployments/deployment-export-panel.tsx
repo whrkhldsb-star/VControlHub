@@ -88,22 +88,22 @@ export function DeploymentExportPanel() {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-        <label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+        <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
           目标域名
           <input
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
             placeholder="console.example.com"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-slate-400 light:text-slate-600"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-[var(--text-secondary)]"
           />
         </label>
-        <label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+        <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
           应用标识
           <input
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
             placeholder="vcontrolhub"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-slate-400 light:text-slate-600"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-[var(--text-secondary)]"
           />
         </label>
         <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">
@@ -129,8 +129,8 @@ export function DeploymentExportPanel() {
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {files.map(([name, content]) => (
               <details key={name} className="rounded-lg border border-white/[0.06] bg-black/20 p-3 light:border-slate-200 light:bg-white">
-                <summary className="cursor-pointer text-xs font-medium text-slate-300 light:text-slate-700">{name}</summary>
-                <code className="mt-2 block max-h-48 overflow-auto whitespace-pre-wrap text-xs text-slate-400 light:text-slate-600">{content}</code>
+                <summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{name}</summary>
+                <code className="mt-2 block max-h-48 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{content}</code>
               </details>
             ))}
           </div>

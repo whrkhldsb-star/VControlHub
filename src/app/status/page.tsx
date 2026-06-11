@@ -9,7 +9,7 @@ export default async function Page() {
     <main className="min-h-screen bg-slate-950 light:bg-white text-slate-100">
       <div className="mx-auto max-w-3xl px-6 py-14">
         <h1 className="text-3xl font-semibold">服务状态</h1>
-        <p className="mt-2 text-sm text-slate-400 light:text-slate-600">
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
           公开安全摘要，不展示主机名、端口、连接串或内部凭据。
         </p>
 
@@ -44,7 +44,7 @@ export default async function Page() {
                   {c.status === "healthy" ? "正常" : c.status === "warning" ? "警告" : "异常"}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-slate-400 light:text-slate-600">{c.message}</p>
+              <p className="mt-1.5 text-sm text-[var(--text-secondary)]">{c.message}</p>
             </div>
           ))}
         </div>

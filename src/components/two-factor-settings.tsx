@@ -90,7 +90,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "idle" && !enabled && (
 				<div>
-					<p className="text-xs text-slate-400 light:text-slate-600 mb-3">
+					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。
 					</p>
 					<button
@@ -105,7 +105,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "idle" && enabled && (
 				<div>
-					<p className="text-xs text-slate-400 light:text-slate-600 mb-3">
+					<p className="text-xs text-[var(--text-secondary)] mb-3">
 						两步验证已启用。如需关闭，请输入验证器 App 中的当前验证码。
 					</p>
 					<button
@@ -119,7 +119,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "setup" && (
 				<div className="space-y-4">
-					<p className="text-xs text-slate-400 light:text-slate-600">
+					<p className="text-xs text-[var(--text-secondary)]">
 						1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码
 					</p>
 					<Image
@@ -134,10 +134,10 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						<p className="text-[10px] text-slate-500 mb-1">密钥（手动输入）：</p>
 						<code className="text-xs text-cyan-400 break-all select-all">{secret}</code>
 					</div>
-					<p className="text-xs text-slate-400 light:text-slate-600">
+					<p className="text-xs text-[var(--text-secondary)]">
 						2. 输入验证器 App 中显示的6位验证码：
 					</p>
-					<label htmlFor="two-factor-setup-code" className="block text-xs font-medium text-slate-300 light:text-slate-700">
+					<label htmlFor="two-factor-setup-code" className="block text-xs font-medium text-[var(--text-secondary)]">
 						6位验证码
 					</label>
 					<div className="flex gap-2">
@@ -169,8 +169,8 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 
 			{step === "disable" && (
 				<div className="space-y-4">
-					<p className="text-xs text-slate-400 light:text-slate-600">输入验证器 App 中的当前验证码以关闭两步验证：</p>
-					<label htmlFor="two-factor-disable-code" className="block text-xs font-medium text-slate-300 light:text-slate-700">
+					<p className="text-xs text-[var(--text-secondary)]">输入验证器 App 中的当前验证码以关闭两步验证：</p>
+					<label htmlFor="two-factor-disable-code" className="block text-xs font-medium text-[var(--text-secondary)]">
 						当前验证码
 					</label>
 					<div className="flex gap-2">

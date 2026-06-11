@@ -106,7 +106,7 @@ export function RenameInlineForm({
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       {" "}
       <input type="hidden" name="fileEntryId" value={fileEntryId} />{" "}
-      <label className="grid gap-1 text-sm text-slate-300 light:text-slate-700">
+      <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
         {" "}
         <span className="sr-only">新名称</span>{" "}
         <input
@@ -123,7 +123,7 @@ export function RenameInlineForm({
         />
       </label>
       {newName.trim() && newName !== currentName ? (
-        <span className="text-xs text-slate-400 light:text-slate-600">
+        <span className="text-xs text-[var(--text-secondary)]">
           路径：/{previewPath}
         </span>
       ) : null}
@@ -137,7 +137,7 @@ export function RenameInlineForm({
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+        className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
       >
         取消
       </button>

@@ -12,10 +12,10 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
   const [state, formAction] = useActionState(reviewCommandAction, initialState);
 
   return (
-    <form action={formAction} className="mt-4 rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-slate-300 light:text-slate-700">
+    <form action={formAction} className="mt-4 rounded-lg border border-white/[0.06] bg-white/[0.03] p-4 text-sm text-[var(--text-secondary)]">
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
-        <span className="text-slate-400 light:text-slate-600">审批意见</span>
+        <span className="text-[var(--text-secondary)]">审批意见</span>
         <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white outline-none ring-0" placeholder="可填写批准原因、执行窗口、注意事项等" />
       </label>
 

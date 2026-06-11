@@ -213,7 +213,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 				<div className="space-y-1.5">
 					<span className="text-[11px] text-slate-500">网络流量</span>
 					{network.map((n) => (
-						<div key={n.iface} className="flex items-center justify-between text-xs text-slate-400 light:text-slate-600">
+						<div key={n.iface} className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
 							<span className="text-slate-500">{n.iface}</span>
 							<span className="font-mono text-[11px]">
 								↓{formatBytes(n.rxBytes)} ↑{formatBytes(n.txBytes)}

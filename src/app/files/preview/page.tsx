@@ -98,7 +98,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							← 返回文件
 						</a>
 						<h1 className="truncate text-xl font-semibold text-white">{name}</h1>
-						<span className="rounded-full border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-3 py-1 text-xs text-slate-400 light:text-slate-600">
+						<span className="rounded-full border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-3 py-1 text-xs text-[var(--text-secondary)]">
 							{driver}
 						</span>
 					</div>
@@ -161,7 +161,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							driver={driver}
 						/>
 					) : (
-						<div className="flex flex-col items-center gap-4 py-16 text-slate-400 light:text-slate-600">
+						<div className="flex flex-col items-center gap-4 py-16 text-[var(--text-secondary)]">
 							<span className="text-6xl">📄</span>
 							<p>此文件类型暂不支持在线预览</p>
 							{downloadUrl ? (

@@ -49,7 +49,7 @@ export function SshKeyCreateForm() {
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide">PuTTY .ppk 上传</label>
 				<div className="flex items-center gap-3">
-					<label className="cursor-pointer rounded-lg border border-dashed border-white/[0.1] bg-white/[0.02] px-4 py-2.5 text-sm text-slate-400 light:text-slate-600 hover:bg-white/[0.04] transition">
+					<label className="cursor-pointer rounded-lg border border-dashed border-white/[0.1] bg-white/[0.02] px-4 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-white/[0.04] transition">
 						{selectedPpkFileName ?? "选择 .ppk 文件"}
 						<input
 							type="file"

@@ -42,7 +42,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			{/* How it works */}
 			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
 				<h2 className="text-sm font-semibold text-white mb-3">💡 使用流程</h2>
-				<div className="grid gap-2 text-xs text-slate-400 light:text-slate-600 md:grid-cols-5">
+				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-white">1. 创建模板</div>
@@ -90,7 +90,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<div>
 							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70 light:text-emerald-800/70">真实回滚</p>
 							<h2 className="mt-1 text-sm font-semibold text-white">最近部署：{latestRun.template.name}</h2>
-							<p className="mt-1 text-xs text-slate-400 light:text-slate-600">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 快照 {latestRun.snapshotId || "待生成"}</p>
+							<p className="mt-1 text-xs text-[var(--text-secondary)]">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 快照 {latestRun.snapshotId || "待生成"}</p>
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>

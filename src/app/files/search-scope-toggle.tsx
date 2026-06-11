@@ -37,7 +37,7 @@ export function SearchScopeToggle({
 				className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
 					scope ==="current"
 						?"border border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:text-cyan-900"
-						:"text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800"
+						:"text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800"
 				}`}
 			>
 				当前目录
@@ -48,7 +48,7 @@ export function SearchScopeToggle({
 				className={`rounded-full px-4 py-1.5 text-xs font-medium transition ${
 					scope ==="all"
 						?"border border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:text-cyan-900"
-						:"text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800"
+						:"text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800"
 				}`}
 			>
 				全部文件

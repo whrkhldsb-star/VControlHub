@@ -29,7 +29,7 @@ export default async function RequestsPage() {
 				title="审批中心"
 				description="AI 助手授权与用户命令审批"
 			>
-				<div data-card className="px-4 py-3 text-xs text-slate-400 light:text-slate-600">
+				<div data-card className="px-4 py-3 text-xs text-[var(--text-secondary)]">
 					<div className="font-medium text-slate-200">当前支持两条审批链路</div>
 					<div className="mt-1">AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。</div>
 				</div>
@@ -87,10 +87,10 @@ export default async function RequestsPage() {
 									) : (
 										<p className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">🔒 仅审批人可查看命令内容</p>
 									)}
-										{request.reason && <p className="mt-2 text-sm text-slate-400 light:text-slate-600">原因：{request.reason}</p>}
+										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">原因：{request.reason}</p>}
 										<p className="mt-1 text-[11px] text-slate-600">申请人：{request.requester.displayName || request.requester.username}</p>
 									</div>
-									<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-slate-400 light:text-slate-600 shrink-0">
+									<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
 										目标 {request.targets.length} 台
 									</div>
 								</div>
@@ -118,7 +118,7 @@ export default async function RequestsPage() {
 												<div className="mt-1 text-[11px] text-slate-500">
 													{request.latestApproval.approver.displayName || request.latestApproval.approver.username}
 												</div>
-												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-slate-400 light:text-slate-600">{request.latestApproval.comment}</div>}
+												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-[var(--text-secondary)]">{request.latestApproval.comment}</div>}
 											</div>
 										) : (
 											<p className="text-xs text-slate-500">尚未形成审批记录。</p>
@@ -130,7 +130,7 @@ export default async function RequestsPage() {
 										{request.executionLogs.length > 0 ? (
 											<div className="space-y-2">
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
-													<div key={log.id ?? `${request.id}-log-${index}`} className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-xs text-slate-400 light:text-slate-600">
+													<div key={log.id ?? `${request.id}-log-${index}`} className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-xs text-[var(--text-secondary)]">
 														<div>{log.summary}</div>
 														{log.createdAt && <div className="mt-1 text-[11px] text-slate-600">{new Date(log.createdAt).toLocaleString("zh-CN")}</div>}
 													</div>

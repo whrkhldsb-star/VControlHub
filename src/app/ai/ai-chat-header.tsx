@@ -28,7 +28,7 @@ export function AiChatHeader({
       {/* Mobile sidebar toggle */}
       <button
         onClick={onToggleSidebar}
-        className="md:hidden flex-shrink-0 text-slate-400 light:text-slate-600 hover:text-slate-200 light:hover:text-slate-800 transition"
+        className="md:hidden flex-shrink-0 text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800 transition"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
@@ -47,26 +47,26 @@ export function AiChatHeader({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onToggleSettings}
-          className="h-7 px-2.5 rounded-lg text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
         >
           ⚙ 设置
         </button>
         <button
           onClick={onClearMessages}
-          className="h-7 px-2.5 rounded-lg text-xs text-slate-400 light:text-slate-600 hover:bg-red-500/10 hover:text-red-400 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400 transition"
           title="清空对话消息"
         >
           🗑 清空
         </button>
         <button
           onClick={onRenameConv}
-          className="h-7 px-2.5 rounded-lg text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
         >
           ✏ 重命名
         </button>
         <button
           onClick={onExportConv}
-          className="h-7 px-2.5 rounded-lg text-xs text-slate-400 light:text-slate-600 hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
           title="导出对话为 Markdown"
         >
           📥 导出

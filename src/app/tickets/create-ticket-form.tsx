@@ -29,11 +29,11 @@ export function CreateTicketForm() {
 			<h2 className="text-sm font-semibold text-white">新建工单</h2>
 			{state?.error && <p className="text-xs text-rose-400">{state.error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
-				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					标题
 					<input name="subject" required placeholder="简要描述问题" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500" />
 				</label>
-				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					优先级
 					<select name="priority" defaultValue="NORMAL" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100">
 						<option value="LOW">低</option>
@@ -43,7 +43,7 @@ export function CreateTicketForm() {
 					</select>
 				</label>
 			</div>
-			<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+			<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 				描述
 				<textarea name="description" required rows={4} placeholder="详细描述你的需求或遇到的问题" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500 resize-y" />
 			</label>

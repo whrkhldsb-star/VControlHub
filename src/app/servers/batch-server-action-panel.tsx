@@ -52,7 +52,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 			{state.success ? <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-500/[0.08] px-3.5 py-2.5 text-sm text-emerald-200 light:text-emerald-800">{state.success}</div> : null}
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-				<button type="button" onClick={toggleAll} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]">
+				<button type="button" onClick={toggleAll} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[var(--text-secondary)] transition hover:bg-white/[0.06]">
 					{allSelected ? "清空选择" : "全选节点"}
 				</button>
 				<span>已选中：{selectedServers.length} 台</span>
@@ -99,7 +99,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 						</button>
 					)}
 					{disableConfirming ? (
-						<button type="button" onClick={() => setDisableConfirming(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/[0.06]">
+						<button type="button" onClick={() => setDisableConfirming(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3.5 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/[0.06]">
 							取消
 						</button>
 					) : null}
