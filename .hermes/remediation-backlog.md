@@ -447,3 +447,11 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Verification: typecheck + 1061/1061 tests + 25/25 smoke + dark/light 双主题浏览器视觉抽检（dashboard/servers/downloads/files/health）。
 - Production: 25/25 smoke 通过；服务 restart 后所有页面渲染正常；深色/浅色主题对比度优秀。
 - Residual: 仍可有选择地把 hover:bg-cyan-400/20 按钮、bg-rose-500/[0.05] 徽章等次级模式迁到 data-tone，但目前视觉一致性已经达到产品级。
+
+
+### 2026-06-11T16:20:00Z — Files storage-node filter visible labels
+- Scope: README P2 accessibility patrol for `/files`; no file listing, storage permissions, upload/download, SFTP, or selection semantics changed.
+- Fixes: `/files` storage-node filter search no longer relies on the placeholder "搜索节点名称、类型或 ID" as its only visible instruction; it now has a visible "搜索存储节点" label with `searchbox` semantics, and the node `<select>` is associated with an explicit visible "选择存储节点" label.
+- Verification: `git diff --check` passed; `npm test -- src/app/files/__tests__/files-browser-spa.test.tsx --reporter=dot` passed 1 file / 11 tests; full `npm run verify` passed (Prisma generate, typecheck, lint, tests, Next build, runtime build, deploy-assets).
+- Production: build artifacts `.next/BUILD_ID`, `dist/server.js`, and `dist/ssh-ws-proxy.js` exist after verify; deployment/smoke evidence is recorded in remediation state after activation.
+- Residual: continue P2 placeholder-only/low-visibility patrol on remaining dense controls; this closes the file storage-node selector sub-slice only.

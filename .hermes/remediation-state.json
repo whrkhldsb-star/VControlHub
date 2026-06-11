@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-05-29T23:30:00Z",
-  "updatedAt": "2026-06-10T16:55:00Z",
+  "updatedAt": "2026-06-11T16:28:00Z",
   "mode": "full_product_qa_remediation_active",
   "currentCronJobId": "9e36e64a75ae",
   "removedLegacyAuditJobId": "a8e21e83a7df",
@@ -58,23 +58,23 @@
     "production": "services active after restart; /api/status 200 with known storage pending-probe warning; deployed /servers DOM proved connection fieldset legend and password label association, no alerts/overflow; recent logs clean"
   },
   "lastRun": {
-    "id": "servers-create-connection-type-semantic-group-closeout",
+    "id": "files-storage-node-filter-visible-label-closeout",
     "stage": "completed_deployed_verified",
-    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的低可见度/语义分组巡检切片",
-    "journey": "Operator opens /servers, selects 添加 VPS, and can understand SSH 密钥/密码 as one connection-type group; selecting password reveals an empty password field addressed by visible label.",
-    "changeContract": "UI/accessibility-only closeout: replace visual-only connection label with fieldset/legend and update regression to query the password input by label; do not change server creation action payloads, SSH credential handling, or production server data.",
+    "selectedReadmeItem": "前端可访问性、移动端和浏览器导航仍需系统化收口（P2）中的 /files 存储节点筛选低可见度控件切片",
+    "journey": "Operator opens /files and uses the storage-node filter to search nodes by name/type/id, then switches the file browser node with visible field labels instead of placeholder-only guidance.",
+    "changeContract": "UI/accessibility-only closeout: add explicit visible labels and htmlFor/id associations to the /files storage-node search/select controls; do not change file listing, storage permissions, upload/download, SFTP, or node-switch data flow.",
     "evidence": {
-      "browser_or_dom": "Deployed production build at /servers showed fieldset legend 连接方式 with SSH 密钥/密码 buttons; after selecting 密码, label[for=serverPassword] text 密码 matched an empty password input; alerts=[], overflow=false.",
+      "browser_or_dom": "Authenticated production /files HTML after form login contains 搜索存储节点 twice, 选择存储节点 three times, placeholder 节点名称、类型或 ID twice, 文件管理 five times, and no 登录后台, proving the deployed authenticated file-browser shell renders the new visible node-filter labels.",
       "regression": [
         "git diff --check passed",
-        "npm test -- src/app/servers/__tests__/server-create-form.test.tsx passed 1/1",
-        "npm run verify passed: typecheck, lint, 222 test files / 1061 tests, Next build, runtime build, deploy-assets"
+        "npm test -- src/app/files/__tests__/files-browser-spa.test.tsx --reporter=dot passed 1 file / 11 tests",
+        "npm run verify passed: Prisma generate, typecheck, lint, full tests, Next build, runtime build, deploy-assets"
       ],
-      "production": "Build artifacts deployed; vcontrolhub-next/vcontrolhub-ssh-ws restarted; Caddy reloaded; smoke passed 25/25; /api/status 200 with known storage pending-probe warning.",
-      "logs": "Recent next/ssh-ws logs showed only worker-start info and no error/exception/failed/500/hydration matches.",
-      "cleanup": "No VPS/server row, credential, QA user, DB row, Docker container, backup artifact, or filesystem canary artifact was created."
+      "production": "Build artifacts deployed; vcontrolhub-next/vcontrolhub-ssh-ws restarted; Caddy reloaded; /api/status returned 200; smoke passed 25/25; services active.",
+      "cleanup": "No file, storage node, DB row, QA user, Docker container, backup artifact, or filesystem canary artifact was created.",
+      "logs": "Recent journal scan after restart showed worker startup info only; no error/warn/failed/exception/EACCES/permission denied/hydration/500 matches."
     },
-    "residual": "Continue P2 accessibility/mobile/visual consistency patrol on remaining placeholder-only, visual-only, or dense controls; server create connection-type grouping is closed."
+    "residual": "Continue P2 placeholder-only/low-visibility/mobile patrol on remaining dense controls; /files storage-node selector labels are closed."
   },
   "runPolicy": {
     "batchSize": "coherent deployable batch; may be larger for high-value architecture/performance/availability/user-experience improvements if fully verified",
@@ -89,7 +89,7 @@
     "smokeCommand": "./deploy/smoke-test.sh whrkhldsb.qzz.io vcontrolhub"
   },
   "counters": {
-    "successfulRemediationRunsSinceFreshAudit": 17,
+    "successfulRemediationRunsSinceFreshAudit": 18,
     "skippedOverlapRuns": 0
   },
   "blockers": [

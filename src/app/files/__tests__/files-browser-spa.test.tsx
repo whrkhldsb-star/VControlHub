@@ -268,7 +268,7 @@ describe("FilesBrowserSpa", () => {
     );
   });
 
-  it("filters storage nodes before switching the file browser node", async () => {
+  it("shows visible labels when filtering storage nodes before switching the file browser node", async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -298,8 +298,9 @@ describe("FilesBrowserSpa", () => {
       />,
     );
 
-    const sidebarSearch =
-      screen.getAllByPlaceholderText("搜索节点名称、类型或 ID")[0];
+    expect(screen.getAllByText("搜索存储节点")[0]).toBeVisible();
+    const sidebarSearch = screen.getAllByRole("searchbox", { name: "搜索存储节点" })[0];
+    expect(sidebarSearch).toHaveAttribute("placeholder", "节点名称、类型或 ID");
     const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0];
     fireEvent.change(sidebarSearch, { target: { value: "东京" } });
     expect(

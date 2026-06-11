@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect, useId } from "react";
 import { logError } from "@/lib/logging";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -220,6 +220,8 @@ function NodeFilterSelect({
   compact?: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const searchInputId = useId();
+  const selectInputId = useId();
   const selectedNode = nodes.find((node) => node.id === value);
   const normalizedQuery = query.trim().toLowerCase();
   const filteredNodes = useMemo(() => {
@@ -247,26 +249,37 @@ function NodeFilterSelect({
           </button>
         ) : null}
       </div>
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.currentTarget.value)}
-        placeholder="搜索节点名称、类型或 ID"
-        className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400"
-      />
-      <select
-        aria-label="选择存储节点"
-        value={value}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40 light:bg-white light:text-slate-900"
-      >
-        <option value="">🌐 全部节点</option>
-        {filteredNodes.map((node) => (
-          <option key={node.id} value={node.id}>
-            {getNodeIcon(node.driver)} {node.name}（{node.driver}）
-          </option>
-        ))}
-      </select>
+      <div className="space-y-1">
+        <label htmlFor={searchInputId} className="block text-xs font-medium text-slate-300 light:text-slate-700">
+          搜索存储节点
+        </label>
+        <input
+          id={searchInputId}
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.currentTarget.value)}
+          placeholder="节点名称、类型或 ID"
+          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400"
+        />
+      </div>
+      <div className="space-y-1">
+        <label htmlFor={selectInputId} className="block text-xs font-medium text-slate-300 light:text-slate-700">
+          选择存储节点
+        </label>
+        <select
+          id={selectInputId}
+          value={value}
+          onChange={(event) => onChange(event.currentTarget.value)}
+          className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40 light:bg-white light:text-slate-900"
+        >
+          <option value="">🌐 全部节点</option>
+          {filteredNodes.map((node) => (
+            <option key={node.id} value={node.id}>
+              {getNodeIcon(node.driver)} {node.name}（{node.driver}）
+            </option>
+          ))}
+        </select>
+      </div>
       {filteredNodes.length === 0 ? (
         <p className="text-xs text-amber-300 light:text-amber-700">
           没有匹配的节点
