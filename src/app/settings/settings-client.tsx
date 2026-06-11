@@ -169,7 +169,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			)}
 
 			{/* Account security */}
-			<section id="2fa" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<section id="2fa" className="scroll-mt-24 p-5 space-y-4" data-card>
 				<div>
 					<h2 className="text-lg font-semibold text-white flex items-center gap-2">🛡️ 账户安全</h2>
 					<p className="mt-1 text-xs text-slate-500">当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。</p>
@@ -178,7 +178,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			</section>
 
 			{/* Platform */}
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<section className="p-5 space-y-4" data-card>
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 					<div>
 						<h2 className="text-lg font-semibold text-white flex items-center gap-2">🌐 平台信息</h2>
@@ -192,7 +192,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			</section>
 
 			{/* Session */}
-			<section id="password" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<section id="password" className="scroll-mt-24 p-5 space-y-4" data-card>
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 					<div>
 						<h2 className="text-lg font-semibold text-white flex items-center gap-2">🔐 会话与安全</h2>
@@ -209,7 +209,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			</section>
 
 			{/* Runtime tuning */}
-			<section id="runtime" className="scroll-mt-24 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+			<section id="runtime" className="scroll-mt-24 p-5 space-y-4" data-card>
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 					<div>
 						<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
@@ -238,7 +238,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 			</section>
 
 			{/* SMTP */}
-			<form className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4" onSubmit={(event) => event.preventDefault()}>
+			<form className="p-5 space-y-4" data-card onSubmit={(event) => event.preventDefault()}>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<h2 className="text-lg font-semibold text-white flex items-center gap-2">📧 邮件通知（SMTP）</h2>

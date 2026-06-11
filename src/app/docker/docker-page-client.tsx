@@ -273,13 +273,13 @@ export default function DockerPage() {
 			{loading ? (
 				<div className="text-sm text-slate-500">加载中...</div>
 			) : containers.length === 0 ? (
-				<div className="text-sm text-slate-500 bg-white/[0.02] rounded-xl border border-white/[0.06] p-8 text-center">
+				<div data-empty-state className="bg-white/[0.02]">
 					未发现 Docker 容器，或 Docker 服务未运行
 				</div>
 			) : (
 				<div className="space-y-4">
 					{grouped.map((group) => (
-						<section key={group.project} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+						<section key={group.project} data-card className="p-4">
 							<div className="mb-3">
 								<h2 className="text-sm font-medium text-white">{group.project}</h2>
 								<p className="text-[11px] text-slate-500">compose 项目 · {group.containers.length} 个容器</p>
@@ -332,7 +332,7 @@ export default function DockerPage() {
 					))}
 
 					{ungrouped.length > 0 && (
-						<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+						<section data-card className="p-4">
 							<h2 className="text-sm font-medium text-white mb-3">独立容器</h2>
 							<div className="space-y-3">
 								{ungrouped.map((c) => (

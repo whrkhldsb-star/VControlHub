@@ -13,7 +13,7 @@ export default async function Page() {
           公开安全摘要，不展示主机名、端口、连接串或内部凭据。
         </p>
 
-        <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
+        <div data-card className="mt-6 p-5">
           <div className="flex items-center gap-3">
             <span className={`inline-block h-3 w-3 rounded-full ${
               status.summary.overall === "healthy" ? "bg-emerald-400" :
@@ -29,7 +29,7 @@ export default async function Page() {
 
         <div className="mt-4 grid gap-3">
           {status.checks.map((c) => (
-            <div key={c.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+            <div key={c.id} data-card className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className={`inline-block h-2 w-2 rounded-full ${

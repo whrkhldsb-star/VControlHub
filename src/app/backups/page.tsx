@@ -36,29 +36,29 @@ export default async function BackupsPage() {
 			</header>
 
 			<section className="mb-6 grid gap-3 md:grid-cols-4">
-				<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+				<div data-card className="p-4">
 					<p className="text-xs text-slate-500">完成备份</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{summary.completedRecords}</p>
 					<p className="mt-1 text-xs text-slate-500">共 {summary.totalRecords} 条记录</p>
 				</div>
-				<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+				<div data-card className="p-4">
 					<p className="text-xs text-slate-500">已用备份空间</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{formatBackupSize(summary.totalCompletedSizeBytes)}</p>
 					<p className="mt-1 text-xs text-slate-500">最大：{summary.largestCompleted ? `${summary.largestCompleted.type} · ${formatBackupSize(summary.largestCompleted.sizeBytes)}` : "暂无"}</p>
 				</div>
-				<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+				<div data-card className="p-4">
 					<p className="text-xs text-slate-500">保留策略提示</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{summary.recordsOlderThan30Days}</p>
 					<p className="mt-1 text-xs text-slate-500">条完成备份超过 30 天，建议复核清理</p>
 				</div>
-				<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+				<div data-card className="p-4">
 					<p className="text-xs text-slate-500">异常/执行中</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{summary.failedRecords} / {summary.runningRecords}</p>
 					<p className="mt-1 text-xs text-slate-500">失败 / PENDING+RUNNING</p>
 				</div>
 			</section>
 
-			<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+			<section data-card className="mb-6 p-5">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
 						<h2 className="text-sm font-semibold text-white">备份策略概览</h2>
@@ -76,7 +76,7 @@ export default async function BackupsPage() {
 				</div>
 			</section>
 
-			<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+			<section data-card className="mb-6 p-5">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
 						<h2 className="text-sm font-semibold text-white">备份失败原因聚合</h2>
@@ -104,7 +104,7 @@ export default async function BackupsPage() {
 			</section>
 
 			{canCreate && (
-				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+				<section data-card className="mb-6 p-5">
 					<h2 className="text-sm font-semibold text-white">创建并执行备份</h2>
 					<p className="mt-1 text-xs text-slate-500">提交后会创建可审计备份记录并排入 Durable Job 后台队列；页面可刷新查看 PENDING/RUNNING/COMPLETED 或 FAILED 状态。</p>
 					<CreateBackupForm />
@@ -112,7 +112,7 @@ export default async function BackupsPage() {
 			)}
 
 			{canCreate && (
-				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+				<section data-card className="mb-6 p-5">
 					<h2 className="text-sm font-semibold text-white">创建定时备份</h2>
 					<p className="mt-1 text-xs text-slate-500">选择备份类型、Cron 与执行节点后，会创建一条可审计的定时任务；后续执行日志可在“定时任务”页面追踪。</p>
 					<ScheduleBackupForm servers={serverOptions} commandByType={scheduledCommandByType} />
