@@ -87,7 +87,7 @@ export default async function SharePage({
             </div>
 
             {share.entryType === "DIRECTORY" ? (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
+              <div data-card className=" p-4 light:border-slate-200 light:bg-slate-50">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-white">可下载文件</h2>

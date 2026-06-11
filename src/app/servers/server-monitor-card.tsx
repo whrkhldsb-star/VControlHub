@@ -122,7 +122,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 
 	if (loading) {
 		return (
-			<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-2 animate-pulse">
+			<div data-card className=" p-4 space-y-2 animate-pulse">
 				<div className="h-3 w-24 bg-white/[0.06] rounded" />
 				<div className="h-3 w-full bg-white/[0.06] rounded" />
 				<div className="h-3 w-full bg-white/[0.06] rounded" />
@@ -153,7 +153,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 	const { cpu, memory, disk, network, uptime } = metrics;
 
 	return (
-		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+		<div data-card className=" p-4 space-y-3">
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider">实时监控</h4>

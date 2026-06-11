@@ -144,7 +144,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       </div>
 
       {tagCloud.length > 0 && (
-        <div className="mb-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 light:border-slate-200 light:bg-slate-50">
+        <div data-card className="mb-5  p-3 light:border-slate-200 light:bg-slate-50">
           <div className="mb-2 text-xs font-semibold text-slate-400">标签筛选</div>
           <div className="flex flex-wrap gap-2 text-xs">
             {tagCloud.map((entry) => (
@@ -183,7 +183,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       {canManageMedia && <MediaScanButton />}
 
       {grouped.size === 0 && (
-        <div className="mt-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center text-sm text-slate-400">
+        <div data-card className="mt-6  p-8 text-center text-sm text-slate-400">
           暂无媒体条目。请先在文件管理中浏览 VPS 存储，然后点击「扫描媒体索引」生成媒体列表。
         </div>
       )}

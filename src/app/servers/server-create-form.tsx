@@ -158,7 +158,7 @@ export function ServerCreateForm({
   return (
     <form
       action={formAction}
-      className="grid gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5"
+      data-card className="grid gap-4  p-5"
     >
       <div>
         <h2 className="text-lg font-semibold text-white">添加 VPS 节点</h2>

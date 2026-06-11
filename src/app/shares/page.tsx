@@ -31,7 +31,7 @@ export default async function SharesPage() {
 				</div>
 			) : null}
 
-			<div className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
+			<div data-card className="">
 				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">分享记录</div>
 				<div className="divide-y divide-white/[0.06]">
 					{shares.length === 0 ? <EmptyState text="暂无分享链接" /> : shares.map((s) => (

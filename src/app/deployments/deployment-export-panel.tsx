@@ -76,7 +76,7 @@ export function DeploymentExportPanel() {
   }
 
   return (
-    <section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 light:border-slate-200 light:bg-white">
+    <section data-card className="mb-6  p-5 light:border-slate-200 light:bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70 light:text-cyan-700">Portable Export</p>

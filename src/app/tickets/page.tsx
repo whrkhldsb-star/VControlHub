@@ -43,7 +43,7 @@ export default async function Page() {
 
 			{canCreate && <div className="mb-6"><CreateTicketForm /></div>}
 
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
+			<section data-card className="">
 				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">工单列表 ({tickets.length})</div>
 				<div className="divide-y divide-white/[0.06]">
 					{tickets.length === 0 ? <EmptyState text="暂无工单" /> : tickets.map((t) => (

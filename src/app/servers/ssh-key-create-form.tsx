@@ -13,7 +13,7 @@ export function SshKeyCreateForm() {
 	const [selectedPpkFileName, setSelectedPpkFileName] = useState<string | null>(null);
 
 	return (
-		<form action={formAction} className="grid gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+		<form action={formAction} data-card className="grid gap-4  p-5">
 			<div>
 				<h2 className="text-lg font-semibold text-white">添加 SSH 密钥</h2>
 				<p className="mt-1 text-xs text-slate-500">用于节点纳管的 SSH 密钥对</p>

@@ -449,7 +449,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			<div className="space-y-4">
 				<div className="grid gap-3 sm:grid-cols-4">
 					{[1,2,3,4].map((i) => (
-						<div key={i} className="animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.03] p-5 h-24" />
+						<div key={i} data-card className="animate-pulse  p-5 h-24" />
 					))}
 				</div>
 			</div>
@@ -570,7 +570,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			</div>
 
 			{/* Server table */}
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+			<section data-card className=" overflow-hidden">
 				<div className="overflow-x-auto">
 					<table className="w-full text-sm">
 						<thead>
@@ -633,7 +633,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 
 			{/* Expanded trend section */}
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
-				<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+				<section data-card className=" p-5">
 					<h3 className="text-sm font-medium text-white/80 mb-4">
 						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
 					</h3>
@@ -660,7 +660,7 @@ function SummaryCard({ label, value, color }: { label: string; value: number; co
 		rose: "text-rose-300",
 	};
 	return (
-		<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+		<article data-card className=" p-4">
 			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</div>
 			<div className={`mt-1.5 text-2xl font-semibold ${colorMap[color] ?? "text-white"}`}>{value}</div>
 		</article>

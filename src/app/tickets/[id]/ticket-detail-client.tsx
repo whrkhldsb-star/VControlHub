@@ -79,7 +79,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
     setSaving(true);
     setError("");
     try {
-      const data = await csrfFetch<{ comment: TicketComment }>(`/api/tickets/${ticket.id}`, { method:"POST", headers: {"Content-Type":"application/json" }, body: JSON.stringify({ body: comment.trim() }), }); setTicket((prev) => ({ ...prev, comments: [...prev.comments, data.comment], updatedAt: new Date().toISOString() })); setComment(""); } catch (e: unknown) { setError(e instanceof Error ? e.message :"回复失败"); } finally { setSaving(false); } }; return ( <div className="space-y-6"> <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 light:hover:text-slate-700 transition-colors"> ← 返回工单列表 </Link> {/* Ticket header */} <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6"> <div className="flex items-start justify-between gap-4"> <div> <h1 className="text-xl font-semibold text-white">{ticket.title}</h1> <div className="mt-2 flex flex-wrap items-center gap-2"> <span className={`rounded-full border px-2.5 py-1 text-xs ${STATUS_TONE[ticket.status] ?? ""}`}>
+      const data = await csrfFetch<{ comment: TicketComment }>(`/api/tickets/${ticket.id}`, { method:"POST", headers: {"Content-Type":"application/json" }, body: JSON.stringify({ body: comment.trim() }), }); setTicket((prev) => ({ ...prev, comments: [...prev.comments, data.comment], updatedAt: new Date().toISOString() })); setComment(""); } catch (e: unknown) { setError(e instanceof Error ? e.message :"回复失败"); } finally { setSaving(false); } }; return ( <div data-card className="space-y-6"> <Link href="/tickets" className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 light:hover:text-slate-700 transition-colors"> ← 返回工单列表 </Link> {/* Ticket header */} <div className=" p-6"> <div className="flex items-start justify-between gap-4"> <div> <h1 className="text-xl font-semibold text-white">{ticket.title}</h1> <div className="mt-2 flex flex-wrap items-center gap-2"> <span className={`rounded-full border px-2.5 py-1 text-xs ${STATUS_TONE[ticket.status] ?? ""}`}>
                 {STATUS_LABELS[ticket.status] ?? ticket.status}
               </span>
               <span className={`text-xs ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
@@ -121,7 +121,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
 
       {/* Status transitions */}
       {canManage && TRANSITIONS[ticket.status]?.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div data-card className=" p-5">
           <h3 className="text-sm font-medium text-white mb-3">状态流转</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status].map((s) => (
@@ -137,7 +137,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
       {error && <p className="text-sm text-rose-400">{error}</p>}
 
       {/* Comments */}
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+      <div data-card className=" p-5">
         <h3 className="text-sm font-medium text-white mb-4">评论 ({ticket.comments.length})</h3>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-slate-500">暂无评论</p>

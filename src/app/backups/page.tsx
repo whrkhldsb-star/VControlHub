@@ -119,7 +119,7 @@ export default async function BackupsPage() {
 				</section>
 			)}
 
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
+			<section data-card className="">
 				<div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
 					<h2 className="text-sm font-semibold text-white">备份记录</h2>
 					<span className="text-xs text-slate-500">{backups.length} 条</span>

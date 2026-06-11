@@ -72,7 +72,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           + 高级创建分享链接
         </button>
       ) : (
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
+        <div data-card className=" p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-white">高级分享链接</h3>

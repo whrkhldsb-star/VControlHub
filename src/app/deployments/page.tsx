@@ -78,7 +78,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			)}
 			{canExport && <DeploymentExportPanel />}
 			{canRun && (
-				<section className="mb-6 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 light:border-slate-200 light:bg-white">
+				<section data-card className="mb-6  p-5 light:border-slate-200 light:bg-white">
 					<h2 className="text-sm font-semibold text-white">发起模板部署</h2>
 					<p className="mt-1 text-xs text-slate-500 light:text-slate-600">选择模板后填写变量和目标 VPS。提交后进入命令审批/执行链路，不会绕过平台审计。</p>
 					<DeploymentLaunchForm templates={templates} servers={servers} />
@@ -108,7 +108,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					</div>
 				</section>
 			)}
-			<section className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
+			<section data-card className="">
 				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">部署运行</div>
 				<div className="divide-y divide-white/[0.06]">
 					{runs.length === 0 ? <EmptyState text="暂无部署运行记录" /> : runs.map((r) => (

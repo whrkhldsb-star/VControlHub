@@ -30,7 +30,7 @@ export default async function RequestsPage() {
 						<h1 className="text-3xl font-semibold tracking-tight text-white">审批中心</h1>
 						<p className="mt-1.5 text-sm text-slate-500">AI 助手授权与用户命令审批</p>
 					</div>
-					<div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-xs text-slate-400 light:text-slate-600">
+					<div data-card className=" px-4 py-3 text-xs text-slate-400 light:text-slate-600">
 						<div className="font-medium text-slate-200">当前支持两条审批链路</div>
 						<div className="mt-1">AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。</div>
 					</div>
@@ -76,7 +76,7 @@ export default async function RequestsPage() {
 						<EmptyState text="暂无命令请求记录。" variant="boxed" />
 					) : (
 						requests.map((request) => (
-							<article key={request.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors duration-150">
+							<article key={request.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">

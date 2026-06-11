@@ -37,7 +37,7 @@ export function CreateAnnouncementForm() {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
 			<h2 className="text-sm font-semibold text-white">发布公告</h2>
 			{error && <p className="text-xs text-rose-400">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">
