@@ -26,6 +26,11 @@ describe("CreateAnnouncementForm", () => {
 
     render(<CreateAnnouncementForm />);
 
+    expect(screen.getByLabelText("标题")).toHaveAccessibleDescription("显示在站内公告列表和用户通知区域的公告标题。");
+    expect(screen.getByLabelText("内容")).toHaveAccessibleDescription("写清影响范围、时间窗口和用户需要执行的操作。");
+    expect(screen.getByLabelText("生效时间")).toHaveAccessibleDescription("留空表示立即生效。");
+    expect(screen.getByLabelText("过期时间")).toHaveAccessibleDescription("留空表示永不过期。");
+
     await user.type(screen.getByLabelText("标题"), "维护公告");
     await user.type(screen.getByLabelText("内容"), "今晚 23:00 维护");
     await user.selectOptions(screen.getByLabelText("类型"), "warning");
