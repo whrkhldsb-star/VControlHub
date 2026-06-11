@@ -53,6 +53,7 @@ describe("ImageBedPage", () => {
 
     await screen.findByText("暂无图片，上传第一张吧 🎉");
     expect(screen.getByRole("heading", { name: "图片外链中心" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "图片搜索" })).toHaveAttribute("placeholder", "搜索文件名 / 路径 / 相册");
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
     await user.click(screen.getByRole("button", { name: "☁️ 从云盘发布" }));
 

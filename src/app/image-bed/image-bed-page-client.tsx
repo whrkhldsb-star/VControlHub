@@ -495,15 +495,18 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			)}
 
 			{/* Search Filter */}
-			<div className="mt-4 flex flex-wrap items-center gap-3">
-				<input
-					type="text"
-					placeholder="搜索文件名 / 路径 / 相册"
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
-					onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
-					className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-72"
-				/>
+			<div className="mt-4 flex flex-wrap items-end gap-3">
+				<label className="grid gap-1.5 text-xs font-medium text-slate-400 light:text-slate-600">
+					图片搜索
+					<input
+						type="search"
+						placeholder="搜索文件名 / 路径 / 相册"
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+						onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
+						className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 light:border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-72"
+					/>
+				</label>
 				<button onClick={() => fetchImages(1)} className="px-4 py-2 text-sm bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition">搜索</button>
 				<button onClick={() => { setSearch(""); fetchImages(1); }} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
 			</div>
