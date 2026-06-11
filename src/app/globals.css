@@ -1700,31 +1700,26 @@ html.light textarea:focus-visible {
 	100% { background-position: -200% 0; }
 }
 
-/* S13. 状态色容器：统一 accent/danger/warning/success 的边框+背景+文字对比 */
+/* S13. 状态色容器：统一 accent/danger/warning/success 的边框+背景，文字由内部 text-* 决定 */
 :root [data-state="accent"] {
 	background-color: var(--accent-bg);
 	border-color: var(--accent-border);
-	color: var(--accent);
 }
 :root [data-state="danger"] {
 	background-color: var(--danger-bg);
 	border-color: var(--danger-border);
-	color: var(--danger);
 }
 :root [data-state="warning"] {
 	background-color: var(--warning-bg);
 	border-color: var(--warning-border);
-	color: var(--warning);
 }
 :root [data-state="success"] {
 	background-color: var(--success-bg);
 	border-color: var(--success-border);
-	color: var(--success);
 }
 :root [data-state="info"] {
 	background-color: var(--info-bg);
 	border-color: var(--info-border);
-	color: var(--info);
 }
 
 /* S14. 链接/按钮主色：hover 用 token，避免重复硬编码 cyan-400/30 */
