@@ -89,7 +89,7 @@ export default async function BackupsPage() {
 				) : (
 					<div className="mt-4 grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
-							<div key={item.category} className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 light:bg-rose-50">
+							<div key={item.category} data-tone="rose" className="rounded-lg border border-rose-400/20 p-3 light:bg-rose-50">
 								<div className="flex items-center justify-between gap-3">
 									<p className="text-xs font-semibold text-rose-200">{item.label}</p>
 									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{item.count} 条</span>

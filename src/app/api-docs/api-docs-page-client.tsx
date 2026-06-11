@@ -133,7 +133,7 @@ export default function ApiDocsPage() {
 				</section>
 
 				{error ? (
-					<div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-200">
+					<div role="alert" data-tone="rose" className="rounded-2xl border border-rose-400/20 p-4 text-sm text-rose-200">
 						{error}
 					</div>
 				) : null}

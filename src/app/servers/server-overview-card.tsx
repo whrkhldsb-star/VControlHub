@@ -334,12 +334,12 @@ export function ServerOverviewCard({
                 </button>
               </div>
               {diagnosticRun.status === "success" ? (
-                <div role="status" className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-800">
+                <div role="status" data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-800">
                   探测成功：{diagnosticRun.summary}（{diagnosticRun.checkedAt}）
                 </div>
               ) : null}
               {diagnosticRun.status === "error" ? (
-                <div role="alert" className="mt-3 rounded-lg border border-rose-400/20 bg-rose-400/10 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50 light:text-rose-800">
+                <div role="alert" data-tone="rose" className="mt-3 rounded-lg border border-rose-400/20 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50 light:text-rose-800">
                   探测失败：{diagnosticRun.message}（{diagnosticRun.checkedAt}）
                 </div>
               ) : null}
