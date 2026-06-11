@@ -134,7 +134,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 							<button
 								type="button"
 								onClick={() => setRulePendingDelete(null)}
-								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
+								data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
@@ -333,7 +333,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
 			<h3 className="text-lg font-semibold text-white">创建告警规则</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 

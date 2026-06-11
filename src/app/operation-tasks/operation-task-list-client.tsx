@@ -69,9 +69,9 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   return <div className="space-y-5">
     {error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-100">{error}</div>}
     <div className="grid gap-3 sm:grid-cols-4">
-      {[["running","运行中"],["pending","待处理"],["failed","失败"],["completed","已完成"]].map(([key,label]) => <div key={key} className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
+      {[["running","运行中"],["pending","待处理"],["failed","失败"],["completed","已完成"]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
     </div>
-    <section aria-label="来源聚合" className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <section aria-label="来源聚合" data-card className="p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-white">来源聚合</h2>
@@ -101,7 +101,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         </div>)}
       </div>}
     </section>
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02]">
+    <div data-card className="">
       <div className="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-white">最近任务</h2>

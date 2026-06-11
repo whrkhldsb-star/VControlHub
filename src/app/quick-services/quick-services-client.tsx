@@ -621,7 +621,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						placeholder="应用名称、描述、镜像…"
-						className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
+						data-card className="w-full  px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
 					/>
 					{search && (
 						<button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white light:hover:text-slate-900 text-xs">
@@ -661,7 +661,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{/* Tab bar */}
-			<div className="flex flex-wrap gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] p-1 light:border-slate-200 light:bg-white w-fit">
+			<div data-card className="flex flex-wrap gap-1  p-1 light:border-slate-200 light:bg-white w-fit">
 				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					🏪 本地精选 ({localAvailable.length})
 				</button>
@@ -746,7 +746,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						</div>
 					)}
 					{sources.map((src) => (
-						<div key={src.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+						<div key={src.id} data-card className=" p-4 space-y-3">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-3">
 									<span className="text-lg">{src.type === "linuxserver" ? "🐧" : src.type === "github" ? "🐙" : "📡"}</span>
@@ -954,7 +954,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<p className="text-sm leading-6 text-slate-300">
 							{configPreview.action === "install" ? "安装会拉取镜像并创建 qs-* 容器。" : "更新会拉取当前镜像并重建 qs-* 容器。"}请确认端口、挂载和公开访问边界后继续。
 						</p>
-						<div className="mt-4 grid gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-xs text-slate-300 light:border-slate-200 light:bg-slate-50">
+						<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300 light:border-slate-200 light:bg-slate-50">
 							<div><span className="text-slate-500">服务：</span>{configPreview.item.name} ({configPreview.item.slug})</div>
 							<div><span className="text-slate-500">镜像：</span>{configPreview.item.image}</div>
 							<div><span className="text-slate-500">端口：</span>容器 {getPrimaryContainerPort(configPreview.item)} → 宿主机 {configPreview.port}</div>
@@ -1102,7 +1102,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 	const isRemote = item.source !== "local";
 
 	return (
-		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:border-slate-200 light:bg-white light:hover:border-slate-300">
+		<div data-card className=" p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:border-slate-200 light:bg-white light:hover:border-slate-300">
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">

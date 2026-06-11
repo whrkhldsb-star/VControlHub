@@ -128,7 +128,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder="按名称、命令、Cron、上次结果搜索"
-						className="w-full min-w-[18rem] rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
+						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
 					/>
 				</div>
 				{canCreate && !showCreate && (
@@ -155,7 +155,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			) : (
 				<div className="space-y-3">
 					{filteredTasks.map((task) => (
-						<article key={task.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 hover:bg-white/[0.04] transition-colors duration-150">
+						<article key={task.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
@@ -293,7 +293,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const enabledServers = servers.filter((s) => s.enabled);
 
 	return (
-		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
 			<h3 className="text-lg font-semibold text-white">创建定时任务</h3>
 			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 

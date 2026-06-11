@@ -247,7 +247,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       </header>
 
       <section className="grid gap-3 sm:grid-cols-4 mb-8">
-        <article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             文件节点
           </div>
@@ -255,7 +255,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             {storage.stats.totalNodes}
           </div>
         </article>
-        <article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             活跃文件
           </div>
@@ -263,7 +263,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             {storage.stats.totalEntries}
           </div>
         </article>
-        <article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             当前目录
           </div>
@@ -271,7 +271,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
             {totalItems}
           </div>
         </article>
-        <article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
+        <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             回收站
           </div>
@@ -294,7 +294,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </Link>
         <Link
           href="/files?scope=current"
-          className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]"
+          data-card className=" p-4 transition hover:bg-white/[0.06]"
         >
           <div className="text-sm font-semibold text-white">当前目录检索</div>
           <p className="mt-1.5 text-sm leading-6 text-slate-300">
@@ -304,7 +304,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </Link>
         <Link
           href="/files?tab=recycle"
-          className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.06]"
+          data-card className=" p-4 transition hover:bg-white/[0.06]"
         >
           <div className="text-sm font-semibold text-white">回收站</div>
           <p className="mt-1.5 text-sm leading-6 text-slate-300">

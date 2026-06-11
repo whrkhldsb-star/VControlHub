@@ -135,11 +135,11 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-white/50">Token 名称</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder="例如：移动端 CLI / 监控脚本" className="w-full rounded-xl border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30" />
+              <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder="例如：移动端 CLI / 监控脚本" data-card className="w-full  px-3.5 py-2.5 text-sm text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30" />
             </label>
             <label className="space-y-1.5">
               <span className="text-xs font-medium tracking-wide text-white/50">过期时间（可选）</span>
-              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className="w-full rounded-xl border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30" />
+              <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} data-card className="w-full  px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30" />
             </label>
           </div>
 

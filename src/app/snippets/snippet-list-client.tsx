@@ -116,7 +116,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       <div className="grid gap-3">
         {filtered.map((s) => (
-          <div key={s.id} className="group rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 transition hover:border-white/[0.12] light:border-slate-200 light:bg-white light:hover:border-slate-300">
+          <div key={s.id} data-card className="group  p-4 transition hover:border-white/[0.12] light:border-slate-200 light:bg-white light:hover:border-slate-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <b className="text-sm text-white">{s.title}</b>
@@ -147,7 +147,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           </div>
         ))}
         {filtered.length === 0 && (
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-8 text-center text-sm text-slate-500">
+          <div data-card className=" p-8 text-center text-sm text-slate-500">
             {items.length === 0 ? "暂无代码片段" : "无匹配结果"}
           </div>
         )}
@@ -178,7 +178,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <p className="mt-2 text-sm leading-6 text-slate-400">确认删除代码片段 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
                 取消
               </button>
               <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">

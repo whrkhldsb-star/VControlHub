@@ -86,7 +86,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								type="button"
 								onClick={() => setTemplatePendingDelete(null)}
-								className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
+								data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
@@ -147,7 +147,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((tmpl) => (
-						<article key={tmpl.id} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 hover:bg-white/[0.04] transition-colors duration-150 flex flex-col">
+						<article key={tmpl.id} data-card className=" p-4 hover:bg-white/[0.04] transition-colors duration-150 flex flex-col">
 							<div className="flex items-start justify-between gap-2">
 								<div>
 									<h3 className="text-sm font-semibold text-white">{tmpl.name}</h3>
@@ -308,7 +308,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
 			<h3 className="text-lg font-semibold text-white">创建命令模板</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 			<div className="space-y-1.5">
