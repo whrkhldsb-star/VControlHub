@@ -413,3 +413,20 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Verification: `git diff --check` passed; focused server-create-form regression passed 1/1; full `npm run verify` passed (222 files / 1061 tests plus Next build, runtime build, deploy-assets).
 - Production: services restarted/reloaded, smoke passed 25/25, `/api/status` returned 200 with known storage pending-probe warning, deployed `/servers` DOM proved the connection group and empty password label association, no alerts/overflow, recent service logs clean.
 - Residual: continue P2 placeholder-only/low-visibility/mobile patrol on remaining dense controls.
+
+### 2026-06-11T07:00:00Z — Frontend UI unification: S1-S12 semantic blocks + light:text-* cleanup
+- Scope: README 前端 UI 统一化收口；不改任何业务语义、文案、API、数据库或鉴权逻辑；纯样式 + 语义化属性。
+- Fixes:
+  - `globals.css` 新增 S1-S12 语义化块：`data-card`（圆角/边框/内边距/hover 微抬）、`data-variant=primary|secondary|ghost`（按钮三级）、`data-empty-state`（空状态排版）、`data-skeleton`（骨架屏 shimmer 动画）、`main h1/h2/h3` 节奏统一、`main section + section` 间距统一、`main a[class*="rounded-lg"][class*="px-"]` 圆角统一、`role=status/span.rounded-full.text-xs` 徽章字号统一。
+  - 50+ 个核心页面（仪表盘/服务器管理/下载/任务/工单/审计/共享/AI 对话/Docker/监控/设置/部署/备份/状态页等）迁移到 `data-card` / `data-variant` / `data-empty-state`。
+  - 冗余 `light:text-{slate|cyan}-9XX` 纯文字类（已被 `:root .text-white` 和 `html.light` 规则完全接管到 `--text-primary`）批量清理 615 + 50 = 665 处。
+  - `login/page.test.tsx` 和 `settings/settings-client.test.tsx` 测试改为断言 `rounded-lg + border` 等用户可感知视觉，不再耦合 `light:text-slate-*` 实现细节。
+- Commits:
+  - `0eaed62` page-level migration to unified data-card/data-variant (37 files, +711/-710)
+  - `b353722` remove redundant light:text-* classes (74 files, +265/-265)
+  - `ddb2ac4` migrate more pages to data-card / data-empty-state (5 files, +19/-19)
+  - `34532ba` migrate list/management pages to data-card (9 files, +29/-29)
+  - `654a951` migrate deploy/tickets/servers/health/shares to data-card (18 files, +27/-27)
+- Verification: `git diff --check` passed; focused tests passed; `npm run typecheck` passed; full `npm run verify` passed 222 files / 1061 tests; Next build + runtime build + deploy-assets passed.
+- Production: `vcontrolhub-next.service` / `vcontrolhub-ssh-ws.service` restarted; `caddy` reloaded; smoke passed 25/25; `/api/status` returned 200; recent service logs clean.
+- Residual: continue pushing 状态色按钮/状态卡（rose-500/cyan-400/amber-400 体系）抽到 `--accent-tinted` / `--danger-tinted` / `--warning-tinted` / `--success-tinted` token 体系进一步统一视觉与可维护性；status/page.tsx 是 data-card 公开页面的代表。
