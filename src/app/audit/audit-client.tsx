@@ -26,13 +26,13 @@ type AuditLogClientProps = {
   initialActionFilter?: string;
 };
 
-function severityBadge(severity: string) {
-  const styles: Record<string, string> = {
-    INFO: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
-    WARNING: "border-amber-400/30 bg-amber-400/10 text-amber-100",
-    CRITICAL: "border-rose-400/30 bg-rose-400/10 text-rose-100",
+function severityTone(severity: string): "accent" | "warning" | "danger" {
+  const tones: Record<string, "accent" | "warning" | "danger"> = {
+    INFO: "accent",
+    WARNING: "warning",
+    CRITICAL: "danger",
   };
-  return styles[severity] ?? styles.INFO;
+  return tones[severity] ?? tones.INFO;
 }
 
 function formatAction(action: string): string {
@@ -116,7 +116,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           <button
             type="button"
             onClick={fetchLogs}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+            data-tone="accent"
+            className="rounded-full border px-4 py-2 text-sm transition"
           >
             搜索
           </button>
@@ -165,7 +166,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           <button
             type="button"
             onClick={fetchLogs}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+            data-tone="accent"
+            className="rounded-full border px-4 py-2 text-sm transition"
           >
             ↻ 刷新
           </button>
@@ -179,7 +181,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 setActionFilter(action);
                 setPage(1);
               }}
-              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
+              data-tone={actionFilter === action ? "accent" : undefined}
+              className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
             >
               {formatAction(action)}
             </button>
@@ -219,7 +222,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                     {new Date(log.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </div>
                   <div>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${severityBadge(log.severity)}`}>
+                    <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                       {log.severity}
                     </span>
                   </div>
@@ -250,7 +253,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               <div key={log.id} className="px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-white text-sm">{formatAction(log.action)}</span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${severityBadge(log.severity)}`}>
+                  <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                     {log.severity}
                   </span>
                 </div>

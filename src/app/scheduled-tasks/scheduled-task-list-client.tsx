@@ -20,10 +20,10 @@ type Props = {
 	canManage: boolean;
 };
 
-const statusBadge: Record<string, string> = {
-	ACTIVE: "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
-	PAUSED: "border-amber-400/20 bg-amber-400/10 text-amber-200",
-	DISABLED: "border-slate-400/20 bg-slate-400/10 text-slate-200",
+const statusTone: Record<string, "success" | "warning" | "neutral"> = {
+	ACTIVE: "success",
+	PAUSED: "warning",
+	DISABLED: "neutral",
 };
 
 const statusLabel: Record<string, string> = {
@@ -134,7 +134,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 				{canCreate && !showCreate && (
 					<button
 						onClick={() => setShowCreate(true)}
-						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+						data-tone="accent"
+						className="rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
 					>
 						+ 创建定时任务
 					</button>
@@ -160,7 +161,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
 										<h2 className="text-lg font-semibold text-white">{task.name}</h2>
-										<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadge[task.status] ?? statusBadge.DISABLED}`}>
+										<span data-tone={statusTone[task.status] ?? "neutral"} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium">
 											{statusLabel[task.status] ?? task.status}
 										</span>
 									</div>
@@ -184,7 +185,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => retryTask(task.id)}
-											className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+											data-tone="accent"
+											className="rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
 											重试
 										</button>
@@ -192,11 +194,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => toggleTask(task.id)}
-											className={`rounded-2xl border px-4 py-2 text-xs font-medium transition ${
-												task.status === "ACTIVE"
-													? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/20"
-													: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
-											}`}
+											data-tone={task.status === "ACTIVE" ? "warning" : "success"}
+											className="rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
 											{task.status === "ACTIVE" ? "暂停" : "恢复"}
 										</button>
@@ -204,7 +203,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									{canManage && (
 										<button
 											onClick={() => setTaskPendingDelete(task)}
-											className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition"
+											data-tone="danger"
+											className="rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
 											删除
 										</button>
@@ -311,7 +311,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
 							className={`rounded-md border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
-									? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
+									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
 									: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]"
 							}`}
 						>

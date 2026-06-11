@@ -109,7 +109,8 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 						<span className="text-xs text-slate-500">筛选</span>
 						<button
 							onClick={() => setFilterTag(null)}
-							className={`rounded-md border px-2 py-0.5 text-[11px] transition ${!filterTag ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
+							data-tone={!filterTag ? "accent" : undefined}
+							className={`rounded-md border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
 						>
 							全部
 						</button>
@@ -117,7 +118,8 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								key={tag}
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
-								className={`rounded-md border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
+								data-tone={filterTag === tag ? "accent" : undefined}
+								className={`rounded-md border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
 							>
 								#{tag}
 							</button>
@@ -127,7 +129,8 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 				{canCreate && !showCreate && (
 					<button
 						onClick={() => setShowCreate(true)}
-						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+						data-tone="accent"
+						className="rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
 					>
 						+ 创建模板
 					</button>
@@ -154,7 +157,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									{tmpl.description && <p className="mt-0.5 text-[11px] text-slate-500">{tmpl.description}</p>}
 								</div>
 								{tmpl.isBuiltin && (
-									<span className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] text-cyan-300 shrink-0">内置</span>
+									<span data-tone="accent" className="rounded-md border px-1.5 py-0.5 text-[9px] font-medium shrink-0">内置</span>
 								)}
 							</div>
 							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2 light:border-slate-200 light:bg-slate-50">
@@ -169,7 +172,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								<div className="mt-2 flex flex-wrap gap-1">
 {tmpl.variables.map((v) => {
 											const placeholder = `{{${v}}}`;
-											return <span key={v} className="rounded-md border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] text-amber-200 font-mono">{placeholder}</span>;
+											return <span key={v} data-tone="warning" className="rounded-md border px-1.5 py-0.5 text-[10px] font-mono">{placeholder}</span>;
 										})}
 								</div>
 							)}

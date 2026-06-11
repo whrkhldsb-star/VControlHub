@@ -22,22 +22,24 @@ const ROLE_OPTIONS: { key: string; name: string; color: string }[] = [
   { key: "viewer", name: "观察者", color: "cyan" },
 ];
 
-function roleBadgeColor(key: string) {
+type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
+
+function roleBadgeTone(key: string): Tone {
   const found = ROLE_OPTIONS.find((r) => r.key === key);
-  if (!found) return "border-white/10 bg-white/5 text-slate-300";
-  const colors: Record<string, string> = {
-    rose: "border-rose-400/30 bg-rose-400/10 text-rose-100",
-    amber: "border-amber-400/30 bg-amber-400/10 text-amber-100",
-    emerald: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100",
-    cyan: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
+  if (!found) return "neutral";
+  const tones: Record<string, Tone> = {
+    rose: "danger",
+    amber: "warning",
+    emerald: "success",
+    cyan: "accent",
   };
-  return colors[found.color] ?? colors.cyan;
+  return tones[found.color] ?? "accent";
 }
 
-function statusBadge(status: string) {
-  if (status === "ACTIVE") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-100";
-  if (status === "DISABLED") return "border-rose-400/30 bg-rose-400/10 text-rose-100";
-  return "border-amber-400/30 bg-amber-400/10 text-amber-100";
+function statusTone(status: string): Tone {
+  if (status === "ACTIVE") return "success";
+  if (status === "DISABLED") return "danger";
+  return "warning";
 }
 
 function statusLabel(status: string) {
@@ -135,8 +137,8 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
           role={message.type === "error" ? "alert" : "status"}
           className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${
           message.type === "success"
-            ? "border-emerald-400/30 bg-emerald-400/5 text-emerald-200"
-            : "border-rose-400/30 bg-rose-400/5 text-rose-200"
+            ? "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]"
+            : "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
         }`}>
           {message.text}
           <button type="button" onClick={() => setMessage(null)} className="ml-3 text-current/50 hover:text-current">✕</button>
@@ -150,7 +152,8 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
           <button
             type="button"
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+            data-tone="accent"
+            className="rounded-full border px-4 py-2 text-sm transition"
           >
             {showCreateForm ? "取消" : "+ 创建用户"}
           </button>
@@ -202,9 +205,10 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   onClick={() => toggleRole(role.key)}
                   className={`rounded-full border px-3 py-1.5 text-xs transition ${
                     createForm.roleKeys.includes(role.key)
-                      ? roleBadgeColor(role.key)
+                      ? ""
                       : "border-white/10 bg-white/5 text-slate-500"
                   }`}
+                  data-tone={createForm.roleKeys.includes(role.key) ? roleBadgeTone(role.key) : undefined}
                 >
                   {role.name}
                 </button>
@@ -215,7 +219,8 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             type="button"
             onClick={handleCreate}
             disabled={creating || !createForm.username || !createForm.password}
-            className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-6 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50"
+            data-tone="accent"
+            className="rounded-full border px-6 py-2 text-sm font-medium transition disabled:opacity-50"
           >
             {creating ? "创建中..." : "确认创建"}
           </button>
@@ -237,7 +242,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <span className="text-white font-medium">{user.displayName ?? user.username}</span>
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge(user.status)}`}>
+                    <span data-tone={statusTone(user.status)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                       {statusLabel(user.status)}
                     </span>
                   </div>
@@ -248,7 +253,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (
-                      <span key={role.key} className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${roleBadgeColor(role.key)}`}>
+                      <span key={role.key} data-tone={roleBadgeTone(role.key)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                         {role.name}
                       </span>
                     ))}
@@ -260,7 +265,8 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                       <button
                         type="button"
                         onClick={() => setEditingPermissionsUser(user)}
-                        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20 transition"
+                        data-tone="accent"
+                        className="rounded-full border px-3 py-1.5 text-xs transition"
                       >
                         权限配置
                       </button>
@@ -268,7 +274,8 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                          className="rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/20 transition"
+                          data-tone="danger"
+                          className="rounded-full border px-3 py-1.5 text-xs transition"
                         >
                           禁用
                         </button>
@@ -276,7 +283,8 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                         <button
                           type="button"
                           onClick={() => handleToggleStatus(user.id, user.status, user.username)}
-                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 transition"
+                          data-tone="success"
+                          className="rounded-full border px-3 py-1.5 text-xs transition"
                         >
                           启用
                         </button>

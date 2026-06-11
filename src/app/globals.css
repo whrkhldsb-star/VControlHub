@@ -604,6 +604,43 @@ html.light a.bg-cyan-400\/10.text-cyan-100:hover {
 	border-color: var(--accent-hover);
 }
 
+/* 2b. 语义状态色：供 badge / pill / lightweight action 复用 */
+:root [data-tone] {
+	border-color: var(--tone-border, var(--border));
+	background-color: var(--tone-bg, var(--surface-elevated));
+	color: var(--tone-fg, var(--text-secondary));
+}
+:root [data-tone="accent"] {
+	--tone-bg: var(--accent-bg);
+	--tone-border: var(--accent-border);
+	--tone-fg: var(--accent);
+}
+:root [data-tone="success"] {
+	--tone-bg: var(--success-bg);
+	--tone-border: var(--success-border);
+	--tone-fg: var(--success);
+}
+:root [data-tone="warning"] {
+	--tone-bg: var(--warning-bg);
+	--tone-border: var(--warning-border);
+	--tone-fg: var(--warning);
+}
+:root [data-tone="danger"] {
+	--tone-bg: var(--danger-bg);
+	--tone-border: var(--danger-border);
+	--tone-fg: var(--danger);
+}
+:root [data-tone="neutral"] {
+	--tone-bg: var(--surface-elevated);
+	--tone-border: var(--border);
+	--tone-fg: var(--text-secondary);
+}
+:root [data-tone]:is(button, a):hover {
+	background-color: var(--tone-fg, var(--accent));
+	border-color: var(--tone-fg, var(--accent));
+	color: white;
+}
+
 /* 3. KPI / 统计卡 label 对比度增强 */
 :root article .text-slate-400,
 :root article .text-slate-500 {
