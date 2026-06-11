@@ -430,3 +430,20 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Verification: `git diff --check` passed; focused tests passed; `npm run typecheck` passed; full `npm run verify` passed 222 files / 1061 tests; Next build + runtime build + deploy-assets passed.
 - Production: `vcontrolhub-next.service` / `vcontrolhub-ssh-ws.service` restarted; `caddy` reloaded; smoke passed 25/25; `/api/status` returned 200; recent service logs clean.
 - Residual: continue pushing 状态色按钮/状态卡（rose-500/cyan-400/amber-400 体系）抽到 `--accent-tinted` / `--danger-tinted` / `--warning-tinted` / `--success-tinted` token 体系进一步统一视觉与可维护性；status/page.tsx 是 data-card 公开页面的代表。
+
+### 2026-06-11T08:00:00Z — Frontend UI unification: S13-S15 state/tone color tokens
+- Scope: 延续 9691f4f 的 S1-S12 语义化块，新增状态色 token 体系并把状态 alert 卡片迁到 data-tone。
+- Fixes:
+  - S13 块（`data-state=accent|danger|warning|success|info`）用 var(--*-bg) / var(--*-border) 接管状态容器背景+边框
+  - S14 块：state:hover 用 color-mix 接管 hover 态避免硬编码
+  - S15 块（`data-tone=cyan|emerald|rose|amber|sky|blue|violet`）：保留原 Tailwind 颜色色相，仅接管 background-color；border 仍由原 border-* 类决定
+  - S13 块在 db50913 移除了 color 属性，让内部 text-* 类决定文字色（避免污染子元素）
+  - 4 个状态 alert 卡片迁移到 data-tone=rose/emerald：api-docs 错误框、backups 失败原因卡、server-overview-card 探测成功/失败
+- Commits:
+  - `6a68727` S13/S14 state color tokens
+  - `db50913` S13 no longer overrides text color
+  - `42dee98` S15 data-tone + health alert migration
+  - `b9937f1` migrate more state alert cards to data-tone
+- Verification: typecheck + 1061/1061 tests + 25/25 smoke + dark/light 双主题浏览器视觉抽检（dashboard/servers/downloads/files/health）。
+- Production: 25/25 smoke 通过；服务 restart 后所有页面渲染正常；深色/浅色主题对比度优秀。
+- Residual: 仍可有选择地把 hover:bg-cyan-400/20 按钮、bg-rose-500/[0.05] 徽章等次级模式迁到 data-tone，但目前视觉一致性已经达到产品级。
