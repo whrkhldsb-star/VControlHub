@@ -30,9 +30,7 @@ export function PageShell({
 
 export function Card({ children }: { children: ReactNode }) {
 	return (
-		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-			{children}
-		</div>
+		<div data-card className="bg-white/[0.02]">{children}</div>
 	);
 }
 
@@ -82,7 +80,7 @@ export function StatCard({
 }) {
 	const c = accent && accentColor ? ACCENT_COLORS[accentColor] : null;
 	return (
-		<article className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 hover:bg-white/[0.05] transition-colors duration-150">
+		<article data-card className="bg-white/[0.03] hover:bg-white/[0.05] transition-colors duration-150">
 			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
 				{label}
 			</div>
@@ -107,7 +105,7 @@ export function StatCard({
 export function PermissionDenied() {
 	return (
 		<PageShell>
-			<div className="text-center text-slate-400 light:text-slate-600">缺少权限</div>
+			<div className="text-center text-slate-400">缺少权限</div>
 		</PageShell>
 	);
 }
