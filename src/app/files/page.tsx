@@ -214,7 +214,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   return (
     <PageShell maxW="max-w-7xl">
       <PageHeader
-        eyebrow="Files & Storage"
+        eyebrow="Storage"
         title="文件与存储管理"
         description="文件浏览、上传下载、存储节点管理一体化"
       >

@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Notifications"
+					eyebrow="Inbox"
 					title="通知中心"
 					description={unreadCount > 0 ? `${unreadCount} 条未读通知` : "所有通知已读"}
 				/>

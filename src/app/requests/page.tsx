@@ -25,7 +25,7 @@ export default async function RequestsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="Approvals"
+				eyebrow="Workflow"
 				title="审批中心"
 				description="AI 助手授权与用户命令审批"
 			>

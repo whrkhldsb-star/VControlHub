@@ -32,7 +32,7 @@ export default async function AlertRulesPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Alert Rules"
+					eyebrow="Automation"
 					title="智能告警"
 					description="配置自动告警规则，异常指标自动触发通知与 Webhook"
 				/>

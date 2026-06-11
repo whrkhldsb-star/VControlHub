@@ -31,7 +31,7 @@ export default async function CommandTemplatesPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Command Templates"
+					eyebrow="Operations"
 					title="命令模板"
 					description="预置与自定义运维命令模板，支持变量占位符一键下发"
 				/>

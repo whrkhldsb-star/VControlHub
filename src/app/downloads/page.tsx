@@ -62,7 +62,7 @@ export default async function DownloadsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="Remote Downloads"
+				eyebrow="Transfer"
 				title="远程下载"
 				description="输入 URL 或磁力链接，下载到指定 VPS 的存储路径"
 			/>

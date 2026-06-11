@@ -40,7 +40,7 @@ export default async function ScheduledTasksPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Scheduled Tasks"
+					eyebrow="Automation"
 					title="定时任务"
 					description="配置 Cron 表达式，自动向 VPS 节点下发待审批命令"
 				/>

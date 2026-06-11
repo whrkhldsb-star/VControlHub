@@ -40,7 +40,7 @@ export default async function ServersPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="VPS Management"
+				eyebrow="Infrastructure"
 				title="VPS 管理"
 				description="聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。"
 			>
