@@ -93,13 +93,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="标题、内容、标签…"
-            className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>
         <select
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
-          className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
+          className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
         >
           {languages.map((l) => (
             <option key={l} value={l}>{l === "ALL" ? "全部语言" : l}</option>

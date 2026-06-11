@@ -427,7 +427,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建规则"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>

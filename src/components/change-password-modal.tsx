@@ -33,7 +33,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 				aria-modal="true"
 				aria-labelledby={titleId}
 				aria-describedby={descriptionId}
-				className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900 light:bg-white p-6 shadow-2xl"
+				className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-slate-900 light:bg-white p-6 shadow-2xl"
 			>
 				<div className="flex items-center justify-between mb-4">
 					<h2 id={titleId} className="text-xl font-semibold text-white">修改登录密码</h2>
@@ -85,7 +85,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 						<button
 							type="button"
 							onClick={onClose}
-							className="rounded-2xl border border-white/10 light:border-slate-200 px-5 py-2.5 text-sm text-slate-300 light:text-slate-700 hover:bg-white/5 transition"
+							className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-slate-300 light:text-slate-700 hover:bg-white/5 transition"
 						>
 							取消
 						</button>
@@ -105,7 +105,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 	return (
 		<div className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 			<label htmlFor={inputId}>{label}</label>
-			<div className="flex overflow-hidden rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white focus-within:border-cyan-400/60">
+			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white focus-within:border-cyan-400/60">
 				<input
 					id={inputId}
 					name={name}
@@ -120,7 +120,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 					aria-label={`${visible ? "隐藏" : "显示"}${label}`}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
-					className="border-l border-white/10 light:border-slate-200 px-4 text-xs font-medium text-cyan-200 light:text-cyan-800 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 light:text-cyan-800 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
 				>
 					{visible ? "隐藏" : "显示"}
 				</button>

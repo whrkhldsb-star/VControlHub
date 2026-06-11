@@ -32,7 +32,7 @@ export function RecycleBinSectionClient({
 }) {
 	if (deletedEntries.length === 0) {
 		return (
-			<article className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
+			<article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
 				<h3 className="text-xl font-semibold text-white">🗑️ 回收站</h3>
 				<p className="mt-4 text-sm text-slate-400">回收站为空，没有已删除的文件。</p>
 			</article>
@@ -50,7 +50,7 @@ export function RecycleBinSectionClient({
 				</div>
 			</div>
 
-			<div className="mt-6 overflow-x-auto rounded-2xl border border-white/10 light:border-slate-200">
+			<div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)]">
 				<div className="min-w-[860px]">
 				{/* Desktop table view (md+) */}
 				<div className="hidden md:block">

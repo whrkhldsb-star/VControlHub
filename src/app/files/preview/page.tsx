@@ -93,7 +93,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					<div className="flex items-center gap-3">
 						<a
 							href="/files"
-							className="rounded-full border border-white/10 light:border-slate-200 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5"
+							className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5"
 						>
 							← 返回文件
 						</a>
@@ -120,7 +120,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 				) : null}
 
 				{/* Preview content */}
-				<div className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
+				<div className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
 					{isImage && href ? (
 						<div className="flex items-center justify-center">
 							{/* eslint-disable-next-line @next/next/no-img-element */}

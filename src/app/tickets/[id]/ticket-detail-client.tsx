@@ -126,7 +126,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status].map((s) => (
               <button key={s} onClick={() => updateStatus(s)} disabled={saving}
-                className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-4 py-2 text-sm text-white hover:bg-white/[0.08] transition-colors disabled:opacity-40">
+                className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-2 text-sm text-white hover:bg-white/[0.08] transition-colors disabled:opacity-40">
                 转为 {STATUS_LABELS[s] ?? s}
               </button>
             ))}
@@ -159,7 +159,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
         <div className="mt-4">
           <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="添加评论..."
             rows={3}
-            className="w-full rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 resize-none" />
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 resize-none" />
           <button onClick={addComment} disabled={saving || !comment.trim()}
             className="mt-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40">
             {saving ? "发送中…" : "发送评论"}

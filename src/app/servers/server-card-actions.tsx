@@ -185,7 +185,7 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={() => setShowEdit((value) => !value)}
-            className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
+            className="w-full rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
           >
             {showEdit ? "收起编辑" : "编辑节点"}
           </button>

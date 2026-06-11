@@ -129,7 +129,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 light:text-emerald-700 border border-emerald-400/30">CSV 表格预览</span>
 				<span className="text-xs text-slate-400 light:text-slate-600">{dataRows.length} 行 × {colCount} 列</span>
 			</div>
-			<div className="overflow-auto rounded-2xl border border-white/10 light:border-slate-200">
+			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
 				<table className="w-full text-sm">
 					<thead>
 						<tr className="bg-slate-800/80 light:bg-slate-100/80">

@@ -221,19 +221,19 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         <div className="flex flex-wrap gap-2 text-xs text-slate-400">
           <Link
             href="/audit"
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
+            className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
           >
             审计日志
           </Link>
           <Link
             href="/health"
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
+            className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
           >
             系统自检
           </Link>
           <Link
             href="/servers"
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
+            className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
           >
             服务器管理
           </Link>

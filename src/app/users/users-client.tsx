@@ -159,7 +159,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="mb-6 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6 space-y-4">
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm text-slate-400 mb-1">用户名 *</label>
@@ -167,7 +167,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
                 placeholder="用户名"
               />
             </div>
@@ -177,7 +177,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
                 placeholder="可选"
               />
             </div>
@@ -187,7 +187,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
-                className="w-full rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+                className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
                 placeholder="至少6位"
               />
             </div>
@@ -223,7 +223,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
       )}
 
       {/* User list */}
-      <div className="overflow-hidden rounded-2xl border border-white/10 light:border-slate-200">
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
           {loading ? (
             <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>

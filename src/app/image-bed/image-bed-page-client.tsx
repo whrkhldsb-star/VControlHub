@@ -473,7 +473,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Progress */}
 			{uploadProgress && (
-				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-white/10 light:border-slate-200 bg-slate-900/70 light:bg-white/70 p-4 text-sm text-slate-300">
+				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-[var(--border)] bg-slate-900/70 light:bg-white/70 p-4 text-sm text-slate-300">
 					<div className="flex items-center justify-between gap-3">
 						<span>{uploading ? `正在上传第 ${uploadProgress.current}/${uploadProgress.total} 张` : `已完成 ${uploadProgress.success}/${uploadProgress.total} 张`}</span>
 						<span className="text-xs text-slate-500">成功 {uploadProgress.success} · 失败 {uploadProgress.failure}</span>

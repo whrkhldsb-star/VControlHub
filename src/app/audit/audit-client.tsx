@@ -111,7 +111,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             placeholder="搜索动作、用户名或显示名"
-            className="min-w-[240px] flex-1 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
           />
           <button
             type="button"
@@ -126,7 +126,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSearchQuery("");
               setPage(1);
             }}
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
           >
             清除
           </button>
@@ -138,7 +138,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSeverityFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部级别</option>
             <option value="INFO">INFO</option>
@@ -151,7 +151,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setActionFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部类型</option>
             <option value="auth.login">登录</option>
@@ -194,7 +194,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-white/10 light:border-slate-200">
+      <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         {/* Desktop */}
         <div className="hidden md:block">
           <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
@@ -273,7 +273,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
           >
             ← 上一页
           </button>
@@ -284,7 +284,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             type="button"
             disabled={page >= data.totalPages}
             onClick={() => setPage((p) => p + 1)}
-            className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
+            className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
           >
             下一页 →
           </button>

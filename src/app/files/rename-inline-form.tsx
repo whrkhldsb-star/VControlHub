@@ -119,7 +119,7 @@ export function RenameInlineForm({
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder="输入新名称"
-          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
+          className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
         />
       </label>
       {newName.trim() && newName !== currentName ? (
@@ -137,7 +137,7 @@ export function RenameInlineForm({
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+        className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
       >
         取消
       </button>

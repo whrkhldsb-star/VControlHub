@@ -20,9 +20,9 @@ export default async function QuickServicesPage() {
 						<p className="mt-1.5 text-sm text-slate-500">一键安装常用自托管服务，自动 Docker 部署，安装即用。</p>
 					</div>
 					<div className="flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600">
-						<Link href="/deployments" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">部署面板</Link>
-						<Link href="/docker" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">Docker 容器</Link>
-						<Link href="/files" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">文件管理</Link>
+						<Link href="/deployments" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">部署面板</Link>
+						<Link href="/docker" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">Docker 容器</Link>
+						<Link href="/files" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">文件管理</Link>
 					</div>
 				</div>
 			</header>

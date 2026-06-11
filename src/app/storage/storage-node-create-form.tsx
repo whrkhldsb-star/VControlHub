@@ -19,7 +19,7 @@ export function StorageNodeCreateForm({
   const isSftp = driver === "SFTP";
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
+    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
       <div>
         <h2 className="text-xl font-semibold text-white">新增存储节点</h2>
         <p className="mt-2 text-sm text-slate-400 light:text-slate-600">支持本机存储与绑定 VPS 的 SFTP 存储节点。</p>
@@ -28,14 +28,14 @@ export function StorageNodeCreateForm({
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
           <span>节点名称</span>
-          <input name="name" required className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+          <input name="name" required className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
         </label>
         <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
           <span>驱动</span>
           <select
             name="driver"
             defaultValue="LOCAL"
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white"
+            className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white"
             onChange={(e) => setDriver(e.target.value)}
           >
             <option value="LOCAL">LOCAL</option>
@@ -44,7 +44,7 @@ export function StorageNodeCreateForm({
         </label>
         <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700 md:col-span-2">
           <span>根目录</span>
-          <input name="basePath" required className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="/srv/storage 或 /data/media" />
+          <input name="basePath" required className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="/srv/storage 或 /data/media" />
         </label>
         {isSftp ? (
           <>
@@ -63,15 +63,15 @@ export function StorageNodeCreateForm({
             </label>
             <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
               <span>端口</span>
-              <input name="port" type="number" min={1} max={65535} defaultValue={22} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+              <input name="port" type="number" min={1} max={65535} defaultValue={22} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
             </label>
             <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
               <span>用户名</span>
-              <input name="username" defaultValue="root" className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+              <input name="username" defaultValue="root" className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
             </label>
             <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700 md:col-span-2">
               <span>访问模式</span>
-              <select name="directAccessMode" defaultValue="PROXY" className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white">
+              <select name="directAccessMode" defaultValue="PROXY" className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white">
                 <option value="PROXY">网站服务器中转（最安全）</option>
                 <option value="DIRECT">存储服务器直连（需签名外链服务）</option>
                 <option value="AUTO">自动：可直连则直连，否则中转</option>
@@ -79,11 +79,11 @@ export function StorageNodeCreateForm({
             </label>
             <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
               <span>直连基础 URL</span>
-              <input name="publicBaseUrl" type="url" className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="https://cdn.example.com/media" />
+              <input name="publicBaseUrl" type="url" className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="https://cdn.example.com/media" />
             </label>
             <label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
               <span>直连链接有效期（秒）</span>
-              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+              <input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={300} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
             </label>
           </>
         ) : null}

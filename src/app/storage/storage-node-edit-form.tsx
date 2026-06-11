@@ -34,7 +34,7 @@ export function StorageNodeEditForm({
 	const isSftp = driver === "SFTP";
 
 	return (
-		<form action={formAction} className="grid gap-4 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-5">
+		<form action={formAction} className="grid gap-4 rounded-2xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-5">
 			<input type="hidden" name="storageNodeId" value={node.id} />
 
 			<div>
@@ -44,14 +44,14 @@ export function StorageNodeEditForm({
 			<div className="grid gap-4 md:grid-cols-2">
 				<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 					<span>节点名称</span>
-					<input name="name" defaultValue={node.name} required className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+					<input name="name" defaultValue={node.name} required className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
 				</label>
 				<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 					<span>驱动</span>
 					<select
 						name="driver"
 						defaultValue={node.driver}
-						className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white"
+						className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white"
 						onChange={(e) => setDriver(e.target.value)}
 					>
 						<option value="LOCAL">LOCAL</option>
@@ -60,7 +60,7 @@ export function StorageNodeEditForm({
 				</label>
 				<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700 md:col-span-2">
 					<span>根目录</span>
-					<input name="basePath" defaultValue={node.basePath} required className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="/srv/storage 或 /data/media" />
+					<input name="basePath" defaultValue={node.basePath} required className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="/srv/storage 或 /data/media" />
 				</label>
 				{isSftp ? (
 					<>
@@ -79,15 +79,15 @@ export function StorageNodeEditForm({
 						</label>
 						<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 							<span>端口</span>
-							<input name="port" type="number" min={1} max={65535} defaultValue={node.port ?? 22} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+							<input name="port" type="number" min={1} max={65535} defaultValue={node.port ?? 22} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
 						</label>
 						<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 							<span>用户名</span>
-							<input name="username" defaultValue={node.username ?? "root"} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+							<input name="username" defaultValue={node.username ?? "root"} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
 						</label>
 						<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700 md:col-span-2">
 							<span>访问模式</span>
-							<select name="directAccessMode" defaultValue={node.directAccessMode ?? "PROXY"} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white">
+							<select name="directAccessMode" defaultValue={node.directAccessMode ?? "PROXY"} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white">
 								<option value="PROXY">网站服务器中转（最安全）</option>
 								<option value="DIRECT">存储服务器直连（需签名外链服务）</option>
 								<option value="AUTO">自动：可直连则直连，否则中转</option>
@@ -95,11 +95,11 @@ export function StorageNodeEditForm({
 						</label>
 						<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 							<span>直连基础 URL</span>
-							<input name="publicBaseUrl" type="url" defaultValue={node.publicBaseUrl ?? ""} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="https://cdn.example.com/media" />
+							<input name="publicBaseUrl" type="url" defaultValue={node.publicBaseUrl ?? ""} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" placeholder="https://cdn.example.com/media" />
 						</label>
 						<label className="grid gap-2 text-sm text-slate-300 light:text-slate-700">
 							<span>直连链接有效期（秒）</span>
-							<input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={node.directAccessExpiresSeconds ?? 300} className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white" />
+							<input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={node.directAccessExpiresSeconds ?? 300} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white" />
 						</label>
 					</>
 				) : null}

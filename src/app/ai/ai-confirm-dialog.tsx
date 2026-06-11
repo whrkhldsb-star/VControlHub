@@ -33,7 +33,7 @@ export function AiConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white p-5 shadow-2xl"
       >
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         <div className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">{description}</div>
@@ -47,7 +47,7 @@ export function AiConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="rounded-xl border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
+            className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
           >
             取消
           </button>

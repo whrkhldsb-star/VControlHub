@@ -114,7 +114,7 @@ export function MoveInlineForm({
           required
           minLength={1}
           placeholder={currentDir || "目标路径"}
-          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+          className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
         />
       </label>
       <span className="text-xs text-slate-400 light:text-slate-600">
@@ -130,7 +130,7 @@ export function MoveInlineForm({
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+        className="rounded-full border border-[var(--border)] bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
       >
         取消
       </button>

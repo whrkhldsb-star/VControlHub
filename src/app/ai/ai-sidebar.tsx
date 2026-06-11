@@ -107,7 +107,7 @@ export function AiSidebar({
       {!showSidebar && (
         <button
           onClick={() => onToggleSidebar(true)}
-          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-white/10 light:border-slate-200 bg-slate-950/90 light:bg-white/90 p-2.5 text-slate-200 backdrop-blur hover:bg-white/10 transition"
+          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-[var(--border)] bg-slate-950/90 light:bg-white/90 p-2.5 text-slate-200 backdrop-blur hover:bg-white/10 transition"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

@@ -108,7 +108,7 @@ export function ArchivePreviewClient({
 			) : null}
 
 			{entries && entries.length > 0 ? (
-				<div className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950/50 light:bg-white/50 overflow-hidden">
+				<div className="rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 overflow-hidden">
 					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-slate-400 light:text-slate-600 font-medium">
 						<div />
 						<div>名称</div>

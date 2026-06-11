@@ -101,7 +101,7 @@ export function DeleteConfirmButton({
       <button
         type="button"
         onClick={handleCancel}
-        className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+        className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
       >
         取消
       </button>

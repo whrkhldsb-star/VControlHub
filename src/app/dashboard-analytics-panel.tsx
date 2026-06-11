@@ -281,5 +281,5 @@ function MiniStat({ label, value, color }: { label: string; value: number; color
 }
 
 function EmptyAnalyticsState({ text }: { text: string }) {
-  return <div className="mt-4 rounded-lg border border-dashed border-white/10 light:border-slate-200 px-4 py-6 text-center text-sm text-slate-500">{text}</div>;
+  return <div className="mt-4 rounded-lg border border-dashed border-[var(--border)] px-4 py-6 text-center text-sm text-slate-500">{text}</div>;
 }

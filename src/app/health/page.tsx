@@ -29,7 +29,7 @@ export default async function HealthPage() {
 					<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">节点健康</h1>
 					<p className="mt-2 text-sm text-slate-400 light:text-slate-600">实时采集 SSH 指标、保存历史趋势，并与告警规则联动。</p>
 				</div>
-				<div className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700">
+				<div className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700">
 					纳管节点 {servers.length} 台
 				</div>
 			</header>

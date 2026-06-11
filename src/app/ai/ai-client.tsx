@@ -724,7 +724,7 @@ if (data.conversation) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="rename-conversation-title"
-            className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
+            className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white p-5 shadow-2xl"
           >
             <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">修改对话标题</h3>
             <label htmlFor="rename-conversation-title-input" className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
@@ -734,7 +734,7 @@ if (data.conversation) {
                 value={renameTitle}
                 onChange={(event) => setRenameTitle(event.target.value)}
                 autoFocus
-                className="rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-300/60"
+                className="rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-300/60"
                 placeholder="输入新的对话标题"
               />
             </label>
@@ -744,7 +744,7 @@ if (data.conversation) {
                 type="button"
                 disabled={renameBusy}
                 onClick={() => { setRenameDialogOpen(false); setRenameError(null); }}
-                className="rounded-xl border border-white/10 light:border-slate-200 px-3 py-2 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
+                className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
               >
                 取消
               </button>
@@ -888,7 +888,7 @@ return (
 									width={200}
 									height={200}
 									unoptimized
-									className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-white/10 light:border-slate-200"
+									className="max-w-[200px] max-h-[200px] rounded-lg object-cover border border-[var(--border)]"
 									onError={(e) => {
 										(e.currentTarget as HTMLImageElement).style.display = "none";
 									}}
@@ -1032,7 +1032,7 @@ return (
                   {/* URL-based images */}
                   {imageUrls.map((url, i) => (
  <div key={`url-${i}`} className="relative group">
-					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10 light:border-slate-200" />
+					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-[var(--border)]" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
                         className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
@@ -1045,9 +1045,9 @@ return (
                 {fileAttachments.map((file, i) => (
                   <div key={`file-${i}`} className="relative group">
  {file.type === "image" && file.preview ? (
-						<Image src={file.preview} alt={file.name} width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10 light:border-slate-200" />
+						<Image src={file.preview} alt={file.name} width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-[var(--border)]" />
                     ) : (
-                      <div className="w-12 h-12 rounded border border-white/10 light:border-slate-200 bg-black/30 flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 rounded border border-[var(--border)] bg-black/30 flex flex-col items-center justify-center">
                         {file.mimeType.startsWith("video/") ? (
                           <span className="text-base" title="视频文件">🎬</span>
                         ) : file.mimeType.startsWith("audio/") ? (
@@ -1147,7 +1147,7 @@ return (
                   }
                   rows={1}
                   disabled={streaming}
-                  className="flex-1 bg-black/30 border border-white/10 light:border-slate-200 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
+                  className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
                   style={{ maxHeight: "120px" }}
                   onInput={(e) => {
                     const el = e.currentTarget;

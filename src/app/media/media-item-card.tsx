@@ -321,7 +321,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 						<button
 							type="button"
 							onClick={() => setShowTagInput(true)}
-							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-white/10 light:border-slate-200 px-2 py-0.5 text-[10px] text-slate-500 opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
+							className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-[var(--border)] px-2 py-0.5 text-[10px] text-slate-500 opacity-0 transition group-hover:opacity-100 hover:border-cyan-400/30 hover:text-cyan-400"
 						>
 							<Tag size={10} /> 添加
 						</button>

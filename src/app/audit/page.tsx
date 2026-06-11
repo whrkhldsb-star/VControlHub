@@ -39,8 +39,8 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 		<PageShell maxW="max-w-7xl">
 			<PageHeader eyebrow="Audit" title="审计日志" description="平台操作追踪与安全审计">
 				<div className="flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600">
-					<Link href="/" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">回到首页</Link>
-					<Link href="/health" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">去系统自检</Link>
+					<Link href="/" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">回到首页</Link>
+					<Link href="/health" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">去系统自检</Link>
 				</div>
 			</PageHeader>
 
@@ -66,14 +66,14 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 							<Link
 								key={`quick-${action}`}
 								href={`/audit?action=${encodeURIComponent(action)}`}
-								className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.02] px-2 py-1 text-[11px] text-rose-100/80 light:text-rose-900/80 transition hover:bg-white/[0.06]"
+								className="rounded-full border border-[var(--border)] bg-white/[0.02] px-2 py-1 text-[11px] text-rose-100/80 light:text-rose-900/80 transition hover:bg-white/[0.06]"
 							>
 								按动作筛查：{action}
 							</Link>
 						))}
 					</div>
 								</div>
-								<div className="rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.03] p-4">
+								<div className="rounded-xl border border-[var(--border)] bg-white/[0.03] p-4">
 									<h2 className="text-sm font-semibold text-white">最常见动作</h2>
 									<div className="mt-3 space-y-2">
 										{topActions.length === 0 ? (

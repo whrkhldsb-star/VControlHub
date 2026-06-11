@@ -30,7 +30,7 @@ export function RouteError({
 				<h2 className="text-lg font-semibold text-white">{title}</h2>
 				<p className="max-w-lg text-sm leading-6 text-slate-400 light:text-slate-600">{error.message || description}</p>
 				{error.digest ? (
-					<p className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1 text-xs text-slate-500">
+					<p className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1 text-xs text-slate-500">
 						错误编号：{error.digest}
 					</p>
 				) : null}
@@ -48,13 +48,13 @@ export function RouteError({
 							window.location.reload();
 						}
 					}}
-					className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
 				>
 					硬刷新
 				</button>
 				<a
 					href="/health"
-					className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
 				>
 					系统自检
 				</a>

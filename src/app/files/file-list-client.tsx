@@ -1550,7 +1550,7 @@ export function FileListClient({
           role="region"
           aria-labelledby={batchToolbarTitleId}
           aria-describedby={batchToolbarDescriptionId}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 light:bg-white/95 backdrop-blur border border-white/10 light:border-slate-200 rounded-2xl shadow-2xl px-5 py-3"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 light:bg-white/95 backdrop-blur border border-[var(--border)] rounded-2xl shadow-2xl px-5 py-3"
         >
           <span id={batchToolbarTitleId} className="sr-only">
             文件批量操作
@@ -1576,7 +1576,7 @@ export function FileListClient({
                 type="button"
                 onClick={() => setBatchAction("none")}
                 disabled={isPending}
-                className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
               >
                 取消
               </button>
@@ -1613,7 +1613,7 @@ export function FileListClient({
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || "目标路径"}
                 aria-label="批量移动目标路径"
-                className="w-40 rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-1.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                className="w-40 rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-3 py-1.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-cyan-200">
@@ -1641,7 +1641,7 @@ export function FileListClient({
                   setMoveProgress({ done: 0, total: 0, errors: [] });
                 }}
                 disabled={isPending && moveProgress.done > 0}
-                className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
               >
                 取消
               </button>
@@ -1654,7 +1654,7 @@ export function FileListClient({
               <button
                 type="button"
                 onClick={clearSelection}
-                className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
               >
                 取消选择
               </button>

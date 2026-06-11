@@ -483,7 +483,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			)}
 			{systemHealth && (
 				<>
-					<section className="space-y-3 rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.03] p-4">
+					<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
 			<div className="flex items-center justify-between gap-3">
 				<div>
 					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
@@ -493,8 +493,8 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
-					<Link href="/audit" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
-					<Link href="/" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
+					<Link href="/audit" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
+					<Link href="/" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
 				</div>
 			</div>
 						<div className="grid gap-3 lg:grid-cols-3">

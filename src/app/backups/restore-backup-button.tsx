@@ -85,7 +85,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
                 autoFocus
-                className="rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-rose-300/60"
+                className="rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-rose-300/60"
                 placeholder={CONFIRM_TEXT}
               />
             </label>
@@ -99,7 +99,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                   setConfirmText("");
                   setError(null);
                 }}
-                className="rounded-xl border border-white/10 light:border-slate-200 px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
+                className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm text-slate-300 light:text-slate-700 transition hover:bg-white/5 disabled:opacity-50"
               >
                 取消
               </button>

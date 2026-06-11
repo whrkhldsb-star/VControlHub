@@ -431,7 +431,7 @@ function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 hover:bg-white/5"
+        className="rounded-full border border-[var(--border)] px-3 py-1.5 text-slate-200 hover:bg-white/5"
       >
         全部文件
       </button>
@@ -450,7 +450,7 @@ function BreadcrumbsClient({
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 hover:bg-white/5"
+                className="rounded-full border border-[var(--border)] px-3 py-1.5 text-slate-200 hover:bg-white/5"
               >
                 {displaySegment}
               </button>
@@ -629,7 +629,7 @@ export function FilesBrowserSpa({
   return (
     <section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
       {/* Sidebar: Directory tree */}
-      <aside className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
+      <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white">目录树</h2>
@@ -654,7 +654,7 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950/50 light:bg-white/50 p-4 pr-2">
+        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 p-4 pr-2">
           <button
             type="button"
             onClick={() => navigateToFolder("")}
@@ -705,7 +705,7 @@ export function FilesBrowserSpa({
         ) : null}
 
         {/* Search + Toolbar */}
-        <article className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
+        <article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-white">
@@ -751,7 +751,7 @@ export function FilesBrowserSpa({
                         ? "在全部文件中搜索…"
                         : "在当前目录搜索…"
                     }
-                    className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                    className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
                   />
                 </div>
                 <button
@@ -767,7 +767,7 @@ export function FilesBrowserSpa({
                       setSearchInput("");
                       fetchFiles(data.currentPath);
                     }}
-                    className="rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
+                    className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2.5 text-sm font-medium text-slate-300 light:text-slate-700 transition hover:bg-white/10"
                   >
                     清除
                   </button>
@@ -847,7 +847,7 @@ export function FilesBrowserSpa({
                         ? "没有文件编辑权限，无法新建文件夹"
                         : "当前没有可用的存储节点，无法新建文件夹"
                     }
-                    className="cursor-not-allowed rounded-full border border-white/10 light:border-slate-200 bg-white/5 px-4 py-2 text-sm font-medium text-slate-400 light:text-slate-600"
+                    className="cursor-not-allowed rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-400 light:text-slate-600"
                   >
                     新建文件夹
                   </button>
