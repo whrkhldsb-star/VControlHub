@@ -458,7 +458,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 
 	if (!overview) {
 		return (
-			<div className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-4 text-sm text-rose-100" role="alert">
+			<div data-tone="rose" className="rounded-xl border border-rose-400/20 p-4 text-sm text-rose-100" role="alert">
 				<div>{loadError ?? copy.ui.healthUnavailable}</div>
 				<button
 					type="button"
@@ -477,7 +477,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 	return (
 		<div className="space-y-6">
 			{loadError && (
-				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+				<div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 p-3 text-sm text-rose-100">
 					{loadError}
 				</div>
 			)}
@@ -638,7 +638,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
 					</h3>
 					{historyErrors[expandedServer] ? (
-						<div role="alert" className="rounded-lg border border-rose-400/20 bg-rose-400/10 p-3 text-sm text-rose-100">
+						<div role="alert" data-tone="rose" className="rounded-lg border border-rose-400/20 p-3 text-sm text-rose-100">
 							{historyErrors[expandedServer]}
 						</div>
 					) : (
