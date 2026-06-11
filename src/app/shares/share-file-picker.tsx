@@ -243,7 +243,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 light:text-cyan-700">{copyText.eyebrow}</p>
-					<h2 className="mt-1 text-xl font-semibold text-white light:text-slate-950">{copyText.title}</h2>
+					<h2 className="mt-1 text-xl font-semibold text-white">{copyText.title}</h2>
 					<p className="mt-1 max-w-2xl text-sm text-slate-500 light:text-slate-600">
 						{copyText.description}
 					</p>
@@ -330,7 +330,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 								return (
 									<label key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/[0.04] light:hover:bg-slate-50">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-cyan-500" aria-label={`${copyText.selectFile} ${file.name}`} />
-										<span className="flex min-w-0 items-center gap-2 text-slate-200 light:text-slate-800"><File size={16} className="shrink-0 text-slate-400" /><span className="truncate">{file.name}</span></span>
+										<span className="flex min-w-0 items-center gap-2 text-slate-200"><File size={16} className="shrink-0 text-slate-400" /><span className="truncate">{file.name}</span></span>
 										<span className="text-xs text-slate-500">{copyText.file}</span>
 										<span className="truncate text-xs text-slate-500">{file.sizeLabel ?? "—"}</span>
 									</label>
@@ -345,7 +345,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				<aside className="rounded-xl border border-white/[0.08] bg-slate-950/35 p-4 light:border-slate-200 light:bg-slate-50">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h3 className="text-sm font-semibold text-white light:text-slate-900">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
+							<h3 className="text-sm font-semibold text-white">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
 							<p className="mt-1 text-xs text-slate-500">{copyText.selectedHint}</p>
 						</div>
 						<button type="button" onClick={() => setSelected({})} className="text-xs text-slate-500 hover:text-slate-200 light:hover:text-slate-700">{copyText.clear}</button>
@@ -353,7 +353,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
 							<div key={item.key} className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs light:border-slate-200 light:bg-white">
-								<div className="truncate font-medium text-slate-200 light:text-slate-800">{item.name}</div>
+								<div className="truncate font-medium text-slate-200">{item.name}</div>
 								<div className="mt-0.5 truncate text-slate-500">{item.entryType === "DIRECTORY" ? copyText.folder : copyText.file} · {item.path}</div>
 							</div>
 						)) : <p className="rounded-lg border border-dashed border-white/[0.08] p-4 text-center text-xs text-slate-500 light:border-slate-200">{copyText.selectedEmpty}</p>}

@@ -93,11 +93,11 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					<div className="flex items-center gap-3">
 						<a
 							href="/files"
-							className="rounded-full border border-white/10 light:border-slate-200 px-4 py-2 text-sm text-slate-200 light:text-slate-800 hover:border-cyan-400/50 hover:bg-white/5"
+							className="rounded-full border border-white/10 light:border-slate-200 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5"
 						>
 							← 返回文件
 						</a>
-						<h1 className="truncate text-xl font-semibold text-white light:text-slate-900">{name}</h1>
+						<h1 className="truncate text-xl font-semibold text-white">{name}</h1>
 						<span className="rounded-full border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-3 py-1 text-xs text-slate-400 light:text-slate-600">
 							{driver}
 						</span>

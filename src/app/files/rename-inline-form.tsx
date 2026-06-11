@@ -119,7 +119,7 @@ export function RenameInlineForm({
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder="输入新名称"
-          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400"
+          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
         />
       </label>
       {newName.trim() && newName !== currentName ? (

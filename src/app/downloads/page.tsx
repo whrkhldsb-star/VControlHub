@@ -62,7 +62,7 @@ export default async function DownloadsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<header className="mb-8">
-				<h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">远程下载</h1>
+				<h1 className="text-3xl font-semibold tracking-tight text-white">远程下载</h1>
 				<p className="mt-1.5 text-sm text-slate-500">
 					输入 URL 或磁力链接，下载到指定 VPS 的存储路径
 				</p>

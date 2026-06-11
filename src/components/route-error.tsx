@@ -27,7 +27,7 @@ export function RouteError({
 				</svg>
 			</div>
 			<div className="space-y-2">
-				<h2 className="text-lg font-semibold text-white light:text-slate-900">{title}</h2>
+				<h2 className="text-lg font-semibold text-white">{title}</h2>
 				<p className="max-w-lg text-sm leading-6 text-slate-400 light:text-slate-600">{error.message || description}</p>
 				{error.digest ? (
 					<p className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1 text-xs text-slate-500">
@@ -38,13 +38,13 @@ export function RouteError({
 			<div className="flex flex-wrap justify-center gap-2">
 				<button
 					onClick={reset}
-					className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition-colors hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+					className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
 				>
 					重试
 				</button>
 				<a
 					href="/health"
-					className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 light:text-slate-800 transition-colors hover:bg-white/[0.06]"
+					className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
 				>
 					系统自检
 				</a>

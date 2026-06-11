@@ -26,7 +26,7 @@ export default async function NotificationsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">通知中心</h1>
+					<h1 className="text-3xl font-semibold tracking-tight text-white">通知中心</h1>
 					<p className="mt-1.5 text-sm text-slate-500">
 						{unreadCount > 0 ? `${unreadCount} 条未读通知` : "所有通知已读"}
 					</p>

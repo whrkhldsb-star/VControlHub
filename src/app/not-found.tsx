@@ -5,7 +5,7 @@ export default function NotFoundPage() {
     <main className="flex min-h-screen items-center justify-center bg-slate-950 light:bg-white px-6">
       <div className="max-w-md text-center">
         <div className="text-6xl mb-4">🔍</div>
-        <h1 className="text-3xl font-semibold text-white light:text-slate-900">404</h1>
+        <h1 className="text-3xl font-semibold text-white">404</h1>
         <p className="mt-3 text-slate-400 light:text-slate-600">页面不存在或已被移除</p>
         <Link
           href="/"

@@ -418,7 +418,7 @@ function BreadcrumbsClient({
       <button
         type="button"
         onClick={() => onNavigate("")}
-        className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 light:text-slate-800 hover:bg-white/5"
+        className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 hover:bg-white/5"
       >
         全部文件
       </button>
@@ -437,7 +437,7 @@ function BreadcrumbsClient({
               <button
                 type="button"
                 onClick={() => onNavigate(nextPath)}
-                className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 light:text-slate-800 hover:bg-white/5"
+                className="rounded-full border border-white/10 light:border-slate-200 px-3 py-1.5 text-slate-200 hover:bg-white/5"
               >
                 {displaySegment}
               </button>
@@ -619,7 +619,7 @@ export function FilesBrowserSpa({
       <aside className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-white light:text-slate-900">目录树</h2>
+            <h2 className="text-2xl font-semibold text-white">目录树</h2>
             <p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
               按层级展开所有已登记目录，便于快速跳转。
             </p>
@@ -675,7 +675,7 @@ export function FilesBrowserSpa({
           <article className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5 light:border-cyan-500/20 light:bg-cyan-50">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white light:text-slate-950">
+                <h3 className="text-lg font-semibold text-white">
                   切换存储节点
                 </h3>
                 <p className="mt-1 text-sm text-slate-400 light:text-slate-600">
@@ -695,7 +695,7 @@ export function FilesBrowserSpa({
         <article className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h2 className="text-2xl font-semibold text-white light:text-slate-900">
+              <h2 className="text-2xl font-semibold text-white">
                 {currentPathDisplay.title}
                 {loading ? (
                   <span className="ml-2 text-sm text-cyan-300 light:text-cyan-700 animate-pulse">
@@ -738,7 +738,7 @@ export function FilesBrowserSpa({
                         ? "在全部文件中搜索…"
                         : "在当前目录搜索…"
                     }
-                    className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                    className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
                   />
                 </div>
                 <button
@@ -773,7 +773,7 @@ export function FilesBrowserSpa({
           <div className="mt-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-white light:text-slate-900">
+                <h3 className="text-xl font-semibold text-white">
                   当前目录操作
                 </h3>
                 <p className="mt-2 text-sm text-slate-300 light:text-slate-700">

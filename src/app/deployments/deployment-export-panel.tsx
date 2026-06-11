@@ -80,7 +80,7 @@ export function DeploymentExportPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70 light:text-cyan-700">Portable Export</p>
-          <h2 className="mt-1 text-sm font-semibold text-white light:text-slate-900">迁移部署导出包</h2>
+          <h2 className="mt-1 text-sm font-semibold text-white">迁移部署导出包</h2>
           <p className="mt-1 max-w-3xl text-xs text-slate-500 light:text-slate-600">
             生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。
           </p>
@@ -117,7 +117,7 @@ export function DeploymentExportPanel() {
         <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:bg-cyan-50">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-white light:text-slate-900">{result.name ?? "portable deployment"}</h3>
+              <h3 className="text-sm font-semibold text-white">{result.name ?? "portable deployment"}</h3>
               <p className="mt-1 text-xs text-slate-500 light:text-slate-600">
                 {result.manifest?.domain ?? "example.com"} · {files.length} 个文件 · 危险演示开关默认关闭
               </p>

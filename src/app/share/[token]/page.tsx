@@ -34,13 +34,13 @@ export default async function SharePage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 light:bg-white px-4 py-16 text-slate-100 light:text-slate-900">
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 light:bg-white px-4 py-16 text-slate-100">
       <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl light:border-slate-200 light:bg-white">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
           </div>
-          <h1 className="text-lg font-semibold text-white light:text-slate-900">
+          <h1 className="text-lg font-semibold text-white">
             {errorMessage ? "无法访问该分享" : share?.entryType === "DIRECTORY" ? "目录分享" : "文件分享"}
           </h1>
         </div>
@@ -52,7 +52,7 @@ export default async function SharePage({
         ) : share ? (
           <div className="space-y-5">
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
-              <p className="break-all text-base font-medium text-white light:text-slate-900">
+              <p className="break-all text-base font-medium text-white">
                 {share.name || share.path}
               </p>
               <dl className="mt-3 grid gap-1.5 text-xs text-slate-400 light:text-slate-600 sm:grid-cols-2">
@@ -90,7 +90,7 @@ export default async function SharePage({
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-white light:text-slate-900">可下载文件</h2>
+                    <h2 className="text-sm font-semibold text-white">可下载文件</h2>
                     <span className="text-xs text-slate-500">最多显示 200 个已索引文件</span>
                   </div>
                   <a
@@ -109,12 +109,12 @@ export default async function SharePage({
                     {files.map((file) => (
                       <div key={file.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-white light:text-slate-900">{file.name}</div>
+                          <div className="truncate text-sm font-medium text-white">{file.name}</div>
                           <div className="truncate text-xs text-slate-500" title={file.relativePath}>{file.relativePath} · {formatSize(file.size)}</div>
                         </div>
                         <a
                           href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                          className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
+                          className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
                         >
                           下载
                         </a>
@@ -126,7 +126,7 @@ export default async function SharePage({
             ) : (
               <a
                 href={`/api/share/${encodeURIComponent(token)}`}
-                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
+                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-cyan-500"
               >
                 ⬇ 下载文件
               </a>

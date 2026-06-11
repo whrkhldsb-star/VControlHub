@@ -17,7 +17,7 @@ export default async function Page() {
 
 	return (
 		<PageShell>
-			<h1 className="text-3xl font-semibold text-white light:text-slate-900">代码片段库</h1>
+			<h1 className="text-3xl font-semibold text-white">代码片段库</h1>
 			<p className="mt-2 text-sm text-slate-400 light:text-slate-600">沉淀常用脚本、命令和配置片段，支持语言、标签和私有片段。</p>
 			<div className="mt-6">
 				<SnippetList snippets={serialized} />

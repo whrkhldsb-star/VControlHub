@@ -132,7 +132,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 					<Card title="当前服务器实时流量">
 						<div className="mb-4 flex flex-wrap items-center gap-3">
 							<label className="text-xs text-slate-500">网卡</label>
-							<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-slate-200 light:text-slate-800">
+							<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-slate-200">
 								<option value="">自动选择主网卡</option>
 								{summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
 							</select>
@@ -145,8 +145,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 									<RateBadge label={`↑ 上传速度 · ${primary.iface}`} value={primary.txRateLabel} color="emerald" />
 								</div>
 								<div className="mt-4 grid grid-cols-1 gap-3 text-xs text-slate-400 light:text-slate-600 md:grid-cols-2">
-									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100 light:text-slate-900">{primary.rxLabel}</span></div>
-									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100 light:text-slate-900">{primary.txLabel}</span></div>
+									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100">{primary.rxLabel}</span></div>
+									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100">{primary.txLabel}</span></div>
 								</div>
 							</>
 						) : <div className="text-sm text-slate-500">暂无网卡数据</div>}
@@ -157,7 +157,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 							<table className="w-full text-xs">
 								<thead className="text-slate-500"><tr><th className="py-2 text-left">网卡</th><th className="text-right">下载速度</th><th className="text-right">上传速度</th><th className="text-right">累计下载</th><th className="text-right">累计上传</th></tr></thead>
 								<tbody>
-									{summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-white/[0.04]"><td className="py-2 font-mono text-white light:text-slate-900">{item.iface}</td><td className="text-right text-cyan-300 light:text-cyan-700">{item.rxRateLabel}</td><td className="text-right text-emerald-300 light:text-emerald-700">{item.txRateLabel}</td><td className="text-right text-slate-400 light:text-slate-600">{item.rxLabel}</td><td className="text-right text-slate-400 light:text-slate-600">{item.txLabel}</td></tr>)}
+									{summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-white/[0.04]"><td className="py-2 font-mono text-white">{item.iface}</td><td className="text-right text-cyan-300 light:text-cyan-700">{item.rxRateLabel}</td><td className="text-right text-emerald-300 light:text-emerald-700">{item.txRateLabel}</td><td className="text-right text-slate-400 light:text-slate-600">{item.rxLabel}</td><td className="text-right text-slate-400 light:text-slate-600">{item.txLabel}</td></tr>)}
 								</tbody>
 							</table>
 						</div>
@@ -165,7 +165,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 
 					<Card title="存储节点流量来源">
 						<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white light:text-slate-900">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 light:bg-slate-100 px-2 py-0.5 text-[10px] text-slate-300 light:text-slate-700">{formatStorageHealthStatus(node.healthStatus)}</span></div><div className="mt-3 text-xs text-slate-400 light:text-slate-600">{node.trafficSourceDetail}</div></div>)}
+							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 light:bg-slate-100 px-2 py-0.5 text-[10px] text-slate-300 light:text-slate-700">{formatStorageHealthStatus(node.healthStatus)}</span></div><div className="mt-3 text-xs text-slate-400 light:text-slate-600">{node.trafficSourceDetail}</div></div>)}
 							{summary.storageNodes.length === 0 && <div className="text-sm text-slate-500">暂无存储节点</div>}
 						</div>
 					</Card>

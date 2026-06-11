@@ -40,7 +40,7 @@ export default async function ScheduledTasksPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">定时任务</h1>
+					<h1 className="text-3xl font-semibold tracking-tight text-white">定时任务</h1>
 					<p className="mt-1.5 text-sm text-slate-500">
 						配置 Cron 表达式，自动向 VPS 节点下发待审批命令
 					</p>

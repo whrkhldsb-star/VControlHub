@@ -31,7 +31,7 @@ export default async function CommandTemplatesPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">命令模板</h1>
+					<h1 className="text-3xl font-semibold tracking-tight text-white">命令模板</h1>
 					<p className="mt-1.5 text-sm text-slate-500">
 						预置与自定义运维命令模板，支持变量占位符一键下发
 					</p>

@@ -24,7 +24,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 			{/* Modal */}
 			<div className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900 light:bg-white p-6 shadow-2xl">
 				<div className="flex items-center justify-between mb-4">
-					<h2 className="text-xl font-semibold text-white light:text-slate-900">修改登录密码</h2>
+					<h2 className="text-xl font-semibold text-white">修改登录密码</h2>
 					<button
 						onClick={onClose}
 						className="rounded-xl p-2 text-slate-400 light:text-slate-600 hover:bg-white/5 hover:text-white light:hover:text-slate-900 transition"
@@ -48,7 +48,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 							type="password"
 							required
 							autoComplete="current-password"
-							className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900 focus:outline-none focus:border-cyan-400/50"
+							className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white focus:outline-none focus:border-cyan-400/50"
 							placeholder="请输入当前密码"
 						/>
 					</label>
@@ -59,7 +59,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 							type="password"
 							required
 							autoComplete="new-password"
-							className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900 focus:outline-none focus:border-cyan-400/50"
+							className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white focus:outline-none focus:border-cyan-400/50"
 							placeholder="至少 8 位"
 						/>
 					</label>
@@ -70,7 +70,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 							type="password"
 							required
 							autoComplete="new-password"
-							className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900 focus:outline-none focus:border-cyan-400/50"
+							className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white focus:outline-none focus:border-cyan-400/50"
 							placeholder="再次输入新密码"
 						/>
 					</label>

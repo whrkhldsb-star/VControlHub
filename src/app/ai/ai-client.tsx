@@ -577,7 +577,7 @@ if (data.conversation) {
         confirmLabel: "确认删除",
         description: (
           <>
-            确定删除对话 <span className="font-medium text-white light:text-slate-900">{confirmAction.title}</span> 吗？此操作不可恢复。
+            确定删除对话 <span className="font-medium text-white">{confirmAction.title}</span> 吗？此操作不可恢复。
           </>
         ),
       };
@@ -588,7 +588,7 @@ if (data.conversation) {
         confirmLabel: "确认删除",
         description: (
           <>
-            确定删除提供商 <span className="font-medium text-white light:text-slate-900">{confirmAction.name}</span> 吗？关联的对话也会被删除。
+            确定删除提供商 <span className="font-medium text-white">{confirmAction.name}</span> 吗？关联的对话也会被删除。
           </>
         ),
       };
@@ -726,7 +726,7 @@ if (data.conversation) {
             aria-labelledby="rename-conversation-title"
             className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
           >
-            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white light:text-slate-900">修改对话标题</h3>
+            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">修改对话标题</h3>
             <label htmlFor="rename-conversation-title-input" className="mt-4 grid gap-1 text-sm text-slate-300 light:text-slate-700">
               新标题
               <input
@@ -734,7 +734,7 @@ if (data.conversation) {
                 value={renameTitle}
                 onChange={(event) => setRenameTitle(event.target.value)}
                 autoFocus
-                className="rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white light:text-slate-900 outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-300/60"
+                className="rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-300/60"
                 placeholder="输入新的对话标题"
               />
             </label>
@@ -848,7 +848,7 @@ const conv = data.conversation;
                 <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                   {msg.role !== "user" && (
                     <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white light:text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.09-.75.202-.25.112-.499.268-.75.468M9.75 3.104c.251.023.501.09.75.202.25.112.499.268.75.468M5 14.5l-1.43 1.43a2.25 2.25 0 01-3.182 0l-.03-.03a2.25 2.25 0 010-3.182L5 14.5zm0 0l6.25-6.25" />
                       </svg>
                     </div>
@@ -938,11 +938,11 @@ return (
               {streaming && streamContent && (
                 <div className="flex gap-3">
                   <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white light:text-slate-900 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5" />
                     </svg>
                   </div>
-                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-200 light:text-slate-800 text-sm leading-relaxed">
+                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-200 text-sm leading-relaxed">
                     {streamReasoning && (
                       <details open className="mb-2">
                         <summary className="text-[10px] text-cyan-400/60 cursor-pointer">💭 正在思考...</summary>
@@ -978,7 +978,7 @@ return (
     {pendingApprovals.map((approval) => (
      <div key={approval.actionId} className="flex items-center justify-between bg-black/30 rounded-lg p-2.5">
       <div className="flex-1 min-w-0">
-       <div className="text-sm text-white light:text-slate-900 font-medium">{approval.actionName}</div>
+       <div className="text-sm text-white font-medium">{approval.actionName}</div>
        <div className="text-xs text-slate-400 light:text-slate-600 truncate">
  风险: <span className={
  approval.riskLevel === "critical" ? "text-red-400" :
@@ -990,7 +990,7 @@ return (
       </div>
       <div className="flex gap-2 ml-3">
        <button
-        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white light:text-slate-900 transition"
+        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white transition"
         onClick={async () => {
          try {
           await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
@@ -1004,7 +1004,7 @@ return (
         }}
        >拒绝</button>
        <button
-        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white light:text-slate-900 transition"
+        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
         onClick={async () => {
           try {
           await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
@@ -1035,7 +1035,7 @@ return (
 					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-white/10 light:border-slate-200" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white light:text-slate-900 text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                       >
                         ×
                       </button>
@@ -1064,7 +1064,7 @@ return (
                     )}
                       <button
                         onClick={() => setFileAttachments((prev) => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white light:text-slate-900 text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                       >
                         ×
                       </button>
@@ -1082,7 +1082,7 @@ return (
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
                     placeholder="输入图片 URL（回车添加）"
-                    className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white light:text-slate-900 placeholder-slate-600"
+                    className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && imageUrlInput.trim()) {
                         setImageUrls((prev) => [...prev, imageUrlInput.trim()]);
@@ -1147,7 +1147,7 @@ return (
                   }
                   rows={1}
                   disabled={streaming}
-                  className="flex-1 bg-black/30 border border-white/10 light:border-slate-200 rounded-xl px-4 py-2.5 text-sm text-white light:text-slate-900 placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
+                  className="flex-1 bg-black/30 border border-white/10 light:border-slate-200 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
                   style={{ maxHeight: "120px" }}
                   onInput={(e) => {
                     const el = e.currentTarget;

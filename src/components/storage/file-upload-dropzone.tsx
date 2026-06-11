@@ -200,7 +200,7 @@ export function FileUploadDropzone({
     <section className="rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-white light:text-slate-900">{title}</h2>
+          <h2 className="text-2xl font-semibold text-white">{title}</h2>
           <p className="text-sm text-slate-400 light:text-slate-600">{description}</p>
         </div>
       </div>
@@ -213,7 +213,7 @@ export function FileUploadDropzone({
               aria-label="上传到节点"
               value={selectedNodeId}
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-              className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900"
+              className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white"
             >
               <option value="">请选择存储节点</option>
               {nodes.map((node) => (
@@ -232,7 +232,7 @@ export function FileUploadDropzone({
             value={effectiveRelativeDir}
             readOnly={uploadDir !== undefined || !allowNodeSelection}
             onChange={(event) => setRelativeDir(event.currentTarget.value)}
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white light:text-slate-900 read-only:cursor-not-allowed read-only:opacity-80"
+            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-3 text-white read-only:cursor-not-allowed read-only:opacity-80"
             placeholder="docs 或 media/videos"
           />
         </label>

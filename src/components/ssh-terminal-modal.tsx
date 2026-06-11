@@ -325,7 +325,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 					<div className="flex items-center gap-3">
 						<span className="text-xl" aria-hidden="true">💻</span>
 						<div>
-							<h3 id={`ssh-terminal-title-${serverId}`} className="text-lg font-semibold text-white light:text-slate-950">
+							<h3 id={`ssh-terminal-title-${serverId}`} className="text-lg font-semibold text-white">
 								SSH 终端 — {serverName}
 							</h3>
 							<p id={`ssh-terminal-host-${serverId}`} className="text-xs text-slate-400 light:text-slate-600">{host}</p>
@@ -392,7 +392,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 					{showSidePanel && (
 						<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-64">
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">⭐ 常用命令</h4>
+								<h4 className="mb-2 text-xs font-medium text-white/60">⭐ 常用命令</h4>
 								<div className="mb-2 flex gap-1.5">
 									<label htmlFor={`ssh-favorite-command-${serverId}`} className="sr-only">
 										添加常用 SSH 命令
@@ -403,7 +403,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 										placeholder="添加常用命令…"
-										className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] font-mono text-white light:text-slate-900 outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+										className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
 									<button onClick={addFavorite} className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200 light:text-cyan-800 transition hover:bg-cyan-400/20">
 										+
@@ -435,7 +435,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</section>
 
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">📜 命令历史</h4>
+								<h4 className="mb-2 text-xs font-medium text-white/60">📜 命令历史</h4>
 								{commandHistory.length === 0 ? (
 									<p className="text-[10px] text-slate-600">暂无历史命令</p>
 								) : (
@@ -455,7 +455,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</section>
 
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white light:text-slate-900/60">⚡ 快捷命令</h4>
+								<h4 className="mb-2 text-xs font-medium text-white/60">⚡ 快捷命令</h4>
 								<div className="space-y-1">
 									{["ls -la", "df -h", "free -m", "top -bn1 | head -20", "uptime", "whoami", "cat /etc/os-release", "ps aux --sort=-%mem | head -10"].map((cmd) => (
 										<button

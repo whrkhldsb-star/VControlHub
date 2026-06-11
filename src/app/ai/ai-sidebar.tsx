@@ -36,7 +36,7 @@ export function AiSidebar({
         <div className="w-64 flex-shrink-0 border-r border-white/[0.06] bg-slate-950/50 light:bg-white/50 flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white light:text-slate-900">AI 助手</h2>
+            <h2 className="text-sm font-semibold text-white">AI 助手</h2>
             <button
               onClick={onNewConv}
               className="h-7 px-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-xs font-medium hover:bg-cyan-500/30 transition"
@@ -107,7 +107,7 @@ export function AiSidebar({
       {!showSidebar && (
         <button
           onClick={() => onToggleSidebar(true)}
-          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-white/10 light:border-slate-200 bg-slate-950/90 light:bg-white/90 p-2.5 text-slate-200 light:text-slate-800 backdrop-blur hover:bg-white/10 transition"
+          className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-white/10 light:border-slate-200 bg-slate-950/90 light:bg-white/90 p-2.5 text-slate-200 backdrop-blur hover:bg-white/10 transition"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

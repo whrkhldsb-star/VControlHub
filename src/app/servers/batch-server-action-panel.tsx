@@ -42,7 +42,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 		<section className="mb-8 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
-					<h2 className="text-sm font-medium text-white light:text-slate-900">批量节点操作</h2>
+					<h2 className="text-sm font-medium text-white">批量节点操作</h2>
 					<p className="mt-1 text-xs text-slate-500">先勾选节点，再统一启用或停用。适合维护窗口和巡检后的回收操作。</p>
 				</div>
 				<div className="text-xs text-slate-500">当前共有 {enabledCount} 台启用节点，已选中 {selectedServers.length} 台</div>
@@ -63,7 +63,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 
 			<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 				{servers.map((server) => (
-					<label key={server.id} className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200 light:text-slate-800 transition hover:bg-white/[0.06]">
+					<label key={server.id} className="flex items-center gap-3 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-sm text-slate-200 transition hover:bg-white/[0.06]">
 						<input
 							type="checkbox"
 							checked={selectedIds.includes(server.id)}
@@ -71,7 +71,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 							className="h-4 w-4 rounded border-white/20 bg-slate-950 light:bg-white text-cyan-400 focus:ring-cyan-400"
 						/>
 						<div className="min-w-0">
-							<div className="truncate font-medium text-white light:text-slate-900">{server.name}</div>
+							<div className="truncate font-medium text-white">{server.name}</div>
 							<div className="text-[11px] text-slate-500">{server.enabled ? "已启用" : "已停用"}</div>
 						</div>
 					</label>

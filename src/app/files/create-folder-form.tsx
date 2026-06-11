@@ -90,7 +90,7 @@ export function CreateFolderForm({
             name="storageNodeId"
             value={selectedNodeId}
             onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-2 text-sm text-white light:text-slate-900 focus:border-cyan-400/50 focus:outline-none"
+            className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             {storageNodes.map((node) => (
               <option key={node.id} value={node.id}>
@@ -114,7 +114,7 @@ export function CreateFolderForm({
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
           placeholder="输入文件夹名"
-          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400"
+          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
         />
       </label>
       {folderName.trim() ? (

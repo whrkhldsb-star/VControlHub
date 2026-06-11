@@ -67,7 +67,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500"
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
           + 高级创建分享链接
         </button>
@@ -75,7 +75,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
         <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-white light:text-slate-900">高级分享链接</h3>
+              <h3 className="text-sm font-semibold text-white">高级分享链接</h3>
               <p className="mt-1 text-xs text-slate-500">选择存储节点和路径。目录分享会公开列出该路径下已索引文件，访问者可逐个下载。</p>
             </div>
             <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-slate-500 hover:text-slate-300">收起</button>
@@ -131,7 +131,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           <button
             onClick={handleCreate}
             disabled={saving || !nodeId || !path.trim()}
-            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500 disabled:opacity-40"
+            className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? "创建中…" : "创建"}
           </button>

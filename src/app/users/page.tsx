@@ -17,7 +17,7 @@ export default async function UsersPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<header className="mb-8">
-				<h1 className="text-3xl font-semibold tracking-tight text-white light:text-slate-900">用户管理</h1>
+				<h1 className="text-3xl font-semibold tracking-tight text-white">用户管理</h1>
 				<p className="mt-1.5 text-sm text-slate-500">{canManage ? "创建用户、分配角色与权限管理" : "查看用户、角色与权限（只读）"}</p>
 			</header>
 			<UserManagementClient canManage={canManage} />

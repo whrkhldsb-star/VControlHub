@@ -66,7 +66,7 @@ export function CreateSnippetModal({
         aria-labelledby="create-snippet-title"
         className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white"
       >
-        <h3 id="create-snippet-title" className="text-lg font-semibold text-white light:text-slate-900">新建代码片段</h3>
+        <h3 id="create-snippet-title" className="text-lg font-semibold text-white">新建代码片段</h3>
 
         <div className="mt-4 space-y-3">
           <div>
@@ -137,7 +137,7 @@ export function CreateSnippetModal({
           <button
             onClick={handleCreate}
             disabled={saving || !title.trim() || !content.trim()}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500 disabled:opacity-40"
+            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? "创建中…" : "创建"}
           </button>

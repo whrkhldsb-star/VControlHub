@@ -28,7 +28,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	const error = resolveErrorMessage(resolvedSearchParams.error);
 
 	return (
-		<main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050508] text-white light:text-slate-900">
+		<main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050508] text-white">
 			{/* Background effects */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.06),transparent_35%),linear-gradient(180deg,#08080c_0%,#050508_100%)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -41,8 +41,8 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 							</svg>
 						</div>
-						<h2 className="text-2xl font-semibold tracking-[-0.03em] text-white light:text-slate-900">两步验证</h2>
-						<p className="mt-2 text-sm text-white light:text-slate-900/40">请输入您身份验证器应用中显示的验证码</p>
+						<h2 className="text-2xl font-semibold tracking-[-0.03em] text-white">两步验证</h2>
+						<p className="mt-2 text-sm text-white/40">请输入您身份验证器应用中显示的验证码</p>
 					</div>
 
 					<Verify2faForm nextPath={nextPath} error={error} />
@@ -50,7 +50,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 					<div className="mt-5 border-t border-white/[0.06] pt-4">
 						<a
 							href="/login"
-							className="text-xs text-white light:text-slate-900/30 transition-colors hover:text-white light:hover:text-slate-900/50"
+							className="text-xs text-white/30 transition-colors hover:text-white light:hover:text-slate-900/50"
 						>
 							← 返回登录
 						</a>

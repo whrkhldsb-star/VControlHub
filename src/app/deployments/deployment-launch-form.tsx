@@ -119,7 +119,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{variables.length > 0 ? (
 				<div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:border-cyan-200 light:bg-cyan-50">
 					<div className="mb-3 flex items-center justify-between gap-3">
-						<h3 className="text-sm font-semibold text-white light:text-slate-900">模板变量</h3>
+						<h3 className="text-sm font-semibold text-white">模板变量</h3>
 						<span className="text-xs text-slate-500 light:text-slate-600">全部必填，提交前会在后端再次校验。</span>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
@@ -137,7 +137,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 			<div>
 				<div className="mb-2 flex items-center justify-between gap-3">
-					<h3 className="text-sm font-semibold text-white light:text-slate-900">目标 VPS</h3>
+					<h3 className="text-sm font-semibold text-white">目标 VPS</h3>
 					<span className="text-xs text-slate-500 light:text-slate-600">至少选择 1 台。</span>
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">

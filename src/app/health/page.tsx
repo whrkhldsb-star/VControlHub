@@ -26,7 +26,7 @@ export default async function HealthPage() {
 			<header className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
 				<div>
 					<p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Health Center</p>
-					<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white light:text-slate-900">节点健康</h1>
+					<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">节点健康</h1>
 					<p className="mt-2 text-sm text-slate-400 light:text-slate-600">实时采集 SSH 指标、保存历史趋势，并与告警规则联动。</p>
 				</div>
 				<div className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm text-slate-300 light:text-slate-700">

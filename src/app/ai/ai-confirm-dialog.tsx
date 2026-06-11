@@ -35,7 +35,7 @@ export function AiConfirmDialog({
         aria-label={title}
         className="w-full max-w-sm rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white p-5 shadow-2xl"
       >
-        <h3 className="text-sm font-semibold text-white light:text-slate-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
         <div className="mt-2 text-sm leading-6 text-slate-300 light:text-slate-700">{description}</div>
         {error && (
           <div role="alert" className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">

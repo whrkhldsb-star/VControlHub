@@ -50,7 +50,7 @@ export function AnnouncementEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 light:bg-slate-900/60 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white">
-        <h3 className="text-lg font-semibold text-white light:text-slate-900">编辑公告</h3>
+        <h3 className="text-lg font-semibold text-white">编辑公告</h3>
 
         <div className="mt-4 space-y-3">
           <div>
@@ -105,7 +105,7 @@ export function AnnouncementEditModal({
           <button
             onClick={handleSave}
             disabled={saving || !title.trim() || !content.trim()}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white light:text-slate-900 transition hover:bg-cyan-500 disabled:opacity-40"
+            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? "保存中…" : "保存"}
           </button>

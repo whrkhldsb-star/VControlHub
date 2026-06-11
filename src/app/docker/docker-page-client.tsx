@@ -281,7 +281,7 @@ export default function DockerPage() {
 					{grouped.map((group) => (
 						<section key={group.project} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
 							<div className="mb-3">
-								<h2 className="text-sm font-medium text-white light:text-slate-900">{group.project}</h2>
+								<h2 className="text-sm font-medium text-white">{group.project}</h2>
 								<p className="text-[11px] text-slate-500">compose 项目 · {group.containers.length} 个容器</p>
 							</div>
 							<div className="space-y-3">
@@ -294,7 +294,7 @@ export default function DockerPage() {
 													<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
 														{c.State}
 													</span>
-													<span className="text-sm font-medium text-white light:text-slate-900 truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+													<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 												</div>
 												<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
 											</div>
@@ -333,7 +333,7 @@ export default function DockerPage() {
 
 					{ungrouped.length > 0 && (
 						<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-							<h2 className="text-sm font-medium text-white light:text-slate-900 mb-3">独立容器</h2>
+							<h2 className="text-sm font-medium text-white mb-3">独立容器</h2>
 							<div className="space-y-3">
 								{ungrouped.map((c) => (
 									<div key={c.Id} className="rounded-lg border border-white/[0.06] bg-black/20 p-4">
@@ -342,7 +342,7 @@ export default function DockerPage() {
 												<span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stateColors[c.State] || "bg-slate-700/50 text-slate-400"}`}>
 													{c.State}
 												</span>
-												<span className="text-sm font-medium text-white light:text-slate-900 truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
+												<span className="text-sm font-medium text-white truncate">{(c.Names?.[0] || c.Id?.slice(0, 12)).replace(/^\//, "")}</span>
 											</div>
 											<span className="text-[10px] text-slate-500 truncate ml-3">{c.Image}</span>
 										</div>
@@ -378,7 +378,7 @@ export default function DockerPage() {
 						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 light:bg-white p-5 shadow-2xl"
 						onClick={(event) => event.stopPropagation()}
 					>
-						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white light:text-slate-900">确认删除容器</h3>
+						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
 						<p className="mt-3 text-sm text-slate-300 light:text-slate-700">
 							即将删除容器 <span className="font-mono text-rose-200 light:text-rose-800">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
 						</p>
@@ -416,7 +416,7 @@ export default function DockerPage() {
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div className="flex items-center justify-between mb-3">
-							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-white light:text-slate-900">容器日志 — {logsId.slice(0, 12)}</h3>
+							<h3 id="docker-logs-dialog-title" className="text-sm font-medium text-white">容器日志 — {logsId.slice(0, 12)}</h3>
 							<button
 								ref={logsCloseButtonRef}
 								type="button"

@@ -114,7 +114,7 @@ export function MoveInlineForm({
           required
           minLength={1}
           placeholder={currentDir || "目标路径"}
-          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-white light:text-slate-900 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+          className="rounded-2xl border border-white/10 light:border-slate-200 bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
         />
       </label>
       <span className="text-xs text-slate-400 light:text-slate-600">

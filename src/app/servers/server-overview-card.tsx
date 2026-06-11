@@ -319,7 +319,7 @@ export function ServerOverviewCard({
             <div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/35 p-3 light:border-slate-200 light:bg-white">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="text-xs font-medium text-white light:text-slate-950">实时探测</div>
+                  <div className="text-xs font-medium text-white">实时探测</div>
                   <p className="mt-1 text-[11px] leading-5 text-slate-500 light:text-slate-600">
                     点击后通过现有监控接口发起一次 SSH 只读采样，失败时会显示连接、权限或远端命令错误。
                   </p>
@@ -351,7 +351,7 @@ export function ServerOverviewCard({
                   className="rounded-lg border border-white/[0.05] bg-slate-950/35 p-3 light:border-slate-200 light:bg-white"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-white light:text-slate-950">
+                    <span className="text-xs font-medium text-white">
                       {item.label}
                     </span>
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] ${statusToneClass(item.tone)}`}>
@@ -390,7 +390,7 @@ export function ServerOverviewCard({
                     className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3 light:border-slate-200 light:bg-white"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-white light:text-slate-900">
+                      <span className="truncate text-sm font-medium text-white">
                         {command.title}
                       </span>
                       <span className="shrink-0 text-[11px] text-slate-500 light:text-slate-600">
@@ -417,7 +417,7 @@ function CompactField({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5 light:border-slate-200 light:bg-slate-50">
       <div className="text-[10px] text-slate-600 light:text-slate-500">{label}</div>
-      <div className="truncate text-[11px] text-slate-200 light:text-slate-800">{value}</div>
+      <div className="truncate text-[11px] text-slate-200">{value}</div>
     </div>
   );
 }
@@ -426,7 +426,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3">
       <span className="w-[88px] shrink-0 text-xs text-slate-500 light:text-slate-600">{label}</span>
-      <span className="truncate text-sm text-white light:text-slate-900">{value}</span>
+      <span className="truncate text-sm text-white">{value}</span>
     </div>
   );
 }

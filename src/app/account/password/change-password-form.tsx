@@ -15,7 +15,7 @@ export function ChangePasswordForm() {
     <form action={formAction} className="grid gap-4 rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
       <input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
       <div>
-        <h2 className="text-xl font-semibold text-white light:text-slate-900">修改登录密码</h2>
+        <h2 className="text-xl font-semibold text-white">修改登录密码</h2>
         <p className="mt-2 text-sm text-slate-400 light:text-slate-600">
           输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。
         </p>
@@ -77,7 +77,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
           type={visible ? "text" : "password"}
           required
           autoComplete={autoComplete}
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white light:text-slate-900 outline-none"
+          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-white outline-none"
           placeholder={placeholder}
         />
         <button

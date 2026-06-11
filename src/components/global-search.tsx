@@ -209,11 +209,11 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 						aria-label={t("search.input-label")}
 						aria-expanded="true"
 						aria-controls="global-search-results"
-						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}`: undefined} aria-autocomplete="list" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder={t("search.placeholder")} className="flex-1 bg-transparent px-3 py-3.5 text-sm text-white light:text-slate-900 placeholder-slate-600 focus:outline-none" /> <kbd className="text-[10px] text-slate-600 bg-white/[0.05] rounded px-1.5 py-0.5">ESC</kbd> </div> <ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2"> {filtered.length === 0 && ( <li className="px-4 py-6 text-center text-sm text-slate-600">{t("search.no-results")}</li> )} {filtered.map((item, i) => ( <li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
+						aria-activedescendant={filtered[selectedIndex] ? `global-search-result-${selectedIndex}`: undefined} aria-autocomplete="list" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown} placeholder={t("search.placeholder")} className="flex-1 bg-transparent px-3 py-3.5 text-sm text-white placeholder-slate-600 focus:outline-none" /> <kbd className="text-[10px] text-slate-600 bg-white/[0.05] rounded px-1.5 py-0.5">ESC</kbd> </div> <ul id="global-search-results" role="listbox" className="max-h-72 overflow-y-auto py-2"> {filtered.length === 0 && ( <li className="px-4 py-6 text-center text-sm text-slate-600">{t("search.no-results")}</li> )} {filtered.map((item, i) => ( <li key={item.href + item.label} id={`global-search-result-${i}`} role="option" aria-selected={i === selectedIndex}>
 							<button
 								onClick={() => navigate(item)}
 								className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition ${
-									i === selectedIndex ?"bg-white/[0.06] text-white light:text-slate-900" :"text-slate-400 light:text-slate-600 hover:bg-white/[0.03]"
+									i === selectedIndex ?"bg-white/[0.06] text-white" :"text-slate-400 light:text-slate-600 hover:bg-white/[0.03]"
 								}`}
 							>
 								<span className="text-base">{item.icon}</span>

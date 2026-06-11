@@ -42,7 +42,7 @@ export function StorageNodeManager({
 		<section id="storage-nodes" className="scroll-mt-24 rounded-3xl border border-white/10 light:border-slate-200 bg-slate-900/60 light:bg-white/60 p-6">
 			<div className="flex items-center justify-between gap-4">
 				<div>
-					<h2 className="text-2xl font-semibold text-white light:text-slate-900">存储节点</h2>
+					<h2 className="text-2xl font-semibold text-white">存储节点</h2>
 					<p className="mt-2 text-sm leading-7 text-slate-300 light:text-slate-700">
 						{nodes.length} 个节点 · 本机 {localCount} · SFTP {sftpCount}
 					</p>

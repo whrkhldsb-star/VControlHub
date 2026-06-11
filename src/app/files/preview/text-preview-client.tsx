@@ -586,7 +586,7 @@ export function TextPreviewClient({
 						setSaveMessage("");
 					}}
 					onClick={() => showDiffReview && setShowDiffReview(false)}
-					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 light:bg-white p-4 font-mono text-sm leading-relaxed text-slate-100 light:text-slate-900 outline-none focus:border-cyan-300"
+					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 light:bg-white p-4 font-mono text-sm leading-relaxed text-slate-100 outline-none focus:border-cyan-300"
 					spellCheck={false}
 				/>
 			) : (

@@ -34,7 +34,7 @@ function ConnectionTypeFields({
   return (
     <div className="space-y-4">
       <fieldset className="space-y-1.5">
-        <legend className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide">
+        <legend className="text-xs font-medium text-white/50 tracking-wide">
           连接方式
         </legend>
         <div className="flex gap-2">
@@ -60,7 +60,7 @@ function ConnectionTypeFields({
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr]">
           <div className="space-y-1.5">
             <label
-              className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+              className="text-xs font-medium text-white/50 tracking-wide"
               htmlFor="sshKeyId"
             >
               SSH 密钥
@@ -69,7 +69,7 @@ function ConnectionTypeFields({
               id="sshKeyId"
               name="sshKeyId"
               required
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
             >
               <option value="">选择密钥</option>
               {sshKeys.map((key) => (
@@ -81,7 +81,7 @@ function ConnectionTypeFields({
           </div>
           <div className="space-y-1.5">
             <label
-              className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+              className="text-xs font-medium text-white/50 tracking-wide"
               htmlFor="serverUsername"
             >
               用户名
@@ -93,7 +93,7 @@ function ConnectionTypeFields({
               type="text"
               defaultValue="root"
               placeholder="root"
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
           </div>
         </div>
@@ -101,7 +101,7 @@ function ConnectionTypeFields({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label
-              className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+              className="text-xs font-medium text-white/50 tracking-wide"
               htmlFor="serverUsername"
             >
               用户名
@@ -113,12 +113,12 @@ function ConnectionTypeFields({
               type="text"
               defaultValue="root"
               placeholder="root"
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
           </div>
           <div className="space-y-1.5">
             <label
-              className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+              className="text-xs font-medium text-white/50 tracking-wide"
               htmlFor="serverPassword"
             >
               密码
@@ -131,7 +131,7 @@ function ConnectionTypeFields({
               defaultValue=""
               autoComplete="new-password"
               placeholder="留空，不使用默认密码"
-              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+              className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
             <p className="text-[11px] text-slate-500">
               密码不会预填；请手动输入目标 VPS 当前 SSH 密码。
@@ -161,7 +161,7 @@ export function ServerCreateForm({
       className="grid gap-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-5"
     >
       <div>
-        <h2 className="text-lg font-semibold text-white light:text-slate-900">添加 VPS 节点</h2>
+        <h2 className="text-lg font-semibold text-white">添加 VPS 节点</h2>
         <p className="mt-1 text-xs text-slate-500">
           录入 SSH 密钥、IP 与端口完成纳管
         </p>
@@ -181,7 +181,7 @@ export function ServerCreateForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label
-            className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+            className="text-xs font-medium text-white/50 tracking-wide"
             htmlFor="serverName"
           >
             节点名称
@@ -192,12 +192,12 @@ export function ServerCreateForm({
             type="text"
             required
             placeholder="例如 prod-1"
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
         <div className="space-y-1.5">
           <label
-            className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+            className="text-xs font-medium text-white/50 tracking-wide"
             htmlFor="serverDesc"
           >
             描述
@@ -207,7 +207,7 @@ export function ServerCreateForm({
             name="description"
             type="text"
             placeholder="可选"
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
       </div>
@@ -215,7 +215,7 @@ export function ServerCreateForm({
       <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
         <div className="space-y-1.5">
           <label
-            className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+            className="text-xs font-medium text-white/50 tracking-wide"
             htmlFor="serverHost"
           >
             IP / 主机名
@@ -226,12 +226,12 @@ export function ServerCreateForm({
             type="text"
             required
             placeholder="1.2.3.4"
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
         <div className="space-y-1.5">
           <label
-            className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+            className="text-xs font-medium text-white/50 tracking-wide"
             htmlFor="serverPort"
           >
             端口
@@ -243,7 +243,7 @@ export function ServerCreateForm({
             defaultValue={22}
             min={1}
             max={65535}
-            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
+            className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
       </div>
@@ -252,7 +252,7 @@ export function ServerCreateForm({
 
       <div className="space-y-1.5">
         <label
-          className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+          className="text-xs font-medium text-white/50 tracking-wide"
           htmlFor="serverStoragePath"
         >
           存储路径
@@ -263,7 +263,7 @@ export function ServerCreateForm({
           type="text"
           defaultValue="/root/drive"
           placeholder="/root/drive"
-          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
         />
         <p className="mt-1 text-xs text-slate-500">
           VPS 上的文件存储目录，用于云盘和媒体库。默认{" "}
@@ -271,7 +271,7 @@ export function ServerCreateForm({
         </p>
       </div>
 
-      <label className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-sm text-slate-200 light:text-slate-800">
+      <label className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-sm text-slate-200">
         <div className="flex items-start gap-3">
           <input
             name="enableDirectGateway"
@@ -293,7 +293,7 @@ export function ServerCreateForm({
 
       <div className="space-y-1.5">
         <label
-          className="text-xs font-medium text-white light:text-slate-900/50 tracking-wide"
+          className="text-xs font-medium text-white/50 tracking-wide"
           htmlFor="serverTags"
         >
           标签
@@ -303,7 +303,7 @@ export function ServerCreateForm({
           name="tags"
           type="text"
           placeholder="逗号分隔，例如 prod,web"
-          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:text-slate-900 outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
+          className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
         />
       </div>
 

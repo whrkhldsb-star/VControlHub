@@ -140,7 +140,7 @@ export default async function MediaPlayerPage({
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">
                 Media Player
               </p>
-              <h1 className="truncate text-xl font-semibold text-white light:text-slate-900">
+              <h1 className="truncate text-xl font-semibold text-white">
                 {item.name}
               </h1>
             </div>
@@ -233,7 +233,7 @@ export default async function MediaPlayerPage({
                     : "🎬"}
               </span>
               <div>
-                <p className="text-sm font-medium text-white light:text-slate-900">
+                <p className="text-sm font-medium text-white">
                   {mediaKindLabel}
                 </p>
                 <p className="text-xs text-slate-500">
@@ -254,7 +254,7 @@ export default async function MediaPlayerPage({
                 <dt className="text-xs uppercase tracking-wide text-slate-500">
                   大小
                 </dt>
-                <dd className="mt-1 text-slate-200 light:text-slate-800">
+                <dd className="mt-1 text-slate-200">
                   {formatSize(item.size)}
                 </dd>
               </div>
@@ -262,7 +262,7 @@ export default async function MediaPlayerPage({
                 <dt className="text-xs uppercase tracking-wide text-slate-500">
                   存储
                 </dt>
-                <dd className="mt-1 text-slate-200 light:text-slate-800">
+                <dd className="mt-1 text-slate-200">
                   {item.storageNode?.server?.name ??
                     item.storageNode?.name ??
                     "未知存储"}

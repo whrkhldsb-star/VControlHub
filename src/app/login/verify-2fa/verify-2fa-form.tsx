@@ -109,7 +109,7 @@ if (data.success) {
 						onPaste={i === 0 ? handlePaste : undefined}
 						disabled={submitting}
 						autoFocus={i === 0}
-						className="h-14 w-12 rounded-xl bg-white/[0.04] text-center text-xl font-semibold text-white light:text-slate-900 shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-all duration-150 placeholder:text-white/20 focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] focus:bg-white/[0.06] disabled:opacity-50"
+						className="h-14 w-12 rounded-xl bg-white/[0.04] text-center text-xl font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-all duration-150 placeholder:text-white/20 focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] focus:bg-white/[0.06] disabled:opacity-50"
 					/>
 				))}
 			</div>
@@ -123,7 +123,7 @@ if (data.success) {
 			<button
 				type="submit"
 				disabled={submitting || digits.some((d) => !d)}
-				className="w-full rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-3 text-sm font-medium text-white light:text-slate-900 shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-all duration-150 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-50 disabled:hover:brightness-100"
+				className="w-full rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-3 text-sm font-medium text-white shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_8px_20px_rgba(34,211,238,0.15)] transition-all duration-150 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_12px_28px_rgba(34,211,238,0.25)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-cyan-400/40 disabled:opacity-50 disabled:hover:brightness-100"
 			>
 				{submitting ? "验证中..." : "验证"}
 			</button>

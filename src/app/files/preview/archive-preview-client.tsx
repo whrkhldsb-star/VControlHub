@@ -127,7 +127,7 @@ export function ArchivePreviewClient({
 										<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
 									)}
 								</div>
-								<div className="truncate text-white light:text-slate-900">{entry.name}</div>
+								<div className="truncate text-white">{entry.name}</div>
 								<div className="text-right text-slate-400 light:text-slate-600 text-xs">{entry.isDirectory ? "目录" : formatSize(entry.size)}</div>
 							</div>
 						))}

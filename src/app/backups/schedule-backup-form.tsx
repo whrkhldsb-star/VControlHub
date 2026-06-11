@@ -83,7 +83,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
       <div className="grid gap-3 md:grid-cols-[180px_1fr]">
         <div className="space-y-1.5">
           <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-slate-400 light:text-slate-600">备份类型</label>
-          <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 light:text-slate-900">
+          <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100">
             <option value="DATABASE">数据库备份</option>
             <option value="FILES">文件备份</option>
             <option value="FULL">完整备份</option>
@@ -91,7 +91,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         </div>
         <div className="space-y-1.5">
           <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-slate-400 light:text-slate-600">Cron 表达式</label>
-          <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm font-mono text-slate-100 light:text-slate-900" />
+          <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm font-mono text-slate-100" />
         </div>
       </div>
       <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>

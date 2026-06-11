@@ -78,7 +78,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 	return (
 		<div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
 			<div className="flex items-center justify-between mb-4">
-				<h3 className="text-sm font-medium text-white light:text-slate-900">🔐 两步验证 (2FA)</h3>
+				<h3 className="text-sm font-medium text-white">🔐 两步验证 (2FA)</h3>
 				<span className={`text-xs px-2 py-0.5 rounded-full ${enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-700/50 text-slate-400"}`}>
 					{enabled ? "已启用" : "未启用"}
 				</span>
@@ -148,7 +148,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white light:text-slate-900 placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
+							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
 						/>
 						<button
 							onClick={handleVerify}
@@ -181,7 +181,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 							value={code}
 							onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
 							placeholder="000000"
-							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white light:text-slate-900 placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
+							className="flex-1 px-3 py-2 text-sm bg-white/[0.05] border border-white/[0.1] rounded-lg text-white placeholder-slate-600 focus:border-cyan-500/50 focus:outline-none"
 						/>
 						<button
 							onClick={handleDisable}

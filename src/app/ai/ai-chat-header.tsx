@@ -35,7 +35,7 @@ export function AiChatHeader({
         </svg>
       </button>
       <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-medium text-white light:text-slate-900 truncate">{activeConv.title}</h3>
+        <h3 className="text-sm font-medium text-white truncate">{activeConv.title}</h3>
         <p className="text-[10px] text-slate-500">
           {activeProvider?.name || "未知"} · {activeConv.model}
           {activeConv.enableVision && " · 👁 多模态"}
