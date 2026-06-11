@@ -1699,3 +1699,47 @@ html.light textarea:focus-visible {
 	0% { background-position: 200% 0; }
 	100% { background-position: -200% 0; }
 }
+
+/* S13. 状态色容器：统一 accent/danger/warning/success 的边框+背景+文字对比 */
+:root [data-state="accent"] {
+	background-color: var(--accent-bg);
+	border-color: var(--accent-border);
+	color: var(--accent);
+}
+:root [data-state="danger"] {
+	background-color: var(--danger-bg);
+	border-color: var(--danger-border);
+	color: var(--danger);
+}
+:root [data-state="warning"] {
+	background-color: var(--warning-bg);
+	border-color: var(--warning-border);
+	color: var(--warning);
+}
+:root [data-state="success"] {
+	background-color: var(--success-bg);
+	border-color: var(--success-border);
+	color: var(--success);
+}
+:root [data-state="info"] {
+	background-color: var(--info-bg);
+	border-color: var(--info-border);
+	color: var(--info);
+}
+
+/* S14. 链接/按钮主色：hover 用 token，避免重复硬编码 cyan-400/30 */
+:root [data-state="accent"]:hover {
+	background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+:root [data-state="danger"]:hover {
+	background-color: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+:root [data-state="warning"]:hover {
+	background-color: color-mix(in srgb, var(--warning) 18%, transparent);
+}
+:root [data-state="success"]:hover {
+	background-color: color-mix(in srgb, var(--success) 18%, transparent);
+}
+:root [data-state="info"]:hover {
+	background-color: color-mix(in srgb, var(--info) 18%, transparent);
+}
