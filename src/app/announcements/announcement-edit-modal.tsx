@@ -58,7 +58,8 @@ export function AnnouncementEditModal({
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
@@ -66,7 +67,8 @@ export function AnnouncementEditModal({
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             >
               <option value="info">ℹ️ 信息</option>
               <option value="warning">⚠️ 警告</option>
@@ -79,7 +81,8 @@ export function AnnouncementEditModal({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={5}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-300 outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-400 light:text-slate-500">

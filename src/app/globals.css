@@ -641,6 +641,20 @@ html.light a.bg-cyan-400\/10.text-cyan-100:hover {
 	color: white;
 }
 
+/* 2c. 语义输入框：统一 input/select/textarea 的边框/背景/文字 */
+:root [data-input] {
+	border-color: var(--input-border);
+	background-color: var(--input-bg);
+	color: var(--text-primary);
+}
+:root [data-input]:focus {
+	border-color: var(--input-border-focus);
+	outline: none;
+}
+:root [data-input]::placeholder {
+	color: var(--text-muted);
+}
+
 /* 3. KPI / 统计卡 label 对比度增强 */
 :root article .text-slate-400,
 :root article .text-slate-500 {

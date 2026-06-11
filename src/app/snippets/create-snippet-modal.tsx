@@ -75,7 +75,8 @@ export function CreateSnippetModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+				className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
@@ -84,7 +85,8 @@ export function CreateSnippetModal({
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               placeholder="例如 javascript、python（留空默认 text）"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
@@ -93,7 +95,8 @@ export function CreateSnippetModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="简要说明此片段的用途"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
@@ -102,7 +105,8 @@ export function CreateSnippetModal({
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="例如 备份, nginx"
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/50 placeholder:text-slate-600 light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
@@ -111,7 +115,8 @@ export function CreateSnippetModal({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={10}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-xs text-slate-300 outline-none focus:border-cyan-400/50 light:focus:border-slate-200 light:bg-slate-50 light:text-slate-900"
+              data-input
+              className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs outline-none"
             />
           </div>
           <label className="flex items-center gap-2 text-sm text-slate-400 light:text-slate-500">
