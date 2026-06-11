@@ -8,6 +8,83 @@ type Rule = {
 };
 
 const exactTranslations: Record<string, string> = {
+
+  "Alert Rules": "Alert Rules",
+  "Remote Downloads": "Remote Downloads",
+  "Files & Storage": "Files & Storage",
+  "VPS Management": "VPS Management",
+  "Approvals": "Approvals",
+  "Audit": "Audit",
+  "Notifications": "Notifications",
+  "Users": "Users",
+  "Snippets": "Snippets",
+  "Settings": "Settings",
+  "Command Templates": "Command Templates",
+  "Scheduled Tasks": "Scheduled Tasks",
+  "智能告警": "Alert Rules",
+  "配置自动告警规则，异常指标自动触发通知与 Webhook": "Configure automated alert rules; abnormal metrics trigger notifications and webhooks.",
+  "远程下载": "Remote Downloads",
+  "输入 URL 或磁力链接，下载到指定 VPS 的存储路径": "Enter a URL or magnet link and download it to a target VPS storage path.",
+  "文件与存储管理": "Files & Storage",
+  "文件浏览、上传下载、存储节点管理一体化": "Browse files, upload and download, and manage storage nodes in one place.",
+  "审计日志": "Audit Log",
+  "平台操作追踪与安全审计": "Platform operation tracking and security auditing.",
+  "通知中心": "Notifications",
+  "所有通知已读": "All notifications read",
+  "用户管理": "User Management",
+  "创建用户、分配角色与权限管理": "Create users, assign roles, and manage permissions.",
+  "查看用户、角色与权限（只读）": "View users, roles, and permissions (read-only).",
+  "代码片段库": "Snippet Library",
+  "沉淀常用脚本、命令和配置片段，支持语言、标签和私有片段。": "Save reusable scripts, commands, and configuration snippets with language, tags, and private snippets.",
+  "定时任务": "Scheduled Tasks",
+  "配置 Cron 表达式，自动向 VPS 节点下发待审批命令": "Configure Cron expressions to automatically dispatch approval-bound commands to VPS nodes.",
+  "系统设置": "System Settings",
+  "配置平台名称、安全策略、邮件通知等全局参数": "Configure global settings such as platform name, security policy, and email notifications.",
+  "命令模板": "Command Templates",
+  "预置与自定义运维命令模板，支持变量占位符一键下发": "Preset and custom operations command templates with variable placeholders for one-click dispatch.",
+  "VPS 管理": "VPS Management",
+  "聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。": "Manage VPS nodes, SSH keys, and Direct Gateway maintenance; command approvals and delivery logs are unified in Approvals.",
+  "命令下发": "Dispatch command",
+  "查看审计日志": "View audit log",
+  "去部署面板": "Open deployment panel",
+  "审批中心": "Approvals",
+  "AI 助手授权与用户命令审批": "AI assistant authorization and user command approvals.",
+  "当前支持两条审批链路": "Two approval flows are currently supported",
+  "AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。": "AI-hosted operations require authorization before execution; user and operations command requests use the command approval flow.",
+  "回到首页": "Back to home",
+  "去系统自检": "Open health check",
+  "文件节点": "Storage nodes",
+  "活跃文件": "Active files",
+  "当前目录": "Current directory",
+  "系统自检": "System health",
+  "服务器管理": "Server management",
+
+  "回收站": "Recycle Bin",
+  "全局文件检索": "Global file search",
+  "跨本地和 SFTP 节点检索文件名，适合快速定位配置、日志和上传文件。": "Search filenames across local and SFTP nodes to quickly locate configs, logs, and uploaded files.",
+  "打开全局检索": "Open global search",
+  "当前目录检索": "Current directory search",
+  "在当前路径内筛选文件名，适合编辑前先缩小范围。": "Filter filenames inside the current path before editing or narrowing scope.",
+  "仅当前目录": "Current directory only",
+  "查看最近删除的文件，做误删恢复前的快速核对。": "Review recently deleted files before restoring accidental deletions.",
+  "进入回收站": "Open recycle bin",
+  "存储节点": "Storage nodes",
+  "按层级展开所有已登记目录，便于快速跳转。": "Expand registered directories by hierarchy for quick navigation.",
+  "按节点筛选": "Filter by node",
+  "当前：": "Current:",
+  "全部节点": "All nodes",
+  "选择存储节点": "Select storage node",
+  "全部文件": "All files",
+  "切换存储节点": "Switch storage node",
+  "节点变多后可以先检索，再从下拉框切换到目标节点；列表会自动按 LOCAL 或 SFTP 节点类型执行浏览、上传、下载和文件操作。": "When there are many nodes, search first, then switch to the target node from the dropdown. The list automatically performs browsing, uploads, downloads, and file operations by LOCAL or SFTP node type.",
+  "搜索节点名称、类型或 ID": "Search node name, type, or ID",
+  "搜索文件名": "Search filename",
+  "当前目录操作": "Current directory actions",
+  "刷新列表": "Refresh list",
+  "新建文件夹": "New folder",
+  "列表": "List",
+  "图标": "Grid",
+  "打开": "Open",
   "你没有备份管理查看权限。": "You do not have permission to view backup management.",
   "备份与迁移": "Backups & Migration",
   "记录数据库/文件/完整备份，配合 deploy/backup.sh 与 restore-db.sh 支持迁移到其他系统。恢复命令只展示，不会绕过审批直接执行。": "Record database, file, and full backups; use deploy/backup.sh and restore-db.sh to support migration to other systems. Restore commands are displayed only and do not bypass approval for direct execution.",
@@ -85,6 +162,12 @@ const rules: Rule[] = [
   { pattern: /^最近完成：(.+)$/, en: (m) => `Latest completed: ${translateKnownFragments(m[1] ?? "")}` },
   { pattern: /^(\d+)\s*个\s*·\s*(.+)$/, en: (m) => `${m[1]} item(s) · ${translateKnownFragments(m[2] ?? "")}` },
   { pattern: /^(\d+)\s*条$/, en: (m) => `${m[1]} records` },
+
+  { pattern: /^(\d+)\s*条未读通知$/, en: (m) => `${m[1]} unread notification(s)` },
+  { pattern: /^(\d+)\s*个节点\s*·\s*本机\s*(\d+)\s*·\s*SFTP\s*(\d+)$/, en: (m) => `${m[1]} nodes · Local ${m[2]} · SFTP ${m[3]}` },
+  { pattern: /^当前路径：(.+)$/, en: (m) => `Current path: ${m[1]}` },
+  { pattern: /^项目数\s*(\d+)$/, en: (m) => `${m[1]} items` },
+  { pattern: /^(\d+)\s*项$/, en: (m) => `${m[1]} items` },
   { pattern: /^大小：(.+)$/, en: (m) => `Size: ${translateKnownFragments(m[1] ?? "")}` },
   { pattern: /^完成：(.+)$/, en: (m) => `Completed: ${translateKnownFragments(m[1] ?? "")}` },
   { pattern: /^错误：(.+)$/, en: (m) => `Error: ${m[1]}` },
@@ -99,11 +182,21 @@ const rules: Rule[] = [
   { pattern: /^每周六 (.+) 执行$/, en: (m) => `Run every Saturday at ${m[1]}` },
 ];
 
+const fragmentTranslationAllowList = new Set([
+  "共 ",
+  " 条记录",
+  "最大：",
+  "最近完成：",
+  " 个 · ",
+]);
+
 function translateKnownFragments(text: string) {
   let partial = text;
   let changed = false;
   for (const [source, translated] of Object.entries(exactTranslations)) {
     if (!source || !partial.includes(source)) continue;
+    const isShortCjkFragment = /[\u4e00-\u9fff]/.test(source) && source.replace(/\s/g, "").length <= 2;
+    if (isShortCjkFragment && !fragmentTranslationAllowList.has(source)) continue;
     partial = partial.split(source).join(translated);
     changed = true;
   }

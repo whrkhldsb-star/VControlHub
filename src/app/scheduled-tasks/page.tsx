@@ -4,7 +4,7 @@ import { listScheduledTasks, describeCron } from "@/lib/scheduled-task/service";
 import { listServerProfiles } from "@/lib/server/service";
 
 import { ScheduledTaskListClient } from "./scheduled-task-list-client";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +39,11 @@ export default async function ScheduledTasksPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white">定时任务</h1>
-					<p className="mt-1.5 text-sm text-slate-500">
-						配置 Cron 表达式，自动向 VPS 节点下发待审批命令
-					</p>
-				</header>
+				<PageHeader
+					eyebrow="Scheduled Tasks"
+					title="定时任务"
+					description="配置 Cron 表达式，自动向 VPS 节点下发待审批命令"
+				/>
 				<ScheduledTaskListClient tasks={serialized} servers={serverOptions} canCreate={canCreate} canManage={canManage} />
 		</PageShell>
 	);

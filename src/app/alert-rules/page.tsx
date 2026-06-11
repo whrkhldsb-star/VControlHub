@@ -4,7 +4,7 @@ import { listAlertRules } from "@/lib/alert/service";
 import { listServerProfiles } from "@/lib/server/service";
 
 import { AlertRuleListClient } from "./alert-rule-list-client";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -31,12 +31,11 @@ export default async function AlertRulesPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white">智能告警</h1>
-					<p className="mt-1.5 text-sm text-slate-500">
-						配置自动告警规则，异常指标自动触发通知与 Webhook
-					</p>
-				</header>
+				<PageHeader
+					eyebrow="Alert Rules"
+					title="智能告警"
+					description="配置自动告警规则，异常指标自动触发通知与 Webhook"
+				/>
 				<AlertRuleListClient rules={serialized} servers={serverOptions} canManage={canManage} />
 		</PageShell>
 	);

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
-import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
 
@@ -39,27 +39,23 @@ export default async function ServersPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-			<header className="mb-8">
-				<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-					<div>
-						<h1 className="text-3xl font-semibold tracking-tight text-white">VPS 管理</h1>
-						<p className="mt-1.5 text-sm text-slate-500">
-							聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。
-						</p>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<Link href="/requests" data-variant="primary" className="px-3.5 py-2 text-sm">
-							命令下发
-						</Link>
-						<Link href="/audit" data-variant="secondary" className="px-3.5 py-2 text-sm">
-							查看审计日志
-						</Link>
-						<Link href="/deployments" data-variant="secondary" className="px-3.5 py-2 text-sm">
-							去部署面板
-						</Link>
-					</div>
+			<PageHeader
+				eyebrow="VPS Management"
+				title="VPS 管理"
+				description="聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。"
+			>
+				<div className="flex flex-wrap items-center gap-2">
+					<Link href="/requests" data-variant="primary" className="px-3.5 py-2 text-sm">
+						命令下发
+					</Link>
+					<Link href="/audit" data-variant="secondary" className="px-3.5 py-2 text-sm">
+						查看审计日志
+					</Link>
+					<Link href="/deployments" data-variant="secondary" className="px-3.5 py-2 text-sm">
+						去部署面板
+					</Link>
 				</div>
-			</header>
+			</PageHeader>
 
 			<section className="grid gap-3 sm:grid-cols-3 mb-8">
 				<StatCard label="节点总数" value={String(servers.length)} />

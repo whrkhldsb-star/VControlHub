@@ -5,7 +5,7 @@ import { getRuntimeSettingSummaries } from "@/lib/runtime-settings/service";
 import { prisma } from "@/lib/db";
 
 import { SettingsClient } from "./settings-client";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -57,12 +57,11 @@ export default async function SettingsPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white">系统设置</h1>
-					<p className="mt-1.5 text-sm text-slate-500">
-						配置平台名称、安全策略、邮件通知等全局参数
-					</p>
-				</header>
+				<PageHeader
+					eyebrow="Settings"
+					title="系统设置"
+					description="配置平台名称、安全策略、邮件通知等全局参数"
+				/>
 				<SettingsClient settings={settings} runtimeSettings={runtimeSettings} settingUpdateMetadata={settingUpdateMetadata} canManage={canManage} twoFactorEnabled={twoFactorEnabled} />
 		</PageShell>
 	);

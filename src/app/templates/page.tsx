@@ -4,7 +4,7 @@ import { listTemplates } from "@/lib/command-template/service";
 import { listServerProfiles } from "@/lib/server/service";
 
 import { TemplateListClient } from "./template-list-client";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +30,11 @@ export default async function CommandTemplatesPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white">命令模板</h1>
-					<p className="mt-1.5 text-sm text-slate-500">
-						预置与自定义运维命令模板，支持变量占位符一键下发
-					</p>
-				</header>
+				<PageHeader
+					eyebrow="Command Templates"
+					title="命令模板"
+					description="预置与自定义运维命令模板，支持变量占位符一键下发"
+				/>
 				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} />
 		</PageShell>
 	);

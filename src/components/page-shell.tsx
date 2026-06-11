@@ -26,6 +26,31 @@ export function PageShell({
 	);
 }
 
+/* ── PageHeader ─────────────────────────────────────────────────────── */
+
+type PageHeaderProps = {
+	eyebrow: ReactNode;
+	title: ReactNode;
+	description?: ReactNode;
+	children?: ReactNode;
+	className?: string;
+};
+
+export function PageHeader({ eyebrow, title, description, children, className = "mb-8" }: PageHeaderProps) {
+	return (
+		<header className={className}>
+			<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+				<div>
+					<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70 light:text-cyan-700/70">{eyebrow}</p>
+					<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">{title}</h1>
+					{description ? <p className="mt-1.5 text-sm text-slate-500">{description}</p> : null}
+				</div>
+				{children ? <div>{children}</div> : null}
+			</div>
+		</header>
+	);
+}
+
 /* ── Card ───────────────────────────────────────────────────────────── */
 
 export function Card({ children }: { children: ReactNode }) {

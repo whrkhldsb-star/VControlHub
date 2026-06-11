@@ -3,7 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { DownloadsClient } from "./downloads-client";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -61,12 +61,11 @@ export default async function DownloadsPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-			<header className="mb-8">
-				<h1 className="text-3xl font-semibold tracking-tight text-white">远程下载</h1>
-				<p className="mt-1.5 text-sm text-slate-500">
-					输入 URL 或磁力链接，下载到指定 VPS 的存储路径
-				</p>
-			</header>
+			<PageHeader
+				eyebrow="Remote Downloads"
+				title="远程下载"
+				description="输入 URL 或磁力链接，下载到指定 VPS 的存储路径"
+			/>
 			<DownloadsClient servers={serverList} canManage={canManage} canManageNode={canManageNode} />
 		</PageShell>
 	);

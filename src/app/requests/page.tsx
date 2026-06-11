@@ -5,7 +5,7 @@ import { listCommandRequests } from "@/lib/command/service";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
-import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -24,18 +24,16 @@ export default async function RequestsPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-			<header className="mb-8">
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-					<div>
-						<h1 className="text-3xl font-semibold tracking-tight text-white">审批中心</h1>
-						<p className="mt-1.5 text-sm text-slate-500">AI 助手授权与用户命令审批</p>
-					</div>
-					<div data-card className=" px-4 py-3 text-xs text-slate-400 light:text-slate-600">
-						<div className="font-medium text-slate-200">当前支持两条审批链路</div>
-						<div className="mt-1">AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。</div>
-					</div>
+			<PageHeader
+				eyebrow="Approvals"
+				title="审批中心"
+				description="AI 助手授权与用户命令审批"
+			>
+				<div data-card className="px-4 py-3 text-xs text-slate-400 light:text-slate-600">
+					<div className="font-medium text-slate-200">当前支持两条审批链路</div>
+					<div className="mt-1">AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。</div>
 				</div>
-			</header>
+			</PageHeader>
 
 			<section className="grid gap-3 sm:grid-cols-5 mb-8">
 				<StatCard label="AI 待授权" value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />

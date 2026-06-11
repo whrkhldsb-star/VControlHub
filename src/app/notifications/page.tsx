@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { listUserNotifications, getUnreadCount } from "@/lib/notification/service";
 
 import { NotificationListClient } from "./notification-list-client";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +25,11 @@ export default async function NotificationsPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<header className="mb-8">
-					<h1 className="text-3xl font-semibold tracking-tight text-white">通知中心</h1>
-					<p className="mt-1.5 text-sm text-slate-500">
-						{unreadCount > 0 ? `${unreadCount} 条未读通知` : "所有通知已读"}
-					</p>
-				</header>
+				<PageHeader
+					eyebrow="Notifications"
+					title="通知中心"
+					description={unreadCount > 0 ? `${unreadCount} 条未读通知` : "所有通知已读"}
+				/>
 				<NotificationListClient initialNotifications={serialized} initialUnreadCount={unreadCount} />
 		</PageShell>
 	);

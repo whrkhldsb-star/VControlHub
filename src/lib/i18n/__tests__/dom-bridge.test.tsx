@@ -17,6 +17,12 @@ function renderBridge(locale: "zh" | "en") {
         <input placeholder="确认文本" />
         <code>创建定时备份</code>
         <p>qa_canary_20260603.txt</p>
+        <section>
+          <p>VPS Management</p>
+          <h1>VPS 管理</h1>
+          <p>聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。</p>
+          <a href="/requests">命令下发</a>
+        </section>
       </main>
     </I18nProvider>,
   );
@@ -34,6 +40,9 @@ describe("DomI18nBridge", () => {
     expect(screen.queryByText("Notifications中心")).not.toBeInTheDocument();
     expect(screen.getByText("创建定时备份")).toBeInTheDocument();
     expect(screen.getByText("qa_canary_20260603.txt")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "VPS Management" })).toBeInTheDocument();
+    expect(screen.getByText(/Manage VPS nodes, SSH keys/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dispatch command" })).toBeInTheDocument();
   });
 
   it("translates content inserted after hydration", async () => {

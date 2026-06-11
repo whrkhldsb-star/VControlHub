@@ -21,7 +21,7 @@ import {
 import { getStorageFormOptions } from "@/app/storage/actions";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import { FilesBrowserSpa } from "./files-browser-spa";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
 
 export const dynamic = "force-dynamic";
@@ -213,38 +213,32 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
 
   return (
     <PageShell maxW="max-w-7xl">
-      <header className="mb-8">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-white">
-              文件与存储管理
-            </h1>
-            <p className="mt-1.5 text-sm text-slate-500">
-              文件浏览、上传下载、存储节点管理一体化
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-            <Link
-              href="/audit"
-              className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
-            >
-              审计日志
-            </Link>
-            <Link
-              href="/health"
-              className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
-            >
-              系统自检
-            </Link>
-            <Link
-              href="/servers"
-              className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
-            >
-              服务器管理
-            </Link>
-          </div>
+      <PageHeader
+        eyebrow="Files & Storage"
+        title="文件与存储管理"
+        description="文件浏览、上传下载、存储节点管理一体化"
+      >
+        <div className="flex flex-wrap gap-2 text-xs text-slate-400">
+          <Link
+            href="/audit"
+            className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
+          >
+            审计日志
+          </Link>
+          <Link
+            href="/health"
+            className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
+          >
+            系统自检
+          </Link>
+          <Link
+            href="/servers"
+            className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
+          >
+            服务器管理
+          </Link>
         </div>
-      </header>
+      </PageHeader>
 
       <section className="grid gap-3 sm:grid-cols-4 mb-8">
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">

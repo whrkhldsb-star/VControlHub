@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getAuditStats } from "@/lib/audit/service";
 import { AuditLogClient } from "./audit-client";
-import { PageShell, StatCard, EmptyState } from "@/components/page-shell";
+import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 
 const HIGH_RISK_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container_restart", "api_token.create"];
 
@@ -37,14 +37,12 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-			<header className="mb-8">
-				<h1 className="text-3xl font-semibold tracking-tight text-white">审计日志</h1>
-				<p className="mt-1.5 text-sm text-slate-500">平台操作追踪与安全审计</p>
-				<div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600">
+			<PageHeader eyebrow="Audit" title="审计日志" description="平台操作追踪与安全审计">
+				<div className="flex flex-wrap gap-2 text-xs text-slate-400 light:text-slate-600">
 					<Link href="/" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">回到首页</Link>
 					<Link href="/health" className="rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">去系统自检</Link>
 				</div>
-			</header>
+			</PageHeader>
 
 			{!canRead ? (
 				<EmptyState text="你没有查看审计日志的权限。" variant="boxed" />
