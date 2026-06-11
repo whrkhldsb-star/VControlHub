@@ -168,6 +168,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 			)}
 
 			<aside
+				inert={!mobileOpen}
 				className={`fixed inset-y-0 left-0 z-50 w-[min(18rem,86vw)] transform border-r border-white/[0.06] bg-slate-950 transition-transform duration-200 lg:hidden ${
 					mobileOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
@@ -175,7 +176,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 				{nav}
 			</aside>
 
-			<aside className="hidden h-screen w-72 shrink-0 border-r border-white/[0.06] bg-[#0a0e1a] lg:sticky lg:top-0 lg:flex">
+			<aside className="hidden h-screen w-72 shrink-0 border-r border-white/[0.06] bg-[var(--sidebar-bg)] lg:sticky lg:top-0 lg:flex">
 				{nav}
 			</aside>
 

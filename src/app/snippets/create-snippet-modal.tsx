@@ -64,7 +64,7 @@ export function CreateSnippetModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-snippet-title"
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white"
+        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl light:border-slate-200"
       >
         <h3 id="create-snippet-title" className="text-lg font-semibold text-white">新建代码片段</h3>
 

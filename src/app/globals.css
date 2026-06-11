@@ -20,6 +20,7 @@
 	--surface: #161b22;               /* card / surface */
 	--surface-elevated: #1c2128;      /* hover / elevated card */
 	--surface-subtle: #11161d;        /* subtle inset (input, code) */
+	--modal-bg: #0c0c14;              /* modal / dialog surface (elevated) */
 	--foreground: #e6edf3;
 	--text-primary: #f0f6fc;
 	--text-secondary: #adbac7;
@@ -88,6 +89,7 @@ html.light {
 	--surface: #ffffff;
 	--surface-elevated: #f6f8fa;
 	--surface-subtle: #f6f8fa;
+	--modal-bg: #ffffff;               /* modal / dialog surface */
 	--foreground: #1f2328;
 	--text-primary: #1f2328;
 	--text-secondary: #59636e;

@@ -59,7 +59,7 @@ export function SnippetEditModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-snippet-title"
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0c0c14] p-6 shadow-2xl light:border-slate-200 light:bg-white"
+        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl light:border-slate-200"
       >
         <h3 id="edit-snippet-title" className="text-lg font-semibold text-white">编辑代码片段</h3>
 

@@ -42,6 +42,16 @@ export function RouteError({
 				>
 					重试
 				</button>
+				<button
+					onClick={() => {
+						if (typeof window !== "undefined") {
+							window.location.reload();
+						}
+					}}
+					className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
+				>
+					硬刷新
+				</button>
 				<a
 					href="/health"
 					className="rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
