@@ -148,7 +148,8 @@ export default async function MediaPlayerPage({
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <a
               href={downloadHref}
-              className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-cyan-100 hover:bg-cyan-400/20 light:text-cyan-700"
+              data-tone="accent"
+              className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2"
             >
               <Download size={16} /> 下载
             </a>

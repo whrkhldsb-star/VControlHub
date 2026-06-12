@@ -1629,7 +1629,8 @@ export function FileListClient({
                 disabled={
                   !moveTargetDir.trim() || isPending || moveProgress.done > 0
                 }
-                className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                data-tone="accent"
+                className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
               >
                 确认移动
               </button>
@@ -1671,7 +1672,8 @@ export function FileListClient({
                 <button
                   type="button"
                   onClick={handleBatchMove}
-                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  data-tone="accent"
+                  className="rounded-full border px-4 py-2 text-sm font-medium transition"
                 >
                   批量移动
                 </button>

@@ -105,7 +105,8 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					{downloadUrl ? (
 						<a
 							href={downloadUrl}
-							className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20"
+							data-tone="accent"
+							className="rounded-full border px-4 py-2 text-sm"
 						>
 							⬇ 下载
 						</a>
@@ -167,7 +168,8 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							{downloadUrl ? (
 								<a
 									href={downloadUrl}
-									className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20"
+									data-tone="accent"
+							className="rounded-full border px-4 py-2 text-sm"
 								>
 									⬇ 下载后查看
 								</a>
