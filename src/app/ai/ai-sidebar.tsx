@@ -1,6 +1,7 @@
 "use client";
 
 import type { ConvItem } from "./ai-types";
+import { EmptyState } from "@/components/page-shell";
 
 interface SidebarProps {
   showSidebar: boolean;
@@ -48,7 +49,7 @@ export function AiSidebar({
           {/* Conversation list */}
           <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
             {conversations.length === 0 && (
-              <p className="text-xs text-slate-500 text-center py-8">暂无对话，点击新建开始</p>
+              <EmptyState>暂无对话，点击新建开始</EmptyState>
             )}
             {conversations.map((conv) => (
               <div

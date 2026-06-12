@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
+import { EmptyState } from "@/components/page-shell";
 
 type NotificationItem = {
 	id: string;
@@ -89,10 +90,9 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 
 	if (notifications.length === 0) {
 		return (
-			<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-				<div className="text-4xl mb-3">🔔</div>
-				<p className="text-sm text-slate-500">暂无通知</p>
-			</div>
+			<EmptyState icon="🔔" variant="boxed">
+				暂无通知
+			</EmptyState>
 		);
 	}
 

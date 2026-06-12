@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
+import { EmptyState } from "@/components/page-shell";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -740,10 +741,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						</button>
 					</div>
 					{sources.length === 0 && (
-						<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-							<div className="text-4xl mb-3">🔗</div>
-							<p className="text-sm text-slate-500">还没有配置任何第三方源</p>
-						</div>
+						<EmptyState icon="🔗" variant="boxed">
+							还没有配置任何第三方源
+						</EmptyState>
 					)}
 					{sources.map((src) => (
 						<div key={src.id} data-card className=" p-4 space-y-3">
@@ -829,24 +829,19 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			})}
 
 			{tab === "installed" && installed.length === 0 && (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">📦</div>
-					<p className="text-sm text-slate-500">还没有安装任何服务，去商店看看吧</p>
-				</div>
+				<EmptyState icon="📦" variant="boxed">
+					还没有安装任何服务，去商店看看吧
+				</EmptyState>
 			)}
 			{tab === "store" && localAvailable.length === 0 && (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">✅</div>
-					<p className="text-sm text-slate-500">所有精选服务都已安装！</p>
-				</div>
+				<EmptyState icon="✅" variant="boxed">
+					所有精选服务都已安装！
+				</EmptyState>
 			)}
 			{tab === "community" && remoteAvailable.length === 0 && (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">🌐</div>
-					<p className="text-sm text-slate-500">
-						{sources.some((s) => s.enabled) ? "所有社区应用都已安装！" : "请先在「应用源」中同步数据"}
-					</p>
-				</div>
+				<EmptyState icon="🌐" variant="boxed">
+					{sources.some((s) => s.enabled) ? "所有社区应用都已安装！" : "请先在「应用源」中同步数据"}
+				</EmptyState>
 			)}
 
 			{/* Install Dialog (port picker) */}

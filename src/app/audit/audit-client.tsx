@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { EmptyState } from "@/components/page-shell";
 
 type AuditLog = {
   id: string;
@@ -210,11 +211,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           </div>
           <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
             {loading ? (
-              <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+              <EmptyState>加载中…</EmptyState>
             ) : error && !data ? (
               <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
             ) : !data || data.logs.length === 0 ? (
-              <div className="px-4 py-10 text-sm text-slate-400">暂无审计日志。</div>
+              <EmptyState>暂无审计日志。</EmptyState>
             ) : (
               data.logs.map((log) => (
                 <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
@@ -243,11 +244,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Mobile */}
         <div className="md:hidden divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
           {loading ? (
-            <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+            <EmptyState>加载中…</EmptyState>
           ) : error && !data ? (
             <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
           ) : !data || data.logs.length === 0 ? (
-            <div className="px-4 py-10 text-sm text-slate-400">暂无审计日志。</div>
+            <EmptyState>暂无审计日志。</EmptyState>
           ) : (
             data.logs.map((log) => (
               <div key={log.id} className="px-4 py-3 space-y-2">

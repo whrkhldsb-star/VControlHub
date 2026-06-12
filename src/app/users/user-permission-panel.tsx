@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { EmptyState } from "@/components/page-shell";
 
 type RoleInfo = { key: string; name: string; description?: string | null };
 type PermissionInfo = { key: string; name: string; description?: string | null };
@@ -154,7 +155,7 @@ const _data = await csrfFetch("/api/users/permissions", {
         </div>
 
         {message && <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${message.type === "success" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100" : "border-rose-400/30 bg-rose-400/10 text-rose-100"}`}>{message.text}</div>}
-        {loading || !payload ? <div className="py-12 text-sm text-slate-400">加载权限配置中...</div> : (
+        {loading || !payload ? <EmptyState>加载权限配置中…</EmptyState> : (
           <div className="space-y-6">
             <section className="rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
               <h4 className="font-medium text-white">角色</h4>
@@ -187,7 +188,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                 <button type="button" onClick={addGrant} className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20">+ 添加授权</button>
               </div>
               <div className="mt-4 space-y-3">
-                {grants.length === 0 ? <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-6 text-sm text-slate-400">暂无精细授权，当前用户会沿用角色级云盘权限。</div> : grants.map((grant, index) => {
+                {grants.length === 0 ? <EmptyState>暂无精细授权，当前用户会沿用角色级云盘权限。</EmptyState> : grants.map((grant, index) => {
                   const node = storageNodeMap.get(grant.storageNodeId);
                   return (
                     <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-slate-950/70 light:bg-white/70 p-4">

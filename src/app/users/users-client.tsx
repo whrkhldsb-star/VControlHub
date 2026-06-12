@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { EmptyState } from "@/components/page-shell";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -231,11 +232,11 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
           {loading ? (
-            <div className="px-4 py-10 text-sm text-slate-400">加载中...</div>
+            <EmptyState>加载中…</EmptyState>
           ) : loadFailed ? (
             <div className="px-4 py-10 text-sm text-slate-400">用户列表加载失败，请稍后重试。</div>
           ) : users.length === 0 ? (
-            <div className="px-4 py-10 text-sm text-slate-400">暂无用户。</div>
+            <EmptyState>暂无用户。</EmptyState>
           ) : (
             users.map((user) => (
               <div key={user.id} className="px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

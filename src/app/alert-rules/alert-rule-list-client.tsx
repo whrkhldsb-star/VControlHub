@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
+import { EmptyState } from "@/components/page-shell";
 
 type AlertRule = {
 	id: string; name: string; metric: string; operator: string;
@@ -194,10 +195,9 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			)}
 
 			{rules.length === 0 ? (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">🔔</div>
-					<p className="text-sm text-slate-500">暂无告警规则</p>
-				</div>
+				<EmptyState icon="🔔" variant="boxed">
+					暂无告警规则
+				</EmptyState>
 			) : (
 				<div className="space-y-3">
 					{rules.map((rule) => (

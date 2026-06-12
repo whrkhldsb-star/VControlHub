@@ -27,6 +27,12 @@ vi.mock("@/components/page-shell", () => ({
     <div>{children}</div>
   ),
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  EmptyState: ({ children, icon }: { children?: React.ReactNode; icon?: React.ReactNode }) => (
+    <div data-testid="empty-state">
+      {icon ? <div aria-hidden="true">{icon}</div> : null}
+      <div>{children}</div>
+    </div>
+  ),
 }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({
@@ -51,7 +57,8 @@ describe("ImageBedPage", () => {
     const user = userEvent.setup();
     render(<ImageBedPageClient canWrite canDelete />);
 
-    await screen.findByText("暂无图片，上传第一张吧 🎉");
+    await screen.findByTestId("empty-state");
+    expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "图片外链中心" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "图片搜索" })).toHaveAttribute("placeholder", "搜索文件名 / 路径 / 相册");
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
@@ -79,7 +86,8 @@ describe("ImageBedPage", () => {
 
     render(<ImageBedPageClient canWrite canDelete />);
 
-    await screen.findByText("暂无图片，上传第一张吧 🎉");
+    await screen.findByTestId("empty-state");
+    expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "☁️ 从云盘发布" }));
 
     expect(await screen.findByText("缺少权限")).toBeInTheDocument();
@@ -104,7 +112,8 @@ describe("ImageBedPage", () => {
 
     render(<ImageBedPageClient canWrite canDelete />);
 
-    await screen.findByText("暂无图片，上传第一张吧 🎉");
+    await screen.findByTestId("empty-state");
+    expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /③ 兼容直传/ }));
     expect(screen.getByText("兼容直传入口")).toBeInTheDocument();
     const input = document.querySelector(

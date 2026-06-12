@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import { checkStorageNodeHealthAction } from "./actions";
+import { EmptyState } from "@/components/page-shell";
 import { StorageNodeEditForm } from "./storage-node-edit-form";
 import { StorageNodeDeleteButton } from "./storage-node-delete-button";
 
@@ -35,7 +36,7 @@ export function StorageNodeList({
 	canManageNodes: boolean;
 }) {
 	if (nodes.length === 0) {
-		return <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-5 text-sm text-slate-400">暂无存储节点。</div>;
+		return <EmptyState variant="boxed">暂无存储节点。</EmptyState>;
 	}
 
 	return (

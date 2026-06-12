@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { EmptyState } from "@/components/page-shell";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -446,8 +447,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 			{/* Task list */}
 			{loading ? (
-				<div className="py-10 text-sm text-slate-500">加载中...</div>
-		) : filteredTasks.length === 0 && message?.type !== "error" ? (
+				<EmptyState>加载中…</EmptyState>
+			) : filteredTasks.length === 0 && message?.type !== "error" ? (
 			<div data-empty-state className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02]">
 				<div className="text-4xl mb-3">⬇️</div>
 				<p className="text-sm text-slate-500">{filter === "ALL" ? "暂无下载任务" : `没有${statusLabel[filter]}的任务`}</p>

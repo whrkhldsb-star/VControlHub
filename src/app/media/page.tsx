@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listMediaItems, listMediaTags, listMediaTypeCounts } from "@/lib/media/service";
-import { PageShell, PermissionDenied } from "@/components/page-shell";
+import { PageShell, PermissionDenied, EmptyState } from "@/components/page-shell";
 import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
 import { MediaItemCard } from "./media-item-card";
@@ -183,9 +183,9 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       {canManageMedia && <MediaScanButton />}
 
       {grouped.size === 0 && (
-        <div data-card className="mt-6  p-8 text-center text-sm text-slate-400">
+        <EmptyState icon="🎬" variant="boxed">
           暂无媒体条目。请先在文件管理中浏览 VPS 存储，然后点击「扫描媒体索引」生成媒体列表。
-        </div>
+        </EmptyState>
       )}
 
       {Array.from(grouped.entries()).map(([serverName, items]) => (

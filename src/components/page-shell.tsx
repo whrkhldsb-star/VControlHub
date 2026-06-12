@@ -67,18 +67,23 @@ export function Card({ children }: { children: ReactNode }) {
 
 export function EmptyState({
 	text,
+	children,
 	variant = "simple",
 	icon,
 }: {
-	text: string;
+	/** Convenience string text. Ignored when `children` is provided. */
+	text?: string;
+	/** Rich content (e.g. JSX expression). Takes precedence over `text`. */
+	children?: ReactNode;
 	/** "simple" = plain text; "boxed" = dashed-border card */
 	variant?: "simple" | "boxed";
 	icon?: ReactNode;
 }) {
+	const body = children ?? text;
 	const content = (
 		<>
 			{icon ? <div className="mb-3 text-4xl" aria-hidden="true">{icon}</div> : null}
-			<div>{text}</div>
+			<div>{body}</div>
 		</>
 	);
 	if (variant === "boxed") {

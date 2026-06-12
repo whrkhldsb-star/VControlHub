@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { PageShell, Card } from "@/components/page-shell";
+import { PageShell, Card, EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type ImageItem = {
@@ -513,9 +513,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Image Grid */}
 			{loading ? (
-				<div className="mt-8 text-center text-slate-500">加载中...</div>
+				<EmptyState>加载中…</EmptyState>
 			) : images.length === 0 ? (
-				<div className="mt-8 text-center text-slate-500 text-sm">暂无图片，上传第一张吧 🎉</div>
+				<EmptyState icon="🎉" variant="boxed">
+					暂无图片，上传第一张吧
+				</EmptyState>
 			) : (
 				<div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 					{images.map((img) => (

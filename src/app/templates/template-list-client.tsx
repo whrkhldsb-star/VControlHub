@@ -3,6 +3,7 @@
 import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
+import { EmptyState } from "@/components/page-shell";
 
 type Template = {
 	id: string; name: string; description: string | null;
@@ -143,10 +144,9 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 
 			{/* Template grid */}
 			{filtered.length === 0 ? (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">📝</div>
-					<p className="text-sm text-slate-500">暂无命令模板</p>
-				</div>
+				<EmptyState icon="📝" variant="boxed">
+					暂无命令模板
+				</EmptyState>
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 					{filtered.map((tmpl) => (
