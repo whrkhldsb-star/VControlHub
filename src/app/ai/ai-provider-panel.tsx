@@ -207,7 +207,7 @@ export function AiProviderPanel({
           {editForm ? (
             <div className="space-y-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3">
               <div className="flex items-center justify-between gap-3">
-                <h4 className="text-xs text-cyan-200 light:text-cyan-800 uppercase tracking-wider">编辑提供商</h4>
+                <h4 className="text-xs text-cyan-200 uppercase tracking-wider">编辑提供商</h4>
                 <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800">取消编辑</button>
               </div>
               <div className="grid grid-cols-2 gap-3 max-sm:grid-cols-1">
@@ -238,7 +238,7 @@ export function AiProviderPanel({
                   <span className="text-xs text-[var(--text-secondary)]">设为默认提供商</span>
                 </label>
               </div>
-              <button type="button" onClick={saveEditing} className="w-full h-9 rounded-xl bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-sm font-medium hover:bg-cyan-500/30 transition">保存修改</button>
+              <button type="button" onClick={saveEditing} className="w-full h-9 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium hover:bg-cyan-500/30 transition">保存修改</button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -282,7 +282,7 @@ export function AiProviderPanel({
                       <div className="text-[10px] text-[var(--text-secondary)]">模型清单</div>
                       <p className="text-[11px] text-slate-500">输入账号密钥后自动拉取模型，然后选择默认模型。</p>
                     </div>
-                    <button type="button" onClick={fetchProviderModels} disabled={modelsLoading} className="h-8 px-3 rounded-lg bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-xs font-medium hover:bg-cyan-500/30 transition disabled:opacity-50">
+                    <button type="button" onClick={fetchProviderModels} disabled={modelsLoading} className="h-8 px-3 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition disabled:opacity-50">
                       {modelsLoading ? "获取中..." : "获取模型清单"}
                     </button>
                   </div>
@@ -293,7 +293,7 @@ export function AiProviderPanel({
                   <span className="text-xs text-[var(--text-secondary)]">设为默认提供商</span>
                 </label>
               </div>
-              <button onClick={onCreateProvider} className="w-full h-9 rounded-xl bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-sm font-medium hover:bg-cyan-500/30 transition">添加提供商</button>
+              <button onClick={onCreateProvider} className="w-full h-9 rounded-xl bg-cyan-500/20 text-cyan-300 text-sm font-medium hover:bg-cyan-500/30 transition">添加提供商</button>
             </div>
           )}
         </div>

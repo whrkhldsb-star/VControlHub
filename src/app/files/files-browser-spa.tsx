@@ -281,7 +281,7 @@ function NodeFilterSelect({
         </select>
       </div>
       {filteredNodes.length === 0 ? (
-        <p className="text-xs text-amber-300 light:text-amber-700">
+        <p className="text-xs text-amber-300">
           没有匹配的节点
         </p>
       ) : null}
@@ -443,7 +443,7 @@ function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
             {isLast ? (
-              <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 light:text-cyan-900">
+              <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">
                 {displaySegment}
               </span>
             ) : (
@@ -665,7 +665,7 @@ export function FilesBrowserSpa({
             }`}
           >
             <span>全部文件</span>
-            <span className="text-xs text-cyan-200/70 light:text-cyan-800/70">
+            <span className="text-xs text-cyan-200/70">
               {data.stats.totalEntries}
             </span>
           </button>
@@ -711,7 +711,7 @@ export function FilesBrowserSpa({
               <h2 className="text-2xl font-semibold text-white">
                 {currentPathDisplay.title}
                 {loading ? (
-                  <span className="ml-2 text-sm text-cyan-300 light:text-cyan-700 animate-pulse">
+                  <span className="ml-2 text-sm text-cyan-300 animate-pulse">
                     加载中…
                   </span>
                 ) : null}
@@ -756,7 +756,7 @@ export function FilesBrowserSpa({
                 </div>
                 <button
                   type="submit"
-                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
+                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
                 >
                   搜索
                 </button>
@@ -811,7 +811,7 @@ export function FilesBrowserSpa({
                     )
                   }
                   disabled={loading}
-                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? "刷新中…" : `↻ ${refreshLabel}`}
                 </button>
@@ -861,7 +861,7 @@ export function FilesBrowserSpa({
           {listError ? (
             <div
               role="alert"
-              className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:text-amber-800"
+              className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100"
             >
               {data.syncWarning === listError
                 ? "远端同步提醒"

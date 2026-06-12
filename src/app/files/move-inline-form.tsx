@@ -70,8 +70,8 @@ export function MoveInlineForm({
         aria-label={`移动 ${name}`}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-100 transition hover:bg-emerald-400/10 light:text-emerald-900"
-            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-emerald-100 transition hover:bg-emerald-400/20 light:text-emerald-900"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-emerald-100 transition hover:bg-emerald-400/10"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-400/10 text-emerald-100 transition hover:bg-emerald-400/20"
         }
       >
         <svg
@@ -123,7 +123,7 @@ export function MoveInlineForm({
       <button
         type="submit"
         disabled={!targetDir.trim() || targetDir.trim() === currentDir}
-        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
         确认
       </button>

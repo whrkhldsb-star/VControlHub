@@ -79,7 +79,7 @@ export function DeploymentExportPanel() {
     <section data-card className="mb-6  p-5 light:border-slate-200 light:bg-white">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70 light:text-cyan-700">Portable Export</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">Portable Export</p>
           <h2 className="mt-1 text-sm font-semibold text-white">迁移部署导出包</h2>
           <p className="mt-1 max-w-3xl text-xs text-slate-500 light:text-slate-600">
             生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。
@@ -111,7 +111,7 @@ export function DeploymentExportPanel() {
         </button>
       </form>
 
-      {error && <p role="alert" className="mt-3 text-xs text-rose-300 light:text-rose-700">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-xs text-rose-300">{error}</p>}
 
       {result && (
         <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:bg-cyan-50">
@@ -122,7 +122,7 @@ export function DeploymentExportPanel() {
                 {result.manifest?.domain ?? "example.com"} · {files.length} 个文件 · 危险演示开关默认关闭
               </p>
             </div>
-            <button type="button" onClick={handleDownload} className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 light:text-cyan-800">
+            <button type="button" onClick={handleDownload} className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10">
               下载 JSON
             </button>
           </div>

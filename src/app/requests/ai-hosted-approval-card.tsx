@@ -60,14 +60,14 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-white">{action.actionName}</h3>
-            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-medium text-cyan-200 light:text-cyan-800">AI 助手授权</span>
-            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-200 light:text-amber-800">{riskLabel(action.riskLevel)}</span>
+            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-medium text-cyan-200">AI 助手授权</span>
+            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(action.riskLevel)}</span>
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">需要你确认 AI 是否可以执行该高风险操作；只处理当前账号的 AI 托管请求。</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
             <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-white/40 px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-slate-600">操作类型</div>
-              <div className="mt-1 font-mono text-cyan-100 light:text-cyan-900">{action.actionType}</div>
+              <div className="mt-1 font-mono text-cyan-100">{action.actionType}</div>
             </div>
             <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-white/40 px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-slate-600">目标 VPS</div>

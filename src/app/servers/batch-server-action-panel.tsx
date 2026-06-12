@@ -48,8 +48,8 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 				<div className="text-xs text-slate-500">当前共有 {enabledCount} 台启用节点，已选中 {selectedServers.length} 台</div>
 			</div>
 
-			{state.error ? <div className="mt-4 rounded-lg border border-rose-400/20 bg-rose-500/[0.08] px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{state.error}</div> : null}
-			{state.success ? <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-500/[0.08] px-3.5 py-2.5 text-sm text-emerald-200 light:text-emerald-800">{state.success}</div> : null}
+			{state.error ? <div className="mt-4 rounded-lg border border-rose-400/20 bg-rose-500/[0.08] px-3.5 py-2.5 text-sm text-rose-200">{state.error}</div> : null}
+			{state.success ? <div className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-500/[0.08] px-3.5 py-2.5 text-sm text-emerald-200">{state.success}</div> : null}
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
 				<button type="button" onClick={toggleAll} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[var(--text-secondary)] transition hover:bg-white/[0.06]">
@@ -58,7 +58,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 				<span>已选中：{selectedServers.length} 台</span>
 				<span className="text-slate-600">·</span>
 				<span>其中启用 {enabledSelectedCount} 台，停用 {disabledSelectedCount} 台</span>
-				{someSelected ? <span className="text-cyan-300 light:text-cyan-700">当前为部分选择</span> : null}
+				{someSelected ? <span className="text-cyan-300">当前为部分选择</span> : null}
 			</div>
 
 			<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -85,7 +85,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 						<input key={server.id} type="hidden" name="serverIds" value={server.id} />
 					))}
 					{disableConfirming ? (
-						<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3.5 py-2 text-sm text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20">
+						<SubmitButton pendingLabel="处理中..." className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3.5 py-2 text-sm text-rose-100 transition hover:bg-rose-400/20">
 							确认停用 {enabledSelectedCount} 台节点
 						</SubmitButton>
 					) : (
@@ -93,7 +93,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 							type="button"
 							disabled={enabledSelectedCount === 0}
 							onClick={() => setDisableConfirming(true)}
-							className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3.5 py-2 text-sm text-amber-100 light:text-amber-900 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+							className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3.5 py-2 text-sm text-amber-100 transition hover:bg-amber-400/20 disabled:cursor-not-allowed disabled:opacity-50"
 						>
 							批量停用所选节点
 						</button>
@@ -109,7 +109,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 					{selectedServers.map((server) => (
 						<input key={server.id} type="hidden" name="serverIds" value={server.id} />
 					))}
-					<SubmitButton pendingLabel="处理中..." disabled={disabledSelectedCount === 0} className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2 text-sm text-emerald-100 light:text-emerald-900 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50">
+					<SubmitButton pendingLabel="处理中..." disabled={disabledSelectedCount === 0} className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3.5 py-2 text-sm text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50">
 						批量启用所选节点
 					</SubmitButton>
 				</form>

@@ -10,9 +10,9 @@ export default async function HealthPage() {
 	if (!sessionHasPermission(session, "health:read")) {
 		return (
 			<main className="p-6">
-				<section className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-6 text-sm text-amber-100 light:text-amber-900">
+				<section className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-6 text-sm text-amber-100">
 					<p className="text-base font-semibold text-amber-50">缺少健康监控权限</p>
-					<p className="mt-2 text-amber-100/80 light:text-amber-900/80">需要 health:read 权限后才能查看节点健康详情和历史指标。</p>
+					<p className="mt-2 text-amber-100/80">需要 health:read 权限后才能查看节点健康详情和历史指标。</p>
 				</section>
 			</main>
 		);

@@ -126,7 +126,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
-				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 light:text-emerald-700 border border-emerald-400/30">CSV 表格预览</span>
+				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 border border-emerald-400/30">CSV 表格预览</span>
 				<span className="text-xs text-[var(--text-secondary)]">{dataRows.length} 行 × {colCount} 列</span>
 			</div>
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
@@ -135,7 +135,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 						<tr className="bg-slate-800/80 light:bg-slate-100/80">
 							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-slate-700 light:border-slate-200 w-12">#</th>
 							{header.map((col, i) => (
-								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-cyan-300 light:text-cyan-700 border-b border-slate-700 light:border-slate-200 whitespace-nowrap">{col || `列${i + 1}`}</th>
+								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-cyan-300 border-b border-slate-700 light:border-slate-200 whitespace-nowrap">{col || `列${i + 1}`}</th>
 							))}
 						</tr>
 					</thead>
@@ -152,7 +152,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 				</table>
 			</div>
 			{truncated ? (
-				<div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200 light:text-amber-800">
+				<div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200">
 					⚠ 数据量较大，仅显示前 {maxRows} 行（共 {dataRows.length} 行）。建议下载后使用专业工具查看。
 				</div>
 			) : null}

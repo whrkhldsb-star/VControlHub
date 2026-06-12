@@ -58,7 +58,7 @@ export function AiConfirmDialog({
             className={`rounded-xl px-3 py-2 text-xs font-medium transition disabled:opacity-50 ${
  danger
  ?"bg-red-500/20 text-red-200 hover:bg-red-500/30"
- :"bg-cyan-500/20 text-cyan-200 light:text-cyan-800 hover:bg-cyan-500/30"
+ :"bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30"
  }`}
           >
             {busy ? "处理中..." : confirmLabel}

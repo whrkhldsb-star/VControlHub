@@ -45,7 +45,7 @@ function ConnectionTypeFields({
               onClick={() => setConnectionType(type)}
               className={`flex-1 rounded-lg border px-3.5 py-2 text-sm transition ${
  connectionType === type
- ?"border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-100 light:text-cyan-900 font-medium"
+ ?"border-cyan-400/20 bg-cyan-400/[0.06] text-cyan-100 font-medium"
  :"border-white/[0.06] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
  }`}
             >
@@ -168,12 +168,12 @@ export function ServerCreateForm({
       </div>
 
       {state.error && (
-        <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">
+        <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">
           {state.error}
         </div>
       )}
       {state.success && (
-        <div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-3.5 py-2.5 text-sm text-emerald-200 light:text-emerald-800">
+        <div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-3.5 py-2.5 text-sm text-emerald-200">
           {state.success}
         </div>
       )}
@@ -267,7 +267,7 @@ export function ServerCreateForm({
         />
         <p className="mt-1 text-xs text-slate-500">
           VPS 上的文件存储目录，用于云盘和媒体库。默认{" "}
-          <code className="text-cyan-300 light:text-cyan-700/70">/root/drive</code>，可按需修改。
+          <code className="text-cyan-300">/root/drive</code>，可按需修改。
         </p>
       </div>
 
@@ -279,7 +279,7 @@ export function ServerCreateForm({
             className="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950 light:bg-white"
           />
           <div>
-            <div className="font-medium text-cyan-100 light:text-cyan-900">启用目标服务器直连</div>
+            <div className="font-medium text-cyan-100">启用目标服务器直连</div>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct
               Gateway 微服务。

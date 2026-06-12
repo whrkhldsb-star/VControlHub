@@ -224,13 +224,13 @@ export default function DockerPage() {
 			<p className="text-[var(--text-secondary)] mb-4">管理 VControlHub 所在主机的 Docker 容器</p>
 			<section
 				aria-labelledby="docker-scope-title"
-				className="mb-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50 light:text-amber-900"
+				className="mb-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50"
 			>
 				<h2 id="docker-scope-title" className="text-sm font-semibold">运行边界：本机 Docker socket</h2>
 				<p className="mt-1 leading-relaxed">
 					{dockerScope?.warning ?? "Docker 模块仅操作 VControlHub 所在主机的 Docker socket，不是跨 VPS 容器控制台；具备 docker:manage 的用户等同拥有本机容器管理能力。"}
 				</p>
-				<p className="mt-2 text-xs text-amber-200/80 light:text-amber-800/80">
+				<p className="mt-2 text-xs text-amber-200/80">
 					Socket：{dockerScope?.socketPath ?? "/var/run/docker.sock"} · 远端 VPS 容器请通过对应节点的 SSH/Direct Gateway/QuickService 部署链路管理。
 				</p>
 			</section>
@@ -305,9 +305,9 @@ export default function DockerPage() {
 											</div>
 											{stat && (
 												<div className="mb-3 grid grid-cols-2 gap-2 text-[11px] md:grid-cols-4">
-													<div className="rounded-lg bg-cyan-500/10 px-2 py-1.5 text-cyan-300 light:text-cyan-700">CPU {stat.cpuPercent.toFixed(1)}%</div>
+													<div className="rounded-lg bg-cyan-500/10 px-2 py-1.5 text-cyan-300">CPU {stat.cpuPercent.toFixed(1)}%</div>
 													<div className="rounded-lg bg-purple-500/10 px-2 py-1.5 text-purple-300">内存 {formatBytes(stat.memoryUsageBytes)} / {stat.memoryPercent.toFixed(1)}%</div>
-													<div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-300 light:text-emerald-700">↓ {formatBytes(stat.networkRxBytes)}</div>
+													<div className="rounded-lg bg-emerald-500/10 px-2 py-1.5 text-emerald-300">↓ {formatBytes(stat.networkRxBytes)}</div>
 													<div className="rounded-lg bg-amber-500/10 px-2 py-1.5 text-amber-300">↑ {formatBytes(stat.networkTxBytes)}</div>
 												</div>
 											)}
@@ -380,7 +380,7 @@ export default function DockerPage() {
 					>
 						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
 						<p className="mt-3 text-sm text-[var(--text-secondary)]">
-							即将删除容器 <span className="font-mono text-rose-200 light:text-rose-800">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
+							即将删除容器 <span className="font-mono text-rose-200">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
 						</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button

@@ -21,7 +21,7 @@ export function OfficePreviewClient({
 			<a
 				href={href.includes("?") ? `${href}&download=1` : `${href}?download=1`}
 				download
-				className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 light:text-cyan-900 transition hover:bg-cyan-400/20"
+				className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
 			>
 				⬇ 下载文件
 			</a>

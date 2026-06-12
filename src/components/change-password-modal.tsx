@@ -75,10 +75,10 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 					/>
 
 					{state.error ? (
-						<div role="alert" className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100 light:text-rose-900">{state.error}</div>
+						<div role="alert" className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{state.error}</div>
 					) : null}
 					{state.success ? (
-						<div role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100 light:text-emerald-900">{state.success}</div>
+						<div role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{state.success}</div>
 					) : null}
 
 					<div className="flex justify-end gap-3 pt-2">
@@ -120,7 +120,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 					aria-label={`${visible ? "隐藏" : "显示"}${label}`}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
-					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 light:text-cyan-800 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
+					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
 				>
 					{visible ? "隐藏" : "显示"}
 				</button>

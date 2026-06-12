@@ -242,7 +242,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 		<section data-i18n-skip className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.22)] light:border-slate-200 light:bg-white light:shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
-					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300 light:text-cyan-700">{copyText.eyebrow}</p>
+					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">{copyText.eyebrow}</p>
 					<h2 className="mt-1 text-xl font-semibold text-white">{copyText.title}</h2>
 					<p className="mt-1 max-w-2xl text-sm text-slate-500 light:text-slate-600">
 						{copyText.description}
@@ -283,8 +283,8 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				))}
 			</div>
 
-			{error ? <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-300 light:text-rose-700">{error}</p> : null}
-			{data?.syncWarning ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-200 light:text-amber-700">{data.syncWarning}</p> : null}
+			{error ? <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
+			{data?.syncWarning ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">{data.syncWarning}</p> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="overflow-hidden rounded-xl border border-white/[0.08] light:border-slate-200">
@@ -310,7 +310,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/[0.04] light:hover:bg-slate-50">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-cyan-500" aria-label={`${copyText.selectFolder} ${folder.name}`} />
 										<button type="button" onClick={() => openFolder(folder)} className="flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:text-slate-800 light:hover:text-cyan-700">
-											<Folder size={17} className="shrink-0 text-cyan-300 light:text-cyan-700" />
+											<Folder size={17} className="shrink-0 text-cyan-300" />
 											<span className="truncate">{folder.name}</span>
 										</button>
 										<span className="text-xs text-slate-500">{copyText.folder}</span>
@@ -370,13 +370,13 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 					{results.length ? (
 						<div className="mt-4 space-y-2">
-							<p className="text-xs font-medium text-emerald-300 light:text-emerald-700">{copyText.created}</p>
+							<p className="text-xs font-medium text-emerald-300">{copyText.created}</p>
 							{results.map((item) => (
 								<div key={item.key} className="rounded-lg border border-emerald-400/20 bg-emerald-400/[0.07] p-2 text-xs">
-									<div className="truncate text-emerald-100 light:text-emerald-800">{item.name}</div>
+									<div className="truncate text-emerald-100">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
-										<code className="min-w-0 flex-1 truncate text-emerald-200/80 light:text-emerald-800/80">{item.url}</code>
-										<button type="button" onClick={() => void copy(item)} className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 px-2 py-1 text-emerald-100 light:text-emerald-800"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
+										<code className="min-w-0 flex-1 truncate text-emerald-200/80">{item.url}</code>
+										<button type="button" onClick={() => void copy(item)} className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 px-2 py-1 text-emerald-100"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
 									</div>
 								</div>
 							))}

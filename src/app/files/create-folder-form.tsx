@@ -140,7 +140,7 @@ export function CreateFolderForm({
         <span className="text-xs text-rose-300">{state.error}</span>
       ) : null}
       {state.success ? (
-        <span className="text-xs text-emerald-300 light:text-emerald-700">{state.success}</span>
+        <span className="text-xs text-emerald-300">{state.success}</span>
       ) : null}
     </form>
   );

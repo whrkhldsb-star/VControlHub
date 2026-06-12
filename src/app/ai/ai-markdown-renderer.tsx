@@ -30,7 +30,7 @@ export const renderInline = (text: string): React.ReactNode[] => {
  codeParts.forEach((cp, ci) => {
  if (cp.startsWith("`") && cp.endsWith("`")) {
  result.push(
- <code key={`c-${ci}`} className="bg-black/30 px-1.5 py-0.5 rounded text-cyan-300 light:text-cyan-700 text-xs">
+ <code key={`c-${ci}`} className="bg-black/30 px-1.5 py-0.5 rounded text-cyan-300 text-xs">
  {cp.slice(1, -1)}
  </code>
  );

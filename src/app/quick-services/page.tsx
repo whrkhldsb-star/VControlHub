@@ -15,7 +15,7 @@ export default async function QuickServicesPage() {
 			<header className="mb-8">
 				<div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Quick Services</p>
+						<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Quick Services</p>
 						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">快捷服务</h1>
 						<p className="mt-1.5 text-sm text-slate-500">一键安装常用自托管服务，自动 Docker 部署，安装即用。</p>
 					</div>

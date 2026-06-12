@@ -432,7 +432,7 @@ export function TextPreviewClient({
 				</span>
 				<span className="text-xs text-slate-500">{totalLines} 行</span>
 				{canEdit ? (
-					<span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200 light:text-emerald-800">
+					<span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
 						可在线编辑 · 保存会校验并发修改
 					</span>
 				) : null}
@@ -453,7 +453,7 @@ export function TextPreviewClient({
 									type="button"
 									onClick={() => setShowDiffReview(true)}
 									disabled={saveStatus === "saving" || !hasUnsavedChanges}
-									className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 light:text-emerald-900 hover:bg-emerald-400/20 disabled:opacity-50"
+									className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50"
 								>
 									{saveStatus === "saving" ? "保存中…" : "预览并保存"}
 								</button>
@@ -476,7 +476,7 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={() => setEditMode(true)}
-								className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 light:text-cyan-900 hover:bg-cyan-400/20"
+								className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20"
 							>
 								编辑
 							</button>
@@ -530,11 +530,11 @@ export function TextPreviewClient({
 				<div role="dialog" aria-modal="true" aria-label="保存前差异预览" className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 shadow-2xl shadow-black/20">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<h3 className="text-sm font-semibold text-amber-100 light:text-amber-900">保存前差异预览</h3>
-							<p className="mt-1 text-xs text-amber-100/80 light:text-amber-900/80">
+							<h3 className="text-sm font-semibold text-amber-100">保存前差异预览</h3>
+							<p className="mt-1 text-xs text-amber-100/80">
 								请确认变更后再写入文件：新增 {diffSummary.added} 行，删除 {diffSummary.removed} 行，修改 {diffSummary.changed} 行。
 							</p>
-							<p className="mt-1 text-xs text-amber-100/70 light:text-amber-900/70">
+							<p className="mt-1 text-xs text-amber-100/70">
 								保存时会校验打开草稿后的文件时间戳；如果文件已被其它窗口或磁盘操作修改，将拒绝覆盖并提示重新加载。
 							</p>
 						</div>
@@ -551,7 +551,7 @@ export function TextPreviewClient({
 								type="button"
 								onClick={handleSave}
 								disabled={saveStatus === "saving" || diffRows.length === 0}
-								className="rounded-lg border border-emerald-300/40 bg-emerald-400/20 px-3 py-1.5 text-xs font-medium text-emerald-100 light:text-emerald-900 disabled:opacity-50"
+								className="rounded-lg border border-emerald-300/40 bg-emerald-400/20 px-3 py-1.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
 							>
 								{saveStatus === "saving" ? "保存中…" : "确认保存"}
 							</button>
@@ -565,8 +565,8 @@ export function TextPreviewClient({
 								{diffRows.slice(0, 80).map((row) => (
 									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
 										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? "新增" : row.kind === "removed" ? "删除" : "修改"}</span>
-										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-rose-500/10 px-2 py-1 text-rose-200 light:text-rose-800">- {row.before}</code>
-										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-emerald-500/10 px-2 py-1 text-emerald-200 light:text-emerald-800">+ {row.after}</code>
+										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-rose-500/10 px-2 py-1 text-rose-200">- {row.before}</code>
+										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">+ {row.after}</code>
 									</li>
 								))}
 								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-slate-500">还有 {diffRows.length - 80} 行差异未展示，仍会一起保存。</li> : null}

@@ -31,7 +31,7 @@ export function MobileNav() {
 							key={tab.href}
 							href={tab.href}
 							className={`flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition ${
-								active ?"text-cyan-400 light:text-cyan-700" :"text-slate-500 light:text-slate-600"
+								active ?"text-cyan-400" :"text-slate-500 light:text-slate-600"
 							}`}
 						>
 							<span className="[&>svg]:h-5 [&>svg]:w-5">{tab.icon}</span>

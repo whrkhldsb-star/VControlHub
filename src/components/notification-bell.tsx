@@ -196,7 +196,7 @@ export function NotificationBell() {
 						</div>
 					</div>
 					{feedback && (
-						<div role="alert" className="border-b border-rose-400/10 bg-rose-500/10 px-4 py-2 text-xs text-rose-200 light:text-rose-700">
+						<div role="alert" className="border-b border-rose-400/10 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
 							{feedback.message}
 						</div>
 					)}
@@ -221,7 +221,7 @@ export function NotificationBell() {
 						</ul>
 					) : null}
 					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/95 light:border-slate-200 light:bg-white/95">
-						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:text-cyan-700 light:hover:text-cyan-800">
+						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:hover:text-cyan-800">
 							{viewAllLabel}
 						</Link>
 					</div>

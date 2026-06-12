@@ -56,7 +56,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 							{publicLabel}
 						</div>
 						<h1 className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white sm:text-6xl light:text-slate-950">
-							{siteName}<span className="text-cyan-400 light:text-cyan-500">.</span>
+							{siteName}<span className="text-cyan-400">.</span>
 						</h1>
 						<p className="mt-4 max-w-md text-base leading-7 text-white light:text-slate-600">
 							{publicLabel}，一站掌控。

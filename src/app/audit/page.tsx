@@ -66,7 +66,7 @@ export default async function AuditPage({ searchParams }: AuditPageProps) {
 							<Link
 								key={`quick-${action}`}
 								href={`/audit?action=${encodeURIComponent(action)}`}
-								className="rounded-full border border-[var(--border)] bg-white/[0.02] px-2 py-1 text-[11px] text-rose-100/80 light:text-rose-900/80 transition hover:bg-white/[0.06]"
+								className="rounded-full border border-[var(--border)] bg-white/[0.02] px-2 py-1 text-[11px] text-rose-100/80 transition hover:bg-white/[0.06]"
 							>
 								按动作筛查：{action}
 							</Link>

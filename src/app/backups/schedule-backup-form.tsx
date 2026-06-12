@@ -94,12 +94,12 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
           <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm font-mono text-slate-100" />
         </div>
       </div>
-      <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100 light:text-cyan-900">预览：{cronPreview}</p>
+      <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
       <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{command}</code>
       <div className="space-y-2">
         <p className="text-xs font-medium text-[var(--text-secondary)]">执行节点</p>
         {enabledServers.length === 0 ? (
-          <p className="text-xs text-amber-200 light:text-amber-800">暂无可用 VPS 节点，请先在 VPS 管理中启用至少一台节点。</p>
+          <p className="text-xs text-amber-200">暂无可用 VPS 节点，请先在 VPS 管理中启用至少一台节点。</p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {enabledServers.map((server) => (
@@ -114,7 +114,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
       <button type="submit" disabled={submitting || enabledServers.length === 0} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
         {submitting ? "创建中…" : "创建定时备份"}
       </button>
-      {message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-emerald-300 light:text-emerald-700" : "text-rose-300 light:text-rose-700"}`}>{message.text}</p>}
+      {message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-emerald-300" : "text-rose-300"}`}>{message.text}</p>}
     </form>
   );
 }

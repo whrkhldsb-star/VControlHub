@@ -38,7 +38,7 @@ export function ShareRowActions({
 					type="button"
 					onClick={handleRevoke}
 					disabled={busy}
-					className="rounded-md border border-rose-400/30 bg-rose-400/10 px-2.5 py-1 text-xs text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+					className="rounded-md border border-rose-400/30 bg-rose-400/10 px-2.5 py-1 text-xs text-rose-100 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					{busy ? "撤销中…" : "撤销"}
 				</button>

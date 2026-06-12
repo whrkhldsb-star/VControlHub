@@ -40,12 +40,12 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
         type="button"
         disabled={disabled}
         onClick={handleRetry}
-        className="w-fit rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50 light:text-cyan-900"
+        className="w-fit rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "正在排队..." : "重试备份"}
       </button>
       {taskId && (
-        <p role="status" className="text-xs text-emerald-300 light:text-emerald-700">
+        <p role="status" className="text-xs text-emerald-300">
           已重新排队，可在 <Link href="/operation-tasks" className="underline">任务中心</Link> 查看进度（{taskId}）。
         </p>
       )}

@@ -60,11 +60,11 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         type="button"
         disabled={disabled || pending}
         onClick={openConfirm}
-        className="w-fit rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs font-semibold text-rose-100 light:text-rose-900 transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-fit rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? "正在恢复..." : "执行恢复"}
       </button>
-      {message && <p className="text-xs text-emerald-300 light:text-emerald-700">{message}</p>}
+      {message && <p className="text-xs text-emerald-300">{message}</p>}
       {error && <p className="text-xs text-rose-300">{error}</p>}
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 light:bg-white/75 p-4 backdrop-blur-sm" role="presentation">
@@ -77,7 +77,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
           >
             <h3 id="restore-backup-title" className="text-base font-semibold text-white">确认恢复备份</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-              恢复 <span className="font-semibold text-white">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200 light:text-rose-800">{CONFIRM_TEXT}</span> 后继续。
+              恢复 <span className="font-semibold text-white">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200">{CONFIRM_TEXT}</span> 后继续。
             </p>
             <label className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
               输入 RESTORE 确认恢复
@@ -107,7 +107,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 type="button"
                 disabled={pending || confirmText !== CONFIRM_TEXT}
                 onClick={handleRestore}
-                className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-100 light:text-rose-900 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {pending ? "正在恢复..." : "确认恢复"}
               </button>

@@ -337,10 +337,10 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							aria-live="polite"
 							className={`rounded-full px-3 py-1 text-xs ${
 								status === "connected"
-									? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 light:border-emerald-400/40 light:bg-emerald-500/15 light:text-emerald-700"
+									? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-200 light:border-emerald-400/40 light:bg-emerald-500/15"
 									: status === "connecting"
-									? "border border-amber-400/30 bg-amber-400/10 text-amber-200 light:border-amber-400/40 light:bg-amber-500/15 light:text-amber-700"
-									: "border border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-400/40 light:bg-rose-500/15 light:text-rose-700"
+									? "border border-amber-400/30 bg-amber-400/10 text-amber-200 light:border-amber-400/40 light:bg-amber-500/15"
+									: "border border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-400/40 light:bg-rose-500/15"
 							}`}
 						>
 							{status === "connected" ? "已连接" : status === "connecting" ? "连接中" : status === "error" ? "连接失败" : "已断开"}
@@ -349,7 +349,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							type="button"
 							onClick={() => setShowSidePanel(!showSidePanel)}
 							aria-expanded={showSidePanel}
-							className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15 light:text-cyan-700" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:border-slate-300 light:bg-slate-100 light:text-slate-700 light:hover:bg-slate-200"}`}
+							className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:border-slate-300 light:bg-slate-100 light:text-slate-700 light:hover:bg-slate-200"}`}
 							title="命令面板"
 						>
 							📋 命令面板
@@ -358,7 +358,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<button
 								type="button"
 								onClick={handleReconnect}
-								className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:text-cyan-700 light:hover:bg-cyan-500/25"
+								className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
 							>
 								重连
 							</button>
@@ -376,7 +376,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				</div>
 
 				{errorMsg && (status === "error" || status === "closed") && (
-					<div className="mx-6 mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200 light:text-rose-800">
+					<div className="mx-6 mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
 						❌ {errorMsg}
 					</div>
 				)}
@@ -405,7 +405,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										placeholder="添加常用命令…"
 										className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
-									<button onClick={addFavorite} className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200 light:text-cyan-800 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200 transition hover:bg-cyan-400/20">
 										+
 									</button>
 								</div>
@@ -417,7 +417,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<div key={cmd} className="group flex items-center gap-1">
 												<button
 													onClick={() => sendCommand(cmd)}
-													className="flex-1 truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-cyan-100/80 light:text-cyan-900/80 transition hover:bg-white/[0.06]"
+													className="flex-1 truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
 													title={cmd}
 												>
 													{cmd}

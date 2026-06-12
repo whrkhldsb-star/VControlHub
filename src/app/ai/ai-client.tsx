@@ -752,7 +752,7 @@ if (data.conversation) {
                 type="button"
                 disabled={renameBusy || !renameTitle.trim()}
                 onClick={handleRenameConversation}
-                className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 light:text-cyan-800 transition hover:bg-cyan-500/30 disabled:opacity-50"
+                className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/30 disabled:opacity-50"
               >
                 {renameBusy ? "保存中..." : "保存标题"}
               </button>
@@ -1158,7 +1158,7 @@ return (
             <button
               onClick={handleSend}
               disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-              className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 light:text-cyan-700 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
+              className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
@@ -1193,7 +1193,7 @@ return (
                 <button
                   type="button"
                   onClick={() => setShowProviders(true)}
-                  className="mt-5 h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30 light:text-cyan-700"
+                  className="mt-5 h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30"
                 >
                   配置 AI 提供商
                 </button>
@@ -1204,7 +1204,7 @@ return (
                 <button
                   type="button"
                   onClick={handleNewConv}
-                  className="h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30 light:text-cyan-700"
+                  className="h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30"
                 >
                   + 新对话
                 </button>

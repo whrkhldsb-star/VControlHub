@@ -63,7 +63,7 @@ export function ServerOverviewCard({
     ? "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。"
     : "节点已停用，不会接收新的 SSH、文件或直连操作。";
   const listHealthToneClass = server.enabled
-    ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50 light:text-amber-800"
+    ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50"
     : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:border-slate-300 light:bg-slate-100 light:text-slate-700";
   const diagnosticItems = [
     {
@@ -182,7 +182,7 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} 条`}
         />
       </div>
-      <p className="mt-2 rounded-lg border border-amber-400/10 bg-amber-400/[0.04] px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50 light:text-amber-800">
+      <p className="mt-2 rounded-lg border border-amber-400/10 bg-amber-400/[0.04] px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50">
         {listHealthDescription}
       </p>
 
@@ -302,7 +302,7 @@ export function ServerOverviewCard({
           <section className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035] p-3 light:border-cyan-700/15 light:bg-cyan-50">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h3 className="text-sm font-medium text-cyan-100 light:text-cyan-950">
+                <h3 className="text-sm font-medium text-cyan-100">
                   诊断下一步
                 </h3>
                 <p className="mt-1 text-[11px] leading-5 text-slate-400 light:text-slate-700">
@@ -311,7 +311,7 @@ export function ServerOverviewCard({
               </div>
               <Link
                 href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
-                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20 light:bg-white light:text-cyan-900"
+                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20 light:bg-white"
               >
                 查看实时监控 JSON
               </Link>
@@ -328,18 +328,18 @@ export function ServerOverviewCard({
                   type="button"
                   onClick={runRealtimeDiagnostics}
                   disabled={diagnosticRun.status === "loading" || !server.enabled}
-                  className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-900"
+                  className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60 light:border-emerald-700/20 light:bg-emerald-50"
                 >
                   {diagnosticRun.status === "loading" ? "探测中..." : "运行实时探测"}
                 </button>
               </div>
               {diagnosticRun.status === "success" ? (
-                <div role="status" data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-800">
+                <div role="status" data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50">
                   探测成功：{diagnosticRun.summary}（{diagnosticRun.checkedAt}）
                 </div>
               ) : null}
               {diagnosticRun.status === "error" ? (
-                <div role="alert" data-tone="rose" className="mt-3 rounded-lg border border-rose-400/20 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50 light:text-rose-800">
+                <div role="alert" data-tone="rose" className="mt-3 rounded-lg border border-rose-400/20 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50">
                   探测失败：{diagnosticRun.message}（{diagnosticRun.checkedAt}）
                 </div>
               ) : null}
@@ -364,7 +364,7 @@ export function ServerOverviewCard({
                   {item.href ? (
                     <Link
                       href={item.href}
-                      className="mt-2 inline-flex text-[11px] font-medium text-cyan-200 underline-offset-4 hover:underline light:text-cyan-800"
+                      className="mt-2 inline-flex text-[11px] font-medium text-cyan-200 underline-offset-4 hover:underline"
                     >
                       打开相关入口
                     </Link>
@@ -433,10 +433,10 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 
 function statusToneClass(tone: "success" | "warning" | "info") {
   if (tone === "success") {
-    return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/20 light:bg-emerald-50 light:text-emerald-800";
+    return "border-emerald-400/25 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/20 light:bg-emerald-50";
   }
   if (tone === "warning") {
-    return "border-amber-400/25 bg-amber-400/10 text-amber-200 light:border-amber-700/20 light:bg-amber-50 light:text-amber-800";
+    return "border-amber-400/25 bg-amber-400/10 text-amber-200 light:border-amber-700/20 light:bg-amber-50";
   }
-  return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50 light:text-sky-800";
+  return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50";
 }

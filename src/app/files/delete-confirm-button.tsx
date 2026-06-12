@@ -60,8 +60,8 @@ export function DeleteConfirmButton({
         aria-label={`删除 ${entryName}`}
         className={
           variant === "menu"
-            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-rose-100 transition hover:bg-rose-400/10 light:text-rose-900"
-            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/20 light:text-rose-900"
+            ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-rose-100 transition hover:bg-rose-400/10"
+            : "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-400/30 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/20"
         }
       >
         <svg
@@ -88,13 +88,13 @@ export function DeleteConfirmButton({
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
-      <span className="text-sm text-rose-200 light:text-rose-800">
+      <span className="text-sm text-rose-200">
         确认删除 {entryName}
         {entryType === "DIRECTORY" ? " 及其内容" : ""}？
       </span>
       <button
         type="submit"
-        className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 light:text-rose-900 transition hover:bg-rose-400/20"
+        className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
       >
         确认
       </button>

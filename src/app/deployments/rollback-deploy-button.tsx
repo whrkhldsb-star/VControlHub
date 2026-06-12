@@ -39,7 +39,7 @@ export function RollbackDeployButton({ runId, templateName, disabled = false }: 
         type="button"
         onClick={handleRollback}
         disabled={pending || disabled}
-        className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200 light:text-emerald-800 transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+        className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/15 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "提交中..." : "执行真实回滚"}
       </button>

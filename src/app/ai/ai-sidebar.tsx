@@ -39,7 +39,7 @@ export function AiSidebar({
             <h2 className="text-sm font-semibold text-white">AI 助手</h2>
             <button
               onClick={onNewConv}
-              className="h-7 px-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 light:text-cyan-700 text-xs font-medium hover:bg-cyan-500/30 transition"
+              className="h-7 px-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition"
             >
               + 新对话
             </button>
@@ -55,7 +55,7 @@ export function AiSidebar({
                 key={conv.id}
                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 cursor-pointer transition ${
  activeConvId === conv.id
- ?"bg-cyan-400/[0.08] text-cyan-100 light:text-cyan-900"
+ ?"bg-cyan-400/[0.08] text-cyan-100"
  :"text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800"
  }`}
                 onClick={() => onSelectConv(conv.id)}

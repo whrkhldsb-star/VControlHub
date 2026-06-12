@@ -34,7 +34,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	return (
 		<PageShell>
 			<header className="mb-8">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Deploy</p>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Deploy</p>
 				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">应用部署</h1>
 				<p className="mt-1.5 text-sm text-slate-500">选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。</p>
 			</header>
@@ -46,7 +46,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-white">1. 创建模板</div>
-						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300 light:text-cyan-700/90">{"{{变量名}}"}</code> 的部署脚本</div>
+						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300">{"{{变量名}}"}</code> 的部署脚本</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
 						<div className="text-lg mb-1">🎯</div>
@@ -72,7 +72,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<p className="mt-3 text-xs text-slate-500">每次部署都会保存不可变快照；配置了回滚命令的模板可执行真实回滚，未配置时仍可按原模板重发。所有操作经过审批链路，确保可审计。</p>
 			</section>
 			{formError && (
-				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200 light:text-rose-800">
+				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200">
 					部署提交失败：{formError}
 				</div>
 			)}
@@ -88,7 +88,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<section className="mb-6 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70 light:text-emerald-800/70">真实回滚</p>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70">真实回滚</p>
 							<h2 className="mt-1 text-sm font-semibold text-white">最近部署：{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 快照 {latestRun.snapshotId || "待生成"}</p>
 						</div>
@@ -121,9 +121,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50 light:text-emerald-800">Rollback: {r.snapshot.rollbackCommand}</code>}
+							{r.snapshot?.rollbackCommand && <code className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">Rollback: {r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
-								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3 py-2 text-xs text-emerald-100 light:text-emerald-800">
+								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3 py-2 text-xs text-emerald-100">
 									最近回滚：{r.rollbackAttempts[0].status} · 审批 {r.rollbackAttempts[0].commandRequestId || "待创建"} · {r.rollbackAttempts[0].createdAt.toLocaleString("zh-CN")}
 								</div>
 							)}

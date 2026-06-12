@@ -48,13 +48,13 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20 light:text-rose-700"
+        className="rounded-lg border border-rose-400/30 bg-rose-400/10 px-3 py-1.5 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20"
         aria-label={`取消命令：${commandTitle}`}
       >
         取消命令
       </button>
-      {message && <p role="status" className="text-xs text-emerald-300 light:text-emerald-700">{message}</p>}
-      {error && <p role="alert" className="text-xs text-rose-300 light:text-rose-700">{error}</p>}
+      {message && <p role="status" className="text-xs text-emerald-300">{message}</p>}
+      {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
 
       {open && (
         <div role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">

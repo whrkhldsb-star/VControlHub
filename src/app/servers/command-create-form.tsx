@@ -43,8 +43,8 @@ export function CommandCreateForm({
 				<p className="mt-1 text-xs text-slate-500">向选中的 VPS 节点发送待审批命令</p>
 			</div>
 
-			{state.error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200 light:text-rose-800">{state.error}</div>}
-			{state.success && <div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-3.5 py-2.5 text-sm text-emerald-200 light:text-emerald-800">{state.success}</div>}
+			{state.error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{state.error}</div>}
+			{state.success && <div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-3.5 py-2.5 text-sm text-emerald-200">{state.success}</div>}
 
 			<div className="space-y-1.5">
 				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdTitle">命令标题</label>

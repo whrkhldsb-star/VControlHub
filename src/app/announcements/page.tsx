@@ -25,7 +25,7 @@ export default async function AnnouncementsPage() {
 	return (
 		<PageShell maxW="max-w-4xl">
 			<header className="mb-6">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">Announcements</p>
+				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Announcements</p>
 				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">站内公告</h1>
 				<p className="mt-1.5 text-sm text-slate-500">展示当前有效、置顶优先的站内消息。</p>
 			</header>

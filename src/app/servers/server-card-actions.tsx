@@ -98,7 +98,7 @@ export function ServerCardActions({
             type="button"
             onClick={handleOpenTerminal}
             aria-label={`打开 ${serverName} SSH 终端`}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-900 light:hover:bg-cyan-100"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
           >
             <span aria-hidden="true">💻</span>
             <span>SSH 终端</span>
@@ -126,7 +126,7 @@ export function ServerCardActions({
                   href={directGateway.publicUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-white light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:text-cyan-800 light:hover:text-cyan-950"
+                  className="block break-all text-xs font-medium text-cyan-100 underline decoration-cyan-300/50 underline-offset-2 hover:text-white light:hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:text-cyan-950"
                 >
                   {directGateway.publicUrl}
                 </a>
@@ -139,7 +139,7 @@ export function ServerCardActions({
             <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15 light:bg-white/70 light:text-slate-700">
               {directGateway.enabled ? (
                 <>
-                  <p className="font-medium text-cyan-100 light:text-cyan-900">
+                  <p className="font-medium text-cyan-100">
                     直连服务已声明启用。
                   </p>
                   <p>
@@ -149,7 +149,7 @@ export function ServerCardActions({
                 </>
               ) : (
                 <>
-                  <p className="font-medium text-cyan-100 light:text-cyan-900">
+                  <p className="font-medium text-cyan-100">
                     启用前检查：VPS 必须绑定 SFTP 存储节点且不是本机地址。
                   </p>
                   <p>
@@ -162,19 +162,19 @@ export function ServerCardActions({
               pendingLabel={
                 directGateway.enabled ? "删除服务中..." : "安装服务中..."
               }
-              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:text-cyan-900 light:hover:bg-cyan-200"
+              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
             >
               {directGateway.enabled
                 ? "切回网站中转并删除直连服务"
                 : "启用目标直连"}
             </SubmitButton>
             {directState.error ? (
-              <div role="alert" className="text-xs text-rose-200 light:text-rose-700">
+              <div role="alert" className="text-xs text-rose-200">
                 {directState.error}
               </div>
             ) : null}
             {directState.success ? (
-              <div role="status" className="text-xs text-emerald-200 light:text-emerald-700">
+              <div role="status" className="text-xs text-emerald-200">
                 {directState.success}
               </div>
             ) : null}
@@ -299,15 +299,15 @@ export function ServerCardActions({
             />
             <SubmitButton
               pendingLabel="校验中..."
-              className="w-full rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 light:border-emerald-700/30 light:bg-emerald-50 light:text-emerald-800 light:hover:bg-emerald-100"
+              className="w-full rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 light:border-emerald-700/30 light:bg-emerald-50 light:hover:bg-emerald-100"
             >
               保存并校验连接
             </SubmitButton>
             {editState.error ? (
-              <div role="alert" className="text-xs text-rose-200 light:text-rose-700">{editState.error}</div>
+              <div role="alert" className="text-xs text-rose-200">{editState.error}</div>
             ) : null}
             {editState.success ? (
-              <div role="status" className="text-xs text-emerald-200 light:text-emerald-700">
+              <div role="status" className="text-xs text-emerald-200">
                 {editState.success}
               </div>
             ) : null}
@@ -319,15 +319,15 @@ export function ServerCardActions({
             <input type="hidden" name="serverId" value={serverId} />
             <SubmitButton
               pendingLabel="处理中..."
-              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-900 light:hover:bg-cyan-100"
+              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
             >
               {enabled ? "停用节点" : "启用节点"}
             </SubmitButton>
             {toggleState.error ? (
-              <div role="alert" className="text-xs text-rose-200 light:text-rose-700">{toggleState.error}</div>
+              <div role="alert" className="text-xs text-rose-200">{toggleState.error}</div>
             ) : null}
             {toggleState.success ? (
-              <div role="status" className="text-xs text-emerald-200 light:text-emerald-700">
+              <div role="status" className="text-xs text-emerald-200">
                 {toggleState.success}
               </div>
             ) : null}
@@ -346,25 +346,25 @@ export function ServerCardActions({
                 className="space-y-3 rounded-2xl border border-rose-400/30 bg-rose-400/5 p-3 light:bg-rose-50/80"
               >
                 <input type="hidden" name="confirmDelete" value="true" />
-                <div className="space-y-1 text-sm text-rose-200 light:text-rose-800">
+                <div className="space-y-1 text-sm text-rose-200">
                   <p id={`delete-server-title-${serverId}`} className="font-semibold">
                     确认删除「{serverName}」？
                   </p>
                   <div id={`delete-server-description-${serverId}`}>
                   {relatedStorageCount > 0 ? (
-                    <p className="mt-1 text-xs text-rose-300/80 light:text-rose-700">
+                    <p className="mt-1 text-xs text-rose-300/80">
                       该 VPS 关联了 {relatedStorageCount}{" "}
                       个存储节点，删除后存储节点将失去 VPS 绑定
                     </p>
                   ) : null}
-                  <p className="mt-1 text-xs text-rose-300/80 light:text-rose-700">
+                  <p className="mt-1 text-xs text-rose-300/80">
                     删除成功后节点会从 VPS 列表移除，并同步清理关联存储/直连状态；请输入节点名称完成确认。
                   </p>
                   </div>
                 </div>
                 <label
                   htmlFor={`delete-confirm-name-${serverId}`}
-                  className="block text-xs font-medium text-rose-200 light:text-rose-800"
+                  className="block text-xs font-medium text-rose-200"
                 >
                   输入 VPS 名称「{serverName}」确认删除
                 </label>
@@ -378,7 +378,7 @@ export function ServerCardActions({
                 <div className="flex gap-2">
                   <SubmitButton
                     pendingLabel="删除中..."
-                    className="flex-1 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:text-rose-800 light:hover:bg-rose-200"
+                    className="flex-1 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:hover:bg-rose-200"
                   >
                     确认删除
                   </SubmitButton>
@@ -394,16 +394,16 @@ export function ServerCardActions({
             ) : (
               <SubmitButton
                 pendingLabel="查询中..."
-                className="w-full rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-50 light:text-rose-800 light:hover:bg-rose-100"
+                className="w-full rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-50 light:hover:bg-rose-100"
               >
                 删除节点
               </SubmitButton>
             )}
             {deleteState.error ? (
-              <div role="alert" className="text-xs text-rose-200 light:text-rose-700">{deleteState.error}</div>
+              <div role="alert" className="text-xs text-rose-200">{deleteState.error}</div>
             ) : null}
             {deleteState.success ? (
-              <div role="status" className="text-xs text-emerald-200 light:text-emerald-700">
+              <div role="status" className="text-xs text-emerald-200">
                 {deleteState.success}
               </div>
             ) : null}

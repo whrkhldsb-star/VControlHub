@@ -137,7 +137,7 @@ export default async function MediaPlayerPage({
               ← 返回媒体库
             </Link>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300 light:text-cyan-700/70">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
                 Media Player
               </p>
               <h1 className="truncate text-xl font-semibold text-white">
@@ -288,7 +288,7 @@ export default async function MediaPlayerPage({
                   {item.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-300 light:text-cyan-700"
+                      className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-xs text-cyan-300"
                     >
                       {tag}
                     </span>
