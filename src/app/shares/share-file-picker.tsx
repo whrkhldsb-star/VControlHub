@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Copy, File, Folder, Loader2, RefreshCw, Share2 } from "lucide-react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { EmptyState } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 interface StorageNode {
@@ -338,7 +339,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							})}
 						</div>
 					) : (
-						<div className="p-8 text-center text-sm text-slate-500">{copyText.empty}</div>
+						<EmptyState text={copyText.empty} />
 					)}
 				</div>
 

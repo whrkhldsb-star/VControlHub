@@ -1737,9 +1737,17 @@ html.light textarea:focus-visible {
 /* S11. 空状态统一 */
 :root [data-empty-state] {
 	text-align: center;
-	padding: 3rem 1.5rem;
+	padding: 2rem 1.5rem;
 	color: var(--text-muted);
 	font-size: 0.875rem;
+	line-height: 1.6;
+}
+
+:root [data-empty-state="boxed"] {
+	border-radius: var(--radius-xl);
+	border: 1px dashed var(--border);
+	background: color-mix(in srgb, var(--surface) 72%, transparent);
+	padding: 3rem 1.5rem;
 }
 
 /* S12. 加载骨架屏统一动画 */

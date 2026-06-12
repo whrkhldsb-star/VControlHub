@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type Task = {
@@ -147,12 +148,9 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			)}
 
 			{tasks.length === 0 && !showCreate ? (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
-					<div className="text-4xl mb-3">⏰</div>
-					<p className="text-sm text-slate-500">暂无定时任务</p>
-				</div>
+				<EmptyState icon="⏰" text="暂无定时任务" variant="boxed" />
 			) : filteredTasks.length === 0 ? (
-				<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-8 text-center text-sm text-slate-500">没有匹配“{searchQuery}”的定时任务或执行日志</div>
+				<EmptyState text={`没有匹配“${searchQuery}”的定时任务或执行日志`} variant="boxed" />
 			) : (
 				<div className="space-y-3">
 					{filteredTasks.map((task) => (

@@ -1,5 +1,5 @@
 "use client";
-import { StatCard } from "@/components/page-shell";
+import { EmptyState, StatCard } from "@/components/page-shell";
 
 import { useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -170,7 +170,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
           <p className="text-xs text-slate-500">只展示前缀/尾缀，不展示哈希或明文。</p>
         </div>
         {tokens.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center text-sm text-slate-500">暂无 Token，请先创建用于脚本或外部集成的访问令牌。</div>
+          <EmptyState text="暂无 Token，请先创建用于脚本或外部集成的访问令牌。" variant="boxed" />
         ) : (
           <div className="grid gap-3">
             {tokens.map((token) => {

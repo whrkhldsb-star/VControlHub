@@ -68,19 +68,23 @@ export function Card({ children }: { children: ReactNode }) {
 export function EmptyState({
 	text,
 	variant = "simple",
+	icon,
 }: {
 	text: string;
 	/** "simple" = plain text; "boxed" = dashed-border card */
 	variant?: "simple" | "boxed";
+	icon?: ReactNode;
 }) {
+	const content = (
+		<>
+			{icon ? <div className="mb-3 text-4xl" aria-hidden="true">{icon}</div> : null}
+			<div>{text}</div>
+		</>
+	);
 	if (variant === "boxed") {
-		return (
-			<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-8 text-center text-sm text-slate-500">
-				{text}
-			</div>
-		);
+		return <div data-empty-state="boxed">{content}</div>;
 	}
-	return <div className="p-8 text-center text-sm text-slate-500">{text}</div>;
+	return <div data-empty-state>{content}</div>;
 }
 
 /* ── StatCard ───────────────────────────────────────────────────────── */
