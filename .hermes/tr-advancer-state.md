@@ -24,3 +24,6 @@
 - 不递归创建/修改 cron
 - 不空 commit
 - 不动需要人类决策/外部资源/重大架构的 TR
+
+## 频率
+**每 10 分钟**。一轮 `npm run verify` ~5min + 部署/smoke/commit ~1min = ~6min，10m 留 4min 缓冲。如遇上一轮还没完（worktree dirty），新 tick 自动检测后会走只读审计 / 跳过本轮。
