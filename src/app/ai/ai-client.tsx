@@ -83,7 +83,6 @@ export function AiClient({
     handlePaste,
     handleDrop,
     handleDragOver,
-    clearAttachments,
   } = useFileAttachments({
     currentModelCaps,
     modelName: activeConv?.model,
