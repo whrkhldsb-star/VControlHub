@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useCallback, useRef, useEffect } from "react";
-import { PageShell, Card, EmptyState } from "@/components/page-shell";
+import { PageShell, Card, EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type ImageItem = {
@@ -346,8 +346,19 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<button onClick={fetchStats} className="rounded-lg bg-purple-500/10 px-3 py-1.5 text-xs text-purple-300 transition hover:bg-purple-500/20 light:text-purple-700">📊 统计</button>
 					</div>
 					<div className="mt-3 flex flex-wrap gap-2 text-xs">
-						<button onClick={() => { setShowAll(!showAll); }} className={`rounded-full px-3 py-1.5 transition ${showAll ? "bg-cyan-500/20 text-cyan-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100"}`}>{showAll ? "🔒 仅自己" : "🌐 全部用户"}</button>
-						{canWrite && <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }} className={`rounded-full px-3 py-1.5 transition ${batchMode ? "bg-amber-500/20 text-amber-300" : "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100"}`}>{batchMode ? "✓ 批量模式" : "☐ 批量模式"}</button>}
+						<ToggleChip active={showAll} onClick={() => { setShowAll(!showAll); }} ariaLabel="切换仅自己/全部用户">
+							{showAll ? "🔒 仅自己" : "🌐 全部用户"}
+						</ToggleChip>
+						{canWrite && (
+							<ToggleChip
+								active={batchMode}
+								tone="warn"
+								onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
+								ariaLabel="切换批量模式"
+							>
+								{batchMode ? "✓ 批量模式" : "☐ 批量模式"}
+							</ToggleChip>
+						)}
 					</div>
 				</div>
 			</div>

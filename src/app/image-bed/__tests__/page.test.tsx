@@ -33,6 +33,11 @@ vi.mock("@/components/page-shell", () => ({
       <div>{children}</div>
     </div>
   ),
+  ToggleChip: ({ children, onClick, active }: { children?: React.ReactNode; onClick?: () => void; active?: boolean }) => (
+    <button type="button" onClick={onClick} aria-pressed={active}>
+      {children}
+    </button>
+  ),
 }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({

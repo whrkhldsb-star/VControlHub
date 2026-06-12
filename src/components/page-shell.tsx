@@ -9,6 +9,45 @@
 
 import type { ReactNode } from "react";
 
+/* ── ToggleChip ────────────────────────────────────────────────────── */
+/**
+ * Two-state pill toggle used in toolbar rows (e.g. "仅自己/全部用户",
+ * "批量模式 开/关").  Active = accent tint, inactive = muted surface.
+ * Color tone: accent (cyan) or warn (amber).
+ */
+type ToggleTone = "accent" | "warn";
+
+export function ToggleChip({
+	active,
+	onClick,
+	children,
+	tone = "accent",
+	ariaLabel,
+}: {
+	active: boolean;
+	onClick: () => void;
+	children: ReactNode;
+	tone?: ToggleTone;
+	ariaLabel?: string;
+}) {
+	const activeCls =
+		tone === "warn"
+			? "bg-amber-500/20 text-amber-300"
+			: "bg-cyan-500/20 text-cyan-300";
+	const inactiveCls = "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100";
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			aria-pressed={active}
+			aria-label={ariaLabel}
+			className={`rounded-full px-3 py-1.5 transition ${active ? activeCls : inactiveCls}`}
+		>
+			{children}
+		</button>
+	);
+}
+
 /* ── PageShell ──────────────────────────────────────────────────────── */
 
 export function PageShell({
