@@ -19,6 +19,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "verify:deploy-assets": "bash deploy/verify-assets.sh",
+    "route:catalog": "tsx scripts/build-route-catalog.ts",
+    "route:verify": "tsx scripts/verify-route-catalog.ts",
     "verify": "npm run prisma:generate && npm run typecheck && npm run lint && npm test && npm run build && npm run build:runtime && npm run verify:deploy-assets",
     "build:turbopack": "next build",
     "build:webpack": "next build --webpack"

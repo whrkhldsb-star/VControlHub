@@ -1,0 +1,1344 @@
+{
+  "generatedAt": "2026-06-12T07:14:56.347Z",
+  "summary": {
+    "sidebarMain": 22,
+    "sidebarSystem": 4,
+    "sidebarMobile": 4,
+    "pages": 39,
+    "apiRoutes": 79,
+    "permissionsDefined": 41
+  },
+  "sidebar": {
+    "main": [
+      {
+        "href": "/",
+        "fallbackLabel": "仪表盘"
+      },
+      {
+        "href": "/servers",
+        "fallbackLabel": "VPS 管理"
+      },
+      {
+        "href": "/health",
+        "fallbackLabel": "健康看板"
+      },
+      {
+        "href": "/traffic",
+        "fallbackLabel": "流量中心"
+      },
+      {
+        "href": "/files",
+        "fallbackLabel": "文件管理"
+      },
+      {
+        "href": "/downloads",
+        "fallbackLabel": "远程下载"
+      },
+      {
+        "href": "/operation-tasks",
+        "fallbackLabel": "任务中心"
+      },
+      {
+        "href": "/shares",
+        "fallbackLabel": "分享链接"
+      },
+      {
+        "href": "/backups",
+        "fallbackLabel": "备份迁移"
+      },
+      {
+        "href": "/templates",
+        "fallbackLabel": "命令模板"
+      },
+      {
+        "href": "/deployments",
+        "fallbackLabel": "应用部署"
+      },
+      {
+        "href": "/quick-services",
+        "fallbackLabel": "快捷服务"
+      },
+      {
+        "href": "/snippets",
+        "fallbackLabel": "代码片段"
+      },
+      {
+        "href": "/media",
+        "fallbackLabel": "媒体库"
+      },
+      {
+        "href": "/ai",
+        "fallbackLabel": "AI 助手"
+      },
+      {
+        "href": "/announcements",
+        "fallbackLabel": "站内公告"
+      },
+      {
+        "href": "/tickets",
+        "fallbackLabel": "工单请求"
+      },
+      {
+        "href": "/requests",
+        "fallbackLabel": "审批中心"
+      },
+      {
+        "href": "/scheduled-tasks",
+        "fallbackLabel": "定时任务"
+      },
+      {
+        "href": "/alert-rules",
+        "fallbackLabel": "智能告警"
+      },
+      {
+        "href": "/notifications",
+        "fallbackLabel": "通知中心"
+      },
+      {
+        "href": "/settings",
+        "fallbackLabel": "系统设置"
+      }
+    ],
+    "system": [
+      {
+        "href": "/users",
+        "fallbackLabel": "用户管理"
+      },
+      {
+        "href": "/api-tokens",
+        "fallbackLabel": "API Token"
+      },
+      {
+        "href": "/status",
+        "fallbackLabel": "公开状态页"
+      },
+      {
+        "href": "/audit",
+        "fallbackLabel": "审计日志"
+      }
+    ],
+    "mobileHrefs": [
+      "/servers",
+      "/traffic",
+      "/files",
+      "/settings"
+    ]
+  },
+  "pages": [
+    {
+      "path": "/account/password",
+      "file": "src/app/account/password/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/ai",
+      "file": "src/app/ai/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/alert-rules",
+      "file": "src/app/alert-rules/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "notification:manage"
+      ]
+    },
+    {
+      "path": "/announcements",
+      "file": "src/app/announcements/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "announcement:manage"
+      ]
+    },
+    {
+      "path": "/api-docs",
+      "file": "src/app/api-docs/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/api-tokens",
+      "file": "src/app/api-tokens/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": [
+        "api-token:manage"
+      ]
+    },
+    {
+      "path": "/audit",
+      "file": "src/app/audit/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": [
+        "audit:read"
+      ]
+    },
+    {
+      "path": "/backups",
+      "file": "src/app/backups/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "backup:create",
+        "backup:read"
+      ]
+    },
+    {
+      "path": "/deployments",
+      "file": "src/app/deployments/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "deploy:read"
+      ]
+    },
+    {
+      "path": "/docker",
+      "file": "src/app/docker/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/downloads",
+      "file": "src/app/downloads/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/files",
+      "file": "src/app/files/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "share:create",
+        "storage:delete",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/files/preview",
+      "file": "src/app/files/preview/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/health",
+      "file": "src/app/health/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "health:read"
+      ]
+    },
+    {
+      "path": "/image-bed",
+      "file": "src/app/image-bed/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "image:read",
+        "image:write",
+        "storage:delete"
+      ]
+    },
+    {
+      "path": "/login",
+      "file": "src/app/login/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/login/verify-2fa",
+      "file": "src/app/login/verify-2fa/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/media/[id]",
+      "file": "src/app/media/[id]/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/media",
+      "file": "src/app/media/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "media:manage",
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/monitoring",
+      "file": "src/app/monitoring/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "docker:manage",
+        "health:read"
+      ]
+    },
+    {
+      "path": "/notifications",
+      "file": "src/app/notifications/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/operation-tasks",
+      "file": "src/app/operation-tasks/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
+      "path": "/",
+      "file": "src/app/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/preferences",
+      "file": "src/app/preferences/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/quick-services",
+      "file": "src/app/quick-services/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/requests",
+      "file": "src/app/requests/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "command:approve"
+      ]
+    },
+    {
+      "path": "/scheduled-tasks",
+      "file": "src/app/scheduled-tasks/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "command:create"
+      ]
+    },
+    {
+      "path": "/servers",
+      "file": "src/app/servers/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "server:write"
+      ]
+    },
+    {
+      "path": "/settings",
+      "file": "src/app/settings/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "user:manage"
+      ]
+    },
+    {
+      "path": "/share/[token]",
+      "file": "src/app/share/[token]/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/shares",
+      "file": "src/app/shares/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "share:create",
+        "share:manage",
+        "share:read"
+      ]
+    },
+    {
+      "path": "/snippets",
+      "file": "src/app/snippets/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "snippet:manage"
+      ]
+    },
+    {
+      "path": "/status",
+      "file": "src/app/status/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/storage",
+      "file": "src/app/storage/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
+      "path": "/templates",
+      "file": "src/app/templates/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "command:create"
+      ]
+    },
+    {
+      "path": "/tickets/[id]",
+      "file": "src/app/tickets/[id]/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/tickets",
+      "file": "src/app/tickets/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "ticket:create",
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/traffic",
+      "file": "src/app/traffic/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "server:read",
+        "server:write"
+      ]
+    },
+    {
+      "path": "/users",
+      "file": "src/app/users/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": [
+        "user:manage",
+        "user:read"
+      ]
+    }
+  ],
+  "apiRoutes": [
+    {
+      "path": "/src/app/api/ai/chat",
+      "file": "src/app/api/ai/chat/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ai:chat"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/conversations/[id]",
+      "file": "src/app/api/ai/conversations/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/ai/conversations",
+      "file": "src/app/api/ai/conversations/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ai:chat"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/hosted-actions/[id]",
+      "file": "src/app/api/ai/hosted-actions/[id]/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/ai/hosted-actions",
+      "file": "src/app/api/ai/hosted-actions/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/ai/models/probe",
+      "file": "src/app/api/ai/models/probe/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ai:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/models",
+      "file": "src/app/api/ai/models/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/ai/providers/[id]",
+      "file": "src/app/api/ai/providers/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "ai:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/providers",
+      "file": "src/app/api/ai/providers/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ai:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/alert-rules",
+      "file": "src/app/api/alert-rules/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST",
+        "PUT"
+      ],
+      "declaredPermissions": [
+        "notification:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/announcements",
+      "file": "src/app/api/announcements/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "announcement:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/api-tokens",
+      "file": "src/app/api/api-tokens/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "api-token:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/app-sources",
+      "file": "src/app/api/app-sources/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "user:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/audit",
+      "file": "src/app/api/audit/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "audit:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/auth/2fa/disable",
+      "file": "src/app/api/auth/2fa/disable/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/auth/2fa/enable",
+      "file": "src/app/api/auth/2fa/enable/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/auth/2fa/setup",
+      "file": "src/app/api/auth/2fa/setup/route.ts",
+      "methods": [
+        "POST",
+        "PUT"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/auth/2fa/verify-login",
+      "file": "src/app/api/auth/2fa/verify-login/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/auth/signout",
+      "file": "src/app/api/auth/signout/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/auth/ws-token",
+      "file": "src/app/api/auth/ws-token/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/backups/[id]/restore",
+      "file": "src/app/api/backups/[id]/restore/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/backups/[id]/retry",
+      "file": "src/app/api/backups/[id]/retry/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "backup:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/backups/[id]/void",
+      "file": "src/app/api/backups/[id]/void/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "backup:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/backups",
+      "file": "src/app/api/backups/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "backup:create",
+        "backup:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/command-templates",
+      "file": "src/app/api/command-templates/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "command:create",
+        "command:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/commands",
+      "file": "src/app/api/commands/route.ts",
+      "methods": [
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "command:create",
+        "command:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/dashboard/analytics",
+      "file": "src/app/api/dashboard/analytics/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/deploy-export",
+      "file": "src/app/api/deploy-export/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/deployments/[id]/rollback",
+      "file": "src/app/api/deployments/[id]/rollback/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/deployments",
+      "file": "src/app/api/deployments/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "deploy:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/docker/containers",
+      "file": "src/app/api/docker/containers/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/docs/openapi.json",
+      "file": "src/app/api/docs/openapi.json/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/docs/openapi",
+      "file": "src/app/api/docs/openapi/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/downloads",
+      "file": "src/app/api/downloads/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/archive-list",
+      "file": "src/app/api/files/archive-list/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/editable/[id]",
+      "file": "src/app/api/files/editable/[id]/route.ts",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "declaredPermissions": [
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/extract",
+      "file": "src/app/api/files/extract/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/files/list",
+      "file": "src/app/api/files/list/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "share:create",
+        "storage:delete",
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/health",
+      "file": "src/app/api/health/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "health:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/[id]/file",
+      "file": "src/app/api/images/[id]/file/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "user:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/[id]",
+      "file": "src/app/api/images/[id]/route.ts",
+      "methods": [
+        "DELETE"
+      ],
+      "declaredPermissions": [
+        "role:manage",
+        "storage:delete"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/batch",
+      "file": "src/app/api/images/batch/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "role:manage",
+        "storage:delete"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/list",
+      "file": "src/app/api/images/list/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "image:read",
+        "user:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/publish-from-storage",
+      "file": "src/app/api/images/publish-from-storage/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/stats",
+      "file": "src/app/api/images/stats/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "user:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/upload",
+      "file": "src/app/api/images/upload/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "image:write",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/login",
+      "file": "src/app/api/login/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/media/[id]",
+      "file": "src/app/api/media/[id]/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "media:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/media/[id]/stream",
+      "file": "src/app/api/media/[id]/stream/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/media",
+      "file": "src/app/api/media/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "media:manage",
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/monitoring/stats",
+      "file": "src/app/api/monitoring/stats/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/notifications",
+      "file": "src/app/api/notifications/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "notification:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/operation-tasks",
+      "file": "src/app/api/operation-tasks/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/preferences",
+      "file": "src/app/api/preferences/route.ts",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/quick-services/[slug]",
+      "file": "src/app/api/quick-services/[slug]/route.ts",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/quick-services/check-port",
+      "file": "src/app/api/quick-services/check-port/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/quick-services",
+      "file": "src/app/api/quick-services/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "docker:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/scheduled-tasks",
+      "file": "src/app/api/scheduled-tasks/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "command:create",
+        "command:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/file-proxy",
+      "file": "src/app/api/servers/[id]/file-proxy/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/servers/monitor",
+      "file": "src/app/api/servers/monitor/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "server:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/settings",
+      "file": "src/app/api/settings/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "user:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/share-links",
+      "file": "src/app/api/share-links/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "share:create",
+        "share:manage",
+        "share:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/share/[token]",
+      "file": "src/app/api/share/[token]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/snippets",
+      "file": "src/app/api/snippets/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "role:manage",
+        "snippet:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/status",
+      "file": "src/app/api/status/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/storage/archive-download",
+      "file": "src/app/api/storage/archive-download/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/direct-access",
+      "file": "src/app/api/storage/direct-access/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/local",
+      "file": "src/app/api/storage/local/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/nodes",
+      "file": "src/app/api/storage/nodes/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/sftp-download",
+      "file": "src/app/api/storage/sftp-download/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/sftp-ops",
+      "file": "src/app/api/storage/sftp-ops/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:delete",
+        "storage:read",
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/sftp-sync",
+      "file": "src/app/api/storage/sftp-sync/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/sftp",
+      "file": "src/app/api/storage/sftp/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/system-health",
+      "file": "src/app/api/system-health/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "health:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/tickets/[id]",
+      "file": "src/app/api/tickets/[id]/route.ts",
+      "methods": [
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ticket:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/tickets",
+      "file": "src/app/api/tickets/route.ts",
+      "methods": [
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ticket:create",
+        "ticket:manage",
+        "ticket:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/traffic/summary",
+      "file": "src/app/api/traffic/summary/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "server:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/users/permissions",
+      "file": "src/app/api/users/permissions/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "user:manage",
+        "user:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/users",
+      "file": "src/app/api/users/route.ts",
+      "methods": [
+        "GET",
+        "PATCH",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "user:manage",
+        "user:read"
+      ]
+    }
+  ],
+  "permissions": [
+    "announcement:manage",
+    "api-token:manage",
+    "audit:read",
+    "ai:chat",
+    "ai:manage",
+    "ai:action:approve",
+    "backup:create",
+    "backup:read",
+    "backup:restore",
+    "command:approve",
+    "command:create",
+    "command:execute",
+    "command:read",
+    "deploy:manage",
+    "deploy:read",
+    "deploy:run",
+    "deploy:export",
+    "docker:manage",
+    "health:read",
+    "image:read",
+    "image:write",
+    "media:manage",
+    "notification:manage",
+    "role:manage",
+    "server:read",
+    "server:ssh",
+    "server:write",
+    "share:create",
+    "share:manage",
+    "share:read",
+    "snippet:manage",
+    "storage:delete",
+    "storage:manage-node",
+    "storage:read",
+    "storage:write",
+    "task:read",
+    "ticket:create",
+    "ticket:manage",
+    "ticket:read",
+    "user:manage",
+    "user:read"
+  ]
+}

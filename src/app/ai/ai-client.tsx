@@ -2,15 +2,17 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { Provider, ConvItem, Message, ModelCapabilities, FileAttachment, ToolCallEvent, ToolApprovalNeeded, ModelInfo } from "./ai-types";
+import type { Provider, ConvItem, Message, FileAttachment, ToolCallEvent, ToolApprovalNeeded, ModelInfo } from "./ai-types";
 import { DEFAULT_PROV_FORM, DEFAULT_SETTINGS_FORM } from "./ai-types";
-import { detectCapabilities, readFileAsText, readFileAsDataURL, categorizeFile, formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";
+import { formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";
 import { renderContent, copyToClipboard } from "./ai-markdown-renderer";
 import { AiSidebar } from "./ai-sidebar";
 import { AiChatHeader } from "./ai-chat-header";
 import { AiSettingsPanel } from "./ai-settings-panel";
 import { AiProviderPanel } from "./ai-provider-panel";
 import { AiConfirmDialog } from "./ai-confirm-dialog";
+import { useFileAttachments } from "./hooks/use-file-attachments";
+import { useModelCapabilities } from "./hooks/use-model-capabilities";
 import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -31,7 +33,6 @@ export function AiClient({
   const [input, setInput] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState("");
-  const [fileAttachments, setFileAttachments] = useState<FileAttachment[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
   const [streamReasoning, setStreamReasoning] = useState("");
@@ -40,19 +41,18 @@ export function AiClient({
   const [showSidebar, setShowSidebar] = useState(true);
   const [modelList, setModelList] = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
- const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
- const [modelSearch, setModelSearch] = useState("");
- const [pendingApprovals, setPendingApprovals] = useState<ToolApprovalNeeded[]>([]);
- const [fileRejectionMsg, setFileRejectionMsg] = useState<string | null>(null);
- const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
- const [confirmAction, setConfirmAction] = useState<
-   | { type: "delete-conversation"; id: string; title: string }
-   | { type: "delete-provider"; id: string; name: string }
-   | { type: "clear-messages" }
-   | null
- >(null);
- const [confirmError, setConfirmError] = useState<string | null>(null);
- const [confirmBusy, setConfirmBusy] = useState(false);
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+  const [modelSearch, setModelSearch] = useState("");
+  const [pendingApprovals, setPendingApprovals] = useState<ToolApprovalNeeded[]>([]);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    | { type: "delete-conversation"; id: string; title: string }
+    | { type: "delete-provider"; id: string; name: string }
+    | { type: "clear-messages" }
+    | null
+  >(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
  const [renameTitle, setRenameTitle] = useState("");
  const [renameBusy, setRenameBusy] = useState(false);
@@ -68,17 +68,28 @@ export function AiClient({
     : null;
 
   // Resolve current model capabilities (from API list first, fallback to client detection)
-  const currentModelCaps: ModelCapabilities = (() => {
-    const modelId = activeConv?.model;
-    if (!modelId) return { vision: false, document: false, video: false, audio: false };
-    // Prefer server-reported capabilities
-    const serverModel = modelList.find((m) => m.id === modelId);
-    if (serverModel?.capabilities) return serverModel.capabilities;
-    // Fallback to client-side detection
-    return detectCapabilities(modelId);
-  })();
+  const { caps: currentModelCaps, supportsVision: currentModelSupportsVision } = useModelCapabilities(
+    activeConv?.model,
+    modelList
+  );
 
-  const currentModelSupportsVision = !!(currentModelCaps.vision || (activeConv?.model && /gpt-4o|claude-3|gemini|qwen-vl/i.test(activeConv.model)));
+  // File attachments — capability-aware selection / paste / drop
+  const {
+    fileAttachments,
+    setFileAttachments,
+    fileRejectionMsg,
+    clearRejection,
+    handleFileSelect,
+    handlePaste,
+    handleDrop,
+    handleDragOver,
+    clearAttachments,
+  } = useFileAttachments({
+    currentModelCaps,
+    modelName: activeConv?.model,
+    enableVision: activeConv?.enableVision,
+    onReject: (msg) => addToast("error", msg),
+  });
 
   // Auto-scroll
   useEffect(() => {
@@ -133,165 +144,9 @@ export function AiClient({
 	}, []);
 
   /* ── File Handling (capability-aware) ─────────────────────── */
-  const showRejection = useCallback((msg: string) => {
-    setFileRejectionMsg(msg);
-    setTimeout(() => setFileRejectionMsg(null), 4000);
-  }, []);
+  // Logic moved to hooks/use-file-attachments.ts; exposed below.
 
-  const handleFileSelect = useCallback(async (files: FileList | File[]) => {
-    const fileArr = Array.from(files);
-    for (const file of fileArr) {
-      // Size limit: 20MB
-      if (file.size > 20 * 1024 * 1024) {
-        showRejection(`📄 ${file.name} 超过 20MB 限制`);
-        continue;
-      }
 
-      const category = categorizeFile(file);
-
-      // Check model capabilities vs file category
-      switch (category) {
-        case "image": {
-          if (!currentModelCaps.vision && !activeConv?.enableVision) {
-            showRejection(`🖼 当前模型 ${activeConv?.model} 不支持图片输入。请在设置中切换为多模态模型（如 GPT-4o、Claude 3.5 等）`);
-            continue;
-          }
-          const dataUrl = await readFileAsDataURL(file);
-          const base64Data = dataUrl.split(",")[1];
-          setFileAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              content: "",
-              type: "image",
-              mimeType: file.type || "image/png",
-              base64Data,
-              preview: dataUrl,
-            },
-          ]);
-          break;
-        }
-        case "video": {
-          if (!currentModelCaps.video) {
-            showRejection(`🎬 当前模型 ${activeConv?.model} 不支持视频输入。支持视频的模型：Gemini 1.5/2、Qwen2-VL、GPT-4o 等`);
-            continue;
-          }
-          // Video: read as base64 for models that support it
-          const dataUrl = await readFileAsDataURL(file);
-          const base64Data = dataUrl.split(",")[1];
-          setFileAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              content: "",
-              type: "image", // sent as image_url with video mime type
-              mimeType: file.type || "video/mp4",
-              base64Data,
-              preview: undefined, // no image preview for video
-            },
-          ]);
-          break;
-        }
-        case "audio": {
-          if (!currentModelCaps.audio) {
-            showRejection(`🎵 当前模型 ${activeConv?.model} 不支持音频输入。支持音频的模型：Gemini 2、GPT-4o-audio 等`);
-            continue;
-          }
-          const dataUrl = await readFileAsDataURL(file);
-          const base64Data = dataUrl.split(",")[1];
-          setFileAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              content: "",
-              type: "image", // sent as image_url with audio mime type
-              mimeType: file.type || "audio/mp3",
-              base64Data,
-              preview: undefined,
-            },
-          ]);
-          break;
-        }
-        case "document": {
-          if (!currentModelCaps.document) {
-            // Fallback: try to read as text for some doc types, or reject
-            if (file.name.toLowerCase().endsWith(".pdf")) {
-              showRejection(`📑 当前模型 ${activeConv?.model} 不支持 PDF 文件。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等`);
-              continue;
-            }
-            // .docx/.xlsx etc — not text-readable, reject
-            showRejection(`📑 当前模型 ${activeConv?.model} 不支持 Office 文档。支持文档的模型：Gemini 1.5/2、Claude 3.5 Sonnet、GPT-4o 等`);
-            continue;
-          }
-          // Document: send as base64
-          const dataUrl = await readFileAsDataURL(file);
-          const base64Data = dataUrl.split(",")[1];
-          setFileAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              content: "",
-              type: "image", // sent as image_url with doc mime type
-              mimeType: file.type || "application/pdf",
-              base64Data,
-              preview: undefined,
-            },
-          ]);
-          break;
-        }
-        case "text": {
-          // Text files are always OK (they get injected into the message text)
-          const text = await readFileAsText(file);
-          const truncated = text.length > 100000 ? text.slice(0, 100000) + "\n...(文件过长，已截断)" : text;
-          setFileAttachments((prev) => [
-            ...prev,
-            {
-              name: file.name,
-              content: truncated,
-              type: "text",
-              mimeType: file.type || "text/plain",
-            },
-          ]);
-          break;
-        }
-        default: {
-          showRejection(`❌ 不支持的文件类型: ${file.name}。当前模型可接受：${formatAllowedTypes(currentModelCaps)}`);
-        }
-      }
-	}
-	}, [currentModelCaps, activeConv?.enableVision, activeConv?.model, showRejection]);
-
-	// Paste handler — only images for now (browsers don't paste other types)
-  const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith("image/")) {
-        if (!currentModelCaps.vision && !activeConv?.enableVision) {
-          showRejection(`🖼 当前模型不支持图片输入，请在设置中切换为多模态模型`);
-          e.preventDefault();
-          return;
-        }
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) await handleFileSelect([file]);
-      }
-    }
-  }, [currentModelCaps, activeConv?.enableVision, showRejection, handleFileSelect]);
-
-  // Drag & drop handler
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.files.length > 0) {
-      await handleFileSelect(e.dataTransfer.files);
-    }
-  }, [handleFileSelect]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
 
   /* ── Stop Generation ─────────────────────────────────────────── */
   const handleStopGeneration = () => {
@@ -1103,7 +958,7 @@ return (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span>{fileRejectionMsg}</span>
-                  <button onClick={() => setFileRejectionMsg(null)} className="ml-auto text-red-400/60 hover:text-red-300 flex-shrink-0">×</button>
+                  <button onClick={clearRejection} className="ml-auto text-red-400/60 hover:text-red-300 flex-shrink-0">×</button>
                 </div>
               )}
               <div className="flex gap-2 items-end">

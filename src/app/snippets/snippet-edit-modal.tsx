@@ -65,8 +65,9 @@ export function SnippetEditModal({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">标题</label>
+            <label htmlFor="edit-snippet-title-input" className="block text-xs text-slate-400 light:text-slate-500">标题</label>
             <input
+              id="edit-snippet-title-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               data-input
@@ -74,8 +75,9 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">语言</label>
+            <label htmlFor="edit-snippet-language-input" className="block text-xs text-slate-400 light:text-slate-500">语言</label>
             <input
+              id="edit-snippet-language-input"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               data-input
@@ -83,8 +85,9 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
+            <label htmlFor="edit-snippet-description-input" className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
             <input
+              id="edit-snippet-description-input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="简要说明此片段的用途"
@@ -93,8 +96,9 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">标签（用逗号分隔）</label>
+            <label htmlFor="edit-snippet-tags-input" className="block text-xs text-slate-400 light:text-slate-500">标签（用逗号分隔）</label>
             <input
+              id="edit-snippet-tags-input"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="例如 备份, nginx"
@@ -103,8 +107,9 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">内容</label>
+            <label htmlFor="edit-snippet-content-input" className="block text-xs text-slate-400 light:text-slate-500">内容</label>
             <textarea
+              id="edit-snippet-content-input"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={10}

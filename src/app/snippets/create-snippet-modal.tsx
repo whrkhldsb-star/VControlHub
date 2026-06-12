@@ -70,8 +70,9 @@ export function CreateSnippetModal({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">标题</label>
+            <label htmlFor="create-snippet-title-input" className="block text-xs text-slate-400 light:text-slate-500">标题</label>
             <input
+              id="create-snippet-title-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
@@ -80,8 +81,9 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">语言</label>
+            <label htmlFor="create-snippet-language-input" className="block text-xs text-slate-400 light:text-slate-500">语言</label>
             <input
+              id="create-snippet-language-input"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               placeholder="例如 javascript、python（留空默认 text）"
@@ -90,8 +92,9 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
+            <label htmlFor="create-snippet-description-input" className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
             <input
+              id="create-snippet-description-input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="简要说明此片段的用途"
@@ -100,8 +103,9 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">标签（用逗号分隔）</label>
+            <label htmlFor="create-snippet-tags-input" className="block text-xs text-slate-400 light:text-slate-500">标签（用逗号分隔）</label>
             <input
+              id="create-snippet-tags-input"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="例如 备份, nginx"
@@ -110,8 +114,9 @@ export function CreateSnippetModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">内容</label>
+            <label htmlFor="create-snippet-content-input" className="block text-xs text-slate-400 light:text-slate-500">内容</label>
             <textarea
+              id="create-snippet-content-input"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={10}

@@ -104,8 +104,8 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
               <input value={name} onChange={(e) => setName(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1">有效期（小时，空=永久）</label>
-              <input type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
+              <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">有效期（小时，空=永久）</label>
+              <input id="share-expires-in" type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
           </div>
 

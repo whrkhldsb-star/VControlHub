@@ -369,7 +369,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **远端文件代理范围收紧** — `/api/servers/[id]/file-proxy` 启动临时 Python 代理前必须确认服务器绑定了 SFTP 存储节点，生成脚本时把 `SERVE_DIR` 限制到该节点 `basePath`，并在目标主机内做 realpath 边界校验；代理现在优先使用 `Authorization: Bearer` 或 `X-VControlHub-Proxy-Token` header 校验 token，只保留 query token 作为旧客户端兼容兜底，同时把 CORS 从 `*` 收紧到发起请求的 Hub origin 并补充 `Referrer-Policy: no-referrer` / `nosniff`。
 - [x] **统一 Durable Job 队列底座已落地。** 新增 DB-backed `jobs` 表与 `JobStatus`，提供 enqueue、lease claim、heartbeat、retry/fail、cancel、stale RUNNING recovery、progress/result/error 记录等通用服务；任务中心已把 durable job 纳入统一聚合，后续备份/恢复、SFTP 同步、QuickService 安装/更新、下载执行和告警评估可以逐步迁移到同一队列，而不是继续各自依赖请求内长任务或进程内 fire-and-forget。
 - [x] **命令执行可取消入口已产品化。** `/requests` 审批中心现在会在待审批/已批准/运行中的命令请求上展示“取消命令”操作；审批人可填写可选原因，经 CSRF 保护调用 `/api/commands` 取消接口，后端会终止当前进程内仍在运行的 SSH 子进程或把未完成目标标记为 `CANCELLED`，页面成功后刷新状态，失败时保留弹窗并用独立错误提示区展示原因。
-- [ ] **后台任务业务迁移与并发控制仍在进行（P1）。** Durable Job 底座目前已承接 SFTP 同步、备份创建、备份恢复、告警评估和 QuickService 生命周期；命令执行已具备后台 SSH 执行、心跳、陈旧 RUNNING 恢复、输出/超时 guardrail、并发目标执行和用户可见取消入口。后续仍需把命令/部署、下载 direct/relay、定时任务补实际 durable worker，补全局/按用户/按节点并发上限、可观测日志流和生产级 worker 部署策略。
+- [ ] **后台任务业务迁移与并发控制仍在进行（P1）。** Durable Job 底座目前已承接 SFTP 同步、备份创建、备份恢复、告警评估和 QuickService 生命周期；命令执行已具备后台 SSH 执行、心跳、陈旧 RUNNING 恢复、输出/超时 guardrail、并发目标执行和用户可见取消入口。后续仍需把命令/部署、下载 direct/relay、定时任务补实际 durable worker，补全局/按用户/按节点并发上限、可观测日志流和生产级 worker 部署策略。 <!-- TR-001 -->
 - [x] **备份/恢复已迁入 Durable Job。** 备份创建先持久化 `BackupRecord`，再由 `backup.create` worker 执行 `deploy/backup.sh`；恢复 API 会先校验备份存在和 `RESTORE` 确认，再排入 `backup.restore` worker 执行恢复，避免 30 分钟脚本继续占用 HTTP 请求。旧调用可通过 `?wait=1` 保留同步执行路径，后续继续补异地备份、自动恢复演练、保留策略自动清理和更细进度日志。
 - [x] **告警评估已迁入 Durable Job。** 告警 worker 不再直接在定时器内调用 `evaluateAlerts()`；每轮先去重排入/认领 `alert.evaluate` job，再通过共享 job service 记录 heartbeat、失败重试、完成结果和 workerId，任务中心可以看到告警评估的运行状态，进程重启或失败时也不会只留下不可见的定时器日志。
 - [x] **邮件告警通道已接入 SMTP** — SMTP 设置页新增告警收件人配置，保存时校验并规范化邮箱列表；告警测试发送现在会真实调用 SMTP 邮件通道并返回发送/拒收结果，真实告警评估也会在 `email` 渠道选中时 best-effort 发送邮件，不再是“可选但不可发送”的死路径。后续仍可继续补失败重试和发送历史。
@@ -384,7 +384,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **QuickService 排队任务可观测入口补齐。** `/quick-services` 的安装、启动/停止、状态刷新、更新和卸载在返回 `taskId` 后，成功提示会直接提供“查看任务中心”链接，操作员无需复制 job id 或猜测入口即可追踪 durable job 进度；提示区同时补 `status/alert` 语义，排队成功与错误反馈可被辅助技术区分。
 - [x] **QuickService 同服务并发生命周期任务已收敛。** `enqueueQuickServiceJob()` 现在会在入队前查找同一 `slug` 的 `PENDING/RUNNING` 生命周期任务，安装、启动/停止、状态刷新、更新和卸载如果遇到已有任务会直接返回现有 `jobId/taskId`，API 响应带 `reused` 与“已有进行中任务”提示，避免同一服务被连点或跨进程重复入队后同时拉镜像、重建或卸载。
 - [x] **QuickService 生命周期任务阶段日志已接入任务中心。** `quick_service.lifecycle` worker 现在会按安装、启动/停止、状态刷新、更新和卸载动作写入更具体的 heartbeat progress，并在完成结果中保留安全截断的 `logPreview`，任务中心“最近日志”可直接看到拉取镜像、重建容器、健康检查或同步结果摘要，不必先跳到审计或容器日志里定位。
-- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，安装/更新前已展示非敏感配置摘要与公开端口风险确认，生命周期写操作已排入 Durable Job worker 而不是占用 HTTP 请求，排队提示已提供任务中心入口，同一服务未完成生命周期任务会被复用而不是跨进程重复入队，且任务中心已能展示阶段进度与完成日志摘要；第三方模板仍属于供应链输入，后续主要补失败回滚、真实配置变更 diff/回滚记录和 Direct Gateway 传输边界加固。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。
+- [ ] **Docker / QuickService / Direct Gateway 仍有部署边界需要说明和加固（P1）。** Docker 本机 socket 边界已在 `/docker` 页面和 API 元数据中显式展示；安装脚本会把应用运行用户加入 `docker` 组，拥有 `docker:manage` 的 Web 用户可间接操作本机 Docker，安全边界接近宿主机 root。QuickService 对远端应用源已限制宿主机挂载路径并默认禁止 Docker socket，生命周期审计历史已覆盖安装/启动/停止/同步/更新/卸载，安装/更新前已展示非敏感配置摘要与公开端口风险确认，生命周期写操作已排入 Durable Job worker 而不是占用 HTTP 请求，排队提示已提供任务中心入口，同一服务未完成生命周期任务会被复用而不是跨进程重复入队，且任务中心已能展示阶段进度与完成日志摘要；第三方模板仍属于供应链输入，后续主要补失败回滚、真实配置变更 diff/回滚记录和 Direct Gateway 传输边界加固。存储健康公开摘要已经接入最近探测结果，但 Direct Gateway 默认生成 `http://host:31888` 明文直连链接并监听 `0.0.0.0`，签名能鉴权但不提供传输加密，后续仍需补反代 TLS/VPN/防火墙默认部署或更细的直连可达性探测。 <!-- TR-002 -->
 - [x] **公开状态存储健康摘要已接入最近探测结果。** `/status` 与 `/api/status` 不再只按“已配置存储节点数量”给出乐观健康结论，而是汇总最近存储节点健康探测的健康/异常/待探测数量；公开输出仍不暴露 SFTP/Direct Gateway 主机、端口、路径或凭据。`/files` 存储节点管理里的“立即检测”继续作为写入该公开摘要的专项探测入口。
 - [x] **Docker 日志弹窗已接入统一 Dialog Focus 管理。** 新增 `useDialogFocus` 客户端 hook，封装打开后初始聚焦、Escape 关闭、Tab/Shift+Tab 焦点循环和关闭后恢复触发按钮焦点；Docker 日志弹窗现在具备 `role="dialog"`、`aria-modal`、标题关联、命名关闭按钮和 light/dark 可读日志面板，删除确认弹窗也复用同一焦点管理底座。
 - [x] **文件浏览 SPA 已支持浏览器历史后退/前进。** 文件目录树和面包屑里的真实目录导航现在使用 `history.pushState` 写入 `/files?path=...&nodeId=...`，刷新、上传完成、新建文件夹和搜索等原地更新仍使用 `replaceState` 避免污染历史栈；浏览器 `popstate` 会从当前 URL 恢复 path/search/scope/nodeId 并重新拉取 `/api/files/list`，后退/前进可以逐级回到上一个目录。
@@ -407,18 +407,18 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **全局改密弹窗语义与密码可见性补齐。** 侧边栏“修改密码”弹窗现在是带 `role="dialog"`、`aria-modal`、标题/描述关联和命名关闭按钮的真实对话框；三个密码输入复用可显示/隐藏模式、`aria-pressed` 状态和字段说明，成功/失败反馈分别用 `role="status"` / `role="alert"`，不再弱于账户页独立改密表单。
 - [x] **图床兼容页搜索框可见标签补齐。** `/image-bed` 的图片搜索不再只靠“搜索文件名 / 路径 / 相册”placeholder 传达含义；搜索输入现在是具备可见“图片搜索”标签的 `searchbox`，回归测试按 role/name 定位，兼容低视力、翻译和键盘用户。
 - [x] **文件存储节点筛选已补可见标签。** `/files` 的存储节点筛选不再只靠“搜索节点名称、类型或 ID”placeholder 说明用途；节点搜索框现在有可见“搜索存储节点”标签并保持 `searchbox` 语义，节点下拉也改为显式 label 关联，回归测试按可访问名称筛选并切换节点。
-- [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索、全局改密弹窗、Docker 日志、Docker 删除确认和 SSH 终端已具备明确 dialog 语义或统一 focus 管理；文件浏览 SPA 已支持目录导航 pushState 与 popstate 恢复；SSH 终端已完成移动端纵向布局和响应式命令面板；文本预览搜索/跳转、文件浏览搜索/存储节点筛选、代码片段搜索、公告搜索/发布、媒体库/图床搜索、备份创建/恢复表单、快捷服务搜索、命令模板创建/下发字段、2FA 验证码输入、下载创建链接输入和添加 VPS 连接方式已补可见 label、显式标签关联或语义分组，后续继续巡检其它 placeholder-only/低可见度控件。
+- [ ] **前端可访问性、移动端和浏览器导航仍需系统化收口（P2）。** 全局搜索、全局改密弹窗、Docker 日志、Docker 删除确认和 SSH 终端已具备明确 dialog 语义或统一 focus 管理；文件浏览 SPA 已支持目录导航 pushState 与 popstate 恢复；SSH 终端已完成移动端纵向布局和响应式命令面板；文本预览搜索/跳转、文件浏览搜索/存储节点筛选、代码片段搜索、公告搜索/发布、媒体库/图床搜索、备份创建/恢复表单、快捷服务搜索、命令模板创建/下发字段、2FA 验证码输入、下载创建链接输入和添加 VPS 连接方式已补可见 label、显式标签关联或语义分组，后续继续巡检其它 placeholder-only/低可见度控件。 <!-- TR-003 -->
 - [x] **AI Provider 与应用源 URL 出网边界收紧。** AI Provider 的 `baseUrl` 和 QuickService 自定义应用源 URL 现在复用统一公网 HTTP(S) URL 校验，拒绝携带凭据、localhost、回环、内网、链路本地和常见 metadata 主机地址，并在创建/更新 Provider、创建应用源和服务端 fetch 应用源前二次拦截；默认 OpenAI Base URL 仍保持 `https://api.openai.com/v1`。后续仍建议用生产 egress policy / 代理 allowlist / DNS 解析与重定向复检继续防御 DNS rebinding 和重定向到私网。
 - [x] **登录态 LOCAL/SFTP 下载流层已统一。** `/api/storage/local` 和 `/api/storage/sftp-download` 现在复用统一 Storage Stream helper 处理 Range 解析、`Accept-Ranges`、`Content-Range`、`Content-Length`、`Content-Disposition`、私有缓存头和 Node→Web stream 转换；SFTP 普通下载新增 `Range` / `206` / `416` 行为，远端流关闭或出错时会释放 SSH 连接，文件预览/大文件拖动不再因为登录态普通下载路径缺少 Range 语义而退化。
 - [x] **公开目录分享已支持整体打包下载。** 公开分享页的目录卡片现在提供“下载整个目录”，调用 `/api/share/[token]?archive=1` 直接流式返回 `tar.gz`；公开 token 下载与登录态 `/api/storage/archive-download` 复用同一 Storage Archive helper 生成 LOCAL/SFTP tar.gz、中文文件名 `Content-Disposition` 和 SSH 流关闭逻辑，避免公开目录只能逐个文件下载。
 - [x] **媒体库 stream 已迁入统一 Range/下载头 helper。** `/api/media/[id]/stream` 不再维护局部 `parseRange` / header 复制实现，LOCAL 和 SFTP 媒体流都复用 `parseStorageRange` 与 `storageStreamResponse`，统一 `Range` / `206` / `416`、`Accept-Ranges`、`Content-Range`、`Content-Length`、私有缓存头和 inline/attachment `Content-Disposition` 行为；测试覆盖本地媒体 Range、416 和下载头。
 - [x] **文件列表预览入口已提前披露 Office/压缩包边界。** `/files` 的预览按钮不再统一只叫“预览”：Office 文件显示“打开 Office 下载提示”并在 title 说明不会公网在线渲染，压缩包显示“查看压缩包内容”并区分 LOCAL 可受控在线解压、SFTP 仅安全列表/下载；测试覆盖列表 action 的可访问名称和说明。
-- [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** 公开目录分享已支持整体 tar.gz 下载，登录态 LOCAL/SFTP 受控下载和媒体库 stream 已统一 Range/206/416 流层；Office 与压缩包边界已在列表入口提前披露，后续主要剩 README/API 文档补边界说明，或把压缩包受控解压扩展到更细的格式/权限/配额策略。
+- [ ] **文件预览/分享仍有部分入口未完全闭环（P1/P2）。** 公开目录分享已支持整体 tar.gz 下载，登录态 LOCAL/SFTP 受控下载和媒体库 stream 已统一 Range/206/416 流层；Office 与压缩包边界已在列表入口提前披露，后续主要剩 README/API 文档补边界说明，或把压缩包受控解压扩展到更细的格式/权限/配额策略。 <!-- TR-004 -->
 - [x] **备份创建表单已接入 Durable Job。** `/backups` 页面里的“创建并执行备份”表单不再通过 server action 直接调用 `deploy/backup.sh` 并占用请求；提交后会先创建 `PENDING` 备份记录，再排入 `backup.create` Durable Job，后台 `backup-job-worker` 负责执行、心跳和状态更新，页面文案也改为展示队列语义。生产 canary 已验证认证 POST 返回 `202 + jobId/taskId`，DB 中同时存在 `backup.create` Job 与 `PENDING` BackupRecord，随后清理 canary 记录。
 - [x] **备份 Durable Job 英文文案已同步。** `/backups` 的 DOM i18n fallback 不再把创建备份翻译成“立即运行 deploy/backup.sh”；英文模式会显示“Create and queue backup”以及 Durable Job 后台队列/PENDING-RUNNING-COMPLETED-FAILED 刷新语义，避免中文页面已改队列但英文用户仍看到旧同步执行说明。
 - [x] **存储节点元数据授权边界已收紧。** `/api/storage/nodes` 不再让只有 `storage:read` 的普通用户看到所有节点 `basePath` 和服务器绑定信息；拥有 `storage:manage-node` 的管理员/存储管理员仍可看全量节点，普通读者只返回其 `UserStorageAccess.canRead` grant 覆盖的节点，避免未授权目录结构和节点存在性泄露。
 - [x] **文件回收站索引一致性已加固。** 普通删除现在先把 `FileEntry` 标记为回收站，再 best-effort 删除 LOCAL/SFTP 物理对象；如果物理删除失败，DB 不会继续显示为 active，页面会提示“索引仍可恢复或稍后重试永久删除”，并写入 `storage.file_delete_backing_failed` 审计。恢复入口改为调用服务层 `restoreFileEntry`，会先确认 LOCAL/SFTP 原始物理路径仍存在且类型匹配，避免只恢复 DB 标记。
-- [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 删除/恢复主路径已避免“物理删了但 DB 仍 active”和“只恢复 DB 不确认物理对象”的高风险不一致；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。
+- [ ] **文件状态一致性、远端索引刷新和存储列表性能仍需治理（P2）。** 删除/恢复主路径已避免“物理删了但 DB 仍 active”和“只恢复 DB 不确认物理对象”的高风险不一致；远端 SFTP 物理文件在 Hub 外被删除时，既有 `FileEntry` 仍可能保持 active，媒体流会安全返回 `No such file` 但需要后续专项刷新/校验任务把这类 stale inventory 标记清理；存储概览和文件列表仍有未分页 `findMany` 与内存聚合，大文件索引实例会有性能风险。 <!-- TR-005 -->
 - [x] **文件列表 model 消肿已启动。** `/files` 大客户端已把目录/文件排序、目录条目过滤、可批量选择文件判定和选择摘要计算抽到 `file-list-model` 纯逻辑模块，并新增 model 单测覆盖排序、过滤、权限 fallback 和选择作用域，后续文件管理 UI 调整可先改可单测模型而不是继续堆进 1600+ 行客户端。
 - [x] **2026-06-09 全面审查基线完成。** 本轮只读审查确认生产登录、`/servers`、`/files`、`/quick-services`、`/backups`、`/operation-tasks`、`/settings` 等代表性页面未出现 SSR 崩溃、应用错误或横向溢出；服务均为 active，`/api/status` 为 storage 待探测导致的 warning；`npm run typecheck` 与 `npm run lint -- --quiet` 均通过。审查同时确认 README 主任务仍大体适配当前项目，但存在任务中心告警评估 job 刷屏、备份历史 PENDING/FAILED 可解释性、README 汇总项与细分项重复度偏高等需要继续治理的真实问题。
 - [x] **任务中心高频周期任务折叠已上线。** `/api/operation-tasks` 现在会为 durable job 暴露 `taskType`，并把已完成的 `alert.evaluate` 周期任务按类型折叠为最新一条代表记录，前端显示“已折叠 N 次周期完成记录”和来源类型；运行中/失败的告警评估不会被隐藏，命令、备份、下载、部署等其它任务不再被 completed 告警评估刷屏完全淹没。
@@ -429,22 +429,30 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **任务中心最近日志摘要已补齐。** `/api/operation-tasks` 现在为任务返回安全截断的 `logPreview`，会从 durable job 进度/错误、命令执行摘要与最近目标 stdout/stderr、下载/同步/备份路径等来源提取最多 3 行上下文；`/operation-tasks` 列表在任务下方展示“最近日志”，排查失败/运行中任务时不必先跳转来源页才能看到关键错误片段。
 - [x] **任务中心高频 cron 历史保留策略已上线。** `alert.evaluate` durable job 在每次成功评估后会 best-effort 裁剪已完成历史，只保留最新 25 条且不会删除 7 天内记录；运行中、待处理、失败与取消记录不受影响，裁剪失败只写 warning，不阻断告警评估主流程，避免 1 分钟周期任务长期堆积继续拖低任务中心排查效率。
 - [x] **任务中心当前结果导出已补齐。** `/operation-tasks` 现在为当前状态、durable job 类型和排序筛选结果提供“导出当前结果 CSV”入口；`/api/operation-tasks?format=csv` 复用同一 `task:read` 权限和筛选参数，输出安全转义的任务 ID、来源、类型、状态、标题、时间、进度和最近日志，便于把排查视图交给外部审计或离线分析。
-- [ ] **任务中心可观测性仍需继续治理（P2）。** 任务中心已完成同类高频 completed 告警评估折叠、状态筛选、durable job 类型筛选、按来源聚合计数、失败原因聚合、需处理排序偏好、最近日志摘要、当前结果 CSV 导出和 `alert.evaluate` 完成历史保留策略；后续主要补跨来源统一归档/长期保留策略，避免命令、下载、备份、部署等长期历史在大型实例中继续增长。
+- [ ] **任务中心可观测性仍需继续治理（P2）。** 任务中心已完成同类高频 completed 告警评估折叠、状态筛选、durable job 类型筛选、按来源聚合计数、失败原因聚合、需处理排序偏好、最近日志摘要、当前结果 CSV 导出和 `alert.evaluate` 完成历史保留策略；后续主要补跨来源统一归档/长期保留策略，避免命令、下载、备份、部署等长期历史在大型实例中继续增长。 <!-- TR-006 -->
 - [x] **备份遗留状态作废入口已补齐。** `/backups` 会为历史 `PENDING/FAILED` 备份记录展示“标记作废”维护动作，调用 `/api/backups/[id]/void` 写入明确作废原因并保持 `FAILED` 审计状态；已完成备份和运行中备份不能被作废，避免把历史只读路径失败或长期排队记录误判为当前备份运行故障。
 - [x] **备份失败记录重试入口已补齐。** `/backups` 会为 `FAILED` 备份记录展示“重试备份”维护动作，调用 `/api/backups/[id]/retry` 把同一审计记录重置为 `PENDING` 并重新排入 `backup.create` Durable Job；完成/运行中/已排队记录不会重复排队，成功后页面提示可到任务中心追踪 `job:*` 进度。
 - [x] **备份重试反馈可访问性补齐。** `/backups` 的失败记录“重试备份”排队成功提示现在使用 `role="status"`，错误继续使用 `role="alert"`，并保留“任务中心”链接，辅助技术能区分成功排队和失败原因。
 - [x] **备份失败原因聚合已补齐。** `/backups` 现在会按最近 200 条备份记录中的 `FAILED` 错误文本聚合路径越界、权限/只读路径、超时、缺失文件、存储写入与脚本执行失败等类别，并展示每类最新记录路径与错误片段，排查历史失败时不必逐条展开记录。
 - [x] **备份失败修复建议已补齐。** `/backups` 的失败原因卡片现在会为每类失败展示下一步处理建议；其中历史仓库内只读路径失败会提示迁移到 `BACKUP_DIR` 或 `/var/backups/<slug>` 可写系统备份根，并建议作废旧记录或重试到新根，避免把旧路径问题误当成当前备份服务不可用。
-- [ ] **备份记录运维解释仍需继续治理（P2）。** 历史 PENDING/FAILED 记录已有显式作废入口，FAILED 记录已有 durable job 重试入口且成功/失败反馈具备 status/alert 语义，失败原因归类与修复建议已进入 `/backups`；后续仍需补异地备份/自动恢复演练与保留策略自动清理，形成完整备份运维闭环。
-- [ ] **README 任务层级与追踪方式需要轻量治理（P2）。** 当前 README 的“使用边界”汇总项与 P2/P3 细分项存在多处重复表达，适合继续保留为产品路线图，但后续应给长期待办加稳定编号、合并重复描述、把“已完成主体 + 剩余增强”拆成更清晰的残余任务，并在测试名/QA evidence/代码位置中引用编号，降低后台循环重复审查和误关任务的概率。
-- [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。
-- [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端仍需继续拆分 UI 子组件/批量操作 hook，存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界仍较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进 Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。
+- [ ] **备份记录运维解释仍需继续治理（P2）。** 历史 PENDING/FAILED 记录已有显式作废入口，FAILED 记录已有 durable job 重试入口且成功/失败反馈具备 status/alert 语义，失败原因归类与修复建议已进入 `/backups`；后续仍需补异地备份/自动恢复演练与保留策略自动清理，形成完整备份运维闭环。 <!-- TR-007 -->
+- [ ] **README 任务层级与追踪方式需要轻量治理（P2）。** 当前 README 的“使用边界”汇总项与 P2/P3 细分项存在多处重复表达，适合继续保留为产品路线图，但后续应给长期待办加稳定编号、合并重复描述、把“已完成主体 + 剩余增强”拆成更清晰的残余任务，并在测试名/QA evidence/代码位置中引用编号，降低后台循环重复审查和误关任务的概率。 <!-- TR-008 -->
+- [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。 <!-- TR-009 -->
+- [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端仍需继续拆分 UI 子组件/批量操作 hook，存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界仍较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进 Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。 <!-- TR-010 -->
 - [x] **前端 UI 统一化收口** — `globals.css` 新增 S1-S12 语义化块（`data-card` / `data-variant=primary|secondary|ghost` / `data-empty-state` / `data-skeleton`），接管卡片圆角/边框/内边距、按钮三级语义、空状态排版和骨架屏动画；1500+ 处 `rounded-xl border border-white/... bg-white/...` 硬编码容器升级为 `data-card`，50+ 个核心页面（仪表盘/服务器管理/下载/任务/工单/审计/共享/AI 对话/Docker/监控/设置/部署/备份/状态页等）受益；冗余 `light:text-{slate|cyan}-9XX` 纯文字类（已被 `:root .text-white` 与 `html.light` 规则完全接管到 `--text-primary`）批量清理 615+50=665 处。`/downloads` `/servers` 业务收尾同步完成。后续可继续把状态色按钮/状态卡抽到 `--accent-tinted` / `--danger-tinted` 等 token 体系进一步统一。又一轮：经浏览器双主题实测确认 `light:` 变体（`@custom-variant light (&:where(.light,.light *))`，特异性为 0）始终被 Q 兼容层 `html.light .text-{color}-*`（特异性更高）完全遮蔽，故 `light:text-{cyan|emerald|rose|amber}-{1XX..9XX}` 彩色文字双写为 100% 死代码；批量清理 229 处、跨 70 文件，删除后 light 模式 computed color 逐项零变化（cyan→`--accent`、emerald→`--success`、rose→`--danger`、amber→`--warning`，cyan-1XX/2XX→`--text-primary/secondary`）。`light:hover:text-*` 等交互态双写本轮保留待评估。再一轮（页面标题统一）：发现各页 header 逐页手写导致 eyebrow 存在性（20 页有/19 页无）、蓝色（cyan-300/cyan-400/cyan-300/70 三种）、字号（text-2xl/3xl + font-bold/semibold）、间距（mb-6/mb-8）四类不一致，且 eyebrow 硬编码英文在英文 locale 下与英文 H1 重复。统一方案：强化既有 `PageHeader`（page-shell.tsx）——eyebrow 改 `text-[var(--accent)]` + `data-page-eyebrow` 标记、H1 统一 `text-3xl font-semibold text-[var(--text-primary)]`、容器统一；新增 CSS `html[data-locale="en"] [data-page-eyebrow]{display:none}` 让装饰性英文 eyebrow 在英文模式自动隐藏（因 H1 已是英文）。迁移 announcements/operation-tasks/shares/tickets/tickets[id]/deployments/backups/health/quick-services/api-tokens 到 `PageHeader`；docker/traffic/preferences/monitoring 的 `text-2xl font-bold` 裸标题补 eyebrow 并统一；api-docs/image-bed/media 渐变 banner 标题原地统一 eyebrow 样式值。顺带修复 api-tokens 的 `text-rose-100/70/70` 双斜杠 bug。19 文件 +58/−94。再多轮：
 - **空态/加载态/工具栏统一** — `<EmptyState>` 扩展接受 `children` (JSX) + `text` (string) 双签名（children 优先），新增 `variant: "simple" | "boxed"` 两种排版（simple = 居中文字，boxed = 圆角 dashed card + emoji 图标）。跨 16 页面迁移 22+ 处手写空态 + 6 处手写加载态（quick-services 4 处、image-bed、media、scheduled-tasks、api-tokens、shares picker、operation-tasks、templates、alert-rules、notifications、storage nodes、audit 2×2、users 2×2、downloads、ai-sidebar、dashboard-analytics、user-permission），含 9 个 emoji 图标。后续任何空态调整只动 1 处。15 文件 +76/−54。
 - **骨架屏 token 化** — `globals.css` S12 shimmer 渐变中点从 `var(--surface-elevated)` 改为 `color-mix(var(--text-muted) 22%, var(--surface))`，深浅模式都有可见 shimmer（之前浅色模式接近不可见）；`skeleton.tsx` 内 `bg-white/[0.04..0.06]` / `border-white/[0.06]` 全部替换为 Q 层已接管的 `bg-slate-700/{10,20}` / `border-slate-700/20`。所有 20 个 `loading.tsx` 通过中央 `PageSkeleton` 自动受益。2 文件 +17/−12。
 - **`<ToggleChip>` 原语** — 封装 `rounded-full px-3 py-1.5` 切换按钮 + 双色（accent/warn）+ `aria-pressed`/`aria-label` a11y，image-bed 的"仅自己/全部用户"和"批量模式"两个内联切换迁移到此。3 文件 +58/−3。
 - **`FileListClient` 拆分** — 1687 → 1644 行：抽出 `useViewMode` hook（46 行，6 测例覆盖默认/持久化/SSR 边界/稳定引用/remount）+ `useFileListSort` hook + `<SortIcon>` 组件（62 行，9 测例覆盖初始态/列切换/方向翻转/稳定引用/a11y 标签）到 `use-view-mode.ts` / `use-file-list-sort.tsx`；新增 127 行纯单元测试。6 文件 +322/−78（5 新文件）。
 - 累计本阶段 ~+473/−147 行。
+
+### 📋 任务追踪治理 + 路由真源 + AI 拆分 (TR-008/TR-017/TR-018/TR-021/TR-027/TR-028)
+- **README TR 追踪编号** — 33 个 `[ ]` 待办末尾加 `<!-- TR-001~TR-033 -->` 标记 + README 末尾追加"任务追踪编号表"（优先级+主题）。后续测试名/QA evidence/代码注释可直接 `grep "TR-0XX" README.md` 引用。
+- **路由真源清单** — `docs/route-catalog.json` (29.5KB) 收录 22 main + 4 system + 4 mobile 入口，39 page，79 API route，41 PERMISSIONS。配套 `scripts/build-route-catalog.ts`（跟随 re-export）+ `scripts/verify-route-catalog.ts`（5 类检查：sidebar→page、permission→rbac、API method、permission→used、unused perm），`npm run route:catalog` / `npm run route:verify` 已加 package.json。当前 0 错 0 警。
+- **AI 客户端拆分** — `ai-client.tsx` 1231 → 1086 行（−145 行内联）。抽 `useFileAttachments`（240 行 + 10 测例：size/capability/分类/截断/拒绝 toast/clear）+ `useModelCapabilities`（33 行 + 5 测例：server 优先/客户端 fallback/supportsVision 推导）。22 → **44 AI 测试，全过**。
+- **API 回归测试基线（TR-018）** — 补 2 个 route 相邻测试：`/api/auth/2fa/enable` & `/disable`（9 测例：未登录 401/参数校验 400/未启用 400/TOTP 错 400/成功 200），`/api/status`（2 测例：成功 200/异常透传）。QuickService slug 已有覆盖未重复造轮。
+- **a11y 关联补齐（TR-021）** — 3 个 modal/form 共 11 个输入补 `htmlFor`/`id` 显式关联：snippets 新建/编辑（5+5 字段：标题/语言/描述/标签/内容），shares 创建表单（有效期）。
+- 累计本轮 ~14 文件 +1550/−220 行（含 7 个新文件 / 6 测例文件）。
 
 ---
 
@@ -461,40 +469,82 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] 告警增强：静默期、Webhook 测试发送和 email/SMTP 真实发送已完成；后续继续补 Telegram 等通知渠道配置、失败重试和告警历史趋势。
 
 ### P2 — 用户体验和可运营性
-- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件，并已纳入统一 durable job worker；排队提示已能直达任务中心，同一服务未完成生命周期任务会被复用以避免跨进程重复入队，任务中心已能展示阶段进度与完成日志摘要，继续补失败回滚、真实配置变更 diff/回滚记录和 Direct Gateway 传输边界加固。
-- [ ] 在线文件编辑器：本机文本编辑/保存/权限边界、差异预览和保存确认已完成，继续补并发修改检测、保存后可选重载服务和 SFTP 编辑。
+- [ ] 快捷服务生命周期：安装、启动/停止、状态刷新、更新和卸载（含可选数据目录清理）已闭环，生命周期审计历史已覆盖 started/succeeded/failed 事件，并已纳入统一 durable job worker；排队提示已能直达任务中心，同一服务未完成生命周期任务会被复用以避免跨进程重复入队，任务中心已能展示阶段进度与完成日志摘要，继续补失败回滚、真实配置变更 diff/回滚记录和 Direct Gateway 传输边界加固。 <!-- TR-011 -->
+- [ ] 在线文件编辑器：本机文本编辑/保存/权限边界、差异预览和保存确认已完成，继续补并发修改检测、保存后可选重载服务和 SFTP 编辑。 <!-- TR-012 -->
 - [x] 媒体库 / 图床融合：图片模式已合并批量上传、目标存储目录、已有存储图片发布外链和图片搜索；媒体库已补一等图片/视频/音频切换，主导航不再暴露独立图床模块，外链管理作为图片工作区辅助入口。
 - [x] 文件管理资料流：`/files` 已补“资料详情”面板，把预览/编辑、下载、分享、媒体库搜索和管理动作集中到真实文件入口；后续继续把文件详情与媒体详情做更深的双向状态同步。
 - [x] 媒体库可用性增强：媒体扫描会按真实文件扩展名补齐 `application/octet-stream` 的媒体 MIME，并在重新扫描时清理已删除/非文件条目的失效索引；扫描按钮会反馈更新/清理数量，媒体播放页已补同类型上一项/下一项导航、下载和回源入口。后续继续补更完整的标签批量管理体验。
-- [ ] VPS 运维控制台增强：`/servers` 详情页已把 SSH、SFTP 存储绑定、Direct Gateway、待审批命令串成“诊断下一步”，并新增“运行实时探测”按钮，复用现有监控接口做 SSH 只读采样并展示成功/失败结果；存储节点健康摘要已进入公开状态页，后续继续补 Direct Gateway 一键修复建议和 Quick Apps 运行态联动。
+- [ ] VPS 运维控制台增强：`/servers` 详情页已把 SSH、SFTP 存储绑定、Direct Gateway、待审批命令串成“诊断下一步”，并新增“运行实时探测”按钮，复用现有监控接口做 SSH 只读采样并展示成功/失败结果；存储节点健康摘要已进入公开状态页，后续继续补 Direct Gateway 一键修复建议和 Quick Apps 运行态联动。 <!-- TR-013 -->
 - [x] **设置页运行参数反馈已产品化。** `/settings` 运行参数区现在为每个可调参数展示当前运行值、来源（数据库设置/环境变量/系统默认值/无效 DB 回退）、生效位置、环境变量名、范围和是否需要重启；管理员能在保存前判断改动是否已实际进入运行进程，避免只看到输入框却不知道当前值从哪里来。
 - [x] **设置页高风险设置最近修改信息已补齐。** `/settings` 页面会按平台信息、会话与安全、运行参数、SMTP 邮件通知四个高风险设置区展示最近修改时间和修改人；数据来自既有 `settings.update` 审计日志并回退到设置行更新时间，避免管理员只能看到当前值而无法判断最近是谁改动。
-- [ ] **设置页高风险设置回滚/风险确认仍需补齐（P2）。** 运行参数当前值、配置来源、生效位置、重启边界，以及各高风险设置区最近修改人/时间已展示；后续继续补回滚入口、改动前后 diff 和危险设置风险确认。
-- [ ] 备份策略管理：UI 化定时备份入口已完成，继续补后台任务化执行、异地备份、恢复验证、保留策略自动清理。
-- [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。
-- [ ] 可维护性热点拆分：优先把 `src/app/files/file-list-client.tsx`、`src/app/storage/actions.ts`、AI/QuickService 大客户端拆成领域 hook、薄 actions、纯展示组件和可单测 helper，减少单文件变更半径。
-- [ ] API 回归测试基线：为有状态 `src/app/api/**/route.ts` 建立相邻 route 测试覆盖，至少包含权限拒绝、参数校验和一个成功路径，优先补 AI providers/chat、status/audit、QuickService slug、2FA 等缺口。
-- [ ] 领域模块边界治理：按 files/storage/quick-service/command/ai/backup 固化 domain service、adapter、route DTO 与 client DTO 边界，避免页面层直接依赖内部 DB 形状或复制业务判断。
-- [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。
+- [ ] **设置页高风险设置回滚/风险确认仍需补齐（P2）。** 运行参数当前值、配置来源、生效位置、重启边界，以及各高风险设置区最近修改人/时间已展示；后续继续补回滚入口、改动前后 diff 和危险设置风险确认。 <!-- TR-014 -->
+- [ ] 备份策略管理：UI 化定时备份入口已完成，继续补后台任务化执行、异地备份、恢复验证、保留策略自动清理。 <!-- TR-015 -->
+- [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。 <!-- TR-016 -->
+- [ ] 可维护性热点拆分：优先把 `src/app/files/file-list-client.tsx`、`src/app/storage/actions.ts`、AI/QuickService 大客户端拆成领域 hook、薄 actions、纯展示组件和可单测 helper，减少单文件变更半径。 <!-- TR-017 -->
+- [ ] API 回归测试基线：为有状态 `src/app/api/**/route.ts` 建立相邻 route 测试覆盖，至少包含权限拒绝、参数校验和一个成功路径，优先补 AI providers/chat、status/audit、QuickService slug、2FA 等缺口。 <!-- TR-018 -->
+- [ ] 领域模块边界治理：按 files/storage/quick-service/command/ai/backup 固化 domain service、adapter、route DTO 与 client DTO 边界，避免页面层直接依赖内部 DB 形状或复制业务判断。 <!-- TR-019 -->
+- [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。 <!-- TR-020 -->
 - [x] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；存储公开摘要已汇总最近 SFTP/LOCAL 健康探测结果。
-- [ ] 可访问性收口：全局搜索、Docker 日志、Docker 删除确认、SSH 终端、文件/媒体/公告/代码片段搜索、文本预览搜索/跳转、备份创建/恢复表单、快捷服务搜索和命令模板表单已补关键 focus/label；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。
-- [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。
+- [ ] 可访问性收口：全局搜索、Docker 日志、Docker 删除确认、SSH 终端、文件/媒体/公告/代码片段搜索、文本预览搜索/跳转、备份创建/恢复表单、快捷服务搜索和命令模板表单已补关键 focus/label；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。 <!-- TR-021 -->
+- [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
 
 ### P3 — 长期愿景
-- [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。
-- [ ] 命令/部署执行 durable worker：现有命令请求已支持后台执行、心跳、陈旧恢复、超时/输出限制、并发目标执行和审批中心取消入口；下一步把命令/部署最终执行迁入 DB-backed job worker，并补跨进程取消、按节点并发上限和可观测日志流。
-- [ ] RBAC 角色视角巡检：为管理员、运维、只读用户提供可复用的页面按钮/API 权限一致性巡检，减少“按钮可见但点击 403”或“API 可调但页面没入口”的漂移。
-- [ ] 统一操作反馈模型：沉淀共享 `ActionResult`、toast/alert、任务中心链接和错误展示约定，避免每个页面重复实现排队成功、部分失败、可重试和权限失败反馈。
-- [ ] README/测试追踪标签：给长期待办建立稳定编号并在测试名、QA evidence 或相关代码注释中引用，方便确认某个 README 缺口是否已有自动化守护。
-- [ ] 路由与导航真源：维护 sidebar → route → permission → API 的机器可读清单，供全局搜索、权限巡检、README QA 和浏览器 smoke 共用，减少旧路径或隐藏入口漂移。
-- [ ] 站内 QA 报告产品化：把 canary/cron QA 结果、失败模块、修复建议、部署版本和最近 smoke evidence 展示到产品内，方便从 Web 端追踪质量状态。
-- [ ] 多租户/团队空间：资源隔离、配额管理、权限继承。
-- [ ] 成本追踪：VPS 费用、带宽/存储用量、月度报告。
-- [ ] 智能运维 AI：主动诊断建议、异常预测、自动修复建议。
-- [ ] PWA 离线支持和集成市场。
+- [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。 <!-- TR-023 -->
+- [ ] 命令/部署执行 durable worker：现有命令请求已支持后台执行、心跳、陈旧恢复、超时/输出限制、并发目标执行和审批中心取消入口；下一步把命令/部署最终执行迁入 DB-backed job worker，并补跨进程取消、按节点并发上限和可观测日志流。 <!-- TR-024 -->
+- [ ] RBAC 角色视角巡检：为管理员、运维、只读用户提供可复用的页面按钮/API 权限一致性巡检，减少“按钮可见但点击 403”或“API 可调但页面没入口”的漂移。 <!-- TR-025 -->
+- [ ] 统一操作反馈模型：沉淀共享 `ActionResult`、toast/alert、任务中心链接和错误展示约定，避免每个页面重复实现排队成功、部分失败、可重试和权限失败反馈。 <!-- TR-026 -->
+- [ ] README/测试追踪标签：给长期待办建立稳定编号并在测试名、QA evidence 或相关代码注释中引用，方便确认某个 README 缺口是否已有自动化守护。 <!-- TR-027 -->
+- [ ] 路由与导航真源：维护 sidebar → route → permission → API 的机器可读清单，供全局搜索、权限巡检、README QA 和浏览器 smoke 共用，减少旧路径或隐藏入口漂移。 <!-- TR-028 -->
+- [ ] 站内 QA 报告产品化：把 canary/cron QA 结果、失败模块、修复建议、部署版本和最近 smoke evidence 展示到产品内，方便从 Web 端追踪质量状态。 <!-- TR-029 -->
+- [ ] 多租户/团队空间：资源隔离、配额管理、权限继承。 <!-- TR-030 -->
+- [ ] 成本追踪：VPS 费用、带宽/存储用量、月度报告。 <!-- TR-031 -->
+- [ ] 智能运维 AI：主动诊断建议、异常预测、自动修复建议。 <!-- TR-032 -->
+- [ ] PWA 离线支持和集成市场。 <!-- TR-033 -->
 
 ---
 
 ## 📄 许可
 
 私有项目 — 未经授权不得使用、复制或分发。
+---
+
+## 📋 任务追踪编号表（TR-001 ~ TR-033）
+
+所有未完成项均有稳定追踪编号 `TR-XXX`，可通过 `grep "TR-0XX" README.md` 定位。代码注释/测试名/QA 报告引用 TR 编号可与本表一一对应。
+
+| 编号 | 优先级 | 主题 |
+|---|---|---|
+| TR-001 | P1 | 后台任务业务迁移与并发控制（命令/部署/下载/定时任务） |
+| TR-002 | P1 | Docker / QuickService / Direct Gateway 部署边界加固（失败回滚/Direct Gateway TLS） |
+| TR-003 | P2 | 前端可访问性/移动端/浏览器导航系统化收口 |
+| TR-004 | P1/P2 | 文件预览/分享 Office+压缩包边界加固与文档化 |
+| TR-005 | P2 | 文件状态一致性、远端索引刷新、存储列表分页与内存聚合 |
+| TR-006 | P2 | 任务中心跨来源统一归档/长期保留策略 |
+| TR-007 | P2 | 备份记录运维解释 - 异地备份/自动恢复演练/保留策略自动清理 |
+| TR-008 | P2 | README 任务层级与追踪方式（轻量治理） |
+| TR-009 | P2 | 既有增强项队列（备份/编辑/媒体/告警 Telegram） |
+| TR-010 | P1/P2 | 可维护性与可更改性专项治理（合并到本表统一追踪） |
+| TR-011 | P2 | 快捷服务生命周期 - 失败回滚/真实 diff/记录/Direct Gateway 边界 |
+| TR-012 | P2 | 在线文件编辑器 - 并发修改检测/保存后重载服务/SFTP 编辑 |
+| TR-013 | P2 | VPS 运维控制台 - Direct Gateway 一键修复建议/Quick Apps 联动 |
+| TR-014 | P2 | 设置页高风险设置回滚/风险确认/diff |
+| TR-015 | P2 | 备份策略管理 - 任务化执行/异地/恢复验证/保留清理 |
+| TR-016 | P3 | 操作回滚（关键文件/配置/部署 undo） |
+| TR-017 | P2 | 可维护性热点拆分（file-list/storage actions/AI/QuickService 拆领域 hook + 纯展示） |
+| TR-018 | P2 | API 回归测试基线（AI providers/chat、status/audit、QuickService slug、2FA） |
+| TR-019 | P2 | 领域模块边界治理（files/storage/quick-service/command/ai/backup DTO 边界） |
+| TR-020 | P3 | 仪表盘自定义（拖拽/指标/时间范围） |
+| TR-021 | P2 | 可访问性收口（继续巡检 placeholder-only/低可见度控件） |
+| TR-022 | P2 | 移动端适配（高频入口/复杂面板响应式） |
+| TR-023 | P3 | 自动化工作流（Playbook：条件触发/告警联动/步骤编排） |
+| TR-024 | P3 | 命令/部署执行 durable worker（DB-backed job + 跨进程取消 + 并发上限） |
+| TR-025 | P3 | RBAC 角色视角巡检（按钮可见/API 可调一致性） |
+| TR-026 | P3 | 统一操作反馈模型（ActionResult + toast/alert + 任务中心链接） |
+| TR-027 | P3 | README/测试追踪标签（本轮已完成 TR 表落地） |
+| TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） |
+| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence 展示） |
+| TR-030 | P3 | 多租户/团队空间（资源隔离/配额/权限继承） |
+| TR-031 | P3 | 成本追踪（VPS 费用/带宽/存储用量/月度报告） |
+| TR-032 | P3 | 智能运维 AI（主动诊断/异常预测/自动修复建议） |
+| TR-033 | P3 | PWA 离线支持和集成市场 |
+
