@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
 import { prisma } from "@/lib/db";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { DeploymentLaunchForm } from "./deployment-launch-form";
 import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
@@ -33,11 +33,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const latestRun = runs[0];
 	return (
 		<PageShell>
-			<header className="mb-8">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Deploy</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">应用部署</h1>
-				<p className="mt-1.5 text-sm text-slate-500">选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。</p>
-			</header>
+			<PageHeader eyebrow="Deploy" title="应用部署" description="选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。" />
 
 			{/* How it works */}
 			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">

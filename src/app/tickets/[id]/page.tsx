@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { canViewTicket, getTicketById } from "@/lib/ticket/service";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { TicketDetailClient, type Ticket } from "./ticket-detail-client";
 import { notFound } from "next/navigation";
 
@@ -28,10 +28,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   return (
     <PageShell maxW="max-w-4xl">
-      <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Ticket Detail</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">工单详情</h1>
-      </header>
+      <PageHeader eyebrow="Ticket Detail" title="工单详情" className="mb-6" />
       <TicketDetailClient initial={serialized} canManage={canManage} />
     </PageShell>
   );

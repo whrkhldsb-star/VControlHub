@@ -641,6 +641,13 @@ html.light a.bg-cyan-400\/10.text-cyan-100:hover {
 	color: white;
 }
 
+/* 2b. 页面标题 eyebrow（装饰性英文副标）：
+   中文模式显示，英文模式自动隐藏 —— 因为英文模式下 H1 已是英文，
+   再显示英文 eyebrow 会重复。统一由 PageHeader 的 data-page-eyebrow 承载。 */
+html[data-locale="en"] [data-page-eyebrow] {
+	display: none;
+}
+
 /* 2c. 语义输入框：统一 input/select/textarea 的边框/背景/文字 */
 :root [data-input] {
 	border-color: var(--input-border);

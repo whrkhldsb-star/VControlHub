@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, buildScheduledBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
 import { listServerProfiles } from "@/lib/server/service";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
@@ -29,11 +29,7 @@ export default async function BackupsPage() {
 	};
 	return (
 		<PageShell>
-			<header className="mb-8">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Portable</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">备份与迁移</h1>
-				<p className="mt-1.5 text-sm text-slate-500">记录数据库/文件/完整备份，配合 deploy/backup.sh 与 restore-db.sh 支持迁移到其他系统。恢复命令只展示，不会绕过审批直接执行。</p>
-			</header>
+			<PageHeader eyebrow="Portable" title="备份与迁移" description="记录数据库/文件/完整备份，配合 deploy/backup.sh 与 restore-db.sh 支持迁移到其他系统。恢复命令只展示，不会绕过审批直接执行。" />
 
 			<section className="mb-6 grid gap-3 md:grid-cols-4">
 				<div data-card className="p-4">

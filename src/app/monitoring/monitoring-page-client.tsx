@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
@@ -124,8 +124,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
 
   return (
     <PageShell>
-      <h1 className="mb-1 text-2xl font-bold">服务器监控</h1>
-      <p className="mb-6 text-slate-400">实时系统资源监控</p>
+      <PageHeader eyebrow="Monitoring" title="服务器监控" description="实时系统资源监控" className="mb-6" />
 
       {errorMessage ? (
         <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">

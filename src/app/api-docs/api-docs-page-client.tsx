@@ -99,9 +99,9 @@ export default function ApiDocsPage() {
 			<div className="mx-auto max-w-7xl space-y-6">
 				<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p className="text-xs font-medium uppercase tracking-[0.18em] text-cyan-300">OpenAPI</p>
-						<h1 className="mt-2 text-2xl font-semibold text-white">API 文档</h1>
-						<p className="mt-2 max-w-2xl text-sm text-slate-400">
+						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">OpenAPI</p>
+						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">API 文档</h1>
+						<p className="mt-1.5 max-w-2xl text-sm text-[var(--text-muted)]">
 							{spec?.info?.description ?? "VControlHub RESTful API 参考文档。"}
 						</p>
 					</div>

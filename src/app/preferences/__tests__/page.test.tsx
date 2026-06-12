@@ -6,6 +6,14 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/components/page-shell", () => ({
 	PageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+	PageHeader: ({ eyebrow, title, description, children }: { eyebrow?: React.ReactNode; title?: React.ReactNode; description?: React.ReactNode; children?: React.ReactNode }) => (
+		<div>
+			{eyebrow ? <p>{eyebrow}</p> : null}
+			<h1>{title}</h1>
+			{description ? <p>{description}</p> : null}
+			{children}
+		</div>
+	),
 }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({

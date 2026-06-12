@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import {
@@ -174,7 +174,7 @@ export default function PreferencesPage() {
 
 	return (
 		<PageShell>
-			<h1 className="text-2xl font-bold mb-1">个性化设置</h1>
+			<PageHeader eyebrow="Preferences" title="个性化设置" />
 			<p className="text-[var(--text-secondary)] mb-6">自定义你的工作环境</p>
 			{saved && (
 				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>

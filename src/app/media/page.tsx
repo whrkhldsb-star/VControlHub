@@ -56,8 +56,8 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       <header className="mb-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-cyan-950/20 light:border-slate-200 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/60">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Media Workspace</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">媒体库</h1>
+            <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Media Workspace</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">媒体库</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。</p>
           </div>
           <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center light:border-slate-200 light:bg-white/70">

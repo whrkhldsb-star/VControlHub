@@ -312,8 +312,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			<div className="mb-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.18),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.9))] p-6 shadow-2xl shadow-emerald-950/20 light:border-slate-200 light:bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.14),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/70">
 				<div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300/70">Link Center</p>
-						<h1 className="mt-2 text-3xl font-semibold text-white">图片外链中心</h1>
+						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Link Center</p>
+						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">图片外链中心</h1>
 						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">这里专注管理已发布图片外链：复制 URL / Markdown / HTML、查看来源、批量归档或删除。新增图片优先从媒体库图片工作区进入。</p>
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">

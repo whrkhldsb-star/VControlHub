@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
@@ -115,7 +115,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 		<PageShell>
 			<div className="mb-6 flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h1 className="text-2xl font-bold mb-1">流量中心</h1>
+					<PageHeader eyebrow="Traffic" title="流量中心" />
 					<p className="text-sm text-[var(--text-secondary)]">查看当前服务器网卡流量，并关联存储服务器/远程节点流量来源。</p>
 				</div>
 				<div className="flex items-center gap-2">

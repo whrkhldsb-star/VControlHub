@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listTickets } from "@/lib/ticket/service";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
 import Link from "next/link";
 
@@ -35,11 +35,7 @@ export default async function Page() {
 	const tickets = await listTickets(canManage ? undefined : session.userId);
 	return (
 		<PageShell maxW="max-w-4xl">
-			<header className="mb-6">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Support</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">工单与请求</h1>
-				<p className="mt-1.5 text-sm text-slate-500">提交资源申请、问题反馈和运维请求，支持状态流转与评论。</p>
-			</header>
+			<PageHeader eyebrow="Support" title="工单与请求" description="提交资源申请、问题反馈和运维请求，支持状态流转与评论。" className="mb-6" />
 
 			{canCreate && <div className="mb-6"><CreateTicketForm /></div>}
 

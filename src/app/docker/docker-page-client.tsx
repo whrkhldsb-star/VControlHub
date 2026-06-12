@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageShell } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
@@ -220,8 +220,7 @@ export default function DockerPage() {
 
 	return (
 		<PageShell>
-			<h1 className="text-2xl font-bold mb-1">Docker 容器</h1>
-			<p className="text-[var(--text-secondary)] mb-4">管理 VControlHub 所在主机的 Docker 容器</p>
+			<PageHeader eyebrow="Containers" title="Docker 容器" description="管理 VControlHub 所在主机的 Docker 容器" />
 			<section
 				aria-labelledby="docker-scope-title"
 				className="mb-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50"

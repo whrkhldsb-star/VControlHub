@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
 import { collectSystemHealthChecks } from "@/lib/system-health/service";
+import { PageHeader } from "@/components/page-shell";
 import { HealthDashboardClient } from "./health-dashboard-client";
 
 export default async function HealthPage() {
@@ -23,16 +24,11 @@ export default async function HealthPage() {
 
 	return (
 		<main className="p-6">
-			<header className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-				<div>
-					<p className="text-sm uppercase tracking-[0.3em] text-cyan-400">Health Center</p>
-					<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">节点健康</h1>
-					<p className="mt-2 text-sm text-[var(--text-secondary)]">实时采集 SSH 指标、保存历史趋势，并与告警规则联动。</p>
-				</div>
+			<PageHeader eyebrow="Health Center" title="节点健康" description="实时采集 SSH 指标、保存历史趋势，并与告警规则联动。" className="mb-6">
 				<div className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)]">
 					纳管节点 {servers.length} 台
 				</div>
-			</header>
+			</PageHeader>
 			<HealthDashboardClient serverCount={servers.length} initialSystemHealth={systemHealth} />
 		</main>
 	);

@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
-import { PageShell, EmptyState } from "@/components/page-shell";
+import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
@@ -18,11 +18,7 @@ export default async function SharesPage() {
 
 	return (
 		<PageShell>
-			<header className="mb-8">
-				<p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300/70">Sharing</p>
-				<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">文件分享链接</h1>
-				<p className="mt-1.5 text-sm text-slate-500">管理从文件管理中真实文件生成的可撤销、可过期分享链接；数据库仅保存 token 哈希。</p>
-			</header>
+			<PageHeader eyebrow="Sharing" title="文件分享链接" description="管理从文件管理中真实文件生成的可撤销、可过期分享链接；数据库仅保存 token 哈希。" />
 
 			{canCreate ? (
 				<div className="mb-6 space-y-4">
