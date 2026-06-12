@@ -25,6 +25,8 @@ import {
 	type FileListSortKey,
 	type FolderProp,
 } from "./file-list-model";
+import { SortIcon, useFileListSort } from "./use-file-list-sort";
+import { useViewMode, type ViewMode } from "./use-view-mode";
 import {
   buildArchiveDownloadHref,
   buildForcedDownloadHref,
@@ -56,9 +58,7 @@ type FileListClientProps = {
   onRefresh?: () => void;
 };
 
-/* ── view mode type ───────────────────────────────────────────────── */
-
-type ViewMode = "list" | "grid" | "details";
+/* ── view mode type imported from use-view-mode ─────────────────────── */
 type BatchProgress = { done: number; total: number; errors: string[] };
 type FileToast = {
   id: number;
@@ -111,40 +111,9 @@ export function FileListClient({
 
   /* ── view mode with localStorage persistence ────────────────────── */
 
-  const VIEW_MODE_KEY = "app-file-view-mode";
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    try {
-      const saved = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
-      if (saved && ["list", "grid", "details"].includes(saved)) return saved;
-    } catch {
-      /* ignore */
-    }
-    return "list";
-  });
+  const [viewMode, handleViewModeChange] = useViewMode();
 
-  const handleViewModeChange = useCallback((mode: ViewMode) => {
-    setViewMode(mode);
-    try {
-      localStorage.setItem(VIEW_MODE_KEY, mode);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  // Sort state
-  const [sortKey, setSortKey] = useState<FileListSortKey>("name");
-  const [sortDir, setSortDir] = useState<FileListSortDir>("asc");
-
-  const toggleSort = useCallback((key: FileListSortKey) => {
-    setSortKey((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-        return key;
-      }
-      setSortDir("asc");
-      return key;
-    });
-  }, []);
+	const { sortKey, sortDir, toggleSort } = useFileListSort();
 
   const capabilityFallbacks = useMemo(
     () => ({ canEditLocalFiles, canDelete }),
@@ -186,19 +155,7 @@ export function FileListClient({
     [visibleFiles, sortKey, sortDir],
   );
 
-  function SortIcon({ col, label }: { col: FileListSortKey; label: string }) {
-    const active = sortKey === col;
-    return (
-      <button
-        type="button"
-        onClick={() => toggleSort(col)}
-        aria-label={`按${label}排序`}
-        className="inline-flex items-center gap-1 hover:text-white light:hover:text-slate-900 transition"
-      >
-        {active ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
-      </button>
-    );
-  }
+  // SortIcon now lives in use-file-list-sort.tsx and is used directly below.
 
   // Selection state (list view only)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -938,16 +895,16 @@ export function FileListClient({
               </div>
               <div />
               <div>
-                名称 <SortIcon col="name" label="名称" />
+                名称 <SortIcon col="name" label="名称" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>
-                大小 <SortIcon col="size" label="大小" />
+                大小 <SortIcon col="size" label="大小" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>
-                来源 <SortIcon col="source" label="来源" />
+                来源 <SortIcon col="source" label="来源" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>
-                修改时间 <SortIcon col="updated" label="修改时间" />
+                修改时间 <SortIcon col="updated" label="修改时间" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>操作</div>
             </div>
