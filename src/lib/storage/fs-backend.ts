@@ -186,3 +186,63 @@ export async function renameBackingObject(input: {
     await renameRemoteFile({ ...credentials, oldPath, newPath });
   }
 }
+
+/**
+ * Cross-directory move for a backing object on the storage node. The
+ * adapter dispatches to the LOCAL or SFTP backend; unsupported drivers
+ * are a no-op. Compared to `renameBackingObject` this also creates the
+ * destination's parent directory (mkdir -p / recursive createRemoteDirectory)
+ * so callers can move files into a freshly-named folder in one call.
+ */
+export async function moveBackingObject(input: {
+  storageNode: StorageNodeWithCredentials;
+  oldRelativePath: string;
+  newRelativePath: string;
+}) {
+  if (input.storageNode.driver === "LOCAL") {
+    const oldPath = await resolveManagedLocalEntryPath({
+      basePath: input.storageNode.basePath,
+      relativePath: input.oldRelativePath,
+    });
+    const newPath = await resolveManagedLocalEntryPath({
+      basePath: input.storageNode.basePath,
+      relativePath: input.newRelativePath,
+    });
+    await mkdir(newPath.path.dirname(newPath.absolutePath), {
+      recursive: true,
+    });
+    await rename(oldPath.absolutePath, newPath.absolutePath);
+    return;
+  }
+
+  if (input.storageNode.driver === "SFTP") {
+    const oldPath = normalizeRemoteTargetPath(
+      input.storageNode.basePath,
+      input.oldRelativePath,
+    );
+    const newPath = normalizeRemoteTargetPath(
+      input.storageNode.basePath,
+      input.newRelativePath,
+    );
+    const path = await import("node:path");
+    const targetParentDirectory = path.posix.dirname(newPath);
+    if (
+      targetParentDirectory &&
+      targetParentDirectory !== "." &&
+      targetParentDirectory !== "/"
+    ) {
+      const credentials = resolveStorageSshCredentials(input.storageNode);
+      await createRemoteDirectory({
+        ...credentials,
+        remotePath: targetParentDirectory,
+        recursive: true,
+      });
+    }
+    const renameCredentials = resolveStorageSshCredentials(input.storageNode);
+    await renameRemoteFile({
+      ...renameCredentials,
+      oldPath,
+      newPath,
+    });
+  }
+}

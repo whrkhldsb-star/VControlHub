@@ -5,14 +5,12 @@ import { revalidatePath } from "next/cache";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { moveBackingObject } from "@/lib/storage/fs-backend";
 import {
-  expandStorageBasePath,
   joinStoragePath,
   normalizeStorageRelativePath,
   normalizeStorageTargetDirectory,
 } from "@/lib/storage/path-utils";
-import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 export type MoveFileActionState = { error?: string; success?: string };
 
@@ -120,84 +118,19 @@ export async function moveFileAction(
       } satisfies MoveFileActionState;
     }
 
-    // LOCAL 节点：在磁盘上实际移动文件，成功后再更新 DB，避免 DB/磁盘路径不一致
-    if (entry.storageNode.driver === "LOCAL") {
-      const { rename, mkdir } = await import("node:fs/promises");
-      const path = await import("node:path");
-      const allowedRoot = path.resolve(expandStorageBasePath(entry.storageNode.basePath));
-
-      const oldAbsolutePath = path.resolve(
-        allowedRoot,
-        normalizedCurrentPath.path,
-      );
-      const newAbsolutePath = path.resolve(
-        allowedRoot,
+    // LOCAL/SFTP 节点：在磁盘/远端实际移动文件，成功后再更新 DB，避免 DB/磁盘路径不一致
+    try {
+      await moveBackingObject({
+        storageNode: entry.storageNode,
+        oldRelativePath: normalizedCurrentPath.path,
         newRelativePath,
-      );
-
-      const oldRelativeToRoot = path.relative(allowedRoot, oldAbsolutePath);
-      const newRelativeToRoot = path.relative(allowedRoot, newAbsolutePath);
-
-      if (
-        oldRelativeToRoot.startsWith("..") ||
-        path.isAbsolute(oldRelativeToRoot) ||
-        newRelativeToRoot.startsWith("..") ||
-        path.isAbsolute(newRelativeToRoot)
-      ) {
-        return { error: "路径超出存储根目录" } satisfies MoveFileActionState;
-      }
-
-      try {
-        const targetAbsDir = path.dirname(newAbsolutePath);
-        await mkdir(targetAbsDir, { recursive: true });
-        await rename(oldAbsolutePath, newAbsolutePath);
-      } catch (error) {
-        return {
-          error: `本地文件移动失败：${error instanceof Error ? error.message : "未知错误"}`,
-        } satisfies MoveFileActionState;
-      }
-    }
-
-    if (entry.storageNode.driver === "SFTP") {
-      const { createRemoteDirectory, renameRemoteFile } = await import("@/lib/ssh/client");
-      const path = await import("node:path");
-      let oldPath: string;
-      let newPath: string;
-      try {
-        oldPath = normalizeRemoteTargetPath(
-          entry.storageNode.basePath,
-          normalizedCurrentPath.path,
-        );
-        newPath = normalizeRemoteTargetPath(
-          entry.storageNode.basePath,
-          newRelativePath,
-        );
-      } catch (error) {
-        return {
-          error: error instanceof Error ? error.message : "路径超出存储根目录",
-        } satisfies MoveFileActionState;
-      }
-
-      try {
-        const credentials = resolveStorageSshCredentials(entry.storageNode);
-        const targetParentDirectory = path.posix.dirname(newPath);
-        if (
-          targetParentDirectory &&
-          targetParentDirectory !== "." &&
-          targetParentDirectory !== "/"
-        ) {
-          await createRemoteDirectory({
-            ...credentials,
-            remotePath: targetParentDirectory,
-            recursive: true,
-          });
-        }
-        await renameRemoteFile({ ...credentials, oldPath, newPath });
-      } catch (error) {
-        return {
-          error: `远端文件移动失败：${error instanceof Error ? error.message : "未知错误"}`,
-        } satisfies MoveFileActionState;
-      }
+      });
+    } catch (error) {
+      const driverLabel =
+        entry.storageNode.driver === "LOCAL" ? "本地" : "远端";
+      return {
+        error: `${driverLabel}文件移动失败：${error instanceof Error ? error.message : "未知错误"}`,
+      } satisfies MoveFileActionState;
     }
 
     // 如果是目录，还需要更新所有子条目的路径
