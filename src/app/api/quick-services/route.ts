@@ -10,8 +10,8 @@ import {
 	listQuickServices,
 	checkPort,
 	getUsedPorts,
-	getDockerEnvironmentStatus,
 } from "@/lib/quick-service/service";
+import { getDockerEnvironmentStatus } from "@/lib/quick-service/docker-cli";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";

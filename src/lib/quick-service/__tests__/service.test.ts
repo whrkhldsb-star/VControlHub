@@ -32,7 +32,8 @@ vi.mock("child_process", () => ({
 	execFile: execFileMock,
 }));
 
-import { checkPort, getDockerEnvironmentStatus, installService, listQuickServiceHistory, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
+import { checkPort, installService, listQuickServiceHistory, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
+import { getDockerEnvironmentStatus } from "../docker-cli";
 import type { ServiceTemplate } from "../types";
 
 const template: ServiceTemplate = {

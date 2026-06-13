@@ -6,6 +6,13 @@ import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit/service";
 import { createNotification } from "@/lib/notification/service";
 import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
+import {
+	dockerErrorMessage,
+	dockerExecSync,
+	getContainerHealth,
+	getContainerLogTail,
+	getDockerEnvironmentStatus,
+} from "./docker-cli";
 import type { ServiceTemplate } from "./types";
 
 const runFile = promisify(execFile);
@@ -170,21 +177,6 @@ function resolveEnvValue(value: string) {
 	return value === "127.0.0.1" || value === "localhost" ? "host.docker.internal" : value;
 }
 
-function dockerExecSync(args: string[], timeout = 30_000) {
-	return execFileSync("docker", args, { timeout, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-}
-
-function dockerErrorMessage(error: unknown): string {
-	if (error && typeof error === "object") {
-		const maybe = error as { stderr?: unknown; stdout?: unknown; message?: unknown };
-		const stderr = typeof maybe.stderr === "string" ? maybe.stderr.trim() : "";
-		const stdout = typeof maybe.stdout === "string" ? maybe.stdout.trim() : "";
-		const message = typeof maybe.message === "string" ? maybe.message.trim() : "";
-		return stderr || stdout || message || String(error);
-	}
-	return String(error);
-}
-
 async function writeQuickServiceAudit(input: {
 	userId?: string | null;
 	action: "install" | "start" | "stop" | "sync" | "update" | "uninstall";
@@ -204,42 +196,6 @@ async function writeQuickServiceAudit(input: {
 			},
 		});
 	} catch {
-	}
-}
-
-function getContainerHealth(containerName: string): string | null {
-	try {
-		const health = dockerExecSync(["inspect", "--format={{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}", containerName], 10_000).trim();
-		return health || null;
-	} catch {
-		return null;
-	}
-}
-
-function getContainerLogTail(containerName: string): string | null {
-	try {
-		const logs = dockerExecSync(["logs", "--tail", "20", containerName], 10_000).trim();
-		return logs ? logs.slice(-2000) : null;
-	} catch {
-		return null;
-	}
-}
-
-export function getDockerEnvironmentStatus() {
-	try {
-		const version = execFileSync("docker", ["--version"], { timeout: 5_000, encoding: "utf8" }).trim();
-		execFileSync("docker", ["info"], { timeout: 10_000, stdio: "pipe" });
-		return { available: true, running: true, version, message: null as string | null, installHint: null as string | null };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : String(error);
-		const notInstalled = /ENOENT|not found|no such file/i.test(message);
-		return {
-			available: false,
-			running: false,
-			version: null as string | null,
-			message: notInstalled ? "Docker 未安装" : "Docker 未运行或当前用户无权限访问 Docker daemon",
-			installHint: "快捷服务依赖 Docker。请先执行 curl -fsSL https://get.docker.com | sh，并确认 systemctl enable --now docker。",
-		};
 	}
 }
 

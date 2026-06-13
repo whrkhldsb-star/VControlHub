@@ -34,7 +34,13 @@ vi.mock("@/lib/quick-service/service", () => ({
   uninstallService: mocks.uninstallService,
   syncServiceStatus: mocks.syncServiceStatus,
   updateService: mocks.updateService,
+}));
+vi.mock("@/lib/quick-service/docker-cli", () => ({
   getDockerEnvironmentStatus: mocks.getDockerEnvironmentStatus,
+  dockerExecSync: vi.fn(),
+  dockerErrorMessage: vi.fn(),
+  getContainerHealth: vi.fn(),
+  getContainerLogTail: vi.fn(),
 }));
 vi.mock("@/lib/quick-service/job-worker", () => ({
   enqueueQuickServiceJob: mocks.enqueueQuickServiceJob,
