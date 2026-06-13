@@ -461,6 +461,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 - **R6 验证**：41 files / +127 / −78（40 业务 + globals.css +2 行 + deploy.sh +35 行）；230 files / 1115 tests passed；verify exit 0；smoke 25/25；image-bed + snippets modal 浏览器 light 模式视觉无回归。 <!-- TR-010 -->
 - 累计本阶段 ~+912/−633 行（净 −81 行 = 纯代码瘦身）。
 
+### 📱 移动端适配推进 (TR-022, R7-R8)
+- **R7 `image-bed` 移动端适配** — 批量操作栏在 mobile (≤640px) 改为 `sticky bottom-16 z-30 -mx-4` 浮动 + 桌面端 `md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:backdrop-blur-0` 复位（避免被底部导航遮住又回到桌面端矩形）；4 个批量按钮 + 搜索输入全部加 `min-h-11` 触摸目标（iOS HIG 44px 标准）；搜索框 `w-full sm:w-72` mobile 全宽 + 桌面端定宽；加 `role="region"` `aria-label="批量操作栏"` `data-testid="image-bed-batch-bar"` 三个 a11y 标记。3 个新移动端回归测试断言 grid 响应式（`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`）+ 搜索框 w-full + 触摸目标类名存在。2 files +170/−25。 <!-- TR-022 -->
+- **R8 `health-dashboard` 移动端适配** — 自检头 `flex items-center justify-between` → `flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`（mobile 堆叠避免 375px 视口横向溢出）；状态/刷新行同上模式；修复建议栅格加 `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`（1/2/3 列响应）；`SummaryCard` 数值 `text-2xl` → `text-2xl sm:text-3xl`（mobile 紧凑 + 桌面端加大）；刷新按钮 `min-h-11` 触摸目标；自动刷新开关 toggle 加 `min-h-11 min-w-11` + 圆点 pill 重新居中定位。3 个新移动端回归测试断言栅格 + 触摸 + SummaryCard 响应字号。2 files +107/−12。 <!-- TR-022 -->
+- **R7+R8 验证**：230 files / 1121 tests passed（1115 → 1121, +6 新测）；verify exit 0；smoke 25/25；浏览器 light 模式 vision 复验 + DOM 探针（image-bed batch bar + health-dashboard header 堆叠 + SummaryCard 字号响应全部命中）；git push 两次（`d780b5e` image-bed + `840a428` health-dashboard）。 <!-- TR-022 -->
+- **R2 误诊澄清（重要）**：R8 (health-dashboard) agent 跑完一轮报告说 `.min-h-11` Tailwind 没生成 CSS（错查 `.next/static/css/` 老路径）。人工 clean rebuild 后实测 `.next/static/chunks/*.css` 中 `.min-h-11` 有 22 处、`.h-11` 22 处、`.min-w-11` 6 处、`.w-11` 6 处 CSS 规则生成 — **Tailwind 4 默认 spacing scale 包含 11**（= 2.75rem = 44px iOS 触摸标准）。R7+R8 的触摸目标 44px 真实生效，不需要任何代码回退。后续 cron R3+ 验证触摸目标时**用 `getBoundingClientRect().height >= 44`**（assertion 真实尺寸），不要只断言 className.includes。 <!-- TR-022 -->
+- 累计本阶段 ~+277/−37 行（4 业务文件 + 2 测试文件）。 <!-- TR-022 -->
+
 ### 📋 任务追踪治理 + 路由真源 + AI 拆分 (TR-008/TR-017/TR-018/TR-021/TR-027/TR-028)
 - **README TR 追踪编号** — 33 个 `[ ]` 待办末尾加 `<!-- TR-001~TR-033 -->` 标记 + README 末尾追加"任务追踪编号表"（优先级+主题）。后续测试名/QA evidence/代码注释可直接 `grep "TR-0XX" README.md` 引用。
 - **路由真源清单** — `docs/route-catalog.json` (29.5KB) 收录 22 main + 4 system + 4 mobile 入口，39 page，79 API route，41 PERMISSIONS。配套 `scripts/build-route-catalog.ts`（跟随 re-export）+ `scripts/verify-route-catalog.ts`（5 类检查：sidebar→page、permission→rbac、API method、permission→used、unused perm），`npm run route:catalog` / `npm run route:verify` 已加 package.json。当前 0 错 0 警。
@@ -501,7 +508,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。 <!-- TR-020 -->
 - [x] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；存储公开摘要已汇总最近 SFTP/LOCAL 健康探测结果。
 - [x] 可访问性收口：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联（snippets 新建/编辑、shares 创建）；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。 <!-- TR-021 -->
-- [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
+- [ ] 移动端适配：底部导航已覆盖核心入口；已交付 2 轮（`/image-bed` 批量栏 sticky bottom + 触摸目标 min-h-11 + 搜索框 w-full；`/health` 仪表盘 header 堆叠 + 栅格 1/2/3 + SummaryCard 响应字号）。继续补：更多高频入口/溢出菜单、SSH 终端、Docker 日志、文件浏览等复杂面板的手机友好纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
 
 ### P3 — 长期愿景
 - [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。 <!-- TR-023 -->
