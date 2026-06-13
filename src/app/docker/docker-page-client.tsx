@@ -246,7 +246,7 @@ export default function DockerPage() {
 						setLoading(true);
 						void fetchContainers();
 					}}
-					className="px-3 py-1.5 text-xs font-medium bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition"
+					className="min-h-11 px-3 py-1.5 text-xs font-medium bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition"
 				>
 					刷新列表
 				</button>
@@ -254,14 +254,14 @@ export default function DockerPage() {
 					onClick={() => {
 						for (const container of runningContainers) void fetchStats(container.Id);
 					}}
-					className="px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-300 rounded-lg hover:bg-purple-500/20 transition"
+					className="min-h-11 px-3 py-1.5 text-xs font-medium bg-purple-500/10 text-purple-300 rounded-lg hover:bg-purple-500/20 transition"
 				>
 					刷新统计
 				</button>
 				<button
 					onClick={() => setStatsAutoRefresh((v) => !v)}
 					disabled={refreshIntervalSeconds <= 0 || runningContainers.length === 0}
-					className={`px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/50 text-slate-400"}`}
+					className={`min-h-11 px-3 py-1.5 text-xs font-medium rounded-lg transition disabled:cursor-not-allowed disabled:opacity-50 ${statsAutoRefresh ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-700/50 text-slate-400"}`}
 				>
 					{statsAutoRefresh ? `● 统计自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})` : refreshIntervalSeconds <= 0 ? "统计自动刷新已关闭" : `统计自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})`}
 				</button>
@@ -312,22 +312,22 @@ export default function DockerPage() {
 											)}
 											<div className="flex flex-wrap items-center gap-2">
 												{c.State !== "running" && (
-													<button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>
+													<button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>
 												)}
 												{c.State === "running" && (
 													<>
-														<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
-														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
+														<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
+														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 													</>
 												)}
-												<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
-												<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
+												<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
+												<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 											</div>
-										</div>
-									);
-								})}
-							</div>
-						</section>
+											</div>
+											);
+											})}
+											</div>
+											</section>
 					))}
 
 					{ungrouped.length > 0 && (
@@ -349,15 +349,15 @@ export default function DockerPage() {
 											<span>{c.Status}</span>
 										</div>
 										<div className="flex flex-wrap items-center gap-2">
-											{c.State !== "running" && <button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>}
+											{c.State !== "running" && <button onClick={() => handleAction(c, "start")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition disabled:opacity-50">启动</button>}
 											{c.State === "running" && (
 												<>
-													<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
-													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
+													<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">停止</button>
+													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">重启</button>
 												</>
 											)}
-											<button onClick={() => fetchLogs(c.Id)} className="px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
-											<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
+											<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">日志</button>
+											<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-rose-500/10 text-rose-400 rounded-lg hover:bg-rose-500/20 transition disabled:opacity-50">删除</button>
 										</div>
 									</div>
 								))}
@@ -368,25 +368,25 @@ export default function DockerPage() {
 			)}
 
 			{pendingRemoval && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="presentation" onClick={closeRemovalDialog}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeRemovalDialog}>
 					<div
 						ref={removalDialogRef}
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="docker-remove-confirm-title"
-						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 p-5 shadow-2xl"
+						className="w-full max-w-md mx-0 rounded-t-2xl border border-rose-400/20 bg-slate-950 p-5 shadow-2xl sm:mx-4 sm:rounded-2xl"
 						onClick={(event) => event.stopPropagation()}
 					>
 						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
 						<p className="mt-3 text-sm text-[var(--text-secondary)]">
 							即将删除容器 <span className="font-mono text-rose-200">{getContainerName(pendingRemoval)}</span>。此操作不可恢复，请确认没有误选生产容器。
 						</p>
-						<div className="mt-5 flex justify-end gap-2">
+						<div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 							<button
 								ref={removeCancelButtonRef}
 								type="button"
 								onClick={closeRemovalDialog}
-								className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
+								className="min-h-11 rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
@@ -394,7 +394,7 @@ export default function DockerPage() {
 								type="button"
 								onClick={() => void confirmRemoval()}
 								disabled={actionLoading === pendingRemoval.Id}
-								className="rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+								className="min-h-11 rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
 							>
 								确认删除
 							</button>
@@ -404,14 +404,14 @@ export default function DockerPage() {
 			)}
 
 			{logsId && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" role="presentation" onClick={closeLogsDialog}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="presentation" onClick={closeLogsDialog}>
 					<div
 						ref={logsDialogRef}
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="docker-logs-dialog-title"
 						tabIndex={-1}
-						className="w-full max-w-2xl mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col"
+						className="flex w-full max-w-2xl mx-0 max-h-[92vh] flex-col rounded-t-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl sm:mx-4 sm:max-h-[80vh] sm:rounded-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div className="flex items-center justify-between mb-3">
@@ -421,7 +421,7 @@ export default function DockerPage() {
 								type="button"
 								onClick={closeLogsDialog}
 								aria-label="关闭容器日志"
-								className="rounded-lg p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300 light:hover:bg-slate-100 light:hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
+								className="min-h-11 min-w-11 rounded-lg p-1 text-slate-500 transition hover:bg-white/[0.06] hover:text-slate-300 light:hover:bg-slate-100 light:hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-400/70"
 							>
 								<svg className="w-5 h-5" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
 							</button>

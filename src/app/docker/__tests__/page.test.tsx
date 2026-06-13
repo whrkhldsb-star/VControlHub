@@ -147,4 +147,72 @@ describe("DockerPage", () => {
 		expect(screen.queryByRole("dialog", { name: /容器日志/ })).not.toBeInTheDocument();
 		await waitFor(() => expect(logsButton).toHaveFocus());
 	});
+
+	it("exposes 44px touch targets on header and per-container action buttons (TR-022 R9)", async () => {
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("stats=")) return {};
+			return { data: [runningContainer] };
+		});
+
+		render(<DockerPageClient />);
+		expect(await screen.findByText("web")).toBeInTheDocument();
+
+		const refreshList = screen.getByRole("button", { name: "刷新列表" });
+		const refreshStats = screen.getByRole("button", { name: "刷新统计" });
+		const autoRefresh = screen.getByRole("button", { name: /统计自动刷新/ });
+		expect(refreshList.className).toContain("min-h-11");
+		expect(refreshStats.className).toContain("min-h-11");
+		expect(autoRefresh.className).toContain("min-h-11");
+
+		const stopButton = screen.getByRole("button", { name: "停止" });
+		const restartButton = screen.getByRole("button", { name: "重启" });
+		const logsButton = screen.getByRole("button", { name: "日志" });
+		const removeButton = screen.getByRole("button", { name: "删除" });
+		expect(stopButton.className).toContain("min-h-11");
+		expect(restartButton.className).toContain("min-h-11");
+		expect(logsButton.className).toContain("min-h-11");
+		expect(removeButton.className).toContain("min-h-11");
+	});
+
+	it("renders the logs and removal dialogs as mobile bottom sheets (TR-022 R9)", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("stats=")) return {};
+			if (url.includes("logs=")) return { data: "server started\nready" };
+			return { data: [runningContainer] };
+		});
+
+		render(<DockerPageClient />);
+		expect(await screen.findByText("web")).toBeInTheDocument();
+
+		// Open the logs dialog and verify the scrollable backdrop is a mobile sheet
+		await user.click(screen.getByRole("button", { name: "日志" }));
+		const logsDialog = await screen.findByRole("dialog", { name: /容器日志/ });
+		const logsBackdrop = logsDialog.parentElement as HTMLElement;
+		// Backdrop must switch between items-end (mobile sheet) and sm:items-center (centered)
+		expect(logsBackdrop.className).toMatch(/items-end/);
+		expect(logsBackdrop.className).toMatch(/sm:items-center/);
+		// The dialog itself must drop the fixed max-w on mobile (full-width sheet)
+		expect(logsDialog.className).toMatch(/mx-0/);
+		expect(logsDialog.className).toMatch(/sm:mx-4/);
+		// Close the logs dialog
+		await user.keyboard("{Escape}");
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: /容器日志/ })).not.toBeInTheDocument());
+
+		// Open the removal dialog and verify the same mobile sheet shape
+		await user.click(screen.getByRole("button", { name: "删除" }));
+		const removalDialog = screen.getByRole("dialog", { name: "确认删除容器" });
+		const removalBackdrop = removalDialog.parentElement as HTMLElement;
+		expect(removalBackdrop.className).toMatch(/items-end/);
+		expect(removalBackdrop.className).toMatch(/sm:items-center/);
+		expect(removalDialog.className).toMatch(/mx-0/);
+		expect(removalDialog.className).toMatch(/sm:mx-4/);
+		// Confirm/cancel buttons in the removal dialog must hit 44px touch targets
+		const cancelButton = screen.getByRole("button", { name: "取消" });
+		const confirmButton = screen.getByRole("button", { name: "确认删除" });
+		expect(cancelButton.className).toContain("min-h-11");
+		expect(confirmButton.className).toContain("min-h-11");
+	});
 });
