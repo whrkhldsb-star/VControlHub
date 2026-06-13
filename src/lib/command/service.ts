@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn, type ChildProcess } from "node:child_process";
 
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { prisma } from "@/lib/db";
@@ -22,6 +21,12 @@ import {
   type ReviewCommandInput,
 } from "./schema";
 import { getCommandRuntimeConfig } from "@/lib/runtime-settings/service";
+import {
+  type SshExecutionResult,
+  cancelRunningCommandChild,
+  markCommandTargetCancelled,
+  runSshCommandProcess,
+} from "./ssh-executor";
 
 function toApprovalActorType(submissionMode: "user" | "assistant") {
   return submissionMode;
@@ -41,35 +46,11 @@ async function markTargetsRunning(commandRequestId: string) {
   });
 }
 
-type SshExecutionResult = {
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  timedOut?: boolean;
-  cancelled?: boolean;
-};
-
 const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
-const activeCommandChildren = new Map<string, ChildProcess>();
-const cancelledCommandTargets = new Set<string>();
-
-function registerCommandChild(targetId: string | undefined, child: ChildProcess) {
-  if (!targetId) return;
-  activeCommandChildren.set(targetId, child);
-}
-
-function unregisterCommandChild(targetId: string | undefined, child: ChildProcess) {
-  if (!targetId) return;
-  if (activeCommandChildren.get(targetId) === child) {
-    activeCommandChildren.delete(targetId);
-  }
-}
 
 function cancelActiveCommandChild(targetId: string) {
-  cancelledCommandTargets.add(targetId);
-  const child = activeCommandChildren.get(targetId);
-  if (!child) return false;
-  return child.kill("SIGTERM");
+  markCommandTargetCancelled(targetId);
+  return cancelRunningCommandChild(targetId);
 }
 
 async function getCommandRuntimeConfigValues() {
@@ -80,13 +61,6 @@ async function getCommandRuntimeConfigValues() {
     staleRunningAfterMs: Math.max(config.staleRunningAfterMs, config.executionTimeoutMs),
     executionHeartbeatMs: config.executionHeartbeatMs,
   };
-}
-
-function appendBoundedOutput(current: string, chunk: unknown, limitBytes: number) {
-  if (Buffer.byteLength(current, "utf8") >= limitBytes) return current;
-  const next = Buffer.concat([Buffer.from(current), Buffer.from(String(chunk))]);
-  if (next.byteLength <= limitBytes) return next.toString("utf8");
-  return `${next.subarray(0, limitBytes).toString("utf8")}\n[输出已截断，超过 ${limitBytes} 字节限制]`;
 }
 
 async function executeCommandOverSsh(input: {
@@ -157,53 +131,13 @@ async function executeCommandOverSshWithKey(input: {
       input.command,
     ];
 
-    const runtimeConfig = await getCommandRuntimeConfigValues();
-    const timeoutMs = runtimeConfig.executionTimeoutMs;
-    const outputLimitBytes = runtimeConfig.outputLimitBytes;
-    const result = await new Promise<SshExecutionResult>((resolve, reject) => {
-      const child = spawn("ssh", args, {
-        stdio: ["ignore", "pipe", "pipe"],
-        env: process.env,
-      });
-      registerCommandChild(input.targetId, child);
-
-      let stdout = "";
-      let stderr = "";
-      let timedOut = false;
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
-        child.kill("SIGTERM");
-      }, timeoutMs);
-
-      child.stdout.on("data", (chunk) => {
-        stdout = appendBoundedOutput(stdout, chunk, outputLimitBytes);
-      });
-
-      child.stderr.on("data", (chunk) => {
-        stderr = appendBoundedOutput(stderr, chunk, outputLimitBytes);
-      });
-
-      child.on("error", (error) => {
-        clearTimeout(timeout);
-        unregisterCommandChild(input.targetId, child);
-        reject(error);
-      });
-      child.on("close", (code) => {
-        clearTimeout(timeout);
-        unregisterCommandChild(input.targetId, child);
-        const cancelled = input.targetId ? cancelledCommandTargets.delete(input.targetId) : false;
-        resolve({
-          stdout,
-          stderr: cancelled ? appendBoundedOutput(stderr, "\n命令已被取消，SSH 子进程已终止。", outputLimitBytes) : stderr,
-          exitCode: cancelled ? 130 : (timedOut ? 124 : (code ?? 255)),
-          timedOut,
-          cancelled,
-        });
-      });
+    return await runSshCommandProcess({
+      command: "ssh",
+      args,
+      env: process.env,
+      targetId: input.targetId,
+      runtimeConfig: await getCommandRuntimeConfigValues(),
     });
-
-    return result;
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }
@@ -232,67 +166,16 @@ async function executeCommandOverSshWithPassword(input: {
     input.command,
   ];
 
-  const runtimeConfig = await getCommandRuntimeConfigValues();
-  const timeoutMs = runtimeConfig.executionTimeoutMs;
-  const outputLimitBytes = runtimeConfig.outputLimitBytes;
-  const result = await new Promise<SshExecutionResult>((resolve, reject) => {
-    // Use SSHPASS env var instead of -p flag to avoid leaking password in /proc/cmdline
-    const env = { ...process.env, SSHPASS: input.password };
-    const child = spawn("sshpass", ["-e", "ssh", ...args], {
-      stdio: ["ignore", "pipe", "pipe"],
-      env,
-    });
-    registerCommandChild(input.targetId, child);
+  // Use SSHPASS env var instead of -p flag to avoid leaking password in /proc/cmdline
+  const env = { ...process.env, SSHPASS: input.password };
 
-    let stdout = "";
-    let stderr = "";
-    let timedOut = false;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      stderr = appendBoundedOutput(stderr, `\n命令执行超过 ${timeoutMs}ms，已终止。`, outputLimitBytes);
-      child.kill("SIGTERM");
-    }, timeoutMs);
-
-    child.stdout.on("data", (chunk) => {
-      stdout = appendBoundedOutput(stdout, chunk, outputLimitBytes);
-    });
-
-    child.stderr.on("data", (chunk) => {
-      stderr = appendBoundedOutput(stderr, chunk, outputLimitBytes);
-    });
-
-    child.on("error", (err) => {
-      clearTimeout(timeout);
-      unregisterCommandChild(input.targetId, child);
-      if (
-        err &&
-        "code" in err &&
-        (err as NodeJS.ErrnoException).code === "ENOENT"
-      ) {
-        reject(
-          new Error(
-            "密码连接需要 sshpass 工具，但系统未安装 sshpass。请安装 sshpass 或改用 SSH 密钥连接。",
-          ),
-        );
-      } else {
-        reject(err);
-      }
-    });
-    child.on("close", (code) => {
-      clearTimeout(timeout);
-      unregisterCommandChild(input.targetId, child);
-      const cancelled = input.targetId ? cancelledCommandTargets.delete(input.targetId) : false;
-      resolve({
-        stdout,
-        stderr: cancelled ? appendBoundedOutput(stderr, "\n命令已被取消，SSH 子进程已终止。", outputLimitBytes) : stderr,
-        exitCode: cancelled ? 130 : (timedOut ? 124 : (code ?? 255)),
-        timedOut,
-        cancelled,
-      });
-    });
+  return await runSshCommandProcess({
+    command: "sshpass",
+    args: ["-e", "ssh", ...args],
+    env,
+    targetId: input.targetId,
+    runtimeConfig: await getCommandRuntimeConfigValues(),
   });
-
-  return result;
 }
 
 async function executeTarget(commandRequestId: string, target: Awaited<ReturnType<typeof prisma.commandTarget.findMany>>[number] & {
