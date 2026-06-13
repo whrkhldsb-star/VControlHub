@@ -80,6 +80,12 @@ vi.mock("node:fs/promises", () => ({
   rm: rmMock,
   unlink: unlinkMock,
   rename: renameFsMock,
+  default: {
+    mkdir: mkdirMock,
+    rm: rmMock,
+    unlink: unlinkMock,
+    rename: renameFsMock,
+  },
 }));
 
 import {

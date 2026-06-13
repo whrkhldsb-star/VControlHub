@@ -15,10 +15,12 @@ import {
   restoreFileEntry,
 } from "@/lib/storage/service";
 import { listServerProfiles } from "@/lib/server/service";
-import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import {
-  expandStorageBasePath,
+  createManagedFolder,
+  deleteBackingObject,
+  renameBackingObject,
+} from "@/lib/storage/fs-backend";
+import {
   joinStoragePath,
   normalizeStorageEntryName,
   normalizeStorageTargetDirectory,
@@ -28,204 +30,6 @@ export type StorageActionState = {
   error?: string;
   success?: string;
 };
-
-async function runSftpRemoteDelete(input: {
-  storageNode: {
-    driver: string;
-    basePath: string;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    server?: {
-      host?: string | null;
-      port?: number | null;
-      username?: string | null;
-      connectionType?: string | null;
-      password?: string | null;
-      sshKey?: { privateKey?: string | null } | null;
-    } | null;
-  };
-  relativePath: string;
-  isDirectory: boolean;
-}) {
-  if (input.storageNode.driver !== "SFTP") return;
-  const { deleteRemoteFile } = await import("@/lib/ssh/client");
-  const remotePath = normalizeRemoteTargetPath(
-    input.storageNode.basePath,
-    input.relativePath,
-  );
-  const credentials = resolveStorageSshCredentials(input.storageNode);
-  await deleteRemoteFile({
-    ...credentials,
-    remotePath,
-    isDirectory: input.isDirectory,
-  });
-}
-
-async function rollbackCreatedFolder(input: {
-  storageNode: {
-    driver: string;
-    basePath: string;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    server?: {
-      host?: string | null;
-      port?: number | null;
-      username?: string | null;
-      connectionType?: string | null;
-      password?: string | null;
-      sshKey?: { privateKey?: string | null } | null;
-    } | null;
-  };
-  relativePath: string;
-}) {
-  if (input.storageNode.driver === "LOCAL") {
-    const { rm } = await import("node:fs/promises");
-    const { absolutePath } = await resolveManagedLocalEntryPath({
-      basePath: input.storageNode.basePath,
-      relativePath: input.relativePath,
-    });
-    await rm(absolutePath, { recursive: true, force: false });
-    return;
-  }
-
-  if (input.storageNode.driver === "SFTP") {
-    await runSftpRemoteDelete({
-      storageNode: input.storageNode,
-      relativePath: input.relativePath,
-      isDirectory: true,
-    });
-  }
-}
-
-async function runSftpRemoteRename(input: {
-  storageNode: {
-    driver: string;
-    basePath: string;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    server?: {
-      host?: string | null;
-      port?: number | null;
-      username?: string | null;
-      connectionType?: string | null;
-      password?: string | null;
-      sshKey?: { privateKey?: string | null } | null;
-    } | null;
-  };
-  oldRelativePath: string;
-  newRelativePath: string;
-}) {
-  if (input.storageNode.driver !== "SFTP") return;
-  const [renameRemoteFile] = await Promise.all([
-    import("@/lib/ssh/client").then((mod) => mod.renameRemoteFile),
-  ]);
-  const oldPath = normalizeRemoteTargetPath(
-    input.storageNode.basePath,
-    input.oldRelativePath,
-  );
-  const newPath = normalizeRemoteTargetPath(
-    input.storageNode.basePath,
-    input.newRelativePath,
-  );
-  const credentials = resolveStorageSshCredentials(input.storageNode);
-  await renameRemoteFile({ ...credentials, oldPath, newPath });
-}
-
-async function resolveManagedLocalEntryPath(input: {
-  basePath: string;
-  relativePath: string;
-}) {
-  const path = await import("node:path");
-  const normalizedRelativePath = input.relativePath.replace(/^\/+/, "");
-  const allowedRoot = path.resolve(expandStorageBasePath(input.basePath));
-  const absolutePath = path.resolve(allowedRoot, normalizedRelativePath);
-  const relativeToRoot = path.relative(allowedRoot, absolutePath);
-
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new Error("路径超出存储根目录");
-  }
-
-  return { path, absolutePath, allowedRoot };
-}
-
-async function runLocalFilesystemDelete(input: {
-  storageNode: { driver: string; basePath: string };
-  relativePath: string;
-  isDirectory: boolean;
-}) {
-  if (input.storageNode.driver !== "LOCAL") return;
-  const { unlink, rm } = await import("node:fs/promises");
-  const { absolutePath } = await resolveManagedLocalEntryPath({
-    basePath: input.storageNode.basePath,
-    relativePath: input.relativePath,
-  });
-
-  if (input.isDirectory) {
-    await rm(absolutePath, { recursive: true, force: false });
-  } else {
-    await unlink(absolutePath);
-  }
-}
-
-function isMissingBackingObjectError(error: unknown) {
-  if (!(error instanceof Error)) return false;
-  const code = (error as { code?: unknown }).code;
-  if (code === "ENOENT" || code === 2) return true;
-  return /no such file|not found|does not exist|不存在|no_such_file/i.test(
-    error.message,
-  );
-}
-
-async function deleteBackingObject(input: {
-  storageNode: {
-    driver: string;
-    basePath: string;
-    host?: string | null;
-    port?: number | null;
-    username?: string | null;
-    server?: {
-      host?: string | null;
-      port?: number | null;
-      username?: string | null;
-      connectionType?: string | null;
-      password?: string | null;
-      sshKey?: { privateKey?: string | null } | null;
-    } | null;
-  };
-  relativePath: string;
-  isDirectory: boolean;
-  tolerateMissing: boolean;
-}) {
-  try {
-    await runSftpRemoteDelete(input);
-    await runLocalFilesystemDelete(input);
-  } catch (error) {
-    if (input.tolerateMissing && isMissingBackingObjectError(error)) return;
-    throw error;
-  }
-}
-
-async function runLocalFilesystemRename(input: {
-  storageNode: { driver: string; basePath: string };
-  oldRelativePath: string;
-  newRelativePath: string;
-}) {
-  if (input.storageNode.driver !== "LOCAL") return;
-  const { rename, mkdir } = await import("node:fs/promises");
-  const oldPath = await resolveManagedLocalEntryPath({
-    basePath: input.storageNode.basePath,
-    relativePath: input.oldRelativePath,
-  });
-  const newPath = await resolveManagedLocalEntryPath({
-    basePath: input.storageNode.basePath,
-    relativePath: input.newRelativePath,
-  });
-  await mkdir(newPath.path.dirname(newPath.absolutePath), { recursive: true });
-  await rename(oldPath.absolutePath, newPath.absolutePath);
-}
 
 export async function getStorageFormOptions() {
   const [servers, nodes] = await Promise.all([
@@ -400,45 +204,16 @@ export async function createFolderAction(
     }
 
     let folderCreated = false;
-    if (storageNode.driver === "LOCAL") {
-      const { mkdir } = await import("node:fs/promises");
-      const { absolutePath } = await resolveManagedLocalEntryPath({
-        basePath: storageNode.basePath,
+    try {
+      await createManagedFolder({
+        storageNode,
         relativePath,
       });
-
-      await mkdir(absolutePath, { recursive: false });
       folderCreated = true;
-    } else if (storageNode.driver === "SFTP") {
-      const { createRemoteDirectory } = await import("@/lib/ssh/client");
-
-      let remotePath: string;
-      try {
-        remotePath = normalizeRemoteTargetPath(
-          storageNode.basePath,
-          relativePath,
-        );
-      } catch (error) {
-        return {
-          error: error instanceof Error ? error.message : "非法路径",
-        } satisfies StorageActionState;
-      }
-
-      let credentials: ReturnType<typeof resolveStorageSshCredentials>;
-      try {
-        credentials = resolveStorageSshCredentials(storageNode);
-      } catch (error) {
-        return {
-          error: error instanceof Error ? error.message : "连接凭据不可用",
-        } satisfies StorageActionState;
-      }
-
-      await createRemoteDirectory({
-        ...credentials,
-        remotePath,
-        recursive: false,
-      });
-      folderCreated = true;
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "创建文件夹失败",
+      } satisfies StorageActionState;
     }
 
     try {
@@ -452,7 +227,12 @@ export async function createFolderAction(
     } catch (error) {
       if (folderCreated) {
         try {
-          await rollbackCreatedFolder({ storageNode, relativePath });
+          await deleteBackingObject({
+            storageNode,
+            relativePath,
+            isDirectory: true,
+            tolerateMissing: true,
+          });
         } catch {
           // Best-effort compensation: preserve the original indexing failure for the UI.
         }
@@ -795,12 +575,7 @@ export async function renameFileEntryAction(
       } satisfies StorageActionState;
     }
 
-    await runSftpRemoteRename({
-      storageNode: entry.storageNode,
-      oldRelativePath: entry.relativePath,
-      newRelativePath,
-    });
-    await runLocalFilesystemRename({
+    await renameBackingObject({
       storageNode: entry.storageNode,
       oldRelativePath: entry.relativePath,
       newRelativePath,
