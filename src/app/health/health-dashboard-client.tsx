@@ -484,8 +484,8 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 			{systemHealth && (
 				<>
 					<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4">
-			<div className="flex items-center justify-between gap-3">
-				<div>
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="min-w-0">
 					<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
 					<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
 					<p className="mt-1 text-xs text-slate-400">
@@ -493,11 +493,11 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2 text-xs text-slate-400">
-					<Link href="/audit" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
-					<Link href="/" className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
+					<Link href="/audit" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-white/[0.03] px-3 transition hover:bg-white/[0.06]">{copy.ui.auditLog}</Link>
+					<Link href="/" className="min-h-11 inline-flex items-center rounded-full border border-[var(--border)] bg-white/[0.03] px-3 transition hover:bg-white/[0.06]">{copy.ui.home}</Link>
 				</div>
 			</div>
-						<div className="grid gap-3 lg:grid-cols-3">
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{repairSuggestions(systemHealth.summary, locale).map((item) => {
 								const tone = repairToneClasses[item.status];
 								return (
@@ -538,31 +538,31 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 				<SummaryCard label={copy.summaryCards.critical} value={critical} color="rose" />
 				<SummaryCard label={copy.summaryCards.offline} value={offline} color="slate" />
 			</section>
-			<div className="flex items-center justify-between">
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="text-xs text-slate-500">
 					{copy.ui.lastRefresh}: {lastRefresh || "—"}
 					{overview.critical > 0 ? ` · ${copy.ui.overallCritical}` : overview.warning > 0 ? ` · ${copy.ui.overallWarning}` : ` · ${copy.ui.overallHealthy}`}
 				</div>
-				<div className="flex items-center gap-3">
+				<div className="flex flex-wrap items-center gap-3">
 					<button
 						type="button"
 						onClick={fetchHealth}
 						disabled={isRefreshing}
 						aria-label={copy.ui.refreshAria}
-						className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
+						className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{isRefreshing ? copy.ui.refreshing : copy.ui.refresh}
 					</button>
-					<label className="flex items-center gap-2 text-xs text-slate-400">
+					<label className="flex min-h-11 items-center gap-2 text-xs text-slate-400">
 						<span>{copy.ui.autoRefresh}</span>
 						<button
 							type="button"
 							onClick={() => setAutoRefresh(!autoRefresh)}
 							disabled={refreshIntervalSeconds <= 0}
 							aria-label={copy.ui.toggleAutoRefreshAria}
-							className={`relative h-4 w-8 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-slate-700"}`}
+							className={`relative h-4 w-8 min-h-11 min-w-11 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ? "bg-cyan-500" : "bg-slate-700"}`}
 						>
-							<span className={`absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${autoRefresh ? "translate-x-4" : ""}`} />
+							<span className={`absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow transition-transform ${autoRefresh ? "translate-x-2" : "-translate-x-3"}`} />
 						</button>
 						<span>{refreshIntervalSeconds <= 0 ? copy.ui.autoRefreshOff : autoRefresh ? copy.ui.autoRefreshEvery(getRefreshIntervalLabel(refreshIntervalSeconds)) : copy.ui.autoRefreshPaused(getRefreshIntervalLabel(refreshIntervalSeconds))}</span>
 					</label>
@@ -662,7 +662,7 @@ function SummaryCard({ label, value, color }: { label: string; value: number; co
 	return (
 		<article data-card className=" p-4">
 			<div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</div>
-			<div className={`mt-1.5 text-2xl font-semibold ${colorMap[color] ?? "text-white"}`}>{value}</div>
+			<div className={`mt-1.5 text-2xl sm:text-3xl font-semibold ${colorMap[color] ?? "text-white"}`}>{value}</div>
 		</article>
 	);
 }

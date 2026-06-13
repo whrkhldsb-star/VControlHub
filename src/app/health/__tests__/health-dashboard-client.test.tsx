@@ -155,6 +155,101 @@ describe("HealthDashboardClient", () => {
 		expect(screen.getByText("本地与远端不一致")).toBeInTheDocument();
 	});
 
+	// TR-022 mobile overflow guards: status row, repair grid, and touch
+	// targets must follow the project's mobile-first responsive contract so
+	// the dashboard is usable on small viewports. These assertions catch
+	// regressions where a future edit reintroduces desktop-only widths,
+	// hover-only overlays, or sub-44px tap targets.
+	it("stacks the status/refresh row and the self-check header on mobile so they do not horizontally overflow", async () => {
+		renderHealthDashboard("zh", {
+			serverCount: 1,
+			initialSystemHealth: {
+				generatedAt: "2026-05-30T00:00:00.000Z",
+				summary: { total: 3, healthy: 2, warning: 1, critical: 0, overall: "warning" },
+				checks: [
+					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+				],
+			},
+		});
+
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+
+		// Last refresh + refresh button + auto-refresh switch sit in a single
+		// flex row at sm+. On mobile they must stack instead of overflowing
+		// the 375px viewport.
+		const refreshButton = screen.getByRole("button", { name: "刷新健康状态" });
+		const row = refreshButton.parentElement?.parentElement as HTMLElement;
+		expect(row).toBeTruthy();
+		const rowTokens = row.className.split(/\s+/);
+		expect(rowTokens).toContain("flex-col");
+		expect(rowTokens).toContain("sm:flex-row");
+		expect(rowTokens).toContain("gap-3");
+
+		// The self-check header has a long Chinese title plus two link
+		// buttons ("看审计日志" / "回到首页"); on mobile the link buttons
+		// must wrap below the title instead of overflowing.
+		const auditLink = screen.getByRole("link", { name: "看审计日志" });
+		const headerRow = auditLink.parentElement?.parentElement as HTMLElement;
+		expect(headerRow).toBeTruthy();
+		const headerTokens = headerRow.className.split(/\s+/);
+		expect(headerTokens).toContain("flex-col");
+		expect(headerTokens).toContain("sm:flex-row");
+		expect(headerTokens).toContain("sm:items-center");
+		expect(headerTokens).toContain("sm:justify-between");
+	});
+
+	it("uses 44px touch targets for the refresh and auto-refresh controls", async () => {
+		renderHealthDashboard();
+
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+
+		const refreshButton = screen.getByRole("button", { name: "刷新健康状态" });
+		expect(refreshButton.className).toContain("min-h-11");
+
+		const autoRefreshToggle = screen.getByRole("button", { name: "切换健康状态自动刷新" });
+		// The toggle is a small visual switch; the touch target must still
+		// reach 44px in both axes, so it has to expose min-h-11 min-w-11
+		// (typically via a wrapper / extra padding) even though the visible
+		// pill is only 16x32.
+		expect(autoRefreshToggle.className).toMatch(/min-h-11/);
+		expect(autoRefreshToggle.className).toMatch(/min-w-11/);
+	});
+
+	it("scales summary card values and uses a 2-column repair grid on tablet", async () => {
+		renderHealthDashboard("zh", {
+			serverCount: 1,
+			initialSystemHealth: {
+				generatedAt: "2026-05-30T00:00:00.000Z",
+				summary: { total: 3, healthy: 2, warning: 1, critical: 0, overall: "warning" },
+				checks: [
+					{ id: "next-service", label: "Next.js 服务", status: "healthy", message: "vcontrolhub-next.service 正在运行" },
+				],
+			},
+		});
+
+		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
+
+		// SummaryCard value must stay readable on mobile (text-2xl) but
+		// grow on desktop (sm:text-3xl) to match the dashboard's data
+		// density. We assert via the wrapper <article data-card>.
+		const totalCard = screen.getByText("节点总数").parentElement as HTMLElement;
+		const valueNode = totalCard.querySelector("div.text-2xl, div.sm\\:text-3xl") as HTMLElement;
+		expect(valueNode).toBeTruthy();
+		const valueTokens = valueNode.className.split(/\s+/);
+		expect(valueTokens).toContain("text-2xl");
+		expect(valueTokens).toContain("sm:text-3xl");
+
+		// Repair suggestions: 1 column on mobile, 2 on tablet, 3 on desktop.
+		const repairCopy = screen.getByText("修复建议");
+		const repairSection = repairCopy.closest("section") as HTMLElement;
+		const repairGrid = repairSection.querySelector(".grid.lg\\:grid-cols-3") as HTMLElement;
+		expect(repairGrid).toBeTruthy();
+		const repairTokens = repairGrid.className.split(/\s+/);
+		expect(repairTokens).toContain("grid-cols-1");
+		expect(repairTokens).toContain("sm:grid-cols-2");
+		expect(repairTokens).toContain("lg:grid-cols-3");
+	});
+
 	it("localizes nested system health and overview controls in English", async () => {
 		vi.mocked(csrfFetch)
 			.mockResolvedValueOnce(overview)
