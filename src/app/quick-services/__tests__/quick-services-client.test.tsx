@@ -302,4 +302,83 @@ describe("QuickServicesClient", () => {
 		expect(accessLink).toHaveAttribute("title", expect.stringContaining("不经过 VControlHub 登录鉴权"));
 		expect(await screen.findByText("公开直连端口")).toBeInTheDocument();
 	});
+
+	it("renders the uninstall confirm dialog as a mobile bottom sheet with 44px touch targets (TR-022 R10)", async () => {
+		const user = userEvent.setup();
+		mockInitialLoads();
+
+		render(<QuickServicesClient canManage />);
+		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(screen.getByRole("button", { name: "卸载" }));
+
+		const dialog = await screen.findByRole("dialog", { name: "确认卸载快捷服务" });
+		const backdrop = dialog.parentElement as HTMLElement;
+		expect(backdrop.className).toMatch(/items-end/);
+		expect(backdrop.className).toMatch(/sm:items-center/);
+		expect(backdrop.className).toMatch(/overflow-y-auto/);
+		expect(dialog.className).toMatch(/mx-0/);
+		expect(dialog.className).toMatch(/sm:mx-4/);
+		expect(dialog.className).toMatch(/rounded-t-2xl/);
+		expect(dialog.className).toMatch(/sm:rounded-2xl/);
+		const cancelButton = screen.getByRole("button", { name: "取消" });
+		const confirmButton = screen.getByRole("button", { name: "确认卸载" });
+		expect(cancelButton.className).toContain("min-h-11");
+		expect(confirmButton.className).toContain("min-h-11");
+		const footer = cancelButton.parentElement as HTMLElement;
+		expect(footer.className).toMatch(/flex-col-reverse/);
+		expect(footer.className).toMatch(/sm:flex-row/);
+	});
+
+	it("renders the install/update config preview dialog as a mobile bottom sheet (TR-022 R10)", async () => {
+		const user = userEvent.setup();
+		mockInitialLoads();
+
+		render(<QuickServicesClient canManage />);
+		await user.click(await screen.findByRole("button", { name: /已安装/ }));
+		await user.click(screen.getByRole("button", { name: "更新" }));
+
+		const dialog = await screen.findByRole("dialog", { name: "确认更新配置" });
+		const backdrop = dialog.parentElement as HTMLElement;
+		expect(backdrop.className).toMatch(/items-end/);
+		expect(backdrop.className).toMatch(/sm:items-center/);
+		expect(backdrop.className).toMatch(/overflow-y-auto/);
+		expect(dialog.className).toMatch(/mx-0/);
+		expect(dialog.className).toMatch(/sm:mx-4/);
+		expect(dialog.className).toMatch(/rounded-t-2xl/);
+		expect(dialog.className).toMatch(/sm:rounded-2xl/);
+		const cancelButton = within(dialog).getByRole("button", { name: "取消" });
+		const confirmButton = within(dialog).getByRole("button", { name: "确认更新" });
+		expect(cancelButton.className).toContain("min-h-11");
+		expect(confirmButton.className).toContain("min-h-11");
+		const footer = cancelButton.parentElement as HTMLElement;
+		expect(footer.className).toMatch(/flex-col-reverse/);
+		expect(footer.className).toMatch(/sm:flex-row/);
+	});
+
+	it("renders the app-source delete confirm dialog as a mobile bottom sheet (TR-022 R10)", async () => {
+		const user = userEvent.setup();
+		mockInitialLoads();
+
+		render(<QuickServicesClient canManage />);
+		await screen.findByText(/最近同步：LinuxServer/);
+		await user.click(screen.getByRole("button", { name: /^⚙️ 应用源/ }));
+		await user.click(screen.getByRole("button", { name: "删除" }));
+
+		const dialog = await screen.findByRole("dialog", { name: "确认删除应用源" });
+		const backdrop = dialog.parentElement as HTMLElement;
+		expect(backdrop.className).toMatch(/items-end/);
+		expect(backdrop.className).toMatch(/sm:items-center/);
+		expect(backdrop.className).toMatch(/overflow-y-auto/);
+		expect(dialog.className).toMatch(/mx-0/);
+		expect(dialog.className).toMatch(/sm:mx-4/);
+		expect(dialog.className).toMatch(/rounded-t-2xl/);
+		expect(dialog.className).toMatch(/sm:rounded-2xl/);
+		const cancelButton = within(dialog).getByRole("button", { name: "取消" });
+		const confirmButton = within(dialog).getByRole("button", { name: "确认删除" });
+		expect(cancelButton.className).toContain("min-h-11");
+		expect(confirmButton.className).toContain("min-h-11");
+		const footer = cancelButton.parentElement as HTMLElement;
+		expect(footer.className).toMatch(/flex-col-reverse/);
+		expect(footer.className).toMatch(/sm:flex-row/);
+	});
 });

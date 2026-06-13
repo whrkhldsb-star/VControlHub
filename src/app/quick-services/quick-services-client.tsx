@@ -936,12 +936,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{configPreview && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setConfigPreview(null)}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setConfigPreview(null)}>
 					<div
 						role="dialog"
 						aria-modal="true"
 						aria-label={configPreview.action === "install" ? "确认安装配置" : "确认更新配置"}
-						className="w-full max-w-lg mx-4 rounded-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
+						className="mx-0 w-full max-w-lg rounded-t-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-white mb-2">
@@ -964,11 +964,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/[0.08] p-3 text-xs leading-5 text-amber-100">
 							公开端口不会经过 VControlHub 登录鉴权；若服务暴露到公网，请确认防火墙、VPN、反代或应用自身账号已配置。
 						</div>
-						<div className="mt-6 flex items-center justify-end gap-3">
-							<button type="button" onClick={() => setConfigPreview(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setConfigPreview(null)} className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
 								取消
 							</button>
-							<button type="button" onClick={confirmConfigPreview} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition">
+							<button type="button" onClick={confirmConfigPreview} className="min-h-11 rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition">
 								{configPreview.action === "install" ? "确认安装" : "确认更新"}
 							</button>
 						</div>
@@ -977,12 +977,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{pendingUninstall && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPendingUninstall(null)}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setPendingUninstall(null)}>
 					<div
 						role="dialog"
 						aria-modal="true"
 						aria-label="确认卸载快捷服务"
-						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
+						className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-white mb-2">确认卸载快捷服务</h3>
@@ -1001,11 +1001,11 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								<span className="mt-1 block text-xs leading-5 text-rose-100/75/75">仅删除该服务模板记录的 `/opt/` 或 `/srv/` 下挂载目录；不会删除 Docker socket、时区文件或根目录。</span>
 							</span>
 						</label>
-						<div className="mt-6 flex items-center justify-end gap-3">
-							<button type="button" onClick={() => setPendingUninstall(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setPendingUninstall(null)} className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
 								取消
 							</button>
-							<button type="button" onClick={doUninstall} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
+							<button type="button" onClick={doUninstall} className="min-h-11 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
 								确认卸载
 							</button>
 						</div>
@@ -1014,23 +1014,23 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{pendingSourceDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPendingSourceDelete(null)}>
+				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setPendingSourceDelete(null)}>
 					<div
 						role="dialog"
 						aria-modal="true"
 						aria-label="确认删除应用源"
-						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
+						className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/20 bg-[#0c0f1a] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-white mb-2">确认删除应用源</h3>
 						<p className="text-sm leading-6 text-slate-300">
 							将删除 <span className="font-semibold text-white">{pendingSourceDelete.displayName}</span>，其同步来的所有应用数据也会一并移除。
 						</p>
-						<div className="mt-6 flex items-center justify-end gap-3">
-							<button type="button" onClick={() => setPendingSourceDelete(null)} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
+						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+							<button type="button" onClick={() => setPendingSourceDelete(null)} className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
 								取消
 							</button>
-							<button type="button" onClick={doDeleteSource} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
+							<button type="button" onClick={doDeleteSource} className="min-h-11 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 transition">
 								确认删除
 							</button>
 						</div>
