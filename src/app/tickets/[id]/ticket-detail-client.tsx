@@ -94,7 +94,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-white/[0.04] bg-black/20 light:bg-slate-900/20 p-4">
+        <div className="mt-4 rounded-lg border border-white/[0.04] bg-black/20 p-4">
           <p className="whitespace-pre-wrap text-sm text-slate-300">{ticket.description}</p>
         </div>
 
@@ -144,7 +144,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
         ) : (
           <div className="space-y-4">
             {ticket.comments.map((c) => (
-              <div key={c.id} className="rounded-lg border border-white/[0.04] bg-black/20 light:bg-slate-900/20 p-4">
+              <div key={c.id} className="rounded-lg border border-white/[0.04] bg-black/20 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-white">{c.author.displayName || c.author.username}</span>
                   <span className="text-xs text-slate-500">{new Date(c.createdAt).toLocaleString("zh-CN")}</span>

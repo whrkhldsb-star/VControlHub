@@ -28,7 +28,7 @@ export function AiConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 light:bg-slate-900/60 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"

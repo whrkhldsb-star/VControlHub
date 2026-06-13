@@ -24,7 +24,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 	return (
 		<div className="fixed inset-0 z-[100] flex items-center justify-center">
 			<div
-				className="absolute inset-0 bg-black/60 light:bg-slate-900/60 backdrop-blur-sm"
+				className="absolute inset-0 bg-black/60 backdrop-blur-sm"
 				onClick={onClose}
 			/>
 

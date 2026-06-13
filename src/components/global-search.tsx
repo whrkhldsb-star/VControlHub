@@ -190,7 +190,7 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] bg-black/60 light:bg-slate-900/60 backdrop-blur-sm" onClick={closeSearch}>
+		<div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm" onClick={closeSearch}>
 			<div
 				role="dialog"
 				aria-modal="true"

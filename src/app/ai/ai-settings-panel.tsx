@@ -61,7 +61,7 @@ export function AiSettingsPanel({
           <div className="relative mt-1">
             <button
               onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
-              className="w-full flex items-center justify-between bg-black/30 light:bg-slate-900/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white hover:border-cyan-400/30 transition"
+              className="w-full flex items-center justify-between bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white hover:border-cyan-400/30 transition"
             >
               <span className="truncate flex items-center gap-1.5">
                 {settingsForm.model}
@@ -69,7 +69,7 @@ export function AiSettingsPanel({
                   <span className="text-[9px] text-cyan-400 bg-cyan-400/10 px-1 py-0.5 rounded">👁</span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="搜索模型..." className="w-full bg-black/30 light:bg-slate-900/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> 无可用模型 <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > 刷新 </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
+              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="搜索模型..." className="w-full bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> 无可用模型 <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > 刷新 </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
                         settingsForm.model === m.id ? "text-cyan-300 bg-cyan-400/[0.06]" : "text-white"
                       }`}
                     >
@@ -115,7 +115,7 @@ export function AiSettingsPanel({
                         }
                       }}
                       placeholder="手动输入模型 ID..."
-                      className="flex-1 bg-black/30 light:bg-slate-900/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
+                      className="flex-1 bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
                     />
                     <button
                       onClick={() => {
@@ -162,7 +162,7 @@ export function AiSettingsPanel({
           <select
             value={settingsForm.maxTokens}
             onChange={(e) => setSettingsForm((f) => ({ ...f, maxTokens: parseInt(e.target.value) }))}
-            className="w-full mt-1 bg-black/30 light:bg-slate-900/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white"
+            className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white"
           >
             {[512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 128000].map((v) => (
               <option key={v} value={v}>{v.toLocaleString()}</option>
@@ -231,7 +231,7 @@ export function AiSettingsPanel({
               type="checkbox"
               checked={settingsForm.enableVision}
               onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
-              className="rounded border-white/20 bg-black/30 light:bg-slate-900/30 text-cyan-400 focus:ring-cyan-400/30"
+              className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               👁 多模态 (视觉)
@@ -249,7 +249,7 @@ export function AiSettingsPanel({
  type="checkbox"
  checked={settingsForm.hostingEnabled}
  onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
- className="rounded border-white/20 bg-black/30 light:bg-slate-900/30 text-amber-400 focus:ring-amber-400/30"
+ className="rounded border-white/20 bg-black/30 text-amber-400 focus:ring-amber-400/30"
  />
  <span className="text-xs text-[var(--text-secondary)]">
  🤖 AI托管模式
@@ -277,7 +277,7 @@ export function AiSettingsPanel({
           onChange={(e) => setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))}
           rows={2}
           placeholder="设定 AI 的角色和行为方式..."
-          className="w-full mt-1 bg-black/30 light:bg-slate-900/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30"
+          className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30"
         />
       </div>
     </div>

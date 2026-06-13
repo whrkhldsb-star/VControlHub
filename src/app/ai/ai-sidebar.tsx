@@ -29,7 +29,7 @@ export function AiSidebar({
       {/* Mobile sidebar backdrop */}
       {showSidebar && (
         <div
-          className="hidden max-md:block fixed inset-0 z-30 bg-black/50 light:bg-slate-900/50"
+          className="hidden max-md:block fixed inset-0 z-30 bg-black/50"
           onClick={() => onToggleSidebar(false)}
         />
       )}
