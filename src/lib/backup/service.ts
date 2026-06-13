@@ -1,11 +1,9 @@
 import { stat } from "node:fs/promises";
 import { join, normalize, sep } from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 
 import { prisma } from "@/lib/db";
 
-const runFile = promisify(execFile);
+import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
 
 function getBackupStorageRoot(projectRoot: string) {
   const configured = process.env.BACKUP_DIR?.trim();
@@ -104,17 +102,15 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
   await updateBackupRecordStatus(record.id, { status: "RUNNING" });
 
   try {
-    await runFile("bash", ["deploy/backup.sh", ...args], {
-      cwd: projectRoot,
-      timeout: 30 * 60 * 1000,
-      maxBuffer: 1024 * 1024,
-      env: { ...process.env, APP_DIR: projectRoot },
+    await runBackupCommand({
+      file: "bash",
+      args: ["deploy/backup.sh", ...args],
+      options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
     });
     const fileInfo = await stat(outputPath);
     return updateBackupRecordStatus(record.id, { status: "COMPLETED", fileSize: fileInfo.size, completedAt: new Date(), errorMessage: null });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "备份执行失败";
-    return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: message.slice(0, 2000) });
+    return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: backupCommandErrorMessage(error).slice(0, 2000) });
   }
 }
 
@@ -340,11 +336,10 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
   const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
   const execution = buildRestoreExecution(record, projectRoot);
   await stat(execution.backupPath);
-  await runFile(execution.file, execution.args, {
-    cwd: projectRoot,
-    timeout: 30 * 60 * 1000,
-    maxBuffer: 1024 * 1024,
-    env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" },
+  await runBackupCommand({
+    file: execution.file,
+    args: execution.args,
+    options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, CONFIRM_RESTORE: "1" } },
   });
   return { id: record.id, type: record.type, filePath: record.filePath, restoredAt: new Date().toISOString() };
 }

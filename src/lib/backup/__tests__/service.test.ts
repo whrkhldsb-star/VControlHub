@@ -1,13 +1,30 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockPrisma, runFileMock, statMock } = vi.hoisted(() => ({
+const { mockPrisma, runBackupCommandMock, statMock } = vi.hoisted(() => ({
   mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() } },
-  runFileMock: vi.fn(),
+  runBackupCommandMock: vi.fn(),
   statMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("node:child_process", () => ({ default: { execFile: runFileMock }, execFile: runFileMock }));
+vi.mock("@/lib/backup/command-runner", () => {
+  const isMissingBackupBinaryError = (error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    return (error as { code?: unknown }).code === "ENOENT";
+  };
+  const backupCommandErrorMessage = (error: unknown) => {
+    if (isMissingBackupBinaryError(error)) {
+      return "bash 未安装或不在 PATH，请联系管理员安装 bash 或修复 PATH 后重试。";
+    }
+    if (error instanceof Error) return error.message;
+    return "备份执行失败";
+  };
+  return {
+    runBackupCommand: runBackupCommandMock,
+    isMissingBackupBinaryError,
+    backupCommandErrorMessage,
+  };
+});
 vi.mock("node:fs/promises", () => ({ default: { stat: statMock }, stat: statMock }));
 
 const {
@@ -39,9 +56,7 @@ describe("backup service", () => {
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     mockPrisma.backupRecord.findUnique.mockImplementation(async () => lastCreatedBackupRecord ?? { id: "bak1", type: "DATABASE", status: "COMPLETED", filePath: "backups/database.sql.gz" });
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
-    runFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
-      cb(null, { stdout: "ok", stderr: "" });
-    });
+    runBackupCommandMock.mockResolvedValue({ stdout: "ok", stderr: "" });
     statMock.mockResolvedValue({ size: 1234 });
   });
 
@@ -67,9 +82,11 @@ describe("backup service", () => {
   it("executes the requested backup command and records the real artifact size", async () => {
     const record = await runBackupRecord({ type: "FULL", createdBy: "u1", note: "before upgrade", projectRoot: "/opt/app" });
 
-    expect(runFileMock.mock.calls[0][0]).toBe("bash");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["deploy/backup.sh", "--full", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/)]);
-    expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }));
+    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["deploy/backup.sh", "--full", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/)],
+      options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }),
+    }));
     expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(1, { where: { id: "bak1" }, data: { status: "RUNNING" } });
     expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(2, {
       where: { id: "bak1" },
@@ -79,12 +96,14 @@ describe("backup service", () => {
   });
 
   it("marks backup records failed when the real backup command fails", async () => {
-    runFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null) => void) => cb(new Error("tar failed")));
+    runBackupCommandMock.mockRejectedValueOnce(new Error("tar failed"));
 
     const record = await runBackupRecord({ type: "FILES", createdBy: "u1", projectRoot: "/opt/app" });
 
-    expect(runFileMock.mock.calls[0][0]).toBe("bash");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["deploy/backup.sh", "--files", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/files-.*\.tar\.gz$/)]);
+    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["deploy/backup.sh", "--files", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/files-.*\.tar\.gz$/)],
+    }));
     expect(record.status).toBe("FAILED");
     expect(record.errorMessage).toContain("tar failed");
     expect(statMock).not.toHaveBeenCalled();
@@ -223,9 +242,11 @@ describe("backup service", () => {
 
     expect(mockPrisma.backupRecord.findUnique).toHaveBeenCalledWith({ where: { id: "bak1" } });
     expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/database.sql.gz");
-    expect(runFileMock.mock.calls[0][0]).toBe("bash");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/database.sql.gz"]);
-    expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }));
+    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+      file: "bash",
+      args: ["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/database.sql.gz"],
+      options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }),
+    }));
     expect(result).toMatchObject({ id: "bak1", type: "DATABASE", filePath: "backups/database.sql.gz" });
   });
 
@@ -235,21 +256,23 @@ describe("backup service", () => {
     await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
 
     expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/files.tar.gz");
-    expect(runFileMock.mock.calls[0][0]).toBe("tar");
-    expect(runFileMock.mock.calls[0][1]).toEqual(["-xzf", "/var/backups/vcontrolhub/backups/files.tar.gz", "-C", "/opt/app"]);
-    expect(runFileMock.mock.calls[0][2]).toEqual(expect.objectContaining({ cwd: "/opt/app" }));
+    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+      file: "tar",
+      args: ["-xzf", "/var/backups/vcontrolhub/backups/files.tar.gz", "-C", "/opt/app"],
+      options: expect.objectContaining({ cwd: "/opt/app" }),
+    }));
   });
 
   it("rejects restore before executing when confirmation, path, or status is unsafe", async () => {
     await expect(restoreBackupRecord({ id: "bak1", confirm: "NOPE", projectRoot: "/opt/app" })).rejects.toThrow("恢复操作需要明确确认");
-    expect(runFileMock).not.toHaveBeenCalled();
+    expect(runBackupCommandMock).not.toHaveBeenCalled();
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak3", type: "DATABASE", status: "FAILED", filePath: "backups/database.sql.gz" });
     await expect(restoreBackupRecord({ id: "bak3", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("只能恢复已完成的备份");
 
     mockPrisma.backupRecord.findUnique.mockResolvedValueOnce({ id: "bak4", type: "DATABASE", status: "COMPLETED", filePath: "../database.sql.gz" });
     await expect(restoreBackupRecord({ id: "bak4", confirm: "RESTORE", projectRoot: "/opt/app" })).rejects.toThrow("备份路径必须是可移植的相对路径");
-    expect(runFileMock).not.toHaveBeenCalled();
+    expect(runBackupCommandMock).not.toHaveBeenCalled();
   });
 
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {
