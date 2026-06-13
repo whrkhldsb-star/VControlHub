@@ -476,6 +476,7 @@ export function FilesBrowserSpa({
   const [listError, setListError] = useState<string | null>(null);
   const [selectionEpoch, setSelectionEpoch] = useState(0);
   const [searchInput, setSearchInput] = useState(initialData.searchQuery);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   // Fetch files for a given path — SPA navigation, no page reload
@@ -626,10 +627,42 @@ export function FilesBrowserSpa({
     [fetchFiles, data.searchQuery, data.searchScope],
   );
 
+  // Tree navigation handler — closes the mobile sidebar after navigation
+  // so the user can see the file list on small viewports.
+  const handleTreeNavigate = useCallback(
+    (path: string) => {
+      fetchFiles(path, undefined, undefined, undefined, {
+        resetSelection: true,
+        history: "push",
+      });
+      setMobileSidebarOpen(false);
+    },
+    [fetchFiles],
+  );
+
   return (
     <section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
+      {/* Mobile-only sidebar toggle (hidden on xl+) */}
+      <button
+        type="button"
+        onClick={() => setMobileSidebarOpen((value) => !value)}
+        aria-expanded={mobileSidebarOpen}
+        aria-controls="files-browser-sidebar"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-slate-900/60 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800/60 light:bg-slate-100 light:text-slate-900 light:border-slate-200 light:hover:bg-slate-200/60 xl:hidden"
+      >
+        <span>{mobileSidebarOpen ? "收起目录树" : "展开目录树"}</span>
+        <span aria-hidden="true" className="text-xs">
+          {mobileSidebarOpen ? "▴" : "▾"}
+        </span>
+      </button>
       {/* Sidebar: Directory tree */}
-      <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+      <aside
+        id="files-browser-sidebar"
+        aria-label="目录树"
+        className={`rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 ${
+          mobileSidebarOpen ? "block" : "hidden xl:block"
+        }`}
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white">目录树</h2>
@@ -657,8 +690,8 @@ export function FilesBrowserSpa({
         <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 p-4 pr-2">
           <button
             type="button"
-            onClick={() => navigateToFolder("")}
-            className={`flex w-full items-center justify-between rounded-2xl px-3 py-2 text-sm text-left ${
+            onClick={() => handleTreeNavigate("")}
+            className={`flex min-h-11 w-full items-center justify-between rounded-2xl px-3 py-2 text-left text-sm ${
               data.currentPath === ""
                 ? "bg-cyan-400/10 text-cyan-100"
                 : "text-cyan-100 hover:bg-white/5"
@@ -673,7 +706,7 @@ export function FilesBrowserSpa({
             <FolderTreeClient
               node={data.tree}
               currentPath={data.currentPath}
-              onNavigate={navigateToFolder}
+              onNavigate={handleTreeNavigate}
               expandedPaths={expandedTreePaths}
               onToggle={toggleTreePath}
             />

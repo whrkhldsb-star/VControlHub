@@ -520,4 +520,103 @@ describe("FilesBrowserSpa", () => {
 
     expect(screen.getByRole("button", { name: "raw" })).toBeInTheDocument();
   });
+
+  it("collapses the directory tree sidebar behind a mobile toggle button by default", () => {
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    const toggle = screen.getByRole("button", { name: "展开目录树" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "files-browser-sidebar");
+    expect(toggle.className).toMatch(/min-h-11/);
+    expect(toggle.className).toMatch(/xl:hidden/);
+
+    const sidebar = document.getElementById("files-browser-sidebar");
+    expect(sidebar).not.toBeNull();
+    expect(sidebar?.className.split(/\s+/)).toContain("hidden");
+    expect(sidebar?.className.split(/\s+/)).toContain("xl:block");
+  });
+
+  it("expands the directory tree sidebar when the mobile toggle is clicked", () => {
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
+
+    expect(
+      screen.getByRole("button", { name: "收起目录树" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    const sidebar = document.getElementById("files-browser-sidebar");
+    expect(sidebar?.className.split(/\s+/)).not.toContain("hidden");
+  });
+
+  it("collapses the directory tree sidebar when the mobile toggle is clicked again", () => {
+    render(
+      <FilesBrowserSpa
+        initialData={baseData}
+        deletedEntries={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
+    fireEvent.click(screen.getByRole("button", { name: "收起目录树" }));
+
+    expect(
+      screen.getByRole("button", { name: "展开目录树" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    const sidebar = document.getElementById("files-browser-sidebar");
+    expect(sidebar?.className.split(/\s+/)).toContain("hidden");
+  });
+
+  it("auto-closes the directory tree sidebar on mobile after a tree navigation click", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        ...baseData,
+        currentPath: "photos",
+      }),
+    } as Response);
+
+    render(
+      <FilesBrowserSpa
+        initialData={{ ...baseData, currentPath: "" }}
+        deletedEntries={[]}
+      />,
+    );
+
+    // Open the sidebar
+    fireEvent.click(screen.getByRole("button", { name: "展开目录树" }));
+    expect(
+      screen.getByRole("button", { name: "收起目录树" }),
+    ).toHaveAttribute("aria-expanded", "true");
+
+    // Click "photos" navigation button in the tree
+    fireEvent.click(screen.getByRole("button", { name: "photos" }));
+
+    // Sidebar should auto-close after navigation
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "展开目录树" }),
+      ).toHaveAttribute("aria-expanded", "false"),
+    );
+    const sidebar = document.getElementById("files-browser-sidebar");
+    expect(sidebar?.className.split(/\s+/)).toContain("hidden");
+
+    // Verify the underlying navigation fetch was triggered
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/files/list?path=photos&nodeId=node_1",
+        expect.any(Object),
+      ),
+    );
+  });
 });
