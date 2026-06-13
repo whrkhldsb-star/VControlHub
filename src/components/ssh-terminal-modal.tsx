@@ -349,7 +349,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							type="button"
 							onClick={() => setShowSidePanel(!showSidePanel)}
 							aria-expanded={showSidePanel}
-							className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:hover:bg-slate-200"}`}
+							className={`min-h-11 min-w-11 rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:hover:bg-slate-200"}`}
 							title="命令面板"
 						>
 							📋 命令面板
@@ -358,7 +358,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<button
 								type="button"
 								onClick={handleReconnect}
-								className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
+								className="min-h-11 min-w-11 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
 							>
 								重连
 							</button>
@@ -368,7 +368,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							type="button"
 							onClick={onClose}
 							aria-label="关闭 SSH 终端"
-							className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:hover:bg-slate-200"
+							className="min-h-11 min-w-11 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:hover:bg-slate-200"
 						>
 							关闭
 						</button>
@@ -403,9 +403,9 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 										placeholder="添加常用命令…"
-										className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+										className="min-h-11 min-w-0 flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
-									<button onClick={addFavorite} className="rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[11px] text-cyan-200 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} aria-label="添加常用命令" className="min-h-11 min-w-11 shrink-0 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
 										+
 									</button>
 								</div>
@@ -416,15 +416,16 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										{favoriteCommands.map((cmd) => (
 											<div key={cmd} className="group flex items-center gap-1">
 												<button
-													onClick={() => sendCommand(cmd)}
-													className="flex-1 truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
-													title={cmd}
-												>
-													{cmd}
-												</button>
+																onClick={() => sendCommand(cmd)}
+																className="min-h-11 min-w-0 flex-1 truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
+																title={cmd}
+															>
+																{cmd}
+															</button>
 												<button
 													onClick={() => removeFavorite(cmd)}
-													className="shrink-0 text-[10px] text-rose-400/60 opacity-0 transition hover:text-rose-300 group-hover:opacity-100"
+													aria-label={`删除常用命令 ${cmd}`}
+													className="min-h-11 min-w-11 shrink-0 rounded-md px-1 text-[12px] text-rose-400/70 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
 												>
 													✕
 												</button>
@@ -444,7 +445,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<button
 												key={`${cmd}-${i}`}
 												onClick={() => sendCommand(cmd)}
-												className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+												className="min-h-11 block w-full truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-cyan-100/80"
 												title={cmd}
 											>
 												{cmd}
@@ -461,7 +462,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										<button
 											key={cmd}
 											onClick={() => sendCommand(cmd)}
-											className="block w-full truncate rounded-md px-2 py-1 text-left text-[11px] font-mono text-slate-500 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+											className="min-h-11 block w-full truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-slate-500 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
 											title={cmd}
 										>
 											{cmd}

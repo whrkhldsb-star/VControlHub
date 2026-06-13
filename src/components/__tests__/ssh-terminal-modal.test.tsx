@@ -126,4 +126,43 @@ describe("SshTerminalModal", () => {
 
     expect(screen.getByRole("button", { name: "重连" })).toHaveFocus();
   });
+
+  it("exposes 44px touch targets on header and side-panel controls (TR-022 R11)", async () => {
+    const user = userEvent.setup();
+    render(
+      <SshTerminalModal
+        serverId="srv_1"
+        serverName="prod-vps"
+        host="203.0.113.10:22"
+        sessionToken="session-token"
+        onClose={vi.fn()}
+      />,
+    );
+
+    // Header: 命令面板 toggle + 关闭 button must hit 44px touch targets
+    const panelToggle = screen.getByRole("button", { name: "📋 命令面板" });
+    const closeButton = screen.getByRole("button", { name: "关闭 SSH 终端" });
+    expect(panelToggle.className).toContain("min-h-11");
+    expect(closeButton.className).toContain("min-h-11");
+
+    // Open the side panel so the remaining controls are rendered
+    await user.click(panelToggle);
+
+    // Side panel: input + add (+) controls must hit 44px touch targets
+    const favoriteInput = screen.getByLabelText("添加常用 SSH 命令");
+    const addButton = screen.getByRole("button", { name: "添加常用命令" });
+    expect(favoriteInput.className).toContain("min-h-11");
+    expect(addButton.className).toContain("min-h-11");
+
+    // Add a favorite so the per-row ✕ remove button is rendered and testable
+    await user.type(favoriteInput, "ls -la");
+    await user.click(addButton);
+
+    const removeButton = screen.getByRole("button", { name: /^删除常用命令 / });
+    expect(removeButton.className).toContain("min-h-11");
+
+    // The hover-only ✕ must be at least partially visible by default so touch
+    // users can actually reach it (opacity-0 group-hover:opacity-100 is desktop-only)
+    expect(removeButton.className).not.toMatch(/\bopacity-0\b/);
+  });
 });
