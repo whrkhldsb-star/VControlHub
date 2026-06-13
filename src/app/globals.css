@@ -313,18 +313,6 @@ html.light .bg-white\/10,
 html.light .bg-white\/\[0\.08\] {
 	background-color: var(--surface-elevated);
 }
-
-html.light .border-white\/10,
-html.light .border-white\/\[0\.04\],
-html.light .border-white\/\[0\.06\],
-html.light .border-white\/\[0\.08\],
-html.light .border-white\/\[0\.1\],
-html.light .border-white\/\[0\.12\],
-html.light .border-slate-700,
-html.light .border-slate-800 {
-	border-color: var(--border);
-}
-
 html.light aside.bg-slate-950,
 html.light aside.bg-\[\#0a0e1a\] {
 	background-color: var(--sidebar-bg);
@@ -1168,6 +1156,14 @@ html.light .border-cyan-700,
 html.light .border-cyan-800,
 html.light .border-blue-700,
 html.light .border-blue-800 {
+	border-color: var(--border) !important;
+}
+
+/* Q5b. 浅色模式：源码里混用的浅色 slate 边框 (border-slate-200/300/400) 也收敛到 var(--border)
+ * 配合后续 R2 批量删除冗余 light:border-slate-200 (159处) —— 单类双主题 */
+html.light .border-slate-200,
+html.light .border-slate-300,
+html.light .border-slate-400 {
 	border-color: var(--border) !important;
 }
 
