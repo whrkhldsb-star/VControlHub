@@ -454,7 +454,12 @@ make logs SERVICE_PREFIX=vcontrolhub
   - **部署事故记录**：本轮手动 `sudo npm run verify`（含 build）由 root 跑，`.next` 产物被 root 拥有；之后 `sudo systemctl restart vcontrolhub-next` 启动后 `vcontrolhub` 用户读到 `Could not find a production build` 报错（虽然子目录有权限但 build manifest 时间戳/owner 不一致导致 Next.js 启动失败）。修复：rebuild 后 `chown -R vcontrolhub:vcontrolhub /opt/VControlHub/.next`。`deploy/install.sh` L879 build + L894 chown 是配套的，本轮手工 deploy 跳过了 install.sh 流程所以踩坑；后续手工 verify 跑完后手动 chown 即可。
   - **整体收益**：`light:` 修饰符总出现次数从 633 降至 386（−247，~39% 收敛）；单类双主题覆盖度从部分到全站（dark 默认 + Q 层 light 接管）；源码可读性显著提升，每个色值无需双写。
   - **验证**：4 commit 累计 114 files / +404 / −408（CSS 段 1 file +8/−12 + 112 files +396/−396 完全对称 = 主要是纯删除 + Q5b 段净 -4）；230 files / 1115 tests passed，verify 0 错，typecheck 0 错，build 通过，smoke 25/25，浏览器 login / image-bed / snippets（模态遮罩）三页面 light 模式视觉无回归（无深色色块残留，文字可读，遮罩半透明白灰正常）。
-- 累计本阶段 ~+877/−555 行（含本轮 Q 兼容层补齐 + 冗余 `light:` 收敛净 -4）。
+- **R5 `deploy.sh` 部署脚本** — 解决 R3 暴露的"root 跑 build → `.next` owner=root → service 启动失败"事故。一键流程：(1) 修源文件 owner（`src/` `public/` `scripts/` `prisma/` `package*.json` `next.config.*` `tsconfig.json`）避免 `vcontrolhub` 用户读不到源码；(2) 清 `.next` 残留；(3) `sudo -u vcontrolhub npm run build`；(4) chown `.next`；(5) 重启 3 服务（vcontrolhub-next / vcontrolhub-ssh-ws / caddy）；(6) 验证 active + 跑 `deploy/smoke-test.sh` 25 检查。1 文件 +35。
+- **R6 `light:bg-white/{40..95}` 弹层冗余清理（−78 处）** — 40 业务文件批量删 `light:bg-white/XX`（11 种透明度：20, 30, 40, 50, 60, 70, 75, 80, 88, 90, 95）。Dark 默认类 19 种（`bg-slate-900/{40,50,60,70,80,95}` / `bg-slate-950/{20,30,40,50,60,70,75,80,90,95}` / `bg-white/[0.03..0.05]/10`）全部在 Q 兼容层 L281-315 + L1501-1510 接管到 `var(--surface)` / `var(--surface-elevated)` / `rgba(31,35,40,0.45)`（fixed inset-0 弹层）。特例：2 处 `backups/page.tsx` 的 `bg-black/10`（Q 层 L298-300 只接管 `/20/30/40`）安全回滚保留 `light:bg-white/{50,60}`。
+- **R6b Q 层补 `bg-slate-950\/70` 模态接管** — 视觉验证发现 `snippets` 弹"新建片段"在 light 模式遮罩仍深色（实际是 `bg-slate-950/70` 没被 Q 层接管，Q 层 L1506 只接管 `/75`）。修复：L1073 (P18) + L1507 (R3) 段都补 `html.light .fixed.inset-0.bg-slate-950\/70` 接管到 `rgba(31, 35, 40, 0.45) !important; backdrop-filter: blur(2px)`。Browser vision 复验通过：遮罩半透深灰、背景内容仍可见、modal 居中清晰、无视觉回归。
+- **R6c `deploy.sh` smoke 路径修正** — 实际 smoke 脚本在 `deploy/smoke-test.sh`，原 R5 引用了根目录。已改。
+- **R6 验证**：41 files / +127 / −78（40 业务 + globals.css +2 行 + deploy.sh +35 行）；230 files / 1115 tests passed；verify exit 0；smoke 25/25；image-bed + snippets modal 浏览器 light 模式视觉无回归。
+- 累计本阶段 ~+912/−633 行（净 −81 行 = 纯代码瘦身）。
 
 ### 📋 任务追踪治理 + 路由真源 + AI 拆分 (TR-008/TR-017/TR-018/TR-021/TR-027/TR-028)
 - **README TR 追踪编号** — 33 个 `[ ]` 待办末尾加 `<!-- TR-001~TR-033 -->` 标记 + README 末尾追加"任务追踪编号表"（优先级+主题）。后续测试名/QA evidence/代码注释可直接 `grep "TR-0XX" README.md` 引用。
