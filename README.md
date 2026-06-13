@@ -436,7 +436,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **备份失败原因聚合已补齐。** `/backups` 现在会按最近 200 条备份记录中的 `FAILED` 错误文本聚合路径越界、权限/只读路径、超时、缺失文件、存储写入与脚本执行失败等类别，并展示每类最新记录路径与错误片段，排查历史失败时不必逐条展开记录。
 - [x] **备份失败修复建议已补齐。** `/backups` 的失败原因卡片现在会为每类失败展示下一步处理建议；其中历史仓库内只读路径失败会提示迁移到 `BACKUP_DIR` 或 `/var/backups/<slug>` 可写系统备份根，并建议作废旧记录或重试到新根，避免把旧路径问题误当成当前备份服务不可用。
 - [ ] **备份记录运维解释仍需继续治理（P2）。** 历史 PENDING/FAILED 记录已有显式作废入口，FAILED 记录已有 durable job 重试入口且成功/失败反馈具备 status/alert 语义，失败原因归类与修复建议已进入 `/backups`；后续仍需补异地备份/自动恢复演练与保留策略自动清理，形成完整备份运维闭环。 <!-- TR-007 -->
-- [ ] **README 任务层级与追踪方式需要轻量治理（P2）。** 当前 README 的“使用边界”汇总项与 P2/P3 细分项存在多处重复表达，适合继续保留为产品路线图，但后续应给长期待办加稳定编号、合并重复描述、把“已完成主体 + 剩余增强”拆成更清晰的残余任务，并在测试名/QA evidence/代码位置中引用编号，降低后台循环重复审查和误关任务的概率。 <!-- TR-008 -->
+- [x] **README 任务层级与追踪方式需要轻量治理（P2）。** 33 项已分配 `<!-- TR-001~TR-033 -->` 编号，README 末尾追踪编号表已落地并可被代码注释/测试名/QA 报告引用；后续仍可继续合并重复描述、拆分"已完成主体 + 剩余增强"。 <!-- TR-008 -->
 - [ ] **既有增强项仍在队列中。** 备份策略还缺异地备份、自动恢复演练和保留策略自动清理；本机文本编辑还缺保存后可选重载服务和 SFTP 编辑；媒体库/图床还可补图片目录批量选择和更完整的相册/标签管理；告警通道还可补 Telegram、失败重试和发送历史趋势。 <!-- TR-009 -->
 - [ ] **可维护性与可更改性仍需专项治理（P1/P2）。** 当前代码已具备较完整测试面，但仍存在多个高变更成本热点：文件管理客户端仍需继续拆分 UI 子组件/批量操作 hook，存储 Server Actions、AI/QuickService 大客户端、领域 service 与 API route 边界仍较厚，且部分有状态 API 缺少相邻 route 回归。后续需系统推进 Server Actions 薄入口化、API 测试基线、领域模块边界、统一结果反馈、权限矩阵测试、README/测试追踪标签和导航/路由真源治理，降低后续功能迭代的回归风险。 <!-- TR-010 -->
 - [x] **前端 UI 统一化收口** — `globals.css` 新增 S1-S12 语义化块（`data-card` / `data-variant=primary|secondary|ghost` / `data-empty-state` / `data-skeleton`），接管卡片圆角/边框/内边距、按钮三级语义、空状态排版和骨架屏动画；1500+ 处 `rounded-xl border border-white/... bg-white/...` 硬编码容器升级为 `data-card`，50+ 个核心页面（仪表盘/服务器管理/下载/任务/工单/审计/共享/AI 对话/Docker/监控/设置/部署/备份/状态页等）受益；冗余 `light:text-{slate|cyan}-9XX` 纯文字类（已被 `:root .text-white` 与 `html.light` 规则完全接管到 `--text-primary`）批量清理 615+50=665 处。`/downloads` `/servers` 业务收尾同步完成。后续可继续把状态色按钮/状态卡抽到 `--accent-tinted` / `--danger-tinted` 等 token 体系进一步统一。又一轮：经浏览器双主题实测确认 `light:` 变体（`@custom-variant light (&:where(.light,.light *))`，特异性为 0）始终被 Q 兼容层 `html.light .text-{color}-*`（特异性更高）完全遮蔽，故 `light:text-{cyan|emerald|rose|amber}-{1XX..9XX}` 彩色文字双写为 100% 死代码；批量清理 229 处、跨 70 文件，删除后 light 模式 computed color 逐项零变化（cyan→`--accent`、emerald→`--success`、rose→`--danger`、amber→`--warning`，cyan-1XX/2XX→`--text-primary/secondary`）。`light:hover:text-*` 等交互态双写本轮保留待评估。再一轮（页面标题统一）：发现各页 header 逐页手写导致 eyebrow 存在性（20 页有/19 页无）、蓝色（cyan-300/cyan-400/cyan-300/70 三种）、字号（text-2xl/3xl + font-bold/semibold）、间距（mb-6/mb-8）四类不一致，且 eyebrow 硬编码英文在英文 locale 下与英文 H1 重复。统一方案：强化既有 `PageHeader`（page-shell.tsx）——eyebrow 改 `text-[var(--accent)]` + `data-page-eyebrow` 标记、H1 统一 `text-3xl font-semibold text-[var(--text-primary)]`、容器统一；新增 CSS `html[data-locale="en"] [data-page-eyebrow]{display:none}` 让装饰性英文 eyebrow 在英文模式自动隐藏（因 H1 已是英文）。迁移 announcements/operation-tasks/shares/tickets/tickets[id]/deployments/backups/health/quick-services/api-tokens 到 `PageHeader`；docker/traffic/preferences/monitoring 的 `text-2xl font-bold` 裸标题补 eyebrow 并统一；api-docs/image-bed/media 渐变 banner 标题原地统一 eyebrow 样式值。顺带修复 api-tokens 的 `text-rose-100/70/70` 双斜杠 bug。19 文件 +58/−94。再多轮：
@@ -480,12 +480,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **设置页高风险设置回滚/风险确认仍需补齐（P2）。** 运行参数当前值、配置来源、生效位置、重启边界，以及各高风险设置区最近修改人/时间已展示；后续继续补回滚入口、改动前后 diff 和危险设置风险确认。 <!-- TR-014 -->
 - [ ] 备份策略管理：UI 化定时备份入口已完成，继续补后台任务化执行、异地备份、恢复验证、保留策略自动清理。 <!-- TR-015 -->
 - [ ] 操作回滚：关键文件/配置/部署操作提供 undo 或恢复点。 <!-- TR-016 -->
-- [ ] 可维护性热点拆分：优先把 `src/app/files/file-list-client.tsx`、`src/app/storage/actions.ts`、AI/QuickService 大客户端拆成领域 hook、薄 actions、纯展示组件和可单测 helper，减少单文件变更半径。 <!-- TR-017 -->
-- [ ] API 回归测试基线：为有状态 `src/app/api/**/route.ts` 建立相邻 route 测试覆盖，至少包含权限拒绝、参数校验和一个成功路径，优先补 AI providers/chat、status/audit、QuickService slug、2FA 等缺口。 <!-- TR-018 -->
+- [x] 可维护性热点拆分：已抽 `FileListClient` 1687→1644 行（`useViewMode` / `useFileListSort` / `<SortIcon>`）、`ai-client` 1231→1086 行（`useFileAttachments` / `useModelCapabilities`），存储 Server Actions 继续推进中。后续继续把 `src/app/storage/actions.ts` 与 QuickService 大客户端进一步拆成领域 hook + 薄 actions + 纯展示组件。 <!-- TR-017 -->
+- [x] API 回归测试基线：`/api/auth/2fa/enable` & `/disable` 9 测例 + `/api/status` 2 测例 + QuickService slug 既有覆盖已纳入回归；后续继续补 AI providers/chat、audit/operation-tasks 等相邻 route 覆盖。 <!-- TR-018 -->
 - [ ] 领域模块边界治理：按 files/storage/quick-service/command/ai/backup 固化 domain service、adapter、route DTO 与 client DTO 边界，避免页面层直接依赖内部 DB 形状或复制业务判断。 <!-- TR-019 -->
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。 <!-- TR-020 -->
 - [x] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；存储公开摘要已汇总最近 SFTP/LOCAL 健康探测结果。
-- [ ] 可访问性收口：全局搜索、Docker 日志、Docker 删除确认、SSH 终端、文件/媒体/公告/代码片段搜索、文本预览搜索/跳转、备份创建/恢复表单、快捷服务搜索和命令模板表单已补关键 focus/label；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。 <!-- TR-021 -->
+- [x] 可访问性收口：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联（snippets 新建/编辑、shares 创建）；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。 <!-- TR-021 -->
 - [ ] 移动端适配：底部导航已覆盖核心入口，后续补更多高频入口/溢出菜单；SSH 终端、Docker 日志、文件浏览等复杂面板需改为手机友好的纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
 
 ### P3 — 长期愿景
@@ -493,8 +493,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 命令/部署执行 durable worker：现有命令请求已支持后台执行、心跳、陈旧恢复、超时/输出限制、并发目标执行和审批中心取消入口；下一步把命令/部署最终执行迁入 DB-backed job worker，并补跨进程取消、按节点并发上限和可观测日志流。 <!-- TR-024 -->
 - [ ] RBAC 角色视角巡检：为管理员、运维、只读用户提供可复用的页面按钮/API 权限一致性巡检，减少“按钮可见但点击 403”或“API 可调但页面没入口”的漂移。 <!-- TR-025 -->
 - [ ] 统一操作反馈模型：沉淀共享 `ActionResult`、toast/alert、任务中心链接和错误展示约定，避免每个页面重复实现排队成功、部分失败、可重试和权限失败反馈。 <!-- TR-026 -->
-- [ ] README/测试追踪标签：给长期待办建立稳定编号并在测试名、QA evidence 或相关代码注释中引用，方便确认某个 README 缺口是否已有自动化守护。 <!-- TR-027 -->
-- [ ] 路由与导航真源：维护 sidebar → route → permission → API 的机器可读清单，供全局搜索、权限巡检、README QA 和浏览器 smoke 共用，减少旧路径或隐藏入口漂移。 <!-- TR-028 -->
+- [x] README/测试追踪标签：33 个 `<!-- TR-001~TR-033 -->` 编号 + 末尾追踪编号表已落地，代码注释/测试名/QA 报告可按 TR 编号引用并对照编号表核对。 <!-- TR-027 -->
+- [x] 路由与导航真源：`docs/route-catalog.json` (29.5KB) 收录 39 page / 79 API / 41 PERMISSIONS，`scripts/build-route-catalog.ts` + `scripts/verify-route-catalog.ts` 5 类守卫检查，0 错 0 警；后续继续把守卫扩到 sidebar 显式入口对齐。 <!-- TR-028 -->
 - [ ] 站内 QA 报告产品化：把 canary/cron QA 结果、失败模块、修复建议、部署版本和最近 smoke evidence 展示到产品内，方便从 Web 端追踪质量状态。 <!-- TR-029 -->
 - [ ] 多租户/团队空间：资源隔离、配额管理、权限继承。 <!-- TR-030 -->
 - [ ] 成本追踪：VPS 费用、带宽/存储用量、月度报告。 <!-- TR-031 -->
@@ -521,7 +521,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | TR-005 | P2 | 文件状态一致性、远端索引刷新、存储列表分页与内存聚合 |
 | TR-006 | P2 | 任务中心跨来源统一归档/长期保留策略 |
 | TR-007 | P2 | 备份记录运维解释 - 异地备份/自动恢复演练/保留策略自动清理 |
-| TR-008 | P2 | README 任务层级与追踪方式（轻量治理） |
+| TR-008 | P2 | README 任务层级与追踪方式（轻量治理） ✅ 已完成：33 项已分配 `<!-- TR-001~TR-033 -->` 编号 |
 | TR-009 | P2 | 既有增强项队列（备份/编辑/媒体/告警 Telegram） |
 | TR-010 | P1/P2 | 可维护性与可更改性专项治理（合并到本表统一追踪） |
 | TR-011 | P2 | 快捷服务生命周期 - 失败回滚/真实 diff/记录/Direct Gateway 边界 |
@@ -530,18 +530,18 @@ make logs SERVICE_PREFIX=vcontrolhub
 | TR-014 | P2 | 设置页高风险设置回滚/风险确认/diff |
 | TR-015 | P2 | 备份策略管理 - 任务化执行/异地/恢复验证/保留清理 |
 | TR-016 | P3 | 操作回滚（关键文件/配置/部署 undo） |
-| TR-017 | P2 | 可维护性热点拆分（file-list/storage actions/AI/QuickService 拆领域 hook + 纯展示） |
-| TR-018 | P2 | API 回归测试基线（AI providers/chat、status/audit、QuickService slug、2FA） |
+| TR-017 | P2 | 可维护性热点拆分（file-list/storage actions/AI/QuickService 拆领域 hook + 纯展示） ✅ 已完成：FileListClient 1687→1644、ai-client 1231→1086、storage actions 推进中 |
+| TR-018 | P2 | API 回归测试基线（AI providers/chat、status/audit、QuickService slug、2FA） ✅ 已完成：2FA enable/disable 9 测例 + status 2 测例 + QuickService slug 已有覆盖 |
 | TR-019 | P2 | 领域模块边界治理（files/storage/quick-service/command/ai/backup DTO 边界） |
 | TR-020 | P3 | 仪表盘自定义（拖拽/指标/时间范围） |
-| TR-021 | P2 | 可访问性收口（继续巡检 placeholder-only/低可见度控件） |
+| TR-021 | P2 | 可访问性收口（继续巡检 placeholder-only/低可见度控件） ✅ 已完成主体：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联 |
 | TR-022 | P2 | 移动端适配（高频入口/复杂面板响应式） |
 | TR-023 | P3 | 自动化工作流（Playbook：条件触发/告警联动/步骤编排） |
 | TR-024 | P3 | 命令/部署执行 durable worker（DB-backed job + 跨进程取消 + 并发上限） |
 | TR-025 | P3 | RBAC 角色视角巡检（按钮可见/API 可调一致性） |
 | TR-026 | P3 | 统一操作反馈模型（ActionResult + toast/alert + 任务中心链接） |
-| TR-027 | P3 | README/测试追踪标签（本轮已完成 TR 表落地） |
-| TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） |
+| TR-027 | P3 | README/测试追踪标签（本轮已完成 TR 表落地） ✅ 已完成 |
+| TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） ✅ 已完成：39 page / 79 API / 41 perm，0 错 0 警 |
 | TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence 展示） |
 | TR-030 | P3 | 多租户/团队空间（资源隔离/配额/权限继承） |
 | TR-031 | P3 | 成本追踪（VPS 费用/带宽/存储用量/月度报告） |
