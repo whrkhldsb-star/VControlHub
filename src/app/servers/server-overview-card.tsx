@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { ServerCardActions } from "./server-card-actions";
+import { getDirectGatewayHealthyNote, getDirectGatewayRepairAdvice } from "./direct-gateway-advice";
 
 type DiagnosticRunState =
   | { status: "idle" }
@@ -65,7 +66,21 @@ export function ServerOverviewCard({
   const listHealthToneClass = server.enabled
     ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50"
     : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:border-slate-300 light:bg-slate-100 light:text-slate-700";
-  const diagnosticItems = [
+  const directGatewayAdvice = getDirectGatewayRepairAdvice({
+    directGateway: server.directGateway ?? null,
+    serverEnabled: server.enabled,
+    hasStorageNode: !!server.storageNode,
+    pendingCommandCount: server.pendingCommandCount,
+    canManageServers,
+  });
+  const directGatewayHealthy = directGatewayAdvice.length === 0;
+  const diagnosticItems: Array<{
+    label: string;
+    status: string;
+    tone: "success" | "warning" | "info";
+    detail: ReactNode;
+    href: string | null;
+  }> = [
     {
       label: "SSH 交互连接",
       status: server.enabled && canUseSshTerminal ? "可验证" : server.enabled ? "缺少权限" : "节点停用",
@@ -88,9 +103,14 @@ export function ServerOverviewCard({
       label: "Direct Gateway",
       status: server.directGateway?.enabled ? "已配置" : "网站中转",
       tone: server.directGateway?.enabled ? "success" : "info",
-      detail: server.directGateway?.enabled
-        ? "直连签名链接已配置；仍需通过文件下载/媒体播放或目标端口探测确认公网可达。"
-        : "当前会回退到网站服务器中转，适合先保证可用性，再决定是否启用直连。",
+      detail: directGatewayHealthy ? (
+        <DirectGatewayHealthyDetail
+          statusLabel={server.directGateway?.statusLabel ?? "网站中转"}
+          publicUrl={server.directGateway?.publicUrl ?? null}
+        />
+      ) : (
+        <DirectGatewayAdviceList advice={directGatewayAdvice} />
+      ),
       href: server.directGateway?.publicUrl ?? null,
     },
     {
@@ -102,7 +122,7 @@ export function ServerOverviewCard({
         : "没有待审批命令阻塞当前节点操作。",
       href: server.pendingCommandCount > 0 ? "/requests" : null,
     },
-  ] as const;
+  ];
 
   const runRealtimeDiagnostics = async () => {
     setDiagnosticRun({ status: "loading" });
@@ -358,9 +378,9 @@ export function ServerOverviewCard({
                       {item.status}
                     </span>
                   </div>
-                  <p className="mt-2 text-[11px] leading-5 text-slate-500 light:text-slate-600">
+                  <div className="mt-2 text-[11px] leading-5 text-slate-500 light:text-slate-600">
                     {item.detail}
-                  </p>
+                  </div>
                   {item.href ? (
                     <Link
                       href={item.href}
@@ -439,4 +459,64 @@ function statusToneClass(tone: "success" | "warning" | "info") {
     return "border-amber-400/25 bg-amber-400/10 text-amber-200 light:border-amber-700/20 light:bg-amber-50";
   }
   return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50";
+}
+
+type AdviceListProps = {
+  advice: Array<{
+    title: string;
+    detail: string;
+    priority: "primary" | "secondary";
+    href: string | null;
+    hrefLabel?: string;
+  }>;
+};
+
+function DirectGatewayAdviceList({ advice }: AdviceListProps) {
+  if (advice.length === 0) return null;
+  return (
+    <ul
+      role="list"
+      aria-label="Direct Gateway 修复建议"
+      className="mt-1 space-y-1.5"
+    >
+      {advice.map((item, index) => (
+        <li
+          key={`${item.title}-${index}`}
+          className="rounded-md border border-amber-400/15 bg-amber-400/[0.05] px-2 py-1.5 light:border-amber-700/20 light:bg-amber-50/60"
+        >
+          <div className="flex flex-wrap items-baseline gap-1.5 text-[11px] font-medium leading-5 text-amber-100 light:text-amber-900">
+            <span
+              data-priority={item.priority}
+              className={
+                item.priority === "primary"
+                  ? "rounded border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-200 light:border-amber-700/25 light:bg-white light:text-amber-800"
+                  : "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200 light:border-slate-400/30 light:bg-white light:text-slate-700"
+              }
+            >
+              {item.priority === "primary" ? "建议" : "参考"}
+            </span>
+            <span>{item.title}</span>
+            {item.href && item.hrefLabel ? (
+              <Link
+                href={item.href}
+                className="ml-auto text-cyan-200 underline-offset-4 hover:underline light:text-cyan-700"
+                aria-label={item.hrefLabel}
+              >
+                {item.hrefLabel}
+              </Link>
+            ) : null}
+          </div>
+          <p className="mt-1 text-[11px] leading-5 text-slate-400 light:text-slate-700">
+            {item.detail}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DirectGatewayHealthyDetail({ statusLabel, publicUrl }: { statusLabel: string; publicUrl: string | null }) {
+  return (
+    <p data-testid="direct-gateway-healthy-note">{getDirectGatewayHealthyNote({ statusLabel, publicUrl })}</p>
+  );
 }
