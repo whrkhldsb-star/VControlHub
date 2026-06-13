@@ -671,7 +671,7 @@ function UsageCell({ value }: { value: number | undefined }) {
 	if (value === undefined) return <span className="text-xs text-slate-600">—</span>;
 	return (
 		<div className="flex items-center gap-2 min-w-[100px]">
-			<div className="flex-1 h-1.5 rounded-full bg-slate-800 light:bg-slate-100 overflow-hidden">
+			<div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
 				<div className={`h-full rounded-full ${usageBarColor(value)} transition-all`} style={{ width: `${Math.min(100, value)}%` }} />
 			</div>
 			<span className={`text-xs font-mono tabular-nums w-12 text-right ${usageColor(value)}`}>

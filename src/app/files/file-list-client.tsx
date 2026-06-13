@@ -1367,7 +1367,7 @@ export function FileListClient({
               </button>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 light:bg-slate-50">
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                 <div className="grid gap-3 text-sm sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-slate-500">存储节点</p>

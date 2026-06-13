@@ -120,7 +120,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <b className="text-sm text-white">{s.title}</b>
-                <span className="rounded-full border border-white/[0.06] bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400 light:bg-slate-50">{s.language}</span>
+                <span className="rounded-full border border-white/[0.06] bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400">{s.language}</span>
                 {s.isPrivate && <span className="text-[10px] text-amber-400">🔒 私有</span>}
                 {s.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -143,7 +143,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               </div>
             </div>
             {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
-            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:bg-slate-50">{s.content}</pre>
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{s.content}</pre>
           </div>
         ))}
         {filtered.length === 0 && (

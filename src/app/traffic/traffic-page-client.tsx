@@ -145,8 +145,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 									<RateBadge label={`↑ 上传速度 · ${primary.iface}`} value={primary.txRateLabel} color="emerald" />
 								</div>
 								<div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100">{primary.rxLabel}</span></div>
-									<div className="rounded-xl bg-black/20 p-3 light:bg-slate-50 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100">{primary.txLabel}</span></div>
+									<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100">{primary.rxLabel}</span></div>
+									<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100">{primary.txLabel}</span></div>
 								</div>
 							</>
 						) : <div className="text-sm text-slate-500">暂无网卡数据</div>}
@@ -165,7 +165,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 
 					<Card title="存储节点流量来源">
 						<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 light:bg-slate-100 px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{formatStorageHealthStatus(node.healthStatus)}</span></div><div className="mt-3 text-xs text-[var(--text-secondary)]">{node.trafficSourceDetail}</div></div>)}
+							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{formatStorageHealthStatus(node.healthStatus)}</span></div><div className="mt-3 text-xs text-[var(--text-secondary)]">{node.trafficSourceDetail}</div></div>)}
 							{summary.storageNodes.length === 0 && <div className="text-sm text-slate-500">暂无存储节点</div>}
 						</div>
 					</Card>

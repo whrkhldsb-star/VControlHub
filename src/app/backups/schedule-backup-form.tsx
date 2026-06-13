@@ -95,7 +95,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         </div>
       </div>
       <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
-      <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:bg-slate-50">{command}</code>
+      <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{command}</code>
       <div className="space-y-2">
         <p className="text-xs font-medium text-[var(--text-secondary)]">执行节点</p>
         {enabledServers.length === 0 ? (

@@ -195,7 +195,7 @@ export function ServerCardActions({
           <form
             action={editAction}
             aria-label="编辑 VPS 节点"
-            className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 light:bg-slate-50"
+            className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input type="hidden" name="connectionType" value={connectionType} />

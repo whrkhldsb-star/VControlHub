@@ -94,7 +94,7 @@ export function ShareFileButton({
               <p className="font-medium text-emerald-200">
                 分享链接已生成{copied ? "并复制" : ""}
               </p>
-              <code className="block break-all rounded-lg bg-white/[0.04] p-2 text-slate-300 light:bg-slate-50">
+              <code className="block break-all rounded-lg bg-white/[0.04] p-2 text-slate-300">
                 {shareUrl}
               </code>
               <button

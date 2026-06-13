@@ -39,7 +39,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 				/>
 			</div>
 
-			<label className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-2.5 text-xs font-medium text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:bg-slate-50 light:shadow-sm">
+			<label className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.025] px-3.5 py-2.5 text-xs font-medium text-white shadow-[0_0_0_1px_rgba(255,255,255,0.03)] light:border-slate-200/80 light:shadow-sm">
 				<span>记住登录 30 天，减少频繁跳转登录页</span>
 				<input
 					type="checkbox"

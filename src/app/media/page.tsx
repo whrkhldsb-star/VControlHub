@@ -87,7 +87,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           </div>
 
           <div role="tablist" aria-label="媒体类型" className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-cyan-100" inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:bg-slate-50" className="rounded-2xl border px-4 py-3 transition">
+            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-cyan-100" inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]" className="rounded-2xl border px-4 py-3 transition">
               <span className="block text-base">全部</span><span className="text-xs opacity-70">{totalCount} 项媒体</span>
             </FilterLink>
             <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
@@ -144,7 +144,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       </div>
 
       {tagCloud.length > 0 && (
-        <div data-card className="mb-5  p-3 light:bg-slate-50">
+        <div data-card className="mb-5  p-3">
           <div className="mb-2 text-xs font-semibold text-slate-400">标签筛选</div>
           <div className="flex flex-wrap gap-2 text-xs">
             {tagCloud.map((entry) => (

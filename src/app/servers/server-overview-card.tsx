@@ -65,7 +65,7 @@ export function ServerOverviewCard({
     : "节点已停用，不会接收新的 SSH、文件或直连操作。";
   const listHealthToneClass = server.enabled
     ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50"
-    : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:bg-slate-100";
+    : "border-slate-400/20 bg-slate-400/10 text-slate-400";
   const directGatewayAdvice = getDirectGatewayRepairAdvice({
     directGateway: server.directGateway ?? null,
     serverEnabled: server.enabled,
@@ -241,7 +241,7 @@ export function ServerOverviewCard({
           aria-label={`${server.name} VPS 详情`}
           className="mt-4 space-y-3 border-t border-white/[0.06] pt-4"
         >
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:bg-slate-50">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
             <h3 className="mb-3 text-sm font-medium text-white/80">
               连接与状态
             </h3>
@@ -278,7 +278,7 @@ export function ServerOverviewCard({
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:bg-slate-50">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
             <h3 className="mb-3 text-sm font-medium text-white/80">
               操作与资源
             </h3>
@@ -394,7 +394,7 @@ export function ServerOverviewCard({
             </div>
           </section>
 
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:bg-slate-50">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
             <h3 className="mb-3 text-sm font-medium text-white/80">
               最近命令投递
             </h3>
@@ -435,7 +435,7 @@ export function ServerOverviewCard({
 
 function CompactField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5 light:bg-slate-50">
+    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5">
       <div className="text-[10px] text-slate-600">{label}</div>
       <div className="truncate text-[11px] text-slate-200">{value}</div>
     </div>

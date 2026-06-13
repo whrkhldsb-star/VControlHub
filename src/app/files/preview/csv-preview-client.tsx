@@ -141,7 +141,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 					</thead>
 					<tbody>
 						{displayRows.map((row, rowIdx) => (
-							<tr key={rowIdx} className={rowIdx % 2 === 0 ? "bg-slate-900/40 light:bg-slate-50" : "bg-slate-950/40"}>
+							<tr key={rowIdx} className={rowIdx % 2 === 0 ? "bg-slate-900/40" : "bg-slate-950/40"}>
 								<td className="px-3 py-1.5 text-right text-xs text-slate-600 border-b border-slate-800/50 light:border-slate-300/50">{rowIdx + 1}</td>
 								{header.map((_, colIdx) => (
 									<td key={colIdx} className="px-3 py-1.5 text-[var(--text-secondary)] border-b border-slate-800/50 light:border-slate-300/50 whitespace-nowrap max-w-[300px] truncate">{row[colIdx] ?? ""}</td>

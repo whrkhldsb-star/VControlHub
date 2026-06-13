@@ -467,7 +467,7 @@ export function TextPreviewClient({
 										setSaveMessage("");
 									}}
 									disabled={saveStatus === "saving"}
-									className="rounded-lg border border-slate-700 bg-slate-800 light:bg-slate-100 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
+									className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
 								>
 									取消
 								</button>
@@ -517,7 +517,7 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={handleJumpToLine}
-								className="rounded-lg border border-slate-700 bg-slate-800 light:bg-slate-100 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
+								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
 							>
 								跳转
 							</button>

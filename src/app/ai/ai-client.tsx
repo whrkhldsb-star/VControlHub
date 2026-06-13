@@ -781,7 +781,7 @@ return (
   </button>
                   </div>
                   {msg.role === "user" && (
-                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-700 light:bg-slate-200 flex items-center justify-center text-[11px] font-semibold text-cyan-400 uppercase">
+                    <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-slate-700 flex items-center justify-center text-[11px] font-semibold text-cyan-400 uppercase">
                       U
                     </div>
                   )}

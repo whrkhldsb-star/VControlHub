@@ -174,7 +174,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										<div>上次运行：{formatTime(task.lastRunAt)}</div>
 										<div>下次运行：{formatTime(task.nextRunAt)}</div>
 									</div>
-									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-slate-50 px-3 py-2 text-[11px] text-slate-400">
+									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2 text-[11px] text-slate-400">
 										<div className="mb-1 font-medium text-slate-300">最近执行日志</div>
 										<div className="whitespace-pre-wrap break-words">{task.lastResult || "暂无执行记录"}</div>
 									</div>

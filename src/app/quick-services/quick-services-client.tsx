@@ -540,7 +540,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100">
 					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
 					<p className="mt-1 text-xs text-amber-100/75/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50 light:bg-slate-50">{dockerStatus.installHint}</p> : null}
+					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
@@ -693,7 +693,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							{SOURCE_PRESETS.map((preset) => {
 								const active = sourcePreset === preset.key;
 								return (
-									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 light:bg-slate-50 hover:bg-white/[0.06] light:hover:bg-white"}`}>
+									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:hover:bg-white"}`}>
 										<div className="flex items-center justify-between gap-2">
 											<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
 											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
@@ -950,7 +950,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<p className="text-sm leading-6 text-slate-300">
 							{configPreview.action === "install" ? "安装会拉取镜像并创建 qs-* 容器。" : "更新会拉取当前镜像并重建 qs-* 容器。"}请确认端口、挂载和公开访问边界后继续。
 						</p>
-						<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300 light:bg-slate-50">
+						<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300">
 							<div><span className="text-slate-500">服务：</span>{configPreview.item.name} ({configPreview.item.slug})</div>
 							<div><span className="text-slate-500">镜像：</span>{configPreview.item.image}</div>
 							<div><span className="text-slate-500">端口：</span>容器 {getPrimaryContainerPort(configPreview.item)} → 宿主机 {configPreview.port}</div>

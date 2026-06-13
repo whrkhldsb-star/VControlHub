@@ -124,7 +124,7 @@ function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string 
 	) : fallback;
 
 	return (
-		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/60 light:bg-slate-100" aria-label={`${item.name} ${mediaTypeLabel(item.mediaType)}预览`}>
+		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/60" aria-label={`${item.name} ${mediaTypeLabel(item.mediaType)}预览`}>
 			{visual}
 			{typeBadge}
 			{item.mediaType !== "audio" && (

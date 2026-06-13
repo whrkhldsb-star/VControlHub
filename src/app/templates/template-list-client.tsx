@@ -160,7 +160,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									<span data-tone="accent" className="rounded-md border px-1.5 py-0.5 text-[9px] font-medium shrink-0">内置</span>
 								)}
 							</div>
-							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2 light:bg-slate-50">
+							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2">
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (

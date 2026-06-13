@@ -224,7 +224,7 @@ export default async function MediaPlayerPage({
             </nav>
           </div>
 
-          <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 light:bg-slate-50">
+          <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
             <div className="mb-4 flex items-center gap-2">
               <span className="text-3xl">
                 {item.mediaType === "image"

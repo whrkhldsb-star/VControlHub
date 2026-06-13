@@ -51,7 +51,7 @@ export default async function SharePage({
           </div>
         ) : share ? (
           <div className="space-y-5">
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 light:bg-slate-50">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
               <p className="break-all text-base font-medium text-white">
                 {share.name || share.path}
               </p>
@@ -87,7 +87,7 @@ export default async function SharePage({
             </div>
 
             {share.entryType === "DIRECTORY" ? (
-              <div data-card className=" p-4 light:bg-slate-50">
+              <div data-card className=" p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-white">可下载文件</h2>

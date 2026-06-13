@@ -132,7 +132,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400 light:bg-slate-50">该模板没有变量，可直接选择目标 VPS 提交。</p>
+				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400">该模板没有变量，可直接选择目标 VPS 提交。</p>
 			)}
 
 			<div>
@@ -150,7 +150,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 			</div>
 
-			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3 light:bg-slate-50">
+			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3">
 				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">预览命令</summary>
 				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{previewCommand(selectedTemplate, variables)}</code>
 			</details>

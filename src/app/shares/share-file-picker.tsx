@@ -258,7 +258,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							setSelected({});
 							setResults([]);
 						}}
-						className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none light:bg-slate-50"
+						className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none"
 					>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}</option>
@@ -289,7 +289,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="overflow-hidden rounded-xl border border-white/[0.08]">
-					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500 light:bg-slate-50">
+					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500">
 						<span />
 						<span>{copyText.name}</span>
 						<span>{copyText.type}</span>
@@ -343,7 +343,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					)}
 				</div>
 
-				<aside className="rounded-xl border border-white/[0.08] bg-slate-950/35 p-4 light:bg-slate-50">
+				<aside className="rounded-xl border border-white/[0.08] bg-slate-950/35 p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<h3 className="text-sm font-semibold text-white">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>

@@ -34,7 +34,7 @@ export function ToggleChip({
 		tone === "warn"
 			? "bg-amber-500/20 text-amber-300"
 			: "bg-cyan-500/20 text-cyan-300";
-	const inactiveCls = "bg-slate-700/50 text-slate-400 hover:bg-slate-700 light:bg-slate-100";
+	const inactiveCls = "bg-slate-700/50 text-slate-400 hover:bg-slate-700";
 	return (
 		<button
 			type="button"
