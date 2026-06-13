@@ -508,7 +508,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。 <!-- TR-020 -->
 - [x] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；存储公开摘要已汇总最近 SFTP/LOCAL 健康探测结果。
 - [x] 可访问性收口：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联（snippets 新建/编辑、shares 创建）；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。 <!-- TR-021 -->
-- [ ] 移动端适配：底部导航已覆盖核心入口；已交付 2 轮（`/image-bed` 批量栏 sticky bottom + 触摸目标 min-h-11 + 搜索框 w-full；`/health` 仪表盘 header 堆叠 + 栅格 1/2/3 + SummaryCard 响应字号）。继续补：更多高频入口/溢出菜单、SSH 终端、Docker 日志、文件浏览等复杂面板的手机友好纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
+- [x] 移动端适配：底部导航已覆盖核心入口；已交付 2 轮（`/image-bed` 批量栏 sticky bottom + 触摸目标 min-h-11 + 搜索框 w-full；`/health` 仪表盘 header 堆叠 + 栅格 1/2/3 + SummaryCard 响应字号）。继续补：更多高频入口/溢出菜单、SSH 终端、Docker 日志、文件浏览等复杂面板的手机友好纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
 
 ### P3 — 长期愿景
 - [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。 <!-- TR-023 -->
@@ -557,7 +557,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | TR-019 | P2 | 领域模块边界治理（files/storage/quick-service/command/ai/backup DTO 边界） |
 | TR-020 | P3 | 仪表盘自定义（拖拽/指标/时间范围） |
 | TR-021 | P2 | 可访问性收口（继续巡检 placeholder-only/低可见度控件） ✅ 已完成主体：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联 |
-| TR-022 | P2 | 移动端适配（高频入口/复杂面板响应式） |
+| TR-022 | P2 | 移动端适配（高频入口/复杂面板响应式） ✅ 已完成主体：image-bed 批量栏 + 搜索 + 触摸；health-dashboard header + 栅格 + 响应字号。剩余补：quick-services / file-browser / docker / ssh / 危险操作二次确认 |
 | TR-023 | P3 | 自动化工作流（Playbook：条件触发/告警联动/步骤编排） |
 | TR-024 | P3 | 命令/部署执行 durable worker（DB-backed job + 跨进程取消 + 并发上限） |
 | TR-025 | P3 | RBAC 角色视角巡检（按钮可见/API 可调一致性） |
