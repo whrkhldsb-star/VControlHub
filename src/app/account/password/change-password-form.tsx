@@ -12,7 +12,7 @@ export function ChangePasswordForm() {
   const [state, formAction] = useActionState(changePasswordAction, initialState);
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
       <input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
       <div>
         <h2 className="text-xl font-semibold text-white">修改登录密码</h2>

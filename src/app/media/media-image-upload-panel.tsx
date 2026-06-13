@@ -160,7 +160,7 @@ export function MediaImageUploadPanel() {
 			<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
 
 			{progress ? (
-				<div role="status" aria-label="媒体图片上传进度" className="mt-3 rounded-xl border border-emerald-300/20 bg-slate-950/40 p-3 text-xs text-emerald-100 light:bg-white/80">
+				<div role="status" aria-label="媒体图片上传进度" className="mt-3 rounded-xl border border-emerald-300/20 bg-slate-950/40 p-3 text-xs text-emerald-100">
 					<div className="flex justify-between gap-3">
 						<span>{uploading ? `正在上传第 ${progress.current}/${progress.total} 张` : `已完成 ${progress.success}/${progress.total} 张`}</span>
 						<span>成功 {progress.success} · 失败 {progress.failure}</span>

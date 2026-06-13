@@ -543,7 +543,7 @@ export function TextPreviewClient({
 								type="button"
 								onClick={() => setShowDiffReview(false)}
 								disabled={saveStatus === "saving"}
-								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 light:bg-white/70 disabled:opacity-50"
+								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 disabled:opacity-50"
 							>
 								返回编辑
 							</button>
@@ -557,7 +557,7 @@ export function TextPreviewClient({
 							</button>
 						</div>
 					</div>
-					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80 light:bg-white/80">
+					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80">
 						{diffRows.length === 0 ? (
 							<p className="px-3 py-2 text-xs text-slate-400">没有检测到内容差异。</p>
 						) : (

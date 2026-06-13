@@ -197,7 +197,7 @@ export function FileUploadDropzone({
   }
 
   return (
-    <section className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+    <section className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-white">{title}</h2>
@@ -304,7 +304,7 @@ export function FileUploadDropzone({
       ) : null}
 
       {queue.length > 0 ? (
-        <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 p-3 text-xs text-[var(--text-secondary)]">
+        <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-slate-950/50 p-3 text-xs text-[var(--text-secondary)]">
           {queue.map((item, index) => (
             <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
               <span className="truncate">

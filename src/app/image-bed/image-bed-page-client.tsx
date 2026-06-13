@@ -322,9 +322,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:bg-white/75"><div className="text-lg font-semibold text-white">{total}</div><div className="text-slate-400">已发布外链</div></div>
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:bg-white/75"><div className="text-lg font-semibold text-white">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-slate-400">可追溯来源</div></div>
-					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3 light:bg-white/75"><div className="text-lg font-semibold text-white">{images.filter((img) => img.isPublic).length}</div><div className="text-slate-400">当前页公开</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3"><div className="text-lg font-semibold text-white">{total}</div><div className="text-slate-400">已发布外链</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3"><div className="text-lg font-semibold text-white">{images.filter((img) => img.storageNodeId && img.relativePath).length}</div><div className="text-slate-400">可追溯来源</div></div>
+					<div className="rounded-2xl border border-white/[0.08] bg-white/[0.05] p-3"><div className="text-lg font-semibold text-white">{images.filter((img) => img.isPublic).length}</div><div className="text-slate-400">当前页公开</div></div>
 				</div>
 			</div>
 
@@ -374,7 +374,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
 					)}
 					<div className="flex items-center gap-1">
-						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 light:bg-white/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
+						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
 						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
 					</div>
 					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 transition disabled:opacity-30">🔄 切换公开</button>
@@ -389,19 +389,19 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<button onClick={() => setShowStats(false)} className="text-slate-500 hover:text-slate-300 text-sm">✕</button>
 					</div>
 					<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
+						<div className="bg-slate-900/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">总图片数</div>
 							<div className="text-xl font-bold text-white">{stats.totalCount}</div>
 						</div>
-						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
+						<div className="bg-slate-900/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">总存储量</div>
 							<div className="text-xl font-bold text-white">{stats.totalSizeMB} MB</div>
 						</div>
-						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
+						<div className="bg-slate-900/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">相册数</div>
 							<div className="text-xl font-bold text-white">{stats.albums.length}</div>
 						</div>
-						<div className="bg-slate-900/50 light:bg-white/50 rounded-lg p-3">
+						<div className="bg-slate-900/50 rounded-lg p-3">
 							<div className="text-xs text-slate-500">近7天上传</div>
 							<div className="text-xl font-bold text-white">{stats.uploadTrend.reduce((s, t) => s + t.count, 0)}</div>
 						</div>
@@ -484,7 +484,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Progress */}
 			{uploadProgress && (
-				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-[var(--border)] bg-slate-900/70 light:bg-white/70 p-4 text-sm text-slate-300">
+				<div role="status" aria-label="图片上传进度" className="mt-3 rounded-xl border border-[var(--border)] bg-slate-900/70 p-4 text-sm text-slate-300">
 					<div className="flex items-center justify-between gap-3">
 						<span>{uploading ? `正在上传第 ${uploadProgress.current}/${uploadProgress.total} 张` : `已完成 ${uploadProgress.success}/${uploadProgress.total} 张`}</span>
 						<span className="text-xs text-slate-500">成功 {uploadProgress.success} · 失败 {uploadProgress.failure}</span>

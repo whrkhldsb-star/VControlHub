@@ -163,7 +163,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create form */}
       {showCreateForm && (
-        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6 space-y-4">
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-slate-900/60 p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm text-slate-400 mb-1">用户名 *</label>
@@ -230,7 +230,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* User list */}
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
-        <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
+        <div className="divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
             <EmptyState>加载中…</EmptyState>
           ) : loadFailed ? (

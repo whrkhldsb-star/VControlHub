@@ -65,16 +65,16 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">需要你确认 AI 是否可以执行该高风险操作；只处理当前账号的 AI 托管请求。</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-            <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-white/40 px-3 py-2">
+            <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-slate-600">操作类型</div>
               <div className="mt-1 font-mono text-cyan-100">{action.actionType}</div>
             </div>
-            <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 light:bg-white/40 px-3 py-2">
+            <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2">
               <div className="text-[10px] uppercase tracking-wider text-slate-600">目标 VPS</div>
               <div className="mt-1 text-slate-200">{action.server ? `${action.server.name} · ${action.server.host}` : "未指定"}</div>
             </div>
           </div>
-          <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-white/[0.05] bg-slate-950/60 light:bg-white/60 p-3 text-[11px] text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
+          <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-white/[0.05] bg-slate-950/60 p-3 text-[11px] text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
           {error ? <p role="alert" className="mt-2 text-xs text-rose-300">{error}</p> : null}
         </div>
         <div className="flex shrink-0 gap-2">

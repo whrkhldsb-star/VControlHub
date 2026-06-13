@@ -129,7 +129,7 @@ function StorageNodeCard({
 					node.directAccess.description
 				)}
 			</p>
-			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-slate-950/40 light:bg-white/40 p-4 text-sm text-slate-300">
+			<div className="mt-4 rounded-2xl border border-[var(--border)] bg-slate-950/40 p-4 text-sm text-slate-300">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div className="flex flex-wrap items-center gap-2">
 						<span className={`rounded-full border px-3 py-1 text-xs ${health.className}`}>{health.label}</span> <span>最近检测：{formatHealthTime(node.lastHealthCheckAt)}</span> {node.lastHealthLatencyMs != null ? <span>{node.lastHealthLatencyMs} ms</span> : null} </div> {canManageNodes ? ( <button type="button" onClick={handleHealthCheck} disabled={isPending} className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-100 transition hover:bg-sky-400/20 disabled:cursor-not-allowed disabled:opacity-60" > {isPending ?"检测中..." :"立即检测"} </button> ) : null} </div> {node.lastHealthError ? <p className="mt-2 text-xs text-amber-200">{node.lastHealthError}</p> : null} {message ? <p className={`mt-2 text-xs ${message.ok ? "text-emerald-200" : "text-rose-200"}`}>{message.text}</p> : null}

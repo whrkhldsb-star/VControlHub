@@ -123,7 +123,7 @@ export default function ApiDocsPage() {
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
 								placeholder="搜索路径、方法、模块或说明"
-								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 light:bg-white/40 px-3 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
+								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 px-3 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
 							/>
 						</label>
 						<div className="text-sm text-slate-400">
@@ -162,7 +162,7 @@ export default function ApiDocsPage() {
 												<span className={`rounded-md border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-slate-200"}`}>
 													{entry.method}
 												</span>
-												<code className="break-all rounded-md bg-slate-950/60 light:bg-white/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
+												<code className="break-all rounded-md bg-slate-950/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
 											</div>
 											<h3 className="mt-3 text-sm font-medium text-white">{entry.operation.summary ?? "未命名接口"}</h3>
 											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400">{entry.operation.description}</p> : null}

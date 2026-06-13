@@ -19,7 +19,7 @@ export function StorageNodeCreateForm({
   const isSftp = driver === "SFTP";
 
   return (
-    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
       <div>
         <h2 className="text-xl font-semibold text-white">新增存储节点</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">支持本机存储与绑定 VPS 的 SFTP 存储节点。</p>

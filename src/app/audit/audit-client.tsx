@@ -209,7 +209,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <div>详情</div>
             <div>来源</div>
           </div>
-          <div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
+          <div className="divide-y divide-white/5 bg-slate-950/40">
             {loading ? (
               <EmptyState>加载中…</EmptyState>
             ) : error && !data ? (
@@ -242,7 +242,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
 
         {/* Mobile */}
-        <div className="md:hidden divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
+        <div className="md:hidden divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
             <EmptyState>加载中…</EmptyState>
           ) : error && !data ? (

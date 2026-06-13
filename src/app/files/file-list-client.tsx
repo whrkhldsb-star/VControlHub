@@ -603,7 +603,7 @@ export function FileListClient({
             type="button"
             onClick={() => navigateToFolder(folder.path)}
             data-testid="folder-card"
-            className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900/80 light:bg-white/80 p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
+            className="group flex min-h-[156px] flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-slate-900/80 p-5 text-center transition-colors duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.04]"
           >
             <div
               className="rounded-xl bg-amber-400/10 p-3 transition-colors group-hover:bg-amber-400/20"
@@ -692,7 +692,7 @@ export function FileListClient({
               </div>
 
               {/* Action bar — common actions stay visible, secondary actions live under 更多 */}
-              <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40 light:bg-white/40">
+              <div className="flex items-center justify-center gap-1 px-3 py-3 border-t border-white/[0.04] bg-slate-950/40">
                 {renderFileActions(entry, downloadUrl, previewHref, true)}
               </div>
             </div>
@@ -814,7 +814,7 @@ export function FileListClient({
               </div>
 
               {/* Thumbnail or colored icon */}
-              <div className="shrink-0 w-12 h-12 rounded-xl border border-white/[0.06] bg-slate-900/80 light:bg-white/80 overflow-hidden flex items-center justify-center">
+              <div className="shrink-0 w-12 h-12 rounded-xl border border-white/[0.06] bg-slate-900/80 overflow-hidden flex items-center justify-center">
                 {thumbUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
@@ -1230,7 +1230,7 @@ export function FileListClient({
               </span>
             ) : null}
           </div>
-          <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-slate-950/80 light:bg-white/80 p-1">
+          <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-slate-950/80 p-1">
             <button
               type="button"
               onClick={() => handleViewModeChange("list")}
@@ -1507,7 +1507,7 @@ export function FileListClient({
           role="region"
           aria-labelledby={batchToolbarTitleId}
           aria-describedby={batchToolbarDescriptionId}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 light:bg-white/95 backdrop-blur border border-[var(--border)] rounded-2xl shadow-2xl px-5 py-3"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur border border-[var(--border)] rounded-2xl shadow-2xl px-5 py-3"
         >
           <span id={batchToolbarTitleId} className="sr-only">
             文件批量操作

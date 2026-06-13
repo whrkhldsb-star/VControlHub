@@ -112,7 +112,7 @@ function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string 
 
 	const fallback = (
 		<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] text-slate-200 light:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_45%),linear-gradient(135deg,#e2e8f0,#f8fafc)]">
-			<div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-inner light:bg-white/80">{icon}</div>
+			<div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-inner">{icon}</div>
 			<span className="text-xs font-medium">{mediaTypeLabel(item.mediaType)}预览</span>
 		</div>
 	);

@@ -32,7 +32,7 @@ export function RecycleBinSectionClient({
 }) {
 	if (deletedEntries.length === 0) {
 		return (
-			<article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+			<article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
 				<h3 className="text-xl font-semibold text-white">🗑️ 回收站</h3>
 				<p className="mt-4 text-sm text-slate-400">回收站为空，没有已删除的文件。</p>
 			</article>
@@ -40,7 +40,7 @@ export function RecycleBinSectionClient({
 	}
 
 	return (
-		<article className="rounded-3xl border border-rose-400/20 bg-slate-900/60 light:bg-white/60 p-6">
+		<article className="rounded-3xl border border-rose-400/20 bg-slate-900/60 p-6">
 			<div className="flex items-start justify-between gap-4">
 				<div>
 					<h3 className="text-xl font-semibold text-white">🗑️ 回收站</h3>
@@ -62,7 +62,7 @@ export function RecycleBinSectionClient({
 						<div>操作</div>
 					</div>
 
-					<div className="divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
+					<div className="divide-y divide-white/5 bg-slate-950/40">
 						{deletedEntries.map((entry) => (
 							<div
 								key={entry.id}
@@ -90,7 +90,7 @@ export function RecycleBinSectionClient({
 				</div>
 
 				{/* Mobile card view (below md) */}
-				<div className="md:hidden divide-y divide-white/5 bg-slate-950/40 light:bg-white/40">
+				<div className="md:hidden divide-y divide-white/5 bg-slate-950/40">
 					{deletedEntries.map((entry) => (
 						<div key={entry.id} className="px-4 py-3">
 							<div className="min-w-0">

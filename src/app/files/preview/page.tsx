@@ -121,7 +121,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 				) : null}
 
 				{/* Preview content */}
-				<div className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+				<div className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
 					{isImage && href ? (
 						<div className="flex items-center justify-center">
 							{/* eslint-disable-next-line @next/next/no-img-element */}

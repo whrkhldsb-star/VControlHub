@@ -67,7 +67,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       {message && <p className="text-xs text-emerald-300">{message}</p>}
       {error && <p className="text-xs text-rose-300">{error}</p>}
       {confirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 light:bg-white/75 p-4 backdrop-blur-sm" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm" role="presentation">
           <div
             role="dialog"
             aria-modal="true"

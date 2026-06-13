@@ -122,7 +122,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
               复制 Token
             </button>
           </div>
-          <code className="mt-4 block overflow-x-auto rounded-xl border border-amber-200/20 bg-slate-950/70 light:bg-white/70 p-3 font-mono text-xs text-amber-100">{createdPlaintext}</code>
+          <code className="mt-4 block overflow-x-auto rounded-xl border border-amber-200/20 bg-slate-950/70 p-3 font-mono text-xs text-amber-100">{createdPlaintext}</code>
         </section>
       )}
 
@@ -206,7 +206,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         )}
       </section>
       {tokenPendingRevoke && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 px-4 backdrop-blur-sm" role="presentation">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
           <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-white">确认撤销 API Token</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">

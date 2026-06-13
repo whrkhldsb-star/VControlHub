@@ -34,7 +34,7 @@ export function StorageNodeEditForm({
 	const isSftp = driver === "SFTP";
 
 	return (
-		<form action={formAction} className="grid gap-4 rounded-2xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-5">
+		<form action={formAction} className="grid gap-4 rounded-2xl border border-[var(--border)] bg-slate-900/60 p-5">
 			<input type="hidden" name="storageNodeId" value={node.id} />
 
 			<div>

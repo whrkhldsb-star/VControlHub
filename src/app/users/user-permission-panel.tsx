@@ -143,7 +143,7 @@ const _data = await csrfFetch("/api/users/permissions", {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 light:bg-white/80 p-4 backdrop-blur">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 p-4 backdrop-blur">
       <div className="mx-auto max-w-5xl rounded-3xl border border-[var(--border)] bg-slate-950 p-6 shadow-2xl shadow-cyan-950/40">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
@@ -170,7 +170,7 @@ const _data = await csrfFetch("/api/users/permissions", {
               <h4 className="font-medium text-white">操作权限</h4>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {payload.permissions.map((permission) => (
-                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-slate-950/60 light:bg-white/60 px-3 py-2 text-sm text-slate-200">
+                  <label key={permission.key} className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-slate-950/60 px-3 py-2 text-sm text-slate-200">
                     <input type="checkbox" checked={permissionKeys.includes(permission.key)} onChange={() => setPermissionKeys((current) => toggle(current, permission.key))} />
                     <span>{permission.name || permission.key}</span>
                     <span className="text-xs text-slate-500">{permission.key}</span>
@@ -191,7 +191,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                 {grants.length === 0 ? <EmptyState>暂无精细授权，当前用户会沿用角色级云盘权限。</EmptyState> : grants.map((grant, index) => {
                   const node = storageNodeMap.get(grant.storageNodeId);
                   return (
-                    <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-slate-950/70 light:bg-white/70 p-4">
+                    <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-slate-950/70 p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
                         <select value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white">
                           {payload.storageNodes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.driver}</option>)}

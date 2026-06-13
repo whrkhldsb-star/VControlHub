@@ -136,7 +136,7 @@ export function ServerCardActions({
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15 light:bg-white/70">
+            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15">
               {directGateway.enabled ? (
                 <>
                   <p className="font-medium text-cyan-100">

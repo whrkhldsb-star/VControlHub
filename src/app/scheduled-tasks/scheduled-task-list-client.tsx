@@ -164,7 +164,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										</span>
 									</div>
 									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
-									<div className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80/80 border border-white/[0.04]">
+									<div className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-1.5 font-mono text-xs text-cyan-100/80/80 border border-white/[0.04]">
 										{task.command}
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-slate-500">原因：{task.reason}</p>}
@@ -214,7 +214,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 				</div>
 			)}
 			{taskPendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 px-4 backdrop-blur-sm" role="presentation">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm" role="presentation">
 					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">确认删除定时任务</h2>
 						<p className="mt-3 text-sm leading-6 text-slate-300">

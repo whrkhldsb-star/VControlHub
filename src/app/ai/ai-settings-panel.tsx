@@ -50,7 +50,7 @@ export function AiSettingsPanel({
   );
 
   return (
-    <div className="border-b border-white/[0.06] bg-slate-950/50 light:bg-white/50 p-4 max-h-[50vh] overflow-y-auto">
+    <div className="border-b border-white/[0.06] bg-slate-950/50 p-4 max-h-[50vh] overflow-y-auto">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {/* Model selector */}
         <div className="col-span-2 md:col-span-2 relative">

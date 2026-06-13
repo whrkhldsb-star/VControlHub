@@ -83,9 +83,9 @@ export default async function RequestsPage() {
 											<InitiatorBadge assistant={request.isAssistantInitiated} />
 										</div>
 										{canApprove ? (
-										<p className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">{request.command}</p>
+										<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">{request.command}</p>
 									) : (
-										<p className="mt-2.5 rounded-lg bg-slate-950/60 light:bg-white/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">🔒 仅审批人可查看命令内容</p>
+										<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">🔒 仅审批人可查看命令内容</p>
 									)}
 										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">原因：{request.reason}</p>}
 										<p className="mt-1 text-[11px] text-slate-600">申请人：{request.requester.displayName || request.requester.username}</p>
@@ -96,7 +96,7 @@ export default async function RequestsPage() {
 								</div>
 
 								<div className="mt-4 grid gap-3 lg:grid-cols-3">
-									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 light:bg-white/40 p-4">
+									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
 										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">目标节点</h4>
 										<div className="space-y-1.5">
 											{request.targets.map((target: (typeof request.targets)[number]) => (
@@ -108,7 +108,7 @@ export default async function RequestsPage() {
 										</div>
 									</section>
 
-									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 light:bg-white/40 p-4">
+									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
 										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">最新审批</h4>
 										{request.latestApproval ? (
 											<div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-sm">
@@ -125,7 +125,7 @@ export default async function RequestsPage() {
 										)}
 									</section>
 
-									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 light:bg-white/40 p-4">
+									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
 										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">执行 / worker 记录</h4>
 										{request.executionLogs.length > 0 ? (
 											<div className="space-y-2">

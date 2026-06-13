@@ -18,7 +18,7 @@ export default async function AccountPasswordPage() {
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <ChangePasswordForm />
 
-          <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+          <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
             <h2 className="text-xl font-semibold text-white">安全建议</h2>
             <ul className="mt-4 space-y-3 text-sm leading-7 text-[var(--text-secondary)]">
               <li>• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。</li>

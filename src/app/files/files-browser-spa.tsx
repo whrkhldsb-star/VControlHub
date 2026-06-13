@@ -629,7 +629,7 @@ export function FilesBrowserSpa({
   return (
     <section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
       {/* Sidebar: Directory tree */}
-      <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+      <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white">目录树</h2>
@@ -654,7 +654,7 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 light:bg-white/50 p-4 pr-2">
+        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 p-4 pr-2">
           <button
             type="button"
             onClick={() => navigateToFolder("")}
@@ -705,7 +705,7 @@ export function FilesBrowserSpa({
         ) : null}
 
         {/* Search + Toolbar */}
-        <article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 light:bg-white/60 p-6">
+        <article className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-white">

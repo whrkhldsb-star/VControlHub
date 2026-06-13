@@ -127,7 +127,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	return (
 		<div className="space-y-6">
 			{rulePendingDelete && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
 					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-white">删除告警规则</h3>
 						<p className="mt-2 text-sm text-slate-400">确认删除告警规则 <span className="font-medium text-slate-100">{rulePendingDelete.name}</span>？此操作不可恢复。</p>

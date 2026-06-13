@@ -60,7 +60,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">媒体库</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。</p>
           </div>
-          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center light:bg-white/70">
+          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center">
             <div className="rounded-xl bg-blue-400/10 px-3 py-2"><div className="text-lg font-semibold text-blue-100">{imageCount}</div><div className="text-[10px] text-blue-200/70">图片</div></div>
             <div className="rounded-xl bg-purple-400/10 px-3 py-2"><div className="text-lg font-semibold text-purple-100 light:text-purple-900">{videoCount}</div><div className="text-[10px] text-purple-200/70 light:text-purple-700">视频</div></div>
             <div className="rounded-xl bg-emerald-400/10 px-3 py-2"><div className="text-lg font-semibold text-emerald-100">{audioCount}</div><div className="text-[10px] text-emerald-200/70">音频</div></div>
