@@ -58,4 +58,30 @@ describe("RestoreBackupButton", () => {
     expect(screen.getByText(/恢复已执行/)).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "确认恢复备份" })).not.toBeInTheDocument();
   });
+
+  it("renders the restore confirm dialog as a mobile bottom sheet (TR-022 R10)", async () => {
+    const user = userEvent.setup();
+    render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
+
+    await user.click(screen.getByRole("button", { name: "执行恢复" }));
+    const dialog = await screen.findByRole("dialog", { name: "确认恢复备份" });
+    const backdrop = dialog.parentElement as HTMLElement;
+    // Backdrop must switch between items-end (mobile sheet) and sm:items-center (centered)
+    expect(backdrop.className).toMatch(/items-end/);
+    expect(backdrop.className).toMatch(/sm:items-center/);
+    expect(backdrop.className).toMatch(/overflow-y-auto/);
+    // The dialog itself must drop the fixed mx on mobile (full-width sheet)
+    expect(dialog.className).toMatch(/mx-0/);
+    expect(dialog.className).toMatch(/sm:mx-4/);
+    expect(dialog.className).toMatch(/rounded-t-2xl/);
+    expect(dialog.className).toMatch(/sm:rounded-2xl/);
+    // Cancel/confirm footer must stack on mobile and row on desktop
+    const cancelButton = screen.getByRole("button", { name: "取消" });
+    const confirmButton = screen.getByRole("button", { name: "确认恢复" });
+    expect(cancelButton.className).toContain("min-h-11");
+    expect(confirmButton.className).toContain("min-h-11");
+    const footer = cancelButton.parentElement as HTMLElement;
+    expect(footer.className).toMatch(/flex-col-reverse/);
+    expect(footer.className).toMatch(/sm:flex-row/);
+  });
 });
