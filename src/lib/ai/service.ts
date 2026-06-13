@@ -2,8 +2,14 @@ import { prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
+import {
+	defaultAiBaseUrl,
+	fetchProviderModels,
+	postProviderChat,
+	trimProviderBaseUrl,
+} from "@/lib/ai/provider-http";
 
-const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
+const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
 function safeDecryptApiKey(stored: string): string {
 	try {
@@ -298,20 +304,11 @@ export async function fetchModelsFromCredentials(input: {
   defaultModel?: string;
 }): Promise<AiModelInfo[]> {
   if (!input.apiKey.trim()) throw new Error("API Key 不能为空");
-  const baseUrl = (input.baseUrl?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const baseUrl = trimProviderBaseUrl(input.baseUrl, DEFAULT_AI_BASE_URL);
   const fallbackModel = input.defaultModel?.trim() || "gpt-4o";
 
-  const response = await fetch(`${baseUrl}/models`, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${input.apiKey.trim()}` },
-  });
-
-  if (!response.ok) throw new Error("模型清单获取失败，请检查 API Key 和 Base URL");
-
-  const data = await response.json();
-  const rawModels: Array<{ id: string; name?: string; owned_by?: string; context_length?: number }> = data.data || data.models || [];
+  const rawModels = await fetchProviderModels({ apiKey: input.apiKey, baseUrl });
   const models = rawModels
-    .filter((m) => typeof m.id === "string" && m.id.trim())
     .map((m) => {
       const caps = detectModelCapabilities(m.id);
       return {
@@ -336,34 +333,26 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
   });
   if (!provider) throw new Error("提供商不存在或已禁用");
 
-  const baseUrl = provider.baseUrl.replace(/\/+$/, "");
+  const baseUrl = trimProviderBaseUrl(provider.baseUrl, DEFAULT_AI_BASE_URL);
 
   // Try the OpenAI-compatible /models endpoint
 		const rawApiKey = safeDecryptApiKey(provider.apiKey);
-		const url = `${baseUrl}/models`;
-		const response = await fetch(url, {
-			method: "GET",
-			headers: {
-				Authorization: `Bearer ${rawApiKey}`,
-    },
-  });
-
-  if (!response.ok) {
-    // Fallback: return saved availableModels
-    const saved: string[] = JSON.parse(provider.availableModels || "[]");
-    if (saved.length > 0) {
-      return saved.map((id) => {
-        const caps = detectModelCapabilities(id);
-        return { id, name: id, vision: caps.vision, capabilities: caps };
-      });
-    }
-    // Last resort: return the default model
-    const defCaps = detectModelCapabilities(provider.defaultModel);
-    return [{ id: provider.defaultModel, name: provider.defaultModel, vision: defCaps.vision, capabilities: defCaps }];
-  }
-
-  const data = await response.json();
-  const rawModels: Array<{ id: string; name?: string; owned_by?: string; context_length?: number }> = data.data || data.models || [];
+		const rawModels: Array<{ id: string; name?: string; owned_by?: string; context_length?: number }> = [];
+		try {
+			rawModels.push(...(await fetchProviderModels({ apiKey: rawApiKey, baseUrl })));
+		} catch {
+			// Fallback: return saved availableModels
+			const saved: string[] = JSON.parse(provider.availableModels || "[]");
+			if (saved.length > 0) {
+				return saved.map((id) => {
+					const caps = detectModelCapabilities(id);
+					return { id, name: id, vision: caps.vision, capabilities: caps };
+				});
+			}
+			// Last resort: return the default model
+			const defCaps = detectModelCapabilities(provider.defaultModel);
+			return [{ id: provider.defaultModel, name: provider.defaultModel, vision: defCaps.vision, capabilities: defCaps }];
+		}
 
   // Sort by id and enrich with capability detection
   const models = rawModels
@@ -588,16 +577,11 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
  }
 
   const startTime = Date.now();
-  const response = await fetch(url, {
-    method: "POST",
+  const response = await postProviderChat({
+    url,
+    body,
     headers,
-    body: JSON.stringify(body),
   });
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "Unknown error");
-    throw new Error(`AI 请求失败 (${response.status}): ${errText.slice(0, 500)}`);
-  }
 
   return { response, startTime, providerType: provider.type };
 }
