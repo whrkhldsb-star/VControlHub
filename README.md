@@ -474,6 +474,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 - **R11 `ssh-terminal` 移动端触摸目标** — SSH 终端 modal 是全屏 takeover（不属于 R9 docker 那种 mobile bottom sheet 模式），但所有交互按钮在 mobile 仍是 `px-4 py-1.5 text-xs`（~28px）+ 侧栏命令按钮 `text-[11px] px-2 py-1`（~20px），远低于 44px iOS HIG；侧栏删除常用命令的 ✕ 按钮还是 `opacity-0 group-hover:opacity-100` hover-only，触屏用户根本无法看到或点击。修复：头部 3 个按钮（命令面板 toggle / 重连 / 关闭）加 `min-h-11 min-w-11`；侧栏"添加常用命令"输入 + `+` 按钮（补 `aria-label="添加常用命令"`）加 `min-h-11 min-w-11`；侧栏每行 ✕ 按钮（补 `aria-label="删除常用命令 <cmd>"`）加 `min-h-11 min-w-11`、去 `opacity-0`、去 `group-hover:opacity-100` 保留桌面 polish，触屏默认 `opacity-100` 可见；侧栏命令历史 + 快捷命令按钮全部加 `min-h-11` + 字号 `text-[11px]→text-[12px]` 提高可读性。1 个新测试覆盖 5 处触摸目标 + 1 处 hover-only 触屏不可见回归（`/api/servers` 服务器详情卡点的"打开终端"按钮触发 modal 后验证）。1 file + 1 test file +54/−14（行内 className 调整无新增组件）。 <!-- TR-022 -->
 - **R7+R8+R9+R10+R11 累计验证**：230 files / 1128 tests passed（1127 → 1128，+1 新测：ssh-terminal touch targets）；verify exit 0（prisma generate + typecheck + lint 0 err + 1128 tests + next build + esbuild dist + verify:deploy-assets valid Caddyfile）；smoke 25/25；services restarted (`vcontrolhub-next` PID 1234869 + `vcontrolhub-ssh-ws`)；`/api/status` 200；bundle grep 验证新 className + aria-label 真在 `.next/static/chunks/app/servers/page-*.js`；git push 一次（`5623b73`）。 <!-- TR-022 -->
 - 累计本阶段 ~+560/−107 行（7 业务文件 + 5 测试文件）。 <!-- TR-022 -->
+- **R12 `files` file-browser SPA 移动端布局** — 收尾 TR-022：当前 line 630 grid `<section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">` 在 mobile (≤1280px) 是 1 列堆叠，sidebar 600+px 高度直接挤压主内容。改造：新增 `mobileSidebarOpen` state + `handleTreeNavigate` 包装 fetch + 自动收起；新增 mobile-only 顶部 toggle 按钮（"展开目录树 / 收起目录树" 切换，`aria-expanded` / `aria-controls="files-browser-sidebar"` 关联、`min-h-11` 44px 触摸目标、`xl:hidden` 桌面端不渲染、`light:` 浅色模式配色齐全）；`<aside id="files-browser-sidebar" aria-label="目录树">` 加 `block` (open) / `hidden xl:block` (close) 条件 className；"全部文件" 按钮 + `<FolderTreeClient>` 的 `onNavigate` 全部接到 `handleTreeNavigate`，确保移动端点树里文件夹后 sidebar 自动收起让用户能立刻看到 file list。桌面端 (xl+) 行为完全不变：sidebar 始终在左列，按钮 `xl:hidden` 不渲染。4 个新移动端回归测试断言 toggle 按钮存在 / aria-expanded / aria-controls / min-h-11 / xl:hidden；sidebar 初始 hidden + xl:block；点开后移除 hidden；再点恢复 hidden；树导航后自动收起 + fetch 触发。1 业务文件 + 1 测试文件 +132/−8。 <!-- TR-022 -->
+- **R7~R12 累计验证**：230 files / 1132 tests passed（1128 → 1132，+4 新测：file-browser SPA mobile 4 项）；verify exit 0（prisma generate + typecheck + lint 0 err + 1132 tests + next build + esbuild dist 147.3kb/29.3kb + verify:deploy-assets valid Caddyfile）；smoke 25/25；services restarted (`vcontrolhub-next` + `vcontrolhub-ssh-ws`)；`/api/status` 200 in 0.36s；bundle grep 验证新 `aria-controls="files-browser-sidebar"` + "展开目录树" + "收起目录树" 全部命中 `.next/static/chunks/app/files/page-*.js`；登录后浏览器 DOM 探针验证 toggle 按钮存在 / `min-h-11` / `xl:hidden` / `aria-expanded` 切换 + sidebar className `hidden xl:block` ↔ `block` 切换 + 树导航后 URL 变化 (`?path=本机默认存储__node_loc`) 同时 sidebar 自动收起；git push 一次（`73e2b8a`）。 <!-- TR-022 -->
+- 累计本阶段 ~+692/−115 行（8 业务文件 + 6 测试文件）。 <!-- TR-022 -->
 
 ### 📋 任务追踪治理 + 路由真源 + AI 拆分 (TR-008/TR-017/TR-018/TR-021/TR-027/TR-028)
 - **README TR 追踪编号** — 33 个 `[ ]` 待办末尾加 `<!-- TR-001~TR-033 -->` 标记 + README 末尾追加"任务追踪编号表"（优先级+主题）。后续测试名/QA evidence/代码注释可直接 `grep "TR-0XX" README.md` 引用。
@@ -515,7 +518,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] 仪表盘自定义：拖拽卡片、指标选择、时间范围筛选。 <!-- TR-020 -->
 - [x] 状态真实性：公开状态页已区分“已配置/已启用”和“未实时探测”，`/servers` 列表已明确“启用 · 待探测”并把实时 SSH 探测放到详情页；存储公开摘要已汇总最近 SFTP/LOCAL 健康探测结果。
 - [x] 可访问性收口：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联（snippets 新建/编辑、shares 创建）；继续巡检其它 placeholder-only、低可见度或移动端难操作控件。 <!-- TR-021 -->
-- [x] 移动端适配：底部导航已覆盖核心入口；已交付 2 轮（`/image-bed` 批量栏 sticky bottom + 触摸目标 min-h-11 + 搜索框 w-full；`/health` 仪表盘 header 堆叠 + 栅格 1/2/3 + SummaryCard 响应字号）。继续补：更多高频入口/溢出菜单、SSH 终端、Docker 日志、文件浏览等复杂面板的手机友好纵向布局、触摸友好控件和危险操作二次确认。 <!-- TR-022 -->
+- [x] 移动端适配：底部导航已覆盖核心入口；已交付 6 轮（`/image-bed` 批量栏 sticky bottom + 触摸目标 min-h-11 + 搜索框 w-full；`/health` 仪表盘 header 堆叠 + 栅格 1/2/3 + SummaryCard 响应字号；`/docker` 头部+容器动作按钮 min-h-11 + 容器删除/日志弹窗 mobile bottom sheet；`/backups` 恢复 + `/quick-services` 卸载/删除源/配置预览 4 个危险操作二次确认弹窗 mobile bottom sheet；`/servers` SSH 终端 modal 全屏按钮 44px + 修复 hover-only ✕ 在触屏不可见；`/files` file-browser SPA 顶部 tabs 折叠 sidebar + grid 响应式）。继续补：其他低频页面或具体小控件触摸/可访问性微调。 <!-- TR-022 -->
 
 ### P3 — 长期愿景
 - [ ] 自动化工作流（Playbook）：条件触发、告警联动、步骤编排。 <!-- TR-023 -->
@@ -564,7 +567,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | TR-019 | P2 | 领域模块边界治理（files/storage/quick-service/command/ai/backup DTO 边界） |
 | TR-020 | P3 | 仪表盘自定义（拖拽/指标/时间范围） |
 | TR-021 | P2 | 可访问性收口（继续巡检 placeholder-only/低可见度控件） ✅ 已完成主体：3 个 modal/form 共 11 字段补 `htmlFor`/`id` 显式关联 |
-| TR-022 | P2 | 移动端适配（高频入口/复杂面板响应式） ✅ 已完成主体：image-bed 批量栏 + 搜索 + 触摸；health-dashboard header + 栅格 + 响应字号。剩余补：quick-services / file-browser / docker / ssh / 危险操作二次确认 |
+| TR-022 | P2 | 移动端适配（高频入口/复杂面板响应式） ✅ 已完成主体 6 轮：image-bed 批量栏 + 搜索 + 触摸；health-dashboard header + 栅格 + 响应字号；docker 触摸 + 弹窗 bottom sheet；备份/快捷服务 4 个危险操作二次确认弹窗；ssh-terminal 触摸 + 修复 hover-only 触屏不可见；file-browser SPA 顶部 tabs 收 sidebar + grid 响应式 |
 | TR-023 | P3 | 自动化工作流（Playbook：条件触发/告警联动/步骤编排） |
 | TR-024 | P3 | 命令/部署执行 durable worker（DB-backed job + 跨进程取消 + 并发上限） |
 | TR-025 | P3 | RBAC 角色视角巡检（按钮可见/API 可调一致性） |
