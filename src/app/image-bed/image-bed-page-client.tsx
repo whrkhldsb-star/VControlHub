@@ -365,19 +365,24 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Batch Operations Bar */}
 			{batchMode && canWrite && (
-				<div className="mt-3 flex items-center gap-3 p-3 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-xl">
+				<div
+					role="region"
+					aria-label="批量操作栏"
+					data-testid="image-bed-batch-bar"
+					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-slate-700 bg-slate-900/95 p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-slate-800/50 md:p-3 md:backdrop-blur-0 light:md:bg-slate-100/50"
+				>
 					<span className="text-xs text-slate-400">已选 {selectedIds.size} 张</span>
-					<button onClick={selectAll} className="px-2 py-1 text-xs bg-slate-700 text-slate-300 rounded hover:bg-slate-600 transition">
+					<button onClick={selectAll} className="min-h-11 rounded px-3 text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
 						{selectedIds.size === images.length ? "取消全选" : "全选"}
 					</button>
 					{canDelete && (
-						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
+						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded px-3 text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30 transition disabled:opacity-30">🗑 批量删除</button>
 					)}
 					<div className="flex items-center gap-1">
-						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" className="bg-slate-900/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
-						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
+						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder="目标相册名" aria-label="批量移动目标相册" className="min-h-11 bg-slate-900/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
+						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 rounded px-3 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-30">📁 移动</button>
 					</div>
-					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30 transition disabled:opacity-30">🔄 切换公开</button>
+					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded px-3 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30 transition disabled:opacity-30">🔄 切换公开</button>
 				</div>
 			)}
 
@@ -506,8 +511,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			)}
 
 			{/* Search Filter */}
-			<div className="mt-4 flex flex-wrap items-end gap-3">
-				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+			<div className="mt-4 flex flex-wrap items-end gap-2 sm:gap-3">
+				<label className="grid w-full gap-1.5 text-xs font-medium text-[var(--text-secondary)] sm:w-auto">
 					图片搜索
 					<input
 						type="search"
@@ -515,11 +520,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
-						className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 w-72"
+						className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 sm:w-72 light:bg-slate-100/50"
 					/>
 				</label>
-				<button onClick={() => fetchImages(1)} className="px-4 py-2 text-sm bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition">搜索</button>
-				<button onClick={() => { setSearch(""); fetchImages(1); }} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
+				<button onClick={() => fetchImages(1)} className="min-h-11 rounded-lg bg-cyan-500/10 px-4 py-2 text-sm text-cyan-400 hover:bg-cyan-500/20 transition">搜索</button>
+				<button onClick={() => { setSearch(""); fetchImages(1); }} className="min-h-11 rounded-lg px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">重置</button>
 			</div>
 
 			{/* Image Grid */}
@@ -530,7 +535,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					暂无图片，上传第一张吧
 				</EmptyState>
 			) : (
-				<div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+				<div data-testid="image-bed-grid" className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 					{images.map((img) => (
 						<Card key={img.id}>
 							<div className="group relative aspect-square bg-slate-800/50 light:bg-slate-100/50 rounded-lg overflow-hidden mb-3">
@@ -546,19 +551,22 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 									src={img.publicUrl}
 									alt={img.filename}
 									fill
-									sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+									sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
 									unoptimized
 									className="object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
 									onClick={() => !batchMode && setPreviewImage(img)}
 								/>
-								{/* Hover overlay */}
+								{/* Hover overlay (always visible on touch, hover-only on md+) */}
 								{!batchMode && (
-									<div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-										<button onClick={() => copyLink(img.publicUrl)} className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30" title="复制外链">🔗</button>
-										<button onClick={() => copyMarkdown(img)} className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded hover:bg-green-500/30" title="复制 Markdown">M↓</button>
-										<button onClick={() => copyHTML(img)} className="px-2 py-1 text-xs bg-orange-500/20 text-orange-300 rounded hover:bg-orange-500/30" title="复制 HTML">H</button>
+									<div
+										data-testid="image-card-overlay"
+										className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 p-2 md:bg-black/60 md:opacity-0 md:group-hover:opacity-100 md:p-0"
+									>
+										<button onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30" title="复制外链" aria-label="复制外链">🔗</button>
+										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title="复制 Markdown" aria-label="复制 Markdown">M↓</button>
+										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title="复制 HTML" aria-label="复制 HTML">H</button>
 										{canDelete && (
-											<button onClick={() => requestDelete(img)} className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded hover:bg-red-500/30" title="删除">🗑</button>
+											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30" title="删除" aria-label="删除">🗑</button>
 										)}
 									</div>
 								)}
@@ -593,17 +601,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
 					<div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
 						<Image src={previewImage.publicUrl} alt={previewImage.filename} width={800} height={600} loading="lazy" unoptimized className="max-w-full max-h-[85vh] rounded-lg" />
-						<div className="mt-3 flex items-center justify-between">
+						<div className="mt-3 flex items-center justify-between gap-2">
 							<div>
 								<div className="text-sm text-white font-medium">{previewImage.filename}</div>
 								<div className="text-xs text-slate-400 mt-1">{formatSize(previewImage.sizeBytes)} · {previewImage.mimeType}</div>
 							</div>
-							<div className="flex gap-2">
-								<button onClick={() => copyLink(previewImage.publicUrl)} className="px-3 py-1.5 text-xs bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30">复制外链</button>
-								<button onClick={() => copyMarkdown(previewImage)} className="px-3 py-1.5 text-xs bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30">Markdown</button>
-								<button onClick={() => copyHTML(previewImage)} className="px-3 py-1.5 text-xs bg-orange-500/20 text-orange-300 rounded-lg hover:bg-orange-500/30">HTML</button>
+							<div className="flex flex-wrap items-center justify-end gap-2">
+								<button onClick={() => copyLink(previewImage.publicUrl)} className="min-h-11 rounded-lg bg-cyan-500/20 px-3 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/30">复制外链</button>
+								<button onClick={() => copyMarkdown(previewImage)} className="min-h-11 rounded-lg bg-green-500/20 px-3 py-1.5 text-xs text-green-300 hover:bg-green-500/30">Markdown</button>
+								<button onClick={() => copyHTML(previewImage)} className="min-h-11 rounded-lg bg-orange-500/20 px-3 py-1.5 text-xs text-orange-300 hover:bg-orange-500/30">HTML</button>
 								{canDelete && (
-									<button onClick={() => requestDelete(previewImage)} className="px-3 py-1.5 text-xs bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30">删除</button>
+									<button onClick={() => requestDelete(previewImage)} className="min-h-11 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/30">删除</button>
 								)}
 							</div>
 						</div>

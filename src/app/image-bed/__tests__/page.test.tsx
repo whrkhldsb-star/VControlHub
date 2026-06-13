@@ -295,6 +295,143 @@ describe("ImageBedPage", () => {
     });
   });
 
+  // TR-022 mobile overflow guards: image grid, search input, batch bar must
+  // expose mobile-friendly responsive structure (column counts, full-width
+  // search, touch-target height). These assertions catch regressions where a
+  // future edit reintroduces desktop-only widths or hover-only overlays.
+  it("uses mobile-first responsive columns and full-width search input on the image grid", async () => {
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) {
+        return {
+          images: [
+            {
+              id: "img_1",
+              filename: "cat.png",
+              mimeType: "image/png",
+              sizeBytes: 1024,
+              album: null,
+              isPublic: true,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              publicUrl: "/api/images/img_1/file",
+            },
+          ],
+          total: 1,
+          totalPages: 1,
+        };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPageClient canWrite canDelete />);
+
+    await screen.findByText("cat.png");
+    const grid = document.querySelector('[data-testid="image-bed-grid"]') as HTMLElement;
+    expect(grid).toBeTruthy();
+    const gridClass = grid.className;
+    expect(gridClass).toContain("grid-cols-1");
+    expect(gridClass).toContain("sm:grid-cols-2");
+    expect(gridClass).toContain("lg:grid-cols-3");
+    expect(gridClass).toContain("xl:grid-cols-4");
+    expect(gridClass).not.toContain("md:grid-cols-3");
+    expect(gridClass).not.toContain("xl:grid-cols-5");
+
+    const search = screen.getByRole("searchbox", { name: "图片搜索" });
+    expect(search.className).toContain("w-full");
+  });
+
+  it("keeps the image card action overlay visible to touch users and uses 44px touch targets", async () => {
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) {
+        return {
+          images: [
+            {
+              id: "img_1",
+              filename: "cat.png",
+              mimeType: "image/png",
+              sizeBytes: 1024,
+              album: null,
+              isPublic: true,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              publicUrl: "/api/images/img_1/file",
+            },
+          ],
+          total: 1,
+          totalPages: 1,
+        };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPageClient canWrite canDelete />);
+
+    await screen.findByText("cat.png");
+    const overlay = document.querySelector(
+      '[data-testid="image-card-overlay"]',
+    ) as HTMLElement;
+    expect(overlay).toBeTruthy();
+    // The overlay must NOT be hidden by default on touch — a bare `opacity-0`
+    // token (without a `md:` prefix) would leave mobile users without actions.
+    const tokens = overlay.className.split(/\s+/);
+    expect(tokens).not.toContain("opacity-0");
+    // And it must toggle back to hover-only at md+ so the desktop visual stays
+    // the same as before.
+    expect(tokens).toContain("md:opacity-0");
+    expect(tokens).toContain("md:group-hover:opacity-100");
+
+    const overlayButtons = overlay.querySelectorAll("button");
+    expect(overlayButtons.length).toBeGreaterThan(0);
+    for (const btn of Array.from(overlayButtons)) {
+      expect(btn.className).toContain("min-h-11");
+    }
+  });
+
+  it("makes the batch operations bar touch-friendly and mobile-sticky", async () => {
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.startsWith("/api/images/list")) {
+        return {
+          images: [
+            {
+              id: "img_1",
+              filename: "cat.png",
+              mimeType: "image/png",
+              sizeBytes: 1024,
+              album: null,
+              isPublic: true,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              publicUrl: "/api/images/img_1/file",
+            },
+          ],
+          total: 1,
+          totalPages: 1,
+        };
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    render(<ImageBedPageClient canWrite canDelete />);
+
+    await screen.findByText("cat.png");
+    await user.click(screen.getByRole("button", { name: "☐ 批量模式" }));
+
+    const bar = screen.getByRole("region", { name: "批量操作栏" });
+    expect(bar.className).toMatch(/flex-wrap/);
+    // Sticky bottom must compensate for the global mobile bottom nav
+    // (~64px tall) on small screens, and revert to inline at md+.
+    expect(bar.className).toMatch(/sticky/);
+    expect(bar.className).toMatch(/bottom-16/);
+    expect(bar.className).toMatch(/md:static/);
+
+    const barButtons = Array.from(bar.querySelectorAll("button"));
+    expect(barButtons.length).toBeGreaterThan(0);
+    for (const btn of barButtons) {
+      expect(btn.className).toContain("min-h-11");
+    }
+  });
+
   it("opens the in-page preview with the streamed file URL for private images", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockImplementation(async (input) => {
