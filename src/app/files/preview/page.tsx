@@ -98,7 +98,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 							← 返回文件
 						</a>
 						<h1 className="truncate text-xl font-semibold text-white">{name}</h1>
-						<span className="rounded-full border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-3 py-1 text-xs text-[var(--text-secondary)]">
+						<span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-[var(--text-secondary)]">
 							{driver}
 						</span>
 					</div>

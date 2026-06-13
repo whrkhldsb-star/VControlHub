@@ -259,7 +259,7 @@ function NodeFilterSelect({
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder="节点名称、类型或 ID"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400"
+          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none light:placeholder:text-slate-400"
         />
       </div>
       <div className="space-y-1">
@@ -270,7 +270,7 @@ function NodeFilterSelect({
           id={selectInputId}
           value={value}
           onChange={(event) => onChange(event.currentTarget.value)}
-          className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40 light:bg-white light:text-slate-900"
+          className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40"
         >
           <option value="">🌐 全部节点</option>
           {filteredNodes.map((node) => (
@@ -751,7 +751,7 @@ export function FilesBrowserSpa({
                         ? "在全部文件中搜索…"
                         : "在当前目录搜索…"
                     }
-                    className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-2.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                    className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
                   />
                 </div>
                 <button

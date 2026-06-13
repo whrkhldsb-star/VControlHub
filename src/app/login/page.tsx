@@ -32,7 +32,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	const siteName = getSiteName();
 
 	return (
-		<main className="relative min-h-screen overflow-hidden bg-[#050508] text-white light:bg-slate-50 light:text-slate-950">
+		<main className="relative min-h-screen overflow-hidden bg-[#050508] text-white">
 			{/* Background effects */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.06),transparent_35%),linear-gradient(180deg,#08080c_0%,#050508_100%)] light:bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.18),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.14),transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent light:via-cyan-300/50" />
@@ -51,14 +51,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 				<div className="grid w-full gap-12 lg:grid-cols-[1fr_400px] lg:items-center">
 					{/* Left: Branding */}
 					<section className="max-w-xl">
-						<div className="inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.06)] light:border light:border-cyan-200 light:bg-white/80 light:text-slate-600 light:shadow-sm light:shadow-cyan-100/50 light:backdrop-blur">
+						<div className="inline-flex items-center gap-2 rounded-full bg-white/[0.05] px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-[0_0_0_1px_rgba(255,255,255,0.06)] light:border light:border-cyan-200 light:bg-white/80 light:shadow-sm light:shadow-cyan-100/50 light:backdrop-blur">
 							<div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.55)] light:bg-cyan-500 light:shadow-[0_0_8px_rgba(6,182,212,0.55)]" />
 							{publicLabel}
 						</div>
-						<h1 className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white sm:text-6xl light:text-slate-950">
+						<h1 className="mt-6 text-5xl font-semibold tracking-[-0.05em] text-white sm:text-6xl">
 							{siteName}<span className="text-cyan-400">.</span>
 						</h1>
-						<p className="mt-4 max-w-md text-base leading-7 text-white light:text-slate-600">
+						<p className="mt-4 max-w-md text-base leading-7 text-white">
 							{publicLabel}，一站掌控。
 						</p>
 
@@ -88,7 +88,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					</section>
 
 					{/* Right: Login Form */}
-					<section className="rounded-[1.75rem] bg-white/[0.03] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8 light:border light:border-slate-200 light:bg-white/88 light:shadow-[0_24px_70px_rgba(15,23,42,0.14)]">
+					<section className="rounded-[1.75rem] bg-white/[0.03] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8 light:border light:bg-white/88 light:shadow-[0_24px_70px_rgba(15,23,42,0.14)]">
 						<div className="mb-7">
 							<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">Secure Sign In</p>
 							<h2 className="mt-2.5 text-2xl font-semibold tracking-[-0.03em] text-white">欢迎回来</h2>
@@ -104,7 +104,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
 	return (
-		<div className="rounded-2xl bg-white/[0.03] p-3.5 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur light:border light:border-slate-200 light:bg-white/75 light:shadow-sm light:shadow-slate-200/70">
+		<div className="rounded-2xl bg-white/[0.03] p-3.5 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur light:border light:bg-white/75 light:shadow-sm light:shadow-slate-200/70">
 			<div className="text-cyan-400/75">{icon}</div>
 			<div className="mt-2 text-sm font-semibold text-white/82">{title}</div>
 			<div className="mt-0.5 text-xs text-white">{desc}</div>

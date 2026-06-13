@@ -240,12 +240,12 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	};
 
 	return (
-		<section data-i18n-skip className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.22)] light:border-slate-200 light:bg-white light:shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+		<section data-i18n-skip className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 shadow-[0_18px_60px_rgba(2,6,23,0.22)] light:shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
 			<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">{copyText.eyebrow}</p>
 					<h2 className="mt-1 text-xl font-semibold text-white">{copyText.title}</h2>
-					<p className="mt-1 max-w-2xl text-sm text-slate-500 light:text-slate-600">
+					<p className="mt-1 max-w-2xl text-sm text-slate-500">
 						{copyText.description}
 					</p>
 				</div>
@@ -258,7 +258,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							setSelected({});
 							setResults([]);
 						}}
-						className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none light:border-slate-200 light:bg-slate-50 light:text-slate-900"
+						className="rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none light:bg-slate-50"
 					>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}</option>
@@ -267,19 +267,19 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					<button
 						type="button"
 						onClick={() => void loadFiles()}
-						className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 light:border-slate-200 light:text-slate-700 light:hover:bg-slate-50"
+						className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 light:hover:bg-slate-50"
 					>
 						<RefreshCw size={15} className={loading ? "animate-spin" : ""} /> {copyText.refresh}
 					</button>
 				</div>
 			</div>
 
-			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 light:text-slate-600">
-				<button type="button" onClick={() => setPath("")} className="rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:border-slate-200 light:hover:text-cyan-700">{copyText.root}</button>
+			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+				<button type="button" onClick={() => setPath("")} className="rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{copyText.root}</button>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<button type="button" onClick={() => jumpToCrumb(index)} className="rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:border-slate-200 light:hover:text-cyan-700">{segment}</button>
+						<button type="button" onClick={() => jumpToCrumb(index)} className="rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{segment}</button>
 					</span>
 				))}
 			</div>
@@ -288,8 +288,8 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			{data?.syncWarning ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">{data.syncWarning}</p> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-				<div className="overflow-hidden rounded-xl border border-white/[0.08] light:border-slate-200">
-					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500 light:border-slate-200 light:bg-slate-50">
+				<div className="overflow-hidden rounded-xl border border-white/[0.08]">
+					<div className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] gap-2 border-b border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-medium uppercase tracking-wide text-slate-500 light:bg-slate-50">
 						<span />
 						<span>{copyText.name}</span>
 						<span>{copyText.type}</span>
@@ -310,7 +310,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 								return (
 									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/[0.04] light:hover:bg-slate-50">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-cyan-500" aria-label={`${copyText.selectFolder} ${folder.name}`} />
-										<button type="button" onClick={() => openFolder(folder)} className="flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:text-slate-800 light:hover:text-cyan-700">
+										<button type="button" onClick={() => openFolder(folder)} className="flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:hover:text-cyan-700">
 											<Folder size={17} className="shrink-0 text-cyan-300" />
 											<span className="truncate">{folder.name}</span>
 										</button>
@@ -343,7 +343,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					)}
 				</div>
 
-				<aside className="rounded-xl border border-white/[0.08] bg-slate-950/35 p-4 light:border-slate-200 light:bg-slate-50">
+				<aside className="rounded-xl border border-white/[0.08] bg-slate-950/35 p-4 light:bg-slate-50">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<h3 className="text-sm font-semibold text-white">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
@@ -353,11 +353,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
-							<div key={item.key} className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs light:border-slate-200 light:bg-white">
+							<div key={item.key} className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs">
 								<div className="truncate font-medium text-slate-200">{item.name}</div>
 								<div className="mt-0.5 truncate text-slate-500">{item.entryType === "DIRECTORY" ? copyText.folder : copyText.file} · {item.path}</div>
 							</div>
-						)) : <p className="rounded-lg border border-dashed border-white/[0.08] p-4 text-center text-xs text-slate-500 light:border-slate-200">{copyText.selectedEmpty}</p>}
+						)) : <p className="rounded-lg border border-dashed border-white/[0.08] p-4 text-center text-xs text-slate-500">{copyText.selectedEmpty}</p>}
 					</div>
 					<button
 						type="button"

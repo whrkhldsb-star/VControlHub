@@ -215,7 +215,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			)}
 			{taskPendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 px-4 backdrop-blur-sm" role="presentation">
-					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 light:bg-white p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">确认删除定时任务</h2>
 						<p className="mt-3 text-sm leading-6 text-slate-300">
 							即将删除定时任务 <span className="font-semibold text-rose-100">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。

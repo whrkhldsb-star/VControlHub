@@ -24,7 +24,7 @@ export function CreateBackupForm() {
     <form ref={formRef} action={formAction} className="mt-4 grid gap-3 md:grid-cols-[180px_1fr_auto] md:items-end">
       <div className="grid gap-1.5">
         <label htmlFor={backupTypeSelectId} className="text-xs font-medium text-[var(--text-secondary)]">备份类型</label>
-        <select id={backupTypeSelectId} name="type" defaultValue="DATABASE" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100">
+        <select id={backupTypeSelectId} name="type" defaultValue="DATABASE" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
           <option value="DATABASE">数据库备份</option>
           <option value="FILES">文件备份</option>
           <option value="FULL">完整备份</option>
@@ -32,7 +32,7 @@ export function CreateBackupForm() {
       </div>
       <div className="grid gap-1.5">
         <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">备份备注</label>
-        <input id={backupNoteInputId} name="note" maxLength={500} placeholder="例如：升级前备份" className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500" />
+        <input id={backupNoteInputId} name="note" maxLength={500} placeholder="例如：升级前备份" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500" />
       </div>
       <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
         {pending ? "执行中" : "创建并执行"}

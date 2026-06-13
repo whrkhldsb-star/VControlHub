@@ -494,14 +494,14 @@ export function FileListClient({
           aria-label={`更多操作 ${entry.name}`}
           className={
             compact
-              ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white light:border-slate-200 light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
-              : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white light:border-slate-200 light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+              ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
+              : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
           }
         >
           <span aria-hidden="true">⋯</span>
           {compact ? null : <span>更多</span>}
         </summary>
-        <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:border-slate-200 light:bg-white light:shadow-slate-200/70">
+        <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:shadow-slate-200/70">
           {canShare && entryCanRead(entry) ? (
             <ShareFileButton entry={entry} compact variant="menu" onNotify={showToast} />
           ) : null}
@@ -631,7 +631,7 @@ export function FileListClient({
           return (
             <div
               key={entry.id}
-              className={`group relative flex flex-col rounded-2xl border border-white/[0.06] light:border-slate-200 bg-slate-900/80 light:bg-white text-center transition-all duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
+              className={`group relative flex flex-col rounded-2xl border border-white/[0.06] bg-slate-900/80 text-center transition-all duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
             >
               {/* Selection checkbox */}
               <div className="absolute top-2 left-2 z-20">
@@ -641,7 +641,7 @@ export function FileListClient({
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
+                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
               </div>
@@ -808,7 +808,7 @@ export function FileListClient({
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
+                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
               </div>
@@ -1011,7 +1011,7 @@ export function FileListClient({
                           checked={effectiveSelectedIdSet.has(entry.id)}
                           onChange={() => toggleOne(entry.id)}
                           aria-label={`选择 ${entry.name}`}
-                          className="h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
+                          className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                         />
                       ) : null}
                     </div>
@@ -1138,7 +1138,7 @@ export function FileListClient({
                       checked={effectiveSelectedIdSet.has(entry.id)}
                       onChange={() => toggleOne(entry.id)}
                       aria-label={`选择 ${entry.name}`}
-                      className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 light:bg-white text-cyan-400 focus:ring-cyan-400/50"
+                      className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                     />
                   ) : null}
                   <div className="shrink-0 mt-0.5 rounded-lg bg-white/[0.03] p-1">
@@ -1340,10 +1340,10 @@ export function FileListClient({
           onClick={() => setDetailEntryId(null)}
         >
           <aside
-            className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 text-slate-100 shadow-2xl light:border-slate-200 light:bg-white"
+            className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 text-slate-100 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4 light:border-slate-200">
+            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300">
                   资料详情
@@ -1361,13 +1361,13 @@ export function FileListClient({
               <button
                 type="button"
                 onClick={() => setDetailEntryId(null)}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:border-slate-200"
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
               >
                 关闭
               </button>
             </div>
             <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 light:border-slate-200 light:bg-slate-50">
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 light:bg-slate-50">
                 <div className="grid gap-3 text-sm sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-slate-500">存储节点</p>
@@ -1419,7 +1419,7 @@ export function FileListClient({
                     <Link
                       href={buildForcedDownloadHref(detailEntry)}
                       download
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10 light:border-slate-200"
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10"
                     >
                       下载文件
                     </Link>
@@ -1570,7 +1570,7 @@ export function FileListClient({
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || "目标路径"}
                 aria-label="批量移动目标路径"
-                className="w-40 rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-3 py-1.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                className="w-40 rounded-2xl border border-[var(--border)] bg-slate-950 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-cyan-200">

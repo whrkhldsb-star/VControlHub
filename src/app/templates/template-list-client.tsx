@@ -80,7 +80,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 		<div className="space-y-6">
 			{templatePendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
-					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
+					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
 						<h3 id="delete-template-title" className="text-base font-semibold text-white">删除命令模板</h3>
 						<p className="mt-2 text-sm text-slate-400">确认删除模板 <span className="font-medium text-slate-100">{templatePendingDelete.name}</span>？此操作不可恢复。</p>
 						<div className="mt-5 flex justify-end gap-2">
@@ -160,7 +160,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									<span data-tone="accent" className="rounded-md border px-1.5 py-0.5 text-[9px] font-medium shrink-0">内置</span>
 								)}
 							</div>
-							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2 light:border-slate-200 light:bg-slate-50">
+							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2 light:bg-slate-50">
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (
@@ -247,7 +247,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 						value={vars[v] ?? ""}
 					onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 						placeholder={`{{${v}}}`}
-						className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white light:border-slate-200 light:bg-white font-mono outline-none placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30"
+						className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30"
 					/>
 				</div>
 			);})}
@@ -324,7 +324,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-white/50 tracking-wide">命令内容</label>
-				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white light:border-slate-200 light:bg-white font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
+				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
 				<p className="text-[11px] text-slate-600">使用 `{"{{变量名}}"}` 作为占位符，下发时填入实际值</p>
 			</div>
 			<div className="space-y-1.5">

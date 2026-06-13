@@ -58,7 +58,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
 
       {open && (
         <div role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl light:border-slate-200 light:bg-white">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl">
             <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-white">确认取消命令</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               将取消“{commandTitle}”。若 SSH 子进程仍在当前执行器内运行，系统会发送终止信号；否则会把仍处于待审批/已批准/运行中的目标标记为 CANCELLED。
@@ -70,7 +70,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
               id={`cancel-command-${commandRequestId}-reason`}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              className="mt-2 min-h-20 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-rose-300 light:border-slate-200 light:bg-white light:text-slate-900"
+              className="mt-2 min-h-20 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-rose-300"
               placeholder="例如：维护窗口变更、目标选错、需要重新提交参数……"
             />
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -81,7 +81,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                   setOpen(false);
                   setError(null);
                 }}
-                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/5 disabled:opacity-50 light:border-slate-200 light:text-slate-700"
+                className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
               >
                 保留命令
               </button>

@@ -34,8 +34,8 @@ export default async function SharePage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-950 light:bg-white px-4 py-16 text-slate-100">
-      <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl light:border-slate-200 light:bg-white">
+    <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-16 text-slate-100">
+      <div className="w-full max-w-3xl rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-2xl">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-2xl">
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
@@ -51,7 +51,7 @@ export default async function SharePage({
           </div>
         ) : share ? (
           <div className="space-y-5">
-            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 light:border-slate-200 light:bg-slate-50">
+            <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4 light:bg-slate-50">
               <p className="break-all text-base font-medium text-white">
                 {share.name || share.path}
               </p>
@@ -87,7 +87,7 @@ export default async function SharePage({
             </div>
 
             {share.entryType === "DIRECTORY" ? (
-              <div data-card className=" p-4 light:border-slate-200 light:bg-slate-50">
+              <div data-card className=" p-4 light:bg-slate-50">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-white">可下载文件</h2>

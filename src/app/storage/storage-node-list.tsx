@@ -55,7 +55,7 @@ function getHealthPresentation(status?: string | null) {
 		case "UNHEALTHY":
 			return { label: "异常", className: "border-rose-400/30 bg-rose-400/10 text-rose-100" };
 		default:
-			return { label: "未检测", className: "border-slate-400/30 bg-slate-400/10 text-slate-200 light:border-slate-300 light:bg-slate-100" };
+			return { label: "未检测", className: "border-slate-400/30 bg-slate-400/10 text-slate-200 light:bg-slate-100" };
 	}
 }
 

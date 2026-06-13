@@ -8,7 +8,7 @@ export default async function AccountPasswordPage() {
   await requireSession("/account/password");
 
   return (
-    <main className="min-h-screen bg-slate-950 light:bg-white text-slate-100">
+    <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">
  <header className="mb-8">
  <h1 className="text-3xl font-semibold tracking-tight">修改密码</h1>

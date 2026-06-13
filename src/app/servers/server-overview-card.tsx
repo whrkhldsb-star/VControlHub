@@ -65,7 +65,7 @@ export function ServerOverviewCard({
     : "节点已停用，不会接收新的 SSH、文件或直连操作。";
   const listHealthToneClass = server.enabled
     ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50"
-    : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:border-slate-300 light:bg-slate-100 light:text-slate-700";
+    : "border-slate-400/20 bg-slate-400/10 text-slate-400 light:bg-slate-100";
   const directGatewayAdvice = getDirectGatewayRepairAdvice({
     directGateway: server.directGateway ?? null,
     serverEnabled: server.enabled,
@@ -190,7 +190,7 @@ export function ServerOverviewCard({
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400 light:text-slate-700">
+      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
         <CompactField label="连接" value={server.connectionTypeLabel} />
         <CompactField
           label="密钥"
@@ -228,7 +228,7 @@ export function ServerOverviewCard({
           onClick={() => setExpanded((value) => !value)}
           aria-expanded={expanded}
           aria-controls={detailsId}
-          className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-slate-300 light:bg-white light:text-slate-800 light:hover:bg-slate-100"
+          className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:bg-slate-100"
         >
           {expanded ? "收起详情" : "查看详情"}
         </button>
@@ -239,10 +239,10 @@ export function ServerOverviewCard({
           id={detailsId}
           role="region"
           aria-label={`${server.name} VPS 详情`}
-          className="mt-4 space-y-3 border-t border-white/[0.06] pt-4 light:border-slate-200"
+          className="mt-4 space-y-3 border-t border-white/[0.06] pt-4"
         >
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
-            <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:bg-slate-50">
+            <h3 className="mb-3 text-sm font-medium text-white/80">
               连接与状态
             </h3>
             <div className="grid gap-2 text-sm">
@@ -255,12 +255,12 @@ export function ServerOverviewCard({
                 value={server.sshKey ? server.sshKey.name : "未配置"}
               />
             </div>
-            <p className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/5 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50 light:text-slate-700">
+            <p className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/5 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50">
               状态徽章表示 VControlHub 是否允许该 VPS 接收操作；若 SSH
               终端、文件中转或直连访问异常，请结合下方连接摘要、直连模式和最近命令状态定位真实服务健康。
             </p>
             {server.sshKey?.fingerprint ? (
-              <p className="mt-2 truncate text-[11px] text-slate-600 light:text-slate-500">
+              <p className="mt-2 truncate text-[11px] text-slate-600">
                 指纹：{server.sshKey.fingerprint}
               </p>
             ) : null}
@@ -269,7 +269,7 @@ export function ServerOverviewCard({
                 {(server.tags ?? []).map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400 light:border-slate-200 light:bg-white light:text-slate-700"
+                    className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400"
                   >
                     #{tag}
                   </span>
@@ -278,8 +278,8 @@ export function ServerOverviewCard({
             ) : null}
           </section>
 
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
-            <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:bg-slate-50">
+            <h3 className="mb-3 text-sm font-medium text-white/80">
               操作与资源
             </h3>
             <div className="space-y-2 text-sm">
@@ -325,22 +325,22 @@ export function ServerOverviewCard({
                 <h3 className="text-sm font-medium text-cyan-100">
                   诊断下一步
                 </h3>
-                <p className="mt-1 text-[11px] leading-5 text-slate-400 light:text-slate-700">
+                <p className="mt-1 text-[11px] leading-5 text-slate-400">
                   这里展示的是可执行诊断入口：节点“启用”只表示允许接收操作，不等于 SSH、SFTP 或 Direct Gateway 实时在线。
                 </p>
               </div>
               <Link
                 href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
-                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20 light:bg-white"
+                className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20"
               >
                 查看实时监控 JSON
               </Link>
             </div>
-            <div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/35 p-3 light:border-slate-200 light:bg-white">
+            <div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/35 p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-xs font-medium text-white">实时探测</div>
-                  <p className="mt-1 text-[11px] leading-5 text-slate-500 light:text-slate-600">
+                  <p className="mt-1 text-[11px] leading-5 text-slate-500">
                     点击后通过现有监控接口发起一次 SSH 只读采样，失败时会显示连接、权限或远端命令错误。
                   </p>
                 </div>
@@ -368,7 +368,7 @@ export function ServerOverviewCard({
               {diagnosticItems.map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-lg border border-white/[0.05] bg-slate-950/35 p-3 light:border-slate-200 light:bg-white"
+                  className="rounded-lg border border-white/[0.05] bg-slate-950/35 p-3"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-medium text-white">
@@ -378,7 +378,7 @@ export function ServerOverviewCard({
                       {item.status}
                     </span>
                   </div>
-                  <div className="mt-2 text-[11px] leading-5 text-slate-500 light:text-slate-600">
+                  <div className="mt-2 text-[11px] leading-5 text-slate-500">
                     {item.detail}
                   </div>
                   {item.href ? (
@@ -394,12 +394,12 @@ export function ServerOverviewCard({
             </div>
           </section>
 
-          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:border-slate-200 light:bg-slate-50">
-            <h3 className="mb-3 text-sm font-medium text-white/80 light:text-slate-900">
+          <section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3 light:bg-slate-50">
+            <h3 className="mb-3 text-sm font-medium text-white/80">
               最近命令投递
             </h3>
             {server.latestCommands.length === 0 ? (
-              <p className="text-xs text-slate-500 light:text-slate-600">
+              <p className="text-xs text-slate-500">
                 暂无命令投递记录。
               </p>
             ) : (
@@ -407,19 +407,19 @@ export function ServerOverviewCard({
                 {server.latestCommands.map((command) => (
                   <div
                     key={command.id}
-                    className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3 light:border-slate-200 light:bg-white"
+                    className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium text-white">
                         {command.title}
                       </span>
-                      <span className="shrink-0 text-[11px] text-slate-500 light:text-slate-600">
+                      <span className="shrink-0 text-[11px] text-slate-500">
                         {command.initiatedByType === "ASSISTANT"
                           ? "助手"
                           : "用户"}
                       </span>
                     </div>
-                    <div className="mt-1 text-[11px] text-slate-500 light:text-slate-600">
+                    <div className="mt-1 text-[11px] text-slate-500">
                       {command.requestStatus} · {command.targetStatus}
                     </div>
                   </div>
@@ -435,8 +435,8 @@ export function ServerOverviewCard({
 
 function CompactField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5 light:border-slate-200 light:bg-slate-50">
-      <div className="text-[10px] text-slate-600 light:text-slate-500">{label}</div>
+    <div className="min-w-0 rounded-lg border border-white/[0.04] bg-slate-950/30 px-2 py-1.5 light:bg-slate-50">
+      <div className="text-[10px] text-slate-600">{label}</div>
       <div className="truncate text-[11px] text-slate-200">{value}</div>
     </div>
   );
@@ -445,7 +445,7 @@ function CompactField({ label, value }: { label: string; value: string }) {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3">
-      <span className="w-[88px] shrink-0 text-xs text-slate-500 light:text-slate-600">{label}</span>
+      <span className="w-[88px] shrink-0 text-xs text-slate-500">{label}</span>
       <span className="truncate text-sm text-white">{value}</span>
     </div>
   );
@@ -489,8 +489,8 @@ function DirectGatewayAdviceList({ advice }: AdviceListProps) {
               data-priority={item.priority}
               className={
                 item.priority === "primary"
-                  ? "rounded border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-200 light:border-amber-700/25 light:bg-white light:text-amber-800"
-                  : "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200 light:border-slate-400/30 light:bg-white light:text-slate-700"
+                  ? "rounded border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-200 light:border-amber-700/25 light:text-amber-800"
+                  : "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200 light:border-slate-400/30"
               }
             >
               {item.priority === "primary" ? "建议" : "参考"}
@@ -506,7 +506,7 @@ function DirectGatewayAdviceList({ advice }: AdviceListProps) {
               </Link>
             ) : null}
           </div>
-          <p className="mt-1 text-[11px] leading-5 text-slate-400 light:text-slate-700">
+          <p className="mt-1 text-[11px] leading-5 text-slate-400">
             {item.detail}
           </p>
         </li>

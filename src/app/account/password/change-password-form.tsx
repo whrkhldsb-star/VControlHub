@@ -70,7 +70,7 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
   return (
     <div className="grid gap-2 text-sm text-[var(--text-secondary)]">
       <label htmlFor={inputId}>{label}</label>
-      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white focus-within:border-cyan-400/60">
+      <div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 focus-within:border-cyan-400/60">
         <input
           id={inputId}
           name={name}

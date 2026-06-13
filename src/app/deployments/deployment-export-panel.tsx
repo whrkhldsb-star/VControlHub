@@ -76,12 +76,12 @@ export function DeploymentExportPanel() {
   }
 
   return (
-    <section data-card className="mb-6  p-5 light:border-slate-200 light:bg-white">
+    <section data-card className="mb-6  p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">Portable Export</p>
           <h2 className="mt-1 text-sm font-semibold text-white">迁移部署导出包</h2>
-          <p className="mt-1 max-w-3xl text-xs text-slate-500 light:text-slate-600">
+          <p className="mt-1 max-w-3xl text-xs text-slate-500">
             生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。
           </p>
         </div>
@@ -94,7 +94,7 @@ export function DeploymentExportPanel() {
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
             placeholder="console.example.com"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-[var(--text-secondary)]"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-[var(--text-secondary)]"
           />
         </label>
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -103,7 +103,7 @@ export function DeploymentExportPanel() {
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
             placeholder="vcontrolhub"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:placeholder:text-[var(--text-secondary)]"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-[var(--text-secondary)]"
           />
         </label>
         <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">
@@ -118,7 +118,7 @@ export function DeploymentExportPanel() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-white">{result.name ?? "portable deployment"}</h3>
-              <p className="mt-1 text-xs text-slate-500 light:text-slate-600">
+              <p className="mt-1 text-xs text-slate-500">
                 {result.manifest?.domain ?? "example.com"} · {files.length} 个文件 · 危险演示开关默认关闭
               </p>
             </div>
@@ -128,7 +128,7 @@ export function DeploymentExportPanel() {
           </div>
           <div className="mt-3 grid gap-2 md:grid-cols-2">
             {files.map(([name, content]) => (
-              <details key={name} className="rounded-lg border border-white/[0.06] bg-black/20 p-3 light:border-slate-200 light:bg-white">
+              <details key={name} className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
                 <summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{name}</summary>
                 <code className="mt-2 block max-h-48 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{content}</code>
               </details>

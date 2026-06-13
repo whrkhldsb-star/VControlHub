@@ -276,7 +276,7 @@ export function ServerCreateForm({
           <input
             name="enableDirectGateway"
             type="checkbox"
-            className="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950 light:bg-white"
+            className="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950"
           />
           <div>
             <div className="font-medium text-cyan-100">启用目标服务器直连</div>

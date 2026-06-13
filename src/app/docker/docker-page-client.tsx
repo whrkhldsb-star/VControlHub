@@ -374,7 +374,7 @@ export default function DockerPage() {
 						role="dialog"
 						aria-modal="true"
 						aria-labelledby="docker-remove-confirm-title"
-						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 light:bg-white p-5 shadow-2xl"
+						className="w-full max-w-md mx-4 rounded-2xl border border-rose-400/20 bg-slate-950 p-5 shadow-2xl"
 						onClick={(event) => event.stopPropagation()}
 					>
 						<h3 id="docker-remove-confirm-title" className="text-base font-semibold text-white">确认删除容器</h3>
@@ -411,7 +411,7 @@ export default function DockerPage() {
 						aria-modal="true"
 						aria-labelledby="docker-logs-dialog-title"
 						tabIndex={-1}
-						className="w-full max-w-2xl mx-4 bg-slate-950 light:bg-white border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col"
+						className="w-full max-w-2xl mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl p-5 shadow-2xl max-h-[80vh] overflow-hidden flex flex-col"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<div className="flex items-center justify-between mb-3">

@@ -112,7 +112,7 @@ function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string 
 
 	const fallback = (
 		<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.24),transparent_45%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.88))] text-slate-200 light:bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_45%),linear-gradient(135deg,#e2e8f0,#f8fafc)]">
-			<div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-inner light:border-slate-200 light:bg-white/80">{icon}</div>
+			<div className="rounded-2xl border border-white/10 bg-white/10 p-3 shadow-inner light:bg-white/80">{icon}</div>
 			<span className="text-xs font-medium">{mediaTypeLabel(item.mediaType)}预览</span>
 		</div>
 	);
@@ -124,7 +124,7 @@ function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string 
 	) : fallback;
 
 	return (
-		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/60 light:border-slate-200 light:bg-slate-100" aria-label={`${item.name} ${mediaTypeLabel(item.mediaType)}预览`}>
+		<a href={sourceHref ?? fileHref ?? "#"} className="relative block aspect-[4/3] overflow-hidden rounded-xl border border-white/[0.06] bg-slate-950/60 light:bg-slate-100" aria-label={`${item.name} ${mediaTypeLabel(item.mediaType)}预览`}>
 			{visual}
 			{typeBadge}
 			{item.mediaType !== "audio" && (
@@ -230,7 +230,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 		: null;
 
 	return (
-		<div className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.045] light:border-slate-200 light:bg-white light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
+		<div className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 transition hover:-translate-y-0.5 hover:border-cyan-300/25 hover:bg-white/[0.045] light:shadow-sm light:hover:border-cyan-200 light:hover:shadow-md">
 			<MediaCover item={item} sourceHref={previewHref} />
 
 			<div className="mt-3 flex items-start justify-between gap-2">
@@ -264,12 +264,12 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 					</a>
 				) : null}
 				{downloadHref ? (
-					<a href={downloadHref} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:border-slate-200 light:hover:bg-white">
+					<a href={downloadHref} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:hover:bg-white">
 						<Download size={13} /> 下载
 					</a>
 				) : null}
 				{sourceHref ? (
-					<a href={sourceHref} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:border-slate-200 light:hover:bg-white">
+					<a href={sourceHref} className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:bg-white/10 light:hover:bg-white">
 						<FolderOpen size={13} /> 源文件
 					</a>
 				) : null}

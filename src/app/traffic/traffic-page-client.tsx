@@ -132,7 +132,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 					<Card title="当前服务器实时流量">
 						<div className="mb-4 flex flex-wrap items-center gap-3">
 							<label className="text-xs text-slate-500">网卡</label>
-							<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-3 py-1.5 text-xs text-slate-200">
+							<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
 								<option value="">自动选择主网卡</option>
 								{summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
 							</select>

@@ -115,7 +115,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					key={n.id}
 					className={`group rounded-xl border p-4 transition-all duration-150 focus-within:ring-2 focus-within:ring-cyan-300/60 light:focus-within:ring-cyan-600/50 ${
 						n.isRead
-							? "border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] light:border-slate-200 light:bg-white light:hover:bg-slate-50"
+							? "border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] light:hover:bg-slate-50"
 							: "border-cyan-400/20 bg-cyan-400/[0.04] hover:bg-cyan-400/[0.06] light:border-cyan-600/30 light:bg-cyan-50 light:hover:bg-cyan-100/70"
 					}`}
 				>

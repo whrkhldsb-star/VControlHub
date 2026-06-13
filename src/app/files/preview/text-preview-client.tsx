@@ -467,7 +467,7 @@ export function TextPreviewClient({
 										setSaveMessage("");
 									}}
 									disabled={saveStatus === "saving"}
-									className="rounded-lg border border-slate-700 light:border-slate-200 bg-slate-800 light:bg-slate-100 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
+									className="rounded-lg border border-slate-700 bg-slate-800 light:bg-slate-100 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
 								>
 									取消
 								</button>
@@ -495,7 +495,7 @@ export function TextPreviewClient({
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
 								placeholder="输入关键词"
-								className="w-36 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+								className="w-36 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
 							/>
 						</div>
 						<div className="flex items-end gap-1">
@@ -511,13 +511,13 @@ export function TextPreviewClient({
 									onChange={(e) => setJumpLine(e.target.value)}
 									onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
 									placeholder="如 42"
-									className="w-24 rounded-lg border border-slate-700 light:border-slate-200 bg-slate-900 light:bg-white px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+									className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
 								/>
 							</div>
 							<button
 								type="button"
 								onClick={handleJumpToLine}
-								className="rounded-lg border border-slate-700 light:border-slate-200 bg-slate-800 light:bg-slate-100 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
+								className="rounded-lg border border-slate-700 bg-slate-800 light:bg-slate-100 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
 							>
 								跳转
 							</button>
@@ -543,7 +543,7 @@ export function TextPreviewClient({
 								type="button"
 								onClick={() => setShowDiffReview(false)}
 								disabled={saveStatus === "saving"}
-								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 light:border-slate-300 light:bg-white/70 light:text-slate-700 disabled:opacity-50"
+								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 light:bg-white/70 disabled:opacity-50"
 							>
 								返回编辑
 							</button>
@@ -586,11 +586,11 @@ export function TextPreviewClient({
 						setSaveMessage("");
 					}}
 					onClick={() => showDiffReview && setShowDiffReview(false)}
-					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 light:bg-white p-4 font-mono text-sm leading-relaxed text-slate-100 outline-none focus:border-cyan-300"
+					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 p-4 font-mono text-sm leading-relaxed text-slate-100 outline-none focus:border-cyan-300"
 					spellCheck={false}
 				/>
 			) : (
-				<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 light:bg-white p-4 text-sm leading-relaxed max-h-[75vh]">
+				<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 p-4 text-sm leading-relaxed max-h-[75vh]">
 					<pre className="font-mono text-[var(--text-secondary)]">
 						<code>
 							{lines.map((line, i) => {

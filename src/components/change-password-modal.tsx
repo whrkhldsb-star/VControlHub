@@ -33,7 +33,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 				aria-modal="true"
 				aria-labelledby={titleId}
 				aria-describedby={descriptionId}
-				className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-slate-900 light:bg-white p-6 shadow-2xl"
+				className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-slate-900 p-6 shadow-2xl"
 			>
 				<div className="flex items-center justify-between mb-4">
 					<h2 id={titleId} className="text-xl font-semibold text-white">修改登录密码</h2>
@@ -105,7 +105,7 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 	return (
 		<div className="grid gap-2 text-sm text-[var(--text-secondary)]">
 			<label htmlFor={inputId}>{label}</label>
-			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white focus-within:border-cyan-400/60">
+			<div className="flex overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-950 focus-within:border-cyan-400/60">
 				<input
 					id={inputId}
 					name={name}

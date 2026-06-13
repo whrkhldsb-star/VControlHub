@@ -195,7 +195,7 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 				role="dialog"
 				aria-modal="true"
 				aria-label={t("search.dialog")}
-				className="w-full max-w-lg mx-4 bg-slate-950 light:bg-white border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+				className="w-full max-w-lg mx-4 bg-slate-950 border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="flex items-center px-4 border-b border-white/[0.06]">

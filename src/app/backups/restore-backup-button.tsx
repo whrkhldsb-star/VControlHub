@@ -73,7 +73,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             aria-modal="true"
             aria-labelledby="restore-backup-title"
             aria-describedby="restore-backup-description"
-            className="w-full max-w-md rounded-2xl border border-rose-400/30 bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30"
+            className="w-full max-w-md rounded-2xl border border-rose-400/30 bg-slate-950 p-5 shadow-2xl shadow-black/30"
           >
             <h3 id="restore-backup-title" className="text-base font-semibold text-white">确认恢复备份</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">

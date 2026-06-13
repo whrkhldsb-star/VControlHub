@@ -131,12 +131,12 @@ export function ServerCardActions({
                   {directGateway.publicUrl}
                 </a>
               ) : (
-                <div className="text-[11px] text-slate-500 light:text-slate-600">
+                <div className="text-[11px] text-slate-500">
                   当前上传、下载、在线浏览默认走网站中转。
                 </div>
               )}
             </div>
-            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15 light:bg-white/70 light:text-slate-700">
+            <div className="rounded-xl border border-white/10 bg-slate-950/30 p-3 text-[11px] leading-5 text-slate-400 light:border-cyan-700/15 light:bg-white/70">
               {directGateway.enabled ? (
                 <>
                   <p className="font-medium text-cyan-100">
@@ -195,12 +195,12 @@ export function ServerCardActions({
           <form
             action={editAction}
             aria-label="编辑 VPS 节点"
-            className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 light:border-slate-200 light:bg-slate-50"
+            className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 light:bg-slate-50"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input type="hidden" name="connectionType" value={connectionType} />
             <label
-              className="block text-xs text-slate-400 light:text-slate-700"
+              className="block text-xs text-slate-400"
               htmlFor={`edit-name-${serverId}`}
             >
               节点名称
@@ -210,10 +210,10 @@ export function ServerCardActions({
               name="name"
               type="text"
               defaultValue={serverName}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             <label
-              className="block text-xs text-slate-400 light:text-slate-700"
+              className="block text-xs text-slate-400"
               htmlFor={`edit-host-${serverId}`}
             >
               IP / 域名
@@ -223,10 +223,10 @@ export function ServerCardActions({
               name="host"
               type="text"
               defaultValue={host}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             <label
-              className="block text-xs text-slate-400 light:text-slate-700"
+              className="block text-xs text-slate-400"
               htmlFor={`edit-port-${serverId}`}
             >
               SSH 端口
@@ -238,10 +238,10 @@ export function ServerCardActions({
               min={1}
               max={65535}
               defaultValue={port}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             <label
-              className="block text-xs text-slate-400 light:text-slate-700"
+              className="block text-xs text-slate-400"
               htmlFor={`edit-username-${serverId}`}
             >
               用户名
@@ -251,12 +251,12 @@ export function ServerCardActions({
               name="username"
               type="text"
               defaultValue={username}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             {connectionType === "PASSWORD" ? (
               <>
                 <label
-                  className="block text-xs text-slate-400 light:text-slate-700"
+                  className="block text-xs text-slate-400"
                   htmlFor={`edit-password-${serverId}`}
                 >
                   新密码（留空保持不变）
@@ -267,12 +267,12 @@ export function ServerCardActions({
                   type="password"
                   defaultValue=""
                   autoComplete="new-password"
-                  className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+                  className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
                 />
               </>
             ) : null}
             <label
-              className="block text-xs text-slate-400 light:text-slate-700"
+              className="block text-xs text-slate-400"
               htmlFor={`edit-description-${serverId}`}
             >
               描述
@@ -282,10 +282,10 @@ export function ServerCardActions({
               name="description"
               defaultValue={description ?? ""}
               rows={2}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             <label
-              className="block text-xs text-slate-400 light:text-slate-700"
+              className="block text-xs text-slate-400"
               htmlFor={`edit-tags-${serverId}`}
             >
               标签
@@ -295,7 +295,7 @@ export function ServerCardActions({
               name="tags"
               type="text"
               defaultValue={(tags ?? []).join(",")}
-              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white light:border-slate-300 light:bg-white light:text-slate-950"
+              className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             <SubmitButton
               pendingLabel="校验中..."
@@ -373,7 +373,7 @@ export function ServerCardActions({
                   name="confirmName"
                   type="text"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300 light:bg-white light:text-slate-950"
+                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300"
                 />
                 <div className="flex gap-2">
                   <SubmitButton
@@ -385,7 +385,7 @@ export function ServerCardActions({
                   <button
                     type="button"
                     onClick={() => router.refresh()}
-                    className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 light:border-slate-300 light:bg-white light:text-slate-800 light:hover:bg-slate-100"
+                    className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 light:hover:bg-slate-100"
                   >
                     取消
                   </button>

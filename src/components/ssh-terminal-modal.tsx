@@ -318,10 +318,10 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				aria-modal="true"
 				aria-labelledby={`ssh-terminal-title-${serverId}`}
 				aria-describedby={`ssh-terminal-host-${serverId}`}
-				className="my-auto flex max-h-none min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl light:border-slate-200 light:bg-white light:text-slate-950 sm:max-h-[92vh] sm:rounded-3xl"
+				className="my-auto flex max-h-none min-h-0 w-full max-w-5xl flex-col rounded-2xl border border-white/10 bg-slate-900 text-white shadow-2xl sm:max-h-[92vh] sm:rounded-3xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 light:border-slate-200 sm:px-6 md:flex-row md:items-center md:justify-between">
+				<div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 sm:px-6 md:flex-row md:items-center md:justify-between">
 					<div className="flex items-center gap-3">
 						<span className="text-xl" aria-hidden="true">💻</span>
 						<div>
@@ -349,7 +349,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							type="button"
 							onClick={() => setShowSidePanel(!showSidePanel)}
 							aria-expanded={showSidePanel}
-							className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:border-slate-300 light:bg-slate-100 light:text-slate-700 light:hover:bg-slate-200"}`}
+							className={`rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:bg-slate-100 light:hover:bg-slate-200"}`}
 							title="命令面板"
 						>
 							📋 命令面板
@@ -368,7 +368,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							type="button"
 							onClick={onClose}
 							aria-label="关闭 SSH 终端"
-							className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:border-slate-300 light:bg-slate-100 light:text-slate-700 light:hover:bg-slate-200"
+							className="rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:bg-slate-100 light:hover:bg-slate-200"
 						>
 							关闭
 						</button>
@@ -386,7 +386,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 						<div
 							ref={termRef}
 							data-testid="ssh-terminal-surface"
-							className="h-[clamp(320px,58vh,560px)] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e1a] light:border-slate-200 lg:h-full lg:min-h-[400px]"
+							className="h-[clamp(320px,58vh,560px)] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e1a] lg:h-full lg:min-h-[400px]"
 						/>
 					</div>
 					{showSidePanel && (

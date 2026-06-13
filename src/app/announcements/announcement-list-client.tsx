@@ -165,7 +165,7 @@ export function AnnouncementList({
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-announcement-title" className="text-base font-semibold text-white">删除公告</h3>
             <p className="mt-2 text-sm leading-6 text-slate-400">确认删除公告 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}

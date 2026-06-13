@@ -130,7 +130,7 @@ export function TwoFactorSettings({ enabled }: { enabled: boolean }) {
 						height={200}
 						unoptimized
 					/>
-					<div className="bg-slate-900 light:bg-white rounded-lg p-3">
+					<div className="bg-slate-900 rounded-lg p-3">
 						<p className="text-[10px] text-slate-500 mb-1">密钥（手动输入）：</p>
 						<code className="text-xs text-cyan-400 break-all select-all">{secret}</code>
 					</div>

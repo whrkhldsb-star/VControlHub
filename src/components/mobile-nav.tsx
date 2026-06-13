@@ -20,7 +20,7 @@ export function MobileNav() {
 		<nav
 			aria-label="移动端底部导航"
 			data-i18n-skip
-			className="fixed bottom-0 left-0 right-0 z-50 overflow-x-auto border-t border-white/[0.06] bg-slate-950/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl md:hidden max-[360px]:px-1 light:border-slate-200 light:bg-white/95 light:shadow-[0_-10px_30px_rgba(15,23,42,0.08)]"
+			className="fixed bottom-0 left-0 right-0 z-50 overflow-x-auto border-t border-white/[0.06] bg-slate-950/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl md:hidden max-[360px]:px-1 light:bg-white/95 light:shadow-[0_-10px_30px_rgba(15,23,42,0.08)]"
 		>
 			<div className="flex min-w-max items-center justify-around gap-1">
 				{mobileNavItems.map((tab) => {
@@ -31,7 +31,7 @@ export function MobileNav() {
 							key={tab.href}
 							href={tab.href}
 							className={`flex min-w-14 flex-col items-center gap-0.5 rounded-lg px-2 py-1 transition ${
-								active ?"text-cyan-400" :"text-slate-500 light:text-slate-600"
+								active ?"text-cyan-400" :"text-slate-500"
 							}`}
 						>
 							<span className="[&>svg]:h-5 [&>svg]:w-5">{tab.icon}</span>
@@ -39,7 +39,7 @@ export function MobileNav() {
 						</Link>
 					);
 				})}
-				<div className="ml-1 flex items-center gap-1 border-l border-white/[0.06] pl-2 light:border-slate-200">
+				<div className="ml-1 flex items-center gap-1 border-l border-white/[0.06] pl-2">
 					<LanguageToggle compact />
 					<ThemeToggle compact />
 				</div>

@@ -144,7 +144,7 @@ export function MediaImageUploadPanel() {
 			<div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 				<div className="text-xs text-emerald-100/80">
 					<label htmlFor="media-image-storage-node" className="block">存储节点</label>
-					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-emerald-300/20 bg-slate-900/60 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300 light:bg-white light:text-slate-900 light:border-emerald-200">
+					<select id="media-image-storage-node" value={storageNodeId} onChange={(e) => setStorageNodeId(e.target.value)} onFocus={() => { if (!nodesLoaded && !loadingNodes) void loadNodes(); }} className="mt-1 w-full rounded-lg border border-emerald-300/20 bg-slate-900/60 px-3 py-2 text-sm text-white outline-none focus:border-emerald-300 light:border-emerald-200">
 						<option value="">默认图床存储</option>
 						{nodes.map((node) => (
 							<option key={node.id} value={node.id}>{node.name}{node.driver ? ` · ${node.driver}` : ""}{node.serverName ? ` · ${node.serverName}` : ""}</option>
@@ -153,7 +153,7 @@ export function MediaImageUploadPanel() {
 				</div>
 				<div className="text-xs text-emerald-100/80">
 					<label htmlFor="media-image-target-path" className="block">上传到存储目录（可改）</label>
-					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder="例如 image-bed/2026" className="mt-1 w-full rounded-lg border border-emerald-300/20 bg-slate-900/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-300 light:bg-white light:text-slate-900 light:border-emerald-200" />
+					<input id="media-image-target-path" value={targetPath} onChange={(e) => setTargetPath(e.target.value)} placeholder="例如 image-bed/2026" className="mt-1 w-full rounded-lg border border-emerald-300/20 bg-slate-900/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-emerald-300 light:border-emerald-200" />
 				</div>
 			</div>
 

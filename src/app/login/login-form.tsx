@@ -4,7 +4,7 @@ type LoginFormProps = {
 };
 
 const fieldClassName =
-	"w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-all duration-150 placeholder:text-white/25 focus:border-cyan-400/50 focus:bg-white/[0.06] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-200/80 light:bg-white light:shadow-sm light:placeholder:text-slate-400 light:focus:border-cyan-500/70 light:focus:bg-white light:focus:ring-cyan-500/10";
+	"w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-all duration-150 placeholder:text-white/25 focus:border-cyan-400/50 focus:bg-white/[0.06] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-200/80 light:shadow-sm light:placeholder:text-slate-400 light:focus:border-cyan-500/70 light:focus:bg-white light:focus:ring-cyan-500/10";
 
 export function LoginForm({ nextPath, error }: LoginFormProps) {
 	return (
@@ -44,7 +44,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 				<input
 					type="checkbox"
 					name="remember"
-					className="h-4 w-4 rounded border-white/20 bg-white/[0.06] text-cyan-400 focus:ring-cyan-400/40 light:border-slate-300 light:bg-white light:focus:ring-cyan-500/30"
+					className="h-4 w-4 rounded border-white/20 bg-white/[0.06] text-cyan-400 focus:ring-cyan-400/40 light:focus:ring-cyan-500/30"
 				/>
 			</label>
 

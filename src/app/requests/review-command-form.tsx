@@ -16,7 +16,7 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
       <input type="hidden" name="commandRequestId" value={commandRequestId} />
       <label className="grid gap-2">
         <span className="text-[var(--text-secondary)]">审批意见</span>
-        <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white outline-none ring-0" placeholder="可填写批准原因、执行窗口、注意事项等" />
+        <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white outline-none ring-0" placeholder="可填写批准原因、执行窗口、注意事项等" />
       </label>
 
       {state.error ? <div className="mt-3 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-rose-100">{state.error}</div> : null}

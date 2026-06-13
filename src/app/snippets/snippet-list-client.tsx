@@ -116,11 +116,11 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       <div className="grid gap-3">
         {filtered.map((s) => (
-          <div key={s.id} data-card className="group  p-4 transition hover:border-white/[0.12] light:border-slate-200 light:bg-white light:hover:border-slate-300">
+          <div key={s.id} data-card className="group  p-4 transition hover:border-white/[0.12] light:hover:border-slate-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <b className="text-sm text-white">{s.title}</b>
-                <span className="rounded-full border border-white/[0.06] bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400 light:border-slate-200 light:bg-slate-50">{s.language}</span>
+                <span className="rounded-full border border-white/[0.06] bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400 light:bg-slate-50">{s.language}</span>
                 {s.isPrivate && <span className="text-[10px] text-amber-400">🔒 私有</span>}
                 {s.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
@@ -143,7 +143,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               </div>
             </div>
             {s.description && <p className="mt-1 text-xs text-slate-500">{s.description}</p>}
-            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50">{s.content}</pre>
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:bg-slate-50">{s.content}</pre>
           </div>
         ))}
         {filtered.length === 0 && (
@@ -173,7 +173,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
 
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 p-4 backdrop-blur-sm" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 light:bg-white p-5 shadow-2xl shadow-black/30">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
             <h3 id="delete-snippet-title" className="text-base font-semibold text-white">删除代码片段</h3>
             <p className="mt-2 text-sm leading-6 text-slate-400">确认删除代码片段 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}

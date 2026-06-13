@@ -213,7 +213,7 @@ export function FileUploadDropzone({
               aria-label="上传到节点"
               value={selectedNodeId}
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
-              className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white"
+              className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"
             >
               <option value="">请选择存储节点</option>
               {nodes.map((node) => (
@@ -232,7 +232,7 @@ export function FileUploadDropzone({
             value={effectiveRelativeDir}
             readOnly={uploadDir !== undefined || !allowNodeSelection}
             onChange={(event) => setRelativeDir(event.currentTarget.value)}
-            className="rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white px-4 py-3 text-white read-only:cursor-not-allowed read-only:opacity-80"
+            className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white read-only:cursor-not-allowed read-only:opacity-80"
             placeholder="docs 或 media/videos"
           />
         </label>

@@ -110,7 +110,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
                value={assigneeId}
                onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
                disabled={saving}
-               className="rounded-lg border border-white/[0.08] bg-slate-950 light:bg-white px-2 py-1 text-sm text-slate-200 outline-none disabled:opacity-50"
+               className="rounded-lg border border-white/[0.08] bg-slate-950 px-2 py-1 text-sm text-slate-200 outline-none disabled:opacity-50"
              >
                <option value="">未指派</option>
                {/* users populated from parent page */}

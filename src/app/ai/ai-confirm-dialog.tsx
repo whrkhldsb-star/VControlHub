@@ -33,7 +33,7 @@ export function AiConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white p-5 shadow-2xl"
+        className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 p-5 shadow-2xl"
       >
         <h3 className="text-sm font-semibold text-white">{title}</h3>
         <div className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{description}</div>

@@ -49,12 +49,12 @@ export function AnnouncementEditModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 light:bg-slate-900/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl light:border-slate-200">
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl">
         <h3 className="text-lg font-semibold text-white">编辑公告</h3>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">标题</label>
+            <label className="block text-xs text-slate-400">标题</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -63,7 +63,7 @@ export function AnnouncementEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">级别</label>
+            <label className="block text-xs text-slate-400">级别</label>
             <select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
@@ -76,7 +76,7 @@ export function AnnouncementEditModal({
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-400 light:text-slate-500">内容</label>
+            <label className="block text-xs text-slate-400">内容</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -85,7 +85,7 @@ export function AnnouncementEditModal({
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-400 light:text-slate-500">
+          <label className="flex items-center gap-2 text-sm text-slate-400">
             <input
               type="checkbox"
               checked={pinned}
@@ -101,7 +101,7 @@ export function AnnouncementEditModal({
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5 light:border-slate-200 light:text-slate-500"
+            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
           >
             取消
           </button>

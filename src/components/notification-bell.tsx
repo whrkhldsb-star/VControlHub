@@ -176,9 +176,9 @@ export function NotificationBell() {
 					role="dialog"
 					aria-modal="false"
 					aria-labelledby="notification-popover-title"
-					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.12] bg-slate-950/98 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto light:border-slate-200 light:bg-white"
+					className="absolute bottom-full left-0 mb-2 w-80 rounded-xl border border-white/[0.12] bg-slate-950/98 backdrop-blur-xl shadow-2xl z-50 max-h-[60vh] overflow-y-auto"
 				>
-					<div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between light:border-slate-200 light:bg-white/95">
+					<div className="sticky top-0 bg-slate-950/95 backdrop-blur border-b border-white/[0.06] px-4 py-3 flex items-center justify-between light:bg-white/95">
 						<span id="notification-popover-title" className="text-sm font-medium text-white">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
@@ -214,13 +214,13 @@ export function NotificationBell() {
 											{!n.isRead && <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shrink-0" />}
 											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-white"}`}>{n.title}</span>
 										</div>
-										<p className="mt-1 text-[11px] text-slate-500 light:text-slate-600 truncate">{n.message}</p>
+										<p className="mt-1 text-[11px] text-slate-500 truncate">{n.message}</p>
 									</Link>
 								</li>
 							))}
 						</ul>
 					) : null}
-					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/95 light:border-slate-200 light:bg-white/95">
+					<div className="sticky bottom-0 border-t border-white/[0.06] bg-slate-950/95 light:bg-white/95">
 						<Link href="/notifications" className="block px-4 py-2.5 text-center text-xs text-cyan-400/80 hover:text-cyan-300 transition light:hover:text-cyan-800">
 							{viewAllLabel}
 						</Link>

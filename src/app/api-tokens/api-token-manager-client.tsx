@@ -207,7 +207,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
       </section>
       {tokenPendingRevoke && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 light:bg-white/70 px-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 light:bg-white p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
+          <section role="dialog" aria-modal="true" aria-labelledby="revoke-api-token-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
             <h2 id="revoke-api-token-title" className="text-lg font-semibold text-white">确认撤销 API Token</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
               即将撤销 Token <span className="font-semibold text-rose-100">{tokenPendingRevoke.name}</span>。撤销后脚本、CLI 或外部集成将立即失去访问权限，且无法恢复。

@@ -578,7 +578,7 @@ if (data.conversation) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="rename-conversation-title"
-            className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 light:bg-white p-5 shadow-2xl"
+            className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 p-5 shadow-2xl"
           >
             <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">修改对话标题</h3>
             <label htmlFor="rename-conversation-title-input" className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
@@ -1040,8 +1040,8 @@ return (
             </svg>
             {providers.length === 0 ? (
               <>
-                <p className="text-sm font-medium text-slate-300 light:text-slate-800">还没有可用的 AI 提供商</p>
-                <p className="mt-2 max-w-md text-xs leading-5 text-slate-500 light:text-slate-600">
+                <p className="text-sm font-medium text-slate-300">还没有可用的 AI 提供商</p>
+                <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">
                   先添加一个 OpenAI 兼容或其它提供商并填写 API Key、Base URL 和默认模型；配置完成后即可创建新对话。
                 </p>
                 <button

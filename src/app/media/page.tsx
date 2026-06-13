@@ -53,14 +53,14 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
 
   return (
     <PageShell>
-      <header className="mb-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-cyan-950/20 light:border-slate-200 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/60">
+      <header className="mb-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-cyan-950/20 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/60">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Media Workspace</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">媒体库</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。</p>
           </div>
-          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center light:border-slate-200 light:bg-white/70">
+          <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center light:bg-white/70">
             <div className="rounded-xl bg-blue-400/10 px-3 py-2"><div className="text-lg font-semibold text-blue-100">{imageCount}</div><div className="text-[10px] text-blue-200/70">图片</div></div>
             <div className="rounded-xl bg-purple-400/10 px-3 py-2"><div className="text-lg font-semibold text-purple-100 light:text-purple-900">{videoCount}</div><div className="text-[10px] text-purple-200/70 light:text-purple-700">视频</div></div>
             <div className="rounded-xl bg-emerald-400/10 px-3 py-2"><div className="text-lg font-semibold text-emerald-100">{audioCount}</div><div className="text-[10px] text-emerald-200/70">音频</div></div>
@@ -69,7 +69,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       </header>
 
       <section className="mb-5 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/70">Current Workspace</p>
@@ -87,7 +87,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           </div>
 
           <div role="tablist" aria-label="媒体类型" className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-cyan-100" inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:border-slate-200 light:bg-slate-50" className="rounded-2xl border px-4 py-3 transition">
+            <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-cyan-100" inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:bg-slate-50" className="rounded-2xl border px-4 py-3 transition">
               <span className="block text-base">全部</span><span className="text-xs opacity-70">{totalCount} 项媒体</span>
             </FilterLink>
             <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
@@ -102,7 +102,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           </div>
         </div>
 
-        <aside className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 light:border-slate-200 light:bg-white">
+        <aside className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
           <h2 className="text-sm font-semibold text-white">推荐流程</h2>
           <ol className="mt-3 space-y-3 text-sm text-slate-400">
             <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">1</span><span>先用类型卡片进入图片、视频或音频工作区。</span></li>
@@ -112,7 +112,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         </aside>
       </section>
 
-      <form method="GET" action="/media" className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3 light:border-slate-200 light:bg-white">
+      <form method="GET" action="/media" className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3">
         {mediaType && <input type="hidden" name="type" value={mediaType} />}
         {favorite && <input type="hidden" name="favorite" value="1" />}
         {tag && <input type="hidden" name="tag" value={tag} />}
@@ -126,12 +126,12 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             name="q"
             defaultValue={q ?? ""}
             placeholder="文件名、路径、标签…"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50 light:border-slate-200 light:placeholder:text-slate-500"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50 light:placeholder:text-slate-500"
           />
         </div>
         <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500">搜索</button>
         {(q || tag || mediaType || favorite) && (
-          <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 light:border-slate-200">
+          <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5">
             清除筛选
           </FilterLink>
         )}
@@ -144,7 +144,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       </div>
 
       {tagCloud.length > 0 && (
-        <div data-card className="mb-5  p-3 light:border-slate-200 light:bg-slate-50">
+        <div data-card className="mb-5  p-3 light:bg-slate-50">
           <div className="mb-2 text-xs font-semibold text-slate-400">标签筛选</div>
           <div className="flex flex-wrap gap-2 text-xs">
             {tagCloud.map((entry) => (
@@ -153,7 +153,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
                 href={toggleTagHref(filters, entry.tag)}
                 active={tag === entry.tag}
                 activeClassName="border-cyan-400/40 bg-cyan-400/20 text-cyan-100"
-                inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:border-slate-200 light:bg-white"
+                inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
                 className="rounded-full border px-2.5 py-1 transition"
                 title={tag === entry.tag ? `再次点击取消 #${entry.tag} 筛选` : `筛选 #${entry.tag}`}
               >

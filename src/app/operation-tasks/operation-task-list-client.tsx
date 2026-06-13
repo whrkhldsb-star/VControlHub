@@ -111,20 +111,20 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="text-xs font-medium text-slate-400">
             <span className="mb-1 block">状态筛选</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="min-w-32 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 light:bg-white">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="min-w-32 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
               {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-slate-400">
             <span className="mb-1 block">任务类型</span>
-            <select value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className="min-w-44 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 light:bg-white">
+            <select value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className="min-w-44 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
               <option value="all">全部类型</option>
               {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-slate-400">
             <span className="mb-1 block">排序偏好</span>
-            <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-w-36 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 light:bg-white">
+            <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-w-36 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>

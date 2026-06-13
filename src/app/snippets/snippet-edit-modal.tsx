@@ -59,13 +59,13 @@ export function SnippetEditModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-snippet-title"
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl light:border-slate-200"
+        className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl"
       >
         <h3 id="edit-snippet-title" className="text-lg font-semibold text-white">编辑代码片段</h3>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label htmlFor="edit-snippet-title-input" className="block text-xs text-slate-400 light:text-slate-500">标题</label>
+            <label htmlFor="edit-snippet-title-input" className="block text-xs text-slate-400">标题</label>
             <input
               id="edit-snippet-title-input"
               value={title}
@@ -75,7 +75,7 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label htmlFor="edit-snippet-language-input" className="block text-xs text-slate-400 light:text-slate-500">语言</label>
+            <label htmlFor="edit-snippet-language-input" className="block text-xs text-slate-400">语言</label>
             <input
               id="edit-snippet-language-input"
               value={language}
@@ -85,7 +85,7 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label htmlFor="edit-snippet-description-input" className="block text-xs text-slate-400 light:text-slate-500">描述（可选）</label>
+            <label htmlFor="edit-snippet-description-input" className="block text-xs text-slate-400">描述（可选）</label>
             <input
               id="edit-snippet-description-input"
               value={description}
@@ -96,7 +96,7 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label htmlFor="edit-snippet-tags-input" className="block text-xs text-slate-400 light:text-slate-500">标签（用逗号分隔）</label>
+            <label htmlFor="edit-snippet-tags-input" className="block text-xs text-slate-400">标签（用逗号分隔）</label>
             <input
               id="edit-snippet-tags-input"
               value={tagsInput}
@@ -107,7 +107,7 @@ export function SnippetEditModal({
             />
           </div>
           <div>
-            <label htmlFor="edit-snippet-content-input" className="block text-xs text-slate-400 light:text-slate-500">内容</label>
+            <label htmlFor="edit-snippet-content-input" className="block text-xs text-slate-400">内容</label>
             <textarea
               id="edit-snippet-content-input"
               value={content}
@@ -117,7 +117,7 @@ export function SnippetEditModal({
               className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs outline-none"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-400 light:text-slate-500">
+          <label className="flex items-center gap-2 text-sm text-slate-400">
             <input
               type="checkbox"
               checked={isPrivate}
@@ -133,7 +133,7 @@ export function SnippetEditModal({
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5 light:border-slate-200 light:text-slate-500"
+            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
           >
             取消
           </button>

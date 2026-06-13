@@ -103,46 +103,46 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						name="templateId"
 						value={templateId}
 						onChange={(event) => setTemplateId(event.target.value)}
-						className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 light:border-slate-200 light:bg-white light:text-slate-900"
+						className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100"
 					>
 						{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
 					</select>
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					部署原因
-					<input name="reason" maxLength={500} placeholder="例如：上线新版本 / 修复服务异常" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400" />
+					<input name="reason" maxLength={500} placeholder="例如：上线新版本 / 修复服务异常" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-400" />
 				</label>
 			</div>
 
-			{selectedTemplate?.description && <p className="text-xs text-slate-500 light:text-slate-600">{selectedTemplate.description}</p>}
+			{selectedTemplate?.description && <p className="text-xs text-slate-500">{selectedTemplate.description}</p>}
 
 			{variables.length > 0 ? (
 				<div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:border-cyan-200 light:bg-cyan-50">
 					<div className="mb-3 flex items-center justify-between gap-3">
 						<h3 className="text-sm font-semibold text-white">模板变量</h3>
-						<span className="text-xs text-slate-500 light:text-slate-600">全部必填，提交前会在后端再次校验。</span>
+						<span className="text-xs text-slate-500">全部必填，提交前会在后端再次校验。</span>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						{variables.map((name) => (
 							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
-								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:border-slate-200 light:bg-white light:text-slate-900 light:placeholder:text-slate-400" />
+								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-400" />
 							</label>
 						))}
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400 light:border-slate-200 light:bg-slate-50 light:text-slate-600">该模板没有变量，可直接选择目标 VPS 提交。</p>
+				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400 light:bg-slate-50">该模板没有变量，可直接选择目标 VPS 提交。</p>
 			)}
 
 			<div>
 				<div className="mb-2 flex items-center justify-between gap-3">
 					<h3 className="text-sm font-semibold text-white">目标 VPS</h3>
-					<span className="text-xs text-slate-500 light:text-slate-600">至少选择 1 台。</span>
+					<span className="text-xs text-slate-500">至少选择 1 台。</span>
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
-						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-slate-300 light:border-slate-200 light:bg-white light:text-slate-700">
+						<label key={server.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-slate-300">
 							<input type="checkbox" name="serverIds" value={server.id} />
 							<span>{server.name} · {server.username}@{server.host}</span>
 						</label>
@@ -150,9 +150,9 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</div>
 			</div>
 
-			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3 light:border-slate-200 light:bg-slate-50">
+			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3 light:bg-slate-50">
 				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">预览命令</summary>
-				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-white light:text-slate-800">{previewCommand(selectedTemplate, variables)}</code>
+				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{previewCommand(selectedTemplate, variables)}</code>
 			</details>
 
 			{error && <p className="text-xs text-rose-300">{error}</p>}

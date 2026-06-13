@@ -540,7 +540,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100">
 					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
 					<p className="mt-1 text-xs text-amber-100/75/75">{dockerStatus.message}</p>
-					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50 light:border-slate-200 light:bg-slate-50">{dockerStatus.installHint}</p> : null}
+					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50 light:bg-slate-50">{dockerStatus.installHint}</p> : null}
 				</div>
 			) : null}
 
@@ -564,7 +564,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 light:border-slate-200 light:bg-white">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">运行概览</p>
@@ -593,7 +593,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.length === 0 && <p className="text-sm text-slate-500">从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。</p>}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 light:border-slate-200 light:bg-white">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">端口</p>
 					<h3 className="mt-1 text-base font-semibold text-white">{usedPorts.length} 个监听端口</h3>
 					<p className="mt-2 text-sm leading-6 text-slate-400">安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。</p>
@@ -601,7 +601,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{port}</span>)}
 					</div>
 				</div>
-				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 light:border-slate-200 light:bg-white">
+				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">应用源</p>
 					<h3 className="mt-1 text-base font-semibold text-white">{sources.filter((s) => s.enabled).length}/{sources.length} 个源启用</h3>
 					<p className="mt-2 text-sm leading-6 text-slate-400">{lastSyncedSource ? `最近同步：${lastSyncedSource.displayName}` : "还没有同步记录。"}</p>
@@ -663,7 +663,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			)}
 
 			{/* Tab bar */}
-			<div data-card className="flex flex-wrap gap-1  p-1 light:border-slate-200 light:bg-white w-fit">
+			<div data-card className="flex flex-wrap gap-1  p-1 w-fit">
 				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
 					🏪 本地精选 ({localAvailable.length})
 				</button>
@@ -681,7 +681,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Sources management tab */}
 			{tab === "sources" && (
 				<div className="space-y-4">
-					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4 light:border-slate-200 light:bg-white">
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
 						<div className="flex items-center justify-between gap-3">
 							<div>
 								<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
@@ -693,10 +693,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							{SOURCE_PRESETS.map((preset) => {
 								const active = sourcePreset === preset.key;
 								return (
-									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 light:border-slate-200 light:bg-slate-50 hover:bg-white/[0.06] light:hover:bg-white"}`}>
+									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 light:bg-slate-50 hover:bg-white/[0.06] light:hover:bg-white"}`}>
 										<div className="flex items-center justify-between gap-2">
 											<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500 light:border-slate-200"}`}>{preset.type}</span>
+											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
 										</div>
 										<h4 className="mt-2 text-sm font-semibold text-white">{preset.label}</h4>
 										<p className="mt-1 text-xs leading-5 text-slate-400">{preset.description}</p>
@@ -941,7 +941,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						role="dialog"
 						aria-modal="true"
 						aria-label={configPreview.action === "install" ? "确认安装配置" : "确认更新配置"}
-						className="w-full max-w-lg mx-4 rounded-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl light:bg-white"
+						className="w-full max-w-lg mx-4 rounded-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-white mb-2">
@@ -950,7 +950,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<p className="text-sm leading-6 text-slate-300">
 							{configPreview.action === "install" ? "安装会拉取镜像并创建 qs-* 容器。" : "更新会拉取当前镜像并重建 qs-* 容器。"}请确认端口、挂载和公开访问边界后继续。
 						</p>
-						<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300 light:border-slate-200 light:bg-slate-50">
+						<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300 light:bg-slate-50">
 							<div><span className="text-slate-500">服务：</span>{configPreview.item.name} ({configPreview.item.slug})</div>
 							<div><span className="text-slate-500">镜像：</span>{configPreview.item.image}</div>
 							<div><span className="text-slate-500">端口：</span>容器 {getPrimaryContainerPort(configPreview.item)} → 宿主机 {configPreview.port}</div>
@@ -1098,7 +1098,7 @@ function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, on
 	const isRemote = item.source !== "local";
 
 	return (
-		<div data-card className=" p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:border-slate-200 light:bg-white light:hover:border-slate-300">
+		<div data-card className=" p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:hover:border-slate-300">
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">

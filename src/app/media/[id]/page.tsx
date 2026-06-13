@@ -132,7 +132,7 @@ export default async function MediaPlayerPage({
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Link
               href={returnHref}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5 light:border-slate-200 light:text-slate-700 light:hover:bg-white"
+              className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5 light:hover:bg-white"
             >
               ← 返回媒体库
             </Link>
@@ -155,7 +155,7 @@ export default async function MediaPlayerPage({
             </a>
             <Link
               href={sourceHref}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-slate-200 hover:bg-white/5 light:border-slate-200 light:text-slate-700 light:hover:bg-white"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-slate-200 hover:bg-white/5 light:hover:bg-white"
             >
               <FolderOpen size={16} /> 打开源文件
             </Link>
@@ -164,7 +164,7 @@ export default async function MediaPlayerPage({
 
         <section className="grid flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-3">
-            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-white/10 bg-slate-950/70 p-4 light:border-slate-200 light:bg-white">
+            <div className="flex min-h-[55vh] items-center justify-center rounded-3xl border border-white/10 bg-slate-950/70 p-4">
               {isImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -194,7 +194,7 @@ export default async function MediaPlayerPage({
               {previousItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(previousItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200 transition hover:bg-white/[0.06] light:border-slate-200 light:bg-white light:text-slate-800"
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200 transition hover:bg-white/[0.06]"
                 >
                   <span className="block text-xs text-slate-500">上一项</span>
                   <span className="mt-1 block truncate font-medium">
@@ -202,14 +202,14 @@ export default async function MediaPlayerPage({
                   </span>
                 </Link>
               ) : (
-                <span className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-500 light:border-slate-200">
+                <span className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-500">
                   已经是第一项
                 </span>
               )}
               {nextItem ? (
                 <Link
                   href={`/media/${encodeURIComponent(nextItem.id)}?from=${navigationFrom}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right text-sm text-slate-200 transition hover:bg-white/[0.06] light:border-slate-200 light:bg-white light:text-slate-800"
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right text-sm text-slate-200 transition hover:bg-white/[0.06]"
                 >
                   <span className="block text-xs text-slate-500">下一项</span>
                   <span className="mt-1 block truncate font-medium">
@@ -217,14 +217,14 @@ export default async function MediaPlayerPage({
                   </span>
                 </Link>
               ) : (
-                <span className="rounded-2xl border border-white/10 px-4 py-3 text-right text-sm text-slate-500 light:border-slate-200">
+                <span className="rounded-2xl border border-white/10 px-4 py-3 text-right text-sm text-slate-500">
                   已经是最后一项
                 </span>
               )}
             </nav>
           </div>
 
-          <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 light:border-slate-200 light:bg-slate-50">
+          <aside className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 light:bg-slate-50">
             <div className="mb-4 flex items-center gap-2">
               <span className="text-3xl">
                 {item.mediaType === "image"
@@ -273,7 +273,7 @@ export default async function MediaPlayerPage({
                 <dt className="text-xs uppercase tracking-wide text-slate-500">
                   路径
                 </dt>
-                <dd className="mt-1 break-all rounded-2xl bg-black/20 p-3 font-mono text-xs text-slate-300 light:bg-white light:text-slate-700">
+                <dd className="mt-1 break-all rounded-2xl bg-black/20 p-3 font-mono text-xs text-slate-300">
                   {item.relativePath}
                 </dd>
               </div>

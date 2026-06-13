@@ -39,27 +39,27 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
 				<h2 className="text-sm font-semibold text-white mb-3">💡 使用流程</h2>
 				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">📝</div>
 						<div className="font-medium text-white">1. 创建模板</div>
 						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300">{"{{变量名}}"}</code> 的部署脚本</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🎯</div>
 						<div className="font-medium text-white">2. 选择模板</div>
 						<div className="mt-1">在下方选择你要部署的模板</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">⚙️</div>
 						<div className="font-medium text-white">3. 填写变量</div>
 						<div className="mt-1">填写模板所需的变量值（如版本号、端口等）</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🖥️</div>
 						<div className="font-medium text-white">4. 选择 VPS</div>
 						<div className="mt-1">勾选要部署到的目标服务器</div>
 					</div>
-					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center light:border-slate-200 light:bg-white">
+					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🚀</div>
 						<div className="font-medium text-white">5. 提交审批</div>
 						<div className="mt-1">进入审批链路，审批通过后自动执行并记录日志</div>
@@ -74,9 +74,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			)}
 			{canExport && <DeploymentExportPanel />}
 			{canRun && (
-				<section data-card className="mb-6  p-5 light:border-slate-200 light:bg-white">
+				<section data-card className="mb-6  p-5">
 					<h2 className="text-sm font-semibold text-white">发起模板部署</h2>
-					<p className="mt-1 text-xs text-slate-500 light:text-slate-600">选择模板后填写变量和目标 VPS。提交后进入命令审批/执行链路，不会绕过平台审计。</p>
+					<p className="mt-1 text-xs text-slate-500">选择模板后填写变量和目标 VPS。提交后进入命令审批/执行链路，不会绕过平台审计。</p>
 					<DeploymentLaunchForm templates={templates} servers={servers} />
 				</section>
 			)}
@@ -90,7 +90,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{latestRun.snapshot?.rollbackCommand || "该部署快照没有回滚命令，可使用重发作为兼容操作。"}</code>
+					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:bg-slate-50">{latestRun.snapshot?.rollbackCommand || "该部署快照没有回滚命令，可使用重发作为兼容操作。"}</code>
 					<div className="mt-4 flex flex-wrap items-center gap-3">
 						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
 						<ResendDeployButton
@@ -116,7 +116,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								</div>
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
-							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:border-slate-200 light:bg-slate-50 light:text-slate-800">{r.renderedCommand}</code>
+							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300 light:bg-slate-50">{r.renderedCommand}</code>
 							{r.snapshot?.rollbackCommand && <code className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">Rollback: {r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3 py-2 text-xs text-emerald-100">
