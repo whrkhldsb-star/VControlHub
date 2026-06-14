@@ -120,7 +120,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							{r.snapshot?.rollbackCommand && <code className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">Rollback: {r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3 py-2 text-xs text-emerald-100">
-									最近回滚：{r.rollbackAttempts[0].status} · 审批 {r.rollbackAttempts[0].commandRequestId || "待创建"} · {r.rollbackAttempts[0].createdAt.toLocaleString("zh-CN")}
+									最近回滚：{r.rollbackAttempts[0]!.status} · 审批 {r.rollbackAttempts[0]!.commandRequestId || "待创建"} · {r.rollbackAttempts[0]!.createdAt.toLocaleString("zh-CN")}
 								</div>
 							)}
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}

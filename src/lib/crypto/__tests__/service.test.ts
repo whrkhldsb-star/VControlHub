@@ -71,9 +71,9 @@ describe("crypto service", () => {
       const ct = encrypt("do-not-touch");
       const [ivB64, tagB64, dataB64] = ct.split(":");
       // Flip a single base64 character in the auth tag to break the MAC.
-      const tamperedTag = tagB64.startsWith("A")
-        ? `B${tagB64.slice(1)}`
-        : `A${tagB64.slice(1)}`;
+      const tamperedTag = tagB64!.startsWith("A")
+        ? `B${tagB64!.slice(1)}`
+        : `A${tagB64!.slice(1)}`;
       const tampered = `${ivB64}:${tamperedTag}:${dataB64}`;
       expect(() => decrypt(tampered)).toThrow();
     });

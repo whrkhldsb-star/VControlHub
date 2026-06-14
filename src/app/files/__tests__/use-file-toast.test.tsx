@@ -22,9 +22,9 @@ describe("useFileToast", () => {
       result.current.showToast("success", "saved");
     });
     expect(result.current.toasts).toHaveLength(1);
-    expect(result.current.toasts[0].type).toBe("success");
-    expect(result.current.toasts[0].message).toBe("saved");
-    expect(typeof result.current.toasts[0].id).toBe("number");
+    expect(result.current.toasts[0]!.type).toBe("success");
+    expect(result.current.toasts[0]!.message).toBe("saved");
+    expect(typeof result.current.toasts[0]!.id).toBe("number");
   });
 
   it("caps the visible window at 3 toasts (FIFO)", () => {
@@ -59,7 +59,7 @@ describe("useFileToast", () => {
     act(() => {
       result.current.showToast("error", "x");
     });
-    const id = result.current.toasts[0].id;
+    const id = result.current.toasts[0]!.id;
     act(() => {
       result.current.dismissToast(id);
     });

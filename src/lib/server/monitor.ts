@@ -76,7 +76,7 @@ function parseNetSection(lines: string[]): ServerMetrics["network"] {
 
 function parseUptime(line: string): string {
 	const match = line.match(/up\s+(.+?),\s*\d+\s*user/);
-	return match ? match[1].trim() : line.trim();
+	return match ? match[1]!.trim() : line.trim();
 }
 
 /* ── Main collect function ────────────────────────────────── */

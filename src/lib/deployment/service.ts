@@ -27,7 +27,7 @@ function assertTemplateVariables(
 ) {
   const placeholders = Array.from(
     command.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g),
-  ).map((match) => match[1]);
+  ).map((match) => match[1]!);
   const required = Array.from(
     new Set([
       ...(Array.isArray(templateVariables) ? templateVariables : []),

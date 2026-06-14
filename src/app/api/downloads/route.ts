@@ -292,7 +292,7 @@ export async function POST(request: Request) {
       //  - HTTP batch: one task per URL.
       //  - Single HTTP or magnet relay: a single task (magnet relay may carry
       //    multiple magnet URLs into one aria2 task, handled below).
-      const taskUrls = isHttpBatch ? allUrls : [allUrls[0]];
+      const taskUrls = isHttpBatch ? allUrls : [allUrls[0]!];
 
       const createdTaskIds: string[] = [];
 
@@ -353,7 +353,7 @@ export async function POST(request: Request) {
           executeDirectDownload(
             task.id,
             serverForExec,
-            taskUrl,
+            taskUrl!,
             resolvedTargetPath,
             taskFileName,
             session.userId,
@@ -363,7 +363,7 @@ export async function POST(request: Request) {
         }
 
         auditUserAction(session.userId, "download.create", {
-          url: taskUrl,
+          url: taskUrl!,
           serverId,
           targetPath: resolvedTargetPath,
           taskId: task.id,

@@ -66,7 +66,7 @@ describe("language and theme toggles", () => {
 
     expect(screen.getAllByRole("button", { name: "切换到浅色模式" })).toHaveLength(2);
 
-    await user.click(screen.getAllByRole("button", { name: "切换到浅色模式" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "切换到浅色模式" })[0]!);
 
     expect(await screen.findAllByRole("button", { name: "切换到深色模式" })).toHaveLength(2);
   });

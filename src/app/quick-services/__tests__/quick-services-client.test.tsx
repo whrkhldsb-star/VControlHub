@@ -209,7 +209,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage />);
 		await user.click(await screen.findByRole("button", { name: /本地精选/ }));
-		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]);
+		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
 		expect(screen.getByText("安装前配置预览")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "确认安装" }));
@@ -233,7 +233,7 @@ describe("QuickServicesClient", () => {
 
 		render(<QuickServicesClient canManage />);
 		await user.click(await screen.findByRole("button", { name: /本地精选/ }));
-		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]);
+		await user.click(screen.getAllByRole("button", { name: "一键安装" })[0]!);
 		await waitFor(() => expect(screen.getByText("✓ 可用")).toBeInTheDocument());
 		await user.click(screen.getByRole("button", { name: "确认安装" }));
 

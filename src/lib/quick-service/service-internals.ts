@@ -84,7 +84,7 @@ function normalizeVolumeEndpoint(value: string, label: string) {
 
 function splitContainerPathAndOptions(raw: string) {
 	const [containerPath, ...options] = raw.split(":");
-	const normalizedPath = normalizeVolumeEndpoint(containerPath, "容器挂载");
+	const normalizedPath = normalizeVolumeEndpoint(containerPath!, "容器挂载");
 	for (const option of options) {
 		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new Error(`挂载选项 ${option} 无效`);
 	}

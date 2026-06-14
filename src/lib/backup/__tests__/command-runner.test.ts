@@ -55,7 +55,7 @@ describe("backup command-runner adapter", () => {
 
       await runBackupCommand({ file: "tar", args: ["-xzf", "x", "-C", "y"] });
 
-      const opts = execFileMock.mock.calls[0][2] as Record<string, unknown>;
+      const opts = execFileMock.mock.calls[0]![2] as Record<string, unknown>;
       expect(opts.timeout).toBe(30 * 60 * 1000);
       expect(opts.maxBuffer).toBe(1024 * 1024);
     });
@@ -67,7 +67,7 @@ describe("backup command-runner adapter", () => {
 
       await runBackupCommand({ file: "bash", args: ["scripts/restore-db.sh", "x"], options: { timeout: 5 * 60 * 1000 } });
 
-      const opts = execFileMock.mock.calls[0][2] as Record<string, unknown>;
+      const opts = execFileMock.mock.calls[0]![2] as Record<string, unknown>;
       expect(opts.timeout).toBe(5 * 60 * 1000);
       expect(opts.maxBuffer).toBe(1024 * 1024);
     });

@@ -47,7 +47,7 @@ describe("media service", () => {
     mockPrisma.mediaItem.upsert.mockResolvedValue({});
     const res = await scanMediaFromFileEntries("u1");
     expect(res).toEqual({ scanned: 1, upserted: 1, removed: 0 });
-    expect(mockPrisma.mediaItem.upsert.mock.calls[0][0].create.mediaType).toBe(
+    expect(mockPrisma.mediaItem.upsert.mock.calls[0]![0].create.mediaType).toBe(
       "image",
     );
   });
@@ -70,7 +70,7 @@ describe("media service", () => {
     const res = await scanMediaFromFileEntries("u1");
 
     expect(res).toEqual({ scanned: 1, upserted: 1, removed: 0 });
-    expect(mockPrisma.mediaItem.upsert.mock.calls[0][0].create).toMatchObject({
+    expect(mockPrisma.mediaItem.upsert.mock.calls[0]![0].create).toMatchObject({
       fileEntryId: "f_mp4",
       mediaType: "video",
       mimeType: "video/mp4",
@@ -87,7 +87,7 @@ describe("media service", () => {
     const res = await scanMediaFromFileEntries("u1");
 
     expect(res).toEqual({ scanned: 0, upserted: 0, removed: 2 });
-    expect(mockPrisma.fileEntry.findMany.mock.calls[1][0]).toMatchObject({
+    expect(mockPrisma.fileEntry.findMany.mock.calls[1]![0]).toMatchObject({
       where: {
         OR: [{ isDeleted: true }, { entryType: { not: "FILE" } }],
       },
@@ -189,7 +189,7 @@ describe("media service", () => {
 
     await listMediaItems();
 
-    const select = mockPrisma.mediaItem.findMany.mock.calls[0][0].select;
+    const select = mockPrisma.mediaItem.findMany.mock.calls[0]![0].select;
     expect(select.storageNode.select.server.select).toEqual({
       id: true,
       name: true,

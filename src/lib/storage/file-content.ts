@@ -114,7 +114,7 @@ function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
 			let current = absolute ? "/" : "";
 			const ensureNext = (index: number) => {
 				if (index >= segments.length) return resolve();
-				current = current === "/" ? `/${segments[index]}` : current ? `${current}/${segments[index]}` : segments[index];
+				current = current === "/" ? `/${segments[index]!}` : current ? `${current}/${segments[index]!}` : segments[index]!;
 				sftp.stat(current, (statErr) => {
 					if (!statErr) return ensureNext(index + 1);
 					sftp.mkdir(current, (mkdirErr) => {

@@ -50,7 +50,7 @@ export function MediaImageUploadPanel() {
 			const next = data.nodes ?? [];
 			setNodes(next);
 			setNodesLoaded(true);
-			if (!storageNodeId && next.length > 0) setStorageNodeId(next[0].id);
+			if (!storageNodeId && next.length > 0) setStorageNodeId(next[0]!.id);
 			if (next.length === 0) setMessage("暂无可用存储节点；仍可上传到默认图床存储。");
 		} catch (loadError) {
 			setError(getErrorMessage(loadError, "加载存储节点失败"));
@@ -76,7 +76,7 @@ export function MediaImageUploadPanel() {
 		let success = 0;
 		let failure = 0;
 		for (let index = 0; index < uploadItems.length; index++) {
-			const file = uploadItems[index];
+			const file = uploadItems[index]!;
 			setProgress((prev) => prev ? {
 				...prev,
 				current: index + 1,

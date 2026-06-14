@@ -70,7 +70,7 @@ describe("useConversations", () => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/ai/conversations/c1"),
     );
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
-    expect(result.current.messages[0].content).toBe("hi");
+    expect(result.current.messages[0]!.content).toBe("hi");
     expect(result.current.activeConv?.id).toBe("c1");
   });
 
@@ -199,6 +199,6 @@ describe("useConversations", () => {
     act(() => {
       result.current.setMessages([messageFixture("m1", "user", "draft")]);
     });
-    expect(result.current.messages[0].content).toBe("draft");
+    expect(result.current.messages[0]!.content).toBe("draft");
   });
 });

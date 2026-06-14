@@ -27,7 +27,7 @@ export function CreateFolderForm({
   const router = useRouter();
   const defaultNodeId = initialNodeId && storageNodes.some((node) => node.id === initialNodeId)
     ? initialNodeId
-    : storageNodes.length > 0 ? storageNodes[0].id : "";
+    : storageNodes.length > 0 ? storageNodes[0]!.id : "";
   const [expanded, setExpanded] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState(defaultNodeId);

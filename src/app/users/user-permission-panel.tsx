@@ -62,7 +62,7 @@ function toBytes(value: string) {
   const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(kb|mb|gb|tb)$/i);
   if (!match) return null;
   const factor: Record<string, number> = { kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3, tb: 1024 ** 4 };
-  return String(Math.floor(Number(match[1]) * factor[match[2].toLowerCase()]));
+  return String(Math.floor(Number(match[1]!) * factor[match[2]!.toLowerCase()]!));
 }
 
 export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {

@@ -72,7 +72,7 @@ describe("AppSidebar", () => {
 
 		const searchButtons = screen.getAllByRole("button", { name: "全局搜索" });
 		expect(searchButtons[0]).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
-		await user.click(searchButtons[0]);
+		await user.click(searchButtons[0]!);
 
 		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vcontrolhub:open-global-search" }));
 		dispatchSpy.mockRestore();

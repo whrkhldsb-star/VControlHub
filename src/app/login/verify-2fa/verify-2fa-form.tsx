@@ -45,7 +45,7 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 		if (!pasted) return;
 		const newDigits = [...digits];
 		for (let i = 0; i < pasted.length; i++) {
-			newDigits[i] = pasted[i];
+			newDigits[i] = pasted[i]!;
 		}
 		setDigits(newDigits);
 		setErrorMsg(undefined);

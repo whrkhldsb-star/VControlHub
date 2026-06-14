@@ -7,6 +7,6 @@ describe("announcement service", () => {
     const now = new Date("2026-05-05T00:00:00Z");
     mockPrisma.announcement.findMany.mockResolvedValue([]);
     await listActiveAnnouncements(now);
-    expect(mockPrisma.announcement.findMany.mock.calls[0][0]).toMatchObject({ where: { published: true, startsAt: { lte: now } }, orderBy: [{ pinned: "desc" }, { startsAt: "desc" }] });
+    expect(mockPrisma.announcement.findMany.mock.calls[0]![0]).toMatchObject({ where: { published: true, startsAt: { lte: now } }, orderBy: [{ pinned: "desc" }, { startsAt: "desc" }] });
   });
 });

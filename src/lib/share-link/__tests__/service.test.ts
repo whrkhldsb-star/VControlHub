@@ -28,8 +28,8 @@ describe("share link service", () => {
     });
 
     expect(result.token).toHaveLength(48);
-    expect(mockPrisma.shareLink.create.mock.calls[0][0].data.tokenHash).not.toBe(result.token);
-    expect(mockPrisma.shareLink.create.mock.calls[0][0].data.path).toBe("docs/report.pdf");
+    expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.tokenHash).not.toBe(result.token);
+    expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.path).toBe("docs/report.pdf");
   });
 
   it("bounds share-link list hydration for growing public-link history", async () => {

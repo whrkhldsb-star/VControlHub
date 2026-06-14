@@ -23,7 +23,7 @@ type DeploymentServerOption = {
 function uniqueVariables(template?: DeploymentTemplateOption) {
 	if (!template) return [];
 	const explicit = Array.isArray(template.variables) ? template.variables : [];
-	const fromCommand = Array.from(template.command.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g)).map((match) => match[1]);
+	const fromCommand = Array.from(template.command.matchAll(/\{\{([A-Za-z0-9_]+)\}\}/g)).map((match) => match[1]!);
 	return Array.from(new Set([...explicit, ...fromCommand])).filter(Boolean);
 }
 

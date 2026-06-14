@@ -70,7 +70,7 @@ async function seedPermissions() {
   seedLog("seedPermissions:start");
   await prisma.$transaction(
     ALL_PERMISSIONS.map((permission) => {
-      const label = PERMISSION_LABELS[permission];
+      const label = PERMISSION_LABELS[permission]!;
       return prisma.permission.upsert({
         where: { key: permission },
         update: {
@@ -113,7 +113,7 @@ async function seedRoles() {
     select: { id: true, key: true },
   });
   const permissionIdByKey = new Map(permissions.map((permission) => [permission.key, permission.id]));
-  const roleIdByKey = new Map(roles.map((role, index) => [roleEntries[index][0], role.id]));
+  const roleIdByKey = new Map(roles.map((role, index) => [roleEntries[index]![0], role.id]));
 
   await prisma.$transaction(roles.map((role) => prisma.rolePermission.deleteMany({ where: { roleId: role.id } })));
 

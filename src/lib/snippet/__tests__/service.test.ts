@@ -62,7 +62,7 @@ describe("snippet service", () => {
         isPrivate: true,
         createdBy: "user-1",
       });
-      const data = state.createCalls[0].data;
+      const data = state.createCalls[0]!.data;
       expect(data.title).toBe("hello");
       expect(data.language).toBe("text");
       expect(data.description).toBe("desc");
@@ -76,13 +76,13 @@ describe("snippet service", () => {
         content: "c",
         tags: ["  a  ", "a", "", "b"],
       });
-      expect(state.createCalls[0].data.tags).toEqual(["a", "b"]);
+      expect(state.createCalls[0]!.data.tags).toEqual(["a", "b"]);
     });
 
     it("caps tags at 20 entries", async () => {
       const tags = Array.from({ length: 25 }, (_, i) => `t${i}`);
       await createSnippet({ title: "t", content: "c", tags });
-      expect(state.createCalls[0].data.tags).toHaveLength(20);
+      expect(state.createCalls[0]!.data.tags).toHaveLength(20);
     });
   });
 
@@ -109,7 +109,7 @@ describe("snippet service", () => {
     it("allows when actor is owner", async () => {
       await updateSnippet("snippet-1", { title: "new" }, { userId: "user-1" });
       expect(state.updateCalls).toHaveLength(1);
-      expect(state.updateCalls[0].where).toEqual({ id: "snippet-1" });
+      expect(state.updateCalls[0]!.where).toEqual({ id: "snippet-1" });
     });
 
     it("allows when actor has canManageAll", async () => {

@@ -473,7 +473,7 @@ describe("ImageBedPage", () => {
     const images = screen.getAllByTestId("mock-next-image");
     expect(images[0]).toHaveAttribute("src", "/api/images/img_private/file");
 
-    await user.click(images[0]);
+    await user.click(images[0]!);
 
     expect(await screen.findByText("4.0 KB · image/png")).toBeInTheDocument();
     expect(screen.getAllByTestId("mock-next-image")[1]).toHaveAttribute(

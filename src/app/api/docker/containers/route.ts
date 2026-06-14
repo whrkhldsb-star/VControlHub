@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
         remove: { path: `/containers/${id}?force=true`, method: "DELETE" },
       };
 
-      const target = actionMap[action];
+      const target = actionMap[action]!;
       const result = await dockerRequest(target.path, target.method);
       auditUserAction(
         session.userId,

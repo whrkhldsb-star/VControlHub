@@ -57,11 +57,11 @@ export async function GET(request: Request) {
       if (netDev) {
         for (const line of netDev.split("\n").slice(2)) {
           const parts = line.trim().split(/\s+/);
-          if (parts.length >= 10 && !parts[0].startsWith("lo:")) {
+          if (parts.length >= 10 && !parts[0]!.startsWith("lo:")) {
             netInfo.push({
-              iface: parts[0].replace(":", ""),
+              iface: parts[0]!.replace(":", ""),
               rx: formatBytes(Number(parts[1])),
-              tx: formatBytes(Number(parts[9])),
+              tx: formatBytes(Number(parts[9]!)),
             });
           }
         }
@@ -106,7 +106,7 @@ function getCpuUsagePercent(): string {
   const line = stat.split("\n")[0];
   if (!line?.startsWith("cpu ")) return "N/A";
   const parts = line.trim().split(/\s+/).map(Number);
-  const idle = parts[4] + (parts[5] || 0);
+  const idle = parts[4]! + (parts[5] || 0);
   const total = parts.slice(1).reduce((a, b) => a + b, 0);
   if (total === 0) return "N/A";
   const used = total - idle;

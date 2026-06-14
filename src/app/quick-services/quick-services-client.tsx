@@ -363,7 +363,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		for (const cat of CATEGORY_ORDER) grouped[cat] = [];
 		for (const item of items) {
 			const cat = CATEGORY_ORDER.includes(item.category) ? item.category : "other";
-			grouped[cat].push(item);
+			grouped[cat]!.push(item);
 		}
 		return grouped;
 	};
@@ -674,7 +674,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{/* Store / Community / Installed content */}
 			{tab !== "sources" && CATEGORY_ORDER.map((cat) => {
-				const items = grouped[cat];
+				const items = grouped[cat]!;
 				if (items.length === 0) return null;
 				return (
 					<div key={cat} className="space-y-3">

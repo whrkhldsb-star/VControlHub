@@ -8,7 +8,7 @@ describe("api token service", () => {
     mockPrisma.apiToken.create.mockImplementation(async ({ data, select }: any) => ({ id: "tok1", name: data.name, tokenPrefix: data.tokenPrefix, tokenSuffix: data.tokenSuffix, scopes: data.scopes, expiresAt: data.expiresAt, lastUsedAt: null, revokedAt: null, createdAt: new Date(), selectKeys: Object.keys(select) }));
     const result = await createApiToken({ userId: "u1", name: "cli", scopes: [" read ", "read", "health:read"] });
     expect(result.token).toMatch(/^whr_/);
-    const data = mockPrisma.apiToken.create.mock.calls[0][0].data;
+    const data = mockPrisma.apiToken.create.mock.calls[0]![0]!.data;
     expect(data.tokenHash).toBe(hashApiToken(result.token));
     expect(data.tokenHash).not.toBe(result.token);
     expect(JSON.stringify(data)).not.toContain(result.token);

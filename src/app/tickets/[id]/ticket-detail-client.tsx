@@ -120,11 +120,11 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
       </div>
 
       {/* Status transitions */}
-      {canManage && TRANSITIONS[ticket.status]?.length > 0 && (
+      {canManage && (TRANSITIONS[ticket.status]?.length ?? 0) > 0 && (
         <div data-card className=" p-5">
           <h3 className="text-sm font-medium text-white mb-3">状态流转</h3>
           <div className="flex flex-wrap gap-2">
-            {TRANSITIONS[ticket.status].map((s) => (
+            {TRANSITIONS[ticket.status]!.map((s) => (
               <button key={s} onClick={() => updateStatus(s)} disabled={saving}
                 className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-2 text-sm text-white hover:bg-white/[0.08] transition-colors disabled:opacity-40">
                 转为 {STATUS_LABELS[s] ?? s}

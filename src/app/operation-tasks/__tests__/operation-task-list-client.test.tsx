@@ -70,7 +70,7 @@ describe("OperationTaskListClient", () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValue({
       tasks: [{
-        ...initialTasks[0],
+        ...initialTasks[0]!,
         id: "job:alert_failed",
         source: "job",
         sourceId: "alert_failed",
@@ -83,7 +83,7 @@ describe("OperationTaskListClient", () => {
     });
 
     render(<OperationTaskListClient initialTasks={[{
-      ...initialTasks[0],
+      ...initialTasks[0]!,
       id: "job:alert_seed",
       source: "job",
       sourceId: "alert_seed",
@@ -109,7 +109,7 @@ describe("OperationTaskListClient", () => {
     const actor = userEvent.setup();
 
     render(<OperationTaskListClient initialTasks={[{
-      ...initialTasks[0],
+      ...initialTasks[0]!,
       id: "job:alert_seed",
       source: "job",
       sourceId: "alert_seed",

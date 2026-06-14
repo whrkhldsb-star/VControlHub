@@ -105,7 +105,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		let success = 0;
 		let failure = 0;
 		for (let index = 0; index < uploadItems.length; index++) {
-			const file = uploadItems[index];
+			const file = uploadItems[index]!;
 			setUploadProgress((prev) => prev ? {
 				...prev,
 				current: index + 1,

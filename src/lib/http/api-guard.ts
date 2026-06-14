@@ -80,7 +80,7 @@ function zodIssueDetails(err: z.ZodError): { summary: string; issues: Array<{ pa
   const summary = items.length === 0
     ? "请求体校验失败"
     : items.length === 1
-      ? `${items[0].path ? items[0].path + ": " : ""}${items[0].message}`
+      ? `${items[0]!.path ? items[0]!.path + ": " : ""}${items[0]!.message}`
       : `${items.length} 个字段校验失败：${items.slice(0, 3).map((i) => i.path || "?").join(", ")}${items.length > 3 ? "…" : ""}`;
   return { summary, issues: items };
 }
@@ -143,7 +143,7 @@ export async function withApiRoute<TBody = unknown, TQuery = unknown>(
       const obj: Record<string, string | string[]> = {};
       for (const key of new Set(url.searchParams.keys())) {
         const all = url.searchParams.getAll(key);
-        obj[key] = all.length > 1 ? all : all[0];
+        obj[key] = all.length > 1 ? all : all[0]!;
       }
       const parsed = options.querySchema.safeParse(obj);
       if (!parsed.success) {

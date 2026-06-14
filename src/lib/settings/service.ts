@@ -95,7 +95,7 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 	]);
 
 	for (const setting of settings) {
-		result[setting.key].updatedAt = setting.updatedAt;
+		result[setting.key]!.updatedAt = setting.updatedAt;
 	}
 
 	for (const log of auditLogs) {

@@ -33,7 +33,7 @@ function severityTone(severity: string): "accent" | "warning" | "danger" {
     WARNING: "warning",
     CRITICAL: "danger",
   };
-  return tones[severity] ?? tones.INFO;
+  return tones[severity] ?? tones.INFO!;
 }
 
 function formatAction(action: string): string {

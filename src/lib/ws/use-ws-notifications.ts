@@ -45,12 +45,12 @@ function getSessionTokenFromCookie(): string | null {
 		const exactMatch = document.cookie.match(
 			new RegExp(`(?:^|;\\s*)${cookieName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}=([^;]+)`)
 		);
-		if (exactMatch) return exactMatch[1];
+		if (exactMatch) return exactMatch[1]!;
 	}
 
 	// Fallback: find a cookie ending with _session
 	const fallbackMatch = document.cookie.match(/(?:^|;\s*)(\w+_session)=([^;]+)/);
-	if (fallbackMatch) return fallbackMatch[2];
+	if (fallbackMatch) return fallbackMatch[2]!;
 
 	return null;
 }

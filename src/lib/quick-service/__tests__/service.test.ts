@@ -73,7 +73,7 @@ describe("quick service docker lifecycle", () => {
 			expect.objectContaining({ timeout: 300_000 }),
 			expect.any(Function),
 		);
-		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
 		expect(dockerArgs).not.toContain("EMPTY=");
 		expect(dockerArgs.join(" ")).not.toContain("'qs-demo'");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
@@ -106,7 +106,7 @@ describe("quick service docker lifecycle", () => {
 
 		await startService("demo");
 
-		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
 		expect(dockerArgs).toEqual(expect.arrayContaining(["-p", "18080:8080", "-p", "19090:9090"]));
 		expect(dockerArgs.slice(-3)).toEqual(["example/demo:latest", "serve", "--safe"]);
 	});
@@ -156,7 +156,7 @@ describe("quick service docker lifecycle", () => {
 			customPort: 9443,
 		});
 
-		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
 		expect(dockerArgs).toContain("/var/run/docker.sock:/var/run/docker.sock");
 	});
 
@@ -378,7 +378,7 @@ describe("quick service docker lifecycle", () => {
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { slug: "demo" }, data: { status: "installing", error: null } });
-		const dockerArgs = execFileMock.mock.calls[0][1] as string[];
+		const dockerArgs = execFileMock.mock.calls[0]![1] as string[];
 		expect(dockerArgs).toEqual(expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "18080:8080", "example/demo:latest"]));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { id: "svc-update" },

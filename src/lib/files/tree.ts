@@ -266,7 +266,7 @@ export function searchFileTree(root: FileTreeNode, query: string): { folders: Fi
 	const matchedFiles: StorageEntryForTree[] = [];
 
 	for (const folder of root.folders.values()) {
-		if (folder.name.toLowerCase().includes(normalizedQuery) || getFileTreeDisplayName(folder).toLowerCase().includes(normalizedQuery)) {
+		if (folder.name!.toLowerCase().includes(normalizedQuery) || getFileTreeDisplayName(folder)!.toLowerCase().includes(normalizedQuery)) {
 			matchedFolders.push(folder);
 		}
 		const subResults = searchFileTree(folder, query);

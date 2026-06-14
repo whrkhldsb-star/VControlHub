@@ -351,7 +351,7 @@ export async function POST(request: Request) {
                           parsed.delta?.partial_json &&
                           toolCalls.length > 0
                         ) {
-                          toolCalls[toolCalls.length - 1].function.arguments +=
+                          toolCalls[toolCalls.length - 1]!.function.arguments +=
                             parsed.delta.partial_json;
                         }
                       } else {
@@ -395,10 +395,10 @@ export async function POST(request: Request) {
                             } else if (toolCalls[tc.index]) {
                               // Continuing existing tool call
                               if (tc.function?.name)
-                                toolCalls[tc.index].function.name +=
+                                toolCalls[tc.index]!.function.name +=
                                   tc.function.name;
                               if (tc.function?.arguments)
-                                toolCalls[tc.index].function.arguments +=
+                                toolCalls[tc.index]!.function.arguments +=
                                   tc.function.arguments;
                             }
                           }

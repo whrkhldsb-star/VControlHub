@@ -245,7 +245,7 @@ export async function fetchSourceApps(
 	sourceType: string,
 	url: string,
 ): Promise<NormalizedApp[]> {
-	const adapter = ADAPTERS[sourceType] || ADAPTERS["json"];
+	const adapter = ADAPTERS[sourceType] || ADAPTERS["json"]!;
 	try {
 		const safeUrl = normalizePublicHttpUrl(url);
 		const apps = await adapter(safeUrl);

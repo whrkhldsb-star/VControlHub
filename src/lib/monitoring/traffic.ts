@@ -26,7 +26,7 @@ export function parseNetworkDeviceStats(content: string, options: { includeLoopb
 		.filter(Boolean)
 		.map((line) => {
 			const [rawIface, ...values] = line.split(/\s+/);
-			const iface = rawIface.replace(/:$/, "");
+			const iface = rawIface!.replace(/:$/, "");
 			const rxBytes = Number(values[0] ?? 0);
 			const txBytes = Number(values[8] ?? 0);
 			return { iface, rxBytes, txBytes };
@@ -38,7 +38,7 @@ export function parseNetworkDeviceStats(content: string, options: { includeLoopb
 export function selectPrimaryInterface(interfaces: NetworkDeviceStats[]): NetworkDeviceStats | null {
 	if (interfaces.length === 0) return null;
 	const physical = interfaces.find((item) => !VIRTUAL_INTERFACE_PREFIXES.some((prefix) => item.iface.startsWith(prefix)));
-	return physical ?? interfaces[0];
+	return physical ?? interfaces[0]!;
 }
 
 export function calculateTrafficRate(previous: TrafficCounterSample | null, current: TrafficCounterSample): TrafficRate {

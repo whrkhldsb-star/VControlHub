@@ -60,8 +60,8 @@ export function useDialogFocus<TElement extends HTMLElement>({ open, onClose, in
 				return;
 			}
 
-			const first = focusableElements[0];
-			const last = focusableElements[focusableElements.length - 1];
+			const first = focusableElements[0]!;
+			const last = focusableElements[focusableElements.length - 1]!;
 			const active = document.activeElement;
 
 			if (event.shiftKey && active === first) {

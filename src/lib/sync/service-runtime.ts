@@ -25,13 +25,13 @@ function parseRsyncOutput(output: string) {
 	let totalSize = 0;
 
 	const totalFileMatch = output.match(/Number of files:\s*(\d+)/);
-	if (totalFileMatch) totalFiles = parseInt(totalFileMatch[1], 10);
+	if (totalFileMatch) totalFiles = parseInt(totalFileMatch[1]!, 10);
 
 	const transferredMatch = output.match(/Number of regular files transferred:\s*(\d+)/);
-	if (transferredMatch) transferredFiles = parseInt(transferredMatch[1], 10);
+	if (transferredMatch) transferredFiles = parseInt(transferredMatch[1]!, 10);
 
 	const totalSizeMatch = output.match(/Total file size:\s*([\d,]+)/);
-	if (totalSizeMatch) totalSize = parseInt(totalSizeMatch[1].replace(/,/g, ""), 10);
+	if (totalSizeMatch) totalSize = parseInt(totalSizeMatch[1]!.replace(/,/g, ""), 10);
 
 	// Fallback: count lines that look like file transfers
 	if (transferredFiles === 0) {

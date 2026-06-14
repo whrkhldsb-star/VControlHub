@@ -94,7 +94,7 @@ for (const f of srcFiles) {
   re.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    usedAnywhere.add(m[1]);
+    usedAnywhere.add(m[1]!);
   }
 }
 for (const p of catalog.permissions) {

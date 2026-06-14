@@ -141,7 +141,7 @@ describe("operation task service", () => {
       status: "failed",
       progress: "SMTP failed",
     });
-    expect(tasks[1].foldedCount).toBeUndefined();
+    expect(tasks[1]!.foldedCount).toBeUndefined();
   });
 
   it("filters tasks by status and durable job type after folding noisy completed jobs", async () => {

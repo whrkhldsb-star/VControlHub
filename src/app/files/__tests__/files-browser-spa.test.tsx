@@ -298,10 +298,10 @@ describe("FilesBrowserSpa", () => {
       />,
     );
 
-    expect(screen.getAllByText("搜索存储节点")[0]).toBeVisible();
-    const sidebarSearch = screen.getAllByRole("searchbox", { name: "搜索存储节点" })[0];
+    expect(screen.getAllByText("搜索存储节点")[0]!).toBeVisible();
+    const sidebarSearch = screen.getAllByRole("searchbox", { name: "搜索存储节点" })[0]!;
     expect(sidebarSearch).toHaveAttribute("placeholder", "节点名称、类型或 ID");
-    const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0];
+    const sidebarSelect = screen.getAllByLabelText("选择存储节点")[0]!;
     fireEvent.change(sidebarSearch, { target: { value: "东京" } });
     expect(
       within(sidebarSelect).getByRole("option", { name: /东京归档/ }),
@@ -360,7 +360,7 @@ describe("FilesBrowserSpa", () => {
     );
 
     expect(screen.queryByText("SFTP 远端浏览")).not.toBeInTheDocument();
-    fireEvent.change(screen.getAllByLabelText("选择存储节点")[0], {
+    fireEvent.change(screen.getAllByLabelText("选择存储节点")[0]!, {
       target: { value: "node_sftp_1" },
     });
 

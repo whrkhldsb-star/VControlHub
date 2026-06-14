@@ -101,10 +101,10 @@ export async function executeAria2RelayDownload(
       where: { id: taskId },
       data: { status: "FAILED", errorMessage: `aria2 下载失败: ${st.status}` },
      });
-     if (userId) notifyDownloadResult(userId, urls[0], "failed", `aria2 下载失败: ${st.status}`).catch(() => {});
+     if (userId) notifyDownloadResult(userId, urls[0]!, "failed", `aria2 下载失败: ${st.status}`).catch(() => {});
      await cleanupTemp(tempDir);
      return;
-    }
+     }
    } catch (err) {
     logError("[DownloadAPI] aria2 status poll failed:", err);
     try {
@@ -119,7 +119,7 @@ export async function executeAria2RelayDownload(
   if (!done) {
    try { await removeDownload(gid, true); } catch (err) { logError("[DownloadAPI] Failed to remove aria2 download on timeout:", err); }
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "下载超时（2小时限制）" } });
-   if (userId) notifyDownloadResult(userId, urls[0], "failed", "下载超时（2小时限制）").catch(() => {});
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "下载超时（2小时限制）").catch(() => {});
    await cleanupTemp(tempDir);
    return;
   }
@@ -131,7 +131,7 @@ export async function executeAria2RelayDownload(
 
   if (filesToTransfer.length === 0) {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: "下载完成但未找到文件" } });
-   if (userId) notifyDownloadResult(userId, urls[0], "failed", "下载完成但未找到文件").catch(() => {});
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", "下载完成但未找到文件").catch(() => {});
    await cleanupTemp(tempDir);
    return;
   }
@@ -151,21 +151,21 @@ export async function executeAria2RelayDownload(
   }
 
   if (filesToTransfer.length === 1) {
-   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: filesToTransfer[0], size: totalSize });
+   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName: filesToTransfer[0]!, size: totalSize });
   }
 
   await prisma.downloadTask.update({
    where: { id: taskId },
    data: { status: "COMPLETED", progress: "下载并传输完成", fileSize: String(totalSize), totalBytes: String(totalSize), completedBytes: String(totalSize) },
   });
-  if (userId) notifyDownloadResult(userId, urls[0], "completed").catch(() => {});
+  if (userId) notifyDownloadResult(userId, urls[0]!, "completed").catch(() => {});
 
   await cleanupTemp(tempDir);
  } catch (error) {
   logError("[DownloadAPI] Relay download execution failed:", error);
   try {
    await prisma.downloadTask.update({ where: { id: taskId }, data: { status: "FAILED", errorMessage: getPublicAria2Error(error) } });
-   if (userId) notifyDownloadResult(userId, urls[0], "failed", getPublicAria2Error(error)).catch(() => {});
+   if (userId) notifyDownloadResult(userId, urls[0]!, "failed", getPublicAria2Error(error)).catch(() => {});
   } catch (err) { logError("[DownloadAPI] Failed to update task status after relay failure:", err); }
   await cleanupTemp(tempDir);
  }

@@ -177,7 +177,7 @@ describe("AiClient destructive actions", () => {
 
     render(<AiClient userId="user-1" initialProviders={[]} initialConversations={[]} />);
 
-    await user.click(screen.getAllByRole("button", { name: "+ 新对话" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "+ 新对话" })[0]!);
 
     expect(addToastMock).toHaveBeenCalledWith("error", "请先添加一个 AI 提供商");
     const dialog = screen.getByRole("dialog", { name: "AI 提供商管理" });

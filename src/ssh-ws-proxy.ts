@@ -34,7 +34,7 @@ export function loadSshWsRuntimeEnv(cwd = process.cwd()) {
 			if (!match) continue;
 			const [, key, rawValue] = match;
 			if (!key || process.env[key] !== undefined) continue;
-			process.env[key] = rawValue.trim().replace(/^['\"]|['\"]$/g, "");
+			process.env[key] = rawValue!.trim().replace(/^['\"]|['\"]$/g, "");
 		}
 	}
 }

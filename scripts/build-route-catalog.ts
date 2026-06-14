@@ -40,7 +40,7 @@ function parseNavItems(block: string): { href: string; fallbackLabel: string }[]
   const re = /href:\s*"([^"]+)[\s\S]*?fallbackLabel:\s*"([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(block)) !== null) {
-    items.push({ href: m[1], fallbackLabel: m[2] });
+    items.push({ href: m[1]!, fallbackLabel: m[2]! });
   }
   return items;
 }
@@ -50,7 +50,7 @@ function declaredPerms(text: string): string[] {
   const set = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    set.add(m[1]);
+    set.add(m[1]!);
   }
   return [...set].sort();
 }
@@ -68,17 +68,17 @@ function apiMethods(text: string, filePath: string, seen: Set<string> = new Set(
   const direct = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/g;
   let m: RegExpExecArray | null;
   while ((m = direct.exec(text)) !== null) {
-    set.add(m[1]);
+    set.add(m[1]!);
   }
   // 跟随 re-export: `export { GET } from "./other";`
   const reexp = /export\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g;
   while ((m = reexp.exec(text)) !== null) {
-    const names = m[1]
+    const names = m[1]!
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s && !s.startsWith('type '))
       .map((s) => s.split(/\s+as\s+/).pop()!);
-    const targetRel = m[2];
+    const targetRel = m[2]!;
     const targetDir = dirname(filePath);
     const target = resolve(targetDir, targetRel) + (targetRel.endsWith('route') ? '.ts' : '/route.ts');
     try {
@@ -99,7 +99,7 @@ function main() {
   const systemBlock = extractSection(navText, 'systemNavItems:', 'mobileNavHrefs');
   const mobileMatch = navText.match(/mobileNavHrefs\s*=\s*\[([\s\S]*?)\]/);
   const mobileHrefs = mobileMatch
-    ? [...mobileMatch[1].matchAll(/"(\/[^"]+)"/g)].map((m) => m[1])
+    ? [...mobileMatch[1]!.matchAll(/"(\/[^"]+)"/g)].map((m) => m[1]!)
     : [];
 
   const mainNav = parseNavItems(mainBlock);
@@ -139,7 +139,7 @@ function main() {
   const rbacText = readFileSync(RBAC_FILE, 'utf8');
   const permsMatch = rbacText.match(/export const PERMISSIONS\s*=\s*\[([\s\S]*?)\];/);
   const permissions = permsMatch
-    ? [...permsMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1])
+    ? [...permsMatch[1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!)
     : [];
 
   const catalog = {

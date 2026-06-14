@@ -33,7 +33,7 @@ describe("SettingsClient", () => {
 		const input = screen.getByLabelText("平台名称");
 		await user.clear(input);
 		await user.type(input, "新平台名称");
-		await user.click(screen.getAllByRole("button", { name: "保存" })[0]);
+		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
 		await waitFor(() => {
 			expect(csrfFetch).toHaveBeenCalledWith("/api/settings", {
@@ -51,7 +51,7 @@ describe("SettingsClient", () => {
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
 		render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "ftp://example.com/logo.png" }} canManage />);
-		await user.click(screen.getAllByRole("button", { name: "保存" })[0]);
+		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
 		expect(screen.getByText("Logo URL 只支持 http(s) 或站内路径")).toBeInTheDocument();
 		expect(csrfFetch).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe("SettingsClient", () => {
 		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("权限不足"));
 
 		render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
-		await user.click(screen.getAllByRole("button", { name: "保存" })[0]);
+		await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
 		expect(await screen.findByText("权限不足")).toBeInTheDocument();
 		expect(screen.queryByText(/✓ 设置已保存/)).not.toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("SettingsClient", () => {
     render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "60", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
     await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
-    await user.click(screen.getAllByRole("button", { name: "保存" })[2]);
+    await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
 
     await waitFor(() => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
@@ -203,7 +203,7 @@ describe("SettingsClient", () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
     render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "1", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "60", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
-    await user.click(screen.getAllByRole("button", { name: "保存" })[2]);
+    await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
 
     expect(screen.getByText("命令执行超时 必须在 5000 到 3600000 之间")).toBeInTheDocument();
     expect(csrfFetch).not.toHaveBeenCalled();

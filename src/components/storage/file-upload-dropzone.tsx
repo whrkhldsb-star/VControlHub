@@ -132,7 +132,7 @@ export function FileUploadDropzone({
     let failureCount = 0;
 
     for (let index = 0; index < uploadItems.length; index++) {
-      const file = uploadItems[index];
+      const file = uploadItems[index]!;
       const itemPathResult = normalizeRelativePath(getBrowserRelativePath(file));
       if (!itemPathResult.ok) {
         failureCount++;
@@ -143,7 +143,7 @@ export function FileUploadDropzone({
       const formData = new FormData();
       formData.set("storageNodeId", selectedNodeId);
       formData.set("relativePath", relativePath);
-      formData.set("file", file);
+      formData.set("file", file!);
 
       setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "uploading", message: "上传中…" } : item)));
 
@@ -155,7 +155,7 @@ export function FileUploadDropzone({
 
  successCount++;
  setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "success", message: `完成：${data.relativePath ?? relativePath}` } : item)));
- onUploadComplete?.({ relativePath: data.relativePath ?? relativePath, size: data.size ?? file.size });
+ onUploadComplete?.({ relativePath: data.relativePath ?? relativePath, size: data.size ?? file!.size });
       } catch (error) {
         failureCount++;
         const errorMessage = error instanceof Error ? error.message : "上传失败";
@@ -165,7 +165,7 @@ export function FileUploadDropzone({
 
     const total = uploadItems.length;
     if (total === 1 && successCount === 1) {
-      setMessage({ type: "success", text: `上传完成：${[baseDir, uploadItems[0].name].filter(Boolean).join("/")}（${uploadItems[0].size} B）` });
+      setMessage({ type: "success", text: `上传完成：${[baseDir, uploadItems[0]!.name].filter(Boolean).join("/")}（${uploadItems[0]!.size} B）` });
     } else if (failureCount === 0) {
       setMessage({ type: "success", text: `上传完成 ${successCount}/${total} 个文件` });
     } else if (successCount > 0) {

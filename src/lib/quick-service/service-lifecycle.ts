@@ -415,7 +415,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 			const pidMatch = found.match(/pid=(\d+)/);
 			let usedBy = "未知进程";
 			if (pidMatch) {
-				const pid = pidMatch[1];
+				const pid = pidMatch[1]!;
 				if (!/^\d+$/.test(pid)) throw new Error("Invalid PID");
 				try {
 					const cmdLine = execFileSync("tr", ["\0", " ", `/proc/${pid}/cmdline`], {

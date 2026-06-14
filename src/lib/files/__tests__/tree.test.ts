@@ -54,7 +54,7 @@ describe("file tree helpers", () => {
       { id: "cmps1rmyz00018qv26pty0w74", name: "45.207.216.45 存储", driver: "SFTP" },
       { id: "node_local_default", name: "本机默认存储", driver: "LOCAL" },
     ];
-    const groupKey = getStorageNodeGroupKey(nodes[0]);
+    const groupKey = getStorageNodeGroupKey(nodes[0]!);
 
     expect(groupKey).toBe("45.207.216.45 存储__cmps1rmy");
     expect(resolveStorageNodeGroupedPath(`${groupKey}/probe/new-folder`, nodes)).toEqual({

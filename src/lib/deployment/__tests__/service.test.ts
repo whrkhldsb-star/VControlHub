@@ -36,7 +36,7 @@ describe("deployment service", () => {
     const run = await createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" });
 
     expect(run.commandRequestId).toBe("cmd1");
-    expect(mockPrisma.deploymentRun.create.mock.calls[0][0].data.renderedCommand).toBe("apt install nginx");
+    expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.renderedCommand).toBe("apt install nginx");
     expect(mockPrisma.deploymentSnapshot.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ deployCommand: "apt install nginx", rollbackCommand: "apt remove nginx", sourceRunId: "dep1" }),
     });
@@ -51,7 +51,7 @@ describe("deployment service", () => {
       requesterId: "u1",
     });
 
-    expect(mockPrisma.deploymentRun.create.mock.calls[0][0].data.serverIds).toEqual(["srv1", "srv2"]);
+    expect(mockPrisma.deploymentRun.create.mock.calls[0]![0]!.data.serverIds).toEqual(["srv1", "srv2"]);
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ serverIds: ["srv1", "srv2"] }));
     expect(run.commandRequestId).toBe("cmd1");
   });
@@ -211,6 +211,6 @@ describe("deployment service", () => {
       status: "FAILED",
       errorMessage: "关联命令请求已失败。",
     });
-    expect(runs[0].completedAt).toBeInstanceOf(Date);
+    expect(runs[0]!.completedAt).toBeInstanceOf(Date);
   });
 });

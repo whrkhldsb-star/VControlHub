@@ -102,8 +102,8 @@ describe("useFileAttachments", () => {
       await result.current.handleFileSelect([img]);
     });
     expect(result.current.fileAttachments).toHaveLength(1);
-    expect(result.current.fileAttachments[0].type).toBe("image");
-    expect(result.current.fileAttachments[0].mimeType).toBe("image/png");
+    expect(result.current.fileAttachments[0]!.type).toBe("image");
+    expect(result.current.fileAttachments[0]!.mimeType).toBe("image/png");
   });
 
   it("accepts image via enableVision even when model doesn't support vision", async () => {
@@ -179,9 +179,9 @@ describe("useFileAttachments", () => {
       await result.current.handleFileSelect([txt]);
     });
     expect(result.current.fileAttachments).toHaveLength(1);
-    expect(result.current.fileAttachments[0].type).toBe("text");
-    expect(result.current.fileAttachments[0].content.length).toBeGreaterThan(100000);
-    expect(result.current.fileAttachments[0].content).toMatch(/已截断/);
+    expect(result.current.fileAttachments[0]!.type).toBe("text");
+    expect(result.current.fileAttachments[0]!.content.length).toBeGreaterThan(100000);
+    expect(result.current.fileAttachments[0]!.content).toMatch(/已截断/);
   });
 
   it("clearAttachments empties the list", async () => {

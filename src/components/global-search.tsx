@@ -52,7 +52,7 @@ type SearchItemDefinition = Omit<SearchItem, "label" | "category"> & {
 };
 
 const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...systemNavItems].map((item) => {
-	const metadata = searchItemMetadata[item.href] ?? {};
+	const metadata = searchItemMetadata[item.href] ?? ({} as Pick<SearchItem, "icon" | "keywords">);
 	return {
 		labelKey: item.labelKey,
 		fallbackLabel: item.fallbackLabel,

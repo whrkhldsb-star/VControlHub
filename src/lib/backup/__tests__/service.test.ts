@@ -82,7 +82,7 @@ describe("backup service", () => {
   it("executes the requested backup command and records the real artifact size", async () => {
     const record = await runBackupRecord({ type: "FULL", createdBy: "u1", note: "before upgrade", projectRoot: "/opt/app" });
 
-    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+    expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
       args: ["deploy/backup.sh", "--full", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/)],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }),
@@ -100,7 +100,7 @@ describe("backup service", () => {
 
     const record = await runBackupRecord({ type: "FILES", createdBy: "u1", projectRoot: "/opt/app" });
 
-    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+    expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
       args: ["deploy/backup.sh", "--files", expect.stringMatching(/\/var\/backups\/vcontrolhub\/backups\/files-.*\.tar\.gz$/)],
     }));
@@ -242,7 +242,7 @@ describe("backup service", () => {
 
     expect(mockPrisma.backupRecord.findUnique).toHaveBeenCalledWith({ where: { id: "bak1" } });
     expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/database.sql.gz");
-    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+    expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "bash",
       args: ["scripts/restore-db.sh", "/var/backups/vcontrolhub/backups/database.sql.gz"],
       options: expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app", CONFIRM_RESTORE: "1" }) }),
@@ -256,7 +256,7 @@ describe("backup service", () => {
     await restoreBackupRecord({ id: "bak2", confirm: "RESTORE", projectRoot: "/opt/app" });
 
     expect(statMock).toHaveBeenCalledWith("/var/backups/vcontrolhub/backups/files.tar.gz");
-    expect(runBackupCommandMock.mock.calls[0][0]).toEqual(expect.objectContaining({
+    expect(runBackupCommandMock.mock.calls[0]![0]).toEqual(expect.objectContaining({
       file: "tar",
       args: ["-xzf", "/var/backups/vcontrolhub/backups/files.tar.gz", "-C", "/opt/app"],
       options: expect.objectContaining({ cwd: "/opt/app" }),

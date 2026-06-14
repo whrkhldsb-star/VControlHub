@@ -149,7 +149,7 @@ export async function sampleRemoteServersTraffic(
 	);
 	return settled.map((result, index) => {
 		if (result.status === "fulfilled") return result.value;
-		const server = servers[index];
+		const server = servers[index]!;
 		return {
 			serverId: server.id,
 			serverName: server.name,

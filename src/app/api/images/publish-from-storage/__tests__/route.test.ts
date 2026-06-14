@@ -104,7 +104,7 @@ describe("POST /api/images/publish-from-storage", () => {
     }));
     const publishedFile = (await listFiles(uploadRoot))[0];
     expect(publishedFile).toMatch(/\.png$/);
-    await expect(readFile(path.join(uploadRoot, publishedFile))).resolves.toEqual(Buffer.from("png"));
+    await expect(readFile(path.join(uploadRoot, publishedFile!))).resolves.toEqual(Buffer.from("png"));
   });
 
   it("rejects inaccessible source paths before reading or writing public image files", async () => {

@@ -24,12 +24,12 @@ export function describeCron(expr: string): string {
 	if (parts.length !== 5) return "自定义时间表达式";
 	const [min, hour, day, month, dow] = parts;
 	if (min === "*" && hour === "*") return "每分钟";
-	if (min.startsWith("*/") && hour === "*") return `每 ${min.slice(2)} 分钟`;
-	if (hour === "*" && min !== "*") return `每小时第 ${min} 分钟`;
-	if (min !== "*" && hour !== "*" && day === "*" && month === "*" && dow === "*") return `每天 ${hour}:${min.padStart(2, "0")}`;
+	if (min!.startsWith("*/") && hour === "*") return `每 ${min!.slice(2)} 分钟`;
+	if (hour === "*" && min !== "*") return `每小时第 ${min!} 分钟`;
+	if (min !== "*" && hour !== "*" && day === "*" && month === "*" && dow === "*") return `每天 ${hour!}:${min!.padStart(2, "0")}`;
 	if (dow !== "*" && min !== "*" && hour !== "*") {
 		const dayNames: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
-		return `每${dayNames[dow] ?? "周" + dow} ${hour}:${min.padStart(2, "0")}`;
+		return `每${dayNames[dow!] ?? "周" + dow!} ${hour!}:${min!.padStart(2, "0")}`;
 	}
 	return expr;
 }

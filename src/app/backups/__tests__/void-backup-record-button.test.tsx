@@ -25,7 +25,7 @@ describe("VoidBackupRecordButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "标记作废" }));
 
     await waitFor(() => expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/backups/bak1/void", expect.objectContaining({ method: "POST" })));
-    expect(JSON.parse(mocks.csrfFetch.mock.calls[0][1].body)).toMatchObject({ reason: expect.stringContaining("手动作废") });
+    expect(JSON.parse(mocks.csrfFetch.mock.calls[0]![1]!.body)).toMatchObject({ reason: expect.stringContaining("手动作废") });
     await waitFor(() => expect(screen.getByText("已标记为作废记录")).toBeInTheDocument());
     expect(mocks.refresh).toHaveBeenCalled();
   });

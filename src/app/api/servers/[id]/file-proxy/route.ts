@@ -320,7 +320,7 @@ export async function POST(
         );
 
         const portMatch = portResult.stdout.match(/PROXY_READY:(\d+)/);
-        const actualPort = portMatch ? parseInt(portMatch[1], 10) : desiredPort;
+        const actualPort = portMatch ? parseInt(portMatch[1]!, 10) : desiredPort;
 
         if (!actualPort) {
           return NextResponse.json(

@@ -52,7 +52,7 @@ function computeSshPublicKeyFingerprint(publicKey: string) {
     );
   }
 
-  const decoded = Buffer.from(toBase64UrlSafe(parts[1]), "base64");
+  const decoded = Buffer.from(toBase64UrlSafe(parts[1]!), "base64");
   if (decoded.length === 0) {
     throw new Error("SSH 公钥内容无法解析，请检查公钥是否完整。");
   }
