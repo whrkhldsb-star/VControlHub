@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { createBackupRecord, listBackupRecords, runBackupRecord } from "@/lib/backup/service";
 import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
+import { createBackupSchema } from "@/lib/backup/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
 export const dynamic = "force-dynamic";
-
-const createBackupSchema = z.object({
-  type: z.enum(["DATABASE", "FILES", "FULL"]),
-  note: z.string().trim().max(500, "备注最多 500 个字符").optional(),
-});
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "backup:read" }, async () => {

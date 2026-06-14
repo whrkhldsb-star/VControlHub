@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { BACKUP_RESTORE_JOB_TYPE } from "@/lib/backup/job-worker";
+import { restoreBackupSchema } from "@/lib/backup/schema";
 import { getBackupRecord, restoreBackupRecord } from "@/lib/backup/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
 export const dynamic = "force-dynamic";
-
-const restoreBackupSchema = z.object({
-  confirm: z.literal("RESTORE", { message: "恢复操作需要输入 RESTORE 确认" }),
-});
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(request, { permission: "backup:restore", rateLimit: GENERAL_WRITE_LIMIT, errorMessage: "恢复失败" }, async () => {
