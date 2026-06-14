@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
 	htmlLimitedBots: /.*/,
 	// Keep native SSH-related packages outside Next's server bundles.
 	serverExternalPackages: ["ssh2", "ppk-to-openssh"],
+	// Per-package tree-shake hints — even though our 5 lucide-react imports
+	// already use named syntax, opt-in lets Next.js strip unused icons more
+	// aggressively and avoids the icon lib's ESM/CJS interop overhead.
+	experimental: {
+		optimizePackageImports: ["lucide-react"],
+	},
 	// Image optimization configuration
 	images: {
 		remotePatterns: [

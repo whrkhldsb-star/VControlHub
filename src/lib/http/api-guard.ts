@@ -67,9 +67,13 @@ export async function enforceApiGuard(options: ApiGuardOptions): Promise<Respons
  * Note: zod 4.x renamed `ZodError.errors` to `.issues`; we accept both.
  */
 function zodIssueDetails(err: z.ZodError): { summary: string; issues: Array<{ path: string; message: string }> } {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const issues: any[] = (err as any).issues ?? (err as any).errors ?? [];
-  const items = issues.map((i) => ({
+  // Tolerate older zod that exposed `.errors` instead of `.issues`.
+  // `ZodIssue` is the canonical shape on zod 4.x; the cast through unknown
+  // lets us read either field without losing typing on the consumer side.
+  const rawIssues: ReadonlyArray<{ path?: unknown; message?: unknown }> = (err as unknown as { issues?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).issues
+    ?? (err as unknown as { errors?: ReadonlyArray<{ path?: unknown; message?: unknown }> }).errors
+    ?? [];
+  const items = rawIssues.map((i) => ({
     path: Array.isArray(i.path) ? i.path.join(".") : String(i.path ?? ""),
     message: typeof i.message === "string" ? i.message : "Invalid value",
   }));

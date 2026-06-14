@@ -99,16 +99,37 @@ class MemoryRateLimitStore implements RateLimitStore {
 
 // ── Redis implementation ────────────────────────────────────────
 // Redis client is loaded dynamically at runtime only when REDIS_URL is set.
-// We use `any` types here intentionally to avoid pulling in redis type deps at build time.
+// We type the client as a minimal structural interface (rather than the full
+// `redis` package types) so this module remains compatible with redis being
+// an optional peer dep — it can be absent at build time.
+interface RedisExecResult {
+	// `multi().execAsPipeline()` returns an array; element type is loose
+	// because ZRANGE yields string[] while INCR yields number.
+	[index: number]: unknown;
+	length: number;
+}
+interface RedisClientLike {
+	readonly isOpen: boolean;
+	connect(): Promise<void>;
+	multi(): {
+		zAdd(key: string, entry: { score: number; value: string }): unknown;
+		zRemRangeByScore(key: string, min: number, max: number): unknown;
+		zRange(key: string, start: number, stop: number): unknown;
+		pExpire(key: string, ms: number): unknown;
+		incr(key: string): unknown;
+		execAsPipeline(): Promise<RedisExecResult>;
+	};
+	get(key: string): Promise<string | null>;
+	set(key: string, value: string, opts?: { PX?: number }): Promise<unknown>;
+	del(keys: string[]): Promise<unknown>;
+}
 class RedisRateLimitStore implements RateLimitStore {
 	private prefix = "rl:";
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private _client: any = null;
+	private _client: RedisClientLike | null = null;
 
 	constructor(private _url: string) {}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private async getClient(): Promise<any> {
+	private async getClient(): Promise<RedisClientLike> {
 		if (this._client && this._client.isOpen) return this._client;
 		// Dynamic require — redis is an optional peer dependency
 		let redisModule;
@@ -117,7 +138,7 @@ class RedisRateLimitStore implements RateLimitStore {
 		} catch {
 			throw new Error("redis package is not installed. Run: npm install redis");
 		}
-		this._client = redisModule.createClient({ url: this._url });
+		this._client = (redisModule as unknown as { createClient: (opts: { url: string }) => RedisClientLike }).createClient({ url: this._url }) as RedisClientLike;
 		await this._client.connect();
 		return this._client;
 	}
@@ -131,7 +152,7 @@ class RedisRateLimitStore implements RateLimitStore {
 		pipeline.zRange(k, 0, -1);
 		pipeline.pExpire(k, windowMs);
 		const results = await pipeline.execAsPipeline();
-		const members: string[] = results[2];
+		const members: string[] = Array.isArray(results[2]) ? (results[2] as string[]) : [];
 		return members.map(Number);
 	}
 
