@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useId } from "react";
+import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
@@ -42,6 +42,14 @@ const SECTION_KEYS: Record<string, string[]> = {
 	runtime: Object.keys(RUNTIME_NUMBER_RULES),
 	smtp: ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from", "smtp.alertRecipients"],
 };
+
+const TOC_ITEMS: { id: string; icon: string; title: string; subtitle: string }[] = [
+	{ id: "2fa", icon: "🛡️", title: "账户安全", subtitle: "两步验证" },
+	{ id: "platform", icon: "🌐", title: "平台信息", subtitle: "品牌 / Logo" },
+	{ id: "password", icon: "🔐", title: "会话与密码", subtitle: "超时 / 复杂度" },
+	{ id: "smtp", icon: "📧", title: "邮件通知", subtitle: "SMTP / 告警收件人" },
+	{ id: "runtime", icon: "⚙️", title: "运行参数", subtitle: "命令 / SSH / 列表上限" },
+];
 
 function formatMetadataDate(value: Date | string | null) {
 	if (!value) return "暂无记录";
@@ -108,6 +116,47 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 	const [savedMessage, setSavedMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
+	// Track open/closed state per section. Initial defaults: 2fa/platform/password open; smtp/runtime collapsed.
+	// URL hash (#runtime, #2fa, #password) auto-opens the matching section and scrolls to it.
+	const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+		"2fa": true,
+		platform: true,
+		password: true,
+		smtp: false,
+		runtime: false,
+	});
+
+	const handleToggle = useCallback((id: string) => (event: React.SyntheticEvent<HTMLDetailsElement>) => {
+		const isOpen = (event.currentTarget as HTMLDetailsElement)?.open ?? false;
+		setOpenSections((prev) => ({ ...prev, [id]: isOpen }));
+	}, []);
+
+	const expandAll = useCallback(() => {
+		setOpenSections({ "2fa": true, platform: true, password: true, smtp: true, runtime: true });
+	}, []);
+	const collapseAll = useCallback(() => {
+		setOpenSections({ "2fa": false, platform: false, password: false, smtp: false, runtime: false });
+	}, []);
+
+	// Apply URL hash (e.g. /settings#runtime) on mount: open the section and scroll into view.
+	const hashAppliedRef = useRef(false);
+	useEffect(() => {
+		if (hashAppliedRef.current) return;
+		if (typeof window === "undefined") return;
+		const hash = window.location.hash.replace(/^#/, "");
+		if (!hash) return;
+		if (hash in openSections) {
+			hashAppliedRef.current = true;
+			// eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端读取 window.location.hash 后才能决定是否展开对应分组；SSR 阶段无法获得 hash。
+			setOpenSections((prev) => ({ ...prev, [hash]: true }));
+			// Defer scroll so the <details> has time to expand.
+			setTimeout(() => {
+				const el = document.getElementById(hash);
+				el?.scrollIntoView({ behavior: "smooth", block: "start" });
+			}, 50);
+		}
+	}, [openSections]);
+
 	const updateField = (key: string, value: string) => {
 		setSettings((prev) => ({ ...prev, [key]: value }));
 		setSaved(false);
@@ -168,57 +217,110 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}</div>
 			)}
 
-			{/* Account security */}
-			<section id="2fa" className="scroll-mt-24 p-5 space-y-4" data-card>
-				<div>
-					<h2 className="text-lg font-semibold text-white flex items-center gap-2">🛡️ 账户安全</h2>
-					<p className="mt-1 text-xs text-slate-500">当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。</p>
+			{/* Quick-jump TOC + expand/collapse all */}
+			<nav aria-label="设置分类导航" className="p-4 space-y-3" data-card>
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div>
+						<h2 className="text-sm font-semibold text-white">⚙️ 设置分类</h2>
+						<p className="mt-0.5 text-xs text-slate-500">点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。</p>
+					</div>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={expandAll}
+							className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+						>
+							全部展开
+						</button>
+						<button
+							type="button"
+							onClick={collapseAll}
+							className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+						>
+							全部折叠
+						</button>
+					</div>
 				</div>
+				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+					{TOC_ITEMS.map((item) => (
+						<a
+							key={item.id}
+							href={`#${item.id}`}
+							onClick={() => setOpenSections((prev) => ({ ...prev, [item.id]: true }))}
+							className="group flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.01] px-3 py-2 text-xs transition hover:border-cyan-400/30 hover:bg-cyan-500/[0.05]"
+						>
+							<span className="text-base" aria-hidden>{item.icon}</span>
+							<span className="flex-1 min-w-0">
+								<span className="block font-semibold text-white truncate">{item.title}</span>
+								<span className="block text-[11px] text-slate-500 truncate">{item.subtitle}</span>
+							</span>
+							<span className="text-cyan-300 opacity-0 transition group-hover:opacity-100" aria-hidden>→</span>
+						</a>
+					))}
+				</div>
+			</nav>
+
+			{/* Account security */}
+			<CollapsibleSection
+				id="2fa"
+				icon="🛡️"
+				title="账户安全"
+				description="当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。"
+				badge="2FA"
+				open={openSections["2fa"] ?? true}
+				onToggle={handleToggle("2fa")}
+			>
 				<TwoFactorSettings enabled={twoFactorEnabled} />
-			</section>
+			</CollapsibleSection>
 
 			{/* Platform */}
-			<section className="p-5 space-y-4" data-card>
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<h2 className="text-lg font-semibold text-white flex items-center gap-2">🌐 平台信息</h2>
-						<p className="mt-1 text-xs text-slate-500">保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。</p>
-					</div>
-					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.platform ?? [], settingUpdateMetadata)} />
-				</div>
+			<CollapsibleSection
+				id="platform"
+				icon="🌐"
+				title="平台信息"
+				description="保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。"
+				badge={`${SECTION_KEYS.platform?.length ?? 0} 项`}
+				open={openSections.platform ?? true}
+				onToggle={handleToggle("platform")}
+				headerExtra={<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.platform ?? [], settingUpdateMetadata)} />}
+			>
 				<Field label="平台名称" value={settings["platform.name"] ?? ""} onChange={(v) => updateField("platform.name", v)} placeholder="VPS 统一管控平台" helperText="不能为空，最多 80 个字符；用于页面标题和公开品牌文案。" />
 				<Field label="Logo URL" value={settings["platform.logo"] ?? ""} onChange={(v) => updateField("platform.logo", v)} placeholder="https://example.com/logo.png" helperText="留空则不显示 Logo；支持 http(s) 或 /icon.png 这类站内路径。" />
 				<SaveButton onClick={() => handleSave("platform", ["platform.name", "platform.logo"])} saving={saving} />
-			</section>
+			</CollapsibleSection>
 
 			{/* Session */}
-			<section id="password" className="scroll-mt-24 p-5 space-y-4" data-card>
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<h2 className="text-lg font-semibold text-white flex items-center gap-2">🔐 会话与安全</h2>
-						<p className="mt-1 text-xs text-slate-500">会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。</p>
-					</div>
-					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.session ?? [], settingUpdateMetadata)} />
-				</div>
+			<CollapsibleSection
+				id="password"
+				icon="🔐"
+				title="会话与安全"
+				description="会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。"
+				badge={`${SECTION_KEYS.session?.length ?? 0} 项`}
+				open={openSections.password ?? true}
+				onToggle={handleToggle("password")}
+				headerExtra={<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.session ?? [], settingUpdateMetadata)} />}
+			>
 				<Field label="会话超时（秒）" value={settings["session.timeout"] ?? ""} onChange={(v) => updateField("session.timeout", v)} placeholder="86400" type="number" helperText="300–2592000 秒；已有 session 不会被 retroactively 缩短。" />
 				<Field label="密码最小长度" value={settings["password.minLength"] ?? ""} onChange={(v) => updateField("password.minLength", v)} placeholder="8" type="number" helperText="8–128 位；保存后立即约束新密码。" />
 				<SwitchField label="要求大写字母" value={settings["password.requireUppercase"] === "true"} onChange={(v) => updateField("password.requireUppercase", v ? "true" : "false")} />
 				<SwitchField label="要求数字" value={settings["password.requireNumber"] === "true"} onChange={(v) => updateField("password.requireNumber", v ? "true" : "false")} />
 				<SwitchField label="要求特殊字符" value={settings["password.requireSpecial"] === "true"} onChange={(v) => updateField("password.requireSpecial", v ? "true" : "false")} />
 				<SaveButton onClick={() => handleSave("session", ["session.timeout", "password.minLength", "password.requireUppercase", "password.requireNumber", "password.requireSpecial"])} saving={saving} />
-			</section>
+			</CollapsibleSection>
 
 			{/* Runtime tuning */}
-			<section id="runtime" className="scroll-mt-24 p-5 space-y-4" data-card>
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-					<div>
-						<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
-						<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。</p>
-					</div>
-					<div data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50">
-						当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
-					</div>
-					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.runtime ?? [], settingUpdateMetadata)} />
+			<CollapsibleSection
+				id="runtime"
+				icon="⚙️"
+				title="运行参数"
+				description="非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。"
+				badge={`${SECTION_KEYS.runtime?.length ?? 0} 项 · 高级`}
+				open={openSections.runtime ?? false}
+				onToggle={handleToggle("runtime")}
+				headerExtra={<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.runtime ?? [], settingUpdateMetadata)} />}
+			>
+				<div data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50">
+					当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
 				</div>
 				<div className="grid gap-4 md:grid-cols-2">
 					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandExecutionTimeoutMs")} />
@@ -235,22 +337,26 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 					<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.aiConversationListLimit")} />
 				</div>
 				<SaveButton onClick={() => handleSave("runtime", ["runtime.commandExecutionTimeoutMs", "runtime.commandOutputLimitBytes", "runtime.commandStaleRunningAfterMs", "runtime.commandExecutionHeartbeatMs", "runtime.commandReconcileIntervalMs", "runtime.sftpSyncDirectoryTimeoutMs", "runtime.sshWsHeartbeatIntervalMs", "runtime.sshKeepaliveIntervalMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit", "runtime.aiProviderListLimit", "runtime.aiConversationListLimit"])} saving={saving} />
-			</section>
+			</CollapsibleSection>
 
 			{/* SMTP */}
-			<form className="p-5 space-y-4" data-card onSubmit={(event) => event.preventDefault()}>
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div>
-						<h2 className="text-lg font-semibold text-white flex items-center gap-2">📧 邮件通知（SMTP）</h2>
-						<p className="mt-1 text-xs text-slate-500">
-							{settings["smtp.enabled"] === "true" ? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"}
-						</p>
-					</div>
+			<CollapsibleSection
+				id="smtp"
+				icon="📧"
+				title="邮件通知（SMTP）"
+				description={settings["smtp.enabled"] === "true" ? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"}
+				badge={settings["smtp.enabled"] === "true" ? "已启用" : "未启用"}
+				badgeTone={settings["smtp.enabled"] === "true" ? "emerald" : "slate"}
+				open={openSections.smtp ?? false}
+				onToggle={handleToggle("smtp")}
+				headerExtra={
 					<div className="flex flex-col gap-3 sm:items-end">
 						<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.smtp ?? [], settingUpdateMetadata)} />
 						<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
 					</div>
-				</div>
+				}
+				asForm
+			>
 				<div className="grid gap-4 md:grid-cols-2" aria-disabled={settings["smtp.enabled"] !== "true"}>
 					<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
 					<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "1–65535；常用 465/587。"} />
@@ -260,12 +366,81 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 					<Field label="告警收件人" value={settings["smtp.alertRecipients"] ?? ""} onChange={(v) => updateField("smtp.alertRecipients", v)} placeholder="ops@example.com, admin@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "多个地址可用逗号、分号或换行分隔；告警测试和真实告警共用此列表。"} />
 				</div>
 				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from", "smtp.alertRecipients"])} saving={saving} />
-			</form>
+			</CollapsibleSection>
 		</div>
 	);
 }
 
 /* ── Sub-components ───────────────────────────────────────── */
+
+type CollapsibleSectionProps = {
+	id: string;
+	icon: string;
+	title: string;
+	description: string;
+	badge?: string;
+	badgeTone?: "cyan" | "emerald" | "amber" | "slate";
+	open: boolean;
+	onToggle: (event: React.SyntheticEvent<HTMLDetailsElement>) => void;
+	headerExtra?: React.ReactNode;
+	asForm?: boolean;
+	children: React.ReactNode;
+};
+
+function CollapsibleSection({ id, icon, title, description, badge, badgeTone = "cyan", open, onToggle, headerExtra, asForm = false, children }: CollapsibleSectionProps) {
+	const badgeColors: Record<string, string> = {
+		cyan: "bg-cyan-500/[0.12] text-cyan-200 border-cyan-400/30",
+		emerald: "bg-emerald-500/[0.12] text-emerald-200 border-emerald-400/30",
+		amber: "bg-amber-500/[0.12] text-amber-200 border-amber-400/30",
+		slate: "bg-slate-500/[0.12] text-slate-300 border-slate-400/30",
+	};
+	const badgeClass = badgeColors[badgeTone] ?? badgeColors.cyan;
+	const innerWrapperClass = asForm ? "" : "";
+	const Inner = asForm ? "form" : "div";
+
+	return (
+		<section id={id} className="scroll-mt-24" data-card>
+			<details open={open} onToggle={onToggle} className="group">
+				<summary
+					className="cursor-pointer list-none p-5 transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-300 rounded-xl"
+					aria-label={`${open ? "折叠" : "展开"} ${title} 设置区`}
+				>
+					<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+						<div className="flex items-start gap-3 min-w-0 flex-1">
+							<span
+								aria-hidden
+								className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition group-open:rotate-90"
+							>
+								▶
+							</span>
+							<div className="min-w-0 flex-1">
+								<h2 className="text-lg font-semibold text-white flex items-center gap-2 flex-wrap">
+									<span aria-hidden>{icon}</span>
+									<span>{title}</span>
+									{badge && (
+										<span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${badgeClass}`}>{badge}</span>
+									)}
+								</h2>
+								<p className="mt-1 text-xs text-slate-500">{description}</p>
+							</div>
+						</div>
+						{headerExtra && (
+							<div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} className="lg:flex-shrink-0">
+								{headerExtra}
+							</div>
+						)}
+					</div>
+				</summary>
+				<Inner
+					className={`px-5 pb-5 pt-1 space-y-4 ${innerWrapperClass}`}
+					{...(asForm ? { onSubmit: (event: React.FormEvent) => event.preventDefault() } : {})}
+				>
+					{children}
+				</Inner>
+			</details>
+		</section>
+	);
+}
 
 function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) {
 	return (
