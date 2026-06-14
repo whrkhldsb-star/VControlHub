@@ -87,14 +87,14 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								type="button"
 								onClick={() => setTemplatePendingDelete(null)}
-								data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
+								data-card className="min-h-11 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
 							>
 								取消
 							</button>
 							<button
 								type="button"
 								onClick={() => handleDelete(templatePendingDelete.id)}
-								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
+								className="min-h-11 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
 							>
 								确认删除
 							</button>
@@ -131,7 +131,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 					<button
 						onClick={() => setShowCreate(true)}
 						data-tone="accent"
-						className="rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
+						className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
 					>
 						+ 创建模板
 					</button>
@@ -193,10 +193,10 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									/>
 								)}
 								{canCreate && !tmpl.isBuiltin && (
-					<button
-						onClick={() => setTemplatePendingDelete(tmpl)}
-						className="text-[11px] text-rose-400/60 hover:text-rose-300 transition"
-					>
+									<button
+										onClick={() => setTemplatePendingDelete(tmpl)}
+										className="min-h-11 min-w-11 text-[11px] text-rose-400/60 hover:text-rose-300 transition"
+									>
 										删除
 									</button>
 								)}
@@ -225,7 +225,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 		return (
 			<button
 				onClick={() => setOpen(true)}
-				className="rounded-lg bg-cyan-500/80 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 transition"
+				className="min-h-11 rounded-lg bg-cyan-500/80 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 transition"
 			>
 				一键下发
 			</button>
@@ -265,11 +265,11 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				<button
 					onClick={() => onDeploy(template, [...selectedIds], vars)}
 					disabled={loading || selectedIds.size === 0}
-					className="rounded-lg bg-cyan-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60 transition"
+					className="min-h-11 rounded-lg bg-cyan-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60 transition"
 				>
 					{loading ? "提交中…" : "提交部署"}
 				</button>
-				<button onClick={() => setOpen(false)} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition">
+				<button onClick={() => setOpen(false)} className="min-h-11 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition">
 					取消
 				</button>
 			</div>
@@ -337,10 +337,10 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="docker, deploy" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建模板"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>

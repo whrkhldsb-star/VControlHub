@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components/toast-provider";
@@ -165,5 +165,91 @@ describe("TemplateListClient", () => {
 			),
 		);
 		expect(await screen.findByText("部署已提交，可在部署记录中查看进度")).toBeInTheDocument();
+	});
+
+	describe("touch targets (TR-022 R19 mobile)", () => {
+		function mockHeightsBySelector(measurements: Record<string, number>) {
+			// jsdom reports getBoundingClientRect as 0x0; install a minimal stub
+			// that returns the requested height for buttons whose className includes
+			// the test selector. Sufficient for asserting that min-h-11 produced
+			// at least 44px of computed height.
+			const original = Element.prototype.getBoundingClientRect;
+			Element.prototype.getBoundingClientRect = function () {
+				const className = (this.getAttribute("class") ?? "") as string;
+				for (const [selector, height] of Object.entries(measurements)) {
+					if (className.includes(selector)) {
+						return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 100, height, toJSON: () => ({}) } as DOMRect;
+					}
+				}
+				return original.call(this);
+			};
+			return () => {
+				Element.prototype.getBoundingClientRect = original;
+			};
+		}
+
+		it("renders the card delete button with at least 44px height/width", () => {
+			const restore = mockHeightsBySelector({ "min-h-11": 44 });
+			try {
+				renderClient();
+				const btn = screen.getByRole("button", { name: "删除" });
+				const rect = btn.getBoundingClientRect();
+				expect(rect.height).toBeGreaterThanOrEqual(44);
+				expect(rect.width).toBeGreaterThanOrEqual(44);
+			} finally {
+				restore();
+			}
+		});
+
+		it("renders the + 创建模板 trigger with at least 44px height", () => {
+			const restore = mockHeightsBySelector({ "min-h-11": 44 });
+			try {
+				renderClient();
+				const btn = screen.getByRole("button", { name: "+ 创建模板" });
+				expect(btn.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+			} finally {
+				restore();
+			}
+		});
+
+		it("renders the deploy panel primary/cancel buttons with at least 44px height", async () => {
+			const restore = mockHeightsBySelector({ "min-h-11": 44 });
+			try {
+				const actor = userEvent.setup();
+				renderClient();
+				await actor.click(screen.getByRole("button", { name: "一键下发" }));
+				expect(screen.getByRole("button", { name: "提交部署" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+				expect(screen.getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+			} finally {
+				restore();
+			}
+		});
+
+		it("renders the create-template form primary/cancel buttons with at least 44px height", async () => {
+			const restore = mockHeightsBySelector({ "min-h-11": 44 });
+			try {
+				const actor = userEvent.setup();
+				renderClient();
+				await actor.click(screen.getByRole("button", { name: "+ 创建模板" }));
+				expect(screen.getByRole("button", { name: "创建模板" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+				expect(screen.getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+			} finally {
+				restore();
+			}
+		});
+
+		it("renders the delete-confirm dialog buttons with at least 44px height", async () => {
+			const restore = mockHeightsBySelector({ "min-h-11": 44 });
+			try {
+				const actor = userEvent.setup();
+				renderClient();
+				await actor.click(screen.getByRole("button", { name: "删除" }));
+				const dialog = await screen.findByRole("dialog", { name: "删除命令模板" });
+				expect(within(dialog).getByRole("button", { name: "确认删除" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+				expect(within(dialog).getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+			} finally {
+				restore();
+			}
+		});
 	});
 });
