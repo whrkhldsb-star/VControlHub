@@ -1,0 +1,394 @@
+{
+  "generatedAt": "2026-06-14T12:13:52.741Z",
+  "summary": {
+    "files": 222,
+    "total": 235,
+    "ok": 177,
+    "flagged": 58
+  },
+  "flaggedByFile": {
+    "src/app/account/password/change-password-form.tsx": [
+      {
+        "line": 16,
+        "kind": "input",
+        "type": "text",
+        "name": "username",
+        "raw": "<input type=\"text\" name=\"username\" autoComplete=\"username\" className=\"hidden\" tabIndex={-1} aria-hidden=\"true\" />"
+      }
+    ],
+    "src/app/ai/ai-client.tsx": [
+      {
+        "line": 919,
+        "kind": "input",
+        "placeholder": "输入图片 URL（回车添加）",
+        "raw": "<input\n                    value={imageUrlInput}\n                    onChange={(e) => setImageUrlInput(e.target.value)}\n                    placeholder=\"输入图片 URL（回车添加）\"\n                    className=\"flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600\"\n                    onKeyDown={(e) => {\n                      if (e.key === \"Enter\" && imageUrlInput.trim()) {\n                        setImageUrls((prev) => [...prev, imageUrlInput.trim()]);\n                        setImageUrlInput(\"\");\n                      }\n                    }}\n                  />"
+      },
+      {
+        "line": 959,
+        "kind": "input",
+        "type": "file",
+        "raw": "<input\n                  ref={fileInputRef}\n                  type=\"file\"\n                  multiple\n                  accept={buildAcceptString(currentModelCaps)}\n                  className=\"hidden\"\n                  onChange={(e) => {\n                    if (e.target.files) handleFileSelect(e.target.files);\n                    e.target.value = \"\";\n                  }}\n                />"
+      },
+      {
+        "line": 970,
+        "kind": "textarea",
+        "placeholder": "{\n                    activeConv.enableVision\n                      ? `输入消息... (Shift+Enter 换行，支持: ${formatAllowedTypes(currentModelCaps)}",
+        "raw": "<textarea\n                  ref={textareaRef}\n                  value={input}\n                  onChange={(e) => setInput(e.target.value)}\n                  onKeyDown={(e) => {\n                    if (e.key === \"Enter\" && !e.shiftKey) {\n                      e.preventDefault();\n                      handleSend();\n                    }\n                  }}\n                  onPaste={handlePaste}\n                  placeholder={\n                    activeConv.enableVision\n                      ? `输入消息... (Shift+Enter 换行，支持: ${formatAllowedTypes(currentModelCaps)})`\n                      : `输入消息... (Shift+Enter 换行，📎 可上传 ${formatAllowedTypes(currentModelCaps)})`\n                  }\n                  rows={1}\n                  disabled={streaming}\n                  className=\"flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50\"\n                  style={{ maxHeight: \"120px\" }}\n                  onInput={(e) => {\n                    const el = e.currentTarget;\n                    el.style.height = \"auto\";\n                    el.style.height = Math.min(el.scrollHeight, 120) + \"px\";\n                  }}\n                />"
+      }
+    ],
+    "src/app/ai/ai-settings-panel.tsx": [
+      {
+        "line": 72,
+        "kind": "input",
+        "placeholder": "搜索模型...",
+        "raw": "<input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder=\"搜索模型...\" className=\"w-full bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30\" autoFocus />"
+      },
+      {
+        "line": 107,
+        "kind": "input",
+        "placeholder": "手动输入模型 ID...",
+        "raw": "<input\n                      value={modelSearch || settingsForm.model}\n                      onChange={(e) => setModelSearch(e.target.value)}\n                      onKeyDown={(e) => {\n                        if (e.key === \"Enter\" && modelSearch.trim()) {\n                          setSettingsForm((f) => ({ ...f, model: modelSearch.trim() }));\n                          setModelDropdownOpen(false);\n                          setModelSearch(\"\");\n                        }\n                      }}\n                      placeholder=\"手动输入模型 ID...\"\n                      className=\"flex-1 bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none\"\n                    />"
+      },
+      {
+        "line": 145,
+        "kind": "input",
+        "type": "range",
+        "raw": "<input\n              type=\"range\"\n              min={0}\n              max={2}\n              step={0.01}\n              value={settingsForm.temperature}\n              onChange={(e) => setSettingsForm((f) => ({ ...f, temperature: parseFloat(e.target.value) }))}\n              className=\"flex-1 h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400\"\n            />"
+      },
+      {
+        "line": 162,
+        "kind": "select",
+        "raw": "<select\n            value={settingsForm.maxTokens}\n            onChange={(e) => setSettingsForm((f) => ({ ...f, maxTokens: parseInt(e.target.value) }))}\n            className=\"w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white\"\n          >"
+      },
+      {
+        "line": 179,
+        "kind": "input",
+        "type": "range",
+        "raw": "<input\n              type=\"range\"\n              min={0}\n              max={1}\n              step={0.01}\n              value={settingsForm.topP}\n              onChange={(e) => setSettingsForm((f) => ({ ...f, topP: parseFloat(e.target.value) }))}\n              className=\"flex-1 h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400\"\n            />"
+      },
+      {
+        "line": 197,
+        "kind": "input",
+        "type": "range",
+        "raw": "<input\n              type=\"range\"\n              min={-2}\n              max={2}\n              step={0.01}\n              value={settingsForm.frequencyPenalty}\n              onChange={(e) => setSettingsForm((f) => ({ ...f, frequencyPenalty: parseFloat(e.target.value) }))}\n              className=\"flex-1 h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400\"\n            />"
+      },
+      {
+        "line": 215,
+        "kind": "input",
+        "type": "range",
+        "raw": "<input\n              type=\"range\"\n              min={-2}\n              max={2}\n              step={0.01}\n              value={settingsForm.presencePenalty}\n              onChange={(e) => setSettingsForm((f) => ({ ...f, presencePenalty: parseFloat(e.target.value) }))}\n              className=\"flex-1 h-1.5 bg-white/5 rounded-full appearance-none cursor-pointer accent-cyan-400 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-400\"\n            />"
+      },
+      {
+        "line": 275,
+        "kind": "textarea",
+        "placeholder": "设定 AI 的角色和行为方式...",
+        "raw": "<textarea\n          value={settingsForm.systemPrompt}\n          onChange={(e) => setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))}\n          rows={2}\n          placeholder=\"设定 AI 的角色和行为方式...\"\n          className=\"w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30\"\n        />"
+      }
+    ],
+    "src/app/alert-rules/alert-rule-list-client.tsx": [
+      {
+        "line": 348,
+        "kind": "select",
+        "raw": "<select value={metric} onChange={(e) => setMetric(e.target.value)} className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none\">"
+      },
+      {
+        "line": 357,
+        "kind": "select",
+        "raw": "<select value={operator} onChange={(e) => setOperator(e.target.value)} className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none\">"
+      },
+      {
+        "line": 411,
+        "kind": "input",
+        "placeholder": "https://hooks.example.com/...",
+        "raw": "<input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder=\"https://hooks.example.com/...\" className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30\" />"
+      },
+      {
+        "line": 417,
+        "kind": "input",
+        "type": "number",
+        "raw": "<input type=\"number\" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 w-32\" />"
+      }
+    ],
+    "src/app/announcements/announcement-edit-modal.tsx": [
+      {
+        "line": 58,
+        "kind": "input",
+        "raw": "<input\n              value={title}\n              onChange={(e) => setTitle(e.target.value)}\n              data-input\n              className=\"mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none\"\n            />"
+      },
+      {
+        "line": 67,
+        "kind": "select",
+        "raw": "<select\n              value={level}\n              onChange={(e) => setLevel(e.target.value)}\n              data-input\n              className=\"mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none\"\n            >"
+      },
+      {
+        "line": 80,
+        "kind": "textarea",
+        "raw": "<textarea\n              value={content}\n              onChange={(e) => setContent(e.target.value)}\n              rows={5}\n              data-input\n              className=\"mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none\"\n            />"
+      }
+    ],
+    "src/app/announcements/announcement-list-client.tsx": [
+      {
+        "line": 107,
+        "kind": "select",
+        "raw": "<select\n          value={levelFilter}\n          onChange={(e) => setLevelFilter(e.target.value)}\n          className=\"rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none\"\n        >"
+      }
+    ],
+    "src/app/audit/audit-client.tsx": [
+      {
+        "line": 107,
+        "kind": "input",
+        "type": "search",
+        "placeholder": "搜索动作、用户名或显示名",
+        "raw": "<input\n            type=\"search\"\n            value={searchQuery}\n            onChange={(e) => {\n              setSearchQuery(e.target.value);\n              setPage(1);\n            }}\n            placeholder=\"搜索动作、用户名或显示名\"\n            className=\"min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none\"\n          />"
+      },
+      {
+        "line": 137,
+        "kind": "select",
+        "raw": "<select\n            value={severityFilter}\n            onChange={(e) => {\n              setSeverityFilter(e.target.value);\n              setPage(1);\n            }}\n            className=\"rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none\"\n          >"
+      },
+      {
+        "line": 150,
+        "kind": "select",
+        "raw": "<select\n            value={actionFilter}\n            onChange={(e) => {\n              setActionFilter(e.target.value);\n              setPage(1);\n            }}\n            className=\"rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none\"\n          >"
+      }
+    ],
+    "src/app/downloads/downloads-client.tsx": [
+      {
+        "line": 404,
+        "kind": "select",
+        "raw": "<select value={form.serverId} onChange={(e) => handleServerChange(e.target.value)}\n\t\t\t\t\t\t\t\tclassName=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30\"\n\t\t\t\t\t\t\t>"
+      },
+      {
+        "line": 418,
+        "kind": "input",
+        "placeholder": "/root/downloads",
+        "raw": "<input value={form.targetPath} onChange={(e) => setForm((p) => ({ ...p, targetPath: e.target.value }))}\n\t\t\t\t\t\t\t\tplaceholder=\"/root/downloads\" className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20\"\n\t\t\t\t\t\t\t/>"
+      },
+      {
+        "line": 427,
+        "kind": "input",
+        "placeholder": "留空自动",
+        "raw": "<input value={form.fileName} onChange={(e) => setForm((p) => ({ ...p, fileName: e.target.value }))}\n\t\t\t\t\t\t\t\tplaceholder=\"留空自动\" className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20\"\n\t\t\t\t\t\t\t/>"
+      },
+      {
+        "line": 433,
+        "kind": "select",
+        "raw": "<select value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}\n\t\t\t\t\t\t\t\tclassName=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30\"\n\t\t\t\t\t\t\t>"
+      },
+      {
+        "line": 441,
+        "kind": "input",
+        "type": "number",
+        "placeholder": "不限",
+        "raw": "<input value={form.maxSpeedKb} onChange={(e) => setForm((p) => ({ ...p, maxSpeedKb: e.target.value }))}\n\t\t\t\t\t\t\t\ttype=\"number\" placeholder=\"不限\" className=\"w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20\"\n\t\t\t\t\t\t\t/>"
+      },
+      {
+        "line": 539,
+        "kind": "input",
+        "type": "number",
+        "placeholder": "KB/s",
+        "raw": "<input type=\"number\" min={0} step={1024} placeholder=\"KB/s\"\n\t\t\t\t\t\t\t\t\t\t\t\tdefaultValue={task.maxSpeedKb ?? \"\"}\n\t\t\t\t\t\t\t\t\t\t\t\tonBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}\n\t\t\t\t\t\t\t\t\t\t\t\tclassName=\"w-16 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50\"\n\t\t\t\t\t\t\t\t\t\t\t/>"
+      }
+    ],
+    "src/app/files/file-list-client.tsx": [
+      {
+        "line": 874,
+        "kind": "input",
+        "type": "checkbox",
+        "raw": "<input\n                      type=\"checkbox\"\n                      disabled\n                      className=\"rounded h-4 w-4 accent-cyan-400 opacity-30\"\n                    />"
+      }
+    ],
+    "src/app/image-bed/image-bed-page-client.tsx": [
+      {
+        "line": 429,
+        "kind": "select",
+        "raw": "<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className=\"bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50\">"
+      },
+      {
+        "line": 433,
+        "kind": "input",
+        "type": "text",
+        "placeholder": "目标路径（可选）",
+        "raw": "<input type=\"text\" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder=\"目标路径（可选）\" className=\"bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50\" />"
+      },
+      {
+        "line": 447,
+        "kind": "input",
+        "type": "file",
+        "raw": "<input ref={fileInputRef} type=\"file\" accept=\"image/*\" multiple className=\"hidden\" onChange={(e) => e.target.files && handleUpload(e.target.files)} />"
+      },
+      {
+        "line": 596,
+        "kind": "select",
+        "raw": "<select value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className=\"w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400/50\">"
+      },
+      {
+        "line": 603,
+        "kind": "input",
+        "type": "text",
+        "placeholder": "e.g. images/photo.png",
+        "raw": "<input type=\"text\" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder=\"e.g. images/photo.png\" className=\"w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50\" />"
+      },
+      {
+        "line": 607,
+        "kind": "input",
+        "type": "text",
+        "placeholder": "默认使用路径中的文件名",
+        "raw": "<input type=\"text\" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder=\"默认使用路径中的文件名\" className=\"w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50\" />"
+      },
+      {
+        "line": 611,
+        "kind": "input",
+        "type": "text",
+        "placeholder": "归类到相册",
+        "raw": "<input type=\"text\" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder=\"归类到相册\" className=\"w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50\" />"
+      }
+    ],
+    "src/app/login/verify-2fa/verify-2fa-form.tsx": [
+      {
+        "line": 99,
+        "kind": "input",
+        "type": "text",
+        "raw": "<input\n\t\t\t\t\t\tkey={i}\n\t\t\t\t\t\tref={(el) => { inputRefs.current[i] = el; }}\n\t\t\t\t\t\ttype=\"text\"\n\t\t\t\t\t\tinputMode=\"numeric\"\n\t\t\t\t\t\tpattern=\"[0-9]\"\n\t\t\t\t\t\tmaxLength={1}\n\t\t\t\t\t\tvalue={digit}\n\t\t\t\t\t\tonChange={(e) => setDigit(i, e.target.value)}\n\t\t\t\t\t\tonKeyDown={(e) => handleKeyDown(i, e)}\n\t\t\t\t\t\tonPaste={i === 0 ? handlePaste : undefined}\n\t\t\t\t\t\tdisabled={submitting}\n\t\t\t\t\t\tautoFocus={i === 0}\n\t\t\t\t\t\tclassName=\"h-14 w-12 rounded-xl bg-white/[0.04] text-center text-xl font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-all duration-150 placeholder:text-white/20 focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] focus:bg-white/[0.06] disabled:opacity-50\"\n\t\t\t\t\t/>"
+      }
+    ],
+    "src/app/media/media-image-upload-panel.tsx": [
+      {
+        "line": 160,
+        "kind": "input",
+        "type": "file",
+        "raw": "<input ref={fileInputRef} type=\"file\" accept=\"image/*\" multiple className=\"hidden\" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />"
+      }
+    ],
+    "src/app/media/media-item-card.tsx": [
+      {
+        "line": 306,
+        "kind": "input",
+        "placeholder": "标签名",
+        "raw": "<input\n\t\t\t\t\t\t\tautoFocus\n\t\t\t\t\t\t\tvalue={newTag}\n\t\t\t\t\t\t\tonChange={(e) => setNewTag(e.target.value)}\n\t\t\t\t\t\t\tonKeyDown={(e) => {\n\t\t\t\t\t\t\t\tif (e.key === \"Enter\") void addTag();\n\t\t\t\t\t\t\t\tif (e.key === \"Escape\") setShowTagInput(false);\n\t\t\t\t\t\t\t}}\n\t\t\t\t\t\t\tonBlur={() => {\n\t\t\t\t\t\t\t\tif (newTag.trim()) void addTag();\n\t\t\t\t\t\t\t\telse setShowTagInput(false);\n\t\t\t\t\t\t\t}}\n\t\t\t\t\t\t\tclassName=\"w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500\"\n\t\t\t\t\t\t\tplaceholder=\"标签名\"\n\t\t\t\t\t\t/>"
+      }
+    ],
+    "src/app/shares/create-share-form.tsx": [
+      {
+        "line": 87,
+        "kind": "select",
+        "raw": "<select value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-input className=\"w-full rounded-lg border px-3 py-2 text-sm outline-none\">"
+      },
+      {
+        "line": 93,
+        "kind": "input",
+        "placeholder": "{entryType === \"DIRECTORY\" ? \"如 /public 或 /docs\" : \"如 /docs/readme.md\"}",
+        "raw": "<input value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === \"DIRECTORY\" ? \"如 /public 或 /docs\" : \"如 /docs/readme.md\"} data-input className=\"w-full rounded-lg border px-3 py-2 text-sm outline-none\" />"
+      },
+      {
+        "line": 97,
+        "kind": "select",
+        "raw": "<select value={entryType} onChange={(e) => setEntryType(e.target.value as \"FILE\" | \"DIRECTORY\")} data-input className=\"w-full rounded-lg border px-3 py-2 text-sm outline-none\">"
+      },
+      {
+        "line": 104,
+        "kind": "input",
+        "raw": "<input value={name} onChange={(e) => setName(e.target.value)} data-input className=\"w-full rounded-lg border px-3 py-2 text-sm outline-none\" />"
+      }
+    ],
+    "src/app/shares/share-file-picker.tsx": [
+      {
+        "line": 253,
+        "kind": "select",
+        "raw": "<select\n\t\t\t\t\t\tvalue={nodeId}\n\t\t\t\t\t\tonChange={(event) => {\n\t\t\t\t\t\t\tsetNodeId(event.target.value);\n\t\t\t\t\t\t\tsetPath(\"\");\n\t\t\t\t\t\t\tsetSelected({});\n\t\t\t\t\t\t\tsetResults([]);\n\t\t\t\t\t\t}}\n\t\t\t\t\t\tclassName=\"rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-white outline-none\"\n\t\t\t\t\t>"
+      }
+    ],
+    "src/app/snippets/snippet-list-client.tsx": [
+      {
+        "line": 99,
+        "kind": "select",
+        "raw": "<select\n          value={langFilter}\n          onChange={(e) => setLangFilter(e.target.value)}\n          className=\"rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none\"\n        >"
+      }
+    ],
+    "src/app/tickets/[id]/ticket-detail-client.tsx": [
+      {
+        "line": 109,
+        "kind": "select",
+        "raw": "<select\n               value={assigneeId}\n               onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}\n               disabled={saving}\n               className=\"rounded-lg border border-white/[0.08] bg-slate-950 px-2 py-1 text-sm text-slate-200 outline-none disabled:opacity-50\"\n             >"
+      },
+      {
+        "line": 160,
+        "kind": "textarea",
+        "placeholder": "添加评论...",
+        "raw": "<textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder=\"添加评论...\"\n            rows={3}\n            className=\"w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 resize-none\" />"
+      }
+    ],
+    "src/app/traffic/traffic-page-client.tsx": [
+      {
+        "line": 172,
+        "kind": "select",
+        "raw": "<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className=\"rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200\">"
+      }
+    ],
+    "src/app/users/user-permission-panel.tsx": [
+      {
+        "line": 196,
+        "kind": "select",
+        "raw": "<select value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className=\"rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white\">"
+      },
+      {
+        "line": 199,
+        "kind": "input",
+        "placeholder": "路径前缀，空=整个节点",
+        "raw": "<input value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder=\"路径前缀，空=整个节点\" className=\"rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white\" />"
+      },
+      {
+        "line": 200,
+        "kind": "input",
+        "placeholder": "容量限制，如 10GB",
+        "raw": "<input value={grant.quotaBytes ?? \"\"} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder=\"容量限制，如 10GB\" className=\"rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white\" />"
+      },
+      {
+        "line": 201,
+        "kind": "input",
+        "placeholder": "单文件限制，如 1GB",
+        "raw": "<input value={grant.maxFileBytes ?? \"\"} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder=\"单文件限制，如 1GB\" className=\"rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white\" />"
+      }
+    ],
+    "src/app/users/users-client.tsx": [
+      {
+        "line": 170,
+        "kind": "input",
+        "type": "text",
+        "placeholder": "用户名",
+        "raw": "<input\n                type=\"text\"\n                value={createForm.username}\n                onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}\n                className=\"w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none\"\n                placeholder=\"用户名\"\n              />"
+      },
+      {
+        "line": 180,
+        "kind": "input",
+        "type": "text",
+        "placeholder": "可选",
+        "raw": "<input\n                type=\"text\"\n                value={createForm.displayName}\n                onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}\n                className=\"w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none\"\n                placeholder=\"可选\"\n              />"
+      },
+      {
+        "line": 190,
+        "kind": "input",
+        "type": "password",
+        "placeholder": "至少6位",
+        "raw": "<input\n                type=\"password\"\n                value={createForm.password}\n                onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}\n                className=\"w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none\"\n                placeholder=\"至少6位\"\n              />"
+      }
+    ],
+    "src/components/change-password-modal.tsx": [
+      {
+        "line": 57,
+        "kind": "input",
+        "type": "text",
+        "name": "username",
+        "raw": "<input type=\"text\" name=\"username\" autoComplete=\"username\" className=\"hidden\" tabIndex={-1} aria-hidden=\"true\" />"
+      }
+    ],
+    "src/components/storage/file-upload-dropzone.tsx": [
+      {
+        "line": 241,
+        "kind": "input",
+        "type": "file",
+        "raw": "<input ref={inputRef} type=\"file\" multiple className=\"hidden\" onChange={handleInputChange} />"
+      }
+    ]
+  }
+}
