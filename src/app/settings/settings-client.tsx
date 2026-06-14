@@ -1,10 +1,18 @@
 "use client";
 
-import { useState, useCallback, useEffect, useId, useRef } from "react";
+import { useState, useCallback, useEffect, useId, useRef, type ReactNode, type SyntheticEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
+import {
+	SETTINGS_SCHEMA,
+	buildTocItems,
+	getSectionSaveKeys,
+	type BadgeTone,
+	type FieldDef,
+	type SectionDef,
+} from "./field-schema";
 
 type Props = {
 	settings: Record<string, string>;
@@ -14,43 +22,6 @@ type Props = {
 	twoFactorEnabled?: boolean;
 };
 
-const SECTION_SAVE_MESSAGES: Record<string, string> = {
-	platform: "平台信息已保存；新打开/刷新后的页面会读取最新名称和 Logo。",
-	session: "会话与密码策略已保存；会话超时只影响新登录，密码策略立即用于创建用户、重置密码和改密。",
-	runtime: "运行参数已保存；标注“需重启”的 SSH/维护扫描参数请重启对应服务，其余新请求/新任务立即读取。",
-	smtp: "SMTP 设置已保存；启用后系统通知会使用最新连接参数。",
-};
-
-const RUNTIME_NUMBER_RULES: Record<string, { label: string; min: number; max: number }> = {
-	"runtime.commandExecutionTimeoutMs": { label: "命令执行超时", min: 5_000, max: 3_600_000 },
-	"runtime.commandOutputLimitBytes": { label: "命令输出保留上限", min: 4_096, max: 10_485_760 },
-	"runtime.commandStaleRunningAfterMs": { label: "命令卡死判定时间", min: 30_000, max: 86_400_000 },
-	"runtime.commandExecutionHeartbeatMs": { label: "命令执行心跳间隔", min: 5_000, max: 600_000 },
-	"runtime.commandReconcileIntervalMs": { label: "命令维护扫描间隔", min: 5_000, max: 3_600_000 },
-	"runtime.sftpSyncDirectoryTimeoutMs": { label: "SFTP 单目录同步超时", min: 5_000, max: 1_800_000 },
-	"runtime.sshWsHeartbeatIntervalMs": { label: "SSH WebSocket 心跳间隔", min: 5_000, max: 600_000 },
-	"runtime.sshKeepaliveIntervalMs": { label: "SSH keepalive 间隔", min: 5_000, max: 600_000 },
-	"runtime.sshKeepaliveCountMax": { label: "SSH keepalive 容忍次数", min: 1, max: 60 },
-	"runtime.operationTaskListLimit": { label: "任务中心列表上限", min: 20, max: 500 },
-	"runtime.aiProviderListLimit": { label: "AI 提供商列表上限", min: 10, max: 500 },
-	"runtime.aiConversationListLimit": { label: "AI 对话列表上限", min: 20, max: 1_000 },
-};
-
-const SECTION_KEYS: Record<string, string[]> = {
-	platform: ["platform.name", "platform.logo"],
-	session: ["session.timeout", "password.minLength", "password.requireUppercase", "password.requireNumber", "password.requireSpecial"],
-	runtime: Object.keys(RUNTIME_NUMBER_RULES),
-	smtp: ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from", "smtp.alertRecipients"],
-};
-
-const TOC_ITEMS: { id: string; icon: string; title: string; subtitle: string }[] = [
-	{ id: "2fa", icon: "🛡️", title: "账户安全", subtitle: "两步验证" },
-	{ id: "platform", icon: "🌐", title: "平台信息", subtitle: "品牌 / Logo" },
-	{ id: "password", icon: "🔐", title: "会话与密码", subtitle: "超时 / 复杂度" },
-	{ id: "smtp", icon: "📧", title: "邮件通知", subtitle: "SMTP / 告警收件人" },
-	{ id: "runtime", icon: "⚙️", title: "运行参数", subtitle: "命令 / SSH / 列表上限" },
-];
-
 function formatMetadataDate(value: Date | string | null) {
 	if (!value) return "暂无记录";
 	const date = value instanceof Date ? value : new Date(value);
@@ -59,83 +30,48 @@ function formatMetadataDate(value: Date | string | null) {
 }
 
 function latestSectionMetadata(keys: string[], metadata: Record<string, SettingUpdateMetadata>) {
-	return keys
-		.map((key) => metadata[key])
-		.filter((item): item is SettingUpdateMetadata => Boolean(item?.updatedAt))
-		.sort((a, b) => new Date(b.updatedAt as Date).getTime() - new Date(a.updatedAt as Date).getTime())[0] ?? null;
+	return (
+		keys
+			.map((key) => metadata[key])
+			.filter((item): item is SettingUpdateMetadata => Boolean(item?.updatedAt))
+			.sort(
+				(a, b) =>
+					new Date(b.updatedAt as Date).getTime() - new Date(a.updatedAt as Date).getTime(),
+			)[0] ?? null
+	);
 }
 
-function parseInteger(value: string, label: string, min: number, max: number) {
-	const parsed = Number(value);
-	if (!Number.isFinite(parsed)) return `${label} 必须是数字`;
-	const integer = Math.trunc(parsed);
-	if (integer < min || integer > max) return `${label} 必须在 ${min} 到 ${max} 之间`;
-	return null;
-}
-
-function validateSettingValue(key: string, value: string) {
-	const runtimeRule = RUNTIME_NUMBER_RULES[key];
-	if (runtimeRule) {
-		return parseInteger(value, runtimeRule.label, runtimeRule.min, runtimeRule.max);
-	}
-	switch (key) {
-		case "platform.name":
-			return value.trim() ? null : "平台名称不能为空";
-		case "platform.logo": {
-			const trimmed = value.trim();
-			if (!trimmed || trimmed.startsWith("/")) return null;
-			try {
-				const parsed = new URL(trimmed);
-				return parsed.protocol === "http:" || parsed.protocol === "https:" ? null : "Logo URL 只支持 http(s) 或站内路径";
-			} catch {
-				return "Logo URL 只支持 http(s) 或站内路径";
-			}
-		}
-		case "session.timeout":
-			return parseInteger(value, "会话超时", 300, 2_592_000);
-		case "password.minLength":
-			return parseInteger(value, "密码最小长度", 8, 128);
-		case "smtp.port":
-			return parseInteger(value || "587", "SMTP 端口", 1, 65_535);
-		case "smtp.from":
-			return value.trim() && !/^.+@.+\..+$/.test(value.trim()) ? "发件人地址格式不正确" : null;
-		case "smtp.alertRecipients": {
-			const recipients = value.split(/[\n,;，；]+/).map((item) => item.trim()).filter(Boolean);
-			const invalid = recipients.find((recipient) => !/^.+@.+\..+$/.test(recipient));
-			return invalid ? `告警收件人地址格式不正确：${invalid}` : null;
-		}
-		default:
-			return null;
-	}
-}
-
-export function SettingsClient({ settings: initialSettings, runtimeSettings = [], settingUpdateMetadata = {}, canManage, twoFactorEnabled = false }: Props) {
+export function SettingsClient({
+	settings: initialSettings,
+	runtimeSettings = [],
+	settingUpdateMetadata = {},
+	canManage,
+	twoFactorEnabled = false,
+}: Props) {
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
 	const [savedMessage, setSavedMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	// Track open/closed state per section. Initial defaults: 2fa/platform/password open; smtp/runtime collapsed.
-	// URL hash (#runtime, #2fa, #password) auto-opens the matching section and scrolls to it.
-	const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-		"2fa": true,
-		platform: true,
-		password: true,
-		smtp: false,
-		runtime: false,
-	});
+	// Initial defaults from schema (defaultOpen).
+	const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+		Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, s.defaultOpen])),
+	);
 
-	const handleToggle = useCallback((id: string) => (event: React.SyntheticEvent<HTMLDetailsElement>) => {
-		const isOpen = (event.currentTarget as HTMLDetailsElement)?.open ?? false;
-		setOpenSections((prev) => ({ ...prev, [id]: isOpen }));
-	}, []);
+	const handleToggle = useCallback(
+		(id: string) => (event: SyntheticEvent<HTMLDetailsElement>) => {
+			const isOpen = (event.currentTarget as HTMLDetailsElement)?.open ?? false;
+			setOpenSections((prev) => ({ ...prev, [id]: isOpen }));
+		},
+		[],
+	);
 
 	const expandAll = useCallback(() => {
-		setOpenSections({ "2fa": true, platform: true, password: true, smtp: true, runtime: true });
+		setOpenSections(Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, true])));
 	}, []);
 	const collapseAll = useCallback(() => {
-		setOpenSections({ "2fa": false, platform: false, password: false, smtp: false, runtime: false });
+		setOpenSections(Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, false])));
 	}, []);
 
 	// Apply URL hash (e.g. /settings#runtime) on mount: open the section and scroll into view.
@@ -145,7 +81,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 		if (typeof window === "undefined") return;
 		const hash = window.location.hash.replace(/^#/, "");
 		if (!hash) return;
-		if (hash in openSections) {
+		if (SETTINGS_SCHEMA.some((s) => s.id === hash)) {
 			hashAppliedRef.current = true;
 			// eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端读取 window.location.hash 后才能决定是否展开对应分组；SSR 阶段无法获得 hash。
 			setOpenSections((prev) => ({ ...prev, [hash]: true }));
@@ -155,7 +91,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 				el?.scrollIntoView({ behavior: "smooth", block: "start" });
 			}, 50);
 		}
-	}, [openSections]);
+	}, []);
 
 	const updateField = (key: string, value: string) => {
 		setSettings((prev) => ({ ...prev, [key]: value }));
@@ -164,40 +100,48 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 	};
 	const runtimeSummaryByKey = new Map(runtimeSettings.map((item) => [item.key, item]));
 
-	const handleSave = useCallback(async (section: string, keys: string[]) => {
-		const validationErrors = keys
-			.map((key) => validateSettingValue(key, settings[key] ?? ""))
-			.filter((message): message is string => Boolean(message));
-		if (validationErrors.length > 0) {
-			setError(validationErrors.join("；"));
-			setSaved(false);
-			setSavedMessage(null);
-			return;
-		}
-		setSaving(true);
-		setError(null);
-		try {
-			const payload: Record<string, string> = {};
-			for (const k of keys) {
-				payload[k] = settings[k] ?? "";
-			}
-			await csrfFetch("/api/settings", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
-			});
-			setSaved(true);
-			setSavedMessage(SECTION_SAVE_MESSAGES[section] ?? "设置已保存。");
-			setTimeout(() => {
+	const handleSave = useCallback(
+		async (section: SectionDef) => {
+			const keys = getSectionSaveKeys(section);
+			if (keys.length === 0) return;
+			const validationErrors = keys
+				.map((key) => {
+					const field = section.fields.find((f) => f.key === key);
+					return field?.validate ? field.validate(settings[key] ?? "", settings) : null;
+				})
+				.filter((message): message is string => Boolean(message));
+			if (validationErrors.length > 0) {
+				setError(validationErrors.join("；"));
 				setSaved(false);
 				setSavedMessage(null);
-			}, 5000);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "保存失败");
-		} finally {
-			setSaving(false);
-		}
-	}, [settings]);
+				return;
+			}
+			setSaving(true);
+			setError(null);
+			try {
+				const payload: Record<string, string> = {};
+				for (const k of keys) {
+					payload[k] = settings[k] ?? "";
+				}
+				await csrfFetch("/api/settings", {
+					method: "PATCH",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				setSaved(true);
+				setSavedMessage(section.saveMessage || "设置已保存。");
+				setTimeout(() => {
+					setSaved(false);
+					setSavedMessage(null);
+				}, 5000);
+			} catch (err) {
+				setError(err instanceof Error ? err.message : "保存失败");
+			} finally {
+				setSaving(false);
+			}
+		},
+		[settings],
+	);
 
 	if (!canManage) {
 		return (
@@ -214,7 +158,9 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 				<div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200">{error}</div>
 			)}
 			{saved && (
-				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}</div>
+				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">
+					✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}
+				</div>
 			)}
 
 			{/* Quick-jump TOC + expand/collapse all */}
@@ -242,7 +188,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 					</div>
 				</div>
 				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-					{TOC_ITEMS.map((item) => (
+					{buildTocItems().map((item) => (
 						<a
 							key={item.id}
 							href={`#${item.id}`}
@@ -260,118 +206,158 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 				</div>
 			</nav>
 
-			{/* Account security */}
-			<CollapsibleSection
-				id="2fa"
-				icon="🛡️"
-				title="账户安全"
-				description="当前登录账号的二次验证集中在系统设置中管理，避免分散在侧栏底部入口。"
-				badge="2FA"
-				open={openSections["2fa"] ?? true}
-				onToggle={handleToggle("2fa")}
-			>
-				<TwoFactorSettings enabled={twoFactorEnabled} />
-			</CollapsibleSection>
-
-			{/* Platform */}
-			<CollapsibleSection
-				id="platform"
-				icon="🌐"
-				title="平台信息"
-				description="保存后新打开或刷新后的页面会读取最新品牌信息；Logo 支持 http(s) 地址或站内 `/...` 路径。"
-				badge={`${SECTION_KEYS.platform?.length ?? 0} 项`}
-				open={openSections.platform ?? true}
-				onToggle={handleToggle("platform")}
-				headerExtra={<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.platform ?? [], settingUpdateMetadata)} />}
-			>
-				<Field label="平台名称" value={settings["platform.name"] ?? ""} onChange={(v) => updateField("platform.name", v)} placeholder="VPS 统一管控平台" helperText="不能为空，最多 80 个字符；用于页面标题和公开品牌文案。" />
-				<Field label="Logo URL" value={settings["platform.logo"] ?? ""} onChange={(v) => updateField("platform.logo", v)} placeholder="https://example.com/logo.png" helperText="留空则不显示 Logo；支持 http(s) 或 /icon.png 这类站内路径。" />
-				<SaveButton onClick={() => handleSave("platform", ["platform.name", "platform.logo"])} saving={saving} />
-			</CollapsibleSection>
-
-			{/* Session */}
-			<CollapsibleSection
-				id="password"
-				icon="🔐"
-				title="会话与安全"
-				description="会话超时只影响保存后的新登录；密码策略会立即用于创建用户、重置密码和账号改密。"
-				badge={`${SECTION_KEYS.session?.length ?? 0} 项`}
-				open={openSections.password ?? true}
-				onToggle={handleToggle("password")}
-				headerExtra={<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.session ?? [], settingUpdateMetadata)} />}
-			>
-				<Field label="会话超时（秒）" value={settings["session.timeout"] ?? ""} onChange={(v) => updateField("session.timeout", v)} placeholder="86400" type="number" helperText="300–2592000 秒；已有 session 不会被 retroactively 缩短。" />
-				<Field label="密码最小长度" value={settings["password.minLength"] ?? ""} onChange={(v) => updateField("password.minLength", v)} placeholder="8" type="number" helperText="8–128 位；保存后立即约束新密码。" />
-				<SwitchField label="要求大写字母" value={settings["password.requireUppercase"] === "true"} onChange={(v) => updateField("password.requireUppercase", v ? "true" : "false")} />
-				<SwitchField label="要求数字" value={settings["password.requireNumber"] === "true"} onChange={(v) => updateField("password.requireNumber", v ? "true" : "false")} />
-				<SwitchField label="要求特殊字符" value={settings["password.requireSpecial"] === "true"} onChange={(v) => updateField("password.requireSpecial", v ? "true" : "false")} />
-				<SaveButton onClick={() => handleSave("session", ["session.timeout", "password.minLength", "password.requireUppercase", "password.requireNumber", "password.requireSpecial"])} saving={saving} />
-			</CollapsibleSection>
-
-			{/* Runtime tuning */}
-			<CollapsibleSection
-				id="runtime"
-				icon="⚙️"
-				title="运行参数"
-				description="非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。"
-				badge={`${SECTION_KEYS.runtime?.length ?? 0} 项 · 高级`}
-				open={openSections.runtime ?? false}
-				onToggle={handleToggle("runtime")}
-				headerExtra={<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.runtime ?? [], settingUpdateMetadata)} />}
-			>
-				<div data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50">
-					当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
-				</div>
-				<div className="grid gap-4 md:grid-cols-2">
-					<Field label="命令执行超时（毫秒）" value={settings["runtime.commandExecutionTimeoutMs"] ?? "300000"} onChange={(v) => updateField("runtime.commandExecutionTimeoutMs", v)} placeholder="300000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandExecutionTimeoutMs")} />
-					<Field label="命令输出保留上限（字节）" value={settings["runtime.commandOutputLimitBytes"] ?? "262144"} onChange={(v) => updateField("runtime.commandOutputLimitBytes", v)} placeholder="262144" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandOutputLimitBytes")} />
-					<Field label="命令卡死判定时间（毫秒）" value={settings["runtime.commandStaleRunningAfterMs"] ?? "600000"} onChange={(v) => updateField("runtime.commandStaleRunningAfterMs", v)} placeholder="600000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandStaleRunningAfterMs")} />
-					<Field label="命令执行心跳间隔（毫秒）" value={settings["runtime.commandExecutionHeartbeatMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandExecutionHeartbeatMs", v)} placeholder="60000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandExecutionHeartbeatMs")} />
-					<Field label="命令维护扫描间隔（毫秒，需重启）" value={settings["runtime.commandReconcileIntervalMs"] ?? "60000"} onChange={(v) => updateField("runtime.commandReconcileIntervalMs", v)} placeholder="60000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.commandReconcileIntervalMs")} />
-					<Field label="SFTP 单目录同步超时（毫秒）" value={settings["runtime.sftpSyncDirectoryTimeoutMs"] ?? "60000"} onChange={(v) => updateField("runtime.sftpSyncDirectoryTimeoutMs", v)} placeholder="60000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sftpSyncDirectoryTimeoutMs")} />
-					<Field label="SSH WebSocket 心跳间隔（毫秒，需重启）" value={settings["runtime.sshWsHeartbeatIntervalMs"] ?? "25000"} onChange={(v) => updateField("runtime.sshWsHeartbeatIntervalMs", v)} placeholder="25000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sshWsHeartbeatIntervalMs")} />
-					<Field label="SSH keepalive 间隔（毫秒，需重启）" value={settings["runtime.sshKeepaliveIntervalMs"] ?? "30000"} onChange={(v) => updateField("runtime.sshKeepaliveIntervalMs", v)} placeholder="30000" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sshKeepaliveIntervalMs")} />
-					<Field label="SSH keepalive 容忍次数（需重启，默认强保活）" value={settings["runtime.sshKeepaliveCountMax"] ?? "60"} onChange={(v) => updateField("runtime.sshKeepaliveCountMax", v)} placeholder="60" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.sshKeepaliveCountMax")} />
-					<Field label="任务中心列表上限（条）" value={settings["runtime.operationTaskListLimit"] ?? "100"} onChange={(v) => updateField("runtime.operationTaskListLimit", v)} placeholder="100" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.operationTaskListLimit")} />
-					<Field label="AI 提供商列表上限（条）" value={settings["runtime.aiProviderListLimit"] ?? "100"} onChange={(v) => updateField("runtime.aiProviderListLimit", v)} placeholder="100" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.aiProviderListLimit")} />
-					<Field label="AI 对话列表上限（条）" value={settings["runtime.aiConversationListLimit"] ?? "200"} onChange={(v) => updateField("runtime.aiConversationListLimit", v)} placeholder="200" type="number" runtimeSummary={runtimeSummaryByKey.get("runtime.aiConversationListLimit")} />
-				</div>
-				<SaveButton onClick={() => handleSave("runtime", ["runtime.commandExecutionTimeoutMs", "runtime.commandOutputLimitBytes", "runtime.commandStaleRunningAfterMs", "runtime.commandExecutionHeartbeatMs", "runtime.commandReconcileIntervalMs", "runtime.sftpSyncDirectoryTimeoutMs", "runtime.sshWsHeartbeatIntervalMs", "runtime.sshKeepaliveIntervalMs", "runtime.sshKeepaliveCountMax", "runtime.operationTaskListLimit", "runtime.aiProviderListLimit", "runtime.aiConversationListLimit"])} saving={saving} />
-			</CollapsibleSection>
-
-			{/* SMTP */}
-			<CollapsibleSection
-				id="smtp"
-				icon="📧"
-				title="邮件通知（SMTP）"
-				description={settings["smtp.enabled"] === "true" ? "SMTP 已启用，告警规则选择 email 渠道时会发送到下方收件人。" : "SMTP 未启用，连接参数会保留但不会被用于发送邮件。启用后可在告警规则中选择 email 渠道。"}
-				badge={settings["smtp.enabled"] === "true" ? "已启用" : "未启用"}
-				badgeTone={settings["smtp.enabled"] === "true" ? "emerald" : "slate"}
-				open={openSections.smtp ?? false}
-				onToggle={handleToggle("smtp")}
-				headerExtra={
-					<div className="flex flex-col gap-3 sm:items-end">
-						<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.smtp ?? [], settingUpdateMetadata)} />
-						<SwitchField label="启用 SMTP" value={settings["smtp.enabled"] === "true"} onChange={(v) => updateField("smtp.enabled", v ? "true" : "false")} />
-					</div>
-				}
-				asForm
-			>
-				<div className="grid gap-4 md:grid-cols-2" aria-disabled={settings["smtp.enabled"] !== "true"}>
-					<Field label="SMTP 服务器" value={settings["smtp.host"] ?? ""} onChange={(v) => updateField("smtp.host", v)} placeholder="smtp.example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
-					<Field label="端口" value={settings["smtp.port"] ?? ""} onChange={(v) => updateField("smtp.port", v)} placeholder="587" type="number" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "1–65535；常用 465/587。"} />
-					<Field label="用户名" value={settings["smtp.user"] ?? ""} onChange={(v) => updateField("smtp.user", v)} placeholder="user@example.com" autoComplete="username" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
-					<Field label="密码" value={settings["smtp.pass"] ?? ""} onChange={(v) => updateField("smtp.pass", v)} placeholder="••••••••" type="password" autoComplete="new-password" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : undefined} />
-					<Field label="发件人地址" value={settings["smtp.from"] ?? ""} onChange={(v) => updateField("smtp.from", v)} placeholder="noreply@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "保存前会校验邮箱格式。"} />
-					<Field label="告警收件人" value={settings["smtp.alertRecipients"] ?? ""} onChange={(v) => updateField("smtp.alertRecipients", v)} placeholder="ops@example.com, admin@example.com" disabled={settings["smtp.enabled"] !== "true"} helperText={settings["smtp.enabled"] !== "true" ? "启用 SMTP 后可编辑" : "多个地址可用逗号、分号或换行分隔；告警测试和真实告警共用此列表。"} />
-				</div>
-				<SaveButton onClick={() => handleSave("smtp", ["smtp.enabled", "smtp.host", "smtp.port", "smtp.user", "smtp.pass", "smtp.from", "smtp.alertRecipients"])} saving={saving} />
-			</CollapsibleSection>
+			{SETTINGS_SCHEMA.map((section) => (
+				<SchemaDrivenSection
+					key={section.id}
+					section={section}
+					open={openSections[section.id] ?? section.defaultOpen}
+					onToggle={handleToggle(section.id)}
+					settings={settings}
+					updateField={updateField}
+					runtimeSummaryByKey={runtimeSummaryByKey}
+					auditMetadata={latestSectionMetadata(getSectionSaveKeys(section), settingUpdateMetadata)}
+					saving={saving}
+					onSave={() => handleSave(section)}
+					twoFactorEnabled={twoFactorEnabled}
+				/>
+			))}
 		</div>
 	);
 }
 
-/* ── Sub-components ───────────────────────────────────────── */
+/* ── Section renderer ────────────────────────────────────── */
+
+type SchemaDrivenSectionProps = {
+	section: SectionDef;
+	open: boolean;
+	onToggle: (event: SyntheticEvent<HTMLDetailsElement>) => void;
+	settings: Record<string, string>;
+	updateField: (key: string, value: string) => void;
+	runtimeSummaryByKey: Map<string, RuntimeSettingSummary>;
+	auditMetadata: SettingUpdateMetadata | null;
+	saving: boolean;
+	onSave: () => void;
+	twoFactorEnabled: boolean;
+};
+
+function SchemaDrivenSection({
+	section,
+	open,
+	onToggle,
+	settings,
+	updateField,
+	runtimeSummaryByKey,
+	auditMetadata,
+	saving,
+	onSave,
+	twoFactorEnabled,
+}: SchemaDrivenSectionProps) {
+	const Inner = section.asForm ? "form" : "div";
+	const saveKeys = getSectionSaveKeys(section);
+	const hasSaveButton = saveKeys.length > 0;
+	const description = typeof section.description === "function" ? section.description(settings) : section.description;
+	const badge = typeof section.badge === "function" ? section.badge(settings) : section.badge;
+	const badgeToneRaw = typeof section.badgeTone === "function" ? section.badgeTone(settings) : section.badgeTone;
+	const badgeTone: BadgeTone = badgeToneRaw ?? "cyan";
+
+	// SMTP 的 header switch 渲染到 headerExtra 里。
+	const headerSwitchField = section.headerSwitchKey
+		? section.fields.find((f) => f.key === section.headerSwitchKey)
+		: undefined;
+	const headerExtra = (
+		<div className="flex flex-col gap-3 lg:items-end">
+			<AuditSummary metadata={auditMetadata} />
+			{headerSwitchField && (
+				<SwitchField
+					label={headerSwitchField.label}
+					value={settings[headerSwitchField.key] === "true"}
+					onChange={(v) => updateField(headerSwitchField.key, v ? "true" : "false")}
+				/>
+			)}
+		</div>
+	);
+
+	return (
+		<CollapsibleSection
+			id={section.id}
+			icon={section.icon}
+			title={section.title}
+			description={description}
+			badge={
+				badge ??
+				(hasSaveButton
+					? `${saveKeys.length}${section.id === "runtime" ? " 项 · 高级" : " 项"}`
+					: section.id === "2fa" ? "2FA" : undefined)
+			}
+			badgeTone={badgeTone}
+			open={open}
+			onToggle={onToggle}
+			headerExtra={headerExtra}
+			asForm={section.asForm}
+		>
+			{section.id === "2fa" ? (
+				<TwoFactorSettings enabled={twoFactorEnabled} />
+			) : (
+				<>
+					{section.noticeBanner && (
+						<div
+							data-tone="cyan"
+							className="rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50"
+						>
+							{section.noticeBanner}
+						</div>
+					)}
+					{(() => {
+						const renderableFields = section.fields.filter(
+							(f) => f.key !== section.headerSwitchKey,
+						);
+						const gridClass =
+							section.layout === "grid-2"
+								? "grid gap-4 md:grid-cols-2"
+								: "space-y-4";
+						const gridAttrs =
+							section.id === "smtp"
+								? { "aria-disabled": settings["smtp.enabled"] !== "true" }
+								: {};
+						return (
+							<div className={gridClass} {...gridAttrs}>
+								{renderableFields.map((field) => {
+									const helperText =
+										typeof field.helperText === "function"
+											? field.helperText(settings)
+											: field.helperText;
+									const disabled = field.disabled ? field.disabled(settings) : false;
+									const value = settings[field.key] ?? field.defaultValue ?? "";
+									return (
+										<FieldRenderer
+											key={field.key}
+											field={field}
+											value={value}
+											disabled={disabled}
+											helperText={helperText}
+											onChange={(v) => updateField(field.key, v)}
+											runtimeSummary={runtimeSummaryByKey.get(field.key)}
+										/>
+									);
+								})}
+							</div>
+						);
+					})()}
+					{hasSaveButton && <SaveButton onClick={onSave} saving={saving} />}
+				</>
+			)}
+		</CollapsibleSection>
+	);
+}
+
+/* ── Sub-components ──────────────────────────────────────── */
+
+const BADGE_COLOR_CLASSES: Record<BadgeTone, string> = {
+	cyan: "bg-cyan-500/[0.12] text-cyan-200 border-cyan-400/30",
+	emerald: "bg-emerald-500/[0.12] text-emerald-200 border-emerald-400/30",
+	amber: "bg-amber-500/[0.12] text-amber-200 border-amber-400/30",
+	slate: "bg-slate-500/[0.12] text-slate-300 border-slate-400/30",
+};
 
 type CollapsibleSectionProps = {
 	id: string;
@@ -379,25 +365,29 @@ type CollapsibleSectionProps = {
 	title: string;
 	description: string;
 	badge?: string;
-	badgeTone?: "cyan" | "emerald" | "amber" | "slate";
+	badgeTone?: BadgeTone;
 	open: boolean;
-	onToggle: (event: React.SyntheticEvent<HTMLDetailsElement>) => void;
-	headerExtra?: React.ReactNode;
+	onToggle: (event: SyntheticEvent<HTMLDetailsElement>) => void;
+	headerExtra?: ReactNode;
 	asForm?: boolean;
-	children: React.ReactNode;
+	children: ReactNode;
 };
 
-function CollapsibleSection({ id, icon, title, description, badge, badgeTone = "cyan", open, onToggle, headerExtra, asForm = false, children }: CollapsibleSectionProps) {
-	const badgeColors: Record<string, string> = {
-		cyan: "bg-cyan-500/[0.12] text-cyan-200 border-cyan-400/30",
-		emerald: "bg-emerald-500/[0.12] text-emerald-200 border-emerald-400/30",
-		amber: "bg-amber-500/[0.12] text-amber-200 border-amber-400/30",
-		slate: "bg-slate-500/[0.12] text-slate-300 border-slate-400/30",
-	};
-	const badgeClass = badgeColors[badgeTone] ?? badgeColors.cyan;
-	const innerWrapperClass = asForm ? "" : "";
+function CollapsibleSection({
+	id,
+	icon,
+	title,
+	description,
+	badge,
+	badgeTone = "cyan",
+	open,
+	onToggle,
+	headerExtra,
+	asForm = false,
+	children,
+}: CollapsibleSectionProps) {
 	const Inner = asForm ? "form" : "div";
-
+	const badgeClass = BADGE_COLOR_CLASSES[badgeTone] ?? BADGE_COLOR_CLASSES.cyan;
 	return (
 		<section id={id} className="scroll-mt-24" data-card>
 			<details open={open} onToggle={onToggle} className="group">
@@ -432,7 +422,7 @@ function CollapsibleSection({ id, icon, title, description, badge, badgeTone = "
 					</div>
 				</summary>
 				<Inner
-					className={`px-5 pb-5 pt-1 space-y-4 ${innerWrapperClass}`}
+					className="px-5 pb-5 pt-1 space-y-4"
 					{...(asForm ? { onSubmit: (event: React.FormEvent) => event.preventDefault() } : {})}
 				>
 					{children}
@@ -452,35 +442,149 @@ function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) 
 	);
 }
 
-function Field({ label, value, onChange, placeholder, type = "text", autoComplete, disabled = false, helperText, runtimeSummary }: {
-	label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; autoComplete?: string; disabled?: boolean; helperText?: string; runtimeSummary?: RuntimeSettingSummary;
-}) {
+type FieldRendererProps = {
+	field: FieldDef;
+	value: string;
+	disabled: boolean;
+	helperText: string | undefined;
+	onChange: (value: string) => void;
+	runtimeSummary: RuntimeSettingSummary | undefined;
+};
+
+function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSummary }: FieldRendererProps) {
+	if (field.type === "switch") {
+		return (
+			<div className="flex items-center justify-between gap-3">
+				<span className="text-sm text-slate-300">{field.label}</span>
+				<SwitchField
+					label={field.label}
+					value={value === "true"}
+					onChange={(v) => onChange(v ? "true" : "false")}
+				/>
+			</div>
+		);
+	}
+	if (field.type === "textarea") {
+		return (
+			<TextAreaField
+				field={field}
+				value={value}
+				disabled={disabled}
+				helperText={helperText}
+				onChange={onChange}
+			/>
+		);
+	}
+	return (
+		<InputField
+			field={field}
+			value={value}
+			disabled={disabled}
+			helperText={helperText}
+			onChange={onChange}
+			runtimeSummary={runtimeSummary}
+		/>
+	);
+}
+
+type InputFieldProps = {
+	field: FieldDef;
+	value: string;
+	disabled: boolean;
+	helperText: string | undefined;
+	onChange: (value: string) => void;
+	runtimeSummary: RuntimeSettingSummary | undefined;
+};
+
+function InputField({ field, value, disabled, helperText, onChange, runtimeSummary }: InputFieldProps) {
 	const inputId = useId();
 	const helperId = useId();
 	const runtimeId = useId();
-	const describedBy = [helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
+	const describedBy =
+		[helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
 	return (
-		<div className={`space-y-1.5 rounded-lg border p-3 transition ${disabled ? "border-white/[0.04] bg-slate-950/20 opacity-70 light:bg-slate-100/80" : "border-transparent bg-white/[0.01]"}`}>
-			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">{label}</label>
+		<div
+			className={`space-y-1.5 rounded-lg border p-3 transition ${
+				disabled
+					? "border-white/[0.04] bg-slate-950/20 opacity-70 light:bg-slate-100/80"
+					: "border-transparent bg-white/[0.01]"
+			}`}
+		>
+			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">
+				{field.label}
+			</label>
 			<input
 				id={inputId}
-				type={type}
+				type={field.type}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				placeholder={placeholder}
-				autoComplete={autoComplete}
+				placeholder={field.placeholder}
+				autoComplete={field.autoComplete}
 				disabled={disabled}
 				aria-describedby={describedBy}
 				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
 			/>
-			{helperText && <p id={helperId} className="text-xs text-white">{helperText}</p>}
+			{helperText && (
+				<p id={helperId} className="text-xs text-white">
+					{helperText}
+				</p>
+			)}
 			{runtimeSummary && (
-				<div id={runtimeId} className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300">
-					<p>当前运行值：<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}</p>
+				<div
+					id={runtimeId}
+					className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
+				>
+					<p>
+						当前运行值：<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}
+					</p>
 					<p>生效位置：{runtimeSummary.applies}</p>
-					<p>环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}{runtimeSummary.unit}</p>
-					{runtimeSummary.requiresRestart && <p className="font-medium text-amber-200">保存后需重启对应服务才会改变已启动进程。</p>}
+					<p>
+						环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}
+						{runtimeSummary.unit}
+					</p>
+					{runtimeSummary.requiresRestart && (
+						<p className="font-medium text-amber-200">保存后需重启对应服务才会改变已启动进程。</p>
+					)}
 				</div>
+			)}
+		</div>
+	);
+}
+
+type TextAreaFieldProps = {
+	field: FieldDef;
+	value: string;
+	disabled: boolean;
+	helperText: string | undefined;
+	onChange: (value: string) => void;
+};
+
+function TextAreaField({ field, value, disabled, helperText, onChange }: TextAreaFieldProps) {
+	const inputId = useId();
+	const helperId = useId();
+	return (
+		<div
+			className={`space-y-1.5 rounded-lg border p-3 transition ${
+				disabled ? "border-white/[0.04] bg-slate-950/20 opacity-70" : "border-transparent bg-white/[0.01]"
+			}`}
+		>
+			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">
+				{field.label}
+			</label>
+			<textarea
+				id={inputId}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={field.placeholder}
+				disabled={disabled}
+				aria-describedby={helperText ? helperId : undefined}
+				rows={4}
+				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed"
+			/>
+			{helperText && (
+				<p id={helperId} className="text-xs text-white">
+					{helperText}
+				</p>
 			)}
 		</div>
 	);
