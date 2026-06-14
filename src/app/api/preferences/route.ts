@@ -18,6 +18,8 @@ const prefsSchema = z.object({
   notificationsEnabled: z.boolean().optional(),
   notificationSound: z.boolean().optional(),
   autoRefreshInterval: z.number().optional(),
+  autoProbeEnabled: z.boolean().optional(),
+  autoProbeIntervalSec: z.number().optional(),
 });
 
 const defaultPreferences = defaultUserPreferences;

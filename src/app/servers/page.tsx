@@ -14,7 +14,6 @@ import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
 import { ServerOverviewCard } from "./server-overview-card";
 import { AutoProbeProvider } from "./auto-probe-context";
-import { AutoProbeControls } from "./auto-probe-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +72,6 @@ export default async function ServersPage() {
 			<ServerTabLayout
 				nodesPanel={
 					<div className="space-y-4">
-						<AutoProbeControls />
 						<section aria-label="VPS 状态总览" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 							{servers.length === 0 ? (
 								<EmptyState text="暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。" />

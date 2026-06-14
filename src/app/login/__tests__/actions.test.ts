@@ -55,6 +55,8 @@ describe("login action", () => {
 			notificationsEnabled: true,
 			notificationSound: true,
 			autoRefreshInterval: 30,
+			autoProbeEnabled: true,
+			autoProbeIntervalSec: 60,
 		},
 	});
     vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");
@@ -88,6 +90,8 @@ describe("login action", () => {
 			notificationsEnabled: true,
 			notificationSound: true,
 			autoRefreshInterval: 30,
+			autoProbeEnabled: true,
+			autoProbeIntervalSec: 60,
 		},
 	});
     vi.mocked(createSessionToken).mockResolvedValueOnce("signed-token");

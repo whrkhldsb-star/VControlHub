@@ -187,7 +187,8 @@ describe("Schema declaration order", () => {
 describe("SSH idle timeout (select field)", () => {
 	const idleField = SETTINGS_SCHEMA.find((s) => s.id === "runtime")?.fields.find(
 		(f) => f.key === "runtime.sshIdleTimeoutSec",
-	)!;
+	);
+	if (!idleField) throw new Error("runtime.sshIdleTimeoutSec field missing from schema");
 
 	it("uses a select type with six presets", () => {
 		expect(idleField.type).toBe("select");

@@ -92,24 +92,35 @@ vi.mock("../server-create-form", () => ({
   ),
 }));
 
+vi.mock("@/lib/auth/csrf-client", () => ({
+  csrfFetch: vi.fn(),
+}));
+
 vi.mock("@/lib/server/service", () => ({
   listServerProfiles: serviceMocks.listServerProfilesMock,
 }));
 
-// 自动探测默认开启，会在挂载后立即调用 /api/servers/monitor。
-// 这里默认关闭，让既有测试聚焦在「手动探测 + 状态徽章」语义；
-// 单独的自动探测测试会显式打开。
+import { csrfFetch } from "@/lib/auth/csrf-client";
+
+// 自动探测默认开启，进入 /servers 后会立即调用 /api/servers/monitor。
+// 这里默认 mock /api/preferences 返回 autoProbeEnabled=false，让既有测试
+// 聚焦在「手动探测 + 状态徽章」语义；单独的自动探测测试会显式打开。
 beforeEach(() => {
-  if (typeof window !== "undefined" && window.localStorage) {
-    window.localStorage.setItem("vch.servers.autoProbe.enabled", "false");
-  }
+  vi.mocked(csrfFetch).mockReset();
+  vi.mocked(csrfFetch).mockImplementation(async (input) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.endsWith("/api/preferences")) {
+      return {
+        autoProbeEnabled: false,
+        autoProbeIntervalSec: 60,
+      };
+    }
+    return undefined;
+  });
 });
 
 afterEach(() => {
-  if (typeof window !== "undefined" && window.localStorage) {
-    window.localStorage.removeItem("vch.servers.autoProbe.enabled");
-    window.localStorage.removeItem("vch.servers.autoProbe.intervalSec");
-  }
+  vi.mocked(csrfFetch).mockReset();
 });
 
 import ServersPage from "../page";
@@ -271,9 +282,17 @@ describe("ServersPage", () => {
   });
 
   it("auto-probes enabled servers on mount when 自动探测 is on", async () => {
-    // 强制开启自动探测
-    window.localStorage.setItem("vch.servers.autoProbe.enabled", "true");
-    window.localStorage.setItem("vch.servers.autoProbe.intervalSec", "60");
+    // 强制开启自动探测: mock /api/preferences 返回 enabled=true
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.endsWith("/api/preferences")) {
+        return {
+          autoProbeEnabled: true,
+          autoProbeIntervalSec: 60,
+        };
+      }
+      return undefined;
+    });
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -305,27 +324,24 @@ describe("ServersPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders auto-probe controls with default enabled state", async () => {
-    // 让 hook 读到 enabled=true（默认值）
-    window.localStorage.removeItem("vch.servers.autoProbe.enabled");
+  it("does not surface the page-level auto-probe controls (they moved to /preferences)", async () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([]);
 
-    // fetch 不应被调用——0 节点时无卡片触发
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
     render(await ServersPage());
 
+    // 等 hydrate 完
     await waitFor(() => {
-      const checkbox = screen.getByRole("checkbox", {
-        name: "启用 VPS 自动探测",
-      }) as HTMLInputElement;
-      expect(checkbox.checked).toBe(true);
+      // /servers 页面已经不再渲染 auto-probe checkbox / combobox
+      expect(
+        screen.queryByRole("checkbox", { name: "启用 VPS 自动探测" }),
+      ).not.toBeInTheDocument();
     });
-
     expect(
-      screen.getByRole("combobox", { name: "自动探测间隔" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("combobox", { name: "自动探测间隔" }),
+    ).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });

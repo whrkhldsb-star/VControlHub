@@ -57,22 +57,44 @@ describe("/api/preferences", () => {
         notificationsEnabled: false,
         notificationSound: false,
         autoRefreshInterval: 999,
+        autoProbeIntervalSec: 45, // not in preset list, falls back to default
         compactMode: true,
       }),
     }));
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({
+    expect(body).toEqual(expect.objectContaining({
       defaultPage: "/files",
       dashboardWidgets: ["quick-links"],
       notificationsEnabled: false,
       notificationSound: false,
       autoRefreshInterval: 300,
-    });
+      // autoProbeIntervalSec wasn't in preset list → falls back to DEFAULT_AUTO_PROBE_INTERVAL_SEC (60)
+      autoProbeIntervalSec: 60,
+    }));
+    expect(body).not.toHaveProperty("compactMode");
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "u_1" },
       data: { preferences: body },
     });
+  });
+
+  it("persists explicit auto-probe settings end-to-end", async () => {
+    const response = await PUT(new Request("http://local/api/preferences", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        autoProbeEnabled: false,
+        autoProbeIntervalSec: 300,
+      }),
+    }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({
+      autoProbeEnabled: false,
+      autoProbeIntervalSec: 300,
+    }));
   });
 });

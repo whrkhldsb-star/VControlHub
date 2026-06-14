@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
+import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
 import {
 	defaultUserPreferences,
 	normalizeUserPreferences,
@@ -60,14 +61,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 /** Toggle switch — extracted to module top to avoid re-creation on every render */
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+	// HTML id 不允许空格 / 斜杠 / 中文等字符; 用稳定 hash 替代文字 id,
+	// 这样 aria-labelledby 在长 label (含中点 / URL) 下也能正确解析。
+	const sanitizedId = `preference-toggle-${hashLabel(label)}`;
 	return (
 		<div className="flex items-center justify-between">
-			<span id={`preference-toggle-${label}`} className="text-sm text-[var(--text-secondary)]">{label}</span>
+			<span id={sanitizedId} className="text-sm text-[var(--text-secondary)]">{label}</span>
 			<button
 				type="button"
 				role="switch"
 				aria-checked={checked}
-				aria-labelledby={`preference-toggle-${label}`}
+				aria-labelledby={sanitizedId}
 				onClick={() => onChange(!checked)}
 				className={`relative w-10 h-5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${checked ? "bg-cyan-500" : "bg-slate-700"}`}
 			>
@@ -75,6 +79,17 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
 			</button>
 		</div>
 	);
+}
+
+function hashLabel(label: string): string {
+	// FNV-1a 32-bit — 稳定、轻量、零依赖。足够给 label → id 散列用。
+	let h = 0x811c9dc5;
+	for (let i = 0; i < label.length; i++) {
+		h ^= label.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	// 转无符号 + 8 位 hex
+	return (h >>> 0).toString(16).padStart(8, "0");
 }
 
 export default function PreferencesPage() {
@@ -238,7 +253,34 @@ export default function PreferencesPage() {
 					</div>
 					<p className="text-[11px] text-slate-500">控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。</p>
 				</Section>
-			</div>
-		</PageShell>
-	);
+
+				<Section title="🛰️ VPS 自动探测">
+					<Toggle
+						label="进入 /servers 页面时自动调用 /api/servers/monitor"
+						checked={prefs.autoProbeEnabled}
+						onChange={(v) => save({ ...prefs, autoProbeEnabled: v })}
+					/>
+					<div className="flex flex-wrap gap-2">
+						{AUTO_PROBE_INTERVAL_OPTIONS.map((opt) => (
+							<button
+								key={opt.value}
+								onClick={() => save({ ...prefs, autoProbeIntervalSec: opt.value })}
+								disabled={!prefs.autoProbeEnabled}
+								className={`px-3 py-1.5 text-xs rounded-lg border transition ${
+									prefs.autoProbeIntervalSec === opt.value
+										? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
+										: "border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]"
+								} disabled:opacity-50 disabled:cursor-not-allowed`}
+							>
+								{opt.label}
+							</button>
+						))}
+					</div>
+					<p className="text-[11px] text-slate-500">
+						周期性 SSH 只读采样，仅在节点启用且「自动探测」打开时生效。调短间隔可以更快发现异常，调长则减轻 VPS 负载。
+					</p>
+				</Section>
+				</div>
+				</PageShell>
+				);
 }

@@ -1,4 +1,5 @@
 import { DEFAULT_REFRESH_INTERVAL_SECONDS, normalizeRefreshIntervalSeconds } from "./refresh-interval";
+import { DEFAULT_AUTO_PROBE_INTERVAL_SEC, normalizeAutoProbeIntervalSec } from "./auto-probe";
 
 export type DashboardWidgetId = (typeof DASHBOARD_WIDGET_IDS)[number];
 export type DefaultPageOption = (typeof DEFAULT_PAGE_OPTIONS)[number];
@@ -9,6 +10,8 @@ export type UserPreferences = {
   notificationsEnabled: boolean;
   notificationSound: boolean;
   autoRefreshInterval: number;
+  autoProbeEnabled: boolean;
+  autoProbeIntervalSec: number;
 };
 
 export const DASHBOARD_WIDGET_IDS = ["server-status", "quick-links", "analytics", "audit-log"] as const;
@@ -20,6 +23,8 @@ export const defaultUserPreferences: UserPreferences = {
   notificationsEnabled: true,
   notificationSound: true,
   autoRefreshInterval: DEFAULT_REFRESH_INTERVAL_SECONDS,
+  autoProbeEnabled: true,
+  autoProbeIntervalSec: DEFAULT_AUTO_PROBE_INTERVAL_SEC,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,5 +52,7 @@ export function normalizeUserPreferences(value: unknown): UserPreferences {
     notificationsEnabled: typeof source.notificationsEnabled === "boolean" ? source.notificationsEnabled : defaultUserPreferences.notificationsEnabled,
     notificationSound: typeof source.notificationSound === "boolean" ? source.notificationSound : defaultUserPreferences.notificationSound,
     autoRefreshInterval: normalizeRefreshIntervalSeconds(source.autoRefreshInterval, defaultUserPreferences.autoRefreshInterval),
+    autoProbeEnabled: typeof source.autoProbeEnabled === "boolean" ? source.autoProbeEnabled : defaultUserPreferences.autoProbeEnabled,
+    autoProbeIntervalSec: normalizeAutoProbeIntervalSec(source.autoProbeIntervalSec, defaultUserPreferences.autoProbeIntervalSec),
   };
 }

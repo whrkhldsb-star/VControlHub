@@ -151,4 +151,35 @@ describe("PreferencesPage", () => {
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");
 		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
 	});
+
+	it("exposes the auto-probe toggle and interval under the new VPS 自动探测 section", async () => {
+		vi.mocked(csrfFetch).mockResolvedValueOnce({
+			...serverPrefs,
+			autoProbeEnabled: true,
+			autoProbeIntervalSec: 60,
+		});
+
+		render(<PreferencesPageClient />);
+
+		// 等 /api/preferences 加载 + 切到 enabled=true
+		expect(await screen.findByRole("heading", { name: /VPS 自动探测/ })).toBeInTheDocument();
+		const toggle = screen.getByRole("switch", { name: "进入 /servers 页面时自动调用 /api/servers/monitor" }) as HTMLButtonElement;
+		expect(toggle).toHaveAttribute("aria-checked", "true");
+		expect(screen.getByRole("button", { name: "1 分钟" })).toHaveClass("border-cyan-500/50");
+	});
+
+	it("disables the auto-probe interval picker when 自动探测 is off", async () => {
+		vi.mocked(csrfFetch).mockResolvedValueOnce({
+			...serverPrefs,
+			autoProbeEnabled: false,
+			autoProbeIntervalSec: 60,
+		});
+
+		render(<PreferencesPageClient />);
+
+		const toggle = await screen.findByRole("switch", { name: "进入 /servers 页面时自动调用 /api/servers/monitor" });
+		expect(toggle).toHaveAttribute("aria-checked", "false");
+		const intervalButton = screen.getByRole("button", { name: "1 分钟" });
+		expect(intervalButton).toBeDisabled();
+	});
 });
