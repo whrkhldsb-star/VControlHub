@@ -13,6 +13,7 @@ import { AiProviderPanel } from "./ai-provider-panel";
 import { AiConfirmDialog } from "./ai-confirm-dialog";
 import { useFileAttachments } from "./hooks/use-file-attachments";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
+import { useConversations } from "./hooks/use-conversations";
 import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -27,9 +28,19 @@ export function AiClient({
 }) {
  const { addToast } = useToast();
  const [providers, setProviders] = useState(initialProviders);
-  const [conversations, setConversations] = useState(initialConversations);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Conversation + active id + messages now live in useConversations
+  // (R24); the client still writes the message list directly during
+  // streaming via the returned `setMessages`.
+  const {
+    conversations,
+    activeConvId,
+    setActiveConvId,
+    activeConv,
+    messages,
+    setMessages,
+    refreshConversations,
+    autoTitle,
+  } = useConversations({ initialConversations });
   const [input, setInput] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState("");
@@ -62,7 +73,7 @@ export function AiClient({
  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const activeConv = conversations.find((c) => c.id === activeConvId);
+  // activeConv now comes from useConversations (R24)
   const activeProvider = activeConv
     ? providers.find((p) => p.id === activeConv.providerId)
     : null;
@@ -95,19 +106,7 @@ export function AiClient({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamContent, streamReasoning]);
 
-  // Fetch messages when conversation changes
-  useEffect(() => {
-    if (!activeConvId) {
-
-      setMessages([]);
-      return;
-    }
-	csrfFetch(`/api/ai/conversations/${activeConvId}`)
-			.then((data) => {
-				if (data.conversation?.messages) setMessages(data.conversation.messages);
-			})
-			.catch(() => {});
-	}, [activeConvId]);
+  // Fetch messages when conversation changes — moved to useConversations (R24)
 
   // Fetch models when provider changes
 	const fetchModels = useCallback(async (providerId: string) => {
@@ -131,11 +130,8 @@ export function AiClient({
     }
   }, [activeConv?.providerId, fetchModels]);
 
-  // Refresh conversation list
-	const refreshConversations = useCallback(async () => {
-		const data = await csrfFetch("/api/ai/conversations");
-		if (data.conversations) setConversations(data.conversations);
-	}, []);
+  // Refresh conversation list — moved to useConversations (R24)
+  // refreshProviders stays here because it manages the local `providers` state.
 
 	const refreshProviders = useCallback(async () => {
 		const data = await csrfFetch("/api/ai/providers");
@@ -357,19 +353,7 @@ if (data.conversation) {
     }
   };
 
-  /* ── Auto-title: generate from first message ──────────────── */
-  const autoTitle = useCallback(async (convId: string, firstMsg: string) => {
-    const title = firstMsg.slice(0, 30).replace(/\n/g, " ").trim();
-    if (!title || title === "(附件)") return;
-    try {
-      await csrfFetch(`/api/ai/conversations/${convId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title + (firstMsg.length > 30 ? "..." : "") }),
-      });
-      refreshConversations();
-    } catch { /* ignore */ }
-  }, [refreshConversations]);
+  /* ── Auto-title moved to useConversations.autoTitle (R24) ── */
 
   /* ── Delete Conversation ──────────────────────────────────── */
   const handleDeleteConv = (id: string) => {
