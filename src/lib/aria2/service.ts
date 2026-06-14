@@ -2,6 +2,12 @@ import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
 import { access, constants } from "fs/promises";
 import path from "path";
 import { getAppSlug } from "@/lib/branding";
+import {
+  MISSING_ARIA2_BINARY_MESSAGE,
+  isMissingAria2BinaryError,
+  spawnAria2Detached,
+} from "@/lib/aria2/command-runner";
+import { postAria2Rpc } from "@/lib/aria2/provider-http";
 
 /* ── Aria2 RPC Configuration ──────────────────────────────── */
 
@@ -77,9 +83,8 @@ export function buildAria2SpawnArgs(confPath: string): string[] {
 
 export function getPublicAria2Error(error: unknown): string {
 	if (error instanceof Error) {
-		const code = (error as { code?: string }).code;
-		if (code === "ENOENT" || error.message.includes("spawn aria2c ENOENT")) {
-			return "aria2c 未安装，无法执行磁力/BT 中转下载，请在服务器安装 aria2";
+		if (isMissingAria2BinaryError(error)) {
+			return MISSING_ARIA2_BINARY_MESSAGE;
 		}
 		if (error.message.includes("ARIA2_RPC_SECRET")) {
 			return "aria2 RPC 密钥未配置，无法启动中转下载服务";
@@ -127,22 +132,12 @@ export type Aria2GlobalStat = {
 
 async function rpcCall(method: string, params: unknown[] = []): Promise<unknown> {
 	const config = getAria2RuntimeConfig();
-	const response = await fetch(`http://${config.rpcHost}:${config.rpcPort}/jsonrpc`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			jsonrpc: "2.0",
-			id: Date.now().toString(),
-			method,
-			params: [`token:${config.rpcSecret}`, ...params],
-		}),
+	return postAria2Rpc({
+		url: `http://${config.rpcHost}:${config.rpcPort}/jsonrpc`,
+		method,
+		params,
+		secret: config.rpcSecret,
 	});
-
-	const data = await response.json();
-	if (data.error) {
-		throw new Error(`Aria2 RPC error: ${data.error.message || JSON.stringify(data.error)}`);
-	}
-	return data.result;
 }
 
 /* ── Daemon Management ────────────────────────────────────── */
@@ -190,11 +185,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 
 	try {
 		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.
-		const { spawn } = await import("child_process");
-		const proc = spawn("aria2c", buildAria2SpawnArgs(launchConf), {
-			detached: true,
-			stdio: "ignore",
-		});
+		const proc = spawnAria2Detached(buildAria2SpawnArgs(launchConf));
 		proc.unref();
 
 		// Wait for RPC to become available
