@@ -13,6 +13,7 @@ import { SearchScopeToggle } from "./search-scope-toggle";
 import { FileUploadDropzone } from "@/components/storage/file-upload-dropzone";
 import { CreateFolderForm } from "./create-folder-form";
 import { RecycleBinSectionClient } from "./recycle-bin-section-client";
+import { useFileBrowserListing } from "./use-file-browser-listing";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -144,36 +145,6 @@ function getDisplaySegment(segment: string, nodes: NodeOption[] = []) {
   if (!group) return segment;
   const node = getNodeFromGroupSegment(nodes, segment);
   return node ? node.name : group.label;
-}
-
-function buildFilesPageUrl({
-  path,
-  q,
-  scope,
-  nodeId,
-}: {
-  path: string;
-  q?: string;
-  scope?: string;
-  nodeId?: string;
-}) {
-  const params = new URLSearchParams();
-  if (path) params.set("path", path);
-  if (q) params.set("q", q);
-  if (scope && scope !== "current") params.set("scope", scope);
-  if (nodeId) params.set("nodeId", nodeId);
-  const qs = params.toString();
-  return qs ? `/files?${qs}` : "/files";
-}
-
-function getFilesStateFromLocation(defaultNodeId: string) {
-  const params = new URLSearchParams(window.location.search);
-  return {
-    path: params.get("path") ?? "",
-    q: params.get("q") ?? "",
-    scope: params.get("scope") === "all" ? "all" : "current",
-    nodeId: params.get("nodeId") ?? defaultNodeId,
-  };
 }
 
 function getCurrentPathDisplay(path: string, nodes: NodeOption[], nodeIdFilter: string) {
@@ -471,125 +442,24 @@ export function FilesBrowserSpa({
   initialData: FilesApiResponse;
   deletedEntries: DeletedEntryProp[];
 }) {
-  const [data, setData] = useState<FilesApiResponse>(initialData);
-  const [loading, setLoading] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
-  const [selectionEpoch, setSelectionEpoch] = useState(0);
-  const [searchInput, setSearchInput] = useState(initialData.searchQuery);
+  // Listing state (data / loading / listError / search / selection epoch /
+  // popstate listener) is owned by the hook (R25).  The mobile sidebar
+  // toggle stays here because the rendering is part of the page shell
+  // rather than the listing flow.
+  const {
+    data,
+    loading,
+    listError,
+    selectionEpoch,
+    searchInput,
+    setSearchInput,
+    fetchFiles,
+    handleSearch,
+    handleScopeChange,
+  } = useFileBrowserListing({ initialData });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-
-  // Fetch files for a given path — SPA navigation, no page reload
-  const fetchFiles = useCallback(
-    async (
-      path: string,
-      q?: string,
-      scope?: string,
-      nodeId?: string,
-      options?: FetchFilesOptions,
-    ) => {
-      // Cancel previous request
-      if (abortRef.current) {
-        abortRef.current.abort();
-      }
-      const controller = new AbortController();
-      abortRef.current = controller;
-      const shouldResetSelection = options?.resetSelection ?? false;
-      const historyMode = options?.history ?? "replace";
-
-      setLoading(true);
-      setListError(null);
-      try {
-        const params = new URLSearchParams();
-        if (path) params.set("path", path);
-        if (q) params.set("q", q);
-        if (scope && scope !== "current") params.set("scope", scope);
-        const effectiveNodeId = nodeId ?? data.nodeIdFilter;
-        if (effectiveNodeId) params.set("nodeId", effectiveNodeId);
-
-        const url = `/api/files/list${params.toString() ? `?${params.toString()}` : ""}`;
-        const json = await csrfFetch(url, { signal: controller.signal });
-        const nextData = json as FilesApiResponse;
-        setData(nextData);
-        if (shouldResetSelection) {
-          setSelectionEpoch((current) => current + 1);
-        }
-        if (nextData.syncWarning) {
-          setListError(nextData.syncWarning);
-        }
-
-        const newUrl = buildFilesPageUrl({
-          path,
-          q,
-          scope,
-          nodeId: effectiveNodeId,
-        });
-        if (historyMode === "push") {
-          window.history.pushState(null, "", newUrl);
-        } else if (historyMode === "replace") {
-          window.history.replaceState(null, "", newUrl);
-        }
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        logError("Failed to fetch files:", err);
-        setListError(
-          err instanceof Error ? err.message : "文件列表刷新失败，请稍后重试。",
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [data.nodeIdFilter],
-  );
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const next = getFilesStateFromLocation(initialData.nodeIdFilter);
-      setSearchInput(next.q);
-      void fetchFiles(next.path, next.q, next.scope, next.nodeId, {
-        resetSelection: true,
-        history: "none",
-      });
-    };
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [fetchFiles, initialData.nodeIdFilter]);
 
   const { navigateToFolder } = useFolderNavigation(fetchFiles);
-
-  // Search handler
-  const handleSearch = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      fetchFiles(
-        data.currentPath,
-        searchInput,
-        data.searchScope,
-        data.nodeIdFilter,
-        { resetSelection: true },
-      );
-    },
-    [
-      fetchFiles,
-      data.currentPath,
-      searchInput,
-      data.searchScope,
-      data.nodeIdFilter,
-    ],
-  );
-
-  const handleScopeChange = useCallback(
-    (newScope: string) => {
-      fetchFiles(
-        data.currentPath,
-        data.searchQuery,
-        newScope,
-        data.nodeIdFilter,
-        { resetSelection: true },
-      );
-    },
-    [fetchFiles, data.currentPath, data.searchQuery, data.nodeIdFilter],
-  );
 
   const uploadNodes = data.nodes.filter(
     (n) => n.driver === "LOCAL" || n.driver === "SFTP",
