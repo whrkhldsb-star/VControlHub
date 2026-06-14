@@ -4,6 +4,7 @@ import { createLogger } from "@/lib/logging";
 import { getAppSlug } from "@/lib/branding";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { AuthError } from "@/lib/errors";
 import type { RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 
@@ -142,7 +143,7 @@ export async function verifySessionToken(token: string) {
   const [encodedPayload, providedSignature] = token.split(".");
 
   if (!encodedPayload || !providedSignature) {
-    throw new Error("Invalid session token format");
+    throw new AuthError("Invalid session token format");
   }
 
   const expectedSignature = signPayload(encodedPayload);
@@ -150,22 +151,22 @@ export async function verifySessionToken(token: string) {
   const expectedBuffer = Buffer.from(expectedSignature, "utf8");
 
   if (providedBuffer.length !== expectedBuffer.length) {
-    throw new Error("Invalid session token signature");
+    throw new AuthError("Invalid session token signature");
   }
 
   const signaturesMatch = timingSafeEqual(providedBuffer, expectedBuffer);
   if (!signaturesMatch) {
-    throw new Error("Invalid session token signature");
+    throw new AuthError("Invalid session token signature");
   }
 
   const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope;
 
   if (payload.iss !== SESSION_ISSUER || payload.aud !== SESSION_AUDIENCE) {
-    throw new Error("Invalid session token audience");
+    throw new AuthError("Invalid session token audience");
   }
 
   if (payload.exp <= Date.now()) {
-    throw new Error("Session token expired");
+    throw new AuthError("Session token expired");
   }
 
  const user = await prisma.user.findUnique({
@@ -180,7 +181,7 @@ export async function verifySessionToken(token: string) {
  });
 
  if (!user || user.status === "DISABLED") {
-   throw new Error("Session user is disabled or no longer exists");
+   throw new AuthError("Session user is disabled or no longer exists");
  }
 
  const roles = user.roles

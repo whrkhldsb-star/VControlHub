@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 
+import { ValidationError } from "@/lib/errors";
 import { getAllSettings } from "@/lib/settings/service";
 
 export type EmailDeliveryInput = {
@@ -59,9 +60,9 @@ export async function getSmtpConfig(): Promise<SmtpConfig> {
 }
 
 export function assertSmtpReady(config: SmtpConfig) {
-	if (!config.enabled) throw new Error("SMTP 通道未启用");
-	if (!config.host) throw new Error("SMTP 主机未配置");
-	if (!config.from) throw new Error("SMTP 发件人未配置");
+	if (!config.enabled) throw new ValidationError("SMTP 通道未启用");
+	if (!config.host) throw new ValidationError("SMTP 主机未配置");
+	if (!config.from) throw new ValidationError("SMTP 发件人未配置");
 }
 
 export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliveryResult> {
@@ -69,7 +70,7 @@ export async function sendEmail(input: EmailDeliveryInput): Promise<EmailDeliver
 	assertSmtpReady(config);
 
 	const recipients = normalizeRecipients(input.to);
-	if (recipients.length === 0) throw new Error("邮件收件人未配置");
+	if (recipients.length === 0) throw new ValidationError("邮件收件人未配置");
 
 	const transporter = nodemailer.createTransport({
 		host: config.host,
@@ -100,7 +101,7 @@ export async function sendAlertEmail(input: {
 	const settings = await getAllSettings();
 	const recipients = parseAlertEmailRecipients(settings["smtp.alertRecipients"]);
 	if (recipients.length === 0) {
-		throw new Error("SMTP 告警收件人未配置");
+		throw new ValidationError("SMTP 告警收件人未配置");
 	}
 	const body = [input.message, ...(input.contextLines ?? [])]
 		.filter(Boolean)

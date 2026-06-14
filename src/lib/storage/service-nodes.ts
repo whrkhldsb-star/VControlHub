@@ -2,6 +2,7 @@ import { constants as fsConstants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
 import { prisma } from "@/lib/db";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
@@ -76,7 +77,7 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
   });
 
   if (!node) {
-    throw new Error("存储节点不存在或已删除");
+    throw new NotFoundError("存储节点不存在或已删除");
   }
 
   const startedAt = Date.now();
@@ -88,7 +89,7 @@ export async function checkStorageNodeHealth(storageNodeId: string) {
       const expandedBasePath = expandStorageBasePath(node.basePath);
       const baseStat = await stat(expandedBasePath);
       if (!baseStat.isDirectory()) {
-        throw new Error("本机存储根路径不是目录");
+        throw new BusinessError("本机存储根路径不是目录");
       }
       await access(expandedBasePath, fsConstants.R_OK | fsConstants.W_OK);
     } else if (node.driver === "SFTP") {
@@ -129,7 +130,7 @@ export async function createStorageNode(input: CreateStorageNodeInput) {
   const payload = createStorageNodeSchema.parse(input);
 
   if (payload.driver === "SFTP" && !payload.serverId && !payload.host) {
-    throw new Error("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
+    throw new ValidationError("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
   }
 
   await ensureDefaultNodeState(payload.isDefault);
@@ -201,7 +202,7 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
   });
 
   if (!current) {
-    throw new Error("存储节点不存在或已删除");
+    throw new NotFoundError("存储节点不存在或已删除");
   }
 
   const nextDriver = payload.driver ?? current.driver;
@@ -218,7 +219,7 @@ export async function updateStorageNode(input: UpdateStorageNodeInput) {
     payload.username === undefined ? current.username : payload.username;
 
   if (nextDriver === "SFTP" && !nextServerId && !nextHost) {
-    throw new Error("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
+    throw new ValidationError("SFTP 存储节点必须绑定 VPS 节点或指定远端主机");
   }
 
   await ensureDefaultNodeState(payload.isDefault);
@@ -254,14 +255,14 @@ export async function deleteStorageNode(storageNodeId: string) {
   });
 
   if (!node) {
-    throw new Error("存储节点不存在或已删除");
+    throw new NotFoundError("存储节点不存在或已删除");
   }
 
   const activeEntryCount = node.fileEntries.filter(
     (entry: { isDeleted: boolean }) => !entry.isDeleted,
   ).length;
   if (activeEntryCount > 0) {
-    throw new Error("该存储节点下仍有文件条目，请先删除或迁移文件后再移除节点");
+    throw new BusinessError("该存储节点下仍有文件条目，请先删除或迁移文件后再移除节点");
   }
 
   await prisma.storageNode.delete({ where: { id: storageNodeId } });

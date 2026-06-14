@@ -10,6 +10,7 @@
  * `./service-serialize`; this module owns the request-time paths.
  */
 import { prisma } from "@/lib/db";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { defaultAiBaseUrl, fetchProviderModels, postProviderChat, trimProviderBaseUrl } from "./provider-http";
 
 import { safeDecryptApiKey } from "./service-crud";
@@ -74,7 +75,7 @@ export async function fetchModelsFromCredentials(input: {
 	baseUrl?: string;
 	defaultModel?: string;
 }): Promise<AiModelInfo[]> {
-	if (!input.apiKey.trim()) throw new Error("API Key 不能为空");
+	if (!input.apiKey.trim()) throw new ValidationError("API Key 不能为空");
 	const baseUrl = trimProviderBaseUrl(input.baseUrl, DEFAULT_AI_BASE_URL);
 	const fallbackModel = input.defaultModel?.trim() || "gpt-4o";
 
@@ -102,7 +103,7 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 	const provider = await prisma.aiProvider.findFirst({
 		where: { id: providerId, createdBy: userId, enabled: true },
 	});
-	if (!provider) throw new Error("提供商不存在或已禁用");
+	if (!provider) throw new NotFoundError("提供商不存在或已禁用");
 
 	const baseUrl = trimProviderBaseUrl(provider.baseUrl, DEFAULT_AI_BASE_URL);
 
@@ -250,7 +251,7 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 	const provider = await prisma.aiProvider.findFirst({
 		where: { id: req.providerId, createdBy: userId, enabled: true },
 	});
-	if (!provider) throw new Error("提供商不存在或已禁用");
+	if (!provider) throw new NotFoundError("提供商不存在或已禁用");
 
 	const rawApiKey = safeDecryptApiKey(provider.apiKey);
 	const baseUrl = provider.baseUrl.replace(/\/+$/, "");

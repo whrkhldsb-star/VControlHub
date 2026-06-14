@@ -5,6 +5,7 @@
  * decryption — those live in `./service-runtime` and `./service-credentials`.
  * Re-exports `shellQuote` for callers that need a stable import path.
  */
+import { ValidationError } from "@/lib/errors";
 import { shellQuote } from "@/lib/shell-quote";
 
 export { shellQuote };
@@ -39,13 +40,13 @@ const RSYNC_HOST_PATTERN = /^[A-Za-z0-9.:[\]@_-]+$/;
 
 function assertSafeSshUsername(username: string): void {
 	if (!SSH_USERNAME_PATTERN.test(username) || username.startsWith("-")) {
-		throw new Error("Unsafe SSH username");
+		throw new ValidationError("Unsafe SSH username");
 	}
 }
 
 function assertSafeHost(host: string): void {
 	if (!HOSTNAME_PATTERN.test(host) || host.startsWith("-")) {
-		throw new Error("Unsafe SSH host");
+		throw new ValidationError("Unsafe SSH host");
 	}
 }
 
@@ -63,7 +64,7 @@ function buildRsyncTargetAddress(targetUser: string, targetHost: string): string
 	assertSafeSshUsername(targetUser);
 	const address = `${targetUser}@${formatRsyncHost(targetHost)}`;
 	if (!RSYNC_HOST_PATTERN.test(address)) {
-		throw new Error("Unsafe rsync target address");
+		throw new ValidationError("Unsafe rsync target address");
 	}
 	return address;
 }
@@ -75,7 +76,7 @@ function buildSshTargetAddress(targetUser: string, targetHost: string): string {
 
 function assertSafeSshPort(targetPort: number): void {
 	if (!Number.isInteger(targetPort) || targetPort < 1 || targetPort > 65535) {
-		throw new Error("Unsafe SSH port");
+		throw new ValidationError("Unsafe SSH port");
 	}
 }
 

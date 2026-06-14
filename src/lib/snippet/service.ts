@@ -1,3 +1,4 @@
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 
 function tags(input?: string[]) {
@@ -5,7 +6,7 @@ function tags(input?: string[]) {
 }
 
 function requireNonBlank(value: string, message: string) {
-  if (!value.trim()) throw new Error(message);
+  if (!value.trim()) throw new ValidationError(message);
 }
 
 function canMutateSnippet(
@@ -37,9 +38,9 @@ export async function updateSnippet(
   actor?: { userId?: string | null; canManageAll?: boolean },
 ) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
-  if (!existing) throw new Error("代码片段不存在");
+  if (!existing) throw new NotFoundError("代码片段不存在");
   if (!canMutateSnippet(existing.createdBy, actor)) {
-    throw new Error("无权修改他人的代码片段");
+    throw new ForbiddenError("无权修改他人的代码片段");
   }
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) {
@@ -60,9 +61,9 @@ export async function updateSnippet(
 
 export async function deleteSnippet(id: string, actor?: { userId?: string | null; canManageAll?: boolean }) {
   const existing = await prisma.snippet.findUnique({ where: { id } });
-  if (!existing) throw new Error("代码片段不存在");
+  if (!existing) throw new NotFoundError("代码片段不存在");
   if (!canMutateSnippet(existing.createdBy, actor)) {
-    throw new Error("无权删除他人的代码片段");
+    throw new ForbiddenError("无权删除他人的代码片段");
   }
   return prisma.snippet.delete({ where: { id } });
 }

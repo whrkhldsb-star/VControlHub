@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db";
+import { BusinessError, ConflictError } from "@/lib/errors";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -179,7 +180,7 @@ export async function assertNoDuplicateServerHost(
     },
   });
   if (duplicate) {
-    throw new Error(buildDuplicateServerError(duplicate));
+    throw new ConflictError(buildDuplicateServerError(duplicate));
   }
 }
 
@@ -207,14 +208,14 @@ export async function verifyServerSshConnectivity(
       timeout: 15_000,
     });
     if (result.exitCode !== 0) {
-      throw new Error(
+      throw new BusinessError(
         result.stderr ||
           result.stdout ||
           `SSH 预检退出码 ${result.exitCode ?? "unknown"}`,
       );
     }
   } catch (error) {
-    throw new Error(
+    throw new BusinessError(
       `无法连接目标服务器 ${normalized.username}@${normalized.host}:${normalized.port}，节点未添加/未保存。请检查 IP、端口、用户名和认证信息后重试。详情：${getErrorMessage(error)}`,
     );
   }

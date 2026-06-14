@@ -4,6 +4,7 @@ import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
 import { prisma } from "@/lib/db";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
@@ -29,15 +30,15 @@ const SHARE_STORAGE_NODE_INCLUDE = {
 export function normalizeSharePath(path: string) {
   const rawPath = path.trim();
   if (!rawPath) {
-    throw new Error(INVALID_SHARE_PATH_MESSAGE);
+    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
   }
 
   if (/\0|[\u0000-\u001F\u007F]/.test(rawPath)) {
-    throw new Error(INVALID_SHARE_PATH_MESSAGE);
+    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
   }
 
   if (/^[a-zA-Z]:/.test(rawPath) || rawPath.startsWith("//")) {
-    throw new Error(INVALID_SHARE_PATH_MESSAGE);
+    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
   }
 
   const normalizedPath = rawPath
@@ -47,7 +48,7 @@ export function normalizeSharePath(path: string) {
 
   const segments = normalizedPath.split("/").filter(Boolean);
   if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) {
-    throw new Error(INVALID_SHARE_PATH_MESSAGE);
+    throw new ValidationError(INVALID_SHARE_PATH_MESSAGE);
   }
 
   return segments.join("/");
@@ -64,7 +65,7 @@ export async function createShareLink(input: {
 }) {
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
-  if (!access.allowed) throw new Error(access.reason || "没有该路径的分享权限");
+  if (!access.allowed) throw new ForbiddenError(access.reason || "没有该路径的分享权限");
 
   const token = randomBytes(36).toString("base64url").slice(0, 48);
   const expiresAt = input.expiresInHours ? new Date(Date.now() + input.expiresInHours * 60 * 60 * 1000) : null;
@@ -92,7 +93,7 @@ export async function createShareLinkFromFileEntry(input: {
     where: { id: input.fileEntryId },
     include: { storageNode: true },
   });
-  if (!entry || entry.isDeleted) throw new Error("文件不存在或已删除");
+  if (!entry || entry.isDeleted) throw new NotFoundError("文件不存在或已删除");
 
   return createShareLink({
     session: input.session,
@@ -122,8 +123,8 @@ export async function revokeShareLink(id: string) {
 
 export async function resolveShareToken(token: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new Error("分享链接不存在或已撤销");
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new Error("分享链接已过期");
+  if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
   await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   return share;
 }
@@ -134,8 +135,8 @@ export async function resolveShareToken(token: string) {
  */
 export async function peekShareToken(token: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
-  if (!share || share.revokedAt) throw new Error("分享链接不存在或已撤销");
-  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new Error("分享链接已过期");
+  if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
+  if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
   return share;
 }
 

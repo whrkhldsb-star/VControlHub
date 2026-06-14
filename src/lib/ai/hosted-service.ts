@@ -8,6 +8,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { getToolByName, type HostedTool } from "./hosted-tools";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
@@ -256,11 +257,11 @@ export function buildCommand(actionType: string, params: Record<string, unknown>
 // ── 审批操作 ──────────────────────────────────────────────
 
 export async function approveHostedAction(actionId: string, approver: HostedActionSession) {
-  if (!sessionHasPermission(approver, "ai:action:approve")) throw new Error("缺少权限：ai:action:approve");
+  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("缺少权限：ai:action:approve");
 
   const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-  if (!action) throw new Error("操作不存在或无权审批");
-  if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
+  if (!action) throw new NotFoundError("操作不存在或无权审批");
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待审批状态");
 
   // 更新状态为已批准
   await prisma.aiHostedAction.update({
@@ -273,11 +274,11 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
 }
 
 export async function rejectHostedAction(actionId: string, approver: HostedActionSession, reason?: string) {
-  if (!sessionHasPermission(approver, "ai:action:approve")) throw new Error("缺少权限：ai:action:approve");
+  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("缺少权限：ai:action:approve");
 
   const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-  if (!action) throw new Error("操作不存在或无权审批");
-  if (action.status !== "PENDING_APPROVAL") throw new Error("操作不在待审批状态");
+  if (!action) throw new NotFoundError("操作不存在或无权审批");
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待审批状态");
 
   return prisma.aiHostedAction.update({
     where: { id: actionId },

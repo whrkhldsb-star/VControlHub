@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -37,10 +38,10 @@ function normalizeDeploymentInput(input: {
   const requesterId = input.requesterId.trim();
   const serverIds = Array.from(new Set(input.serverIds.map((id) => id.trim()).filter(Boolean)));
   const reason = input.reason?.trim();
-  if (!templateId) throw new Error("部署模板必填");
-  if (!requesterId) throw new Error("请求人不能为空");
-  if (serverIds.length < 1) throw new Error("至少选择 1 台目标 VPS");
-  if (reason && reason.length > 500) throw new Error("原因最多 500 个字符");
+  if (!templateId) throw new ValidationError("部署模板必填");
+  if (!requesterId) throw new ValidationError("请求人不能为空");
+  if (serverIds.length < 1) throw new ValidationError("至少选择 1 台目标 VPS");
+  if (reason && reason.length > 500) throw new ValidationError("原因最多 500 个字符");
   return { ...input, templateId, requesterId, serverIds, reason };
 }
 
@@ -60,7 +61,7 @@ function assertTemplateVariables(
   ).filter(Boolean);
   const missing = required.filter((name) => !variables[name]?.trim());
   if (missing.length > 0)
-    throw new Error(`部署模板变量未填写完整：${missing.join(", ")}`);
+    throw new ValidationError(`部署模板变量未填写完整：${missing.join(", ")}`);
 }
 
 export async function listDeploymentTemplates() {
@@ -79,7 +80,7 @@ export async function createDeploymentRunFromTemplate(input: {
   const template = await prisma.commandTemplate.findUnique({
     where: { id: normalized.templateId },
   });
-  if (!template) throw new Error("部署模板不存在");
+  if (!template) throw new NotFoundError("部署模板不存在");
   assertTemplateVariables(
     template.command,
     template.variables,
@@ -284,10 +285,10 @@ export async function createDeploymentRollbackRun(input: { sourceRunId: string; 
     where: { id: input.sourceRunId },
     include: { snapshot: true, template: true },
   });
-  if (!sourceRun) throw new Error("部署运行不存在");
+  if (!sourceRun) throw new NotFoundError("部署运行不存在");
   const snapshot = sourceRun.snapshot;
-  if (!snapshot) throw new Error("该部署没有可回滚快照");
-  if (!snapshot.rollbackCommand?.trim()) throw new Error("该部署快照没有回滚命令");
+  if (!snapshot) throw new NotFoundError("该部署没有可回滚快照");
+  if (!snapshot.rollbackCommand?.trim()) throw new ValidationError("该部署快照没有回滚命令");
 
   const reason = input.reason?.trim() || `真实回滚：${snapshot.templateName}`;
   const rollback = await prisma.deploymentRollbackRun.create({

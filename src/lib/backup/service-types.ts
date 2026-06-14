@@ -9,6 +9,7 @@
 import { join, normalize, sep } from "node:path";
 
 import { config } from "@/lib/config/env";
+import { ValidationError } from "@/lib/errors";
 
 export const RESTORE_CONFIRM_TEXT = "RESTORE";
 
@@ -86,11 +87,11 @@ export function assertPortableBackupPath(filePath: string) {
 		value.includes("//") ||
 		parts.some((part) => !part || part === "." || part === "..")
 	) {
-		throw new Error("备份路径必须是可移植的相对路径");
+		throw new ValidationError("备份路径必须是可移植的相对路径");
 	}
 	const normalized = normalize(value);
 	if (normalized.startsWith("..") || normalized.includes(`${sep}..${sep}`) || normalized === "..") {
-		throw new Error("备份路径必须是可移植的相对路径");
+		throw new ValidationError("备份路径必须是可移植的相对路径");
 	}
 	return value;
 }

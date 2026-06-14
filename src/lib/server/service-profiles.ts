@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 
 import { prisma } from "@/lib/db";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import {
   buildSshParamsFromServer,
   createRemoteDirectory,
@@ -35,7 +36,7 @@ export async function createServerProfile(input: CreateServerInput) {
   } | null = null;
 
   if (normalized.connectionType === "SSH_KEY") {
-    if (!normalized.sshKeyId) throw new Error("SSH 密钥连接方式需选择密钥");
+    if (!normalized.sshKeyId) throw new ValidationError("SSH 密钥连接方式需选择密钥");
     validatedSshKey = await prisma.sshKey.findUnique({
       where: { id: normalized.sshKeyId },
       select: {
@@ -47,7 +48,7 @@ export async function createServerProfile(input: CreateServerInput) {
         createdAt: true,
       },
     });
-    if (!validatedSshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
+    if (!validatedSshKey) throw new NotFoundError("所选 SSH 密钥不存在或已被删除");
   }
 
   await assertNoDuplicateServerHost(normalized);
@@ -290,7 +291,7 @@ export async function updateServerProfile(
       },
     },
   });
-  if (!current) throw new Error("VPS 节点不存在或已删除");
+  if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
 
   const connectionType = input.connectionType ?? current.connectionType;
   const normalized = normalizeServerInput({
@@ -330,7 +331,7 @@ export async function updateServerProfile(
         createdAt: true,
       },
     });
-    if (!updateSshKey) throw new Error("所选 SSH 密钥不存在或已被删除");
+    if (!updateSshKey) throw new NotFoundError("所选 SSH 密钥不存在或已被删除");
   }
 
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId });
@@ -430,7 +431,7 @@ export async function toggleServerEnabled(serverId: string) {
     where: { id: serverId },
     select: { enabled: true },
   });
-  if (!current) throw new Error("VPS 节点不存在或已删除");
+  if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
   return prisma.server.update({
     where: { id: serverId },
     data: { enabled: !current.enabled },
@@ -453,7 +454,7 @@ export async function deleteServerProfile(serverId: string) {
       },
     },
   });
-  if (!current) throw new Error("VPS 节点不存在或已删除");
+  if (!current) throw new NotFoundError("VPS 节点不存在或已删除");
   let cleanupSkipped = false;
   const shouldAttemptDirectGatewayCleanup =
     current.fileProxyPort &&

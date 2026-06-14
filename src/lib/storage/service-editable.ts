@@ -2,6 +2,7 @@ import { access, readFile, stat, writeFile } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "./mime-constants";
 import {
@@ -30,11 +31,11 @@ async function resolveLocalEditableFileEntry(input: {
   });
 
   if (!entry || entry.isDeleted) {
-    throw new Error("文件条目不存在或已删除");
+    throw new NotFoundError("文件条目不存在或已删除");
   }
 
   if (entry.storageNode.driver !== "LOCAL") {
-    throw new Error("仅支持编辑已上传到当前服务器本机存储节点的文件");
+    throw new BusinessError("仅支持编辑已上传到当前服务器本机存储节点的文件");
   }
 
   const storageAccess = await assertStorageAccess({
@@ -45,7 +46,7 @@ async function resolveLocalEditableFileEntry(input: {
     writeBytes: input.writeBytes,
   });
   if (!storageAccess.allowed) {
-    throw new Error(storageAccess.reason ?? "没有该存储节点或路径的访问授权");
+    throw new ForbiddenError(storageAccess.reason ?? "没有该存储节点或路径的访问授权");
   }
 
   if (
@@ -55,7 +56,7 @@ async function resolveLocalEditableFileEntry(input: {
       mimeType: entry.mimeType,
     })
   ) {
-    throw new Error("当前仅支持编辑文本类文件");
+    throw new ValidationError("当前仅支持编辑文本类文件");
   }
 
   const absolutePath = resolveLocalAbsolutePath(
@@ -66,11 +67,11 @@ async function resolveLocalEditableFileEntry(input: {
   const fileStat = await stat(absolutePath);
 
   if (!fileStat.isFile()) {
-    throw new Error("目标不是可编辑文件");
+    throw new BusinessError("目标不是可编辑文件");
   }
 
   if (fileStat.size > MAX_EDITABLE_FILE_SIZE_BYTES) {
-    throw new Error("文件超过 512 KB，暂不支持在线编辑");
+    throw new ValidationError("文件超过 512 KB，暂不支持在线编辑");
   }
 
   return { entry, absolutePath, fileStat };
@@ -110,7 +111,7 @@ export async function saveLocalEditableFileDraft(input: {
   const byteSize = Buffer.byteLength(content, "utf8");
 
   if (byteSize > MAX_EDITABLE_FILE_SIZE_BYTES) {
-    throw new Error("文件超过 512 KB，暂不支持在线编辑");
+    throw new ValidationError("文件超过 512 KB，暂不支持在线编辑");
   }
 
   const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
@@ -124,7 +125,7 @@ export async function saveLocalEditableFileDraft(input: {
 
   const currentUpdatedAt = entry.updatedAt?.toISOString?.() ?? entry.updatedAt;
   if (input.expectedUpdatedAt && currentUpdatedAt && input.expectedUpdatedAt !== currentUpdatedAt) {
-    throw new Error("文件已被其他操作更新，请重新加载后再保存");
+    throw new ConflictError("文件已被其他操作更新，请重新加载后再保存");
   }
 
   if (
@@ -132,7 +133,7 @@ export async function saveLocalEditableFileDraft(input: {
     Number.isFinite(input.expectedLastModifiedMs) &&
     Math.abs(fileStat.mtimeMs - input.expectedLastModifiedMs) > 1
   ) {
-    throw new Error("文件内容已在磁盘上发生变化，请重新加载后再保存");
+    throw new ConflictError("文件内容已在磁盘上发生变化，请重新加载后再保存");
   }
 
   await writeFile(absolutePath, content, "utf8");

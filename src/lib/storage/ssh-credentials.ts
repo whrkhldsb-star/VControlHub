@@ -1,4 +1,5 @@
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { ValidationError } from "@/lib/errors";
 
 export type StorageSshCredentialNode = {
   host?: string | null;
@@ -37,13 +38,13 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     : undefined;
 
   if (!host) {
-    throw new Error("缺少远端主机地址，无法连接");
+    throw new ValidationError("缺少远端主机地址，无法连接");
   }
   if (connectionType === "SSH_KEY" && !privateKey) {
-    throw new Error("缺少 SSH 私钥，无法连接");
+    throw new ValidationError("缺少 SSH 私钥，无法连接");
   }
   if (connectionType === "PASSWORD" && !password) {
-    throw new Error("缺少登录密码，无法连接");
+    throw new ValidationError("缺少登录密码，无法连接");
   }
 
   return { host, port, username, connectionType, privateKey, password };

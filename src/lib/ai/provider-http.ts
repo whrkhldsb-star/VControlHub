@@ -12,6 +12,8 @@
  * formats the human-readable string for the kind of call being made.
  */
 
+import { BusinessError, ValidationError } from "@/lib/errors";
+
 export interface ProviderModelRow {
 	id: string;
 	name?: string;
@@ -63,7 +65,7 @@ export async function fetchProviderModels(
 	input: ProviderModelsRequest,
 ): Promise<ProviderModelRow[]> {
 	if (!input.apiKey.trim()) {
-		throw new Error("API Key 不能为空");
+		throw new ValidationError("API Key 不能为空");
 	}
 	const baseUrl = trimTrailingSlash(input.baseUrl);
 	const response = await fetch(`${baseUrl}${MODELS_PATH}`, {

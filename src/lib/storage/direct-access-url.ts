@@ -1,3 +1,5 @@
+import { ValidationError } from "@/lib/errors";
+
 const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "直连基础 URL 必须使用公网 HTTP(S) 地址，不能包含凭据、localhost、内网、回环或链路本地地址";
 const PUBLIC_HTTP_URL_MESSAGE = "URL 必须使用公网 HTTP(S) 地址，不能包含凭据、localhost、内网、回环、链路本地或 metadata 地址";
 
@@ -67,23 +69,23 @@ export function isUnsafePublicHttpHost(hostname: string) {
 
 export function normalizePublicHttpUrl(value: string | null | undefined, message = PUBLIC_HTTP_URL_MESSAGE) {
   const raw = value?.trim();
-  if (!raw) throw new Error("URL 不能为空");
+  if (!raw) throw new ValidationError("URL 不能为空");
 
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    throw new Error("URL 格式不正确");
+    throw new ValidationError("URL 格式不正确");
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error(message);
+    throw new ValidationError(message);
   }
   if (url.username || url.password) {
-    throw new Error(message);
+    throw new ValidationError(message);
   }
   if (isUnsafePublicHttpHost(url.hostname)) {
-    throw new Error(message);
+    throw new ValidationError(message);
   }
 
   url.hash = "";
@@ -98,17 +100,17 @@ export function normalizePublicBaseUrl(value: string | null | undefined) {
   try {
     url = new URL(raw);
   } catch {
-    throw new Error("直连基础 URL 格式不正确");
+    throw new ValidationError("直连基础 URL 格式不正确");
   }
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+    throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
   }
   if (url.username || url.password) {
-    throw new Error(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+    throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
   }
   if (isUnsafePublicHttpHost(url.hostname)) {
-    throw new Error(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
+    throw new ValidationError(PRIVATE_DIRECT_ACCESS_HOST_MESSAGE);
   }
 
   url.hash = "";

@@ -10,6 +10,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { BusinessError, NotFoundError } from "@/lib/errors";
 import { fetchSourceApps, type NormalizedApp } from "./adapters";
 import { createLogger } from "@/lib/logging";
 
@@ -33,8 +34,8 @@ const APP_UPSERT_CONCURRENCY = 8;
 
 export async function syncSource(sourceId: string): Promise<{ synced: number; errors: number }> {
 	const source = await prisma.appSource.findUnique({ where: { id: sourceId } });
-	if (!source) throw new Error("源不存在");
-	if (!source.enabled) throw new Error("源已禁用");
+	if (!source) throw new NotFoundError("源不存在");
+	if (!source.enabled) throw new BusinessError("源已禁用");
 
 	try {
 		const apps = await fetchSourceApps(source.name, source.type, source.url);

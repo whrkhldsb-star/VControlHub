@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { type Aria2Status, formatBytes, formatSpeed, computeProgress } from "@/lib/aria2/service";
+import { ValidationError } from "@/lib/errors";
 import { resolveDownloadTargetPath } from "@/lib/downloads/target-path";
 import { toRemoteChildPath } from "@/lib/downloads/remote-command";
 import path from "path";
@@ -15,13 +16,13 @@ export function normalizeDownloadFileName(fileName: string | null | undefined): 
  const value = (fileName ?? "").trim();
  if (!value) return null;
  if (value.includes("\0") || value.includes("/") || value.includes("\\")) {
-  throw new Error("下载文件名不能包含路径分隔符");
+  throw new ValidationError("下载文件名不能包含路径分隔符");
  }
  if (value === "." || value === ".." || value.includes("..")) {
-  throw new Error("下载文件名不能包含 ..");
+  throw new ValidationError("下载文件名不能包含 ..");
  }
  if (/^[A-Za-z]:/.test(value) || /[\r\n]/.test(value)) {
-  throw new Error("下载文件名无效");
+  throw new ValidationError("下载文件名无效");
  }
  return value;
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -15,7 +16,7 @@ import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 export function getConfiguredDirectAccessSecret() {
   const secret = config.auth.storageGatewaySecret ?? "";
   if (!secret) {
-    throw new Error(
+    throw new ValidationError(
       "未配置 STORAGE_DIRECT_ACCESS_SECRET，无法启用目标服务器直连。请先在运行环境中配置同一个直连签名密钥。",
     );
   }
@@ -53,7 +54,7 @@ export async function applyServerDirectGatewayState(input: {
         publicBaseUrl: null,
         cleanupSkipped: true,
       };
-    throw new Error("VPS 节点不存在或已删除");
+    throw new NotFoundError("VPS 节点不存在或已删除");
   }
   const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
     server.host.trim(),
@@ -69,7 +70,7 @@ export async function applyServerDirectGatewayState(input: {
         errorMessage,
       };
     }
-    throw new Error(errorMessage);
+    throw new BusinessError(errorMessage);
   }
   if (
     input.enabled &&
@@ -85,7 +86,7 @@ export async function applyServerDirectGatewayState(input: {
         errorMessage,
       };
     }
-    throw new Error(errorMessage);
+    throw new BusinessError(errorMessage);
   }
   const basePath = server.storageNode?.basePath || "/root";
   const publicBaseUrl = buildDirectGatewayPublicBaseUrl({
@@ -122,7 +123,7 @@ export async function applyServerDirectGatewayState(input: {
         timeout: 180_000,
       });
       if (result.exitCode && result.exitCode !== 0)
-        throw new Error(
+        throw new BusinessError(
           result.stderr || result.stdout || "目标服务器直连服务操作失败",
         );
     } catch (error) {

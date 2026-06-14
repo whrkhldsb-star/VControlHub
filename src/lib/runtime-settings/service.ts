@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { ValidationError } from "@/lib/errors";
 
 export const RUNTIME_SETTING_DEFINITIONS = {
   "runtime.commandExecutionTimeoutMs": {
@@ -143,11 +144,11 @@ export function normalizeRuntimeSettingValue(key: RuntimeSettingKey, value: stri
   const definition = RUNTIME_SETTING_DEFINITIONS[key];
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
-    throw new Error(`${definition.label} 必须是数字`);
+    throw new ValidationError(`${definition.label} 必须是数字`);
   }
   const integer = Math.trunc(parsed);
   if (integer < definition.min || integer > definition.max) {
-    throw new Error(`${definition.label} 必须在 ${definition.min} 到 ${definition.max} ${definition.unit}之间`);
+    throw new ValidationError(`${definition.label} 必须在 ${definition.min} 到 ${definition.max} ${definition.unit}之间`);
   }
   return String(integer);
 }

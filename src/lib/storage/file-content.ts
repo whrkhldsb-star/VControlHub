@@ -4,6 +4,7 @@ import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 
 import { prisma } from "@/lib/db";
+import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath, normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
@@ -77,7 +78,7 @@ function sftpReadFile(client: Client, remotePath: string): Promise<Buffer> {
 export async function readStorageFileBuffer(node: StorageFileNode, relativePath: string) {
 	if (node.driver === "LOCAL") {
 		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-		if (!resolved.ok) throw new Error(resolved.reason);
+		if (!resolved.ok) throw new ValidationError(resolved.reason);
 		return readFile(resolved.path);
 	}
 
@@ -101,7 +102,7 @@ export async function readStorageFileBuffer(node: StorageFileNode, relativePath:
 		}
 	}
 
-	throw new Error("不支持的存储节点类型");
+	throw new BusinessError("不支持的存储节点类型");
 }
 
 function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
@@ -143,7 +144,7 @@ function sftpWriteFile(client: Client, remotePath: string, buffer: Buffer): Prom
 export async function writeStorageFileBuffer(node: StorageFileNode, relativePath: string, buffer: Buffer) {
 	if (node.driver === "LOCAL") {
 		const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-		if (!resolved.ok) throw new Error(resolved.reason);
+		if (!resolved.ok) throw new ValidationError(resolved.reason);
 		await mkdir(path.dirname(resolved.path), { recursive: true });
 		await writeFile(resolved.path, buffer);
 		return resolved.path;
@@ -171,7 +172,7 @@ export async function writeStorageFileBuffer(node: StorageFileNode, relativePath
 		}
 	}
 
-	throw new Error("不支持的存储节点类型");
+	throw new BusinessError("不支持的存储节点类型");
 }
 
 export function buildStorageFileDownloadUrl(node: Pick<StorageFileNode, "id" | "driver">, relativePath: string, download = false) {

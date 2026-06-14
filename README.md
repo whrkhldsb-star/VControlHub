@@ -670,7 +670,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | 新发现 |
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | 新发现 |
-| TR-041 | P2 | 自定义错误类（273 处 `throw new Error()` 分 61 文件） | 新发现 |
+| TR-041 | P2 | 自定义错误类（273 处 `throw new Error()` 分 61 文件） | ✅ 已落地 (commit 93ddbb7) |
 | TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | 新发现 |
 
 ---
@@ -697,7 +697,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。
 - [ ] **领域 DTO 边界续做**（TR-039）— 5 个域全域 DTO 闭环。
 - [ ] **N+1 查询修复**（TR-040）— 3 个候选文件。
-- [ ] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
+- [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
 
 ### P3 — 长期愿景
 

@@ -25,6 +25,7 @@ import { createHash } from "node:crypto";
 import { PPKError, parseFromString } from "ppk-to-openssh";
 
 import { prisma } from "@/lib/db";
+import { ValidationError } from "@/lib/errors";
 import { encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 export async function listSshKeys() {
@@ -47,14 +48,14 @@ function computeSshPublicKeyFingerprint(publicKey: string) {
   const parts = normalized.split(/\s+/);
 
   if (parts.length < 2) {
-    throw new Error(
+    throw new ValidationError(
       "SSH 公钥格式无效，请粘贴完整的 authorized_keys 公钥内容。",
     );
   }
 
   const decoded = Buffer.from(toBase64UrlSafe(parts[1]!), "base64");
   if (decoded.length === 0) {
-    throw new Error("SSH 公钥内容无法解析，请检查公钥是否完整。");
+    throw new ValidationError("SSH 公钥内容无法解析，请检查公钥是否完整。");
   }
 
   return `SHA256:${createHash("sha256").update(decoded).digest("base64").replace(/=+$/g, "")}`;
@@ -76,7 +77,7 @@ async function normalizeImportedSshKey(input: {
   if (!ppkContent) {
     const publicKey = normalizeAuthorizedKey(input.publicKey ?? "");
     if (!publicKey) {
-      throw new Error("SSH 公钥不能为空，或请上传 .ppk 私钥文件自动提取。 ");
+      throw new ValidationError("SSH 公钥不能为空，或请上传 .ppk 私钥文件自动提取。 ");
     }
 
     return {
@@ -91,11 +92,11 @@ async function normalizeImportedSshKey(input: {
   const outputPassphrase = input.privateKeyOutputPassphrase?.trim() ?? "";
 
   if (encryptionMode === "same-as-ppk" && !inputPassphrase) {
-    throw new Error("选择沿用 PPK 口令时，必须填写 PPK 口令。");
+    throw new ValidationError("选择沿用 PPK 口令时，必须填写 PPK 口令。");
   }
 
   if (encryptionMode === "custom" && !outputPassphrase) {
-    throw new Error("选择自定义加密格式时，必须填写新的私钥口令。");
+    throw new ValidationError("选择自定义加密格式时，必须填写新的私钥口令。");
   }
 
   try {
@@ -119,18 +120,18 @@ async function normalizeImportedSshKey(input: {
   } catch (error) {
     if (error instanceof PPKError) {
       if (error.code === "PASSPHRASE_REQUIRED") {
-        throw new Error("该 PPK 文件已加密，请填写正确的 PPK 口令后再导入。");
+        throw new ValidationError("该 PPK 文件已加密，请填写正确的 PPK 口令后再导入。");
       }
 
       if (error.code === "INVALID_MAC") {
-        throw new Error("PPK 口令错误或文件已损坏，请检查后重试。");
+        throw new ValidationError("PPK 口令错误或文件已损坏，请检查后重试。");
       }
 
       if (error.code === "WRONG_FORMAT") {
-        throw new Error("上传文件不是有效的 PPK 私钥，请选择 .ppk 文件。 ");
+        throw new ValidationError("上传文件不是有效的 PPK 私钥，请选择 .ppk 文件。 ");
       }
 
-      throw new Error(error.message);
+      throw new ValidationError(error.message);
     }
 
     throw error;
@@ -151,7 +152,7 @@ export async function createSshKey(input: {
   const name = input.name.trim();
   const description = input.description?.trim() || null;
 
-  if (!name) throw new Error("SSH 密钥名称不能为空");
+  if (!name) throw new ValidationError("SSH 密钥名称不能为空");
 
   const normalizedKey = await normalizeImportedSshKey(input);
 

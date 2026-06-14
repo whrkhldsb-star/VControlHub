@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { ValidationError } from "@/lib/errors";
+
 /**
  * Normalize a user-supplied remote path so it is always rooted under the
  * storage node base path. Absolute-looking input such as "/etc/passwd" is
@@ -21,7 +23,7 @@ export function normalizeRemotePath(
     path.posix.join(base, normalizedRelative),
   );
   if (absolutePath !== base && !absolutePath.startsWith(`${base}/`)) {
-    throw new Error("请求路径超出存储节点根目录");
+    throw new ValidationError("请求路径超出存储节点根目录");
   }
 
   return absolutePath;
@@ -43,7 +45,7 @@ export function normalizeRemoteRelativePath(requestedPath?: string | null): stri
     normalizedRelative.startsWith("../") ||
     path.posix.isAbsolute(normalizedRelative)
   ) {
-    throw new Error("请求路径超出存储节点根目录");
+    throw new ValidationError("请求路径超出存储节点根目录");
   }
 
   return normalizedRelative;
@@ -55,7 +57,7 @@ export function normalizeRemoteTargetPath(
 ): string {
   const normalized = normalizeRemotePath(basePath, requestedPath);
   if (normalized === normalizeAbsoluteBasePath(basePath)) {
-    throw new Error("目标路径不能是存储节点根目录");
+    throw new ValidationError("目标路径不能是存储节点根目录");
   }
   return normalized;
 }

@@ -14,6 +14,7 @@ import { execFileSync } from "child_process";
 import { mkdirSync, rmSync } from "node:fs";
 
 import { writeAuditLog } from "@/lib/audit/service";
+import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import type { ServiceTemplate } from "./types";
 
 /* -- Concurrency / state guards ----------------------------------------- */
@@ -32,7 +33,7 @@ export async function withServiceOperationLock<T>(
 ): Promise<T> {
 	const normalizedSlug = slug.trim();
 	if (serviceOperationLocks.has(normalizedSlug)) {
-		throw new Error(`服务 ${normalizedSlug} 正在执行其它操作，请稍后重试`);
+		throw new ConflictError(`服务 ${normalizedSlug} 正在执行其它操作，请稍后重试`);
 	}
 	serviceOperationLocks.add(normalizedSlug);
 	try {
@@ -45,7 +46,7 @@ export async function withServiceOperationLock<T>(
 /** Throws if the service is mid-install (the only state that should block other ops). */
 export function assertServiceNotBusy(svc: { slug: string; status?: string | null }, operation: string) {
 	if (svc.status === "installing") {
-		throw new Error(`服务 ${svc.slug} 正在安装中，无法${operation}，请稍后重试`);
+		throw new ConflictError(`服务 ${svc.slug} 正在安装中，无法${operation}，请稍后重试`);
 	}
 }
 
@@ -60,24 +61,24 @@ const TRUSTED_HOST_MOUNTS = new Set(["/etc/timezone", "/etc/localtime"]);
 const DOCKER_SOCKET = "/var/run/docker.sock";
 
 export function safeContainerName(slug: string): string {
-	if (!SAFE_CONTAINER_RE.test(slug)) throw new Error("服务标识无效");
+	if (!SAFE_CONTAINER_RE.test(slug)) throw new ValidationError("服务标识无效");
 	return `qs-${slug}`;
 }
 
 export function assertTcpPort(port: number, label = "端口") {
 	if (!Number.isInteger(port) || port < 1 || port > 65535) {
-		throw new Error(`${label} ${port} 无效，请使用 1-65535 范围内的端口。`);
+		throw new ValidationError(`${label} ${port} 无效，请使用 1-65535 范围内的端口。`);
 	}
 }
 
 export function assertImage(image: string) {
-	if (!SAFE_IMAGE_RE.test(image)) throw new Error("镜像名称无效");
+	if (!SAFE_IMAGE_RE.test(image)) throw new ValidationError("镜像名称无效");
 }
 
 function normalizeVolumeEndpoint(value: string, label: string) {
 	const trimmed = value.trim();
 	if (!trimmed.startsWith("/") || trimmed.includes("\0") || trimmed.includes("..")) {
-		throw new Error(`${label} 路径无效`);
+		throw new ValidationError(`${label} 路径无效`);
 	}
 	return trimmed.replace(/\/+$/, "") || "/";
 }
@@ -86,7 +87,7 @@ function splitContainerPathAndOptions(raw: string) {
 	const [containerPath, ...options] = raw.split(":");
 	const normalizedPath = normalizeVolumeEndpoint(containerPath!, "容器挂载");
 	for (const option of options) {
-		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new Error(`挂载选项 ${option} 无效`);
+		if (!SAFE_VOLUME_OPTION_RE.test(option)) throw new ValidationError(`挂载选项 ${option} 无效`);
 	}
 	return [normalizedPath, ...options].join(":");
 }
@@ -94,11 +95,11 @@ function splitContainerPathAndOptions(raw: string) {
 function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 	if (hostPath === DOCKER_SOCKET) {
 		if (template.allowDockerSocket === true) return;
-		throw new Error("远程应用不允许挂载 Docker socket");
+		throw new BusinessError("远程应用不允许挂载 Docker socket");
 	}
 	if (TRUSTED_HOST_MOUNTS.has(hostPath)) return;
 	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
-	throw new Error(`宿主机挂载路径 ${hostPath} 不在允许范围内`);
+	throw new BusinessError(`宿主机挂载路径 ${hostPath} 不在允许范围内`);
 }
 
 function isRemovableHostVolume(hostPath: string) {
@@ -134,7 +135,7 @@ export function validateTemplate(template: ServiceTemplate) {
 		assertTcpPort(ep.container, "额外容器端口");
 	}
 	for (const key of Object.keys(template.envJson)) {
-		if (!SAFE_ENV_KEY_RE.test(key)) throw new Error(`环境变量名 ${key} 无效`);
+		if (!SAFE_ENV_KEY_RE.test(key)) throw new ValidationError(`环境变量名 ${key} 无效`);
 	}
 	for (const vol of template.volumesJson) {
 		const host = normalizeVolumeEndpoint(vol.host, "宿主机挂载");
@@ -177,7 +178,7 @@ export function parseCommandArgs(command?: string): string[] {
 		}
 		current += ch;
 	}
-	if (escaping || quote) throw new Error("启动命令格式无效");
+	if (escaping || quote) throw new ValidationError("启动命令格式无效");
 	if (current) args.push(current);
 	return args;
 }
@@ -259,7 +260,7 @@ export function allocatePort(preferredPort?: number): number {
 		tried.add(port);
 		if (isPortAvailableSync(port)) return port;
 	}
-	throw new Error("无法分配可用端口，请手动指定端口后重试");
+	throw new BusinessError("无法分配可用端口，请手动指定端口后重试");
 }
 
 export function getUsedPorts(): number[] {
@@ -301,7 +302,7 @@ export function parseListeningPorts(output: string): Set<number> {
 export function assertPortAvailable(port: number, label = "端口") {
 	assertTcpPort(port, label);
 	if (!isPortAvailableSync(port)) {
-		throw new Error(`${label} ${port} 已被占用，请更换端口后重试。`);
+		throw new ConflictError(`${label} ${port} 已被占用，请更换端口后重试。`);
 	}
 }
 

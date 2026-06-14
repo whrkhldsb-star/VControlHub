@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { ValidationError } from "@/lib/errors";
+
 function normalizeBasePath(basePath: string | null | undefined): string {
   const requested = (basePath ?? "").trim() || "/root/downloads";
   const withLeadingSlash = requested.startsWith("/") ? requested : `/${requested}`;
@@ -19,7 +21,7 @@ export function getDownloadTargetRelativePath(
   const normalizedTarget = path.posix.normalize(resolvedTargetPath).replace(/\/+$/, "") || "/";
 
   if (!isPathWithinBase(normalizedTarget, base)) {
-    throw new Error("下载目标路径超出存储节点根目录");
+    throw new ValidationError("下载目标路径超出存储节点根目录");
   }
 
   if (normalizedTarget === base) {
@@ -55,7 +57,7 @@ export function resolveDownloadTargetPath(
     : path.posix.normalize(path.posix.join(base, normalized));
 
   if (!isPathWithinBase(candidate, base)) {
-    throw new Error("下载目标路径超出存储节点根目录");
+    throw new ValidationError("下载目标路径超出存储节点根目录");
   }
 
   return candidate;

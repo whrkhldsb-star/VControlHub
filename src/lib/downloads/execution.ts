@@ -32,6 +32,7 @@ import {
  getPublicDownloadError,
  buildProgressText,
 } from "@/lib/downloads/helpers";
+import { BusinessError } from "@/lib/errors";
 
 const execFileAsync = promisify(execFile);
 
@@ -230,7 +231,7 @@ export async function transferFileViaSsh2(
   const sshpassEnv = { ...process.env, SSHPASS: decryptServerPassword(server.password) };
   await execFileAsync("sshpass", ["-e", "scp", ...scpArgs, localFilePath, target], { timeout: 600_000, maxBuffer: 50 * 1024 * 1024, env: sshpassEnv });
  } else {
-  throw new Error("No SSH key or password for file transfer");
+  throw new BusinessError("No SSH key or password for file transfer");
  }
 }
 

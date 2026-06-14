@@ -1,5 +1,6 @@
 import { Client, type ConnectConfig } from "ssh2";
 import type { SFTPWrapper } from "ssh2";
+import { BusinessError } from "@/lib/errors";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {
@@ -172,7 +173,7 @@ export async function createRemoteDirectory(input: SshConnectionParams & { remot
         30_000,
       );
       if (result.exitCode && result.exitCode !== 0) {
-        throw new Error(
+        throw new BusinessError(
           result.stderr ||
             result.stdout ||
             (sftpError instanceof Error

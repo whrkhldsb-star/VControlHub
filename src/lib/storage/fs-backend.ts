@@ -1,5 +1,6 @@
 import { mkdir, rename, rm, unlink } from "node:fs/promises";
 
+import { ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials } from "./ssh-credentials";
 import { expandStorageBasePath } from "./path-utils";
 import { normalizeRemoteTargetPath } from "./remote-path";
@@ -60,7 +61,7 @@ export async function resolveManagedLocalEntryPath(input: {
   const relativeToRoot = path.relative(allowedRoot, absolutePath);
 
   if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-    throw new Error("路径超出存储根目录");
+    throw new ValidationError("路径超出存储根目录");
   }
 
   return { path, absolutePath, allowedRoot };

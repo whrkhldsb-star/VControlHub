@@ -1,3 +1,4 @@
+import { ForbiddenError } from "@/lib/errors";
 import type { Permission, RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 import { requireSession } from "./require-session";
@@ -14,7 +15,7 @@ export async function requirePermission(permission: Permission) {
   const session = await requireSession();
 
   if (!sessionHasPermission(session, permission)) {
-    throw new Error(`缺少权限：${permission}`);
+    throw new ForbiddenError(`缺少权限：${permission}`);
   }
 
   return session;

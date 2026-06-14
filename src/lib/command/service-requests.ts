@@ -1,5 +1,6 @@
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { prisma } from "@/lib/db";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   notifyCommandPending,
   notifyCommandResult,
@@ -168,7 +169,7 @@ function mapCommandRequest(
 export async function cancelCommandRequest(input: { commandRequestId: string; actorId: string; reason?: string }) {
   const commandRequestId = input.commandRequestId.trim();
   if (!commandRequestId) {
-    throw new Error("命令请求不存在");
+    throw new ValidationError("命令请求不存在");
   }
 
   const request = await prisma.commandRequest.findUnique({
@@ -177,11 +178,11 @@ export async function cancelCommandRequest(input: { commandRequestId: string; ac
   });
 
   if (!request) {
-    throw new Error("命令请求不存在");
+    throw new NotFoundError("命令请求不存在");
   }
 
   if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
-    throw new Error("当前命令请求已结束，无法取消");
+    throw new BusinessError("当前命令请求已结束，无法取消");
   }
 
   const cancellableTargetIds = request.targets
@@ -271,11 +272,11 @@ export async function reviewCommandRequest(input: ReviewCommandInput) {
   });
 
   if (!request) {
-    throw new Error("命令请求不存在");
+    throw new NotFoundError("命令请求不存在");
   }
 
   if (request.status !== "PENDING_APPROVAL") {
-    throw new Error("当前命令请求不在待审批状态");
+    throw new BusinessError("当前命令请求不在待审批状态");
   }
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";

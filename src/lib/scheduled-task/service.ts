@@ -1,6 +1,7 @@
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
+import { BusinessError, NotFoundError } from "@/lib/errors";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -97,7 +98,7 @@ export async function deleteScheduledTask(id: string) {
 
 export async function toggleScheduledTask(id: string) {
 	const current = await prisma.scheduledTask.findUnique({ where: { id }, select: { status: true } });
-	if (!current) throw new Error("定时任务不存在");
+	if (!current) throw new NotFoundError("定时任务不存在");
 	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
 	const nextRun = newStatus === "ACTIVE" ? undefined : null;
 	return prisma.scheduledTask.update({
@@ -111,10 +112,10 @@ export async function toggleScheduledTask(id: string) {
 
 export async function retryScheduledTask(id: string) {
 	const task = await prisma.scheduledTask.findUnique({ where: { id } });
-	if (!task) throw new Error("定时任务不存在");
+	if (!task) throw new NotFoundError("定时任务不存在");
 	if (task.serverIds.length === 0 || !task.createdById) {
 		await recordTaskRun(task.id, "手动重试失败：无目标服务器或无创建者");
-		throw new Error("定时任务缺少目标服务器或创建者，无法重试");
+		throw new BusinessError("定时任务缺少目标服务器或创建者，无法重试");
 	}
 
 	const result = await createCommandRequest({

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { ValidationError } from "@/lib/errors";
 
 const TOKEN_BYTES=32;
 const TOKEN_PREFIX="whr_";
@@ -29,7 +30,7 @@ function normalizeScopes(scopes?: string[]) {
   );
   const invalid = normalized.filter((scope) => !isAllowedApiTokenScope(scope));
   if (invalid.length > 0) {
-    throw new Error(`不支持的 scope: ${invalid.join(", ")}`);
+    throw new ValidationError(`不支持的 scope: ${invalid.join(", ")}`);
   }
   return (normalized.length > 0 ? normalized : ["read"]).slice(0, 20);
 }
@@ -48,7 +49,7 @@ const API_TOKEN_SAFE_SELECT = {
 
 export async function createApiToken(input: { userId: string; name: string; scopes?: string[]; expiresAt?: Date | null }) {
   const name = input.name.trim();
-  if (!name) throw new Error("Token 名称不能为空");
+  if (!name) throw new ValidationError("Token 名称不能为空");
   const token = `${TOKEN_PREFIX}${randomBytes(TOKEN_BYTES).toString("base64url")}`;
   const tokenHash = hashApiToken(token);
   const record = await prisma.apiToken.create({

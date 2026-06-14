@@ -12,6 +12,7 @@ import { execFile, execFileSync } from "child_process";
 import { promisify } from "util";
 
 import { prisma } from "@/lib/db";
+import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createNotification } from "@/lib/notification/service";
 import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
 import {
@@ -110,7 +111,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	// Pre-flight: ensure Docker is available
 	const dockerStatus = getDockerEnvironmentStatus();
 	if (!dockerStatus.available) {
-		throw new Error(`${dockerStatus.message}。${dockerStatus.installHint}`);
+		throw new BusinessError(`${dockerStatus.message}。${dockerStatus.installHint}`);
 	}
 
 	validateTemplate(template);
@@ -258,7 +259,7 @@ async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl
 export async function uninstallService(slug: string, options: UninstallServiceOptions = {}) {
 	return withServiceOperationLock(slug, "卸载", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new Error("服务不存在");
+		if (!svc) throw new NotFoundError("服务不存在");
 		assertServiceNotBusy(svc, "卸载");
 		await writeQuickServiceAudit({ action: "uninstall", slug: svc.slug, status: "started", detail: { deleteVolumes: options.deleteVolumes === true } });
 
@@ -269,7 +270,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `卸载失败: ${msg}` } });
 			await writeQuickServiceAudit({ action: "uninstall", slug: svc.slug, status: "failed", detail: { error: msg.slice(0, 500) } });
-			throw new Error(`卸载失败: ${msg}`);
+			throw new BusinessError(`卸载失败: ${msg}`);
 		}
 
 		if (options.deleteVolumes === true) {
@@ -286,7 +287,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 export async function startService(slug: string) {
 	return withServiceOperationLock(slug, "启动", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new Error("服务不存在");
+		if (!svc) throw new NotFoundError("服务不存在");
 		assertServiceNotBusy(svc, "启动");
 		await writeQuickServiceAudit({ action: "start", slug: svc.slug, status: "started" });
 
@@ -318,7 +319,7 @@ export async function startService(slug: string) {
 				const msg = dockerErrorMessage(err);
 				await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
 				await writeQuickServiceAudit({ action: "start", slug: svc.slug, status: "failed", detail: { error: msg.slice(0, 500) } });
-				throw new Error(`启动失败: ${msg}`);
+				throw new BusinessError(`启动失败: ${msg}`);
 			}
 		}
 	});
@@ -327,7 +328,7 @@ export async function startService(slug: string) {
 export async function updateService(slug: string) {
 	return withServiceOperationLock(slug, "更新", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new Error("服务不存在");
+		if (!svc) throw new NotFoundError("服务不存在");
 		assertServiceNotBusy(svc, "更新");
 		const containerName = safeContainerName(svc.slug);
 		await writeQuickServiceAudit({ action: "update", slug: svc.slug, status: "started", detail: { image: svc.image } });
@@ -360,7 +361,7 @@ export async function updateService(slug: string) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: `更新失败: ${msg}` } });
 			await writeQuickServiceAudit({ action: "update", slug: svc.slug, status: "failed", detail: { image: svc.image, error: msg.slice(0, 500) } });
-			throw new Error(`更新失败: ${msg}`);
+			throw new BusinessError(`更新失败: ${msg}`);
 		}
 	});
 }
@@ -368,7 +369,7 @@ export async function updateService(slug: string) {
 export async function stopService(slug: string) {
 	return withServiceOperationLock(slug, "停止", async () => {
 		const svc = await prisma.quickService.findUnique({ where: { slug } });
-		if (!svc) throw new Error("服务不存在");
+		if (!svc) throw new NotFoundError("服务不存在");
 		assertServiceNotBusy(svc, "停止");
 		await writeQuickServiceAudit({ action: "stop", slug: svc.slug, status: "started" });
 
@@ -381,14 +382,14 @@ export async function stopService(slug: string) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: { slug }, data: { status: "error", error: msg } });
 			await writeQuickServiceAudit({ action: "stop", slug: svc.slug, status: "failed", detail: { error: msg.slice(0, 500) } });
-			throw new Error(`停止失败: ${msg}`);
+			throw new BusinessError(`停止失败: ${msg}`);
 		}
 	});
 }
 
 export async function syncServiceStatus(slug: string) {
 	const svc = await prisma.quickService.findUnique({ where: { slug } });
-	if (!svc) throw new Error("服务不存在");
+	if (!svc) throw new NotFoundError("服务不存在");
 	await writeQuickServiceAudit({ action: "sync", slug: svc.slug, status: "started" });
 
 	const containerName = safeContainerName(svc.slug);
@@ -416,7 +417,7 @@ export function checkPort(port: number): { available: boolean; usedBy: string | 
 			let usedBy = "未知进程";
 			if (pidMatch) {
 				const pid = pidMatch[1]!;
-				if (!/^\d+$/.test(pid)) throw new Error("Invalid PID");
+				if (!/^\d+$/.test(pid)) throw new ValidationError("Invalid PID");
 				try {
 					const cmdLine = execFileSync("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
 						timeout: 3000,
