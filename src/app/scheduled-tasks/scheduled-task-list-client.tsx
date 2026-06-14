@@ -136,7 +136,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					<button
 						onClick={() => setShowCreate(true)}
 						data-tone="accent"
-						className="rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
+						className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
 					>
 						+ 创建定时任务
 					</button>
@@ -184,7 +184,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										<button
 											onClick={() => retryTask(task.id)}
 											data-tone="accent"
-											className="rounded-2xl border px-4 py-2 text-xs font-medium transition"
+											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
 											重试
 										</button>
@@ -193,7 +193,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										<button
 											onClick={() => toggleTask(task.id)}
 											data-tone={task.status === "ACTIVE" ? "warning" : "success"}
-											className="rounded-2xl border px-4 py-2 text-xs font-medium transition"
+											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
 											{task.status === "ACTIVE" ? "暂停" : "恢复"}
 										</button>
@@ -202,7 +202,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 										<button
 											onClick={() => setTaskPendingDelete(task)}
 											data-tone="danger"
-											className="rounded-2xl border px-4 py-2 text-xs font-medium transition"
+											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
 											删除
 										</button>
@@ -221,10 +221,10 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 							即将删除定时任务 <span className="font-semibold text-rose-100">{taskPendingDelete.name}</span>。删除后该任务将停止调度，历史结果不会再通过此任务入口追踪。
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setTaskPendingDelete(null)} className="rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
+							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
 								取消
 							</button>
-							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
+							<button type="button" onClick={() => deleteTask(taskPendingDelete)} className="min-h-11 rounded-xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-400">
 								确认删除
 							</button>
 						</div>
@@ -307,7 +307,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
-							className={`rounded-md border px-2.5 py-1 text-[11px] transition ${
+							className={`min-h-11 rounded-md border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
 									: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]"
@@ -334,7 +334,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					<div id="scheduled-task-target-nodes-label" className={fieldLabelClass}>目标节点</div>
 					<div className="grid gap-1.5 sm:grid-cols-2" role="group" aria-labelledby="scheduled-task-target-nodes-label">
 						{enabledServers.map((s) => (
-							<label key={s.id} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
+							<label key={s.id} className={`min-h-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm cursor-pointer transition ${
 								selectedServerIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-300 hover:bg-white/[0.05]"
 							}`}>
 								<input type="checkbox" checked={selectedServerIds.has(s.id)} onChange={() => toggleServer(s.id)} className="accent-cyan-400" />
@@ -346,10 +346,10 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			)}
 
 			<div className="flex gap-3 pt-2">
-				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
+				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
 					{submitting ? "创建中…" : "创建任务"}
 				</button>
-				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
+				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
 					取消
 				</button>
 			</div>
