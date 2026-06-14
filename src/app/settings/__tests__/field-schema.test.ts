@@ -50,8 +50,7 @@ describe("getSectionSaveKeys", () => {
 			"runtime.commandReconcileIntervalMs",
 			"runtime.sftpSyncDirectoryTimeoutMs",
 			"runtime.sshWsHeartbeatIntervalMs",
-			"runtime.sshKeepaliveIntervalMs",
-			"runtime.sshKeepaliveCountMax",
+			"runtime.sshIdleTimeoutSec",
 			"runtime.operationTaskListLimit",
 			"runtime.aiProviderListLimit",
 			"runtime.aiConversationListLimit",
@@ -148,8 +147,11 @@ describe("SMTP dynamic schema", () => {
 describe("Runtime schema", () => {
 	const runtime = SETTINGS_SCHEMA.find((s) => s.id === "runtime")!;
 
-	it("declares 12 runtime number fields", () => {
-		expect(runtime.fields).toHaveLength(12);
+	it("declares 11 runtime fields (10 number + 1 select)", () => {
+		expect(runtime.fields).toHaveLength(11);
+		const selectFields = runtime.fields.filter((f) => f.type === "select");
+		expect(selectFields).toHaveLength(1);
+		expect(selectFields[0]?.key).toBe("runtime.sshIdleTimeoutSec");
 	});
 
 	it("validates command execution timeout bounds (5000–3600000)", () => {
@@ -179,5 +181,45 @@ describe("Schema declaration order", () => {
 		// update the test assertions.
 		const saveable = SETTINGS_SCHEMA.filter((s) => !s.custom);
 		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp"]);
+	});
+});
+
+describe("SSH idle timeout (select field)", () => {
+	const idleField = SETTINGS_SCHEMA.find((s) => s.id === "runtime")?.fields.find(
+		(f) => f.key === "runtime.sshIdleTimeoutSec",
+	)!;
+
+	it("uses a select type with six presets", () => {
+		expect(idleField.type).toBe("select");
+		expect(idleField.options).toEqual([
+			{ value: "0", label: "永不（强保活）" },
+			{ value: "300", label: "5 分钟" },
+			{ value: "600", label: "10 分钟" },
+			{ value: "1800", label: "30 分钟" },
+			{ value: "3600", label: "1 小时" },
+			{ value: "7200", label: "2 小时" },
+		]);
+	});
+
+	it("accepts '0' (永不) as a valid value", () => {
+		expect(idleField.validate?.("0", {})).toBeNull();
+	});
+
+	it("accepts preset values within range", () => {
+		expect(idleField.validate?.("300", {})).toBeNull();
+		expect(idleField.validate?.("600", {})).toBeNull();
+		expect(idleField.validate?.("7200", {})).toBeNull();
+	});
+
+	it("rejects sub-minute values", () => {
+		expect(idleField.validate?.("30", {})).toMatch(/必须在 60 到 7200 秒之间/);
+	});
+
+	it("rejects values above 2 hours", () => {
+		expect(idleField.validate?.("7201", {})).toMatch(/必须在 60 到 7200 秒之间/);
+	});
+
+	it("rejects non-numeric values", () => {
+		expect(idleField.validate?.("abc", {})).toMatch(/必须是数字秒数/);
 	});
 });

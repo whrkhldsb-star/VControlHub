@@ -64,13 +64,27 @@ describe("runtime settings", () => {
 
   it("reads SSH terminal keepalive settings from persisted runtime settings", async () => {
     prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
-      value: where.key === "runtime.sshKeepaliveCountMax" ? "12" : "15000",
+      value: where.key === "runtime.sshIdleTimeoutSec" ? "600" : "15000",
     }));
 
     await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
       wsHeartbeatIntervalMs: 15000,
-      sshKeepaliveIntervalMs: 15000,
-      sshKeepaliveCountMax: 12,
+      sshKeepaliveIntervalMs: 30000,
+      // 10 min / 30s = 20 keepalives
+      sshKeepaliveCountMax: 20,
+    });
+  });
+
+  it("caps SSH keepalive count at 60 even for long idle timeouts", async () => {
+    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
+      value: where.key === "runtime.sshIdleTimeoutSec" ? "7200" : "25000",
+    }));
+
+    await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
+      wsHeartbeatIntervalMs: 25000,
+      sshKeepaliveIntervalMs: 30000,
+      // 2 hours / 30s = 240, capped at 60
+      sshKeepaliveCountMax: 60,
     });
   });
 
@@ -80,7 +94,18 @@ describe("runtime settings", () => {
     await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
       wsHeartbeatIntervalMs: 25000,
       sshKeepaliveIntervalMs: 30000,
+      // sshIdleTimeoutSec default = 0 → 永不 → count stays at cap (60)
       sshKeepaliveCountMax: 60,
+    });
+  });
+
+  it("computes the SSH keepalive count for a 5 minute idle timeout", async () => {
+    prismaMock.setting.findUnique.mockImplementation(async ({ where }: { where: { key: string } }) => ({
+      value: where.key === "runtime.sshIdleTimeoutSec" ? "300" : "25000",
+    }));
+
+    await expect(getSshTerminalRuntimeConfig()).resolves.toMatchObject({
+      sshKeepaliveCountMax: 10, // 5 min / 30s = 10 keepalives
     });
   });
 
@@ -111,16 +136,16 @@ describe("runtime settings", () => {
     process.env.COMMAND_EXECUTION_TIMEOUT_MS = "180000";
     prismaMock.setting.findMany.mockResolvedValueOnce([
       { key: "runtime.commandReconcileIntervalMs", value: "45000" },
-      { key: "runtime.sshKeepaliveCountMax", value: "999" },
+      { key: "runtime.sshIdleTimeoutSec", value: "9999" },
     ]);
 
     const summaries = await getRuntimeSettingSummaries();
     const commandTimeout = summaries.find((item) => item.key === "runtime.commandExecutionTimeoutMs");
     const reconcile = summaries.find((item) => item.key === "runtime.commandReconcileIntervalMs");
-    const invalidKeepalive = summaries.find((item) => item.key === "runtime.sshKeepaliveCountMax");
+    const invalidIdle = summaries.find((item) => item.key === "runtime.sshIdleTimeoutSec");
 
     expect(commandTimeout).toMatchObject({ value: 180000, source: "environment", sourceLabel: "环境变量", requiresRestart: false });
     expect(reconcile).toMatchObject({ value: 45000, source: "database", sourceLabel: "数据库设置", requiresRestart: true });
-    expect(invalidKeepalive).toMatchObject({ value: 60, source: "invalid-database", sourceLabel: "数据库值无效，已回退", requiresRestart: true });
+    expect(invalidIdle).toMatchObject({ value: 0, source: "invalid-database", sourceLabel: "数据库值无效，已回退", requiresRestart: true });
   });
 });

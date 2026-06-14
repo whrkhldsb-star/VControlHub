@@ -464,6 +464,18 @@ function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSu
 			</div>
 		);
 	}
+	if (field.type === "select") {
+		return (
+			<SelectField
+				field={field}
+				value={value}
+				disabled={disabled}
+				helperText={helperText}
+				onChange={onChange}
+				runtimeSummary={runtimeSummary}
+			/>
+		);
+	}
 	if (field.type === "textarea") {
 		return (
 			<TextAreaField
@@ -484,6 +496,77 @@ function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSu
 			onChange={onChange}
 			runtimeSummary={runtimeSummary}
 		/>
+	);
+}
+
+type SelectFieldProps = {
+	field: FieldDef;
+	value: string;
+	disabled: boolean;
+	helperText: string | undefined;
+	onChange: (value: string) => void;
+	runtimeSummary: RuntimeSettingSummary | undefined;
+};
+
+function SelectField({ field, value, disabled, helperText, onChange, runtimeSummary }: SelectFieldProps) {
+	const inputId = useId();
+	const helperId = useId();
+	const runtimeId = useId();
+	const describedBy =
+		[helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
+	const options = field.options ?? [];
+	// If the persisted value is not in the option list (legacy rows, custom edit),
+	// still render it as the current selection so users can see and switch away.
+	const normalizedValue = options.some((opt) => opt.value === value) ? value : (field.defaultValue ?? options[0]?.value ?? "");
+	return (
+		<div
+			className={`space-y-1.5 rounded-lg border p-3 transition ${
+				disabled
+					? "border-white/[0.04] bg-slate-950/20 opacity-70 light:bg-slate-100/80"
+					: "border-transparent bg-white/[0.01]"
+			}`}
+		>
+			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">
+				{field.label}
+			</label>
+			<select
+				id={inputId}
+				value={normalizedValue}
+				onChange={(e) => onChange(e.target.value)}
+				disabled={disabled}
+				aria-describedby={describedBy}
+				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500"
+			>
+				{options.map((opt) => (
+					<option key={opt.value} value={opt.value} className="bg-slate-900 text-white">
+						{opt.label}
+					</option>
+				))}
+			</select>
+			{helperText && (
+				<p id={helperId} className="text-xs text-white">
+					{helperText}
+				</p>
+			)}
+			{runtimeSummary && (
+				<div
+					id={runtimeId}
+					className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
+				>
+					<p>
+						当前运行值：<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}
+					</p>
+					<p>生效位置：{runtimeSummary.applies}</p>
+					<p>
+						环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}
+						{runtimeSummary.unit}
+					</p>
+					{runtimeSummary.requiresRestart && (
+						<p className="font-medium text-amber-200">保存后需重启对应服务才会改变已启动进程。</p>
+					)}
+				</div>
+			)}
+		</div>
 	);
 }
 

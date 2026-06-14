@@ -72,7 +72,7 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "60", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
+    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
     await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
     await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
@@ -88,8 +88,7 @@ describe("SettingsClient", () => {
           "runtime.commandReconcileIntervalMs": "60000",
           "runtime.sftpSyncDirectoryTimeoutMs": "60000",
           "runtime.sshWsHeartbeatIntervalMs": "25000",
-          "runtime.sshKeepaliveIntervalMs": "30000",
-          "runtime.sshKeepaliveCountMax": "60",
+          "runtime.sshIdleTimeoutSec": "600",
           "runtime.operationTaskListLimit": "100",
           "runtime.aiProviderListLimit": "100",
           "runtime.aiConversationListLimit": "200",
@@ -111,12 +110,14 @@ describe("SettingsClient", () => {
     expect(fieldCard).toHaveClass("border");
   });
 
-  it("surfaces SSH terminal keepalive runtime settings in the admin Settings UX", () => {
+  it("surfaces SSH terminal settings via the new idle-timeout dropdown in the admin Settings UX", () => {
     render(<SettingsClient settings={{}} canManage />);
 
+    // The WS heartbeat stays as a numeric input; the SSH idle timeout is now a select.
     expect(screen.getByLabelText("SSH WebSocket 心跳间隔（毫秒，需重启）")).toHaveValue(25000);
-    expect(screen.getByLabelText("SSH keepalive 间隔（毫秒，需重启）")).toHaveValue(30000);
-    expect(screen.getByLabelText("SSH keepalive 容忍次数（需重启，默认强保活）")).toHaveValue(60);
+    const idleSelect = screen.getByLabelText("SSH 空闲超时") as HTMLSelectElement;
+    expect(idleSelect.tagName).toBe("SELECT");
+    expect(idleSelect.value).toBe("0");
     expect(screen.getByText(/SSH 终端连接保活参数需要重启对应服务后生效/)).toBeInTheDocument();
     expect(screen.getByText(/只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开/)).toBeInTheDocument();
   });
@@ -202,7 +203,7 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "1", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshKeepaliveIntervalMs": "30000", "runtime.sshKeepaliveCountMax": "60", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
+    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "1", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
 
     expect(screen.getByText("命令执行超时 必须在 5000 到 3600000 之间")).toBeInTheDocument();

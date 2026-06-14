@@ -17,7 +17,14 @@
  * 修改 SETTINGS_SCHEMA 顺序时请同步维护测试断言或重排 runtime/smtp 位置。
  */
 
-export type FieldType = "text" | "number" | "password" | "switch" | "textarea";
+export type FieldType = "text" | "number" | "password" | "select" | "switch" | "textarea";
+
+export type SelectOption = {
+	/** 实际写入 settings 记录的值（字符串） */
+	value: string;
+	/** 渲染给用户看的标签 */
+	label: string;
+};
 
 export type FieldDef = {
 	/** 设置 key（同 settings record key） */
@@ -27,6 +34,8 @@ export type FieldDef = {
 	placeholder?: string;
 	defaultValue?: string;
 	autoComplete?: string;
+	/** select 类型的下拉选项（type=select 必填） */
+	options?: SelectOption[];
 	/** 静态 helperText 或动态 helperText（基于当前 settings 实时生成） */
 	helperText?: string | ((settings: Record<string, string>) => string | undefined);
 	/** 数字范围（用于 number 类型），同时也是默认 validate 的一部分 */
@@ -202,8 +211,29 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 			runtimeNumber("runtime.commandReconcileIntervalMs", "命令维护扫描间隔（毫秒，需重启）", "60000", 5_000, 3_600_000),
 			runtimeNumber("runtime.sftpSyncDirectoryTimeoutMs", "SFTP 单目录同步超时（毫秒）", "60000", 5_000, 1_800_000),
 			runtimeNumber("runtime.sshWsHeartbeatIntervalMs", "SSH WebSocket 心跳间隔（毫秒，需重启）", "25000", 5_000, 600_000),
-			runtimeNumber("runtime.sshKeepaliveIntervalMs", "SSH keepalive 间隔（毫秒，需重启）", "30000", 5_000, 600_000),
-			runtimeNumber("runtime.sshKeepaliveCountMax", "SSH keepalive 容忍次数（需重启，默认强保活）", "60", 1, 60),
+			{
+				key: "runtime.sshIdleTimeoutSec",
+				label: "SSH 空闲超时",
+				type: "select",
+				defaultValue: "0",
+				helperText: "浏览器侧 SSH 终端多久无操作后自动断开连接。默认为「永不」（强保活：只要页面开着、网络和目标 SSH 仍可用就不会断）；调短可以减少无效长连接占用。保存后需重启 SSH WebSocket 服务。",
+				options: [
+					{ value: "0", label: "永不（强保活）" },
+					{ value: "300", label: "5 分钟" },
+					{ value: "600", label: "10 分钟" },
+					{ value: "1800", label: "30 分钟" },
+					{ value: "3600", label: "1 小时" },
+					{ value: "7200", label: "2 小时" },
+				],
+				validate: (value) => {
+					if (value === "0") return null;
+					const parsed = Number(value);
+					if (!Number.isFinite(parsed)) return "SSH 空闲超时 必须是数字秒数";
+					const seconds = Math.trunc(parsed);
+					if (seconds < 60 || seconds > 7200) return "SSH 空闲超时 必须在 60 到 7200 秒之间 (0 表示永不)";
+					return null;
+				},
+			},
 			runtimeNumber("runtime.operationTaskListLimit", "任务中心列表上限（条）", "100", 20, 500),
 			runtimeNumber("runtime.aiProviderListLimit", "AI 提供商列表上限（条）", "100", 10, 500),
 			runtimeNumber("runtime.aiConversationListLimit", "AI 对话列表上限（条）", "200", 20, 1_000),

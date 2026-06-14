@@ -42,7 +42,7 @@ describe("/api/settings audit coverage", () => {
       "smtp.from",
       "smtp.pass",
       "runtime.commandExecutionTimeoutMs",
-      "runtime.sshKeepaliveCountMax",
+      "runtime.sshIdleTimeoutSec",
       "runtime.operationTaskListLimit",
       "runtime.aiProviderListLimit",
       "runtime.aiConversationListLimit",
@@ -147,16 +147,16 @@ describe("/api/settings audit coverage", () => {
     expect(mocks.setManySettings).not.toHaveBeenCalled();
   });
 
-  it("accepts bounded SSH terminal runtime settings", async () => {
+  it("accepts bounded SSH idle timeout runtime settings", async () => {
     const response = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ "runtime.sshKeepaliveCountMax": "12.8" }),
+      body: JSON.stringify({ "runtime.sshIdleTimeoutSec": "600.8" }),
     }));
 
     expect(response.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
-      { key: "runtime.sshKeepaliveCountMax", value: "12" },
+      { key: "runtime.sshIdleTimeoutSec", value: "600" },
     ]);
   });
 

@@ -82,6 +82,15 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     unit: "次",
     applies: "需要重启 SSH WebSocket 服务后生效",
   },
+  "runtime.sshIdleTimeoutSec": {
+    env: "SSH_IDLE_TIMEOUT_SEC",
+    defaultValue: 0,
+    min: 0,
+    max: 7200,
+    label: "SSH 空闲超时",
+    unit: "秒",
+    applies: "需要重启 SSH WebSocket 服务后生效；0 表示永不（强保活）",
+  },
   "runtime.operationTaskListLimit": {
     env: "OPERATION_TASK_LIST_LIMIT",
     defaultValue: 100,
@@ -249,11 +258,20 @@ export async function getSftpSyncDirectoryTimeoutMs(): Promise<number> {
 
 export async function getSshTerminalRuntimeConfig() {
   const wsHeartbeatIntervalMs = await getRuntimeSettingNumber("runtime.sshWsHeartbeatIntervalMs");
-  const sshKeepaliveIntervalMs = await getRuntimeSettingNumber("runtime.sshKeepaliveIntervalMs");
-  const sshKeepaliveCountMax = await getRuntimeSettingNumber("runtime.sshKeepaliveCountMax");
+  const sshIdleTimeoutSec = await getRuntimeSettingNumber("runtime.sshIdleTimeoutSec");
+  // SSH 空闲超时 0 = 永不(强保活, 60 次容忍 ≈ 30 分钟); 其它值按 30s 间隔计算容忍次数, 最多 60 次。
+  // interval 固定 30s, 避免误改既有行为。
+  const SSH_KEEPALIVE_INTERVAL_MS = 30_000;
+  const SSH_KEEPALIVE_COUNT_MAX_CAP = 60;
+  const sshKeepaliveCountMax = sshIdleTimeoutSec === 0
+    ? SSH_KEEPALIVE_COUNT_MAX_CAP
+    : Math.min(
+        SSH_KEEPALIVE_COUNT_MAX_CAP,
+        Math.max(1, Math.ceil(sshIdleTimeoutSec * 1000 / SSH_KEEPALIVE_INTERVAL_MS)),
+      );
   return {
     wsHeartbeatIntervalMs,
-    sshKeepaliveIntervalMs,
+    sshKeepaliveIntervalMs: SSH_KEEPALIVE_INTERVAL_MS,
     sshKeepaliveCountMax,
   };
 }
