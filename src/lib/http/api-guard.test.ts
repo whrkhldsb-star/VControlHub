@@ -93,7 +93,9 @@ describe("api guard", () => {
     });
 
     expect(response.status).toBe(500);
-    expect(await json(response)).toEqual({ error: "boom" });
+    // TR-034: error envelope is now {error, message, code}; the human
+    // message lives in `message`, the machine-readable code in `error`.
+    expect(await json(response)).toMatchObject({ message: "boom" });
   });
 
   it("supports route-specific error mapping", async () => {
