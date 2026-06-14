@@ -5,6 +5,11 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState } from "@/components/page-shell";
+import {
+  useQuickServiceActions,
+  type ConfigPreview,
+  type QuickServiceMessage,
+} from "./use-quick-service-actions";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -29,24 +34,6 @@ interface CatalogItem {
 	source: string;
 	stars?: number;
 	monthlyPulls?: number;
-}
-
-interface QuickServiceActionResult {
-	success?: boolean;
-	queued?: boolean;
-	jobId?: string;
-	taskId?: string;
-	message?: string;
-	status?: string;
-	updated?: boolean;
-	health?: string | null;
-	logTail?: string | null;
-}
-
-interface QuickServiceMessage {
-	type: "ok" | "err";
-	text: string;
-	taskId?: string | null;
 }
 
 interface DockerEnvironmentStatus {
@@ -93,14 +80,6 @@ const QUICK_SERVICE_PUBLIC_HOST = process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_H
 
 type Tab = "store" | "community" | "installed" | "sources";
 
-type ConfigPreviewAction = "install" | "update";
-
-interface ConfigPreview {
-	action: ConfigPreviewAction;
-	item: CatalogItem;
-	port: number;
-}
-
 function getEnvCount(item: CatalogItem): number {
 	return item.envKeyCount ?? 0;
 }
@@ -142,8 +121,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("community");
-	const [actionSlug, setActionSlug] = useState<string | null>(null);
-	const [message, setMessage] = useState<QuickServiceMessage | null>(null);
 	const [newSourceName, setNewSourceName] = useState("");
 	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
 	const [newSourceUrl, setNewSourceUrl] = useState("");
@@ -151,7 +128,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [sourcePreset, setSourcePreset] = useState<(typeof SOURCE_PRESETS)[number]["key"] | null>(null);
 	// Install dialog state
 	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
-	const [configPreview, setConfigPreview] = useState<ConfigPreview | null>(null);
+	const [configPreview, setConfigPreview] = useState<ConfigPreview<CatalogItem> | null>(null);
 	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string; deleteVolumes: boolean } | null>(null);
 	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
@@ -189,19 +166,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		}
 	}, []);
 
+	// Action handlers + message + actionSlug + syncing now live in the
+	// useQuickServiceActions hook (extracted in R23).
+	const actions = useQuickServiceActions({ fetchCatalog, fetchSources });
+
 	useEffect(() => { fetchCatalog(); fetchSources(); }, [fetchCatalog, fetchSources]);
 	useEffect(() => {
 		if (typeof window !== "undefined") {
 			setHostName(window.location.hostname);
 		}
 	}, []);
-
-	// Auto-dismiss message
-	useEffect(() => {
-		if (!message) return;
-		const t = setTimeout(() => setMessage(null), 4000);
-		return () => clearTimeout(t);
-	}, [message]);
 
 	// Poll installing services
 	useEffect(() => {
@@ -238,7 +212,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
-			setMessage({ type: "err", text: dockerStatus.installHint ? `${dockerStatus.message}：${dockerStatus.installHint}` : (dockerStatus.message ?? "Docker 不可用") });
+			actions.showMessage({ type: "err", text: dockerStatus.installHint ? `${dockerStatus.message}：${dockerStatus.installHint}` : (dockerStatus.message ?? "Docker 不可用") });
 			return;
 		}
 		setInstallDialog({ slug: item.slug, name: item.name, defaultPort: item.defaultPort });
@@ -258,38 +232,19 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		if (!installDialog) return;
 		const port = Number(customPort);
 		if (isNaN(port) || port < 1 || port > 65535) {
-			setMessage({ type: "err", text: "端口号无效，请输入 1-65535 之间的数字" });
+			actions.showMessage({ type: "err", text: "端口号无效，请输入 1-65535 之间的数字" });
 			return;
 		}
 		if (portCheck && !portCheck.available) {
-			setMessage({ type: "err", text: `端口 ${port} 已被占用（${portCheck.usedBy}），请更换端口` });
+			actions.showMessage({ type: "err", text: `端口 ${port} 已被占用（${portCheck.usedBy}），请更换端口` });
 			return;
 		}
 		const item = [...catalog, ...remoteCatalog].find((candidate) => candidate.slug === installDialog.slug);
 		if (!item) {
-			setMessage({ type: "err", text: "未找到待安装服务配置，请刷新后重试" });
+			actions.showMessage({ type: "err", text: "未找到待安装服务配置，请刷新后重试" });
 			return;
 		}
 		setConfigPreview({ action: "install", item, port });
-	};
-
-	const doInstall = async (preview: ConfigPreview) => {
-		setActionSlug(preview.item.slug);
-		setConfigPreview(null);
-		closeInstallDialog();
-		try {
-			const data = await csrfFetch<QuickServiceActionResult>("/api/quick-services", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ slug: preview.item.slug, customPort: preview.port }),
-			});
-			setMessage({ type: "ok", text: data.taskId ? `${preview.item.name} 安装已排队（${data.taskId}），可在任务中心查看进度。` : `${preview.item.name} 安装任务已提交，正在拉取镜像…`, taskId: data.taskId });
-			setTimeout(fetchCatalog, 1500);
-		} catch (err) {
-			setMessage({ type: "err", text: err instanceof Error ? err.message : "安装失败" });
-		} finally {
-			setActionSlug(null);
-		}
 	};
 
 	const requestUpdate = (item: CatalogItem) => {
@@ -299,47 +254,18 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const confirmConfigPreview = () => {
 		if (!configPreview) return;
 		if (configPreview.action === "install") {
-			doInstall(configPreview);
+			// Mirror the original doInstall side effects: clear the dialog
+			// and the preview state, then run the network call through
+			// the hook so actionSlug / message state stay coherent.
+			const preview = configPreview;
+			setConfigPreview(null);
+			closeInstallDialog();
+			actions.doInstall(preview);
 			return;
 		}
 		const target = configPreview.item;
 		setConfigPreview(null);
-		doAction(target.slug, "update");
-	};
-
-	const doAction = async (slug: string, action: string) => {
-		setActionSlug(slug);
-		try {
-			const data = await csrfFetch<QuickServiceActionResult>(`/api/quick-services/${slug}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ action }),
-			});
-			const updateDetails = [
-				data.health ? `健康状态：${data.health}` : null,
-				data.logTail ? `最近日志：${data.logTail.split("\n").slice(-2).join(" / ")}` : null,
-			]
-				.filter(Boolean)
-				.join("；");
-			const queuedSuffix = data.taskId ? `（${data.taskId}）` : "";
-			const actionMessages: Record<string, string> = data.queued ? {
-				start: `启动已排队${queuedSuffix}，可在任务中心查看进度。`,
-				stop: `停止已排队${queuedSuffix}，可在任务中心查看进度。`,
-				sync: `状态刷新已排队${queuedSuffix}，可在任务中心查看进度。`,
-				update: `更新已排队${queuedSuffix}，后台将拉取镜像并重建容器。`,
-			} : {
-				start: "已启动",
-				stop: "已停止",
-				sync: data.status === "running" ? "状态已刷新：运行中" : "状态已刷新：已停止",
-				update: updateDetails ? `更新完成，已拉取镜像并重建容器；${updateDetails}` : "更新完成，已拉取镜像并重建容器",
-			};
-			setMessage({ type: "ok", text: actionMessages[action] ?? "操作完成", taskId: data.taskId });
-			fetchCatalog();
-		} catch (err) {
-			setMessage({ type: "err", text: err instanceof Error ? err.message : "操作失败" });
-		} finally {
-			setActionSlug(null);
-		}
+		actions.doAction(target.slug, "update");
 	};
 
 	const requestUninstall = (item: CatalogItem) => {
@@ -350,53 +276,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		if (!pendingUninstall) return;
 		const target = pendingUninstall;
 		setPendingUninstall(null);
-		setActionSlug(target.slug);
-		try {
-			const data = await csrfFetch<QuickServiceActionResult>(`/api/quick-services/${target.slug}`, {
-				method: "DELETE",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ deleteVolumes: target.deleteVolumes }),
-			});
-			const taskLabel = data.taskId ? `（${data.taskId}）` : "";
-			setMessage({ type: "ok", text: data.queued ? (target.deleteVolumes ? `卸载并删除数据目录已排队${taskLabel}` : `卸载已排队${taskLabel}，数据目录将保留`) : (target.deleteVolumes ? "已卸载并删除数据目录" : "已卸载，数据目录已保留"), taskId: data.taskId });
-			fetchCatalog();
-		} catch (err) {
-			setMessage({ type: "err", text: err instanceof Error ? err.message : "卸载失败" });
-		} finally {
-			setActionSlug(null);
-		}
-	};
-
-	const doSync = async (sourceId?: string) => {
-		setSyncing(sourceId ?? "all");
-		try {
-			await csrfFetch("/api/app-sources", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ action: "sync", sourceId }),
-			});
-			setMessage({ type: "ok", text: "同步完成，正在刷新应用列表…" });
-			await fetchSources();
-			await fetchCatalog();
-		} catch (err) {
-			setMessage({ type: "err", text: err instanceof Error ? err.message : "同步失败" });
-		} finally {
-			setSyncing(null);
-		}
-	};
-
-	const doToggleSource = async (sourceId: string, enabled: boolean) => {
-		try {
-			await csrfFetch("/api/app-sources", {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ action: "toggle", sourceId, enabled }),
-			});
-			fetchSources();
-			if (!enabled) fetchCatalog(); // refresh catalog when disabling a source
-		} catch {
-			setMessage({ type: "err", text: "操作失败" });
-		}
+		await actions.doUninstall(target);
 	};
 
 	const requestDeleteSource = (source: AppSource) => {
@@ -405,15 +285,9 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	const doDeleteSource = async () => {
 		if (!pendingSourceDelete) return;
-		try {
-			await csrfFetch(`/api/app-sources?sourceId=${pendingSourceDelete.id}`, { method: "DELETE" });
-			setPendingSourceDelete(null);
-			setMessage({ type: "ok", text: "源已删除" });
-			fetchSources();
-			fetchCatalog();
-		} catch {
-			setMessage({ type: "err", text: "删除失败" });
-		}
+		const id = pendingSourceDelete.id;
+		setPendingSourceDelete(null);
+		await actions.doDeleteSource(id);
 	};
 
 	const applySourcePreset = (key: (typeof SOURCE_PRESETS)[number]["key"]) => {
@@ -427,30 +301,24 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	};
 
 	const doAddSource = async () => {
-		if (!newSourceName.trim() || !newSourceDisplayName.trim() || !newSourceUrl.trim()) {
-			setMessage({ type: "err", text: "请先填写完整的源信息" });
-			return;
-		}
-		try {
-			await csrfFetch("/api/app-sources", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					name: newSourceName.trim(),
-					displayName: newSourceDisplayName.trim(),
-					url: newSourceUrl.trim(),
-					type: newSourceType,
-				}),
-			});
-			setMessage({ type: "ok", text: "应用源已添加" });
-			setNewSourceName("");
-			setNewSourceDisplayName("");
-			setNewSourceUrl("");
-			setSourcePreset(null);
-			await fetchSources();
-		} catch (err) {
-			setMessage({ type: "err", text: err instanceof Error ? err.message : "添加失败" });
-		}
+		await actions.doAddSource({
+			name: newSourceName,
+			displayName: newSourceDisplayName,
+			url: newSourceUrl,
+			type: newSourceType,
+		});
+		setNewSourceName("");
+		setNewSourceDisplayName("");
+		setNewSourceUrl("");
+		setSourcePreset(null);
+	};
+
+	const doSync = (sourceId?: string) => {
+		actions.doSync(sourceId);
+	};
+
+	const doToggleSource = (sourceId: string, enabled: boolean) => {
+		actions.doToggleSource(sourceId, enabled);
 	};
 
 	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">加载中…</div>;
@@ -545,10 +413,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			) : null}
 
 			{/* Message */}
-			{message && (
-				<div role={message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
-					<span>{message.text}</span>
-					{message.taskId ? (
+			{actions.message && (
+				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
+					<span>{actions.message.text}</span>
+					{actions.message.taskId ? (
 						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-md border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
 							查看任务中心
 						</Link>
@@ -648,12 +516,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								key={`recommended-${item.slug}`}
 								item={item}
 								tab="store"
-								busy={actionSlug === item.slug}
+								busy={actions.actionSlug === item.slug}
 								onInstall={() => openInstallDialog(item)}
-								onStart={() => doAction(item.slug, "start")}
-								onStop={() => doAction(item.slug, "stop")}
+								onStart={() => actions.doAction(item.slug, "start")}
+								onStop={() => actions.doAction(item.slug, "stop")}
 								onUpdate={() => requestUpdate(item)}
-								onSync={() => doAction(item.slug, "sync")}
+								onSync={() => actions.doAction(item.slug, "sync")}
 								onUninstall={() => requestUninstall(item)}
 								publicHost={quickServicePublicHost}
 							/>
@@ -734,11 +602,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<div className="flex items-center justify-between">
 						<p className="text-xs text-slate-500">管理第三方应用源，同步后可在「社区推荐」中一键安装</p>
 						<button
-							onClick={() => doSync()}
-							disabled={syncing !== null}
+							type="button"
+							onClick={() => actions.doSync()}
+							disabled={actions.syncing !== null}
 							className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40"
 						>
-							{syncing === "all" ? "同步中…" : "🔄 同步所有源"}
+							{actions.syncing === "all" ? "同步中…" : "🔄 同步所有源"}
 						</button>
 					</div>
 					{sources.length === 0 && (
@@ -777,14 +646,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 							)}
 							<div className="flex items-center gap-2 pt-1">
 								<button
-									onClick={() => doSync(src.id)}
-									disabled={syncing !== null}
+									type="button"
+									onClick={() => actions.doSync(src.id)}
+									disabled={actions.syncing !== null}
 									className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50"
 								>
-									{syncing === src.id ? "同步中…" : "立即同步"}
+									{actions.syncing === src.id ? "同步中…" : "立即同步"}
 								</button>
 								<button
-									onClick={() => doToggleSource(src.id, !src.enabled)}
+									type="button"
+									onClick={() => actions.doToggleSource(src.id, !src.enabled)}
 									className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ? "border-amber-400/20 text-amber-300 hover:bg-amber-500/[0.08]" : "border-emerald-400/20 text-emerald-300 hover:bg-emerald-500/[0.08]"}`}
 								>
 									{src.enabled ? "禁用" : "启用"}
@@ -814,12 +685,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 									key={item.slug}
 									item={item}
 									tab={tab === "community" ? "store" : tab}
-									busy={actionSlug === item.slug}
+									busy={actions.actionSlug === item.slug}
 									onInstall={() => openInstallDialog(item)}
-									onStart={() => doAction(item.slug, "start")}
-									onStop={() => doAction(item.slug, "stop")}
+									onStart={() => actions.doAction(item.slug, "start")}
+									onStop={() => actions.doAction(item.slug, "stop")}
 									onUpdate={() => requestUpdate(item)}
-									onSync={() => doAction(item.slug, "sync")}
+									onSync={() => actions.doAction(item.slug, "sync")}
 									onUninstall={() => requestUninstall(item)}
 									publicHost={quickServicePublicHost}
 								/>
