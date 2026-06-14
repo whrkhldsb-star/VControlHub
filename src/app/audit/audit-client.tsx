@@ -112,6 +112,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setPage(1);
             }}
             placeholder="搜索动作、用户名或显示名"
+            aria-label="搜索动作、用户名或显示名"
             className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
           />
           <button
@@ -140,6 +141,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSeverityFilter(e.target.value);
               setPage(1);
             }}
+            aria-label="按严重级别过滤"
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部级别</option>
@@ -153,6 +155,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setActionFilter(e.target.value);
               setPage(1);
             }}
+            aria-label="按动作类型过滤"
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部类型</option>

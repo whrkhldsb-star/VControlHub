@@ -99,6 +99,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <select
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
+          aria-label="按语言过滤"
           className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
         >
           {languages.map((l) => (

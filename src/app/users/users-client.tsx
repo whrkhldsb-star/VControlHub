@@ -166,8 +166,9 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
         <div className="mb-6 rounded-2xl border border-[var(--border)] bg-slate-900/60 p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-slate-400 mb-1">用户名 *</label>
+              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserUsername">用户名 *</label>
               <input
+                id="createUserUsername"
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
@@ -176,8 +177,9 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1">显示名称</label>
+              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserDisplayName">显示名称</label>
               <input
+                id="createUserDisplayName"
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
@@ -186,8 +188,9 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm text-slate-400 mb-1">密码 *</label>
+              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserPassword">密码 *</label>
               <input
+                id="createUserPassword"
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}

@@ -874,6 +874,7 @@ export function FileListClient({
                     <input
                       type="checkbox"
                       disabled
+                      aria-label="选择文件夹（暂未启用）"
                       className="rounded h-4 w-4 accent-cyan-400 opacity-30"
                     />
                   </div>

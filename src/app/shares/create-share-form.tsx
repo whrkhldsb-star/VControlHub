@@ -83,25 +83,25 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1">存储节点</label>
-              <select value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none">
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareNode">存储节点</label>
+              <select id="createShareNode" value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none">
                 {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1">访问路径</label>
-              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? "如 /public 或 /docs" : "如 /docs/readme.md"} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePath">访问路径</label>
+              <input id="createSharePath" value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? "如 /public 或 /docs" : "如 /docs/readme.md"} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1">分享类型</label>
-              <select value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none">
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareEntryType">分享类型</label>
+              <select id="createShareEntryType" value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none">
                 <option value="DIRECTORY">目录：允许访问路径下所有已索引文件</option>
                 <option value="FILE">单文件：只允许下载该文件</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1">名称（可选）</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareName">名称（可选）</label>
+              <input id="createShareName" value={name} onChange={(e) => setName(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
             <div>
               <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">有效期（小时，空=永久）</label>

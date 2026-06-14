@@ -168,8 +168,8 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 					) : summary ? (
 						<>
 							<div className="mb-4 flex flex-wrap items-center gap-3">
-								<label className="text-xs text-slate-500">网卡</label>
-								<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
+								<label className="text-xs text-slate-500" htmlFor="trafficIface">网卡</label>
+								<select id="trafficIface" value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
 									<option value="">自动选择主网卡</option>
 									{summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
 								</select>

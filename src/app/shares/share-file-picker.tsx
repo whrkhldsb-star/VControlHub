@@ -250,7 +250,9 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
+					<label className="sr-only" htmlFor="shareFilePickerNode">存储节点</label>
 					<select
+						id="shareFilePickerNode"
 						value={nodeId}
 						onChange={(event) => {
 							setNodeId(event.target.value);

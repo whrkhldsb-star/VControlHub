@@ -144,8 +144,9 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">目标 VPS</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadServer">目标 VPS</label>
 					<select
+						id="downloadServer"
 						value={form.serverId}
 						onChange={(e) => onServerChange(e.target.value)}
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
@@ -170,8 +171,9 @@ export function CreateDownloadForm({
 					)}
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">保存路径</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadTargetPath">保存路径</label>
 					<input
+						id="downloadTargetPath"
 						value={form.targetPath}
 						onChange={(e) => onFormChange({ ...form, targetPath: e.target.value })}
 						placeholder="/root/downloads"
@@ -182,8 +184,9 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">文件名（可选）</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadFileName">文件名（可选）</label>
 					<input
+						id="downloadFileName"
 						value={form.fileName}
 						onChange={(e) => onFormChange({ ...form, fileName: e.target.value })}
 						placeholder="留空自动"
@@ -191,8 +194,9 @@ export function CreateDownloadForm({
 					/>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">分类</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadCategory">分类</label>
 					<select
+						id="downloadCategory"
 						value={form.category}
 						onChange={(e) => onFormChange({ ...form, category: e.target.value })}
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
@@ -205,8 +209,9 @@ export function CreateDownloadForm({
 					</select>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">限速 KB/s（可选）</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadMaxSpeed">限速 KB/s（可选）</label>
 					<input
+						id="downloadMaxSpeed"
 						value={form.maxSpeedKb}
 						onChange={(e) => onFormChange({ ...form, maxSpeedKb: e.target.value })}
 						type="number"

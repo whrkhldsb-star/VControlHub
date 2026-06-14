@@ -920,6 +920,7 @@ return (
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
                     placeholder="输入图片 URL（回车添加）"
+                    aria-label="图片 URL"
                     className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && imageUrlInput.trim()) {
@@ -971,6 +972,7 @@ return (
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  aria-label="消息输入"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

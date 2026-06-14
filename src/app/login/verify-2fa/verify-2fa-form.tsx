@@ -109,6 +109,7 @@ if (data.success) {
 						onPaste={i === 0 ? handlePaste : undefined}
 						disabled={submitting}
 						autoFocus={i === 0}
+						aria-label={`验证码第 ${i + 1} 位`}
 						className="h-14 w-12 rounded-xl bg-white/[0.04] text-center text-xl font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.07)] outline-none transition-all duration-150 placeholder:text-white/20 focus:shadow-[0_0_0_1px_rgba(34,211,238,0.3),0_0_0_4px_rgba(34,211,238,0.08)] focus:bg-white/[0.06] disabled:opacity-50"
 					/>
 				))}

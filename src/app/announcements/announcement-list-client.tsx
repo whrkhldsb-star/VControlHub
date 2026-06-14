@@ -107,6 +107,7 @@ export function AnnouncementList({
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
+          aria-label="按级别过滤"
           className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
         >
           {levels.map((l) => (

@@ -344,8 +344,8 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			<div className="grid gap-3 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">监控指标</label>
-					<select value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleMetric">监控指标</label>
+					<select id="alertRuleMetric" value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
 						<option value="cpu_usage">CPU 使用率</option>
 						<option value="mem_usage">内存使用率</option>
 						<option value="disk_usage">磁盘使用率</option>
@@ -353,8 +353,8 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					</select>
 				</div>
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">比较方式</label>
-					<select value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleOperator">比较方式</label>
+					<select id="alertRuleOperator" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
 						<option value="gt">大于</option>
 						<option value="gte">大于等于</option>
 						<option value="lt">小于</option>
@@ -407,14 +407,14 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			{channels.includes("webhook") && (
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">Webhook URL</label>
-					<input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleWebhookUrl">Webhook URL</label>
+					<input id="alertRuleWebhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 				</div>
 			)}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">冷却时间（分钟）</label>
-				<input type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 w-32" />
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleCooldown">冷却时间（分钟）</label>
+				<input id="alertRuleCooldown" type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 w-32" />
 			</div>
 
 			<div className="space-y-1.5">

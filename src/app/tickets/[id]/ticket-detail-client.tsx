@@ -110,6 +110,7 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
                value={assigneeId}
                onChange={(e) => { setAssigneeId(e.target.value); void updateAssignee(e.target.value); }}
                disabled={saving}
+               aria-label="指派给"
                className="rounded-lg border border-white/[0.08] bg-slate-950 px-2 py-1 text-sm text-slate-200 outline-none disabled:opacity-50"
              >
                <option value="">未指派</option>
@@ -157,7 +158,8 @@ export function TicketDetailClient({ initial, canManage }: TicketDetailClientPro
 
         {/* Add comment */}
         <div className="mt-4">
-          <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="添加评论..."
+          <label htmlFor="ticketComment" className="sr-only">添加评论</label>
+          <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder="添加评论..."
             rows={3}
             className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 resize-none" />
           <button onClick={addComment} disabled={saving || !comment.trim()}

@@ -152,6 +152,21 @@ function lineForOffset(text: string, offset: number): number {
 }
 
 /**
+ * Returns true if the raw tag indicates the field is not user-visible
+ * (e.g. className="hidden", aria-hidden, type="hidden"). The script's
+ * normal SKIP_TYPES only catches `type="hidden"|"submit"|...`, so the
+ * hidden file/checkbox patterns need an explicit visibility check.
+ */
+function isInvisibleField(raw: string, type: string | undefined): boolean {
+  if (type && SKIP_TYPES.has(type.toLowerCase())) return true;
+  // className contains a "hidden" class — Tailwind / utility-class hides
+  if (/\bclassName\s*=\s*["'`][^"'`]*\bhidden\b/.test(raw)) return true;
+  // explicit aria-hidden on the input
+  if (/\baria-hidden\s*=\s*["'`]true["'`]/.test(raw)) return true;
+  return false;
+}
+
+/**
  * Walk a TSX file's text and collect all relevant fields and labels.
  *
  * We do this in a single pass: track the position of each opening tag
@@ -181,8 +196,7 @@ function collectNodes(text: string): { fields: Field[]; labels: Label[] } {
       labels.push({ line, raw, htmlFor: attrs.htmlfor });
     } else {
       // input / textarea / select
-      const type = attrs.type;
-      if (type && SKIP_TYPES.has(type.toLowerCase())) continue;
+      if (isInvisibleField(raw, attrs.type)) continue;
       fields.push({
         kind: tagKind as FieldKind,
         line,
@@ -190,7 +204,7 @@ function collectNodes(text: string): { fields: Field[]; labels: Label[] } {
         id: attrs.id,
         ariaLabel: attrs["aria-label"],
         ariaLabelledBy: attrs["aria-labelledby"],
-        type,
+        type: attrs.type,
         name: attrs.name,
         placeholder: attrs.placeholder,
       });

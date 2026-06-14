@@ -193,12 +193,16 @@ const _data = await csrfFetch("/api/users/permissions", {
                   return (
                     <div key={`${grant.storageNodeId}-${index}`} className="rounded-2xl border border-[var(--border)] bg-slate-950/70 p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
-                        <select value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white">
+                        <label className="sr-only" htmlFor={`grantNode-${index}`}>存储节点</label>
+                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white">
                           {payload.storageNodes.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.driver}</option>)}
                         </select>
-                        <input value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder="路径前缀，空=整个节点" className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
-                        <input value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder="容量限制，如 10GB" className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
-                        <input value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder="单文件限制，如 1GB" className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
+                        <label className="sr-only" htmlFor={`grantPath-${index}`}>路径前缀</label>
+                        <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder="路径前缀，空=整个节点" className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
+                        <label className="sr-only" htmlFor={`grantQuota-${index}`}>容量限制</label>
+                        <input id={`grantQuota-${index}`} value={grant.quotaBytes ?? ""} onChange={(e) => updateGrant(index, { quotaBytes: e.target.value })} placeholder="容量限制，如 10GB" className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
+                        <label className="sr-only" htmlFor={`grantMaxFile-${index}`}>单文件限制</label>
+                        <input id={`grantMaxFile-${index}`} value={grant.maxFileBytes ?? ""} onChange={(e) => updateGrant(index, { maxFileBytes: e.target.value })} placeholder="单文件限制，如 1GB" className="rounded-xl border border-[var(--border)] bg-slate-950 px-3 py-2 text-sm text-white" />
                         <button type="button" onClick={() => setGrants((current) => current.filter((_, i) => i !== index))} className="rounded-xl border border-rose-400/30 px-3 py-2 text-xs text-rose-100 hover:bg-rose-400/10">删除</button>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-300">

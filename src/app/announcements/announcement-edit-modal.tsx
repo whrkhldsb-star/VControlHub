@@ -54,8 +54,9 @@ export function AnnouncementEditModal({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400">标题</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementTitle">标题</label>
             <input
+              id="announcementTitle"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               data-input
@@ -63,8 +64,9 @@ export function AnnouncementEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400">级别</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementLevel">级别</label>
             <select
+              id="announcementLevel"
               value={level}
               onChange={(e) => setLevel(e.target.value)}
               data-input
@@ -76,8 +78,9 @@ export function AnnouncementEditModal({
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-400">内容</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementContent">内容</label>
             <textarea
+              id="announcementContent"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={5}

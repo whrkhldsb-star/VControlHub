@@ -441,8 +441,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									)}
 									{task.status === "RUNNING" && task.aria2Gid && canManage && (
 										<span className="flex items-center gap-1 text-xs text-slate-400">
-											<label>限速</label>
-											<input type="number" min={0} step={1024} placeholder="KB/s"
+											<label htmlFor={`limit-${task.id}`}>限速</label>
+											<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 												defaultValue={task.maxSpeedKb ?? ""}
 												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
 												className="w-16 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
