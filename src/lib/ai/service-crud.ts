@@ -151,7 +151,7 @@ export async function listProviders(userId: string) {
 	});
 }
 
-export async function getProviderById(id: string, userId: string) {
+export async function getProviderById(id: string, _userId: string) {
 	const provider = await prisma.aiProvider.findUnique({
 		where: { id },
 		select: AI_PROVIDER_LIST_SELECT,
@@ -188,7 +188,7 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 	});
 }
 
-export async function deleteProvider(id: string, userId: string) {
+export async function deleteProvider(id: string, _userId: string) {
 	await prisma.aiProvider.delete({ where: { id } });
 }
 

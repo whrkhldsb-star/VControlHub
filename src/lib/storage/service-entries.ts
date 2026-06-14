@@ -1,13 +1,11 @@
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 
 import { Prisma } from "@prisma/client";
 
-import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { listRemoteDirectory } from "@/lib/ssh/client";
-import { assertStorageAccess } from "@/lib/storage/access-control";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
@@ -15,7 +13,6 @@ import {
   EDITABLE_TEXT_EXTENSIONS,
   EDITABLE_TEXT_MIME_PREFIXES,
   EDITABLE_TEXT_MIME_TYPES,
-  MAX_EDITABLE_FILE_SIZE_BYTES,
   isPreviewableFile,
 } from "./mime-constants";
 import {

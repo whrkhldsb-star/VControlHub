@@ -134,6 +134,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 		return () => clearTimeout(timer);
 	}, [fetchSummary]);
 	// Kick off remote sampling once on mount, then on every auto-refresh tick.
+	// eslint-disable-next-line react-hooks/set-state-in-effect -- mount 时触发远端采样属于"订阅外部系统"的语义,fetchRemote 内部 setRemoteLoading 是异步 setState 不会级联渲染
 	useEffect(() => { void fetchRemote(); }, [fetchRemote]);
 	useEffect(() => {
 		if (!autoRefresh || refreshIntervalSeconds <= 0) return;

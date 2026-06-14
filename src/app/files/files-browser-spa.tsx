@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef, useEffect, useId } from "react";
-import { logError } from "@/lib/logging";
-import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useState, useCallback, useMemo, useId } from "react";
 
 import {
   FileListClient,

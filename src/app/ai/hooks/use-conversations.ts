@@ -48,6 +48,7 @@ export function useConversations({
   // changes.  An empty active id clears the message list.
   useEffect(() => {
     if (!activeConvId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- activeConvId 切到 null 时同步清空消息列表,避免旧会话残留闪烁
       setMessages([]);
       return;
     }

@@ -252,7 +252,6 @@ function SchemaDrivenSection({
 	onSave,
 	twoFactorEnabled,
 }: SchemaDrivenSectionProps) {
-	const Inner = section.asForm ? "form" : "div";
 	const saveKeys = getSectionSaveKeys(section);
 	const hasSaveButton = saveKeys.length > 0;
 	const description = typeof section.description === "function" ? section.description(settings) : section.description;

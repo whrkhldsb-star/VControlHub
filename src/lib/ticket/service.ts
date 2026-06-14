@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 
 const STATUSES = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);

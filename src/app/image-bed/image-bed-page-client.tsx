@@ -7,7 +7,7 @@ import { PageShell, Card, EmptyState, ToggleChip } from "@/components/page-shell
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { useImageBedList } from "./use-image-bed-list";
-import type { ImageItem, ImageStats, PendingDelete, UploadProgress, UploadQueueItem } from "./image-bed-types";
+import type { ImageItem, ImageStats, PendingDelete, UploadProgress } from "./image-bed-types";
 import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
 
 function getErrorMessage(error: unknown, fallback: string): string {

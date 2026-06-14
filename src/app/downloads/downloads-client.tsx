@@ -271,8 +271,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		.filter((t) => filter === "ALL" || t.status === filter)
 		.filter((t) => !categoryFilter || (t.category ?? "") === categoryFilter);
 
-	const selectedServer = servers.find((server) => server.id === form.serverId) ?? defaultServer;
-
 	const runningCount = tasks.filter((t) => t.status === "RUNNING").length;
 	const pendingCount = tasks.filter((t) => t.status === "PENDING").length;
 

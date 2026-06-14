@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { Provider, ConvItem, Message, FileAttachment, ToolCallEvent, ToolApprovalNeeded, ModelInfo } from "./ai-types";
+import type { Provider, ConvItem, Message, ToolCallEvent, ToolApprovalNeeded, ModelInfo } from "./ai-types";
 import { DEFAULT_PROV_FORM, DEFAULT_SETTINGS_FORM } from "./ai-types";
 import { formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";
 import { renderContent, copyToClipboard } from "./ai-markdown-renderer";

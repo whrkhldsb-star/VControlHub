@@ -11,7 +11,6 @@
 import { stat } from "node:fs/promises";
 
 import { config } from "@/lib/config/env";
-import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 
 import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";

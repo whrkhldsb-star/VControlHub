@@ -23,14 +23,12 @@ import {
 	getVisibleFiles,
 	sortFiles,
 	sortFolders,
-	type FileListSortDir,
-	type FileListSortKey,
 	type FolderProp,
 } from "./file-list-model";
 import { SortIcon, useFileListSort } from "./use-file-list-sort";
-import { useFileSelection, type BatchProgress } from "./use-file-selection";
-import { useFileToast, type FileToast } from "./use-file-toast";
-import { useViewMode, type ViewMode } from "./use-view-mode";
+import { useFileSelection } from "./use-file-selection";
+import { useFileToast } from "./use-file-toast";
+import { useViewMode } from "./use-view-mode";
 import {
   buildArchiveDownloadHref,
   buildForcedDownloadHref,
@@ -151,7 +149,6 @@ export function FileListClient({
   const {
     selectedIds,
     setSelectedIds,
-    selectedScopeKey,
     setSelectedScopeKey,
     batchAction,
     setBatchAction,
@@ -244,13 +241,17 @@ export function FileListClient({
     onRefresh,
     currentSelectionScopeKey,
     showToast,
+    setBatchAction,
+    setProgress,
+    setSelectedIds,
+    setSelectedScopeKey,
   ]);
 
   const handleBatchMove = useCallback(() => {
     setBatchAction("moving");
     setMoveTargetDir("");
     setMoveProgress({ done: 0, total: 0, errors: [] });
-  }, []);
+  }, [setBatchAction, setMoveProgress, setMoveTargetDir]);
 
   const submitBatchMove = useCallback(() => {
     const ids = [...effectiveSelectedIds];
@@ -315,6 +316,10 @@ export function FileListClient({
     onRefresh,
     currentSelectionScopeKey,
     showToast,
+    setBatchAction,
+    setMoveProgress,
+    setSelectedIds,
+    setSelectedScopeKey,
   ]);
 
   const emptyMessage = searchQuery

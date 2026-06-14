@@ -12,25 +12,6 @@ import { SparklineChartLazy } from "./sparkline-chart-lazy";
 type SystemHealthStatus = "healthy" | "warning" | "critical";
 type SystemHealthSummary = { total: number; healthy: number; warning: number; critical: number; overall: SystemHealthStatus };
 
-type ServerHealth = {
-	serverId: string;
-	serverName: string;
-	host: string;
-	enabled: boolean;
-	status: "healthy" | "warning" | "critical" | "offline" | "unknown";
-	cpu?: number;
-	mem?: number;
-	diskMax?: number;
-	uptime?: string;
-	lastCheck: string;
-	error?: string;
-};
-
-type HealthOverview = {
-	total: number; online: number; warning: number; critical: number; offline: number;
-	servers: ServerHealth[];
-};
-
 type Props = { serverCount: number; initialSystemHealth?: SystemHealthReport | null };
 
 type HealthCopy = {

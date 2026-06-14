@@ -8,7 +8,6 @@ import { EmptyState } from "@/components/page-shell";
 import {
   useQuickServiceActions,
   type ConfigPreview,
-  type QuickServiceMessage,
 } from "./use-quick-service-actions";
 import {
 	PendingSourceDeleteDialogLazy,
@@ -137,8 +136,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<{ available: boolean; usedBy: string | null; checking: boolean } | null>(null);
-	// Sync state
-	const [syncing, setSyncing] = useState<string | null>(null);
+	// Sync state is owned by useQuickServiceActions (see use-quick-service-actions.ts)
 	// Search
 	const [search, setSearch] = useState("");
 	const [hostName, setHostName] = useState("");
@@ -315,14 +313,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		setNewSourceDisplayName("");
 		setNewSourceUrl("");
 		setSourcePreset(null);
-	};
-
-	const doSync = (sourceId?: string) => {
-		actions.doSync(sourceId);
-	};
-
-	const doToggleSource = (sourceId: string, enabled: boolean) => {
-		actions.doToggleSource(sourceId, enabled);
 	};
 
 	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">加载中…</div>;

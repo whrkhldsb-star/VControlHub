@@ -12,7 +12,7 @@
  * formats the human-readable string for the kind of call being made.
  */
 
-import { BusinessError, ValidationError } from "@/lib/errors";
+import { ValidationError } from "@/lib/errors";
 
 export interface ProviderModelRow {
 	id: string;

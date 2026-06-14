@@ -10,7 +10,6 @@ import type {
 	BackupFailureSummaryItem,
 	BackupPolicySummary,
 	BackupRecordForSummary,
-	BackupType,
 } from "./service-types";
 import { isBackupType } from "./service-types";
 
