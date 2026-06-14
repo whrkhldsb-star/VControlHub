@@ -317,12 +317,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 数据模型 | 46 |
 | UI 组件 | 27 |
 | 代码行数 | ~79,700（src 扫描） |
-| 测试 | 254 文件 / 1413 tests / 50.9% 覆盖 |
+| 测试 | 260 文件 / 1488 tests / 51.2% 覆盖 |
 | Docker 应用模板 | 44 (本地) + 187 (社区) |
 
 ---
 
-## 🔎 当前可用性与功能完整性状态（基线 2026-06-07，持续更新）
+## 🔎 当前可用性与功能完整性状态（基线 2026-06-14，持续更新）
 
 > 当前重点已经从"页面是否能打开"推进到"按钮是否真的有副作用、设置项是否真的生效、后台任务是否真的会跑、安装脚本是否能支撑 fresh install"。本节按主题分组，逐项交付摘要，便于快速判断功能闭环度。
 
@@ -526,7 +526,7 @@ R7-R12 累计：~+692/−115 行（8 业务 + 6 测试），新增 21 测，1132
 | 2 | npm audit 修复 | ⚠️ 1/7 | `esbuild 0.27→0.28` (修 1 high: Deno RCE)；6 moderate (hono / prisma 5 / next 9 / @hono/node-server) 全部需 major bump 等上游 |
 | 3 | innerHTML / dangerouslySetInnerHTML 业务审计 | ✅ 0 风险 | jsdom test cleanup 1 处；markdown-preview / text-preview 2 处经 DOMPurify 严格白名单 (19 tag + 4 attr，`ALLOW_DATA_ATTR: false`)，无 XSS 路径 |
 | 4 | 业务 `any` 细化 | ✅ 0 残留 | `rate-limit-store` 抽 `RedisClientLike` interface + `RedisExecResult` 数组类型；`http/api-guard` 把 `(err as any).issues` 改为 typed `rawIssues: ReadonlyArray<{ path?: unknown; message?: unknown }>` |
-| 5 | `noUncheckedIndexedAccess` / `exactOptionalPropertyTypes` | ❌ 单 round 不可行 | 临时 `tsconfig.strict-test.json` 跑全量：1475 错跨 200+ 文件（TS2532×126 / TS2345×114 / TS2379×101 / TS18048×79 / TS2375×69）；建议拆 R28.A/B/C 三轮（已开始 A） |
+| 5 | `noUncheckedIndexedAccess` / `exactOptionalPropertyTypes` | ✅ noUncheckedIndexedAccess 已开 (R28.A 落地 494 errors) | R28.A.1+A.2 拆 2 轮修完 (commit `14fce8d` + `f73730c`)；`exactOptionalPropertyTypes` 仍关（需 wrapper 改 ~200 Prisma caller，ROI 不划算） |
 | 6 | sibling in-flight | ⏸️ 等待 | media thumbnail / remote-traffic sibling PR 收尾中 |
 
 Top 10 严格度错误文件（供 R28.B 参考）：`markdown-preview-client` (34) / `ai-markdown-renderer` (21) / `lib/security/webhook-url` (20) / `settings-client` (19) / `direct-gateway-advice.test` (18) / `health-dashboard-client` (17) / `lib/downloads/source-url` (16) / `file-list-client` (13) / `lib/server/monitor` (12) / `app/api/files/archive-list/route` (12)。
