@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const serviceMocks = vi.hoisted(() => ({
   listServerProfilesMock: vi.fn(),
@@ -95,6 +95,22 @@ vi.mock("../server-create-form", () => ({
 vi.mock("@/lib/server/service", () => ({
   listServerProfiles: serviceMocks.listServerProfilesMock,
 }));
+
+// 自动探测默认开启，会在挂载后立即调用 /api/servers/monitor。
+// 这里默认关闭，让既有测试聚焦在「手动探测 + 状态徽章」语义；
+// 单独的自动探测测试会显式打开。
+beforeEach(() => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.setItem("vch.servers.autoProbe.enabled", "false");
+  }
+});
+
+afterEach(() => {
+  if (typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.removeItem("vch.servers.autoProbe.enabled");
+    window.localStorage.removeItem("vch.servers.autoProbe.intervalSec");
+  }
+});
 
 import ServersPage from "../page";
 
@@ -252,5 +268,65 @@ describe("ServersPage", () => {
     expect(
       screen.getByRole("button", { name: /查看详情/ }),
     ).toBeInTheDocument();
+  });
+
+  it("auto-probes enabled servers on mount when 自动探测 is on", async () => {
+    // 强制开启自动探测
+    window.localStorage.setItem("vch.servers.autoProbe.enabled", "true");
+    window.localStorage.setItem("vch.servers.autoProbe.intervalSec", "60");
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        cpu: { usagePercent: 7.7 },
+        memory: { usagePercent: 33.3 },
+        disk: [{ mount: "/", usagePercent: 42 }],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
+
+    render(await ServersPage());
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/servers/monitor?serverId=srv_1",
+        { cache: "no-store" },
+      );
+    });
+
+    // 状态徽章应当从「启用 · 待探测」过渡到「在线 · …」（成功路径）
+    await waitFor(() => {
+      expect(
+        screen.getByRole("status", { name: /节点实时状态：在线/ }),
+      ).toBeInTheDocument();
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it("renders auto-probe controls with default enabled state", async () => {
+    // 让 hook 读到 enabled=true（默认值）
+    window.localStorage.removeItem("vch.servers.autoProbe.enabled");
+    serviceMocks.listServerProfilesMock.mockResolvedValueOnce([]);
+
+    // fetch 不应被调用——0 节点时无卡片触发
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(await ServersPage());
+
+    await waitFor(() => {
+      const checkbox = screen.getByRole("checkbox", {
+        name: "启用 VPS 自动探测",
+      }) as HTMLInputElement;
+      expect(checkbox.checked).toBe(true);
+    });
+
+    expect(
+      screen.getByRole("combobox", { name: "自动探测间隔" }),
+    ).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 });

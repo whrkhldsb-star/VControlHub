@@ -13,6 +13,8 @@ import { ServerCreateForm } from "./server-create-form";
 import { SshKeyCreateForm } from "./ssh-key-create-form";
 import { ServerTabLayout } from "./server-tab-layout";
 import { ServerOverviewCard } from "./server-overview-card";
+import { AutoProbeProvider } from "./auto-probe-context";
+import { AutoProbeControls } from "./auto-probe-controls";
 
 export const dynamic = "force-dynamic";
 
@@ -67,9 +69,11 @@ export default async function ServersPage() {
 				<p className="mt-1 text-xs text-slate-400">默认先展示各 VPS 的启用状态、连接方式、密钥绑定、直连模式和待审批命令；添加 VPS、添加密钥、批量操作已收入口到快捷操作区。</p>
 			</section>
 
+			<AutoProbeProvider>
 			<ServerTabLayout
 				nodesPanel={
 					<div className="space-y-4">
+						<AutoProbeControls />
 						<section aria-label="VPS 状态总览" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 							{servers.length === 0 ? (
 								<EmptyState text="暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。" />
@@ -103,6 +107,7 @@ export default async function ServersPage() {
 					)
 				}
 			/>
+			</AutoProbeProvider>
 		</PageShell>
 	);
 }

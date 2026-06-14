@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ServerCardActions } from "./server-card-actions";
 import { getDirectGatewayHealthyNote, getDirectGatewayRepairAdvice } from "./direct-gateway-advice";
+import { useAutoProbeSettings } from "./auto-probe-context";
 
 type DiagnosticRunState =
   | { status: "idle" }
@@ -155,7 +156,7 @@ export function ServerOverviewCard({
     },
   ];
 
-  const runRealtimeDiagnostics = async () => {
+  const runRealtimeDiagnostics = useCallback(async () => {
     setDiagnosticRun({ status: "loading" });
     try {
       const response = await fetch(`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`, {
@@ -192,7 +193,44 @@ export function ServerOverviewCard({
         checkedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
       });
     }
-  };
+  }, [server.id]);
+
+  // ---------------------------------------------------------------------
+  // 自动探测：受 AutoProbeContext 控制，挂载/切回页面时跑一次 + 周期刷新。
+  // 仅在节点启用、设置 hydrated、用户开启自动探测时生效。
+  // 用 ref 跟踪「是否正在跑」，避免周期触发与上次未完成请求并发。
+  // ---------------------------------------------------------------------
+  const { enabled: autoProbeEnabled, intervalSec, hydrated } = useAutoProbeSettings();
+  const inFlightRef = useRef(false);
+  const runRef = useRef(runRealtimeDiagnostics);
+  useEffect(() => {
+    runRef.current = runRealtimeDiagnostics;
+  }, [runRealtimeDiagnostics]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!autoProbeEnabled) return;
+    if (!server.enabled) return;
+
+    const trigger = async () => {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      try {
+        await runRef.current();
+      } finally {
+        inFlightRef.current = false;
+      }
+    };
+
+    void trigger();
+    const ms = Math.max(5, intervalSec) * 1000;
+    const handle = window.setInterval(() => {
+      void trigger();
+    }, ms);
+    return () => {
+      window.clearInterval(handle);
+    };
+  }, [autoProbeEnabled, intervalSec, hydrated, server.enabled, server.id]);
 
   return (
     <article data-card className="bg-white/[0.025] p-3 transition-colors hover:bg-white/[0.04]">
