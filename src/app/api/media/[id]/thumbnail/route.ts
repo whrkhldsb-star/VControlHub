@@ -10,6 +10,7 @@ import sharp from "sharp";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
@@ -86,9 +87,7 @@ const SUPPORTED_IMAGE_MIME_PREFIX = "image/";
 // large originals). Video tiles fall back to a generic poster on the client.
 
 function thumbnailCacheRoot(): string {
-	const base = process.env.MEDIA_THUMB_CACHE_DIR?.trim();
-	if (base) return base;
-	return path.join(os.tmpdir(), "vcontrolhub-thumbnails");
+	return config.media.thumbCacheDir ?? path.join(os.tmpdir(), "vcontrolhub-thumbnails");
 }
 
 function thumbnailKey(input: { id: string; size: number; updatedAt: string | Date | null | undefined; relativePath: string }): string {

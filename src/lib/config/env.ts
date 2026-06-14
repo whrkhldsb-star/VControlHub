@@ -102,9 +102,28 @@ export const config = {
 		get rememberSessionTtlSeconds(): number {
 			return readInt("AUTH_REMEMBER_SESSION_TTL_SECONDS", 30 * 24 * 60 * 60);
 		},
-		get sessionCookieName(): string { return readString("AUTH_SESSION_COOKIE_NAME", "vctl_session"); },
-		get sessionAudience(): string { return readString("AUTH_SESSION_AUDIENCE", "vcontrolhub"); },
-		get sessionIssuer(): string { return readString("AUTH_SESSION_ISSUER", "vcontrolhub"); },
+		get sessionCookieName(): string | undefined { return readOptionalString("AUTH_SESSION_COOKIE_NAME"); },
+		get sessionAudience(): string | undefined { return readOptionalString("AUTH_SESSION_AUDIENCE"); },
+		get sessionIssuer(): string | undefined { return readOptionalString("AUTH_SESSION_ISSUER"); },
+		/**
+		 * Strict AUTH_SESSION_SECRET accessor — returns undefined when unset.
+		 * Callers handle the dev-fallback / production-error semantics. This
+		 * keeps the read centralised without baking policy into the config
+		 * layer (which would force tests to assert production-only behaviour).
+		 */
+		get sessionSecret(): string | undefined { return readOptionalString("AUTH_SESSION_SECRET"); },
+		/**
+		 * The AUTH_SECRET that storage / direct-access gateways use to sign
+		 * share-link redirects. Falls back through AUTH_SECRET → NEXTAUTH_SECRET
+		 * when the deployment doesn't override STORAGE_DIRECT_ACCESS_SECRET.
+		 */
+		get storageGatewaySecret(): string | undefined {
+			return (
+				readOptionalString("STORAGE_DIRECT_ACCESS_SECRET") ??
+				readOptionalString("AUTH_SECRET") ??
+				readOptionalString("NEXTAUTH_SECRET")
+			);
+		},
 		get adminInitialPassword(): string | undefined { return readOptionalString("ADMIN_INITIAL_PASSWORD"); },
 	},
 
@@ -138,8 +157,16 @@ export const config = {
 	storage: {
 		get directAccessSecret(): string | undefined { return readOptionalString("STORAGE_DIRECT_ACCESS_SECRET"); },
 		get grantFallback(): boolean { return readBool("VCONTROLHUB_STORAGE_GRANT_FALLBACK", false); },
-		get backupDir(): string { return readString("BACKUP_DIR", "/var/lib/vcontrolhub/backups"); },
-		get imageUploadDir(): string { return readString("IMAGE_UPLOAD_DIR", "/var/lib/vcontrolhub/images"); },
+		get backupDir(): string | undefined { return readOptionalString("BACKUP_DIR"); },
+		get imageUploadDir(): string | undefined { return readOptionalString("IMAGE_UPLOAD_DIR"); },
+	},
+
+	/** Media (image-bed thumbnails, transcodes). */
+	media: {
+		get thumbCacheDir(): string | undefined {
+			const raw = process.env.MEDIA_THUMB_CACHE_DIR?.trim();
+			return raw ? raw : undefined;
+		},
 	},
 
 	/** App identity / hosting. */

@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { config } from "@/lib/config/env";
 import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
 import { listQuickServices } from "@/lib/quick-service/service";
 
@@ -39,7 +40,7 @@ export async function SidebarLoader() {
 					port: s.port,
 					defaultPort: s.port ?? 80,
 					browserHost,
-					configuredHost: process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST,
+					configuredHost: config.app.publicQuickServiceHost,
 					protocol,
 					path: s.path,
 				});

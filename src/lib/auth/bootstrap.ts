@@ -1,4 +1,5 @@
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 
 const logger = createLogger("auth:bootstrap");
 
@@ -11,9 +12,9 @@ export const ADMIN_BOOTSTRAP = {
 
 /** Get initial admin password from env or fallback (only for seeding new DBs) */
 export function getInitialAdminPassword(): string {
-	const envPassword = process.env.ADMIN_INITIAL_PASSWORD;
+	const envPassword = config.auth.adminInitialPassword;
 	if (!envPassword) {
-		if (process.env.NODE_ENV === "production") {
+		if (config.isProduction) {
 			throw new Error("ADMIN_INITIAL_PASSWORD must be set in production for initial admin seeding.");
 		}
 		logger.warn("using default development admin password; set ADMIN_INITIAL_PASSWORD for production");

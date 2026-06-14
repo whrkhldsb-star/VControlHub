@@ -1,9 +1,10 @@
 import * as path from "node:path";
 
+import { config } from "@/lib/config/env";
+
 function resolveUploadDir() {
-	const explicitDir = process.env.IMAGE_UPLOAD_DIR?.trim();
-	if (explicitDir) return explicitDir;
-	const appDir = process.env.APP_DIR?.trim() || "/opt/whrkhldsb";
+	if (config.storage.imageUploadDir) return config.storage.imageUploadDir;
+	const appDir = config.app.appDir?.trim() || "/opt/whrkhldsb";
 	return path.join(appDir, "uploads", "image-bed");
 }
 

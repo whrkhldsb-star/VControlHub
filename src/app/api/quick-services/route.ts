@@ -4,6 +4,7 @@ import { z } from "zod";
 const installSchema = z.object({ slug: z.string().min(1), customPort: z.number().int().min(1).max(65535).optional() });
 
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
+import { config } from "@/lib/config/env";
 import { prepareInstallSecrets } from "@/lib/quick-service/install-notice";
 import { enqueueQuickServiceJob } from "@/lib/quick-service/job-worker";
 import {
@@ -73,7 +74,7 @@ export async function GET(request: Request) {
 
 		const usedPorts = getUsedPorts();
 		const docker = getDockerEnvironmentStatus();
-		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts, docker, publicHost: process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ?? null });
+		return NextResponse.json({ catalog, remoteCatalog, installed, usedPorts, docker, publicHost: config.app.publicQuickServiceHost ?? null });
 	});
 }
 

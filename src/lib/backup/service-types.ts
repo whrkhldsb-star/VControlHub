@@ -2,10 +2,13 @@
  * Backup service — types, constants, and pure path/type helpers
  * (R28 god-file split).
  *
- * No I/O, no prisma, no env reads. Imports nothing but `node:path`
- * for the portable-path assertion.
+ * No I/O, no prisma, no env reads at module load — the storage root
+ * helper goes through `config.storage.*` / `config.app.*` for
+ * testability rather than reading `process.env` directly.
  */
 import { join, normalize, sep } from "node:path";
+
+import { config } from "@/lib/config/env";
 
 export const RESTORE_CONFIRM_TEXT = "RESTORE";
 
@@ -67,10 +70,7 @@ export function buildBackupFilePath(type: BackupType, now = new Date()) {
 }
 
 export function getBackupStorageRoot(projectRoot: string) {
-	const configured = process.env.BACKUP_DIR?.trim();
-	if (configured) return configured;
-	const slug = process.env.APP_SLUG?.trim();
-	if (slug) return `/var/backups/${slug}`;
+	if (config.storage.backupDir) return config.storage.backupDir;
 	return join(projectRoot, "backups");
 }
 

@@ -1,7 +1,9 @@
 import path from "node:path";
 
+import { config } from "@/lib/config/env";
+
 function getAppSlugForPathExpansion() {
-  return process.env.APP_SLUG?.trim() || "vcontrolhub";
+  return config.app.appSlug;
 }
 
 /**

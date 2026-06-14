@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { authenticateUser } from "@/lib/auth/service";
 import { createSessionToken, getSessionCookieName } from "@/lib/auth/session";
+import { config } from "@/lib/config/env";
 
 export type LoginActionState = {
   error?: string;
@@ -43,7 +44,7 @@ export async function login(_prevState: LoginActionState | null, formData: FormD
   cookieStore.set(getSessionCookieName(), token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: config.isProduction,
     path: "/",
     maxAge: 7 * 24 * 60 * 60,
   });

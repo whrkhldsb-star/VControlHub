@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { createSshWsHandshakeToken } from "@/lib/auth/ssh-ws-token";
+import { config } from "@/lib/config/env";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       if (!session)
         return NextResponse.json({ error: "未认证" }, { status: 401 });
 
-      const secret = process.env.SSH_WS_SECRET;
+      const secret = config.ssh.wsSecret;
       if (!secret) {
         return NextResponse.json(
           { error: "SSH_WS_SECRET not configured" },

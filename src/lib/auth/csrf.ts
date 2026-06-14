@@ -11,6 +11,8 @@
 
 import { randomBytes } from "node:crypto";
 
+import { config } from "@/lib/config/env";
+
 const CSRF_TOKEN_LENGTH = 32;
 const CSRF_COOKIE_NAME = "csrf_token";
 const CSRF_HEADER_NAME = "x-csrf-token";
@@ -66,7 +68,7 @@ export function setCsrfCookie(response: Response, token: string): void {
 			`${CSRF_COOKIE_NAME}=${encodeURIComponent(token)}`,
 			"Path=/",
 			"SameSite=Strict",
-			process.env.NODE_ENV === "production" ? "Secure" : "",
+			config.isProduction ? "Secure" : "",
 		]
 			.filter(Boolean)
 			.join("; "),

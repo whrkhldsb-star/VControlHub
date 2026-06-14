@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 
 import { buildQuickServiceAccessUrl } from "./access-url";
+import { config } from "@/lib/config/env";
 import type { ServiceTemplate } from "./types";
 
 export type QuickServiceCredential = {
@@ -181,12 +182,13 @@ export function prepareInstallSecrets(template: ServiceTemplate): PreparedInstal
 }
 
 export function buildInstallNotice(template: ServiceTemplate, hostPort: number, credentials: QuickServiceCredential[], notes: string[]): QuickServiceInstallNotice {
+	const publicHost = config.app.publicQuickServiceHost;
 	return {
 		accessUrl: buildQuickServiceAccessUrl({
 			port: hostPort,
 			defaultPort: template.defaultPort,
-			configuredHost: process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST,
-			protocol: process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ? "http:" : undefined,
+			configuredHost: publicHost,
+			protocol: publicHost ? "http:" : undefined,
 		}),
 		credentials,
 		notes,

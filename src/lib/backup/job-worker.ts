@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { getBackupRecord, restoreBackupRecord, runExistingBackupRecord } from "@/lib/backup/service";
+import { config } from "@/lib/config/env";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -12,7 +13,7 @@ export const BACKUP_RESTORE_JOB_TYPE = "backup.restore";
 const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE];
 const DEFAULT_POLL_MS = 5_000;
 const DEFAULT_LEASE_MS = 30_000;
-const WORKER_ID = `${process.env.HOSTNAME || "vcontrolhub"}:backup:${process.pid}`;
+const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup:${process.pid}`;
 
 type BackupCreatePayload = {
   backupId: string;

@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { Prisma } from "@prisma/client";
 
+import { config } from "@/lib/config/env";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
@@ -95,7 +96,7 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
 }
 
 function isLegacyGrantFallbackEnabled() {
-  return ["1", "true", "yes", "on"].includes((process.env.VCONTROLHUB_STORAGE_GRANT_FALLBACK ?? "").trim().toLowerCase());
+  return config.storage.grantFallback;
 }
 
 export async function assertStorageAccess(input: {

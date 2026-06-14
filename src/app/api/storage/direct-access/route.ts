@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import type { SessionPayload } from "@/lib/auth/session";
+import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -51,12 +52,7 @@ function redirectToDirectAccessLocation(location: string, requestUrl: string) {
 }
 
 function getDirectAccessSecret() {
-  return (
-    process.env.STORAGE_DIRECT_ACCESS_SECRET ||
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    ""
-  );
+	return config.auth.storageGatewaySecret ?? "";
 }
 
 function normalizeDirectGatewaySignedPath(input: {

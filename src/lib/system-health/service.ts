@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { prisma } from "@/lib/db";
+import { config } from "@/lib/config/env";
 import { runHealthCheckCommand } from "./command-runner";
 
 export type SystemHealthStatus = "healthy" | "warning" | "critical";
@@ -110,7 +111,13 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
   });
   checks.push(...serviceChecks);
 
-  const envState = process.env.DATABASE_URL && process.env.DATABASE_URL !== "REPLACE_WITH_DATABASE_URL" ? "healthy" : "critical";
+  const envState = (() => {
+    try {
+      return config.db.url !== "REPLACE_WITH_DATABASE_URL" ? "healthy" : "critical";
+    } catch {
+      return "critical";
+    }
+  })();
   checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符" });
 
   const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } } }).catch(() => []);

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { config } from "@/lib/config/env";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "./sftp-sync";
@@ -9,7 +10,7 @@ const logger = createLogger("sftp-sync-job-worker");
 export const SFTP_SYNC_JOB_TYPE = "storage.sftp-sync";
 const SFTP_SYNC_WORKER_INTERVAL_MS = 15_000;
 const SFTP_SYNC_WORKER_LEASE_MS = 5 * 60 * 1000;
-const SFTP_SYNC_WORKER_ID = `${process.env.HOSTNAME || "vcontrolhub"}:sftp-sync:${process.pid}`;
+const SFTP_SYNC_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:sftp-sync:${process.pid}`;
 
 type SftpSyncJobPayload = {
   nodeId: string;

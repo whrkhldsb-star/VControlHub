@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, buildScheduledBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
+import { config } from "@/lib/config/env";
 import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
@@ -12,7 +13,7 @@ import { formatZhDateTime } from "@/lib/datetime/format";
 
 export const dynamic = "force-dynamic";
 
-const projectRoot = process.env.APP_DIR || process.cwd();
+const projectRoot = config.app.appDir || process.cwd();
 
 export default async function BackupsPage() {
 	const session = await requireSession("/backups");

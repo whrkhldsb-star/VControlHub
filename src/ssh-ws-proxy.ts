@@ -12,6 +12,7 @@ import { resolve } from "node:path";
 import { WebSocketServer, WebSocket } from "ws";
 import { Client } from "ssh2";
 import { prisma } from "@/lib/db";
+import { config } from "@/lib/config/env";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
@@ -58,11 +59,11 @@ export function resolveSshWsListenConfig(env: Partial<NodeJS.ProcessEnv> = proce
 const { host: HOST, port: PORT } = resolveSshWsListenConfig();
 
 const APP_SLUG = getAppSlug();
-const SESSION_ISSUER = process.env.AUTH_SESSION_ISSUER?.trim() || APP_SLUG;
-const SESSION_AUDIENCE = process.env.AUTH_SESSION_AUDIENCE?.trim() || `${APP_SLUG}-console`;
+const SESSION_ISSUER = config.auth.sessionIssuer || APP_SLUG;
+const SESSION_AUDIENCE = config.auth.sessionAudience || `${APP_SLUG}-console`;
 
 function getSessionSecret() {
- return process.env.AUTH_SESSION_SECRET ?? "dev-only-session-secret-change-me";
+	return config.auth.sessionSecret ?? "dev-only-session-secret-change-me";
 }
 
 // ── SSH_WS_SECRET validation ───────────────────────────────────────
@@ -177,10 +178,10 @@ const server = createServer((_req, res) => {
  res.end();
 });
 
-const MAX_WS_CONNECTIONS = parseInt(process.env.SSH_WS_MAX_CONNECTIONS || "50", 10);
-const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = parseInt(process.env.SSH_WS_HEARTBEAT_INTERVAL_MS || "25000", 10);
-const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = parseInt(process.env.SSH_KEEPALIVE_INTERVAL_MS || "30000", 10);
-const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = parseInt(process.env.SSH_KEEPALIVE_COUNT_MAX || "60", 10);
+const MAX_WS_CONNECTIONS = config.ssh.wsMaxConnections;
+const DEFAULT_WS_HEARTBEAT_INTERVAL_MS = config.ssh.wsHeartbeatIntervalMs;
+const DEFAULT_SSH_KEEPALIVE_INTERVAL_MS = config.ssh.keepaliveIntervalMs;
+const DEFAULT_SSH_KEEPALIVE_COUNT_MAX = config.ssh.keepaliveCountMax;
 const wsHeartbeatState = new WeakMap<WebSocket, boolean>();
 let wsHeartbeatTimer: NodeJS.Timeout | null = null;
 
@@ -235,10 +236,7 @@ void getSshTerminalRuntimeConfigWithFallback().then((config) => startWsHeartbeat
 
 // ── Origin validation (WebSocket CSRF protection) ──────────────────
 
-const ALLOWED_ORIGINS = (process.env.SSH_WS_ALLOWED_ORIGINS?.trim() || "")
-	.split(",")
-	.map((s) => s.trim().toLowerCase())
-	.filter(Boolean);
+const ALLOWED_ORIGINS = config.ssh.wsAllowedOrigins.map((s) => s.trim().toLowerCase()).filter(Boolean);
 
 function isOriginAllowed(req: import("http").IncomingMessage): boolean {
 	if (ALLOWED_ORIGINS.length === 0) {

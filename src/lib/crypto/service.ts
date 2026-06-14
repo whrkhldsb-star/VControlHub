@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "crypto";
 import { createLogger } from "@/lib/logging";
+import { config } from "@/lib/config/env";
 
 const logger = createLogger("crypto");
 
@@ -9,15 +10,16 @@ const IV_LENGTH = 16;
 function getEncryptionKey(): Buffer {
 	const key = process.env.ENCRYPTION_KEY;
 	if (!key) {
-		if (process.env.NODE_ENV === "production") {
+		if (config.isProduction) {
 			throw new Error("ENCRYPTION_KEY environment variable is required in production");
 		}
 		// Auto-generate for development
 		const generated = randomBytes(32).toString("hex");
 		process.env.ENCRYPTION_KEY = generated;
 		logger.warn("ENCRYPTION_KEY not set, auto-generated for development. Set it in .env for persistence.");
+		return scryptSync(generated, "salt-vps-platform", 32);
 	}
-	return scryptSync(process.env.ENCRYPTION_KEY!, "salt-vps-platform", 32);
+	return scryptSync(key, "salt-vps-platform", 32);
 }
 
 /**

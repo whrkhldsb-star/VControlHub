@@ -1,5 +1,6 @@
 import { JobStatus } from "@prisma/client";
 
+import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -14,7 +15,7 @@ const ALERT_EVALUATION_INTERVAL_MS = 60_000;
 const ALERT_EVALUATION_LEASE_MS = 60_000;
 const ALERT_EVALUATION_RETENTION_KEEP_LATEST = 25;
 const ALERT_EVALUATION_RETENTION_DAYS = 7;
-const ALERT_EVALUATION_WORKER_ID = `${process.env.HOSTNAME || "vcontrolhub"}:alert:${process.pid}`;
+const ALERT_EVALUATION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:alert:${process.pid}`;
 
 type AlertEvaluationWorkerState = {
   started: boolean;

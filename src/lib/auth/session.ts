@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 
 import { createLogger } from "@/lib/logging";
 import { getAppSlug } from "@/lib/branding";
+import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import type { RoleKey } from "./rbac";
 import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
@@ -9,9 +10,9 @@ import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
 const logger = createLogger("auth:session");
 
 const APP_SLUG = getAppSlug();
-const SESSION_COOKIE_NAME = process.env.AUTH_SESSION_COOKIE_NAME?.trim() || `${APP_SLUG}_session`;
-const SESSION_ISSUER = process.env.AUTH_SESSION_ISSUER?.trim() || APP_SLUG;
-const SESSION_AUDIENCE = process.env.AUTH_SESSION_AUDIENCE?.trim() || `${APP_SLUG}-console`;
+const SESSION_COOKIE_NAME = config.auth.sessionCookieName || `${APP_SLUG}_session`;
+const SESSION_ISSUER = config.auth.sessionIssuer || APP_SLUG;
+const SESSION_AUDIENCE = config.auth.sessionAudience || `${APP_SLUG}-console`;
 const DEFAULT_SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const REMEMBER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 
@@ -86,9 +87,9 @@ type SessionTokenEnvelope = SessionPayload & {
 };
 
 function getSessionSecret() {
-	const secret = process.env.AUTH_SESSION_SECRET;
+	const secret = config.auth.sessionSecret;
 	if (!secret) {
-		if (process.env.NODE_ENV === "production") {
+		if (config.isProduction) {
 			throw new Error("AUTH_SESSION_SECRET must be set in production. Set it in .env.local");
 		}
 		logger.warn("using default development session secret; set AUTH_SESSION_SECRET for production");

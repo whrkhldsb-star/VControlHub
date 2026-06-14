@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { config } from "@/lib/config/env";
 import {
   buildSshParamsFromServer,
   execRemoteCommand,
@@ -12,11 +13,7 @@ import {
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 
 export function getConfiguredDirectAccessSecret() {
-  const secret =
-    process.env.STORAGE_DIRECT_ACCESS_SECRET ||
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "";
+  const secret = config.auth.storageGatewaySecret ?? "";
   if (!secret) {
     throw new Error(
       "未配置 STORAGE_DIRECT_ACCESS_SECRET，无法启用目标服务器直连。请先在运行环境中配置同一个直连签名密钥。",

@@ -10,6 +10,7 @@
  */
 import { stat } from "node:fs/promises";
 
+import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 
 import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
@@ -31,7 +32,7 @@ export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FUL
 }
 
 export async function runExistingBackupRecord(input: { id: string; projectRoot?: string }) {
-	const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
+	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const record = await getBackupRecord(input.id);
 	if (!record) throw new Error("备份记录不存在");
 	if (!isBackupType(record.type)) throw new Error("备份类型无效");
@@ -79,7 +80,7 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 	if (record.status !== "COMPLETED") {
 		throw new Error("只能恢复已完成的备份");
 	}
-	const projectRoot = input.projectRoot || process.env.APP_DIR || process.cwd();
+	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const execution = buildRestoreExecution(record, projectRoot);
 	await stat(execution.backupPath);
 	await runBackupCommand({

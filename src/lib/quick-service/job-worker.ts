@@ -1,5 +1,6 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
+import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -20,7 +21,7 @@ const logger = createLogger("quick-service-job-worker");
 export const QUICK_SERVICE_JOB_TYPE = "quick_service.lifecycle";
 const QUICK_SERVICE_WORKER_INTERVAL_MS = 5_000;
 const QUICK_SERVICE_WORKER_LEASE_MS = 10 * 60 * 1000;
-const QUICK_SERVICE_WORKER_ID = `${process.env.HOSTNAME || "vcontrolhub"}:quick-service:${process.pid}`;
+const QUICK_SERVICE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:quick-service:${process.pid}`;
 
 type QuickServiceInstallJobPayload = {
 	action: "install";
