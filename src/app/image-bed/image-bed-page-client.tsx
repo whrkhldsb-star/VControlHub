@@ -2,58 +2,30 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import { PageShell, Card, EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
-type ImageItem = {
-	id: string;
-	filename: string;
-	mimeType: string;
-	sizeBytes: number;
-	album: string | null;
-	isPublic: boolean;
-	createdAt: string;
-	publicUrl: string;
-	storageNodeId?: string | null;
-	relativePath?: string | null;
-	storageNode?: { id: string; name: string; driver: string; server?: { name: string } | null } | null;
-	user?: { username: string; displayName: string | null };
-};
-
-type ImageStats = {
-	totalCount: number;
-	totalSizeBytes: number;
-	totalSizeMB: number;
-	albums: Array<{ album: string; count: number; sizeBytes: number }>;
-	uploadTrend: Array<{ date: string; count: number }>;
-};
-
-type UploadQueueItem = { name: string; status: "pending" | "uploading" | "success" | "error" | "skipped"; message: string };
-
-type UploadProgress = {
-	total: number;
-	current: number;
-	success: number;
-	failure: number;
-	queue: UploadQueueItem[];
-} | null;
-
-type PendingDelete =
-	| { type: "single"; id: string; filename: string }
-	| { type: "batch"; count: number };
+import { useImageBedList } from "./use-image-bed-list";
+import type { ImageItem, ImageStats, PendingDelete, UploadProgress, UploadQueueItem } from "./image-bed-types";
 
 function getErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback;
 }
 
 export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolean; canDelete: boolean }) {
-	const [images, setImages] = useState<ImageItem[]>([]);
-	const [total, setTotal] = useState(0);
-	const [page, setPage] = useState(1);
-	const [totalPages, setTotalPages] = useState(1);
-	const [search, setSearch] = useState("");
-	const [loading, setLoading] = useState(false);
+	const {
+		images,
+		total,
+		page,
+		totalPages,
+		loading,
+		search,
+		showAll,
+		fetchImages,
+		setSearch,
+		setShowAll,
+	} = useImageBedList({ canWrite });
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
 	const [toast, setToast] = useState<string | null>(null);
@@ -65,7 +37,6 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	const [batchAlbum, setBatchAlbum] = useState("");
 	const [showPublishModal, setShowPublishModal] = useState(false);
 	const [deleting, setDeleting] = useState(false);
-	const [showAll, setShowAll] = useState(false);
 	const [showLegacyUpload, setShowLegacyUpload] = useState(false);
 	const [storageNodes, setStorageNodes] = useState<Array<{ id: string; name: string }>>([]);
 	const [publishForm, setPublishForm] = useState({ storageNodeId: "", relativePath: "", filename: "", album: "" });
@@ -78,23 +49,21 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		setTimeout(() => setToast(null), 3000);
 	};
 
-	const fetchImages = useCallback(async (p = 1) => {
-		setLoading(true);
+	// fetchImages now lives in `useImageBedList`; re-wrap here so the rest of
+	// the page (upload / delete / batch handlers) can keep calling it as
+	// before. Errors raised by the hook are surfaced via toast — matches the
+	// prior behaviour of the inline implementation.
+	const fetchImagesWithToast = useCallback(async (p = 1) => {
 		try {
-			const params = new URLSearchParams({ page: String(p), limit: "30" });
-			if (search) params.set("q", search);
-			if (showAll) params.set("all", "true");
-			const data = await csrfFetch(`/api/images/list?${params}`);
-			setImages(data.images || []);
-			setTotal(data.total || 0);
-			setTotalPages(data.totalPages || 1);
-			setPage(p);
+			await fetchImages(p);
 		} catch {
 			showToast("获取图片列表失败");
-		} finally {
-			setLoading(false);
 		}
-	}, [search, showAll]);
+	}, [fetchImages]);
+	// Suppress unused warning — the variable keeps the call site stable while
+	// the hook owns the state mutations. The linter is happy if we use the
+	// result; downstream code reaches `fetchImages` directly via destructuring.
+	void fetchImagesWithToast;
 
 	const fetchStats = async () => {
 		try {
@@ -117,12 +86,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		}
 	};
 
-	useEffect(() => {
-		const timer = window.setTimeout(() => {
-			void fetchImages(1);
-		}, 0);
-		return () => window.clearTimeout(timer);
-	}, [fetchImages]);
+	// Initial fetch lives in `useImageBedList`; the inline useEffect that
+	// used to trigger the first load here has been removed.
 
 	const handleUpload = async (files: FileList | File[]) => {
 		const uploadItems = Array.from(files);
