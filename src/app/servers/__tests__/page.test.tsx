@@ -204,7 +204,7 @@ describe("ServersPage", () => {
       "/api/servers/monitor?serverId=srv_1",
       { cache: "no-store" },
     );
-    expect(await screen.findByText(/探测成功：CPU 12.5% · 内存 48.2%，磁盘 \/ 71%/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/探测成功：CPU 12.5% · 内存 48.2%，磁盘 \/ 71%/)).length).toBeGreaterThan(0);
     vi.unstubAllGlobals();
   });
 

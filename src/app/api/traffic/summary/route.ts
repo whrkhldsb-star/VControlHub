@@ -96,6 +96,11 @@ export async function GET(req: NextRequest) {
     { permission: "server:read", errorMessage: "获取流量摘要失败" },
     async () => {
       const selectedIface = req.nextUrl.searchParams.get("iface")?.trim() || "";
+      // include=remote opts in to the SSH sampling step. The default response
+      // skips it so the page can render the local network card immediately
+      // (~50 ms) while remote VPS samples (1-15 s) load asynchronously.
+      const includeRemote =
+        req.nextUrl.searchParams.get("include")?.split(",").includes("remote") ?? false;
 
       const interfaces = parseNetworkDeviceStats(readProcNetDev());
       const primary = selectedIface
@@ -136,7 +141,7 @@ export async function GET(req: NextRequest) {
         take: 200,
       });
 
-      const remoteServers = await sampleRemoteServersTraffic(servers);
+      const remoteServers = includeRemote ? await sampleRemoteServersTraffic(servers) : null;
 
       return NextResponse.json({
         timestamp: new Date().toISOString(),

@@ -76,6 +76,8 @@ export { formatStorageHealthStatus };
 
 export default function TrafficPage({ canManage: _canManage }: { canManage: boolean }) {
 	const [summary, setSummary] = useState<TrafficSummary | null>(null);
+	const [remoteServers, setRemoteServers] = useState<RemoteServerTraffic[] | null>(null);
+	const [remoteLoading, setRemoteLoading] = useState(false);
 	const [selectedIface, setSelectedIface] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -86,8 +88,9 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 
 	const fetchSummary = useCallback(async (iface = selectedIface) => {
 		try {
-			const suffix = iface ? `?iface=${encodeURIComponent(iface)}` : "";
-			const data = await csrfFetch(`/api/traffic/summary${suffix}`) as TrafficSummary & { error?: string };
+			const params = new URLSearchParams();
+			if (iface) params.set("iface", iface);
+			const data = await csrfFetch(`/api/traffic/summary${params.toString() ? `?${params}` : ""}`) as TrafficSummary & { error?: string };
 			if (data.error) {
 				setError(data.error);
 				return;
@@ -100,6 +103,21 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 			setLoading(false);
 		}
 	}, [selectedIface]);
+
+	// Remote VPS sampling is its own request — it can take 5-15 s when SSH
+	// hosts are slow, so we don't block first paint of the page on it.
+	const fetchRemote = useCallback(async () => {
+		setRemoteLoading(true);
+		try {
+			const data = await csrfFetch(`/api/traffic/summary?include=remote`) as TrafficSummary & { error?: string };
+			if (data.error) return;
+			setRemoteServers(data.remoteServers ?? []);
+		} catch {
+			// Soft-fail — keep whatever stale samples we already have.
+		} finally {
+			setRemoteLoading(false);
+		}
+	}, []);
 
 	useEffect(() => {
 		const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
@@ -115,11 +133,16 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 		const timer = setTimeout(() => { void fetchSummary(); }, 0);
 		return () => clearTimeout(timer);
 	}, [fetchSummary]);
+	// Kick off remote sampling once on mount, then on every auto-refresh tick.
+	useEffect(() => { void fetchRemote(); }, [fetchRemote]);
 	useEffect(() => {
 		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
-		const id = setInterval(() => { void fetchSummary(); }, refreshIntervalSeconds * 1000);
+		const id = setInterval(() => {
+			void fetchSummary();
+			void fetchRemote();
+		}, refreshIntervalSeconds * 1000);
 		return () => clearInterval(id);
-	}, [autoRefresh, fetchSummary, refreshIntervalSeconds]);
+	}, [autoRefresh, fetchSummary, fetchRemote, refreshIntervalSeconds]);
 
 	const primary = summary?.currentServer.primaryInterface ?? null;
 
@@ -137,34 +160,41 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 			</div>
 
 			{error && <div className="mb-4 rounded-lg bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>}
-			{loading && <div className="text-sm text-slate-500">加载中...</div>}
 
-			{summary && (
-				<div className="space-y-5">
-					<Card title="当前服务器实时流量">
-						<div className="mb-4 flex flex-wrap items-center gap-3">
-							<label className="text-xs text-slate-500">网卡</label>
-							<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
-								<option value="">自动选择主网卡</option>
-								{summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
-							</select>
-							<span className="text-[11px] text-slate-600">最后更新：{new Date(summary.timestamp).toLocaleString("zh-CN")}</span>
-						</div>
-						{primary ? (
-							<>
-								<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-									<RateBadge label={`↓ 下载速度 · ${primary.iface}`} value={primary.rxRateLabel} color="cyan" />
-									<RateBadge label={`↑ 上传速度 · ${primary.iface}`} value={primary.txRateLabel} color="emerald" />
-								</div>
-								<div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-									<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100">{primary.rxLabel}</span></div>
-									<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100">{primary.txLabel}</span></div>
-								</div>
-							</>
-						) : <div className="text-sm text-slate-500">暂无网卡数据</div>}
-					</Card>
+			<div className="space-y-5">
+				<Card title="当前服务器实时流量">
+					{loading && !summary ? (
+						<div className="text-sm text-slate-500">加载中...</div>
+					) : summary ? (
+						<>
+							<div className="mb-4 flex flex-wrap items-center gap-3">
+								<label className="text-xs text-slate-500">网卡</label>
+								<select value={selectedIface} onChange={(e) => setSelectedIface(e.target.value)} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-1.5 text-xs text-slate-200">
+									<option value="">自动选择主网卡</option>
+									{summary.currentServer.interfaces.map((item) => <option key={item.iface} value={item.iface}>{item.iface}</option>)}
+								</select>
+								<span className="text-[11px] text-slate-600">最后更新：{new Date(summary.timestamp).toLocaleString("zh-CN")}</span>
+							</div>
+							{primary ? (
+								<>
+									<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+										<RateBadge label={`↓ 下载速度 · ${primary.iface}`} value={primary.rxRateLabel} color="cyan" />
+										<RateBadge label={`↑ 上传速度 · ${primary.iface}`} value={primary.txRateLabel} color="emerald" />
+									</div>
+									<div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
+										<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">累计下载：<span className="font-mono text-slate-100">{primary.rxLabel}</span></div>
+										<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">累计上传：<span className="font-mono text-slate-100">{primary.txLabel}</span></div>
+									</div>
+								</>
+							) : <div className="text-sm text-slate-500">暂无网卡数据</div>}
+						</>
+					) : null}
+				</Card>
 
-					<Card title="网卡明细">
+				<Card title="网卡明细">
+					{loading && !summary ? (
+						<div className="text-sm text-slate-500">加载中...</div>
+					) : summary ? (
 						<div className="overflow-x-auto">
 							<table className="w-full text-xs">
 								<thead className="text-slate-500"><tr><th className="py-2 text-left">网卡</th><th className="text-right">下载速度</th><th className="text-right">上传速度</th><th className="text-right">累计下载</th><th className="text-right">累计上传</th></tr></thead>
@@ -173,64 +203,62 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 								</tbody>
 							</table>
 						</div>
-					</Card>
+					) : null}
+				</Card>
 
-					<Card title="VPS 节点流量">
-						{(summary.remoteServers ?? []).length === 0 ? (
-							<div className="text-sm text-slate-500">暂无已启用的 VPS 节点（或尚未配置 SSH 凭据）</div>
-						) : (
-							<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-								{(summary.remoteServers ?? []).map((node) => (
-									<div key={node.serverId} className="rounded-xl border border-white/[0.05] bg-black/20 p-4">
-										<div className="flex items-center justify-between gap-3">
-											<div>
-												<div className="text-sm font-medium text-white">{node.serverName}</div>
-												<div className="mt-1 text-[11px] text-slate-500">{node.host}</div>
-											</div>
-											{node.error ? (
-												<span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">采样失败</span>
-											) : node.primaryInterface ? (
-												<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">在线 · {node.primaryInterface.iface}</span>
-											) : (
-												<span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-300">无网卡</span>
-											)}
+				<Card title="VPS 节点流量">
+					{remoteLoading && !remoteServers ? (
+						<div className="flex items-center gap-2 text-sm text-slate-500">
+							<span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
+							正在通过 SSH 采样远程 VPS 节点流量，可能需要几秒...
+						</div>
+					) : (remoteServers ?? []).length === 0 ? (
+						<div className="text-sm text-slate-500">暂无已启用的 VPS 节点（或尚未配置 SSH 凭据）</div>
+					) : (
+						<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+							{(remoteServers ?? []).map((node) => (
+								<div key={node.serverId} className="rounded-xl border border-white/[0.05] bg-black/20 p-4">
+									<div className="flex items-center justify-between gap-3">
+										<div>
+											<div className="text-sm font-medium text-white">{node.serverName}</div>
+											<div className="mt-1 text-[11px] text-slate-500">{node.host}</div>
 										</div>
 										{node.error ? (
-											<div className="mt-3 break-all text-[11px] text-rose-200/80">{node.error}</div>
+											<span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">采样失败</span>
 										) : node.primaryInterface ? (
-											<>
-												<div className="mt-3 grid grid-cols-2 gap-2">
-													<div className="rounded-lg bg-cyan-500/10 px-3 py-2 text-cyan-300">
-														<div className="text-[10px] opacity-70">↓ 下载</div>
-														<div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
-													</div>
-													<div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-emerald-300">
-														<div className="text-[10px] opacity-70">↑ 上传</div>
-														<div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
-													</div>
-												</div>
-												<div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
-													<div>累计下载：<span className="font-mono text-slate-200">{node.primaryInterface.rxLabel}</span></div>
-													<div>累计上传：<span className="font-mono text-slate-200">{node.primaryInterface.txLabel}</span></div>
-												</div>
-											</>
+											<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">在线 · {node.primaryInterface.iface}</span>
 										) : (
-											<div className="mt-3 text-[11px] text-slate-500">未识别到主网卡</div>
+											<span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-300">无网卡</span>
 										)}
 									</div>
-								))}
-							</div>
-						)}
-					</Card>
-
-					<Card title="存储节点流量来源">
-						<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-							{summary.storageNodes.map((node) => <div key={node.id} className="rounded-xl border border-white/[0.05] bg-black/20 p-4"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-medium text-white">{node.name}</div><div className="mt-1 text-[11px] text-slate-500">{node.driver} · {node.trafficSourceLabel}</div></div><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-[var(--text-secondary)]">{formatStorageHealthStatus(node.healthStatus)}</span></div><div className="mt-3 text-xs text-[var(--text-secondary)]">{node.trafficSourceDetail}</div></div>)}
-							{summary.storageNodes.length === 0 && <div className="text-sm text-slate-500">暂无存储节点</div>}
+									{node.error ? (
+										<div className="mt-3 break-all text-[11px] text-rose-200/80">{node.error}</div>
+									) : node.primaryInterface ? (
+										<>
+											<div className="mt-3 grid grid-cols-2 gap-2">
+												<div className="rounded-lg bg-cyan-500/10 px-3 py-2 text-cyan-300">
+													<div className="text-[10px] opacity-70">↓ 下载</div>
+													<div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
+												</div>
+												<div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-emerald-300">
+													<div className="text-[10px] opacity-70">↑ 上传</div>
+													<div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
+												</div>
+											</div>
+											<div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
+												<div>累计下载：<span className="font-mono text-slate-200">{node.primaryInterface.rxLabel}</span></div>
+												<div>累计上传：<span className="font-mono text-slate-200">{node.primaryInterface.txLabel}</span></div>
+											</div>
+										</>
+									) : (
+										<div className="mt-3 text-[11px] text-slate-500">未识别到主网卡</div>
+									)}
+								</div>
+							))}
 						</div>
-					</Card>
-				</div>
-			)}
+					)}
+				</Card>
+			</div>
 		</PageShell>
 	);
 }

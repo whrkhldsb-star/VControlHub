@@ -21,6 +21,63 @@ export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:media:thumbnail");
 
+// Per-storage-node circuit breaker: when an SFTP node has timed out N times in
+// a short window, short-circuit subsequent thumbnail requests so a dead remote
+// host can't take the whole gallery hostage. The breaker resets on its own
+// after `BREAKER_COOLDOWN_MS`, so when the host comes back, thumbnails resume.
+const BREAKER_FAILURE_THRESHOLD = 1;
+const BREAKER_COOLDOWN_MS = 120_000;
+type BreakerState = { failures: number; openedAt: number };
+const nodeBreaker = new Map<string, BreakerState>();
+
+function isBreakerOpen(nodeId: string): boolean {
+	const state = nodeBreaker.get(nodeId);
+	if (!state) return false;
+	if (state.failures < BREAKER_FAILURE_THRESHOLD) return false;
+	if (Date.now() - state.openedAt > BREAKER_COOLDOWN_MS) {
+		nodeBreaker.delete(nodeId);
+		return false;
+	}
+	return true;
+}
+
+function noteBreakerFailure(nodeId: string) {
+	const state = nodeBreaker.get(nodeId) ?? { failures: 0, openedAt: 0 };
+	state.failures += 1;
+	if (state.failures >= BREAKER_FAILURE_THRESHOLD && state.openedAt === 0) {
+		state.openedAt = Date.now();
+	}
+	nodeBreaker.set(nodeId, state);
+}
+
+function noteBreakerSuccess(nodeId: string) {
+	if (nodeBreaker.has(nodeId)) nodeBreaker.delete(nodeId);
+}
+
+// Inline SVG placeholder rendered as PNG-ish data so <Image> can show a
+// graceful tile when a remote node is down. Using an SVG keeps the response
+// tiny (<1 KB) and avoids a sharp call when we already know we can't reach
+// the source.
+function placeholderResponse(kind: "offline" | "unsupported" = "offline"): NextResponse {
+	const palette = kind === "offline"
+		? { bg: "#1e293b", fg: "#64748b", icon: "📡", label: "暂不可用" }
+		: { bg: "#1e293b", fg: "#64748b", icon: "📄", label: "无预览" };
+	const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" width="320" height="320">
+	<rect width="320" height="320" fill="${palette.bg}"/>
+	<text x="160" y="160" font-size="64" text-anchor="middle" dominant-baseline="central">${palette.icon}</text>
+	<text x="160" y="230" font-size="20" fill="${palette.fg}" text-anchor="middle" font-family="sans-serif">${palette.label}</text>
+</svg>`;
+	return new NextResponse(svg, {
+		status: 200,
+		headers: {
+			"Content-Type": "image/svg+xml; charset=utf-8",
+			"Cache-Control": "public, max-age=60",
+			"X-Thumbnail-Placeholder": kind,
+		},
+	});
+}
+
 const THUMB_SIZE = 320;
 const SUPPORTED_IMAGE_MIME_PREFIX = "image/";
 // We deliberately skip video frame extraction here: extracting a still frame
@@ -187,6 +244,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 			const absolutePath = resolveManagedLocalPath(node.basePath, item.relativePath);
 			sourceBuffer = await readLocalIntoBuffer(absolutePath, MAX_SOURCE_BYTES);
 		} else if (node.driver === "SFTP") {
+			if (isBreakerOpen(node.id)) {
+				return placeholderResponse("offline");
+			}
 			let normalizedRemotePath: string;
 			let normalizedRelativePath: string;
 			try {
@@ -217,24 +277,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				username: credentials.username,
 				privateKey: credentials.privateKey,
 				password: credentials.password,
-				readyTimeout: 15000,
-				timeout: 10000,
+				readyTimeout: 5000,
+				timeout: 5000,
 			});
 			try {
 				sourceBuffer = await readRemoteIntoBuffer(client, normalizedRemotePath, MAX_SOURCE_BYTES);
+				noteBreakerSuccess(node.id);
 			} finally {
 				client.end();
 			}
 		} else {
-			return NextResponse.json({ error: "该存储节点暂不支持缩略图" }, { status: 400 });
+			return placeholderResponse("unsupported");
 		}
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "未知错误";
 		if (message === "THUMBNAIL_SOURCE_TOO_LARGE") {
 			return NextResponse.json({ error: "原始图片过大，无法生成缩略图" }, { status: 413 });
 		}
+		// SFTP / SSH transport failures trip the circuit breaker — the next
+		// gallery render won't try this node again until the cooldown elapses.
+		if (node.driver === "SFTP") {
+			noteBreakerFailure(node.id);
+		}
 		logger.error("media thumbnail read source failed", error, { id, nodeId: node.id });
-		return NextResponse.json({ error: "读取媒体源失败" }, { status: 502 });
+		// Return a tiny inline placeholder image instead of an error so the
+		// gallery shows a graceful "unavailable" tile instead of broken-image
+		// icons or hung requests.
+		return placeholderResponse("offline");
 	}
 
 	let thumbnail: Buffer;

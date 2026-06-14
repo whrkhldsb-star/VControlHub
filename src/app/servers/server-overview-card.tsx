@@ -59,13 +59,44 @@ export function ServerOverviewCard({
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
   const directLabel = server.directGateway?.statusLabel ?? "网站中转";
   const detailsId = `server-details-${server.id}`;
-  const listHealthLabel = server.enabled ? "启用 · 待探测" : "停用";
-  const listHealthDescription = server.enabled
-    ? "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。"
-    : "节点已停用，不会接收新的 SSH、文件或直连操作。";
-  const listHealthToneClass = server.enabled
-    ? "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50"
-    : "border-slate-400/20 bg-slate-400/10 text-slate-400";
+
+  // Status badge reflects the latest live probe outcome instead of the static
+  // "启用 · 待探测" placeholder. This is what the user expects after clicking
+  // "运行实时探测" — they want to see the chip change to 在线/离线/检测中.
+  let listHealthLabel: string;
+  let listHealthToneClass: string;
+  let listHealthDescription: string;
+  if (!server.enabled) {
+    listHealthLabel = "停用";
+    listHealthToneClass =
+      "border-slate-400/20 bg-slate-400/10 text-slate-400";
+    listHealthDescription =
+      "节点已停用，不会接收新的 SSH、文件或直连操作。";
+  } else if (diagnosticRun.status === "loading") {
+    listHealthLabel = "检测中";
+    listHealthToneClass =
+      "border-sky-400/30 bg-sky-400/10 text-sky-200 light:border-sky-700/30 light:bg-sky-50";
+    listHealthDescription = "正在通过 /api/servers/monitor 实时探测，请稍候。";
+  } else if (diagnosticRun.status === "success") {
+    listHealthLabel = `在线 · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
+    listHealthToneClass =
+      "border-emerald-400/30 bg-emerald-400/10 text-emerald-200 light:border-emerald-700/30 light:bg-emerald-50";
+    listHealthDescription =
+      diagnosticRun.summary
+        ? `最近一次实时探测成功：${diagnosticRun.summary}（${diagnosticRun.checkedAt}）`
+        : `最近一次实时探测成功（${diagnosticRun.checkedAt}）`;
+  } else if (diagnosticRun.status === "error") {
+    listHealthLabel = "离线";
+    listHealthToneClass =
+      "border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-700/30 light:bg-rose-50";
+    listHealthDescription = `最近一次实时探测失败：${diagnosticRun.message}（${diagnosticRun.checkedAt}）`;
+  } else {
+    listHealthLabel = "启用 · 待探测";
+    listHealthToneClass =
+      "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50";
+    listHealthDescription =
+      "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。";
+  }
   const directGatewayAdvice = getDirectGatewayRepairAdvice({
     directGateway: server.directGateway ?? null,
     serverEnabled: server.enabled,
