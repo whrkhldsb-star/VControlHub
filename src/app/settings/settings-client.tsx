@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useId, useRef, type ReactNode, type SyntheticEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { TwoFactorSettings } from "@/components/two-factor-settings";
+import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import {
@@ -296,7 +296,7 @@ function SchemaDrivenSection({
 			asForm={section.asForm}
 		>
 			{section.id === "2fa" ? (
-				<TwoFactorSettings enabled={twoFactorEnabled} />
+				<TwoFactorSettingsLazy enabled={twoFactorEnabled} />
 			) : (
 				<>
 					{section.noticeBanner && (

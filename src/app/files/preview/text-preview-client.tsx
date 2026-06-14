@@ -5,6 +5,7 @@ import createDOMPurify from "dompurify";
 import type { Config } from "dompurify";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { FindBarLazy } from "./find-bar-lazy";
 
 const HIGHLIGHT_SANITIZE_CONFIG: Config = {
 	ALLOWED_TAGS: ["span", "br"],
@@ -484,45 +485,13 @@ export function TextPreviewClient({
 					</div>
 				) : null}
 				{!editMode ? (
-					<>
-						<div className="flex flex-col gap-1">
-							<label htmlFor="text-preview-search" className="text-[11px] font-medium text-[var(--text-secondary)]">
-								搜索文本
-							</label>
-							<input
-								id="text-preview-search"
-								type="text"
-								value={searchQuery}
-								onChange={(e) => setSearchQuery(e.target.value)}
-								placeholder="输入关键词"
-								className="w-36 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-							/>
-						</div>
-						<div className="flex items-end gap-1">
-							<div className="flex flex-col gap-1">
-								<label htmlFor="text-preview-jump-line" className="text-[11px] font-medium text-[var(--text-secondary)]">
-									跳转行号
-								</label>
-								<input
-									id="text-preview-jump-line"
-									type="text"
-									inputMode="numeric"
-									value={jumpLine}
-									onChange={(e) => setJumpLine(e.target.value)}
-									onKeyDown={(e) => e.key === "Enter" && handleJumpToLine()}
-									placeholder="如 42"
-									className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
-								/>
-							</div>
-							<button
-								type="button"
-								onClick={handleJumpToLine}
-								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
-							>
-								跳转
-							</button>
-						</div>
-					</>
+					<FindBarLazy
+						searchQuery={searchQuery}
+						onSearchQueryChange={setSearchQuery}
+						jumpLine={jumpLine}
+						onJumpLineChange={setJumpLine}
+						onJumpToLine={handleJumpToLine}
+					/>
 				) : null}
 			</div>
 

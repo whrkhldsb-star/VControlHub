@@ -329,7 +329,9 @@ describe("FilesPage", () => {
       "href",
       "/api/storage/local?path=docs%2Fnotes.txt&nodeId=node_1&download=1",
     );
-    expect(screen.getByRole("heading", { name: /回收站/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /回收站/ }),
+    ).toBeInTheDocument();
   });
 
   it("shows a drive-style toolbar with search, upload, and folder creation", async () => {
@@ -623,7 +625,9 @@ describe("FilesPage", () => {
 
     render(await FilesPage({ searchParams: Promise.resolve({}) }));
 
-    expect(screen.getByRole("heading", { name: /回收站/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: /回收站/ }),
+    ).toBeInTheDocument();
     const restoreBtns = screen.queryAllByTestId("restore-btn");
     const permanentDeleteBtns = screen.queryAllByTestId("permanent-delete-btn");
     if (restoreBtns.length === 0) {

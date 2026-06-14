@@ -6,7 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 import { useHealthData } from "./use-health-data";
-import type { MetricPoint, SystemHealthReport } from "./health-types";
+import type { SystemHealthReport } from "./health-types";
+import { SparklineChartLazy } from "./sparkline-chart-lazy";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";
 type SystemHealthSummary = { total: number; healthy: number; warning: number; critical: number; overall: SystemHealthStatus };
@@ -628,7 +629,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 							{historyErrors[expandedServer]}
 						</div>
 					) : (
-						<SparklineChart data={history[expandedServer] ?? []} locale={locale} />
+						<SparklineChartLazy data={history[expandedServer] ?? []} locale={locale} />
 					)}
 				</section>
 			)}
@@ -667,65 +668,10 @@ function UsageCell({ value }: { value: number | undefined }) {
 	);
 }
 
-/* ── Simple sparkline chart (SVG) ─────────────────────────── */
+/* ── Sparkline chart moved to ./sparkline-chart.tsx (TR-036 lazy load) ── */
+// The SVG sparkline is now reachable via `./sparkline-chart-lazy` which
+// wraps `next/dynamic` with a stub-loading placeholder. Keeping the
+// component definition in a sibling file lets webpack split it into its
+// own chunk so the trend expansion can fetch the SVG on first click
+// instead of pulling it into the initial /health bundle.
 
-function SparklineChart({ data, locale }: { data: MetricPoint[]; locale: "zh" | "en" }) {
-	const labels = locale === "zh" ? { memory: "内存", disk: "磁盘", localeCode: "zh-CN" } : { memory: "Memory", disk: "Disk", localeCode: "en-US" };
-	if (data.length === 0) return <div className="text-xs text-slate-500">{locale === "zh" ? "暂无历史数据" : "No history data yet"}</div>;
-
-	const W = 700;
-	const H = 200;
-	const padX = 40;
-	const padY = 20;
-	const plotW = W - padX * 2;
-	const plotH = H - padY * 2;
-
-	const maxVal = 100;
-	const minTime = new Date(data[0]!.t).getTime();
-	const maxTime = new Date(data[data.length - 1]!.t).getTime();
-	const timeRange = maxTime - minTime || 1;
-
-	const toX = (t: number) => padX + ((t - minTime) / timeRange) * plotW;
-	const toY = (v: number) => padY + plotH - (v / maxVal) * plotH;
-
-	const cpuPath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${toX(new Date(d.t).getTime())} ${toY(d.cpu)}`).join(" ");
-	const memPath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${toX(new Date(d.t).getTime())} ${toY(d.mem)}`).join(" ");
-	const diskPath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${toX(new Date(d.t).getTime())} ${toY(d.disk)}`).join(" ");
-
-	// Warning/Critical lines
-	const warnY = toY(80);
-	const critY = toY(95);
-
-	return (
-		<div className="overflow-x-auto">
-			<svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[500px]" style={{ height: "auto" }}>
-				{/* Grid lines */}
-				<line x1={padX} y1={warnY} x2={W - padX} y2={warnY} stroke="rgba(251,191,36,0.2)" strokeWidth={1} strokeDasharray="4,4" />
-				<line x1={padX} y1={critY} x2={W - padX} y2={critY} stroke="rgba(244,63,94,0.2)" strokeWidth={1} strokeDasharray="4,4" />
-				<text x={padX - 4} y={warnY + 4} textAnchor="end" fill="rgba(251,191,36,0.5)" fontSize={9}>80%</text>
-				<text x={padX - 4} y={critY + 4} textAnchor="end" fill="rgba(244,63,94,0.5)" fontSize={9}>95%</text>
-
-				{/* Lines */}
-				<path d={cpuPath} fill="none" stroke="#4ade80" strokeWidth={1.5} />
-				<path d={memPath} fill="none" stroke="#60a5fa" strokeWidth={1.5} />
-				<path d={diskPath} fill="none" stroke="#f59e0b" strokeWidth={1.5} />
-
-				{/* Axis */}
-				<line x1={padX} y1={H - padY} x2={W - padX} y2={H - padY} stroke="rgba(148,163,184,0.15)" strokeWidth={1} />
-				<line x1={padX} y1={padY} x2={padX} y2={H - padY} stroke="rgba(148,163,184,0.15)" strokeWidth={1} />
-
-				{/* Time labels */}
-				{data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 6)) === 0).map((d) => (
-					<text key={d.t} x={toX(new Date(d.t).getTime())} y={H - padY + 14} textAnchor="middle" fill="rgba(148,163,184,0.4)" fontSize={9}>
-						{new Date(d.t).toLocaleTimeString(labels.localeCode, { hour: "2-digit", minute: "2-digit" })}
-					</text>
-				))}
-			</svg>
-			<div className="flex items-center gap-4 mt-2 text-[11px]">
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-emerald-400 rounded" /> CPU</span>
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-blue-400 rounded" /> {labels.memory}</span>
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-amber-400 rounded" /> {labels.disk}</span>
-			</div>
-		</div>
-	);
-}

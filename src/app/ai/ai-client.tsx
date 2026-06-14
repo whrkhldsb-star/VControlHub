@@ -8,8 +8,8 @@ import { formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";
 import { renderContent, copyToClipboard } from "./ai-markdown-renderer";
 import { AiSidebar } from "./ai-sidebar";
 import { AiChatHeader } from "./ai-chat-header";
-import { AiSettingsPanel } from "./ai-settings-panel";
-import { AiProviderPanel } from "./ai-provider-panel";
+import { AiSettingsPanelLazy } from "./ai-settings-panel-lazy";
+import { AiProviderPanelLazy } from "./ai-provider-panel-lazy";
 import { AiConfirmDialog } from "./ai-confirm-dialog";
 import { useFileAttachments } from "./hooks/use-file-attachments";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
@@ -649,8 +649,8 @@ const conv = data.conversation;
             } catch { /* ignore */ }
           }}
         />
-        {/* Settings panel */}
-        <AiSettingsPanel
+        {/* Settings panel — TR-036 lazy chunk, only fetched when showSettings */}
+        <AiSettingsPanelLazy
           show={showSettings}
           settingsForm={settingsForm}
           setSettingsForm={setSettingsForm}
@@ -1052,8 +1052,8 @@ return (
         )}
       </div>
 
-      {/* ── Provider Management Panel (overlay) ─────────────────── */}
-      <AiProviderPanel
+      {/* ── Provider Management Panel (overlay) — TR-036 lazy chunk ── */}
+      <AiProviderPanelLazy
         show={showProviders}
         providers={providers}
         provForm={provForm}

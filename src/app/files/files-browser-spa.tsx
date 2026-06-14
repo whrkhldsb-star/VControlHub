@@ -10,9 +10,9 @@ import {
   type FileProp,
 } from "./file-list-client";
 import { SearchScopeToggle } from "./search-scope-toggle";
-import { FileUploadDropzone } from "@/components/storage/file-upload-dropzone";
+import { FileUploadDropzoneLazy } from "./file-upload-dropzone-lazy";
 import { CreateFolderForm } from "./create-folder-form";
-import { RecycleBinSectionClient } from "./recycle-bin-section-client";
+import { RecycleBinSectionClientLazy } from "./recycle-bin-section-client-lazy";
 import { useFileBrowserListing } from "./use-file-browser-listing";
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -793,10 +793,10 @@ export function FilesBrowserSpa({
           />
         </article>
 
-        {/* Upload section */}
+        {/* Upload section — TR-036 lazy chunk, only fetched when canEditLocalFiles */}
         {data.permissions.canEditLocalFiles ? (
           <div id="upload-section">
-            <FileUploadDropzone
+            <FileUploadDropzoneLazy
               nodes={data.nodes}
               initialNodeId={preferredUploadNode}
               initialRelativeDir={data.currentPath}
@@ -818,8 +818,8 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        {/* Recycle bin */}
-        <RecycleBinSectionClient
+        {/* Recycle bin — TR-036 lazy chunk, fetched on first view */}
+        <RecycleBinSectionClientLazy
           deletedEntries={deletedEntries}
           canDelete={data.permissions.canDelete}
           onRefresh={() =>

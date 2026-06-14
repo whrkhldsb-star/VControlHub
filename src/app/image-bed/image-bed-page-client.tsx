@@ -8,6 +8,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import { useImageBedList } from "./use-image-bed-list";
 import type { ImageItem, ImageStats, PendingDelete, UploadProgress, UploadQueueItem } from "./image-bed-types";
+import { ImagePreviewModalLazy } from "./image-preview-modal-lazy";
 
 function getErrorMessage(error: unknown, fallback: string): string {
 	return error instanceof Error && error.message ? error.message : fallback;
@@ -561,29 +562,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				</div>
 			)}
 
-			{/* Preview Modal */}
-			{previewImage && (
-				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewImage(null)}>
-					<div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-						<Image src={previewImage.publicUrl} alt={previewImage.filename} width={800} height={600} loading="lazy" unoptimized className="max-w-full max-h-[85vh] rounded-lg" />
-						<div className="mt-3 flex items-center justify-between gap-2">
-							<div>
-								<div className="text-sm text-white font-medium">{previewImage.filename}</div>
-								<div className="text-xs text-slate-400 mt-1">{formatSize(previewImage.sizeBytes)} · {previewImage.mimeType}</div>
-							</div>
-							<div className="flex flex-wrap items-center justify-end gap-2">
-								<button onClick={() => copyLink(previewImage.publicUrl)} className="min-h-11 rounded-lg bg-cyan-500/20 px-3 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/30">复制外链</button>
-								<button onClick={() => copyMarkdown(previewImage)} className="min-h-11 rounded-lg bg-green-500/20 px-3 py-1.5 text-xs text-green-300 hover:bg-green-500/30">Markdown</button>
-								<button onClick={() => copyHTML(previewImage)} className="min-h-11 rounded-lg bg-orange-500/20 px-3 py-1.5 text-xs text-orange-300 hover:bg-orange-500/30">HTML</button>
-								{canDelete && (
-									<button onClick={() => requestDelete(previewImage)} className="min-h-11 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/30">删除</button>
-								)}
-							</div>
-						</div>
-						<button onClick={() => setPreviewImage(null)} className="absolute -top-3 -right-3 w-8 h-8 bg-slate-800 text-slate-300 rounded-full flex items-center justify-center hover:bg-slate-700 light:hover:bg-slate-200 text-lg">✕</button>
-					</div>
-				</div>
-			)}
+			{/* Preview Modal — TR-036 lazy chunk, only fetched on first open */}
+			<ImagePreviewModalLazy
+				image={previewImage}
+				canDelete={canDelete}
+				onClose={() => setPreviewImage(null)}
+				onCopyLink={copyLink}
+				onCopyMarkdown={copyMarkdown}
+				onCopyHTML={copyHTML}
+				onRequestDelete={requestDelete}
+				formatSize={formatSize}
+			/>
 
 			{/* Publish from Storage Modal */}
 			{showPublishModal && (
