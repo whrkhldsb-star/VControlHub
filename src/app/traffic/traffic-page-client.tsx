@@ -19,6 +19,16 @@ type InterfaceTraffic = {
 	intervalSeconds: number;
 };
 
+type RemoteServerTraffic = {
+	serverId: string;
+	serverName: string;
+	host: string;
+	primaryInterface: InterfaceTraffic | null;
+	interfaces: InterfaceTraffic[];
+	sampledAt: string;
+	error: string | null;
+};
+
 type TrafficSummary = {
 	timestamp: string;
 	currentServer: {
@@ -37,8 +47,10 @@ type TrafficSummary = {
 		trafficSource: string;
 		trafficSourceLabel: string;
 		trafficSourceDetail: string;
+		remoteServerId?: string | null;
 		server?: { id: string; name: string; host: string; port: number } | null;
 	}>;
+	remoteServers?: RemoteServerTraffic[];
 	servers: Array<{ id: string; name: string; host: string; port: number }>;
 };
 
@@ -161,6 +173,54 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 								</tbody>
 							</table>
 						</div>
+					</Card>
+
+					<Card title="VPS 节点流量">
+						{(summary.remoteServers ?? []).length === 0 ? (
+							<div className="text-sm text-slate-500">暂无已启用的 VPS 节点（或尚未配置 SSH 凭据）</div>
+						) : (
+							<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+								{(summary.remoteServers ?? []).map((node) => (
+									<div key={node.serverId} className="rounded-xl border border-white/[0.05] bg-black/20 p-4">
+										<div className="flex items-center justify-between gap-3">
+											<div>
+												<div className="text-sm font-medium text-white">{node.serverName}</div>
+												<div className="mt-1 text-[11px] text-slate-500">{node.host}</div>
+											</div>
+											{node.error ? (
+												<span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">采样失败</span>
+											) : node.primaryInterface ? (
+												<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">在线 · {node.primaryInterface.iface}</span>
+											) : (
+												<span className="rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate-300">无网卡</span>
+											)}
+										</div>
+										{node.error ? (
+											<div className="mt-3 break-all text-[11px] text-rose-200/80">{node.error}</div>
+										) : node.primaryInterface ? (
+											<>
+												<div className="mt-3 grid grid-cols-2 gap-2">
+													<div className="rounded-lg bg-cyan-500/10 px-3 py-2 text-cyan-300">
+														<div className="text-[10px] opacity-70">↓ 下载</div>
+														<div className="text-sm font-semibold tabular-nums">{node.primaryInterface.rxRateLabel}</div>
+													</div>
+													<div className="rounded-lg bg-emerald-500/10 px-3 py-2 text-emerald-300">
+														<div className="text-[10px] opacity-70">↑ 上传</div>
+														<div className="text-sm font-semibold tabular-nums">{node.primaryInterface.txRateLabel}</div>
+													</div>
+												</div>
+												<div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
+													<div>累计下载：<span className="font-mono text-slate-200">{node.primaryInterface.rxLabel}</span></div>
+													<div>累计上传：<span className="font-mono text-slate-200">{node.primaryInterface.txLabel}</span></div>
+												</div>
+											</>
+										) : (
+											<div className="mt-3 text-[11px] text-slate-500">未识别到主网卡</div>
+										)}
+									</div>
+								))}
+							</div>
+						)}
 					</Card>
 
 					<Card title="存储节点流量来源">

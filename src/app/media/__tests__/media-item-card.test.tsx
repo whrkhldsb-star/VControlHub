@@ -42,7 +42,7 @@ describe("MediaItemCard", () => {
       </>,
     );
 
-    expect(screen.getByRole("img", { name: "photo.png 缩略图" })).toHaveAttribute("src", "/api/media/img_1/stream");
+    expect(screen.getByRole("img", { name: "photo.png 缩略图" })).toHaveAttribute("src", "/api/media/img_1/thumbnail");
     expect(screen.getByRole("link", { name: /song\.mp3 音频预览/ })).toHaveTextContent("音频预览");
   });
 

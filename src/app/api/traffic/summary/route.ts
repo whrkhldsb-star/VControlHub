@@ -11,6 +11,7 @@ import {
   selectPrimaryInterface,
   type NetworkDeviceStats,
 } from "@/lib/monitoring/traffic";
+import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ function describeStorageTrafficSource(node: {
       trafficSource: "当前服务器",
       trafficSourceLabel: "当前服务器网卡",
       trafficSourceDetail: "使用当前服务器网卡统计，下载和上传会计入本机流量。",
+      remoteServerId: null as string | null,
     };
   }
 
@@ -72,7 +74,8 @@ function describeStorageTrafficSource(node: {
     return {
       trafficSource: "绑定服务器",
       trafficSourceLabel: `绑定服务器：${node.server.name}`,
-      trafficSourceDetail: `${node.server.name}（${node.server.host}:${node.server.port}）可用于远端网卡采样。`,
+      trafficSourceDetail: `${node.server.name}（${node.server.host}:${node.server.port}）的实时流量见下方 “VPS 节点流量”。`,
+      remoteServerId: node.server.id,
     };
   }
 
@@ -81,8 +84,9 @@ function describeStorageTrafficSource(node: {
     trafficSource: "远程 SFTP 主机",
     trafficSourceLabel: host ? `远程 SFTP：${host}` : "远程 SFTP：未配置主机",
     trafficSourceDetail: host
-      ? `${host}:${node.port ?? 22} 的流量发生在目标服务器；当前页面只展示连接来源。`
+      ? `${host}:${node.port ?? 22} 流量发生在目标服务器；如需采样请把该 SFTP 节点绑定到 VPS 节点。`
       : "该 SFTP 节点尚未配置主机，无法定位远端流量来源。",
+    remoteServerId: null,
   };
 }
 
@@ -118,10 +122,21 @@ export async function GET(req: NextRequest) {
 
       const servers = await prisma.server.findMany({
         where: { enabled: true },
-        select: { id: true, name: true, host: true, port: true },
+        select: {
+          id: true,
+          name: true,
+          host: true,
+          port: true,
+          username: true,
+          password: true,
+          sshKeyId: true,
+          sshKey: { select: { privateKey: true } },
+        },
         orderBy: { name: "asc" },
         take: 200,
       });
+
+      const remoteServers = await sampleRemoteServersTraffic(servers);
 
       return NextResponse.json({
         timestamp: new Date().toISOString(),
@@ -150,7 +165,13 @@ export async function GET(req: NextRequest) {
             ...source,
           };
         }),
-        servers,
+        remoteServers,
+        servers: servers.map((s) => ({
+          id: s.id,
+          name: s.name,
+          host: s.host,
+          port: s.port,
+        })),
       });
     },
   );

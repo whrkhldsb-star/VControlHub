@@ -27,7 +27,7 @@ type DownloadTask = {
 	totalBytes: string | null; completedBytes: string | null; downloadSpeed: string | null;
 	fileSize: string | null; isBatch: boolean; batchUrls: string | null;
 	downloadAccess: { mode: string; transport: "direct" | "relay"; href: string; fallbackHref: string | null; label: string; statusLabel: string; description: string } | null;
-	server: { id: string; name: string; host: string };
+	server: { id: string; name: string; host: string; storageNode?: { id: string; basePath: string } | null };
 	creator: { id: string; username: string; displayName: string | null } | null;
 };
 
@@ -198,6 +198,27 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
 				setTasks((current) => current.filter((task) => task.id !== taskId));
 				setMessage({ type: "success", text: "任务记录已删除" });
+			} else if (action === "retry") {
+				const task = tasks.find((t) => t.id === taskId);
+				if (!task) {
+					setMessage({ type: "error", text: "未找到任务记录" });
+					return;
+				}
+				const payload: Record<string, unknown> = {
+					url: task.url,
+					serverId: task.serverId,
+					targetPath: task.targetPath,
+					...(task.fileName ? { fileName: task.fileName } : {}),
+					...(task.category ? { category: task.category } : {}),
+					...(task.maxSpeedKb ? { maxSpeedKb: task.maxSpeedKb } : {}),
+				};
+				await csrfFetch("/api/downloads", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(payload),
+				});
+				setMessage({ type: "success", text: "已重新创建下载任务" });
+				void fetchTasks();
 			} else if (action.startsWith("limit:")) {
 				const maxSpeedKb = parseInt(action.slice(6));
 				await csrfFetch("/api/downloads", {
@@ -551,7 +572,32 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											⬇ {task.downloadAccess.label}
 										</a>
 									)}
-									{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
+									{task.status === "COMPLETED" && task.server.storageNode && (() => {
+									const node = task.server.storageNode!;
+									const base = (node.basePath || "").replace(/\/+$/, "");
+									let rel = task.targetPath || "";
+									if (base && rel.startsWith(base)) {
+										rel = rel.slice(base.length).replace(/^\/+/, "");
+									}
+									const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
+									return (
+										<a href={href}
+											className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
+											title="在文件管理中打开保存目录"
+										>
+											📂 打开文件夹
+										</a>
+									);
+								})()}
+								{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
+									<button type="button" onClick={() => handleAction(task.id, "retry")}
+										className="rounded-lg border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/10 transition"
+										title="使用相同链接和目标路径重新创建下载任务"
+									>
+										↻ 重试
+									</button>
+								)}
+								{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "purge")}
 											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>

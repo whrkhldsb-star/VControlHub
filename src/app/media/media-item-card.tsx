@@ -102,6 +102,7 @@ function mediaTypeLabel(mediaType: string) {
 
 function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string | null }) {
 	const fileHref = `/api/media/${encodeURIComponent(item.id)}/stream`;
+	const thumbHref = `/api/media/${encodeURIComponent(item.id)}/thumbnail`;
 	const coverClass = "absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
 	const typeBadge = (
 		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur light:border-white/30">
@@ -118,7 +119,7 @@ function MediaCover({ item, sourceHref }: { item: MediaItem; sourceHref: string 
 	);
 
 	const visual = item.mediaType === "image" && fileHref ? (
-		<Image src={fileHref} alt={`${item.name} 缩略图`} fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" unoptimized className={coverClass} />
+		<Image src={thumbHref} alt={`${item.name} 缩略图`} fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" unoptimized className={coverClass} />
 	) : item.mediaType === "video" && fileHref ? (
 		<video src={`${fileHref}#t=0.1`} preload="metadata" muted playsInline className={coverClass} aria-label={`${item.name} 视频封面`} />
 	) : fallback;
