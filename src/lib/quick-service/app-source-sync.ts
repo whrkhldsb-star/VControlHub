@@ -23,7 +23,14 @@ type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select:
 
 /**
  * Sync a single source by ID.
+ *
+ * TR-040: app upserts are processed in concurrent chunks so a typical
+ * 500-app source completes in ~O(N/CONCURRENCY) DB round-trips instead
+ * of O(N) sequential round-trips. Chunk size is bounded to stay friendly
+ * to the Prisma connection pool (default poolSize=10).
  */
+const APP_UPSERT_CONCURRENCY = 8;
+
 export async function syncSource(sourceId: string): Promise<{ synced: number; errors: number }> {
 	const source = await prisma.appSource.findUnique({ where: { id: sourceId } });
 	if (!source) throw new Error("源不存在");
@@ -35,49 +42,59 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 		let synced = 0;
 		let errors = 0;
 
-		for (const app of apps) {
-			try {
-				await prisma.appSourceApp.upsert({
-					where: { slug: app.slug },
-					update: {
-						name: app.name,
-						category: app.category,
-						icon: app.icon,
-						description: app.description,
-						image: app.image,
-						defaultPort: app.defaultPort,
-						internalPort: app.internalPort ?? null,
-						path: app.path,
-						envJson: JSON.stringify(app.envJson),
-						volumesJson: JSON.stringify(app.volumesJson),
-						command: app.command ?? null,
-						extraPortsJson: JSON.stringify(app.extraPorts ?? []),
-						rawJson: app.rawJson ?? null,
-						sourceVersion: app.sourceVersion ?? null,
-					},
-					create: {
-						slug: app.slug,
-						sourceId: source.id,
-						name: app.name,
-						category: app.category,
-						icon: app.icon,
-						description: app.description,
-						image: app.image,
-						defaultPort: app.defaultPort,
-						internalPort: app.internalPort ?? null,
-						path: app.path,
-						envJson: JSON.stringify(app.envJson),
-						volumesJson: JSON.stringify(app.volumesJson),
-						command: app.command ?? null,
-						extraPortsJson: JSON.stringify(app.extraPorts ?? []),
-						rawJson: app.rawJson ?? null,
-						sourceVersion: app.sourceVersion ?? null,
-					},
-				});
-				synced++;
-			} catch (err) {
-				logger.error(`Failed to upsert app ${app.slug}: ${err}`);
-				errors++;
+		// Process apps in concurrent chunks to bound parallelism and DB load.
+		for (let i = 0; i < apps.length; i += APP_UPSERT_CONCURRENCY) {
+			const chunk = apps.slice(i, i + APP_UPSERT_CONCURRENCY);
+			const outcomes = await Promise.all(
+				chunk.map(async (app) => {
+					try {
+						await prisma.appSourceApp.upsert({
+							where: { slug: app.slug },
+							update: {
+								name: app.name,
+								category: app.category,
+								icon: app.icon,
+								description: app.description,
+								image: app.image,
+								defaultPort: app.defaultPort,
+								internalPort: app.internalPort ?? null,
+								path: app.path,
+								envJson: JSON.stringify(app.envJson),
+								volumesJson: JSON.stringify(app.volumesJson),
+								command: app.command ?? null,
+								extraPortsJson: JSON.stringify(app.extraPorts ?? []),
+								rawJson: app.rawJson ?? null,
+								sourceVersion: app.sourceVersion ?? null,
+							},
+							create: {
+								slug: app.slug,
+								sourceId: source.id,
+								name: app.name,
+								category: app.category,
+								icon: app.icon,
+								description: app.description,
+								image: app.image,
+								defaultPort: app.defaultPort,
+								internalPort: app.internalPort ?? null,
+								path: app.path,
+								envJson: JSON.stringify(app.envJson),
+								volumesJson: JSON.stringify(app.volumesJson),
+								command: app.command ?? null,
+								extraPortsJson: JSON.stringify(app.extraPorts ?? []),
+								rawJson: app.rawJson ?? null,
+								sourceVersion: app.sourceVersion ?? null,
+							},
+						});
+						return "ok" as const;
+					} catch (err) {
+						logger.error(`Failed to upsert app ${app.slug}: ${err}`);
+						return "err" as const;
+					}
+				}),
+			);
+			for (const r of outcomes) {
+				if (r === "ok") synced++;
+				else errors++;
 			}
 		}
 
