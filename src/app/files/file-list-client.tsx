@@ -28,6 +28,8 @@ import {
 	type FolderProp,
 } from "./file-list-model";
 import { SortIcon, useFileListSort } from "./use-file-list-sort";
+import { useFileSelection, type BatchProgress } from "./use-file-selection";
+import { useFileToast, type FileToast } from "./use-file-toast";
 import { useViewMode, type ViewMode } from "./use-view-mode";
 import {
   buildArchiveDownloadHref,
@@ -61,12 +63,8 @@ type FileListClientProps = {
 };
 
 /* ── view mode type imported from use-view-mode ─────────────────────── */
-type BatchProgress = { done: number; total: number; errors: string[] };
-type FileToast = {
-  id: number;
-  type: "success" | "error" | "info";
-  message: string;
-};
+// (BatchProgress + FileToast types re-exported from use-file-selection /
+// use-file-toast in R21 — replaced the previous inline duplicates.)
 
 /* ── main component ───────────────────────────────────────────────── */
 
@@ -83,17 +81,7 @@ export function FileListClient({
   onRefresh,
 }: FileListClientProps) {
   const router = useRouter();
-  const [toasts, setToasts] = useState<FileToast[]>([]);
-  const showToast = useCallback((type: FileToast["type"], message: string) => {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((current) => [...current.slice(-2), { id, type, message }]);
-    window.setTimeout(() => {
-      setToasts((current) => current.filter((toast) => toast.id !== id));
-    }, 3800);
-  }, []);
-  const dismissToast = useCallback((id: number) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
-  }, []);
+  const { toasts, showToast, dismissToast } = useFileToast();
   const fileListId = useId();
   const batchToolbarTitleId = `${fileListId}-batch-toolbar-title`;
   const batchToolbarDescriptionId = `${fileListId}-batch-toolbar-description`;
@@ -159,28 +147,27 @@ export function FileListClient({
 
   // SortIcon now lives in use-file-list-sort.tsx and is used directly below.
 
-  // Selection state (list view only)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedScopeKey, setSelectedScopeKey] = useState(
-    () => currentSelectionScopeKey,
-  );
-  const [batchAction, setBatchAction] = useState<
-    "none" | "confirm-delete" | "deleting" | "moving"
-  >("none");
-  const [progress, setProgress] = useState<BatchProgress>({
-    done: 0,
-    total: 0,
-    errors: [],
-  });
-  const [moveTargetDir, setMoveTargetDir] = useState("");
-  const [moveProgress, setMoveProgress] = useState<BatchProgress>({
-    done: 0,
-    total: 0,
-    errors: [],
-  });
+  // Selection state (list view only) — extracted to use-file-selection in R21
+  const {
+    selectedIds,
+    setSelectedIds,
+    selectedScopeKey,
+    setSelectedScopeKey,
+    batchAction,
+    setBatchAction,
+    progress,
+    setProgress,
+    moveTargetDir,
+    setMoveTargetDir,
+    moveProgress,
+    setMoveProgress,
+    selectedScopeMatches,
+    toggleAll: toggleAllRaw,
+    toggleOne,
+    clearSelection,
+  } = useFileSelection({ currentSelectionScopeKey });
   const [isPending, startTransition] = useTransition();
 
-  const selectedScopeMatches = selectedScopeKey === currentSelectionScopeKey;
   const selectionSummary = useMemo(
     () =>
       getSelectionSummary({
@@ -208,47 +195,8 @@ export function FileListClient({
   const someSelected = selectionSummary.someSelected;
 
   const toggleAll = useCallback(() => {
-    setSelectedScopeKey(currentSelectionScopeKey);
-    setBatchAction("none");
-    setMoveTargetDir("");
-    setProgress({ done: 0, total: 0, errors: [] });
-    setMoveProgress({ done: 0, total: 0, errors: [] });
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(allFileIds));
-    }
-  }, [allSelected, allFileIds, currentSelectionScopeKey]);
-
-  const toggleOne = useCallback(
-    (id: string) => {
-      setSelectedScopeKey(currentSelectionScopeKey);
-      setBatchAction("none");
-      setMoveTargetDir("");
-      setProgress({ done: 0, total: 0, errors: [] });
-      setMoveProgress({ done: 0, total: 0, errors: [] });
-      setSelectedIds((prev) => {
-        const base = selectedScopeMatches ? prev : new Set<string>();
-        const next = new Set(base);
-        if (next.has(id)) {
-          next.delete(id);
-        } else {
-          next.add(id);
-        }
-        return next;
-      });
-    },
-    [currentSelectionScopeKey, selectedScopeMatches],
-  );
-
-  const clearSelection = useCallback(() => {
-    setSelectedScopeKey(currentSelectionScopeKey);
-    setSelectedIds(new Set());
-    setBatchAction("none");
-    setProgress({ done: 0, total: 0, errors: [] });
-    setMoveProgress({ done: 0, total: 0, errors: [] });
-    setMoveTargetDir("");
-  }, [currentSelectionScopeKey]);
+    toggleAllRaw(allFileIds, allSelected);
+  }, [toggleAllRaw, allFileIds, allSelected]);
 
   const handleBatchDelete = useCallback(() => {
     setBatchAction("deleting");
