@@ -3,7 +3,7 @@
 import { useTheme } from "@/lib/theme/use-theme";
 import { useI18n } from "@/lib/i18n/use-locale";
 
-export function ThemeToggle({ compact = false }: { compact?: boolean }) {
+export function ThemeToggle() {
 	const { theme, toggleTheme } = useTheme();
 	const { locale } = useI18n();
 	const label = theme === "dark"
@@ -14,7 +14,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 		<button
 			type="button"
 			onClick={toggleTheme}
-			className={`${compact ?"h-10 w-10" :"h-8 w-8"} relative flex items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 light:hover:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950`}
+			className="relative flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 light:hover:text-slate-600 light:hover:bg-slate-100 light:hover:text-slate-950"
 			aria-label={label}
 			title={label}
 		>

@@ -41,7 +41,7 @@ export function MobileNav() {
 				})}
 				<div className="ml-1 flex items-center gap-1 border-l border-white/[0.06] pl-2">
 					<LanguageToggle compact />
-					<ThemeToggle compact />
+					<ThemeToggle />
 				</div>
 			</div>
 		</nav>

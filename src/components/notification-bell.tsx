@@ -150,7 +150,7 @@ export function NotificationBell() {
 		<div className="relative" ref={panelRef}>
 			<button
 				onClick={togglePanel}
-				className="relative flex items-center justify-center w-8 h-8 rounded-lg text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800 hover:bg-white/[0.06] transition"
+				className="relative flex items-center justify-center w-11 h-11 rounded-lg text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800 hover:bg-white/[0.06] transition"
 				aria-label={notificationLabel}
 				aria-haspopup="dialog"
 				aria-expanded={isOpen}

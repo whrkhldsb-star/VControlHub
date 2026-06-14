@@ -31,7 +31,7 @@ function SidebarControls() {
 			<button
 				type="button"
 				onClick={openGlobalSearch}
-				className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+				className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
 				aria-label={t("search.dialog") === "search.dialog" ? "全局搜索" : t("search.dialog")}
 				aria-keyshortcuts="Control+K Meta+K"
 			>
