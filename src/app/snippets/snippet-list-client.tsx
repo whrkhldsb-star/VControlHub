@@ -108,7 +108,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         <span className="text-xs text-slate-500">{filtered.length} 条</span>
         <button
           onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
+          className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
           <Plus size={14} /> 新建片段
         </button>
@@ -131,13 +131,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                <button onClick={() => handleCopy(s.content, s.id)} title="复制" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => handleCopy(s.content, s.id)} title="复制" className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-                <button onClick={() => setEditing(s)} title="编辑" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => setEditing(s)} title="编辑" className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title="删除" aria-label={`删除代码片段 ${s.title}`} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
+                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title="删除" aria-label={`删除代码片段 ${s.title}`} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -178,10 +178,10 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <p className="mt-2 text-sm leading-6 text-slate-400">确认删除代码片段 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
                 取消
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="min-h-11 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
                 {deleteBusy ? "正在删除..." : "确认删除"}
               </button>
             </div>

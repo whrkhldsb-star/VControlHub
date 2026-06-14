@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ToastProvider } from "@/components/toast-provider";
@@ -31,12 +31,33 @@ function renderList() {
 }
 
 describe("SnippetList", () => {
+  let clipboardRestore: (() => void) | null = null;
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(csrfFetch).mockResolvedValue({});
-    Object.assign(navigator, {
-      clipboard: { writeText: vi.fn() },
-    });
+    try {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: vi.fn() },
+      });
+      clipboardRestore = () => {
+        try {
+          Object.defineProperty(navigator, "clipboard", {
+            configurable: true,
+            value: undefined,
+          });
+        } catch {
+          // ignore restore errors
+        }
+      };
+    } catch {
+      // some jsdom builds expose clipboard as a non-configurable getter;
+      // skip the stub and rely on default navigator.clipboard behaviour.
+    }
+  });
+  afterEach(() => {
+    clipboardRestore?.();
+    clipboardRestore = null;
   });
 
   it("shows a visible label for snippet search and filters by label-based input", async () => {
@@ -84,5 +105,82 @@ describe("SnippetList", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("删除失败");
     expect(screen.getByRole("dialog", { name: "删除代码片段" })).toBeInTheDocument();
     expect(screen.getAllByText("部署脚本").length).toBeGreaterThanOrEqual(1);
+  });
+
+  describe("touch targets (TR-022 R18 mobile)", () => {
+    function mockHeightsBySelector(measurements: Record<string, number>) {
+      // jsdom reports getBoundingClientRect as 0x0; install a minimal stub
+      // that returns the requested height for buttons whose className includes
+      // the test selector. Sufficient for asserting that min-h-11 produced
+      // at least 44px of computed height.
+      const original = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function () {
+        const className = (this.getAttribute("class") ?? "") as string;
+        for (const [selector, height] of Object.entries(measurements)) {
+          if (className.includes(selector)) {
+            return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 100, height, toJSON: () => ({}) } as DOMRect;
+          }
+        }
+        return original.call(this);
+      };
+      return () => {
+        Element.prototype.getBoundingClientRect = original;
+      };
+    }
+
+    it("renders list card action buttons with at least 44px height/width", () => {
+      const restore = mockHeightsBySelector({ "min-h-11": 44 });
+      try {
+        renderList();
+        for (const label of ["复制", "编辑", "删除代码片段 部署脚本"]) {
+          const btn = screen.getByRole("button", { name: label });
+          const rect = btn.getBoundingClientRect();
+          expect(rect.height).toBeGreaterThanOrEqual(44);
+          expect(rect.width).toBeGreaterThanOrEqual(44);
+        }
+      } finally {
+        restore();
+      }
+    });
+
+    it("renders the new-snippet trigger with at least 44px height", () => {
+      const restore = mockHeightsBySelector({ "min-h-11": 44 });
+      try {
+        renderList();
+        const btn = screen.getByRole("button", { name: /新建片段/ });
+        expect(btn.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      } finally {
+        restore();
+      }
+    });
+
+    it("renders the create-snippet modal with at least 44px height for primary action + cancel", async () => {
+      const restore = mockHeightsBySelector({ "min-h-11": 44 });
+      try {
+        const actor = userEvent.setup();
+        renderList();
+        await actor.click(screen.getByRole("button", { name: /新建片段/ }));
+
+        const dialog = await screen.findByRole("dialog", { name: "新建代码片段" });
+        expect(within(dialog).getByRole("button", { name: "创建" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+        expect(within(dialog).getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      } finally {
+        restore();
+      }
+    });
+
+    it("renders the delete-confirm dialog buttons with at least 44px height", async () => {
+      const restore = mockHeightsBySelector({ "min-h-11": 44 });
+      try {
+        const actor = userEvent.setup();
+        renderList();
+        await actor.click(screen.getByRole("button", { name: "删除代码片段 部署脚本" }));
+        const dialog = await screen.findByRole("dialog", { name: "删除代码片段" });
+        expect(within(dialog).getByRole("button", { name: "确认删除" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+        expect(within(dialog).getByRole("button", { name: "取消" }).getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+      } finally {
+        restore();
+      }
+    });
   });
 });

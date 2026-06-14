@@ -140,14 +140,14 @@ export function CreateSnippetModal({
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
+            className="min-h-11 rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
           >
             取消
           </button>
           <button
             onClick={handleCreate}
             disabled={saving || !title.trim() || !content.trim()}
-            className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
+            className="min-h-11 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
             {saving ? "创建中…" : "创建"}
           </button>
