@@ -144,15 +144,15 @@ function parseUnzipOutput(output: string): ArchiveEntry[] {
       /^\s*(\d+)\s+(\d{2}-\d{2}-\d{4})\s+(\d{2}:\d{2})\s+(.+)$/,
     );
     if (match) {
-      const size = parseInt(match[1], 10);
-      const name = match[4].trim();
+      const size = parseInt(match[1]!, 10);
+      const name = match[4]!.trim();
       if (!name) continue;
       const isDirectory = name.endsWith("/");
       entries.push({
         name: isDirectory ? name.slice(0, -1) : name,
         size,
         isDirectory,
-        modified: `${match[2]} ${match[3]}`,
+        modified: `${match[2]!} ${match[3]!}`,
       });
     }
   }
@@ -183,16 +183,16 @@ function parseTarOutput(output: string): ArchiveEntry[] {
       /^([dlcbps-])(.{9})\s+\S+\s+(\d+)\s+((?:\w{3}\s+\d{1,2}\s+\d{1,2}:\d{2})|(?:\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}))\s+(.+)$/,
     );
     if (match) {
-      const typeChar = match[1];
-      const size = parseInt(match[3], 10);
-      const name = match[5].trim();
+      const typeChar = match[1]!;
+      const size = parseInt(match[3]!, 10);
+      const name = match[5]!.trim();
       if (!name) continue;
       const isDirectory = typeChar === "d" || name.endsWith("/");
       entries.push({
         name: isDirectory ? name.replace(/\/$/, "") : name,
         size,
         isDirectory,
-        modified: match[4],
+        modified: match[4]!,
       });
     }
   }
@@ -235,9 +235,9 @@ function parse7zOutput(output: string): ArchiveEntry[] {
         /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+([.D]+)\s+(\d+)\s+\d+\s+(.+)$/,
       );
       if (match) {
-        const attr = match[1];
-        const size = parseInt(match[2], 10);
-        const name = match[3].trim();
+        const attr = match[1]!;
+        const size = parseInt(match[2]!, 10);
+        const name = match[3]!.trim();
         if (!name) continue;
         const isDirectory = attr.startsWith("D");
         entries.push({ name, size, isDirectory });
@@ -267,16 +267,16 @@ function parseRarOutput(output: string): ArchiveEntry[] {
       /^\s*(\S+)\s+(\d+)\s+(\d+)\s+([\d%]+)\s+(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2})\s+(.+)/,
     );
     if (match) {
-      const attr = match[1];
-      const size = parseInt(match[2], 10);
-      const name = match[6].trim();
+      const attr = match[1]!;
+      const size = parseInt(match[2]!, 10);
+      const name = match[6]!.trim();
       if (!name) continue;
       const isDirectory = attr.includes("D") || name.endsWith("/");
       entries.push({
         name: isDirectory ? name.replace(/\/$/, "") : name,
         size,
         isDirectory,
-        modified: match[5],
+        modified: match[5]!,
       });
     }
   }

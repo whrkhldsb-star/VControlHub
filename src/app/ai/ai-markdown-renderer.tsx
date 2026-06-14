@@ -126,15 +126,15 @@ export const renderContent = (content: string) => {
  };
 
  while (i < lines.length) {
- const line = lines[i];
+ const line = lines[i]!;
 
  // Check for code block placeholder
  const codeMatch = line.match(/^\x00CODE(\d+)\x00$/);
  if (codeMatch) {
  flushList();
  flushTable();
- const block = codeBlocks[parseInt(codeMatch[1])];
- const blockLines = block.slice(3, -3).split("\n");
+ const block = codeBlocks[parseInt(codeMatch[1]!)];
+ const blockLines = block!.slice(3, -3).split("\n");
  const lang = blockLines[0]?.trim() || "";
  const code = lang ? blockLines.slice(1).join("\n") : blockLines.join("\n");
  elements.push(
@@ -164,14 +164,14 @@ export const renderContent = (content: string) => {
  const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
  if (headingMatch) {
  flushList(); flushTable();
- const level = headingMatch[1].length;
+ const level = headingMatch[1]!.length;
  const sizes: Record<number, string> = {
  1: "text-base font-bold", 2: "text-sm font-bold", 3: "text-sm font-semibold",
  4: "text-xs font-semibold", 5: "text-xs font-medium", 6: "text-xs font-medium text-slate-400",
  };
  elements.push(
  <div key={`h-${elements.length}`} className={`${sizes[level] || "text-xs"} text-white mt-3 mb-1`}>
- {renderInline(headingMatch[2])}
+ {renderInline(headingMatch[2]!)}
  </div>
  );
  i++;
@@ -183,7 +183,7 @@ export const renderContent = (content: string) => {
  if (ulMatch) {
  flushTable();
  if (listType !== "ul") { flushList(); listType = "ul"; }
- listItems.push(ulMatch[1]);
+ listItems.push(ulMatch[1]!);
  i++;
  continue;
  }
@@ -193,7 +193,7 @@ export const renderContent = (content: string) => {
  if (olMatch) {
  flushTable();
  if (listType !== "ol") { flushList(); listType = "ol"; }
- listItems.push(olMatch[1]);
+ listItems.push(olMatch[1]!);
  i++;
  continue;
  }
@@ -202,14 +202,14 @@ export const renderContent = (content: string) => {
  const tableMatch = line.match(/^\|(.+)\|$/);
  if (tableMatch) {
  flushList();
- const cells = tableMatch[1].split("|").map(c => c.trim());
+ const cells = tableMatch[1]!.split("|").map(c => c.trim());
  // Skip separator row: |---|---|
  if (cells.every(c => /^[-:]+$/.test(c))) {
  i++;
  continue;
  }
-		tableRows.push(cells);
-		i++;
+ tableRows.push(cells);
+ i++;
  continue;
  }
 
@@ -233,7 +233,7 @@ export const renderContent = (content: string) => {
  // Collect consecutive text lines as one paragraph
  const paraLines: string[] = [];
  while (i < lines.length) {
- const l = lines[i];
+ const l = lines[i]!;
  if (l.trim() === "" || l.match(/^\x00CODE/) || l.match(/^#{1,6}\s+/) ||
  l.match(/^[\s]*[-*]\s+/) || l.match(/^[\s]*\d+\.\s+/) || l.match(/^\|/)) break;
  paraLines.push(l);

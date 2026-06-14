@@ -14,7 +14,7 @@ const deleteFileEntryActionMock = vi.hoisted(() => vi.fn());
 const moveFileActionMock = vi.hoisted(() => vi.fn());
 
 function firstFileCheckbox(name: string) {
-  return screen.getAllByLabelText(`选择 ${name}`)[0];
+  return screen.getAllByLabelText(`选择 ${name}`)[0]!;
 }
 
 vi.mock("next/navigation", () => ({
@@ -267,7 +267,7 @@ describe("FileListClient", () => {
 
     renderFileList();
     expect(
-      screen.getAllByRole("button", { name: "图标视图" })[1],
+      screen.getAllByRole("button", { name: "图标视图" })[1]!,
     ).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -344,7 +344,7 @@ describe("FileListClient", () => {
       screen.getByRole("button", { name: "按大小排序" }),
     ).toHaveTextContent("↑");
     expect(
-      screen.getAllByRole("link", { name: "report.pdf" })[0],
+      screen.getAllByRole("link", { name: "report.pdf" })[0]!,
     ).toBeInTheDocument();
   });
 
@@ -368,14 +368,14 @@ describe("FileListClient", () => {
   it("discloses Office and archive preview boundaries from the file list action", () => {
     renderFileList({ files: [officeFile, archiveFile], folders: [] });
 
-    const officePreview = screen.getAllByRole("link", { name: "打开 Office 下载提示 report.docx" })[0];
+    const officePreview = screen.getAllByRole("link", { name: "打开 Office 下载提示 report.docx" })[0]!;
     expect(officePreview).toHaveAttribute(
       "title",
       "Office 文件暂不做公网在线渲染，将打开下载提示页",
     );
     expect(officePreview).toHaveAttribute("href", expect.stringContaining("/files/preview?"));
 
-    const archivePreview = screen.getAllByRole("link", { name: "查看压缩包内容 archive.zip" })[0];
+    const archivePreview = screen.getAllByRole("link", { name: "查看压缩包内容 archive.zip" })[0]!;
     expect(archivePreview).toHaveAttribute(
       "title",
       "查看压缩包内容，可在受控流程中在线解压",
@@ -404,7 +404,7 @@ describe("FileListClient", () => {
     renderFileList({ files: [], folders: [folder] });
 
     expect(
-      screen.getAllByRole("link", { name: "下载目录 photos" })[0],
+      screen.getAllByRole("link", { name: "下载目录 photos" })[0]!,
     ).toHaveAttribute(
       "href",
       "/api/storage/archive-download?nodeId=node_1&path=photos",
@@ -415,7 +415,7 @@ describe("FileListClient", () => {
     renderFileList({ files: [imageFile], folders: [], canShare: true });
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0],
+      screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]!,
     );
 
     const dialog = screen.getByRole("dialog", { name: "cover.jpg" });
@@ -458,7 +458,7 @@ describe("FileListClient", () => {
     });
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0],
+      screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]!,
     );
 
     expect(

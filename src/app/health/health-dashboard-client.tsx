@@ -251,42 +251,47 @@ const repairSuggestions = (summary: SystemHealthSummary | null | undefined, loca
 	return [
 		{
 			id: "db",
-			...copy.repair.db,
+			label: copy.repair.db!.label,
+			action: copy.repair.db!.action,
 			description: summary.critical > 0
 				? zh ? "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。" : "First confirm the database and environment variables, then reload services and inspect logs if needed."
-				: copy.repair.db.description,
+				: copy.repair.db!.description,
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{
 			id: "runtime",
-			...copy.repair.runtime,
+			label: copy.repair.runtime!.label,
+			action: copy.repair.runtime!.action,
 			description: summary.warning > 0
 				? zh ? "部署目录或缓存目录可能缺失，建议补齐并复查权限。" : "Deployment or cache directories may be missing; create them and recheck ownership."
-				: copy.repair.runtime.description,
+				: copy.repair.runtime!.description,
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
 			id: "services",
-			...copy.repair.services,
+			label: copy.repair.services!.label,
+			action: copy.repair.services!.action,
 			description: summary.critical > 0
 				? zh ? "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。" : "First confirm Next.js, SSH WS, and Caddy are all running."
-				: copy.repair.services.description,
+				: copy.repair.services!.description,
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
 		{
 			id: "git",
-			...copy.repair.git,
+			label: copy.repair.git!.label,
+			action: copy.repair.git!.action,
 			description: summary.warning > 0
 				? zh ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "Local and remote refs may differ; confirm the latest push completed."
-				: copy.repair.git.description,
+				: copy.repair.git!.description,
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
 		{
 			id: "audit",
-			...copy.repair.audit,
+			label: copy.repair.audit!.label,
+			action: copy.repair.audit!.action,
 			description: summary.critical > 0
 				? zh ? "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。" : "Critical alerts are present; use the audit page to identify recent high-risk operations first."
-				: copy.repair.audit.description,
+				: copy.repair.audit!.description,
 			href: "/audit?action=command.execute",
 			status: summary.critical > 0 ? "critical" : "warning",
 		},
@@ -309,6 +314,7 @@ const statusToneClasses: Record<string, { bg: string; text: string; dot: string 
 	offline: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-200", dot: "bg-slate-500" },
 	unknown: { bg: "border-slate-400/20 bg-slate-400/10", text: "text-slate-400", dot: "bg-slate-600" },
 };
+const unknownTone = statusToneClasses.unknown!;
 
 function usageColor(val: number | undefined, warn = 80, crit = 95): string {
 	if (val === undefined) return "text-slate-600";
@@ -432,7 +438,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 						</div>
 						<div className="grid gap-2 md:grid-cols-2">
 							{systemHealth.checks.map((check) => {
-								const sc = statusToneClasses[check.status] ?? statusToneClasses.unknown;
+								const sc = statusToneClasses[check.status] ?? unknownTone;
 								return (
 									<div key={check.id} className={`rounded-xl border ${sc.bg} p-3`}>
 										<div className="flex items-center justify-between gap-3">
@@ -504,7 +510,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 						</thead>
 						<tbody className="divide-y divide-white/[0.04]">
 							{overview.servers.map((server) => {
-								const sc = statusToneClasses[server.status] ?? statusToneClasses.unknown;
+								const sc = statusToneClasses[server.status] ?? unknownTone;
 								return (
 									<tr key={server.serverId} className={`hover:bg-white/[0.03] transition ${server.status === "critical" ? "bg-rose-500/[0.04]" : ""}`}>
 										<td className="px-4 py-3">
@@ -613,8 +619,8 @@ function SparklineChart({ data, locale }: { data: MetricPoint[]; locale: "zh" | 
 	const plotH = H - padY * 2;
 
 	const maxVal = 100;
-	const minTime = new Date(data[0].t).getTime();
-	const maxTime = new Date(data[data.length - 1].t).getTime();
+	const minTime = new Date(data[0]!.t).getTime();
+	const maxTime = new Date(data[data.length - 1]!.t).getTime();
 	const timeRange = maxTime - minTime || 1;
 
 	const toX = (t: number) => padX + ((t - minTime) / timeRange) * plotW;

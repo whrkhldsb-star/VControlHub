@@ -54,12 +54,12 @@ function describeCronPreview(expr: string) {
 	const parts = expr.trim().split(/\s+/);
 	if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
 	const [min, hour, day, month, dow] = parts;
-	if (min.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `每 ${min.slice(2)} 分钟执行一次`;
+	if (min!.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `每 ${min!.slice(2)} 分钟执行一次`;
 	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return "每小时整点执行";
-	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour) && /^\d+$/.test(min)) return `每天 ${hour}:${min.padStart(2, "0")} 执行`;
-	if (day === "*" && month === "*" && /^\d+$/.test(dow) && /^\d+$/.test(hour) && /^\d+$/.test(min)) {
+	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `每天 ${hour!}:${min!.padStart(2, "0")} 执行`;
+	if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
 		const names: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
-		return `每${names[dow] ?? `周${dow}`} ${hour}:${min.padStart(2, "0")} 执行`;
+		return `每${names[dow!] ?? `周${dow!}`} ${hour!}:${min!.padStart(2, "0")} 执行`;
 	}
 	return "自定义 Cron；保存时服务端会计算下一次运行时间";
 }

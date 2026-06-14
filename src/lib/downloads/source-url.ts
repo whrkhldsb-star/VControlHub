@@ -35,17 +35,17 @@ function parseIpv4(hostname: string): number[] | null {
 }
 
 function isBlockedIpv4(bytes: number[]): boolean {
-  const [a, b] = bytes;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224
-  );
+	const [a, b] = bytes;
+	return (
+		a === 0 ||
+		a === 10 ||
+		a === 127 ||
+		(a === 100 && b! >= 64 && b! <= 127) ||
+		(a === 169 && b === 254) ||
+		(a === 172 && b! >= 16 && b! <= 31) ||
+		(a === 192 && b === 168) ||
+		a! >= 224
+	);
 }
 
 function normalizeIpv6(hostname: string): string {
@@ -76,12 +76,12 @@ function expandIpv6Address(address: string): number[] | null {
   const tail = tailRaw ? tailRaw.split(":").filter(Boolean) : [];
   const ipv4Tail = [...head, ...tail].at(-1);
   if (ipv4Tail?.includes(".")) {
-    const octets = ipv4Tail.split(".").map((part) => Number.parseInt(part, 10));
-    if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
-    const first = ((octets[0] << 8) | octets[1]).toString(16);
-    const second = ((octets[2] << 8) | octets[3]).toString(16);
-    if (tail.length && tail.at(-1) === ipv4Tail) tail.splice(tail.length - 1, 1, first, second);
-    else head.splice(head.length - 1, 1, first, second);
+  	const octets = ipv4Tail.split(".").map((part) => Number.parseInt(part, 10));
+  	if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  	const first = ((octets[0]! << 8) | octets[1]!).toString(16);
+  	const second = ((octets[2]! << 8) | octets[3]!).toString(16);
+  	if (tail.length && tail.at(-1) === ipv4Tail) tail.splice(tail.length - 1, 1, first, second);
+  	else head.splice(head.length - 1, 1, first, second);
   }
   if (normalized.includes("::")) {
     const missing = 8 - head.length - tail.length;
@@ -96,23 +96,23 @@ function isBlockedIpAddress(address: string): boolean {
   const normalized = address.trim().toLowerCase().replace(/^\[(.*)\]$/, "$1");
   if (!normalized) return true;
   if (normalized.includes(":")) {
-    const parts = expandIpv6Address(normalized);
-    if (!parts || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return true;
-    const allZero = parts.every((part) => part === 0);
-    const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
-    const uniqueLocal = (parts[0] & 0xfe00) === 0xfc00;
-    const linkLocal = (parts[0] & 0xffc0) === 0xfe80;
-    const multicast = (parts[0] & 0xff00) === 0xff00;
-    const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
-    if (ipv4Mapped) {
-      return isBlockedIpAddress(`${(parts[6] >> 8) & 255}.${parts[6] & 255}.${(parts[7] >> 8) & 255}.${parts[7] & 255}`);
-    }
-    return allZero || loopback || uniqueLocal || linkLocal || multicast;
+  	const parts = expandIpv6Address(normalized);
+  	if (!parts || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return true;
+  	const allZero = parts.every((part) => part === 0);
+  	const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7]! === 1;
+  	const uniqueLocal = (parts[0]! & 0xfe00) === 0xfc00;
+  	const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
+  	const multicast = (parts[0]! & 0xff00) === 0xff00;
+  	const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5]! === 0xffff;
+  	if (ipv4Mapped) {
+  		return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
+  	}
+  	return allZero || loopback || uniqueLocal || linkLocal || multicast;
   }
 
   const ipv4 = parseIpv4(normalized);
-  return ipv4 ? isBlockedIpv4(ipv4) || (ipv4[0] === 198 && (ipv4[1] === 18 || ipv4[1] === 19)) : false;
-}
+  return ipv4 ? isBlockedIpv4(ipv4) || (ipv4[0]! === 198 && (ipv4[1]! === 18 || ipv4[1]! === 19)) : false;
+  }
 
 function hostnameMatchesBlockedSuffix(hostname: string, suffixes: string[]): boolean {
   const lower = hostname.toLowerCase();

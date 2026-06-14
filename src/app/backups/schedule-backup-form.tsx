@@ -25,10 +25,10 @@ function describeCronPreview(expr: string) {
   if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
   const [min, hour, day, month, dow] = parts;
   if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return "每小时整点执行";
-  if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour) && /^\d+$/.test(min)) return `每天 ${hour}:${min.padStart(2, "0")} 执行`;
-  if (day === "*" && month === "*" && /^\d+$/.test(dow) && /^\d+$/.test(hour) && /^\d+$/.test(min)) {
+  if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `每天 ${hour!}:${min!.padStart(2, "0")} 执行`;
+  if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
     const names: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
-    return `每${names[dow] ?? `周${dow}`} ${hour}:${min.padStart(2, "0")} 执行`;
+    return `每${names[dow!] ?? `周${dow!}`} ${hour!}:${min!.padStart(2, "0")} 执行`;
   }
   return "自定义 Cron；保存后会进入定时任务调度队列";
 }

@@ -14,8 +14,8 @@ function expandIpv6Address(address: string) {
 	if (ipv4Tail?.includes(".")) {
 		const octets = ipv4Tail.split(".").map((part) => Number.parseInt(part, 10));
 		if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
-		const first = ((octets[0] << 8) | octets[1]).toString(16);
-		const second = ((octets[2] << 8) | octets[3]).toString(16);
+		const first = ((octets[0]! << 8) | octets[1]!).toString(16);
+		const second = ((octets[2]! << 8) | octets[3]!).toString(16);
 		if (tail.length && tail.at(-1) === ipv4Tail) tail.splice(tail.length - 1, 1, first, second);
 		else head.splice(head.length - 1, 1, first, second);
 	}
@@ -36,12 +36,12 @@ function isBlockedIpAddress(address: string) {
 		if (!parts || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 0xffff)) return true;
 		const allZero = parts.every((part) => part === 0);
 		const loopback = parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
-		const uniqueLocal = (parts[0] & 0xfe00) === 0xfc00;
-		const linkLocal = (parts[0] & 0xffc0) === 0xfe80;
-		const multicast = (parts[0] & 0xff00) === 0xff00;
+		const uniqueLocal = (parts[0]! & 0xfe00) === 0xfc00;
+		const linkLocal = (parts[0]! & 0xffc0) === 0xfe80;
+		const multicast = (parts[0]! & 0xff00) === 0xff00;
 		const ipv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
 		if (ipv4Mapped) {
-			return isBlockedIpAddress(`${(parts[6] >> 8) & 255}.${parts[6] & 255}.${(parts[7] >> 8) & 255}.${parts[7] & 255}`);
+			return isBlockedIpAddress(`${(parts[6]! >> 8) & 255}.${parts[6]! & 255}.${(parts[7]! >> 8) & 255}.${parts[7]! & 255}`);
 		}
 		return allZero || loopback || uniqueLocal || linkLocal || multicast;
 	}
@@ -52,12 +52,12 @@ function isBlockedIpAddress(address: string) {
 	return a === 0
 		|| a === 10
 		|| a === 127
-		|| (a === 100 && b >= 64 && b <= 127)
+		|| (a === 100 && b! >= 64 && b! <= 127)
 		|| (a === 169 && b === 254)
-		|| (a === 172 && b >= 16 && b <= 31)
+		|| (a === 172 && b! >= 16 && b! <= 31)
 		|| (a === 192 && b === 168)
 		|| (a === 198 && (b === 18 || b === 19))
-		|| a >= 224;
+		|| a! >= 224;
 }
 
 export function validateWebhookUrlSyntax(value: string) {
@@ -105,7 +105,7 @@ export async function fetchWebhookSafely(url: string, init: Omit<Dispatcher.Requ
 	if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
 		return { ok: false as const, error: "Webhook URL DNS 解析到本机或内网地址" };
 	}
-	const pinned = addresses[0];
+	const pinned = addresses[0]!;
 	const dispatcher = new Agent({
 		connect: {
 			lookup(hostname, options, callback) {

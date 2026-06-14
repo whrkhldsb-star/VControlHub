@@ -27,22 +27,22 @@ function parseCpuSection(lines: string[]): ServerMetrics["cpu"] {
 	const cores = parseInt(lines[0] || "1", 10) || 1;
 	const loadParts = (lines[1] || "0 0 0").trim().split(/\s+/);
 	const loadAvg: [number, number, number] = [
-		parseFloatOr(loadParts[0], 0),
-		parseFloatOr(loadParts[1], 0),
-		parseFloatOr(loadParts[2], 0),
+		parseFloatOr(loadParts[0]!, 0),
+		parseFloatOr(loadParts[1]!, 0),
+		parseFloatOr(loadParts[2]!, 0),
 	];
 	const cpuParts = (lines[2] || "0 0").trim().split(/\s+/);
-	const idleTicks = parseFloatOr(cpuParts[0], 0);
-	const totalTicks = parseFloatOr(cpuParts[1], 0);
+	const idleTicks = parseFloatOr(cpuParts[0]!, 0);
+	const totalTicks = parseFloatOr(cpuParts[1]!, 0);
 	const usagePercent = totalTicks > 0 ? Math.round((1 - idleTicks / totalTicks) * 1000) / 10 : parseFloatOr(lines[2] || "0", 0);
 	return { usagePercent: Math.min(100, Math.max(0, usagePercent)), cores, loadAvg };
 }
 
 function parseMemSection(line: string): ServerMetrics["memory"] {
 	const parts = line.trim().split(/\s+/);
-	const totalMb = parseFloatOr(parts[0], 0);
-	const usedMb = parseFloatOr(parts[1], 0);
-	const availableMb = parseFloatOr(parts[2], 0);
+	const totalMb = parseFloatOr(parts[0]!, 0);
+	const usedMb = parseFloatOr(parts[1]!, 0);
+	const availableMb = parseFloatOr(parts[2]!, 0);
 	const usagePercent = totalMb > 0 ? Math.round((usedMb / totalMb) * 1000) / 10 : 0;
 	return { totalMb: Math.round(totalMb), usedMb: Math.round(usedMb), availableMb: Math.round(availableMb), usagePercent };
 }
@@ -54,10 +54,10 @@ function parseDiskSection(lines: string[]): ServerMetrics["disk"] {
 			const parts = line.trim().split(/\s+/);
 			if (parts.length < 4) return null;
 			return {
-				mount: parts[parts.length - 1],
-				totalGb: parts[0],
-				usedGb: parts[1],
-				usagePercent: parseFloatOr(parts[2].replace("%", ""), 0),
+				mount: parts[parts.length - 1]!,
+				totalGb: parts[0]!,
+				usedGb: parts[1]!,
+				usagePercent: parseFloatOr(parts[2]!.replace("%", ""), 0),
 			};
 		})
 		.filter(Boolean) as ServerMetrics["disk"];
@@ -69,7 +69,7 @@ function parseNetSection(lines: string[]): ServerMetrics["network"] {
 		.map((line) => {
 			const parts = line.trim().split(/\s+/);
 			if (parts.length < 3) return null;
-			return { iface: parts[0], rxBytes: parseFloatOr(parts[1], 0), txBytes: parseFloatOr(parts[2], 0) };
+			return { iface: parts[0]!, rxBytes: parseFloatOr(parts[1]!, 0), txBytes: parseFloatOr(parts[2]!, 0) };
 		})
 		.filter(Boolean) as ServerMetrics["network"];
 }

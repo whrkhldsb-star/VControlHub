@@ -46,17 +46,17 @@ export function renderMarkdown(md: string): string {
 	let i = 0;
 
 	while (i < lines.length) {
-		const line = lines[i];
+		const line = lines[i]!;
 
 		// ---- Fenced code block ----
 		const fenceMatch = line.match(/^(`{3,})(.*)$/);
 		if (fenceMatch) {
-			const fence = fenceMatch[1];
-			const lang = fenceMatch[2].trim();
+			const fence = fenceMatch[1]!;
+			const lang = fenceMatch[2]!.trim();
 			const codeLines: string[] = [];
 			i++;
-			while (i < lines.length && !lines[i].startsWith(fence)) {
-				codeLines.push(lines[i]);
+			while (i < lines.length && !lines[i]!.startsWith(fence)) {
+				codeLines.push(lines[i]!);
 				i++;
 			}
 			i++; // skip closing fence
@@ -74,8 +74,8 @@ export function renderMarkdown(md: string): string {
 		// ---- Heading ----
 		const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
 		if (headingMatch) {
-			const level = headingMatch[1].length;
-			const text = inlineFormat(headingMatch[2]);
+			const level = headingMatch[1]!.length;
+			const text = inlineFormat(headingMatch[2]!);
 			out.push(`<h${level}>${text}</h${level}>`);
 			i++;
 			continue;
@@ -99,8 +99,8 @@ export function renderMarkdown(md: string): string {
 		// ---- Blockquote ----
 		if (/^>\s?/.test(line)) {
 			const quoteLines: string[] = [];
-			while (i < lines.length && /^>\s?/.test(lines[i])) {
-				quoteLines.push(lines[i].replace(/^>\s?/, ""));
+			while (i < lines.length && /^>\s?/.test(lines[i]!)) {
+				quoteLines.push(lines[i]!.replace(/^>\s?/, ""));
 				i++;
 			}
 			out.push(`<blockquote>${inlineFormat(quoteLines.join("\n"))}</blockquote>`);
@@ -110,8 +110,8 @@ export function renderMarkdown(md: string): string {
 		// ---- Unordered list ----
 		if (/^[\s]*[-*+]\s+/.test(line)) {
 			const items: string[] = [];
-			while (i < lines.length && /^[\s]*[-*+]\s+/.test(lines[i])) {
-				items.push(inlineFormat(lines[i].replace(/^[\s]*[-*+]\s+/, "")));
+			while (i < lines.length && /^[\s]*[-*+]\s+/.test(lines[i]!)) {
+				items.push(inlineFormat(lines[i]!.replace(/^[\s]*[-*+]\s+/, "")));
 				i++;
 			}
 			out.push(`<ul>${items.map((it) => `<li>${it}</li>`).join("")}</ul>`);
@@ -121,8 +121,8 @@ export function renderMarkdown(md: string): string {
 		// ---- Ordered list ----
 		if (/^[\s]*\d+\.\s+/.test(line)) {
 			const items: string[] = [];
-			while (i < lines.length && /^[\s]*\d+\.\s+/.test(lines[i])) {
-				items.push(inlineFormat(lines[i].replace(/^[\s]*\d+\.\s+/, "")));
+			while (i < lines.length && /^[\s]*\d+\.\s+/.test(lines[i]!)) {
+				items.push(inlineFormat(lines[i]!.replace(/^[\s]*\d+\.\s+/, "")));
 				i++;
 			}
 			out.push(`<ol>${items.map((it) => `<li>${it}</li>`).join("")}</ol>`);
@@ -133,16 +133,16 @@ export function renderMarkdown(md: string): string {
 		const paraLines: string[] = [];
 		while (
 			i < lines.length &&
-			lines[i].trim() !== "" &&
-			!/^#{1,6}\s/.test(lines[i]) &&
-			!/^(\s*[-*_]){3,}\s*$/.test(lines[i]) &&
-			!/^>\s?/.test(lines[i]) &&
-			!/^[\s]*[-*+]\s+/.test(lines[i]) &&
-			!/^[\s]*\d+\.\s+/.test(lines[i]) &&
-			!/^`{3,}/.test(lines[i]) &&
-			!isTableRow(lines[i])
+			lines[i]!.trim() !== "" &&
+			!/^#{1,6}\s/.test(lines[i]!) &&
+			!/^(\s*[-*_]){3,}\s*$/.test(lines[i]!) &&
+			!/^>\s?/.test(lines[i]!) &&
+			!/^[\s]*[-*+]\s+/.test(lines[i]!) &&
+			!/^[\s]*\d+\.\s+/.test(lines[i]!) &&
+			!/^`{3,}/.test(lines[i]!) &&
+			!isTableRow(lines[i]!)
 		) {
-			paraLines.push(lines[i]);
+			paraLines.push(lines[i]!);
 			i++;
 		}
 		if (paraLines.length > 0) {
@@ -203,19 +203,19 @@ function isTableSeparator(line: string): boolean {
 
 /** Try to parse a table starting at line index `start`. Returns HTML + next line index, or null. */
 function tryParseTable(lines: string[], start: number): { html: string; nextLine: number } | null {
-	if (start >= lines.length || !isTableRow(lines[start])) return null;
+	if (start >= lines.length || !isTableRow(lines[start]!)) return null;
 
-	const headerLine = lines[start].trim();
+	const headerLine = lines[start]!.trim();
 	// Must have a separator row next
-	if (start + 1 >= lines.length || !isTableSeparator(lines[start + 1])) return null;
+	if (start + 1 >= lines.length || !isTableSeparator(lines[start + 1]!)) return null;
 
 	const headers = parseTableRow(headerLine);
-	const aligns = parseTableAligns(lines[start + 1].trim());
+	const aligns = parseTableAligns(lines[start + 1]!.trim());
 
 	let i = start + 2;
 	const bodyRows: string[][] = [];
-	while (i < lines.length && isTableRow(lines[i])) {
-		bodyRows.push(parseTableRow(lines[i].trim()));
+	while (i < lines.length && isTableRow(lines[i]!)) {
+		bodyRows.push(parseTableRow(lines[i]!.trim()));
 		i++;
 	}
 
