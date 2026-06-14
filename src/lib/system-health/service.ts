@@ -1,8 +1,8 @@
 import { access } from "node:fs/promises";
 import { join, relative } from "node:path";
-import { execFileSync } from "node:child_process";
 
 import { prisma } from "@/lib/db";
+import { runHealthCheckCommand } from "./command-runner";
 
 export type SystemHealthStatus = "healthy" | "warning" | "critical";
 
@@ -41,11 +41,7 @@ function sanitizeDetail(value: string) {
 }
 
 function safeExecFile(file: string, args: string[]): string | null {
-  try {
-    return execFileSync(file, args, { encoding: "utf8", timeout: 5000 }).trim();
-  } catch {
-    return null;
-  }
+  return runHealthCheckCommand({ file, args });
 }
 
 export function summarizeSystemHealth(checks: SystemHealthCheck[]): SystemHealthSummary {
