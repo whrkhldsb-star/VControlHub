@@ -267,7 +267,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					<button
 						type="button"
 						onClick={() => void loadFiles()}
-						className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 light:hover:bg-slate-50"
+						className="min-h-11 inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 light:hover:bg-slate-50"
 					>
 						<RefreshCw size={15} className={loading ? "animate-spin" : ""} /> {copyText.refresh}
 					</button>
@@ -275,11 +275,11 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 			</div>
 
 			<div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-				<button type="button" onClick={() => setPath("")} className="rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{copyText.root}</button>
+				<button type="button" onClick={() => setPath("")} className="min-h-11 min-w-11 rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{copyText.root}</button>
 				{breadcrumb.map((segment, index) => (
 					<span key={`${segment}-${index}`} className="inline-flex items-center gap-2">
 						<ChevronRight size={12} />
-						<button type="button" onClick={() => jumpToCrumb(index)} className="rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{segment}</button>
+						<button type="button" onClick={() => jumpToCrumb(index)} className="min-h-11 min-w-11 rounded-full border border-white/10 px-2.5 py-1 hover:text-cyan-200 light:hover:text-cyan-700">{segment}</button>
 					</span>
 				))}
 			</div>
@@ -310,7 +310,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 								return (
 									<div key={item.key} className="grid grid-cols-[2rem_minmax(0,1fr)_8rem_6rem] items-center gap-2 px-3 py-2.5 text-sm hover:bg-white/[0.04] light:hover:bg-slate-50">
 										<input type="checkbox" checked={Boolean(selected[item.key])} onChange={() => toggleSelection(item)} className="h-4 w-4 accent-cyan-500" aria-label={`${copyText.selectFolder} ${folder.name}`} />
-										<button type="button" onClick={() => openFolder(folder)} className="flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:hover:text-cyan-700">
+										<button type="button" onClick={() => openFolder(folder)} className="min-h-11 flex min-w-0 items-center gap-2 text-left text-slate-200 hover:text-cyan-200 light:hover:text-cyan-700">
 											<Folder size={17} className="shrink-0 text-cyan-300" />
 											<span className="truncate">{folder.name}</span>
 										</button>
@@ -349,7 +349,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 							<h3 className="text-sm font-semibold text-white">{copyText.selectedPrefix} {selectedItems.length} {copyText.selectedSuffix}</h3>
 							<p className="mt-1 text-xs text-slate-500">{copyText.selectedHint}</p>
 						</div>
-						<button type="button" onClick={() => setSelected({})} className="text-xs text-slate-500 hover:text-slate-200 light:hover:text-slate-700">{copyText.clear}</button>
+						<button type="button" onClick={() => setSelected({})} className="min-h-11 min-w-11 text-xs text-slate-500 hover:text-slate-200 light:hover:text-slate-700">{copyText.clear}</button>
 					</div>
 					<div className="mt-3 max-h-48 space-y-2 overflow-auto pr-1">
 						{selectedItems.length ? selectedItems.map((item) => (
@@ -363,7 +363,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 						type="button"
 						onClick={() => void createShares()}
 						disabled={creating || selectedItems.length === 0}
-						className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+						className="min-h-11 mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{creating ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
 						{creating ? copyText.creating : copyText.create}
@@ -377,7 +377,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									<div className="truncate text-emerald-100">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
 										<code className="min-w-0 flex-1 truncate text-emerald-200/80">{item.url}</code>
-										<button type="button" onClick={() => void copy(item)} className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 px-2 py-1 text-emerald-100"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
+										<button type="button" onClick={() => void copy(item)} className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded-md border border-emerald-400/30 px-2 py-1 text-emerald-100"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
 									</div>
 								</div>
 							))}
