@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
+import { config } from "@/lib/config/env";
+
 export function isDatabaseUnavailableError(error: unknown) {
   if (!(error instanceof Error)) {
     return false;
@@ -18,18 +20,17 @@ declare global {
 }
 
 function getPrismaAdapter() {
-	if (!process.env.DATABASE_URL) {
-		throw new Error("DATABASE_URL is required to initialize Prisma.");
-	}
-
 	if (!global.__appPrismaAdapter__) {
-		// Connection pool tuning: parse pool params from DATABASE_URL or use defaults
-		const poolSize = parseInt(process.env.DB_POOL_SIZE ?? "10", 10);
-		const poolIdleTimeout = parseInt(process.env.DB_POOL_IDLE_TIMEOUT_MS ?? "30000", 10);
-		const url = new URL(process.env.DATABASE_URL);
+		// `config.db.url` throws with a clear "Missing required env var: DATABASE_URL"
+		// message if unset — equivalent to the old check.
+		const url = new URL(config.db.url);
 		// Ensure pool params are in the connection string for the pg adapter
-		if (!url.searchParams.has("pool_max")) url.searchParams.set("pool_max", String(poolSize));
-		if (!url.searchParams.has("pool_idle_timeout")) url.searchParams.set("pool_idle_timeout", String(poolIdleTimeout));
+		if (!url.searchParams.has("pool_max")) {
+			url.searchParams.set("pool_max", String(config.db.poolSize));
+		}
+		if (!url.searchParams.has("pool_idle_timeout")) {
+			url.searchParams.set("pool_idle_timeout", String(config.db.poolIdleTimeoutMs));
+		}
 		global.__appPrismaAdapter__ = new PrismaPg(url.toString());
 	}
 
@@ -39,7 +40,7 @@ function getPrismaAdapter() {
 function createPrismaClient() {
 	return new PrismaClient({
 		adapter: getPrismaAdapter(),
-		log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+		log: config.isDevelopment ? ["warn", "error"] : ["error"],
 	});
 }
 
