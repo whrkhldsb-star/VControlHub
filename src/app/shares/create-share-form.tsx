@@ -112,14 +112,14 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
 
           {result && (
-            <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3">
+            <div data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-3">
               <p className="text-xs text-emerald-300 font-medium">✅ 分享链接已创建</p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="block flex-1 break-all text-xs text-emerald-200">{shareUrl || `/share/${result.token}`}</code>
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="shrink-0 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
+                  data-tone="emerald" className="shrink-0 rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
                 >
                   {copied ? "已复制 ✓" : "复制链接"}
                 </button>

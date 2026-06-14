@@ -125,7 +125,7 @@ export function MediaImageUploadPanel() {
 	}
 
 	return (
-		<section className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 light:bg-emerald-50 light:border-emerald-200">
+		<section data-tone="emerald" className="mb-5 rounded-2xl border border-emerald-400/20 p-4 light:bg-emerald-50 light:border-emerald-200">
 			<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 				<div>
 					<h2 className="text-base font-semibold text-emerald-100">图片图床工作区</h2>

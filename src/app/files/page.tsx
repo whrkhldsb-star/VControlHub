@@ -278,7 +278,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       <section className="mb-8 grid gap-3 lg:grid-cols-3">
         <Link
           href="/files?scope=all"
-          className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] p-4 transition hover:bg-cyan-400/[0.1]"
+          data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 transition hover:bg-cyan-400/[0.1]"
         >
           <div className="text-sm font-semibold text-white">全局文件搜索</div>
           <p className="mt-1.5 text-sm leading-6 text-slate-300">

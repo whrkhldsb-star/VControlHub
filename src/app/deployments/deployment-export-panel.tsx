@@ -114,7 +114,7 @@ export function DeploymentExportPanel() {
       {error && <p role="alert" className="mt-3 text-xs text-rose-300">{error}</p>}
 
       {result && (
-        <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:bg-cyan-50">
+        <div data-tone="cyan" className="mt-4 rounded-xl border border-cyan-400/20 p-4 light:bg-cyan-50">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-white">{result.name ?? "portable deployment"}</h3>

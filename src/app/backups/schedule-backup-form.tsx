@@ -79,7 +79,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
   };
 
   return (
-    <form onSubmit={createSchedule} className="mt-4 space-y-4 rounded-xl border border-cyan-400/10 bg-cyan-400/[0.04] p-4">
+    <form onSubmit={createSchedule} data-tone="cyan" className="mt-4 space-y-4 rounded-xl border border-cyan-400/10 p-4">
       <div className="grid gap-3 md:grid-cols-[180px_1fr]">
         <div className="space-y-1.5">
           <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-[var(--text-secondary)]">备份类型</label>
@@ -94,7 +94,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
           <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm font-mono text-slate-100" />
         </div>
       </div>
-      <p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
+      <p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
       <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{command}</code>
       <div className="space-y-2">
         <p className="text-xs font-medium text-[var(--text-secondary)]">执行节点</p>

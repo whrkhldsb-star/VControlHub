@@ -405,7 +405,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	return (
 		<div className="space-y-6">
 			{dockerStatus && !dockerStatus.available ? (
-				<div className="rounded-2xl border border-amber-400/25 bg-amber-500/[0.08] p-4 text-sm text-amber-100">
+				<div data-tone="amber" className="rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-100">
 					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
 					<p className="mt-1 text-xs text-amber-100/75/75">{dockerStatus.message}</p>
 					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
@@ -448,7 +448,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.slice(0, 4).map((item) => {
 							const access = quickServiceAccess(item);
 							return (
-								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? `${item.name} 访问入口，${access.label}` : `${item.name} 访问入口未配置`} className="rounded-xl border border-emerald-400/15 bg-emerald-400/[0.06] p-3 transition hover:bg-emerald-400/[0.1]">
+								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? `${item.name} 访问入口，${access.label}` : `${item.name} 访问入口未配置`} data-tone="emerald" className="rounded-xl border border-emerald-400/15 p-3 transition hover:bg-emerald-400/[0.1]">
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-white">{item.icon} {item.name}</span>
 										<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>
@@ -502,7 +502,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			</div>
 
 			{tab === "store" && !search && recommendedItems.length > 0 && (
-				<section className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.05] p-4">
+				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<h2 className="text-sm font-semibold text-white">推荐快速服务</h2>
@@ -761,7 +761,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								</div>
 							)}
 
-							<div className="rounded-xl border border-cyan-400/15 bg-cyan-500/[0.06] p-3 text-xs text-cyan-100">
+							<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-cyan-100">
 								<div className="font-semibold">安装前配置预览</div>
 								<div className="mt-2 grid gap-1.5 text-cyan-100/80/75">
 									<span>镜像：{installPreviewItem?.image ?? "待刷新"}</span>
@@ -832,7 +832,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								{getVolumeMounts(configPreview.item).length > 0 ? getVolumeMounts(configPreview.item).map((volume) => `${volume.host} → ${volume.container}`).join("；") : "无"}
 							</div>
 						</div>
-						<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/[0.08] p-3 text-xs leading-5 text-amber-100">
+						<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-3 text-xs leading-5 text-amber-100">
 							公开端口不会经过 VControlHub 登录鉴权；若服务暴露到公网，请确认防火墙、VPN、反代或应用自身账号已配置。
 						</div>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -860,7 +860,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						<p className="text-sm leading-6 text-slate-300">
 							将卸载 <span className="font-semibold text-white">{pendingUninstall.name}</span>，容器将被删除。默认保留宿主机数据目录，方便重新安装后继续使用。
 						</p>
-						<label className="mt-4 flex items-start gap-3 rounded-xl border border-rose-400/15 bg-rose-500/[0.06] p-3 text-sm text-rose-100">
+						<label data-tone="rose" className="mt-4 flex items-start gap-3 rounded-xl border border-rose-400/15 p-3 text-sm text-rose-100">
 							<input
 								type="checkbox"
 								checked={pendingUninstall.deleteVolumes}

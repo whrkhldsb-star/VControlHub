@@ -81,7 +81,7 @@ export default async function BackupsPage() {
 					<p className="text-xs text-slate-500">失败记录：{summary.failedRecords}</p>
 				</div>
 				{summary.failureSummary.length === 0 ? (
-					<p className="mt-4 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">暂无失败备份记录。</p>
+					<p data-tone="emerald" className="mt-4 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-200">暂无失败备份记录。</p>
 				) : (
 					<div className="mt-4 grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (

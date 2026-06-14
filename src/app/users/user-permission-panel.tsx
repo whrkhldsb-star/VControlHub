@@ -185,7 +185,7 @@ const _data = await csrfFetch("/api/users/permissions", {
                   <h4 className="font-medium text-white">云盘节点 / 路径授权与配额</h4>
                   <p className="mt-1 text-xs text-slate-400">未配置授权时沿用角色权限；一旦配置，将按节点和路径精确限制。</p>
                 </div>
-                <button type="button" onClick={addGrant} className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20">+ 添加授权</button>
+                <button type="button" onClick={addGrant} data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20">+ 添加授权</button>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>暂无精细授权，当前用户会沿用角色级云盘权限。</EmptyState> : grants.map((grant, index) => {
@@ -216,7 +216,7 @@ const _data = await csrfFetch("/api/users/permissions", {
 
             <div className="flex justify-end gap-3">
               <button type="button" onClick={onClose} className="rounded-full border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10">取消</button>
-              <button type="button" onClick={save} disabled={saving} className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50">{saving ? "保存中..." : "保存权限"}</button>
+              <button type="button" onClick={save} disabled={saving} data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 disabled:opacity-50">{saving ? "保存中..." : "保存权限"}</button>
             </div>
           </div>
         )}

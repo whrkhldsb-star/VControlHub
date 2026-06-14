@@ -297,9 +297,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
 					<h2 className="text-sm font-semibold text-white">发布路径</h2>
 					<div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-						<Link href="/media?type=image" className="rounded-2xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-emerald-100 transition hover:bg-emerald-400/15"><span className="block text-lg">① 媒体库图片</span><span className="mt-1 block text-xs opacity-75">上传、扫描、卡片发布</span></Link>
+						<Link href="/media?type=image" data-tone="emerald" className="rounded-2xl border border-emerald-400/25 p-3 text-emerald-100 transition hover:bg-emerald-400/15"><span className="block text-lg">① 媒体库图片</span><span className="mt-1 block text-xs opacity-75">上传、扫描、卡片发布</span></Link>
 						<button type="button" onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-2xl border border-blue-400/25 bg-blue-400/10 p-3 text-left text-blue-100 transition hover:bg-blue-400/15"><span className="block text-lg">② 云盘路径发布</span><span className="mt-1 block text-xs opacity-75">输入 LOCAL/SFTP 文件路径</span></button>
-						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} className="rounded-2xl border border-amber-400/20 bg-amber-400/10 p-3 text-left text-amber-100 transition hover:bg-amber-400/15"><span className="block text-lg">③ 兼容直传</span><span className="mt-1 block text-xs opacity-75">仅用于旧流程临时上传</span></button>
+						<button type="button" onClick={() => setShowLegacyUpload((value) => !value)} data-tone="amber" className="rounded-2xl border border-amber-400/20 p-3 text-left text-amber-100 transition hover:bg-amber-400/15"><span className="block text-lg">③ 兼容直传</span><span className="mt-1 block text-xs opacity-75">仅用于旧流程临时上传</span></button>
 					</div>
 				</div>
 				<div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
@@ -412,7 +412,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Upload Area */}
 			{showLegacyUpload && canWrite && (
-				<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 light:border-amber-200 light:bg-amber-50">
+				<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-4 light:border-amber-200 light:bg-amber-50">
 					<div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 						<div>
 							<h2 className="text-sm font-semibold text-amber-100">兼容直传入口</h2>

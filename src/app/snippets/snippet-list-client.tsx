@@ -181,7 +181,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
                 取消
               </button>
-              <button type="button" disabled={deleteBusy} onClick={handleDelete} className="min-h-11 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
+              <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
                 {deleteBusy ? "正在删除..." : "确认删除"}
               </button>
             </div>

@@ -36,7 +36,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			<PageHeader eyebrow="Deploy" title="应用部署" description="选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。" />
 
 			{/* How it works */}
-			<section className="mb-6 rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-5">
+			<section data-tone="cyan" className="mb-6 rounded-xl border border-cyan-400/20 p-5">
 				<h2 className="text-sm font-semibold text-white mb-3">💡 使用流程</h2>
 				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
@@ -68,7 +68,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<p className="mt-3 text-xs text-slate-500">每次部署都会保存不可变快照；配置了回滚命令的模板可执行真实回滚，未配置时仍可按原模板重发。所有操作经过审批链路，确保可审计。</p>
 			</section>
 			{formError && (
-				<div role="alert" className="mb-6 rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-200">
+				<div role="alert" data-tone="rose" className="mb-6 rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-200">
 					部署提交失败：{formError}
 				</div>
 			)}
@@ -81,7 +81,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				</section>
 			)}
 			{canRun && latestRun && (
-				<section className="mb-6 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.04] p-5">
+				<section data-tone="emerald" className="mb-6 rounded-xl border border-emerald-400/20 p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70">真实回滚</p>
@@ -117,9 +117,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">Rollback: {r.snapshot.rollbackCommand}</code>}
+							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">Rollback: {r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
-								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3 py-2 text-xs text-emerald-100">
+								<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-100">
 									最近回滚：{r.rollbackAttempts[0]!.status} · 审批 {r.rollbackAttempts[0]!.commandRequestId || "待创建"} · {r.rollbackAttempts[0]!.createdAt.toLocaleString("zh-CN")}
 								</div>
 							)}

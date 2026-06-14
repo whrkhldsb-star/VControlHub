@@ -68,7 +68,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   };
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
   return <div className="space-y-5">
-    {error && <div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-100">{error}</div>}
+    {error && <div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-100">{error}</div>}
     <div className="grid gap-3 sm:grid-cols-4">
       {[["running","运行中"],["pending","待处理"],["failed","失败"],["completed","已完成"]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
     </div>
@@ -87,7 +87,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         </div>)}
       </div>}
     </section>
-    <section aria-label="失败原因聚合" className="rounded-xl border border-rose-400/15 bg-rose-500/[0.04] p-4">
+    <section aria-label="失败原因聚合" data-tone="rose" className="rounded-xl border border-rose-400/15 p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-white">失败原因聚合</h2>
@@ -96,7 +96,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         <div className="text-xs text-slate-500">共 {failureSummary.reduce((total, item) => total + item.total, 0)} 条失败</div>
       </div>
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">当前筛选结果暂无失败任务</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {failureSummary.map((item) => <div key={item.reason} className="rounded-lg border border-rose-400/15 bg-rose-500/[0.05] px-3 py-3">
+        {failureSummary.map((item) => <div key={item.reason} data-tone="rose" className="rounded-lg border border-rose-400/15 px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-white">{item.reason}</span><span data-tone="danger" className="rounded-md border px-2 py-1 text-xs font-medium">{item.total} 条</span></div>
           <p className="mt-2 text-xs text-slate-500">来源：{item.sources.map((source) => sourceLabels[source] ?? source).join("、")} · 最新：{item.latestTitle}</p>
         </div>)}

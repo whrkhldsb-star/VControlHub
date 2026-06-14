@@ -78,11 +78,11 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               {mediaType === "image" ? (
-                <Link href="/image-bed" className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20">
+                <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20">
                   🔗 外链中心
                 </Link>
               ) : null}
-              <span className="inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/[0.08] px-3 py-1.5 text-cyan-200">当前视图 {media.length} 项</span>
+              <span data-tone="cyan" className="inline-flex items-center rounded-full border border-cyan-400/20 px-3 py-1.5 text-cyan-200">当前视图 {media.length} 项</span>
             </div>
           </div>
 
@@ -166,13 +166,13 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
       )}
 
       {canManageMedia && mediaType === "image" && (
-        <section className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-4 light:border-emerald-200 light:bg-emerald-50">
+        <section data-tone="emerald" className="mb-5 rounded-2xl border border-emerald-400/20 p-4 light:border-emerald-200 light:bg-emerald-50">
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-sm font-semibold text-emerald-100">图片发布工作流</h2>
               <p className="mt-1 text-xs text-emerald-100/75">在这里选择存储节点批量上传；已入库图片卡片可直接发布外链，外链历史进入“外链中心”统一复制和审计。</p>
             </div>
-            <Link href="/image-bed" className="inline-flex items-center justify-center rounded-xl border border-emerald-300/30 bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-100 transition hover:bg-emerald-500/25">
+            <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center justify-center rounded-xl border border-emerald-300/30 px-3 py-2 text-xs font-medium text-emerald-100 transition hover:bg-emerald-500/25">
               打开外链中心
             </Link>
           </div>

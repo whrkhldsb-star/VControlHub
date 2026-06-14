@@ -123,7 +123,7 @@ export function MoveInlineForm({
       <button
         type="submit"
         disabled={!targetDir.trim() || targetDir.trim() === currentDir}
-        className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+        data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
       >
         确认
       </button>

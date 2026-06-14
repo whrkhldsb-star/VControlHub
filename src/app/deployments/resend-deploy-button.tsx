@@ -39,7 +39,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 				type="button"
 				onClick={handleResend}
 				disabled={pending}
-				className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+				data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				{pending ? "提交中..." : (label || "按此记录重发")}
 			</button>

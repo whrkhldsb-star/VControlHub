@@ -1802,14 +1802,14 @@ html.light textarea:focus-visible {
 	background-color: var(--tone-bg);
 }
 
-/* Light theme 下原色调要变浅（用 cyan-700/700 系 /10 对应） */
-html.light [data-tone="cyan"] { --tone-bg: rgba(8,145,178,0.10); }
-html.light [data-tone="emerald"] { --tone-bg: rgba(4,120,87,0.10); }
-html.light [data-tone="rose"] { --tone-bg: rgba(190,18,60,0.10); }
-html.light [data-tone="amber"] { --tone-bg: rgba(180,83,9,0.10); }
-html.light [data-tone="sky"] { --tone-bg: rgba(2,132,199,0.10); }
-html.light [data-tone="blue"] { --tone-bg: rgba(29,78,216,0.10); }
-html.light [data-tone="violet"] { --tone-bg: rgba(109,40,217,0.10); }
+/* Light theme 下原色调用 Tailwind -50 同色（极浅的色调） */
+html.light [data-tone="cyan"] { --tone-bg: #ecfeff; }   /* cyan-50 */
+html.light [data-tone="emerald"] { --tone-bg: #ecfdf5; } /* emerald-50 */
+html.light [data-tone="rose"] { --tone-bg: #fff1f2; }    /* rose-50 */
+html.light [data-tone="amber"] { --tone-bg: #fffbeb; }   /* amber-50 */
+html.light [data-tone="sky"] { --tone-bg: #f0f9ff; }     /* sky-50 */
+html.light [data-tone="blue"] { --tone-bg: #eff6ff; }    /* blue-50 */
+html.light [data-tone="violet"] { --tone-bg: #f5f3ff; }  /* violet-50 */
 /* S14. 链接/按钮主色 hover：用 color-mix 避免重复硬编码 cyan-400/30 */
 :root [data-state="accent"]:hover {
 	background-color: color-mix(in srgb, var(--accent) 18%, transparent);

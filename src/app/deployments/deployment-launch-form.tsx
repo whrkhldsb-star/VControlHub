@@ -42,7 +42,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 	if (templates.length === 0) {
 		return (
-			<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
+			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
 				请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。
 			</div>
 		);
@@ -50,7 +50,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 
 	if (servers.length === 0) {
 		return (
-			<div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
+			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
 				<p className="font-medium">暂无可用 VPS，不能发起部署。</p>
 				<p className="mt-1 text-xs text-amber-100/80">请先到服务器管理页面添加或启用 VPS，部署模板会在这里选择目标节点后进入审批链路。</p>
 				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10">去添加 VPS</Link>
@@ -117,7 +117,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{selectedTemplate?.description && <p className="text-xs text-slate-500">{selectedTemplate.description}</p>}
 
 			{variables.length > 0 ? (
-				<div className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 light:border-cyan-200 light:bg-cyan-50">
+				<div data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 light:border-cyan-200 light:bg-cyan-50">
 					<div className="mb-3 flex items-center justify-between gap-3">
 						<h3 className="text-sm font-semibold text-white">模板变量</h3>
 						<span className="text-xs text-slate-500">全部必填，提交前会在后端再次校验。</span>

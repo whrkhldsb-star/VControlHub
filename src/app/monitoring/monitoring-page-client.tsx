@@ -106,7 +106,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   if (!stats) {
     return (
       <PageShell>
-        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-sm text-rose-100">
+        <div data-tone="rose" className="rounded-2xl border border-rose-500/20 p-5 text-sm text-rose-100">
           <h1 className="mb-2 text-xl font-semibold text-rose-50">无法获取监控数据</h1>
           <p className="text-rose-100/80/80">{errorMessage ?? "监控接口暂时没有返回可用数据，请稍后重试。"}</p>
           <button
@@ -127,7 +127,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       <PageHeader eyebrow="Monitoring" title="服务器监控" description="实时系统资源监控" className="mb-6" />
 
       {errorMessage ? (
-        <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
+        <div data-tone="amber" className="mb-4 rounded-xl border border-amber-500/20 px-4 py-3 text-xs text-amber-100">
           上次刷新失败：{errorMessage}
         </div>
       ) : null}

@@ -223,7 +223,7 @@ export default function DockerPage() {
 			<PageHeader eyebrow="Containers" title="Docker 容器" description="管理 VControlHub 所在主机的 Docker 容器" />
 			<section
 				aria-labelledby="docker-scope-title"
-				className="mb-4 rounded-2xl border border-amber-400/25 bg-amber-500/10 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50"
+				data-tone="amber" className="mb-4 rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-100 light:border-amber-300 light:bg-amber-50"
 			>
 				<h2 id="docker-scope-title" className="text-sm font-semibold">运行边界：本机 Docker socket</h2>
 				<p className="mt-1 leading-relaxed">

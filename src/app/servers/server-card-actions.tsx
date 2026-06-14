@@ -109,7 +109,7 @@ export function ServerCardActions({
           <form
             action={directAction}
             aria-label="目标服务器直连网关控制"
-            className="space-y-3 rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-3 light:border-cyan-700/20 light:bg-cyan-50/80"
+            data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-3 light:border-cyan-700/20 light:bg-cyan-50/80"
           >
             <input type="hidden" name="serverId" value={serverId} />
             <input
@@ -343,7 +343,7 @@ export function ServerCardActions({
                 aria-modal="false"
                 aria-labelledby={`delete-server-title-${serverId}`}
                 aria-describedby={`delete-server-description-${serverId}`}
-                className="space-y-3 rounded-2xl border border-rose-400/30 bg-rose-400/5 p-3 light:bg-rose-50/80"
+                data-tone="rose" className="space-y-3 rounded-2xl border border-rose-400/30 p-3 light:bg-rose-50/80"
               >
                 <input type="hidden" name="confirmDelete" value="true" />
                 <div className="space-y-1 text-sm text-rose-200">

@@ -120,7 +120,7 @@ export function DashboardAnalyticsPanel() {
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100" role="alert">
+        <div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100" role="alert">
           {t("dashboard.analytics.unavailable")}: {error}
         </div>
       ) : null}

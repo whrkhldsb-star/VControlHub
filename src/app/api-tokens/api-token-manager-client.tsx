@@ -126,7 +126,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
         </section>
       )}
 
-      {error && <div className="rounded-xl border border-rose-400/25 bg-rose-400/[0.08] px-4 py-3 text-sm text-rose-100">{error}</div>}
+      {error && <div data-tone="rose" className="rounded-xl border border-rose-400/25 px-4 py-3 text-sm text-rose-100">{error}</div>}
 
       <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
         <h2 className="text-lg font-semibold text-white">创建 API Token</h2>

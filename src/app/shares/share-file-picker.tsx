@@ -284,8 +284,8 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 				))}
 			</div>
 
-			{error ? <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
-			{data?.syncWarning ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-sm text-amber-200">{data.syncWarning}</p> : null}
+			{error ? <p data-tone="rose" className="mt-3 rounded-xl border border-rose-400/20 px-3 py-2 text-sm text-rose-300">{error}</p> : null}
+			{data?.syncWarning ? <p data-tone="amber" className="mt-3 rounded-xl border border-amber-400/20 px-3 py-2 text-sm text-amber-200">{data.syncWarning}</p> : null}
 
 			<div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 				<div className="overflow-hidden rounded-xl border border-white/[0.08]">

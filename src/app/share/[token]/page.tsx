@@ -46,7 +46,7 @@ export default async function SharePage({
         </div>
 
         {errorMessage ? (
-          <div className="rounded-lg border border-rose-400/20 bg-rose-500/[0.08] px-4 py-3 text-center text-sm text-rose-200">
+          <div data-tone="rose" className="rounded-lg border border-rose-400/20 px-4 py-3 text-center text-sm text-rose-200">
             {errorMessage}
           </div>
         ) : share ? (
@@ -101,7 +101,7 @@ export default async function SharePage({
                   </a>
                 </div>
                 {files.length === 0 ? (
-                  <div className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-center text-xs text-amber-200">
+                  <div data-tone="amber" className="rounded-lg border border-amber-400/20 px-4 py-3 text-center text-xs text-amber-200">
                     当前目录暂未发现可下载文件。系统已自动尝试刷新目录索引，请稍后重试或联系分享者确认目录内有文件。
                   </div>
                 ) : (

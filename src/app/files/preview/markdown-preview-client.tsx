@@ -318,7 +318,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 		<div className="overflow-auto rounded-2xl bg-slate-950 p-4">
 			{/* Label */}
 			<div className="mb-3 flex items-center gap-2">
-				<span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-300">
+				<span data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-300">
 					Markdown 预览
 				</span>
 			</div>

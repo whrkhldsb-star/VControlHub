@@ -414,7 +414,7 @@ function BreadcrumbsClient({
           <span key={nextPath} className="flex items-center gap-2">
             <span>/</span>
             {isLast ? (
-              <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100">
+              <span data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-cyan-100">
                 {displaySegment}
               </span>
             ) : (
@@ -588,7 +588,7 @@ export function FilesBrowserSpa({
       <section className="space-y-8">
         {/* VPS Node Selector - searchable */}
         {data.nodes.length > 1 ? (
-          <article className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5 light:border-cyan-500/20 light:bg-cyan-50">
+          <article data-tone="cyan" className="rounded-3xl border border-cyan-400/20 p-5 light:border-cyan-500/20 light:bg-cyan-50">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-white">
@@ -659,7 +659,7 @@ export function FilesBrowserSpa({
                 </div>
                 <button
                   type="submit"
-                  className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                  data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
                 >
                   搜索
                 </button>
@@ -686,7 +686,7 @@ export function FilesBrowserSpa({
             ) : null}
           </form>
 
-          <div className="mt-6 rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+          <div data-tone="cyan" className="mt-6 rounded-3xl border border-cyan-400/20 p-5">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h3 className="text-xl font-semibold text-white">
@@ -714,7 +714,7 @@ export function FilesBrowserSpa({
                     )
                   }
                   disabled={loading}
-                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  data-tone="emerald" className="rounded-full border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading ? "刷新中…" : `↻ ${refreshLabel}`}
                 </button>
@@ -764,7 +764,7 @@ export function FilesBrowserSpa({
           {listError ? (
             <div
               role="alert"
-              className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100"
+              data-tone="amber" className="mt-4 rounded-lg border border-amber-400/30 px-4 py-3 text-sm text-amber-100"
             >
               {data.syncWarning === listError
                 ? "远端同步提醒"

@@ -100,7 +100,7 @@ function StorageNodeCard({
 					<p className="mt-2 text-sm leading-7 text-slate-300">{node.connectionSummary}</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100">
+					<span data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-100">
 						{node.isDefault ? "默认节点" : node.driver}
 					</span>
 					{canManageNodes ? (
@@ -109,7 +109,7 @@ function StorageNodeCard({
 								type="button"
 								onClick={() => setEditing((prev) => !prev)}
 								title={editing ? "收起" : "编辑"}
-								className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-400/10 text-cyan-100 transition hover:bg-cyan-400/20"
+								data-tone="cyan" className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 text-cyan-100 transition hover:bg-cyan-400/20"
 							>
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
 							</button>

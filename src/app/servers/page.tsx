@@ -62,7 +62,7 @@ export default async function ServersPage() {
 				<StatCard label="启用节点" value={String(enabledCount)} accent={enabledCount > 0} />
 				<StatCard label="已绑定存储" value={String(storageCount)} accent={storageCount > 0} />
 			</section>
-			<section className="mb-4 rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4">
+			<section data-tone="cyan" className="mb-4 rounded-xl border border-cyan-400/15 p-4">
 				<h2 className="text-sm font-medium text-cyan-100">VPS 状态优先</h2>
 				<p className="mt-1 text-xs text-slate-400">默认先展示各 VPS 的启用状态、连接方式、密钥绑定、直连模式和待审批命令；添加 VPS、添加密钥、批量操作已收入口到快捷操作区。</p>
 			</section>

@@ -303,7 +303,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-cron" className={fieldLabelClass}>Cron 表达式</label>
 				<input id="scheduled-task-cron" value={cronExpression} onChange={(e) => setCron(e.target.value)} required placeholder="0 3 * * *" className={monoFieldInputClass} />
-				<p className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.06] px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
+				<p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}

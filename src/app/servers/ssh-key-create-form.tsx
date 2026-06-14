@@ -32,7 +32,7 @@ export function SshKeyCreateForm() {
 				<input id="sshKeyDesc" name="description" type="text" placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
 			</div>
 
-			<div className="rounded-lg border border-cyan-400/15 bg-cyan-400/[0.04] px-3.5 py-2.5 text-xs leading-relaxed text-cyan-100/80">
+			<div data-tone="cyan" className="rounded-lg border border-cyan-400/15 px-3.5 py-2.5 text-xs leading-relaxed text-cyan-100/80">
 				可直接粘贴 OpenSSH 私钥，也可以只上传 PuTTY .ppk 文件；上传 .ppk 时后端会自动转换并提取公钥。
 			</div>
 

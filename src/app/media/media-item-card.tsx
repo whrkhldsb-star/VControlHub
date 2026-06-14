@@ -260,7 +260,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 
 			<div className="mt-3 flex flex-wrap gap-2 text-xs">
 				{previewHref ? (
-					<a href={previewHref} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1.5 text-cyan-200 hover:bg-cyan-400/20">
+					<a href={previewHref} data-tone="cyan" className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/25 px-2.5 py-1.5 text-cyan-200 hover:bg-cyan-400/20">
 						<Eye size={13} /> 预览/播放
 					</a>
 				) : null}
@@ -279,7 +279,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 						type="button"
 						onClick={() => void publishAsImageBed()}
 						disabled={publishing}
-						className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-2.5 py-1.5 text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-50"
+						data-tone="emerald" className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/25 px-2.5 py-1.5 text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-50"
 						title="把这张已存储图片发布为图床外链，并复制外链"
 					>
 						<LinkIcon size={13} /> {publishing ? "发布中" : "图床外链"}
@@ -288,7 +288,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 			</div>
 
 			{imageBedUrl ? (
-				<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-2 py-1.5 text-[11px] text-emerald-100">
+				<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-2 py-1.5 text-[11px] text-emerald-100">
 					外链已生成并尝试复制：<a href={imageBedUrl} target="_blank" rel="noreferrer" className="break-all underline">{imageBedUrl}</a>
 				</div>
 			) : null}

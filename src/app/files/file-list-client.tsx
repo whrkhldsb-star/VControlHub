@@ -509,7 +509,7 @@ export function FileListClient({
             href={previewHref}
             title={previewAction.title}
             aria-label={previewAction.label}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 bg-cyan-500/10 text-cyan-100 transition hover:bg-cyan-500/20"
+            data-tone="cyan" className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-cyan-400/30 text-cyan-100 transition hover:bg-cyan-500/20"
           >
             <PreviewIcon />
           </Link>
@@ -695,7 +695,7 @@ export function FileListClient({
               <button
                 type="button"
                 onClick={() => navigateToFolder(folder.path)}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-cyan-400/30 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition"
+                data-tone="cyan" className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium border border-cyan-400/30 text-cyan-100 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition"
               >
                 <svg
                   width="14"
@@ -903,7 +903,7 @@ export function FileListClient({
                     <button
                       type="button"
                       onClick={() => navigateToFolder(folder.path)}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition"
+                      data-tone="cyan" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-cyan-200 hover:bg-cyan-500/20 transition"
                     >
                       <svg
                         width="12"
@@ -1036,7 +1036,7 @@ export function FileListClient({
                 <button
                   type="button"
                   onClick={() => navigateToFolder(folder.path)}
-                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition"
+                  data-tone="cyan" className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-cyan-400/25 text-cyan-200 hover:bg-cyan-500/20 transition"
                 >
                   打开
                 </button>
@@ -1360,7 +1360,7 @@ export function FileListClient({
                   {detailEntry.previewable && entryCanRead(detailEntry) ? (
                     <Link
                       href={getPreviewHref(detailEntry)}
-                      className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
+                      data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
                     >
                       预览 / 在线编辑
                     </Link>
@@ -1377,13 +1377,13 @@ export function FileListClient({
                   {entryCanRead(detailEntry) ? (
                     <Link
                       href={buildMediaLibraryHref(detailEntry)}
-                      className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20"
+                      data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20"
                     >
                       在媒体库中查找
                     </Link>
                   ) : null}
                   {canShare && entryCanRead(detailEntry) ? (
-                    <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-2">
+                    <div data-tone="amber" className="rounded-2xl border border-amber-400/30 p-2">
                       <ShareFileButton entry={detailEntry} />
                     </div>
                   ) : null}
@@ -1475,7 +1475,7 @@ export function FileListClient({
                 type="button"
                 onClick={handleBatchDelete}
                 disabled={isPending}
-                className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
+                data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
               >
                 确认删除
               </button>
@@ -1570,7 +1570,7 @@ export function FileListClient({
                 <button
                   type="button"
                   onClick={() => setBatchAction("confirm-delete")}
-                  className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
+                  data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
                 >
                   批量删除
                 </button>

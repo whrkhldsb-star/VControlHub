@@ -271,7 +271,7 @@ export function ServerCreateForm({
         </p>
       </div>
 
-      <label className="rounded-xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-sm text-slate-200">
+      <label data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 text-sm text-slate-200">
         <div className="flex items-start gap-3">
           <input
             name="enableDirectGateway"

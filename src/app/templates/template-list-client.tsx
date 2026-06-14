@@ -94,7 +94,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 							<button
 								type="button"
 								onClick={() => handleDelete(templatePendingDelete.id)}
-								className="min-h-11 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
+								data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
 							>
 								确认删除
 							</button>
@@ -164,7 +164,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								{tmpl.command}
 							</div>
 							{tmpl.rollbackCommand && (
-								<div className="mt-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-2 font-mono text-xs text-emerald-100 line-clamp-2 light:border-emerald-200 light:bg-emerald-50">
+								<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-3 py-2 font-mono text-xs text-emerald-100 line-clamp-2 light:border-emerald-200 light:bg-emerald-50">
 									<span className="mr-2 font-sans text-[10px] uppercase tracking-[0.2em] text-emerald-300">Rollback</span>{tmpl.rollbackCommand}
 								</div>
 							)}
@@ -329,7 +329,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-white/50 tracking-wide">回滚命令（可选）</label>
-				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder="cd {{project_dir}} && docker compose up -d previous" className="w-full rounded-lg border border-emerald-400/20 bg-emerald-400/[0.04] px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder="cd {{project_dir}} && docker compose up -d previous" data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
 				<p className="text-[11px] text-slate-600">部署运行会保存这份命令快照；之后“真实回滚”会执行快照里的回滚命令，而不是重发部署命令。</p>
 			</div>
 			<div className="space-y-1.5">

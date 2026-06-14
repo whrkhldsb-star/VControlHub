@@ -49,7 +49,7 @@ export function LoginForm({ nextPath, error }: LoginFormProps) {
 			</label>
 
 			{error ? (
-				<div role="alert" className="rounded-2xl border border-rose-400/15 bg-rose-500/[0.08] px-4 py-2.5 text-sm font-medium text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.08)] light:border-rose-200 light:bg-rose-50 light:shadow-sm">
+				<div role="alert" data-tone="rose" className="rounded-2xl border border-rose-400/15 px-4 py-2.5 text-sm font-medium text-rose-200 shadow-[0_0_0_1px_rgba(251,113,133,0.08)] light:border-rose-200 light:bg-rose-50 light:shadow-sm">
 					{error}
 				</div>
 			) : null}

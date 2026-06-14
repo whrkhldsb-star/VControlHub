@@ -284,7 +284,7 @@ export function FileUploadDropzone({
           type="button"
           onClick={() => directoryInputRef.current?.click()}
           disabled={!uploadEnabled || submitting}
-          className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           选择文件夹
         </button>

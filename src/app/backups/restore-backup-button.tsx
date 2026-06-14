@@ -107,7 +107,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 type="button"
                 disabled={pending || confirmText !== CONFIRM_TEXT}
                 onClick={handleRestore}
-                className="min-h-11 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {pending ? "正在恢复..." : "确认恢复"}
               </button>

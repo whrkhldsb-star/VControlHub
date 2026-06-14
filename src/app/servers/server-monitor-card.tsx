@@ -133,7 +133,7 @@ export function ServerMonitorCard({ serverId }: Props) {
 
 	if (error) {
 		return (
-			<div className="rounded-xl border border-rose-400/20 bg-rose-400/[0.04] p-4">
+			<div data-tone="rose" className="rounded-xl border border-rose-400/20 p-4">
 				<div className="flex items-center gap-2 text-xs text-rose-300">
 					<span>⚠</span>
 					<span>监控连接失败：{error}</span>

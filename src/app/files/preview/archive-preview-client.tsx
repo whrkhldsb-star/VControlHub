@@ -79,7 +79,7 @@ export function ArchivePreviewClient({
 					type="button"
 					onClick={loadArchiveContents}
 					disabled={loading}
-					className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+					data-tone="cyan" className="rounded-xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
 					{loading ? "加载中…" : entries ? "刷新列表" : "查看压缩包内容"}
 				</button>
@@ -88,7 +88,7 @@ export function ArchivePreviewClient({
 						type="button"
 						onClick={handleExtract}
 						disabled={extracting}
-						className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
+						data-tone="emerald" className="rounded-xl border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						{extracting ? "解压中…" : "在线解压"}
 					</button>

@@ -205,7 +205,7 @@ export function AiProviderPanel({
           )}
 
           {editForm ? (
-            <div className="space-y-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3">
+            <div data-tone="cyan" className="space-y-3 rounded-xl border border-cyan-400/20 p-3">
               <div className="flex items-center justify-between gap-3">
                 <h4 className="text-xs text-cyan-200 uppercase tracking-wider">编辑提供商</h4>
                 <button type="button" onClick={cancelEditing} className="text-xs text-[var(--text-secondary)] hover:text-slate-200 light:hover:text-slate-800">取消编辑</button>

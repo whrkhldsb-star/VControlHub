@@ -50,7 +50,7 @@ export default async function RequestsPage() {
 							<h2 id="ai-approval-heading" className="text-xl font-semibold text-white">AI 助手授权</h2>
 							<p className="mt-1 text-sm text-slate-500">用于确认 AI 托管模式下的高风险工具调用，例如重启服务、修改配置、执行命令。</p>
 						</div>
-						<span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-200">只显示当前账号待处理授权</span>
+						<span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-cyan-200">只显示当前账号待处理授权</span>
 					</div>
 					{aiActions.length === 0 ? (
 						<EmptyState text="暂无 AI 助手待授权操作。AI 对话中触发高风险操作时会出现在这里。" variant="boxed" />
@@ -67,7 +67,7 @@ export default async function RequestsPage() {
 							<h2 id="command-approval-heading" className="text-xl font-semibold text-white">用户命令审批</h2>
 							<p className="mt-1 text-sm text-slate-500">用于审批用户、运维成员或命令模板提交的 VPS 命令请求；也保留 AI 以命令请求形式发起的记录。</p>
 						</div>
-						<span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs text-amber-200">批准后进入真实 SSH 执行流</span>
+						<span data-tone="amber" className="rounded-full border border-amber-400/20 px-3 py-1 text-xs text-amber-200">批准后进入真实 SSH 执行流</span>
 					</div>
 
 					{requests.length === 0 ? (

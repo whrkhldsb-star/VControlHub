@@ -233,7 +233,7 @@ export function ServerOverviewCard({
           value={`${server.pendingCommandCount} 条`}
         />
       </div>
-      <p className="mt-2 rounded-lg border border-amber-400/10 bg-amber-400/[0.04] px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50">
+      <p data-tone="amber" className="mt-2 rounded-lg border border-amber-400/10 px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50">
         {listHealthDescription}
       </p>
 
@@ -286,7 +286,7 @@ export function ServerOverviewCard({
                 value={server.sshKey ? server.sshKey.name : "未配置"}
               />
             </div>
-            <p className="mt-3 rounded-lg border border-cyan-400/10 bg-cyan-400/5 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50">
+            <p data-tone="cyan" className="mt-3 rounded-lg border border-cyan-400/10 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50">
               状态徽章表示 VControlHub 是否允许该 VPS 接收操作；若 SSH
               终端、文件中转或直连访问异常，请结合下方连接摘要、直连模式和最近命令状态定位真实服务健康。
             </p>
@@ -513,7 +513,7 @@ function DirectGatewayAdviceList({ advice }: AdviceListProps) {
       {advice.map((item, index) => (
         <li
           key={`${item.title}-${index}`}
-          className="rounded-md border border-amber-400/15 bg-amber-400/[0.05] px-2 py-1.5 light:border-amber-700/20 light:bg-amber-50/60"
+          data-tone="amber" className="rounded-md border border-amber-400/15 px-2 py-1.5 light:border-amber-700/20 light:bg-amber-50/60"
         >
           <div className="flex flex-wrap items-baseline gap-1.5 text-[11px] font-medium leading-5 text-amber-100 light:text-amber-900">
             <span

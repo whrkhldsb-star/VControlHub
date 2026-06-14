@@ -215,7 +215,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 						<h2 className="text-lg font-semibold text-white flex items-center gap-2">⚙️ 运行参数</h2>
 						<p className="mt-1 text-xs text-slate-500">这些是非敏感稳定性/可用性参数。命令执行、SFTP 同步、任务中心和 AI 列表上限相关项会立即生效；命令维护扫描和 SSH 终端连接保活参数需要重启对应服务后生效。SSH 终端默认强保活：只要浏览器页面还开着、网络和目标 SSH 仍可用，系统不会因为空闲主动断开。</p>
 					</div>
-					<div className="rounded-lg border border-cyan-400/20 bg-cyan-500/[0.08] px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50">
+					<div data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-100 light:border-cyan-200 light:bg-cyan-50">
 						当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。
 					</div>
 					<AuditSummary metadata={latestSectionMetadata(SECTION_KEYS.runtime ?? [], settingUpdateMetadata)} />
@@ -269,7 +269,7 @@ export function SettingsClient({ settings: initialSettings, runtimeSettings = []
 
 function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) {
 	return (
-		<div className="rounded-lg border border-amber-400/20 bg-amber-500/[0.08] px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50">
+		<div data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50">
 			<p className="font-semibold">最近修改</p>
 			<p>时间：{formatMetadataDate(metadata?.updatedAt ?? null)}</p>
 			<p>修改人：{metadata?.actorName ?? "暂无审计记录"}</p>

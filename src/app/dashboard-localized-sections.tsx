@@ -57,7 +57,7 @@ export function DashboardServerHero({ summary }: { summary: DashboardServerSumma
   const sshLabel = useLocalizedText("dashboard.ssh-key-bound", "SSH 密钥绑定");
 
   return (
-    <section data-dashboard-widget="server-status" className="mb-8 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-5">
+    <section data-dashboard-widget="server-status" data-tone="cyan" className="mb-8 rounded-2xl border border-cyan-400/15 p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.22em] text-cyan-300">{eyebrow}</p>

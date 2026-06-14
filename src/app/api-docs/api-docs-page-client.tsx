@@ -109,7 +109,7 @@ export default function ApiDocsPage() {
 						href="/api/docs/openapi.json"
 						target="_blank"
 						rel="noreferrer"
-						className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15"
+						data-tone="cyan" className="inline-flex h-10 items-center justify-center rounded-lg border border-cyan-400/25 px-4 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15"
 					>
 						OpenAPI JSON
 					</a>

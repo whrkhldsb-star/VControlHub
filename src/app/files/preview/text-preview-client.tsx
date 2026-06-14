@@ -432,7 +432,7 @@ export function TextPreviewClient({
 				</span>
 				<span className="text-xs text-slate-500">{totalLines} 行</span>
 				{canEdit ? (
-					<span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
+					<span data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-200">
 						可在线编辑 · 保存会校验并发修改
 					</span>
 				) : null}
@@ -453,7 +453,7 @@ export function TextPreviewClient({
 									type="button"
 									onClick={() => setShowDiffReview(true)}
 									disabled={saveStatus === "saving" || !hasUnsavedChanges}
-									className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50"
+									data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50"
 								>
 									{saveStatus === "saving" ? "保存中…" : "预览并保存"}
 								</button>
@@ -476,7 +476,7 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={() => setEditMode(true)}
-								className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20"
+								data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20"
 							>
 								编辑
 							</button>
@@ -527,7 +527,7 @@ export function TextPreviewClient({
 			</div>
 
 			{editMode && showDiffReview ? (
-				<div role="dialog" aria-modal="true" aria-label="保存前差异预览" className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] p-4 shadow-2xl shadow-black/20">
+				<div role="dialog" aria-modal="true" aria-label="保存前差异预览" data-tone="amber" className="rounded-2xl border border-amber-400/20 p-4 shadow-2xl shadow-black/20">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<h3 className="text-sm font-semibold text-amber-100">保存前差异预览</h3>
@@ -551,7 +551,7 @@ export function TextPreviewClient({
 								type="button"
 								onClick={handleSave}
 								disabled={saveStatus === "saving" || diffRows.length === 0}
-								className="rounded-lg border border-emerald-300/40 bg-emerald-400/20 px-3 py-1.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
+								data-tone="emerald" className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
 							>
 								{saveStatus === "saving" ? "保存中…" : "确认保存"}
 							</button>

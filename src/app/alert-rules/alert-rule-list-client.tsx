@@ -143,7 +143,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 								type="button"
 								onClick={() => deleteRule(rulePendingDelete.id)}
 								disabled={busyAction === `delete:${rulePendingDelete.id}`}
-								className="rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+								data-tone="rose" className="rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
 							>
 								{busyAction === `delete:${rulePendingDelete.id}` ? "删除中…" : "确认删除"}
 							</button>
@@ -170,13 +170,13 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			</div>
 
 			{actionError && (
-				<div role="alert" className="rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+				<div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-100">
 					{actionError}
 				</div>
 			)}
 
 			{testResult && (
-				<div role="status" className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-100">
+				<div role="status" data-tone="cyan" className="rounded-xl border border-cyan-400/20 px-4 py-3 text-sm text-cyan-100">
 					<p className="font-medium">测试发送结果：{testResult.ruleName}</p>
 					<ul className="mt-2 space-y-1">
 						{testResult.deliveries.map((delivery, index) => (
@@ -221,7 +221,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 											</span>
 										))}
 						{rule.webhookConfigured && (
-							<span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] text-emerald-200">
+							<span data-tone="emerald" className="rounded-md border border-emerald-400/20 px-1.5 py-0.5 text-[10px] text-emerald-200">
 								Webhook 已配置
 							</span>
 						)}

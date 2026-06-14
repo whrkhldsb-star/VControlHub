@@ -196,7 +196,7 @@ export function NotificationBell() {
 						</div>
 					</div>
 					{feedback && (
-						<div role="alert" className="border-b border-rose-400/10 bg-rose-500/10 px-4 py-2 text-xs text-rose-200">
+						<div role="alert" data-tone="rose" className="border-b border-rose-400/10 px-4 py-2 text-xs text-rose-200">
 							{feedback.message}
 						</div>
 					)}

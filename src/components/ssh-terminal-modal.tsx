@@ -358,7 +358,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							<button
 								type="button"
 								onClick={handleReconnect}
-								className="min-h-11 min-w-11 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
+								data-tone="cyan" className="min-h-11 min-w-11 rounded-full border border-cyan-400/30 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
 							>
 								重连
 							</button>
@@ -376,7 +376,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				</div>
 
 				{errorMsg && (status === "error" || status === "closed") && (
-					<div className="mx-6 mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+					<div data-tone="rose" className="mx-6 mt-4 rounded-2xl border border-rose-400/20 px-4 py-3 text-sm text-rose-200">
 						❌ {errorMsg}
 					</div>
 				)}
@@ -405,7 +405,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										placeholder="添加常用命令…"
 										className="min-h-11 min-w-0 flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
-									<button onClick={addFavorite} aria-label="添加常用命令" className="min-h-11 min-w-11 shrink-0 rounded-md border border-cyan-400/20 bg-cyan-400/10 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} aria-label="添加常用命令" data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-md border border-cyan-400/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
 										+
 									</button>
 								</div>

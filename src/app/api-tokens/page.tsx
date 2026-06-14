@@ -11,7 +11,7 @@ export default async function Page() {
 	if (!sessionHasPermission(session, "api-token:manage")) {
 		return (
 			<PageShell>
-				<section className="rounded-2xl border border-rose-400/20 bg-rose-400/[0.06] p-6">
+				<section data-tone="rose" className="rounded-2xl border border-rose-400/20 p-6">
 					<h1 className="text-xl font-semibold text-rose-100">缺少权限</h1>
 					<p className="mt-2 text-sm text-rose-100/70">需要 api-token:manage 权限才能管理个人 API Token。</p>
 				</section>

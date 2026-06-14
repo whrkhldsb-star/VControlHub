@@ -352,7 +352,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						{showForm ? "取消" : "+ 新建下载"}
 					</button>
 				) : canManage ? (
-					<div className="rounded-2xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-2 text-xs text-amber-100">
+					<div data-tone="amber" className="rounded-2xl border border-amber-400/20 px-4 py-2 text-xs text-amber-100">
 						暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。
 					</div>
 				) : null}
@@ -445,12 +445,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					</div>
 
 					{form.url?.startsWith("magnet:") && (
-						<div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] px-4 py-3 text-xs text-amber-200/70">
+						<div data-tone="amber" className="rounded-xl border border-amber-400/20 px-4 py-3 text-xs text-amber-200/70">
 							🧲 磁力链接采用中转模式：本机 aria2 RPC 下载 → SFTP 传输到目标 VPS → 清理临时文件。支持实时进度追踪。
 						</div>
 					)}
 
-					<div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] px-4 py-3 text-xs leading-5 text-cyan-100">
+					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 px-4 py-3 text-xs leading-5 text-cyan-100">
 						<p className="font-medium">完成后的“下载文件”按钮和文件管理使用同一套访问策略。</p>
 						<p className="mt-1 text-cyan-100/70/70">
 							不在下载页单独启动传输模式；选择目标 VPS 后按其存储直连设置显示当前真实模式，直连可用时走 Direct Gateway，未配置或切回中转时走网站 SFTP 中转。
@@ -486,9 +486,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									{statusLabel[task.status] ?? task.status}
 								</span>
 								<span className="text-[11px] text-slate-500">{urlTypeLabel(task.url)}</span>
-								{task.relayMode && <span className="rounded-full border border-amber-400/20 bg-amber-400/5 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
+								{task.relayMode && <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
 									{task.category && <span className="text-[11px] text-slate-500">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
-									{task.isBatch && <span className="rounded-full border border-cyan-400/20 bg-cyan-400/5 px-2 py-0.5 text-[10px] text-cyan-100">批量</span>}
+									{task.isBatch && <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[10px] text-cyan-100">批量</span>}
 								</div>
 
 								{/* URL */}
@@ -521,14 +521,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 								{/* Error */}
 								{task.errorMessage && (
-									<div className="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-2 text-xs text-rose-200">{task.errorMessage}</div>
+									<div data-tone="rose" className="mt-2 rounded-lg border border-rose-400/20 px-3 py-2 text-xs text-rose-200">{task.errorMessage}</div>
 								)}
 
 								{/* Actions */}
 								<div className="mt-3 flex gap-2">
 									{task.status === "RUNNING" && task.aria2Gid && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "pause")}
-											className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/10 transition"
+											data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/10 transition"
 										>
 											⏸ 暂停
 										</button>
@@ -545,14 +545,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									)}
 									{task.status === "PENDING" && task.aria2Gid && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "resume")}
-											className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
+											data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
 										>
 											▶ 继续
 										</button>
 									)}
 									{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "cancel")}
-											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
+											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
 											✕ 取消
 										</button>
@@ -566,7 +566,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									)}
 									{task.downloadAccess && (
 										<a href={task.downloadAccess.href}
-											className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
+											data-tone="cyan" className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition"
 											title={task.downloadAccess.description}
 										>
 											⬇ {task.downloadAccess.label}
@@ -582,7 +582,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
 									return (
 										<a href={href}
-											className="rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
+											data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
 											title="在文件管理中打开保存目录"
 										>
 											📂 打开文件夹
@@ -591,7 +591,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 								})()}
 								{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 									<button type="button" onClick={() => handleAction(task.id, "retry")}
-										className="rounded-lg border border-cyan-400/20 bg-cyan-400/5 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/10 transition"
+										data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/10 transition"
 										title="使用相同链接和目标路径重新创建下载任务"
 									>
 										↻ 重试
@@ -599,7 +599,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 								)}
 								{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "purge")}
-											className="rounded-lg border border-rose-400/20 bg-rose-400/5 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
+											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
 											🗑 删除记录
 										</button>
