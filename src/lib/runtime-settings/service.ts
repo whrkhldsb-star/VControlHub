@@ -111,24 +111,20 @@ export const RUNTIME_SETTING_DEFINITIONS = {
   },
 } as const;
 
+import type { RuntimeSettingSummaryDto } from "./dto";
+
 export type RuntimeSettingKey = keyof typeof RUNTIME_SETTING_DEFINITIONS;
 
 export type RuntimeSettingSource = "database" | "environment" | "default" | "invalid-database";
 
-export type RuntimeSettingSummary = {
-  key: RuntimeSettingKey;
-  label: string;
-  unit: string;
-  env: string;
-  value: number;
-  defaultValue: number;
-  min: number;
-  max: number;
-  source: RuntimeSettingSource;
-  sourceLabel: string;
-  applies: string;
-  requiresRestart: boolean;
-};
+/**
+ * TR-039: the wire shape of a runtime setting now lives in ./dto so the
+ * settings client can read it without pulling the service module's
+ * server-only deps. The exported `RuntimeSettingSummary` here is just an
+ * alias of that DTO — same type, kept under its original name for
+ * call-site compatibility.
+ */
+export type RuntimeSettingSummary = RuntimeSettingSummaryDto;
 
 export function isRuntimeSettingKey(key: string): key is RuntimeSettingKey {
   return Object.prototype.hasOwnProperty.call(RUNTIME_SETTING_DEFINITIONS, key);

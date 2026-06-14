@@ -3,7 +3,7 @@
 import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettings } from "@/components/two-factor-settings";
-import type { RuntimeSettingSummary } from "@/lib/runtime-settings/service";
+import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 
 type Props = {

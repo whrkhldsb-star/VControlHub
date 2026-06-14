@@ -3,49 +3,32 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
 
-export type OperationTaskSource = "job" | "command" | "scheduled" | "download" | "sync" | "backup" | "deployment";
-export type OperationTaskStatus = "pending" | "running" | "completed" | "failed" | "cancelled" | "paused";
+// TR-039: pure DTO types live in ./dto so client code can reach them
+// without pulling the whole server-only service module. We import them
+// for in-file use AND re-export them so every existing call site
+// 'from "@/lib/operation-task/service"' keeps working.
+import type {
+  OperationTask,
+  OperationTaskFailureSummary,
+  OperationTaskListFilters,
+  OperationTaskListOptions,
+  OperationTaskListResult,
+  OperationTaskListSort,
+  OperationTaskSource,
+  OperationTaskSourceSummary,
+  OperationTaskStatus,
+} from "./dto";
 
-export type OperationTask = {
-  id: string;
-  source: OperationTaskSource;
-  sourceId: string;
-  title: string;
-  status: OperationTaskStatus;
-  createdAt: string;
-  updatedAt: string;
-  actor?: string | null;
-  progress?: string | null;
-  logPreview?: string[];
-  href?: string;
-  workerId?: string | null;
-  workerHeartbeatAt?: string | null;
-  taskType?: string | null;
-  foldedCount?: number;
-};
-
-export type OperationTaskFailureSummary = {
-  reason: string;
-  total: number;
-  sources: OperationTaskSource[];
-  latestTaskId: string;
-  latestTitle: string;
-  latestAt: string;
-};
-
-export type OperationTaskSourceSummary = {
-  source: OperationTaskSource;
-  total: number;
-  attention: number;
-  failed: number;
-  running: number;
-  pending: number;
-};
-
-export type OperationTaskListResult = {
-  tasks: OperationTask[];
-  sourceSummary: OperationTaskSourceSummary[];
-  failureSummary: OperationTaskFailureSummary[];
+export type {
+  OperationTask,
+  OperationTaskFailureSummary,
+  OperationTaskListFilters,
+  OperationTaskListOptions,
+  OperationTaskListResult,
+  OperationTaskListSort,
+  OperationTaskSource,
+  OperationTaskSourceSummary,
+  OperationTaskStatus,
 };
 
 type JobTaskRow = Prisma.JobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -134,16 +117,6 @@ function foldCompletedPeriodicJobs(tasks: OperationTask[]) {
 
   return visible;
 }
-
-export type OperationTaskListSort = "recent" | "attention";
-
-export type OperationTaskListFilters = {
-  status?: OperationTaskStatus | OperationTaskStatus[];
-  taskType?: string;
-  sort?: OperationTaskListSort;
-};
-
-export type OperationTaskListOptions = OperationTaskListFilters & { limit?: number };
 
 function normalizeStatusFilter(status: OperationTaskListFilters["status"]) {
   if (!status) return null;

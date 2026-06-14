@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OperationTaskListClient } from "../operation-task-list-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import type { OperationTask } from "@/lib/operation-task/service";
+import type { OperationTask } from "@/lib/operation-task/dto";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
