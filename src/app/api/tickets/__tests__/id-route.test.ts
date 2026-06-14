@@ -61,7 +61,8 @@ describe("/api/tickets/[id]", () => {
     const response = await route.PATCH(new Request("http://local/api/tickets/tk1", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ status: "resolved" }),
+      // TR-037: zod schema enforces canonical uppercase status enum.
+      body: JSON.stringify({ status: "RESOLVED" }),
     }), params());
 
     expect(response.status).toBe(200);

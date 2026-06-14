@@ -115,4 +115,101 @@ describe("api guard", () => {
     expect(response.status).toBe(409);
     expect(await json(response)).toEqual({ error: "端口 8080 已被占用", custom: true });
   });
+
+  /* ── TR-037: zod request validation ─────────────────────────── */
+
+  it("TR-037: rejects POST body that fails the bodySchema with a 400 ValidationError envelope", async () => {
+    const { z } = await import("zod");
+    const bodySchema = z.object({ name: z.string().min(1), count: z.number().int().positive() });
+
+    const handler = vi.fn(async () => Response.json({ ok: true }));
+    const response = await withApiRoute(
+      new Request("https://example.test/api/demo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "", count: -3 }),
+      }),
+      { bodySchema },
+      handler,
+    );
+
+    expect(response.status).toBe(400);
+    expect(handler).not.toHaveBeenCalled();
+    const payload = await json(response);
+    // TR-034 envelope shape with TR-041 code
+    expect(payload).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(payload.message).toEqual(expect.any(String));
+    expect(payload.error).toEqual(expect.any(String));
+  });
+
+  it("TR-037: forwards the parsed body to the handler when bodySchema accepts the input", async () => {
+    const { z } = await import("zod");
+    const bodySchema = z.object({ name: z.string(), count: z.number() });
+
+    const handler = vi.fn(async (ctx: { body: { name: string; count: number } }) =>
+      Response.json({ greeting: `hi ${ctx.body.name}`, doubled: ctx.body.count * 2 }),
+    );
+
+    const response = await withApiRoute(
+      new Request("https://example.test/api/demo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "world", count: 7 }),
+      }),
+      { bodySchema },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      handler as any,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await json(response)).toEqual({ greeting: "hi world", doubled: 14 });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("TR-037: rejects malformed JSON body with a clear ValidationError instead of crashing", async () => {
+    const { z } = await import("zod");
+    const response = await withApiRoute(
+      new Request("https://example.test/api/demo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{not json",
+      }),
+      { bodySchema: z.object({ a: z.string() }) },
+      async () => Response.json({ ok: true }),
+    );
+
+    expect(response.status).toBe(400);
+    const payload = await json(response);
+    expect(payload).toMatchObject({ code: "VALIDATION_FAILED" });
+  });
+
+  it("TR-037: querySchema parses URL query and rejects on type mismatch", async () => {
+    const { z } = await import("zod");
+    const querySchema = z.object({
+      page: z.string().regex(/^\d+$/).transform((v) => Number(v)),
+      sort: z.enum(["asc", "desc"]).optional(),
+    });
+
+    // Happy path
+    const goodHandler = vi.fn(async (ctx: { query: { page: number; sort?: "asc" | "desc" } }) =>
+      Response.json({ page: ctx.query.page, sort: ctx.query.sort ?? null }),
+    );
+    const ok = await withApiRoute(
+      new Request("https://example.test/api/demo?page=3&sort=desc"),
+      { querySchema },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      goodHandler as any,
+    );
+    expect(ok.status).toBe(200);
+    expect(await json(ok)).toEqual({ page: 3, sort: "desc" });
+
+    // Bad query
+    const bad = await withApiRoute(
+      new Request("https://example.test/api/demo?page=abc"),
+      { querySchema },
+      async () => Response.json({ ok: true }),
+    );
+    expect(bad.status).toBe(400);
+    expect(await json(bad)).toMatchObject({ code: "VALIDATION_FAILED" });
+  });
 });
