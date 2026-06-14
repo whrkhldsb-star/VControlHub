@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { hashPassword } from "@/lib/auth/password";
 import { validatePasswordPolicy } from "@/lib/auth/password-policy";
@@ -7,31 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-
-const postUserSchema = z.object({
-  username: z.string().min(2, "用户名至少2个字符"),
-  password: z.string().min(6, "密码至少6位"),
-  roleKeys: z.array(z.string()).optional(),
-  displayName: z.string().optional(),
-});
-
-const patchUserSchema = z
-  .object({
-    userId: z.string().min(1, "缺少用户ID"),
-    action: z.enum(["disable", "enable", "reset_password"]).optional(),
-    roleKeys: z.array(z.string()).optional(),
-    newPassword: z.string().min(6, "新密码至少6位").optional(),
-  })
-  .refine(
-    (data) =>
-      data.action !== undefined ||
-      data.roleKeys !== undefined ||
-      data.newPassword !== undefined,
-    {
-      message: "至少提供一个更新字段",
-      path: [],
-    },
-  );
+import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -73,36 +48,19 @@ export async function POST(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: createUserSchema,
       errorStatus: 400,
       errorMessage: "创建用户失败",
     },
-    async ({ session }) => {
-      if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
-
-      const body = await request.json().catch(() => null);
-      const parsed = postUserSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      }
-      const { password } = parsed.data;
-      const passwordPolicyError = await validatePasswordPolicy(password);
+    async ({ session, body }) => {
+      const passwordPolicyError = await validatePasswordPolicy(body.password);
       if (passwordPolicyError) {
-        return NextResponse.json(
-          { error: passwordPolicyError },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: passwordPolicyError }, { status: 400 });
       }
-      const username = parsed.data.username.trim();
-      const displayName = parsed.data.displayName?.trim() || null;
+      const username = body.username;
+      const displayName = body.displayName ?? null;
       const requestedRoleKeys = Array.from(
-        new Set((parsed.data.roleKeys ?? ["viewer"]).map((key) => key.trim()).filter(Boolean)),
+        new Set((body.roleKeys ?? ["viewer"]).map((key) => key.trim()).filter(Boolean)),
       );
       const roleKeys = requestedRoleKeys.length > 0 ? requestedRoleKeys : ["viewer"];
 
@@ -121,7 +79,7 @@ export async function POST(request: Request) {
           throw new Error(`角色不存在: ${missingRoleKeys.join(", ")}`);
         }
 
-        const passwordHash = await hashPassword(password);
+        const passwordHash = await hashPassword(body.password);
         const createdUser = await tx.user.create({
           data: {
             username,
@@ -142,7 +100,7 @@ export async function POST(request: Request) {
         return createdUser;
       });
 
-      auditUserAction(session.userId, "user.create", {
+      auditUserAction(session!.userId, "user.create", {
         targetUsername: username,
         roles: roleKeys,
       });
@@ -159,24 +117,11 @@ export async function PATCH(request: Request) {
     {
       permission: "user:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: updateUserSchema,
       errorMessage: "更新用户失败",
     },
-    async ({ session }) => {
-      if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
-
-      const body = await request.json().catch(() => null);
-      const parsed = patchUserSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      }
-      const { userId, action: userAction, roleKeys, newPassword } = parsed.data;
+    async ({ session, body }) => {
+      const { userId, action: userAction, roleKeys, newPassword } = body;
 
       const targetUser = await prisma.user.findUnique({
         where: { id: userId },
@@ -185,7 +130,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "用户不存在" }, { status: 404 });
       }
 
-      if (userId === session.userId && userAction === "disable") {
+      if (userId === session!.userId && userAction === "disable") {
         return NextResponse.json({ error: "不能禁用自己" }, { status: 400 });
       }
 
@@ -194,7 +139,7 @@ export async function PATCH(request: Request) {
           where: { id: userId },
           data: { status: "DISABLED" },
         });
-        auditUserAction(session.userId, "user.disable", {
+        auditUserAction(session!.userId, "user.disable", {
           targetUsername: targetUser.username,
         });
       } else if (userAction === "enable") {
@@ -202,16 +147,13 @@ export async function PATCH(request: Request) {
           where: { id: userId },
           data: { status: "ACTIVE" },
         });
-        auditUserAction(session.userId, "user.enable", {
+        auditUserAction(session!.userId, "user.enable", {
           targetUsername: targetUser.username,
         });
       } else if (userAction === "reset_password" && newPassword) {
         const resetPolicyError = await validatePasswordPolicy(newPassword);
         if (resetPolicyError) {
-          return NextResponse.json(
-            { error: resetPolicyError },
-            { status: 400 },
-          );
+          return NextResponse.json({ error: resetPolicyError }, { status: 400 });
         }
         const passwordHash = await hashPassword(newPassword);
         await prisma.user.update({
@@ -223,7 +165,7 @@ export async function PATCH(request: Request) {
           },
         });
         auditUserAction(
-          session.userId,
+          session!.userId,
           "user.password_reset",
           { targetUsername: targetUser.username },
           "WARNING",
@@ -240,7 +182,7 @@ export async function PATCH(request: Request) {
             data: { userId, roleId: role.id },
           });
         }
-        auditUserAction(session.userId, "user.role_update", {
+        auditUserAction(session!.userId, "user.role_update", {
           targetUsername: targetUser.username,
           roles: roleKeys,
         });

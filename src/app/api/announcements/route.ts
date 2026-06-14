@@ -1,29 +1,20 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { createAnnouncement, deleteAnnouncement, listActiveAnnouncements, listAnnouncements, updateAnnouncement } from "@/lib/announcement/service";
-
-const announcementPostSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
-  type: z.enum(["info", "warning", "urgent"]).optional(),
-  pinned: z.boolean().optional(),
-  published: z.boolean().optional(),
-  expiresAt: z.string().datetime().optional(),
-  startsAt: z.string().optional(),
-});
-
-const announcementPatchSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(1).optional(),
-  content: z.string().min(1).optional(),
-  type: z.enum(["info", "warning", "urgent"]).optional(),
-  pinned: z.boolean().optional(),
-  published: z.boolean().optional(),
-  expiresAt: z.string().datetime().nullable().optional(),
-});
+import {
+  createAnnouncement,
+  deleteAnnouncement,
+  listActiveAnnouncements,
+  listAnnouncements,
+  updateAnnouncement,
+} from "@/lib/announcement/service";
+import {
+  createAnnouncementSchema,
+  deleteAnnouncementQuerySchema,
+  updateAnnouncementSchema,
+} from "@/lib/announcement/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -35,55 +26,61 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { permission: "announcement:manage", rateLimit: GENERAL_WRITE_LIMIT }, async ({ session }) => {
-    const parsed = announcementPostSchema.safeParse(await request.json());
-    if (!parsed.success) {
-      return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
-    }
-
-    const data = parsed.data;
-    return NextResponse.json(
-      {
-        announcement: await createAnnouncement({
-          title: data.title,
-          body: data.content,
-          level: data.type,
-          pinned: data.pinned,
-          published: data.published,
-          createdBy: session?.userId,
-          startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
-          expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
-        }),
-      },
-      { status: 201 },
-    );
-  });
+  return withApiRoute(
+    request,
+    {
+      permission: "announcement:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: createAnnouncementSchema,
+    },
+    async ({ session, body }) => {
+      const created = await createAnnouncement({
+        title: body.title,
+        body: body.content,
+        level: body.type,
+        pinned: body.pinned,
+        published: body.published,
+        createdBy: session?.userId,
+        startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
+        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+      });
+      return NextResponse.json({ announcement: created }, { status: 201 });
+    },
+  );
 }
 
 export async function PATCH(request: Request) {
-  return withApiRoute(request, { permission: "announcement:manage", rateLimit: GENERAL_WRITE_LIMIT }, async () => {
-    const parsed = announcementPatchSchema.safeParse(await request.json());
-    if (!parsed.success) {
-      return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
-    }
-
-    const { id, content, type, expiresAt, ...rest } = parsed.data;
-    const result = await updateAnnouncement(id, {
-      ...rest,
-      body: content,
-      level: type,
-      expiresAt: expiresAt === undefined ? undefined : expiresAt === null ? null : new Date(expiresAt),
-    });
-    return NextResponse.json({ announcement: result });
-  });
+  return withApiRoute(
+    request,
+    {
+      permission: "announcement:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: updateAnnouncementSchema,
+    },
+    async ({ body }) => {
+      const { id, content, type, expiresAt, ...rest } = body;
+      const result = await updateAnnouncement(id, {
+        ...rest,
+        body: content,
+        level: type,
+        expiresAt: expiresAt === undefined ? undefined : expiresAt === null ? null : new Date(expiresAt),
+      });
+      return NextResponse.json({ announcement: result });
+    },
+  );
 }
 
 export async function DELETE(request: Request) {
-  return withApiRoute(request, { permission: "announcement:manage", rateLimit: GENERAL_WRITE_LIMIT }, async () => {
-    const id = new URL(request.url).searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "缺少公告 ID" }, { status: 400 });
-
-    await deleteAnnouncement(id);
-    return NextResponse.json({ success: true });
-  });
+  return withApiRoute(
+    request,
+    {
+      permission: "announcement:manage",
+      rateLimit: GENERAL_WRITE_LIMIT,
+      querySchema: deleteAnnouncementQuerySchema,
+    },
+    async ({ query }) => {
+      await deleteAnnouncement(query.id);
+      return NextResponse.json({ success: true });
+    },
+  );
 }
