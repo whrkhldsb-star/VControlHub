@@ -192,7 +192,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       </div>
 
       {error && (
-        <div role="alert" className="mb-4 rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+        <div role="alert" data-tone="rose" className="mb-4 rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-200">
           {error}
         </div>
       )}

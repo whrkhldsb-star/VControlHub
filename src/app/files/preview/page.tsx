@@ -115,7 +115,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 
 				{/* Large file warning */}
 				{largeTextWarning ? (
-					<div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200">
+					<div data-tone="amber" className="mb-4 rounded-2xl border border-amber-400/30 px-4 py-3 text-sm text-amber-200">
 						⚠ 文件较大（{(size / 1024 / 1024).toFixed(1)} MB），预览可能较慢。建议直接下载后查看。
 					</div>
 				) : null}

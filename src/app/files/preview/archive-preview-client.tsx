@@ -96,13 +96,13 @@ export function ArchivePreviewClient({
 			</div>
 
 			{error ? (
-				<div className="rounded-2xl border border-rose-400/30 bg-rose-400/5 px-4 py-3 text-sm text-rose-200">
+				<div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-200">
 					{error}
 				</div>
 			) : null}
 
 			{extractResult ? (
-				<div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/5 px-4 py-3 text-sm text-emerald-200">
+				<div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-200">
 					{extractResult}
 				</div>
 			) : null}

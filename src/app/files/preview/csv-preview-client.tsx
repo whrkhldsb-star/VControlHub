@@ -152,7 +152,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 				</table>
 			</div>
 			{truncated ? (
-				<div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200">
+				<div data-tone="amber" className="rounded-2xl border border-amber-400/30 px-4 py-3 text-sm text-amber-200">
 					⚠ 数据量较大，仅显示前 {maxRows} 行（共 {dataRows.length} 行）。建议下载后使用专业工具查看。
 				</div>
 			) : null}
