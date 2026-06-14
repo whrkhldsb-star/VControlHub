@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 
 import { deleteFileEntryAction } from "../storage/actions";
 import { moveFileAction } from "./move-file-action";
-import { DeleteConfirmButton } from "./delete-confirm-button";
-import { RenameInlineForm } from "./rename-inline-form";
-import { MoveInlineForm } from "./move-inline-form";
-import { ShareFileButton } from "./share-file-button";
+import {
+	DeleteConfirmButton,
+	RenameInlineForm,
+	MoveInlineForm,
+	ShareFileButton,
+} from "./file-row-actions";
 import { DownloadIcon, FileTypeIcon, PreviewIcon } from "./file-entry-icons";
 import {
 	entryCanDelete as canDeleteEntry,
