@@ -1,43 +1,135 @@
 /**
- * Unified API error handling — reduces boilerplate in route handlers.
+ * Unified API error response (TR-034) — emits `{ code, message, details? }`.
  *
- * Usage in API routes:
- *   import { apiError, apiCatch } from "@/lib/http/api-error";
+ * Backwards compatible with the legacy `apiError(status, message)` signature
+ * so existing call sites keep working while new code can opt into structured
+ * errors via the object form or by throwing typed `AppError` subclasses
+ * (see `lib/errors.ts`, TR-041).
  *
- *   try { ... }
- *   catch (e) { return apiCatch(e); }
+ * Recommended usage in route handlers:
  *
- * Or for specific status codes:
- *   return apiError(400, "参数无效");
+ *   import { apiCatch } from "@/lib/http/api-error";
+ *   import { ValidationError, NotFoundError } from "@/lib/errors";
+ *
+ *   try {
+ *     const parsed = schema.safeParse(input);
+ *     if (!parsed.success) {
+ *       throw new ValidationError("输入校验失败", parsed.error.flatten().fieldErrors);
+ *     }
+ *     const item = await getItem(id);
+ *     if (!item) throw new NotFoundError("条目不存在");
+ *     return NextResponse.json(item);
+ *   } catch (e) {
+ *     return apiCatch(e);
+ *   }
+ *
+ * Direct construction is also supported:
+ *
+ *   return apiError({ code: "INVALID_PORT", message: "端口非法", status: 400 });
+ *   return apiError(403, "无权访问");                // legacy form, code=GENERIC_ERROR
  */
 
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logging";
+import { isAppError } from "@/lib/errors";
 
 const logger = createLogger("api");
 
-/** Return a standardized JSON error response */
-export function apiError(status: number, message: string): NextResponse {
-	return NextResponse.json({ error: message }, { status });
+/** Wire format for every error response served by API routes (TR-034). */
+export type ApiErrorBody = {
+	code: string;
+	message: string;
+	details?: unknown;
+	/** Legacy `error` mirror — kept until all clients migrate to `message`. */
+	error: string;
+};
+
+export type ApiErrorOptions = {
+	code: string;
+	message: string;
+	status: number;
+	details?: unknown;
+};
+
+function buildBody(opts: ApiErrorOptions): ApiErrorBody {
+	const body: ApiErrorBody = {
+		code: opts.code,
+		message: opts.message,
+		// Mirror `message` into the legacy `error` field so existing front-end
+		// code that reads `body.error` keeps working through the migration.
+		error: opts.message,
+	};
+	if (opts.details !== undefined) body.details = opts.details;
+	return body;
 }
 
 /**
- * Catch handler for API routes — extracts message from Error, logs 5xx errors.
+ * Return a standardized JSON error response.
  *
- * Usage:
- *   catch (e) { return apiCatch(e); }
- *   // Returns 400 for known errors, 500 for unexpected ones
- *
- *   catch (e) { return apiCatch(e, 404); }
- *   // Returns 404 with the error message
+ * Three accepted forms:
+ *   apiError({ code, message, status, details? })   // structured (preferred)
+ *   apiError(status, message)                       // legacy (auto code=GENERIC_ERROR)
+ *   apiError(status, message, code)                 // legacy with explicit code
  */
-export function apiCatch(e: unknown, fallbackStatus = 400, fallbackMessage = "请求失败"): NextResponse {
-	const message = e instanceof Error ? e.message : fallbackMessage;
+export function apiError(options: ApiErrorOptions): NextResponse;
+export function apiError(status: number, message: string, code?: string): NextResponse;
+export function apiError(
+	a: ApiErrorOptions | number,
+	b?: string,
+	c?: string,
+): NextResponse {
+	let opts: ApiErrorOptions;
+	if (typeof a === "number") {
+		opts = {
+			code: c ?? "GENERIC_ERROR",
+			message: b ?? "请求失败",
+			status: a,
+		};
+	} else {
+		opts = a;
+	}
+	return NextResponse.json(buildBody(opts), { status: opts.status });
+}
 
-	// Log server errors (5xx) for debugging
-	if (fallbackStatus >= 500) {
-		logger.error(message, e);
+/**
+ * Catch handler for API routes. Recognises three shapes:
+ *
+ *   - `AppError` subclasses (lib/errors.ts) → use their `code`, `status`, `details`.
+ *   - Plain `Error` / unknown                → fall back to `fallbackStatus` + `fallbackMessage`.
+ *
+ * 5xx responses are logged. 4xx responses are not (avoid log spam from user input).
+ */
+export function apiCatch(
+	e: unknown,
+	fallbackStatus = 500,
+	fallbackMessage = "操作失败",
+): NextResponse {
+	let opts: ApiErrorOptions;
+
+	if (isAppError(e)) {
+		opts = {
+			code: e.code,
+			message: e.message,
+			status: e.status,
+			details: e.details,
+		};
+	} else if (e instanceof Error) {
+		opts = {
+			code: fallbackStatus >= 500 ? "INTERNAL_ERROR" : "GENERIC_ERROR",
+			message: e.message || fallbackMessage,
+			status: fallbackStatus,
+		};
+	} else {
+		opts = {
+			code: "INTERNAL_ERROR",
+			message: fallbackMessage,
+			status: fallbackStatus,
+		};
 	}
 
-	return NextResponse.json({ error: message }, { status: fallbackStatus });
+	if (opts.status >= 500) {
+		logger.error(opts.message, e);
+	}
+
+	return NextResponse.json(buildBody(opts), { status: opts.status });
 }

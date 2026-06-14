@@ -12,9 +12,7 @@ import { verifyPending2faToken, createSessionToken, getSessionCookieName, getPen
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { checkRateLimit, getClientIp, LOGIN_RATE_LIMIT } from "@/lib/rate-limit";
-import { createLogger } from "@/lib/logging";
-
-const logger = createLogger("api:2fa:verify-login");
+import { apiCatch, apiError } from "@/lib/http/api-error";
 
 const verifyLoginSchema = z.object({ code: z.string().min(1) });
 
@@ -24,28 +22,52 @@ export async function POST(request: Request) {
 		const clientIp = getClientIp(request);
 		const rateCheck = checkRateLimit(clientIp, LOGIN_RATE_LIMIT);
 		if (!rateCheck.allowed) {
-			return NextResponse.json({ error: "验证尝试过于频繁，请稍后再试" }, { status: 429 });
+			return apiError({
+				code: "RATE_LIMITED",
+				message: "验证尝试过于频繁，请稍后再试",
+				status: 429,
+			});
 		}
 
 		const parsed = verifyLoginSchema.safeParse(await request.json());
-		if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+		if (!parsed.success) {
+			return apiError({
+				code: "VALIDATION_FAILED",
+				message: "输入参数无效",
+				status: 400,
+				details: parsed.error.flatten().fieldErrors,
+			});
+		}
 		const { code } = parsed.data;
 		if (!/^\d{4,8}$/.test(code)) {
-			return NextResponse.json({ error: "请输入有效的验证码" }, { status: 400 });
+			return apiError({
+				code: "VALIDATION_FAILED",
+				message: "请输入有效的验证码",
+				status: 400,
+				details: { fieldErrors: { code: ["格式必须为 4-8 位数字"] } },
+			});
 		}
 
 		// Read the pending 2FA cookie
 		const cookieStore = await cookies();
 		const pendingCookie = cookieStore.get(getPending2faCookieName());
 		if (!pendingCookie?.value) {
-			return NextResponse.json({ error: "会话已过期，请重新登录" }, { status: 401 });
+			return apiError({
+				code: "PENDING_2FA_EXPIRED",
+				message: "会话已过期，请重新登录",
+				status: 401,
+			});
 		}
 
 		const sessionPayload = await verifyPending2faToken(pendingCookie.value);
 		if (!sessionPayload) {
 			// Clear the invalid pending cookie
 			cookieStore.delete(getPending2faCookieName());
-			return NextResponse.json({ error: "会话已过期，请重新登录" }, { status: 401 });
+			return apiError({
+				code: "PENDING_2FA_EXPIRED",
+				message: "会话已过期，请重新登录",
+				status: 401,
+			});
 		}
 
 		// Look up the user's TOTP secret
@@ -56,14 +78,22 @@ export async function POST(request: Request) {
 
 		if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
 			cookieStore.delete(getPending2faCookieName());
-			return NextResponse.json({ error: "两步验证未启用" }, { status: 400 });
+			return apiError({
+				code: "TWO_FACTOR_DISABLED",
+				message: "两步验证未启用",
+				status: 400,
+			});
 		}
 
 		// Verify the TOTP code
 		const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
 		if (!valid) {
 			auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING");
-			return NextResponse.json({ error: "验证码错误" }, { status: 400 });
+			return apiError({
+				code: "TWO_FACTOR_INVALID_CODE",
+				message: "验证码错误",
+				status: 400,
+			});
 		}
 
 		// ── 2FA verified — create full session ──
@@ -98,7 +128,7 @@ export async function POST(request: Request) {
 		});
 		return response;
 	} catch (error) {
-		logger.error("[2fa/verify-login]", error);
-		return NextResponse.json({ error: "验证失败，请重试" }, { status: 500 });
+		// apiCatch with 500 fallback logs the error and returns INTERNAL_ERROR
+		return apiCatch(error, 500, "验证失败，请重试");
 	}
 }

@@ -579,4 +579,143 @@ make logs SERVICE_PREFIX=vcontrolhub
 | TR-031 | P3 | 成本追踪（VPS 费用/带宽/存储用量/月度报告） |
 | TR-032 | P3 | 智能运维 AI（主动诊断/异常预测/自动修复建议） |
 | TR-033 | P3 | PWA 离线支持和集成市场 |
+| TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`，替换散落 `{ error: "..." }`） |
+| TR-035 | P2 | 环境变量集中读取层（29 个文件直读 `process.env`，应统一走 `lib/server/config.ts`） |
+| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行，最大 file-list-client 1644 行） |
+| TR-037 | P2 | API 入参 zod 校验补齐（79 个 route 仅 40 个用 zod，39 个 ad-hoc 解析或无校验） |
+| TR-038 | P2 | God-object service 继续拆分（server 1120 / storage 1099 / command 880 / quick-service 663 / ai 631） |
+| TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment 5 个域仍直出 service.ts） |
+| TR-040 | P2 | N+1 查询审计与修复（command/service、command-template/service、quick-service/app-source-sync 3 个文件存在 for-of + await prisma 写法） |
+| TR-041 | P2 | 自定义错误类引入（273 处 `throw new Error()` 散布在 61 文件，无类型化错误，前端只能字符串匹配） |
+| TR-042 | P3 | i18n 文案覆盖度审计（translations.ts 仅 380 行，dom-translations 走的是 DOM 替换路径，文案完整度与新增页面同步机制需固化） |
+
+---
+
+## 🔬 全量代码审查（2026-06-13）
+
+**审查范围**：64k 行 TS/TSX 源码（不含测试）、450 个源文件、236 个测试文件、79 个 API route、39 个页面路由、40 个业务模块。
+**审查方法**：静态信号扫描 + 关键文件抽样 + 与 README 已记录 TR 描述对账。**未改动一行业务代码**，仅产出问题清单。
+**前提**：项目由多个 AI 协作产出，重点关注「风格一致性」「架构健康度」「功能完整性」「可用性」「性能」五维。
+
+### ✅ 现状评估（结构上比预期好）
+
+- **零循环依赖**（lib/* 跨域引用全是单向）；db/logging/auth 是合理的基础设施层（被 29/13/6 个模块依赖）。
+- **鉴权架构清晰**：`proxy.ts` middleware 边界守门 + `withApiRoute({ permission })` 细粒度。79 个 route 全部覆盖（7 个不走该 helper 的均为合理特殊路径：login / image-public / status / share-token / 2FA / dashboard-self-guard / openapi-reexport）。
+- **`'use client'` 文件未直接 import 服务端 prisma**，仅 3 处 `import type` 跨边界（type-only，bundle 0 影响）。
+- **页面路由 loading.tsx / error.tsx 覆盖率 32/39 ≈ 82%**，next.js convention 落实较好。
+- **`light:` 双主题修饰符已收敛到 297**（TR-021/022 持续推进的可见效果，README 上次记录是 386）。
+- **测试覆盖**：236 个测试文件（约 1:1.9 测代比），命令/job/sftp 等高风险模块有专门 worker.test。
+
+### 🚧 现有 TR 核实结果（TR-001~033）
+
+按"复选框语义"重新分类（不是 README 里的状态文案，而是与代码事实是否吻合）：
+
+**真已完成（[x] 或表格 ✅，验证一致）**：
+TR-008、TR-013、TR-027、TR-028、TR-017、TR-018、TR-021、TR-022（4 个有专属章节）。
+
+**主体已落地、复选框未收口（描述写"已完成主体/继续补"，状态符号仍 [ ]，建议各自切收口子项后转 [x]）**：
+TR-001、TR-002、TR-003、TR-004、TR-005、TR-006、TR-007、TR-012、TR-014、TR-019。
+
+**真未启动（[ ] 与代码事实一致）**：
+TR-009、TR-010、TR-011、TR-015、TR-016、TR-020、TR-023、TR-024、TR-025、TR-026、TR-029、TR-030、TR-031、TR-032、TR-033。
+
+> 行动建议：现有 TR 不重写描述；下一轮由 TR-advancer 或人工逐个把"主体已落地"组里 [ ] 改 [x] 并把剩余增强拆为 TR-019/TR-024/TR-040 等子项。
+
+### 🆕 新发现问题（TR-034 ~ TR-042 详细说明）
+
+#### TR-034 P1 — API 错误响应 shape 不统一
+
+- 现状：69 个 route 共 235 处 `NextResponse.json({ error: "...文案..." }, { status })`，**仅有文案、没有 `code` 字段**，前端无法做 i18n / 类型化错误处理。
+- 子样本：`{ error: "未认证" }` / `{ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }` / `{ error: "无权写入该存储路径" }` / `{ error: "Bearer 上传暂不支持..." }`。
+- 建议方案：
+  1. 引入 `lib/http/api-error.ts` 已有的 `apiCatch`（已存在但未强制） + 新增 `ApiErrorBody = { code: string; message: string; details?: unknown }`。
+  2. 沉淀 `errorCodes.ts`（`AUTH_REQUIRED` / `VALIDATION_FAILED` / `FORBIDDEN` / `NOT_FOUND` / `RATE_LIMITED` 等）。
+  3. 一轮 codemod 把 `NextResponse.json({ error: "..." }, { status })` 替换为 `apiError("CODE", message, details, status)`。
+  4. 前端 `lib/http/api-client.ts` 增 `ApiError` 类型并按 `code` 分发（取代字符串文案匹配）。
+
+#### TR-035 P2 — 环境变量集中读取层
+
+- 现状：29 个文件直接 `process.env.XXX`，散布在 `app/`、`lib/`、`ssh-ws-proxy.ts`、`instrumentation.ts`、`proxy.ts`。
+- 风险：默认值不一致（`SSH_WS_MAX_CONNECTIONS || "50"`）、缺失校验（数字字符串没 parse 失败兜底）、新人改名要全文搜。
+- 建议：扩充 `lib/server/config.ts`（已存在），按命名空间暴露 `config.ssh.maxConnections` / `config.auth.sessionSecret` 等；其余位置统一引用，保留 `process.env` 仅在 `config.ts`、`db.ts`、`proxy.ts` 三处启动入口。
+
+#### TR-036 P1 — 大客户端 bundle 拆分
+
+| client 文件 | 行数 |
+| --- | --- |
+| `app/files/file-list-client.tsx` | 1644 |
+| `app/quick-services/quick-services-client.tsx` | 1184 |
+| `app/ai/ai-client.tsx` | 1085 |
+| `app/files/files-browser-spa.tsx` | 967 |
+| `app/health/health-dashboard-client.tsx` | 745 |
+| `app/image-bed/image-bed-page-client.tsx` | 695 |
+| `app/files/preview/text-preview-client.tsx` | 619 |
+| `app/downloads/downloads-client.tsx` | 569 |
+| `app/servers/server-overview-card.tsx` | 522 |
+
+- 影响：首屏 JS 大、不易懒加载、单文件改一处全量重 bundle。
+- 建议：每个 ≥500 行 client 拆 `*-table.tsx` / `*-toolbar.tsx` / `*-dialog.tsx` 为独立模块，配合 `next/dynamic` 把对话框/抽屉/编辑器懒加载。这与 TR-017（已完成主体）是同方向延续。
+
+#### TR-037 P2 — API 入参 zod 校验补齐
+
+- 现状：79 个 route 中 40 个用 `z.object()` 验入参，覆盖率 50%。剩 39 个分两类：
+  - 纯 GET 无参（合理）
+  - 用 `searchParams.get("x")` + 手工 parse（无 schema、无 errorMap、错误响应不统一）
+- 建议：引入 `lib/http/parse-search-params.ts`（zod-form-data 风格），所有 GET 亦走 zod 验证；route-catalog 守卫脚本（TR-028 已完成）扩一条 lint 规则强制存在 schema。
+
+#### TR-038 P2 — God-object service 继续拆分
+
+| service.ts | 行数 |
+| --- | --- |
+| `lib/server/service.ts` | 1120 |
+| `lib/storage/service.ts` | 1099 |
+| `lib/command/service.ts` | 880 |
+| `lib/quick-service/service.ts` | 663 |
+| `lib/ai/service.ts` | 631 |
+| `lib/sync/service.ts` | 435 |
+| `lib/backup/service.ts` | 382 |
+| `lib/health/service.ts` | 372 |
+
+- 这些是项目最难维护的几个文件，TR-019 R10~R14 抽 adapter 已经在做，但只触及"adapter 提取"层面（ssh-executor / docker-cli / provider-http / command-runner）。
+- 建议：service 内部按"对象-动词"分子模块（`server/service.ts` → `crud.ts` / `monitoring.ts` / `direct-gateway.ts` / `diagnostics.ts`），单文件目标 < 400 行。
+
+#### TR-039 P2 — 领域 DTO 边界续做
+
+5 个域仍把类型从 `service.ts` 直接给 client：
+- `lib/operation-task/`（service 14 处 include，复杂关联）
+- `lib/runtime-settings/`
+- `lib/files/`
+- `lib/ai/`
+- `lib/deployment/`
+
+已完成的样板：`lib/settings/schema.ts`、`lib/backup/schema.ts`、`lib/storage/schema.ts`、`lib/quick-service/types.ts`、`lib/command/schema.ts`。续作此 5 个，即可全域 DTO 闭环。
+
+#### TR-040 P2 — N+1 查询审计与修复
+
+- 候选文件 3 个：`lib/command/service.ts`、`lib/command-template/service.ts`、`lib/quick-service/app-source-sync.ts`，均存在 `for (const x of list) { await prisma.* }` 写法。
+- 建议：逐处替换为 `findMany({ where: { id: { in: ids } } })` + 内存 join；或 `Promise.all(list.map(...))`（无序约束时）。
+- 影响面：列表页 TTI 与后台 worker 吞吐。
+
+#### TR-041 P2 — 自定义错误类
+
+- 现状：273 处 `throw new Error("文案")` 分布在 61 个文件，类型上都是 `Error` 一种，调用方只能 `instanceof Error` + 字符串匹配。
+- 建议：在 `lib/errors.ts` 引入 `AppError`（带 `code: string`）+ 子类（`AuthError` / `NotFoundError` / `ValidationError` / `BusinessError`），配合 TR-034 在 `apiCatch` 里按错误类型映射 HTTP 状态。
+
+#### TR-042 P3 — i18n 文案覆盖度
+
+- 现状：`translations.ts` 380 行 + `dom-translations.ts` 通过 DOM 替换；`use-locale.ts` 提供 `useI18n()` hook。架构本身合理。
+- 隐患：`translations.ts` 是有限白名单，新页面/新文案上线时极易遗漏。
+- 建议：写一个 `scripts/i18n-coverage.ts`，扫描 `app/**/*.tsx` 中可见用户文案（中文字面量 outside `data-i18n` / 注释），与 `translations.ts` keys 比对，CI 报缺失。
+
+### 🎯 优先级与下一步建议
+
+按用户 priority（功能完整性 > 可用性 > 性能）映射：
+
+- **功能完整性** → 主推 TR-001 / 002 / 004 / 011 / 015 / 023（业务功能闭环）
+- **可用性** → 主推 TR-026 / 014 / 016 / 029 / TR-034（用户操作反馈与错误体验）
+- **性能** → 主推 TR-036 / 040 / 005（首屏 bundle、查询、列表分页）
+
+不建议本轮立刻动 TR-024（durable worker 全量迁移）、TR-030（多租户）、TR-032（智能运维 AI），三者都是大改造，需先单独做方案评审。
+
+> 本审查由人工 + 静态信号联合产出，未改动业务代码；建议把 TR-034 ~ TR-042 加入 `~/.hermes/state/tr-advancer-state.json` 的 `trClassification`，由 TR-advancer 接续推进自动子集，人工继续推 P1。
 
