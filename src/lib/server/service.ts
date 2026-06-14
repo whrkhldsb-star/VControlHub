@@ -1,8 +1,6 @@
-import { createHash } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 import { Prisma } from "@prisma/client";
-import { PPKError, parseFromString } from "ppk-to-openssh";
 
 import { revalidatePath } from "next/cache";
 
@@ -12,10 +10,7 @@ import {
   createRemoteDirectory,
   execRemoteCommand,
 } from "@/lib/ssh/client";
-import {
-  encryptServerPasswordIfPlain,
-  encryptSshPrivateKey,
-} from "@/lib/ssh/ssh-key-crypto";
+import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
 import { getServerConnectionSummary, normalizeServerInput } from "./config";
 import {
   buildDirectGatewayPublicBaseUrl,
@@ -25,6 +20,14 @@ import {
   getDirectGatewayStatusLabel,
 } from "./direct-gateway";
 import { createServerSchema, type CreateServerInput } from "./schema";
+// TR-038 R1: SSH-key bag extracted into its own module. service.ts
+// keeps `listSshKeys`/`createSshKey` as thin re-export wrappers so the
+// 14 existing call sites (server actions, route handlers, vi.mock
+// targets in tests) keep resolving against this path.
+import {
+  listSshKeys as _listSshKeys,
+  createSshKey as _createSshKey,
+} from "./ssh-keys";
 
 type ServerCommandTarget = {
   id: string;
@@ -296,151 +299,13 @@ function enrichServer(server: ServerWithRelations) {
 }
 
 export async function listSshKeys() {
-  return prisma.sshKey.findMany({
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, fingerprint: true, description: true },
-  });
+  /* TR-038 R1: implementation moved to ./ssh-keys */
+  return _listSshKeys();
 }
 
-function normalizeAuthorizedKey(input: string) {
-  return input.trim().replace(/\r\n/g, "\n");
-}
-
-function toBase64UrlSafe(value: string) {
-  return value.replace(/-/g, "+").replace(/_/g, "/");
-}
-
-function computeSshPublicKeyFingerprint(publicKey: string) {
-  const normalized = normalizeAuthorizedKey(publicKey);
-  const parts = normalized.split(/\s+/);
-
-  if (parts.length < 2) {
-    throw new Error(
-      "SSH 公钥格式无效，请粘贴完整的 authorized_keys 公钥内容。",
-    );
-  }
-
-  const decoded = Buffer.from(toBase64UrlSafe(parts[1]), "base64");
-  if (decoded.length === 0) {
-    throw new Error("SSH 公钥内容无法解析，请检查公钥是否完整。");
-  }
-
-  return `SHA256:${createHash("sha256").update(decoded).digest("base64").replace(/=+$/g, "")}`;
-}
-
-type SshPrivateKeyEncryptionMode = "none" | "same-as-ppk" | "custom";
-
-async function normalizeImportedSshKey(input: {
-  publicKey?: string;
-  privateKey?: string | null;
-  ppkContent?: string | null;
-  ppkPassphrase?: string | null;
-  privateKeyEncryptionMode?: SshPrivateKeyEncryptionMode;
-  privateKeyOutputPassphrase?: string | null;
-}) {
-  const ppkContent = input.ppkContent?.trim();
-  const manualPrivateKey = input.privateKey?.trim() || null;
-
-  if (!ppkContent) {
-    const publicKey = normalizeAuthorizedKey(input.publicKey ?? "");
-    if (!publicKey) {
-      throw new Error("SSH 公钥不能为空，或请上传 .ppk 私钥文件自动提取。 ");
-    }
-
-    return {
-      publicKey,
-      privateKey: manualPrivateKey,
-      fingerprint: computeSshPublicKeyFingerprint(publicKey),
-    };
-  }
-
-  const inputPassphrase = input.ppkPassphrase?.trim() ?? "";
-  const encryptionMode = input.privateKeyEncryptionMode ?? "none";
-  const outputPassphrase = input.privateKeyOutputPassphrase?.trim() ?? "";
-
-  if (encryptionMode === "same-as-ppk" && !inputPassphrase) {
-    throw new Error("选择沿用 PPK 口令时，必须填写 PPK 口令。");
-  }
-
-  if (encryptionMode === "custom" && !outputPassphrase) {
-    throw new Error("选择自定义加密格式时，必须填写新的私钥口令。");
-  }
-
-  try {
-    const parsed =
-      encryptionMode === "none"
-        ? await parseFromString(ppkContent, inputPassphrase)
-        : await parseFromString(ppkContent, inputPassphrase, {
-            encrypt: true,
-            outputPassphrase:
-              encryptionMode === "same-as-ppk"
-                ? inputPassphrase
-                : outputPassphrase,
-          });
-
-    return {
-      publicKey: normalizeAuthorizedKey(parsed.publicKey),
-      privateKey: parsed.privateKey.trim(),
-      fingerprint:
-        parsed.fingerprint || computeSshPublicKeyFingerprint(parsed.publicKey),
-    };
-  } catch (error) {
-    if (error instanceof PPKError) {
-      if (error.code === "PASSPHRASE_REQUIRED") {
-        throw new Error("该 PPK 文件已加密，请填写正确的 PPK 口令后再导入。");
-      }
-
-      if (error.code === "INVALID_MAC") {
-        throw new Error("PPK 口令错误或文件已损坏，请检查后重试。");
-      }
-
-      if (error.code === "WRONG_FORMAT") {
-        throw new Error("上传文件不是有效的 PPK 私钥，请选择 .ppk 文件。 ");
-      }
-
-      throw new Error(error.message);
-    }
-
-    throw error;
-  }
-}
-
-export async function createSshKey(input: {
-  name: string;
-  publicKey?: string;
-  privateKey?: string | null;
-  ppkContent?: string | null;
-  ppkPassphrase?: string | null;
-  privateKeyEncryptionMode?: SshPrivateKeyEncryptionMode;
-  privateKeyOutputPassphrase?: string | null;
-  description?: string | null;
-  createdById?: string | null;
-}) {
-  const name = input.name.trim();
-  const description = input.description?.trim() || null;
-
-  if (!name) throw new Error("SSH 密钥名称不能为空");
-
-  const normalizedKey = await normalizeImportedSshKey(input);
-
-  return prisma.sshKey.create({
-    data: {
-      name,
-      fingerprint: normalizedKey.fingerprint,
-      publicKey: normalizedKey.publicKey,
-      privateKey: normalizedKey.privateKey
-        ? encryptSshPrivateKey(normalizedKey.privateKey)
-        : null,
-      description,
-      createdById: input.createdById ?? null,
-    },
-    select: {
-      id: true,
-      name: true,
-      fingerprint: true,
-      description: true,
-    },
-  });
+export async function createSshKey(input: Parameters<typeof _createSshKey>[0]) {
+  /* TR-038 R1: implementation moved to ./ssh-keys */
+  return _createSshKey(input);
 }
 
 function getConfiguredDirectAccessSecret() {
