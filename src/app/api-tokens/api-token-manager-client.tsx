@@ -194,7 +194,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </dl>
                     </div>
                     {!token.revokedAt && (
-                      <button type="button" aria-label={`撤销 ${token.name}`} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60">
+                      <button type="button" aria-label={`撤销 ${token.name}`} disabled={revokingId === token.id} onClick={() => setTokenPendingRevoke(token)} data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-2 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60">
                         {revokingId === token.id ? "撤销中…" : "撤销"}
                       </button>
                     )}

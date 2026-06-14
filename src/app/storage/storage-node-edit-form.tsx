@@ -109,8 +109,8 @@ export function StorageNodeEditForm({
 				</label>
 			</div>
 
-			{state.error ? <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{state.error}</div> : null}
-			{state.success ? <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{state.success}</div> : null}
+			{state.error ? <div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div> : null}
+			{state.success ? <div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100">{state.success}</div> : null}
 
 			<div className="flex justify-end"><SubmitButton pendingLabel="保存中...">保存修改</SubmitButton></div>
 		</form>

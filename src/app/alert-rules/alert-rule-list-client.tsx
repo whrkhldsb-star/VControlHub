@@ -153,7 +153,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			)}
 			<div className="flex items-center gap-3 flex-wrap">
 				{canManage && !showCreate && (
-					<button onClick={() => setShowCreate(true)} className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition">
+					<button onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition">
 						+ 创建告警规则
 					</button>
 				)}
@@ -256,14 +256,14 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						<button
 							onClick={() => testRule(rule)}
 							disabled={busyAction === `test:${rule.id}`}
-							className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+							data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === `test:${rule.id}` ? "发送中…" : "测试发送"}
 						</button>
 						<button
 							onClick={() => setRulePendingDelete(rule)}
 							disabled={busyAction === `delete:${rule.id}`}
-							className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
+							data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
 							{busyAction === `delete:${rule.id}` ? "删除中…" : "删除"}
 						</button>

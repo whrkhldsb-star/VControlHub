@@ -75,10 +75,10 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 					/>
 
 					{state.error ? (
-						<div role="alert" className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{state.error}</div>
+						<div role="alert" data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div>
 					) : null}
 					{state.success ? (
-						<div role="status" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{state.success}</div>
+						<div role="status" data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100">{state.success}</div>
 					) : null}
 
 					<div className="flex justify-end gap-3 pt-2">

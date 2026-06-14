@@ -347,7 +347,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				</div>
 				{canManage && servers.length > 0 ? (
 					<button type="button" onClick={() => setShowForm(!showForm)}
-						className="rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
+						data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-5 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
 					>
 						{showForm ? "取消" : "+ 新建下载"}
 					</button>

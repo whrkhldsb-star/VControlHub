@@ -98,7 +98,7 @@ export function ServerCardActions({
             type="button"
             onClick={handleOpenTerminal}
             aria-label={`打开 ${serverName} SSH 终端`}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
+            data-tone="cyan" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
           >
             <span aria-hidden="true">💻</span>
             <span>SSH 终端</span>
@@ -162,7 +162,7 @@ export function ServerCardActions({
               pendingLabel={
                 directGateway.enabled ? "删除服务中..." : "安装服务中..."
               }
-              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
+              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
             >
               {directGateway.enabled
                 ? "切回网站中转并删除直连服务"
@@ -299,7 +299,7 @@ export function ServerCardActions({
             />
             <SubmitButton
               pendingLabel="校验中..."
-              className="w-full rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 light:border-emerald-700/30 light:bg-emerald-50 light:hover:bg-emerald-100"
+              data-tone="emerald" className="w-full rounded-2xl border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 light:border-emerald-700/30 light:bg-emerald-50 light:hover:bg-emerald-100"
             >
               保存并校验连接
             </SubmitButton>
@@ -319,7 +319,7 @@ export function ServerCardActions({
             <input type="hidden" name="serverId" value={serverId} />
             <SubmitButton
               pendingLabel="处理中..."
-              className="w-full rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
+              data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
             >
               {enabled ? "停用节点" : "启用节点"}
             </SubmitButton>
@@ -378,7 +378,7 @@ export function ServerCardActions({
                 <div className="flex gap-2">
                   <SubmitButton
                     pendingLabel="删除中..."
-                    className="flex-1 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:hover:bg-rose-200"
+                    data-tone="rose" className="flex-1 rounded-2xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:hover:bg-rose-200"
                   >
                     确认删除
                   </SubmitButton>
@@ -394,7 +394,7 @@ export function ServerCardActions({
             ) : (
               <SubmitButton
                 pendingLabel="查询中..."
-                className="w-full rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-50 light:hover:bg-rose-100"
+                data-tone="rose" className="w-full rounded-2xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-50 light:hover:bg-rose-100"
               >
                 删除节点
               </SubmitButton>

@@ -19,8 +19,8 @@ export function ReviewCommandForm({ commandRequestId }: { commandRequestId: stri
         <textarea name="comment" rows={2} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white outline-none ring-0" placeholder="可填写批准原因、执行窗口、注意事项等" />
       </label>
 
-      {state.error ? <div className="mt-3 rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-rose-100">{state.error}</div> : null}
-      {state.success ? <div className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-emerald-100">{state.success}</div> : null}
+      {state.error ? <div data-tone="rose" className="mt-3 rounded-2xl border border-rose-400/30 px-4 py-3 text-rose-100">{state.error}</div> : null}
+      {state.success ? <div data-tone="emerald" className="mt-3 rounded-2xl border border-emerald-400/30 px-4 py-3 text-emerald-100">{state.success}</div> : null}
 
       <div className="mt-4 flex flex-wrap gap-3">
         <SubmitButton

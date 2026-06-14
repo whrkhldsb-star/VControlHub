@@ -43,10 +43,10 @@ export function ChangePasswordForm() {
       </div>
 
       {state.error ? (
-        <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">{state.error}</div>
+        <div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div>
       ) : null}
       {state.success ? (
-        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">{state.success}</div>
+        <div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100">{state.success}</div>
       ) : null}
 
       <div className="flex justify-end">
