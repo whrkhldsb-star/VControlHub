@@ -1,7 +1,32 @@
-import type { getStorageOverview } from "@/lib/storage/service";
+// TR-039: pure DTO types live in ./dto so client code can reach them
+// without pulling the whole server-only service module. We import them
+// for in-file use AND re-export them so every existing call site
+// 'from "@/lib/files/tree"' keeps working.
+import type {
+  FileTreeSearchFoldersDto,
+  SerializedTreeFolderDto,
+  SerializedTreeNodeDto,
+  StorageDirectoryForTreeDto,
+  StorageEntryForTreeDto,
+} from "./dto";
 
-export type StorageEntryForTree = Awaited<ReturnType<typeof getStorageOverview>>["entries"][number];
-export type StorageDirectoryForTree = Awaited<ReturnType<typeof getStorageOverview>>["remoteDirectories"][number];
+export type {
+  FileTreeSearchFoldersDto,
+  SerializedTreeFolderDto,
+  SerializedTreeNodeDto,
+  StorageDirectoryForTreeDto,
+  StorageEntryForTreeDto,
+};
+
+// Backwards-compatible aliases — existing call sites that imported
+// `StorageEntryForTree` / `StorageDirectoryForTree` /
+// `SerializedTreeNode` / `SerializedTreeFolder` from this module keep
+// working. The DTO form is the canonical name; these aliases stay for
+// the transition window only.
+export type StorageEntryForTree = StorageEntryForTreeDto;
+export type StorageDirectoryForTree = StorageDirectoryForTreeDto;
+export type SerializedTreeNode = SerializedTreeNodeDto;
+export type SerializedTreeFolder = SerializedTreeFolderDto;
 
 export function isDirectoryEntry(entry: { entryType?: string | null; mimeType?: string | null }) {
 	return entry.entryType === "DIRECTORY" || entry.mimeType === "inode/directory";
@@ -16,20 +41,6 @@ export type FileTreeNode = {
 	folders: Map<string, FileTreeNode>;
 	files: StorageEntryForTree[];
 	sources: Map<string, string>;
-};
-
-export type SerializedTreeNode = {
-	name: string;
-	displayName?: string;
-	path: string;
-	entryId: string | null;
-	storageNodeId: string | null;
-	relativePath: string | null;
-	fileCount: number;
-	folderCount: number;
-	sourceKeys: string[];
-	sourceValues: string[];
-	children: SerializedTreeNode[];
 };
 
 export function normalizeFilePath(value?: string | null) {

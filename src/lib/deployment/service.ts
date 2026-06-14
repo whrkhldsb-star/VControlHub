@@ -2,6 +2,30 @@ import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { renderCommand, seedBuiltinTemplates } from "@/lib/command-template/service";
 
+// TR-039: pure DTO types live in ./dto so client code can reach them
+// without pulling the whole server-only service module. We import them
+// for in-file use AND re-export them so every existing call site
+// 'from "@/lib/deployment/service"' keeps working.
+import type {
+  DeploymentLaunchInputDto,
+  DeploymentRollbackInputDto,
+  DeploymentRollbackRunDto,
+  DeploymentRunDto,
+  DeploymentSnapshotDto,
+  DeploymentStatusDto,
+  DeploymentTemplateDto,
+} from "./dto";
+
+export type {
+  DeploymentLaunchInputDto,
+  DeploymentRollbackInputDto,
+  DeploymentRollbackRunDto,
+  DeploymentRunDto,
+  DeploymentSnapshotDto,
+  DeploymentStatusDto,
+  DeploymentTemplateDto,
+};
+
 function normalizeDeploymentInput(input: {
   templateId: string;
   serverIds: string[];
