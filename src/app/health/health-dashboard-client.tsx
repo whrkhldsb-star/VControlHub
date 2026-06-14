@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+
+import { useHealthData } from "./use-health-data";
+import type { MetricPoint, SystemHealthReport } from "./health-types";
 
 type SystemHealthStatus = "healthy" | "warning" | "critical";
 type SystemHealthSummary = { total: number; healthy: number; warning: number; critical: number; overall: SystemHealthStatus };
@@ -26,22 +28,6 @@ type ServerHealth = {
 type HealthOverview = {
 	total: number; online: number; warning: number; critical: number; offline: number;
 	servers: ServerHealth[];
-};
-
-type MetricPoint = { cpu: number; mem: number; disk: number; online: boolean; t: string };
-
-type SystemHealthCheck = {
-	id: string;
-	label: string;
-	status: SystemHealthStatus;
-	message: string;
-	detail?: string;
-};
-
-type SystemHealthReport = {
-	generatedAt: string;
-	summary: SystemHealthSummary;
-	checks: SystemHealthCheck[];
 };
 
 type Props = { serverCount: number; initialSystemHealth?: SystemHealthReport | null };
@@ -249,16 +235,6 @@ function translateSystemHealthText(value: string, locale: "zh" | "en") {
 		.replace(/^当前目录不是可识别的 Git 仓库或无法读取 HEAD$/, "Current directory is not a recognized Git repository or HEAD cannot be read");
 }
 
-function isSystemHealthReport(value: unknown): value is SystemHealthReport {
-	return Boolean(
-		value
-		&& typeof value === "object"
-		&& "summary" in value
-		&& "checks" in value
-		&& Array.isArray((value as { checks?: unknown }).checks),
-	);
-}
-
 type RepairSuggestion = {
 	id: string;
 	label: string;
@@ -355,85 +331,27 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 	const { locale } = useI18n();
 	const copy = healthCopy[locale];
 	const browserLocale = locale === "zh" ? "zh-CN" : "en-US";
-	const [overview, setOverview] = useState<HealthOverview | null>(null);
-	const [systemHealth, setSystemHealth] = useState<SystemHealthReport | null>(initialSystemHealth ?? null);
-	const [loading, setLoading] = useState(true);
-	const [history, setHistory] = useState<Record<string, MetricPoint[]>>({});
+	const {
+		overview,
+		systemHealth,
+		history,
+		historyErrors,
+		loadError,
+		lastRefresh,
+		isRefreshing,
+		autoRefresh,
+		refreshIntervalSeconds,
+		fetchHealth,
+		fetchSystemHealth,
+		fetchHistory,
+		setAutoRefresh,
+	} = useHealthData({ initialSystemHealth, browserLocale, locale });
+	// Loading skeleton is shown until the first fetchHealth attempt completes
+	// (either with a result or with an error). The previous component
+	// implemented this with an explicit `loading` boolean that flipped in
+	// fetchHealth's `finally`; here we derive it from hook state.
+	const loading = overview === null && loadError === null;
 	const [expandedServer, setExpandedServer] = useState<string | null>(null);
-	const [autoRefresh, setAutoRefresh] = useState(true);
-	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
-		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
-	);
-	const [lastRefresh, setLastRefresh] = useState<string>("");
-	const [loadError, setLoadError] = useState<string | null>(null);
-	const [historyErrors, setHistoryErrors] = useState<Record<string, string>>({});
-	const [isRefreshing, setIsRefreshing] = useState(false);
-
-	const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
-
-	const fetchHealth = useCallback(async () => {
-		setIsRefreshing(true);
-		try {
-			const data = await csrfFetch("/api/health") as HealthOverview;
-			setOverview(data);
-			setLoadError(null);
-			setLastRefresh(new Date().toLocaleTimeString(browserLocale));
-		} catch (error) {
-			setLoadError(getErrorMessage(error, locale === "zh" ? "加载健康状态失败" : "Failed to load health status"));
-		} finally {
-			setLoading(false);
-			setIsRefreshing(false);
-		}
-	}, [browserLocale, locale]);
-
-	const fetchSystemHealth = useCallback(async () => {
-		try {
-			const report = await csrfFetch("/api/system-health");
-			if (isSystemHealthReport(report)) setSystemHealth(report);
-		} catch {
-			// The VPS health overview is the primary surface; keep it visible if the system self-check endpoint fails.
-		}
-	}, []);
-
-	const fetchHistory = useCallback(async (serverId: string) => {
-		try {
-			const data = await csrfFetch(`/api/health?historyFor=${serverId}&hours=24`);
-			setHistory((prev) => ({ ...prev, [serverId]: data.history ?? [] }));
-			setHistoryErrors((prev) => {
-				const next = { ...prev };
-				delete next[serverId];
-				return next;
-			});
-		} catch (error) {
-			setHistoryErrors((prev) => ({ ...prev, [serverId]: getErrorMessage(error, locale === "zh" ? "加载历史指标失败" : "Failed to load metric history") }));
-		}
-	}, [locale]);
-
-	useEffect(() => {
-		const timer = window.setTimeout(() => {
-			void fetchHealth();
-			void fetchSystemHealth();
-		}, 0);
-		return () => window.clearTimeout(timer);
-	}, [fetchHealth, fetchSystemHealth]);
-
-	useEffect(() => {
-		const readSavedInterval = () => {
-			setRefreshIntervalSeconds(getRefreshIntervalFromStorage(window.localStorage, 30));
-		};
-		readSavedInterval();
-		window.addEventListener("storage", readSavedInterval);
-		return () => window.removeEventListener("storage", readSavedInterval);
-	}, []);
-
-	useEffect(() => {
-		if (!autoRefresh || refreshIntervalSeconds <= 0) return;
-		const interval = window.setInterval(() => {
-			void fetchHealth();
-			void fetchSystemHealth();
-		}, refreshIntervalSeconds * 1000);
-		return () => window.clearInterval(interval);
-	}, [autoRefresh, fetchHealth, fetchSystemHealth, refreshIntervalSeconds]);
 
 	const toggleExpand = async (serverId: string) => {
 		if (expandedServer === serverId) {
