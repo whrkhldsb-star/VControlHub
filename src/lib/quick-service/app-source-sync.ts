@@ -141,22 +141,34 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 /**
  * Sync all enabled sources.
  */
+const SYNC_ALL_CONCURRENCY = 4;
+
 export async function syncAllSources(): Promise<Array<{ name: string; synced: number; errors: number }>> {
 	const sources = await prisma.appSource.findMany({
 		where: { enabled: true },
 		orderBy: { createdAt: "asc" },
 		take: MAX_ENABLED_APP_SOURCES,
 	});
-	const results = [];
+	const results: Array<{ name: string; synced: number; errors: number }> = [];
 
-	for (const source of sources) {
-		try {
-			const result = await syncSource(source.id);
-			results.push({ name: source.name, ...result });
-		} catch (err) {
-			logger.error(`Sync failed for ${source.name}: ${err}`);
-			results.push({ name: source.name, synced: 0, errors: 1 });
-		}
+	// TR-040: each `syncSource` call is independent (own transaction, own
+	// source metadata row), so fan them out in bounded chunks. Concurrency
+	// 4 is well below the default Prisma pool (10) even when each sync
+	// internally batches 8 upserts at a time.
+	for (let i = 0; i < sources.length; i += SYNC_ALL_CONCURRENCY) {
+		const chunk = sources.slice(i, i + SYNC_ALL_CONCURRENCY);
+		const chunkResults = await Promise.all(
+			chunk.map(async (source) => {
+				try {
+					const result = await syncSource(source.id);
+					return { name: source.name, ...result };
+				} catch (err) {
+					logger.error(`Sync failed for ${source.name}: ${err}`);
+					return { name: source.name, synced: 0, errors: 1 };
+				}
+			}),
+		);
+		results.push(...chunkResults);
 	}
 
 	return results;

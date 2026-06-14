@@ -59,19 +59,20 @@ export async function seedBuiltinTemplates() {
 	const existing = await prisma.commandTemplate.count({ where: { isBuiltin: true } });
 	if (existing > 0) return;
 
-	for (const tmpl of BUILTIN_TEMPLATES) {
-		await prisma.commandTemplate.create({
-			data: {
-				name: tmpl.name,
-				description: tmpl.description ?? null,
-				command: tmpl.command,
-				rollbackCommand: tmpl.rollbackCommand ?? null,
-				variables: tmpl.variables ?? extractTemplateVariables(tmpl.command, tmpl.rollbackCommand),
-				tags: tmpl.tags ?? [],
-				isBuiltin: true,
-			},
-		});
-	}
+	// TR-040: parallelize the 12 built-in inserts with a single `createMany`
+	// round-trip so a fresh DB seed completes in one DB call instead of
+	// 12 sequential `prisma.commandTemplate.create` round-trips.
+	await prisma.commandTemplate.createMany({
+		data: BUILTIN_TEMPLATES.map((tmpl) => ({
+			name: tmpl.name,
+			description: tmpl.description ?? null,
+			command: tmpl.command,
+			rollbackCommand: tmpl.rollbackCommand ?? null,
+			variables: tmpl.variables ?? extractTemplateVariables(tmpl.command, tmpl.rollbackCommand),
+			tags: tmpl.tags ?? [],
+			isBuiltin: true,
+		})),
+	});
 }
 
 /* ── CRUD ─────────────────────────────────────────────────── */
