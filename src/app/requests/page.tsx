@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getPendingActions } from "@/lib/ai/hosted-service";
@@ -96,22 +97,20 @@ export default async function RequestsPage() {
 								</div>
 
 								<div className="mt-4 grid gap-3 lg:grid-cols-3">
-									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">目标节点</h4>
+									<InfoSection title="目标节点">
 										<div className="space-y-1.5">
 											{request.targets.map((target: (typeof request.targets)[number]) => (
-												<div key={target.id} className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2">
+												<InfoItem key={target.id}>
 													<div className="text-sm font-medium text-white">{target.server.name}</div>
 													<div className="text-[11px] text-slate-500">{target.server.host}:{target.server.port} · {target.status}</div>
-												</div>
+												</InfoItem>
 											))}
 										</div>
-									</section>
+									</InfoSection>
 
-									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">最新审批</h4>
+									<InfoSection title="最新审批">
 										{request.latestApproval ? (
-											<div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-sm">
+											<InfoItem className="text-sm">
 												<div className={`font-medium ${request.latestApproval.approved ? "text-emerald-300" : "text-rose-300"}`}>
 													{request.latestApproval.approved ? "已批准" : "已拒绝"}
 												</div>
@@ -119,27 +118,26 @@ export default async function RequestsPage() {
 													{request.latestApproval.approver.displayName || request.latestApproval.approver.username}
 												</div>
 												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-[var(--text-secondary)]">{request.latestApproval.comment}</div>}
-											</div>
+											</InfoItem>
 										) : (
 											<p className="text-xs text-slate-500">尚未形成审批记录。</p>
 										)}
-									</section>
+									</InfoSection>
 
-									<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
-										<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">执行 / worker 记录</h4>
+									<InfoSection title="执行 / worker 记录">
 										{request.executionLogs.length > 0 ? (
 											<div className="space-y-2">
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
-													<div key={log.id ?? `${request.id}-log-${index}`} className="rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 text-xs text-[var(--text-secondary)]">
+													<InfoItem key={log.id ?? `${request.id}-log-${index}`} className="text-xs text-[var(--text-secondary)]">
 														<div>{log.summary}</div>
 														{log.createdAt && <div className="mt-1 text-[11px] text-slate-600">{new Date(log.createdAt).toLocaleString("zh-CN")}</div>}
-													</div>
+													</InfoItem>
 												))}
 											</div>
 										) : (
 											<p className="text-xs text-slate-500">暂无执行日志。</p>
 										)}
-									</section>
+									</InfoSection>
 								</div>
 
 								{canApprove && request.status === "PENDING_APPROVAL" && <ReviewCommandForm commandRequestId={request.id} />}
@@ -156,21 +154,54 @@ export default async function RequestsPage() {
 }
 
 function ApprovalBadge({ status }: { status: string }) {
-	const map: Record<string, string> = {
-		"待审批": "border-amber-400/20 bg-amber-400/10 text-amber-200",
-		"已批准": "border-emerald-400/20 bg-emerald-400/10 text-emerald-200",
-		"已拒绝": "border-rose-400/20 bg-rose-400/10 text-rose-200",
+	const toneMap: Record<string, "warning" | "success" | "danger" | "neutral"> = {
+		"待审批": "warning",
+		"已批准": "success",
+		"已拒绝": "danger",
 	};
-	const style = map[status] ?? "border-white/10 bg-white/5 text-slate-300";
-	return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${style}`}>{status}</span>;
+	const styleMap: Record<string, string> = {
+		待审批: "border-amber-400/20 text-amber-200",
+		已批准: "border-emerald-400/20 text-emerald-200",
+		已拒绝: "border-rose-400/20 text-rose-200",
+	};
+	const tone = toneMap[status];
+	const style = styleMap[status] ?? "border-white/10 text-slate-300";
+	return (
+		<span
+			data-tone={tone}
+			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${style}`}
+		>
+			{status}
+		</span>
+	);
 }
 
 function InitiatorBadge({ assistant }: { assistant: boolean }) {
 	return (
-		<span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-			assistant ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-200" : "border-white/10 bg-white/5 text-slate-400"
-		}`}>
+		<span
+			data-tone={assistant ? "accent" : "neutral"}
+			className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+				assistant ? "border-cyan-400/20 text-cyan-200" : "border-white/10 text-slate-400"
+			}`}
+		>
 			{assistant ? "助手授权" : "用户审批"}
 		</span>
+	);
+}
+
+function InfoSection({ title, children }: { title: string; children: ReactNode }) {
+	return (
+		<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-4">
+			<h4 className="text-xs font-medium text-white/60 uppercase tracking-wider mb-3">{title}</h4>
+			{children}
+		</section>
+	);
+}
+
+function InfoItem({ children, className }: { children: ReactNode; className?: string }) {
+	return (
+		<div className={`rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 ${className ?? ""}`}>
+			{children}
+		</div>
 	);
 }
