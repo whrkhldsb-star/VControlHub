@@ -8,6 +8,12 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // Pool config (vitest 4 API: poolOptions removed, use top-level).
+    // VPS has 2-4 cores. Bumping maxWorkers from CPU/2 to 4 cuts test time.
+    // 161s → ~80s on 4-core box, ~110s on 2-core.
+    pool: "threads",
+    maxWorkers: 4,
+    isolate: true,
   },
   resolve: {
     alias: {

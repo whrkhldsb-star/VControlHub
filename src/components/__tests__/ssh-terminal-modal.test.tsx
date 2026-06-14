@@ -124,7 +124,11 @@ describe("SshTerminalModal", () => {
 
     await user.tab({ shift: true });
 
-    expect(screen.getByRole("button", { name: "重连" })).toHaveFocus();
+    // The 重连 button only renders after status flips to "error" or "closed"
+    // (i.e. the WebSocket connection attempt fails). Await its presence so we
+    // don't race the connection-state transition under parallel workers.
+    const reconnectButton = await screen.findByRole("button", { name: "重连" });
+    expect(reconnectButton).toHaveFocus();
   });
 
   it("exposes 44px touch targets on header and side-panel controls (TR-022 R11)", async () => {
