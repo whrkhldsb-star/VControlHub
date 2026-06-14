@@ -1,7 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
-import { collectSystemHealthChecks } from "@/lib/system-health/service";
 import { PageHeader } from "@/components/page-shell";
 import { HealthDashboardClient } from "./health-dashboard-client";
 
@@ -20,7 +19,8 @@ export default async function HealthPage() {
 	}
 
 	const servers = await listServerProfiles();
-	const systemHealth = await collectSystemHealthChecks({ projectRoot: process.cwd() }).catch(() => null);
+	// systemHealth 由客户端挂载后异步拉取（避免实时 SSH/磁盘探测阻塞 RSC，
+	// 进入页面后框架立即可见，自检卡片骨架→真实数据渐进填充）。
 
 	return (
 		<main className="p-6">
@@ -29,7 +29,8 @@ export default async function HealthPage() {
 					纳管节点 {servers.length} 台
 				</div>
 			</PageHeader>
-			<HealthDashboardClient serverCount={servers.length} initialSystemHealth={systemHealth} />
+			<HealthDashboardClient serverCount={servers.length} initialSystemHealth={null} />
 		</main>
 	);
 }
+

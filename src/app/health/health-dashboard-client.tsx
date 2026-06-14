@@ -332,8 +332,7 @@ function usageBarColor(val: number | undefined, warn = 80, crit = 95): string {
 
 /* ── Component ────────────────────────────────────────────── */
 
-export function HealthDashboardClient({ serverCount: _serverCount, initialSystemHealth }: Props) {
-	void _serverCount;
+export function HealthDashboardClient({ serverCount, initialSystemHealth }: Props) {
 	const { locale } = useI18n();
 	const copy = healthCopy[locale];
 	const browserLocale = locale === "zh" ? "zh-CN" : "en-US";
@@ -348,7 +347,9 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 		autoRefresh,
 		refreshIntervalSeconds,
 		fetchHealth,
-		fetchSystemHealth,
+		// fetchSystemHealth 由 hook 内部 effect 自动触发（mount + auto-refresh），
+		// 组件自身不再直接调用，所以解构后用 _ 前缀符合项目 lint 规范。
+		fetchSystemHealth: _fetchSystemHealth,
 		fetchHistory,
 		setAutoRefresh,
 	} = useHealthData({ initialSystemHealth, browserLocale, locale });
@@ -369,13 +370,74 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 	};
 
 	if (loading) {
+		// 骨架立即渲染：5 个概览卡用 "—" 占位 + 节点表骨架行（按 serverCount 数量）+ 系统自检骨架。
+		// 概览数据由 /api/health 拉到后替换；自检数据由 /api/system-health 拉到后替换。
+		const skeletonRowCount = Math.min(Math.max(serverCount, 1), 8);
 		return (
-			<div className="space-y-4">
-				<div className="grid gap-3 sm:grid-cols-4">
-					{[1,2,3,4].map((i) => (
-						<div key={i} data-card className="animate-pulse  p-5 h-24" />
-					))}
+			<div className="space-y-6" aria-busy="true" aria-live="polite">
+				{/* 系统自检骨架卡 */}
+				<section className="space-y-3 rounded-2xl border border-[var(--border)] bg-white/[0.03] p-4" aria-label={copy.ui.selfCheck}>
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div className="min-w-0">
+							<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
+							<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
+							<p className="mt-1 text-xs text-slate-400">{locale === "zh" ? "正在采集自检指标…" : "Collecting self-check metrics…"}</p>
+						</div>
+					</div>
+					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+						{[1, 2, 3].map((i) => (
+							<div key={i} className="animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 h-24" />
+						))}
+					</div>
+				</section>
+				{/* 概览数字卡（5 列）— 立即出现，数字位用 — 占位 */}
+				<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+					<SummaryCard label={copy.summaryCards.total} value={serverCount > 0 ? serverCount : "—"} color="slate" />
+					<SummaryCard label={copy.summaryCards.online} value="—" color="emerald" />
+					<SummaryCard label={copy.summaryCards.warning} value="—" color="amber" />
+					<SummaryCard label={copy.summaryCards.critical} value="—" color="rose" />
+					<SummaryCard label={copy.summaryCards.offline} value="—" color="slate" />
+				</section>
+				{/* 工具行 — 占位但禁用刷新按钮 */}
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div className="text-xs text-slate-500">{copy.ui.lastRefresh}: —</div>
+					<div className="flex flex-wrap items-center gap-3">
+						<button type="button" disabled className="min-h-11 inline-flex items-center rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 text-xs text-slate-500 opacity-60">
+							{copy.ui.refreshing}
+						</button>
+					</div>
 				</div>
+				{/* 节点表骨架（表头 + 按 serverCount 数量的骨架行） */}
+				<section data-card className="overflow-hidden">
+					<div className="overflow-x-auto">
+						<table className="w-full text-sm">
+							<thead>
+								<tr className="border-b border-white/[0.06] bg-white/[0.02]">
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.node}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.status}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">CPU</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.memory}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.disk}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.uptime}</th>
+									<th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{copy.ui.details}</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-white/[0.04]">
+								{Array.from({ length: skeletonRowCount }).map((_, i) => (
+									<tr key={i} className="animate-pulse">
+										<td className="px-4 py-4"><div className="h-3 w-32 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-12 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-20 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-8 rounded bg-white/[0.06]" /></td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</section>
 			</div>
 		);
 	}
@@ -576,7 +638,7 @@ export function HealthDashboardClient({ serverCount: _serverCount, initialSystem
 
 /* ── Sub-components ───────────────────────────────────────── */
 
-function SummaryCard({ label, value, color }: { label: string; value: number; color: string }) {
+function SummaryCard({ label, value, color }: { label: string; value: number | string; color: string }) {
 	const colorMap: Record<string, string> = {
 		slate: "text-white",
 		emerald: "text-emerald-300",
