@@ -700,7 +700,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-026 | P3 | 统一操作反馈模型（ActionResult + toast/alert + 任务中心链接） | ✅ 主体已落地 |
 | TR-027 | P3 | README/测试追踪标签 | ✅ 完成 |
 | TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） | ✅ 完成 39 page / 79 API / 41 perm |
-| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence） | ⏳ 后台任务中 (T29a/T29b) |
+| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence） | ⏳ 后台任务中 (T29a 完成, T29b 待续做) |
 | TR-030 | P3 | 多租户 / 团队空间（资源隔离 / 配额 / 权限继承） | 队列中 |
 | TR-031 | P3 | 成本追踪（VPS 费用 / 带宽 / 存储 / 月报） | 队列中 |
 | TR-032 | P3 | 智能运维 AI（主动诊断 / 异常预测 / 自动修复建议） | 队列中 |
@@ -753,7 +753,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
 - [ ] **RBAC 角色视角巡检**（TR-025）。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面。
-- [ ] **站内 QA 报告产品化**（TR-029）。
+- [x] **站内 QA 报告产品化**（TR-029）— T29a 落地（list + detail + 读 .hermes/ + 复用 admin/qa-reports 模式），T29b 待续做（趋势卡片 + cron-tick 日志接入）。
 - [ ] **多租户 / 团队空间**（TR-030）。
 - [ ] **成本追踪**（TR-031）。
 - [ ] **智能运维 AI**（TR-032）。

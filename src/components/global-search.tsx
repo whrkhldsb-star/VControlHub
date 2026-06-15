@@ -42,6 +42,7 @@ const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> 
 	"/api-tokens": { icon: "🔑", keywords: ["API Token", "令牌", "token"] },
 	"/status": { icon: "📡", keywords: ["公开状态页", "status"] },
 	"/audit": { icon: "📋", keywords: ["审计", "日志", "audit"] },
+	"/qa-reports": { icon: "🧪", keywords: ["QA 报告", "维护环", "QA loop", "evidence"] },
 };
 
 type SearchItemDefinition = Omit<SearchItem, "label" | "category"> & {

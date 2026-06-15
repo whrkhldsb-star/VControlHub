@@ -65,6 +65,7 @@ export const systemNavItems: AppNavItem[] = [
 	{ href: "/api-tokens", labelKey: "nav.api-tokens", fallbackLabel: "API Token", icon: <IconKey /> },
 	{ href: "/status", labelKey: "nav.status", fallbackLabel: "公开状态页", icon: <IconStatus /> },
 	{ href: "/audit", labelKey: "nav.audit", fallbackLabel: "审计日志", icon: <IconAudit /> },
+	{ href: "/qa-reports", labelKey: "nav.qa-reports", fallbackLabel: "QA 报告", icon: <IconCheck /> },
 ];
 
 const mobileNavHrefs = ["/", "/servers", "/traffic", "/files", "/settings"] as const;
