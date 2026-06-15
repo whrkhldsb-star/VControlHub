@@ -4,12 +4,13 @@ import Image from "next/image";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Provider, ConvItem, Message, ToolCallEvent, ToolApprovalNeeded, ModelInfo } from "./ai-types";
 import { DEFAULT_PROV_FORM, DEFAULT_SETTINGS_FORM } from "./ai-types";
-import { formatAllowedTypes, buildAcceptString } from "./ai-file-helpers";
+import { formatAllowedTypes } from "./ai-file-helpers";
 import { renderContent, copyToClipboard } from "./ai-markdown-renderer";
 import { AiSidebar } from "./ai-sidebar";
 import { AiChatHeader } from "./ai-chat-header";
 import { AiSettingsPanelLazy } from "./ai-settings-panel-lazy";
 import { AiProviderPanelLazy } from "./ai-provider-panel-lazy";
+import { AiInputAreaLazy } from "./ai-input-area-lazy";
 import { AiConfirmDialog } from "./ai-confirm-dialog";
 import { useFileAttachments } from "./hooks/use-file-attachments";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
@@ -933,90 +934,29 @@ return (
               </div>
             )}
 
-            {/* Input area */}
-            <div className="px-4 py-3 border-t border-white/[0.06] bg-slate-950/30">
-              {/* File rejection toast */}
-              {fileRejectionMsg && (
-                <div className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{fileRejectionMsg}</span>
-                  <button onClick={clearRejection} className="ml-auto text-red-400/60 hover:text-red-300 flex-shrink-0">×</button>
-                </div>
-              )}
-              <div className="flex gap-2 items-end">
-                {/* File upload button */}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={streaming}
-                  className="h-10 w-10 rounded-xl bg-white/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-white/[0.08] hover:text-slate-200 light:hover:text-slate-800 transition disabled:opacity-30"
-                  title={`上传文件 (支持: ${formatAllowedTypes(currentModelCaps)})`}
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 11-12.728 0M12 3v12" />
-                  </svg>
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={buildAcceptString(currentModelCaps)}
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files) handleFileSelect(e.target.files);
-                    e.target.value = "";
-                  }}
-                />
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  aria-label="消息输入"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  onPaste={handlePaste}
-                  placeholder={
-                    activeConv.enableVision
-                      ? `输入消息... (Shift+Enter 换行，支持: ${formatAllowedTypes(currentModelCaps)})`
-                      : `输入消息... (Shift+Enter 换行，📎 可上传 ${formatAllowedTypes(currentModelCaps)})`
-                  }
-                  rows={1}
-                  disabled={streaming}
-                  className="flex-1 bg-black/30 border border-[var(--border)] rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30 transition disabled:opacity-50"
-                  style={{ maxHeight: "120px" }}
-                  onInput={(e) => {
-                    const el = e.currentTarget;
-                    el.style.height = "auto";
-                    el.style.height = Math.min(el.scrollHeight, 120) + "px";
-                  }}
-                />
-            <button
-              onClick={handleSend}
-              disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
-              className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
-              </svg>
-            </button>
-            {streaming && (
-              <button
-                onClick={handleStopGeneration}
-                className="h-10 w-10 rounded-xl bg-red-500/20 text-red-300 flex items-center justify-center hover:bg-red-500/30 transition"
-                title="停止生成"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
-              </button>
-            )}
-              </div>
-            </div>
+            {/* Input area — TR-036 lazy chunk (file upload + textarea + send/stop) */}
+            <AiInputAreaLazy
+              input={input}
+              setInput={setInput}
+              streaming={streaming}
+              activeConv={activeConv}
+              currentModelCaps={currentModelCaps}
+              textareaRef={textareaRef}
+              fileInputRef={fileInputRef}
+              fileAttachmentsState={{
+                fileAttachments,
+                fileRejectionMsg,
+                clearRejection,
+                handleFileSelect,
+                handlePaste,
+                handleDrop,
+                handleDragOver,
+                setFileAttachments,
+                clearAttachments: () => setFileAttachments([]),
+              }}
+              handleSend={handleSend}
+              handleStopGeneration={handleStopGeneration}
+            />
           </>
         ) : (
           /* Empty state */
