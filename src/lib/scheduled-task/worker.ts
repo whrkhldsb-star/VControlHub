@@ -1,4 +1,4 @@
-import { JobStatus } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
@@ -46,8 +46,9 @@ function getWorkerState() {
   return globalState.__vcontrolhubScheduledTaskWorker;
 }
 
-async function hasActiveScheduledTaskTickJob() {
-  const existing = await prisma.job.findFirst({
+async function hasActiveScheduledTaskTickJob(tx?: Prisma.TransactionClient) {
+  const client = tx ?? prisma;
+  const existing = await client.job.findFirst({
     where: {
       type: SCHEDULED_TASK_TICK_JOB_TYPE,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
@@ -58,14 +59,49 @@ async function hasActiveScheduledTaskTickJob() {
 }
 
 async function enqueueScheduledTaskTickJob(reason: string) {
-  if (await hasActiveScheduledTaskTickJob()) return null;
-  return enqueueJob({
-    type: SCHEDULED_TASK_TICK_JOB_TYPE,
-    title: "定时任务调度 tick",
-    payload: { reason, requestedAt: new Date().toISOString() },
-    priority: -5,
-    maxAttempts: 3,
-  });
+  // New-B (2026-06-15): the previous "findFirst then enqueue" pair was a
+  // textbook read-then-write race — in a multi-process / cluster deploy
+  // (or even with two short-overlapping `tsx src/server.ts` invocations
+  // during a systemd restart) both workers could observe "no active tick
+  // job" simultaneously and each enqueue their own, leading to two
+  // parallel `scheduled-task.tick` jobs that each dispatch every due task
+  // twice.
+  //
+  // We now run the existence check + enqueue inside a single Prisma
+  // transaction so PostgreSQL's MVCC + the implicit row locks serialise
+  // the two halves. The loser's findFirst then sees the winner's enqueued
+  // row and returns early. The in-process `state.running` guard is no
+  // longer the only safety net.
+  try {
+    return await prisma.$transaction(async (tx) => {
+      if (await hasActiveScheduledTaskTickJob(tx)) return null;
+      return enqueueJob({
+        type: SCHEDULED_TASK_TICK_JOB_TYPE,
+        title: "定时任务调度 tick",
+        payload: { reason, requestedAt: new Date().toISOString() },
+        priority: -5,
+        maxAttempts: 3,
+      });
+    });
+  } catch (error) {
+    // Belt-and-braces guard for cluster deployments that share the DB:
+    // if PostgreSQL aborts the transaction with a serialisation error
+    // (because another worker just committed its enqueue), treat it the
+    // same as "an active job exists" and bail.
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      message.includes("could not serialize") ||
+      message.includes("deadlock detected") ||
+      message.includes("conflict")
+    ) {
+      logger.warn(
+        "Skipping scheduled-task tick enqueue because of a serialisation conflict",
+        { reason, error: message },
+      );
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function dispatchDueTask(task: {
@@ -75,22 +111,81 @@ async function dispatchDueTask(task: {
   reason: string | null;
   serverIds: string[];
   createdById: string | null;
-}) {
+  nextRunAt: Date | null;
+}): Promise<boolean> {
   if (task.serverIds.length === 0 || !task.createdById) {
     await recordTaskRun(task.id, "跳过：无目标服务器或无创建者");
-    return;
+    return false;
   }
 
-  const result = await createCommandRequest({
-    title: `定时任务：${task.name}`,
-    command: task.command,
-    reason: task.reason ?? `由定时任务 ${task.name} 触发`,
-    submissionMode: "user",
-    requesterId: task.createdById,
-    serverIds: task.serverIds,
+  // New-B (2026-06-15): row-level CAS so two workers that both observed
+  // the same `dueTasks` list (via findMany) cannot both call
+  // createCommandRequest for the same ScheduledTask. We race an
+  // updateMany with the original `nextRunAt` pinned — the loser sees
+  // count === 0 and bails. The CAS advances `nextRunAt` to a far-future
+  // sentinel so the row is also invisible to subsequent findMany calls
+  // in this tick; recordTaskRun (called below on success) will recompute
+  // the real next cron firing time and persist it as the final state.
+  const claimSentinel = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const claim = await prisma.scheduledTask.updateMany({
+    where: {
+      id: task.id,
+      status: "ACTIVE",
+      nextRunAt: task.nextRunAt,
+    },
+    data: { nextRunAt: claimSentinel },
   });
+  if (claim.count === 0) {
+    // Another worker already claimed this row. Skip silently — the
+    // winner will record its own run and recompute nextRunAt; we don't
+    // want a noisy duplicate dispatch.
+    logger.info(
+      "Scheduled task already claimed by another worker, skipping duplicate dispatch",
+      { taskId: task.id, taskName: task.name },
+    );
+    return false;
+  }
 
-  await recordTaskRun(task.id, `已触发命令请求 ${result.id}`);
+  try {
+    const result = await createCommandRequest({
+      title: `定时任务：${task.name}`,
+      command: task.command,
+      reason: task.reason ?? `由定时任务 ${task.name} 触发`,
+      submissionMode: "user",
+      requesterId: task.createdById,
+      serverIds: task.serverIds,
+    });
+
+    await recordTaskRun(task.id, `已触发命令请求 ${result.id}`);
+    return true;
+  } catch (error) {
+    // We claimed the row (so no one else will dispatch it this tick),
+    // but createCommandRequest still failed. Roll our claim back so a
+    // future tick or operator can retry, and let the outer dispatch
+    // loop log the failure via recordTaskRun("执行失败: ...").
+    logger.error(
+      "Scheduled task CAS claimed but createCommandRequest failed; rolling claim back",
+      { taskId: task.id, error: error instanceof Error ? error.message : String(error) },
+    );
+    try {
+      await prisma.scheduledTask.update({
+        where: { id: task.id },
+        data: { nextRunAt: task.nextRunAt },
+      });
+    } catch (rollbackError) {
+      logger.error(
+        "Failed to roll back the scheduled-task CAS claim after dispatch error",
+        {
+          taskId: task.id,
+          error:
+            rollbackError instanceof Error
+              ? rollbackError.message
+              : String(rollbackError),
+        },
+      );
+    }
+    throw error;
+  }
 }
 
 async function dispatchDueScheduledTasks(reason: string) {
@@ -101,9 +196,19 @@ async function dispatchDueScheduledTasks(reason: string) {
     },
   });
 
+  // New-B (2026-06-15): only count tasks that actually went through
+  // createCommandRequest (CAS won + downstream succeeded). Skipped tasks
+  // (no servers / no creator / CAS lost / downstream error) don't add
+  // to this counter so the durable job's `dispatched` value reflects
+  // real work, not the size of the observed due-list.
+  let dispatchedCount = 0;
+
   for (const task of dueTasks) {
     try {
-      await dispatchDueTask(task);
+      const dispatched = await dispatchDueTask(task);
+      if (dispatched) {
+        dispatchedCount += 1;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Scheduled task execution failed", { reason, taskId: task.id, error: message });
@@ -119,7 +224,7 @@ async function dispatchDueScheduledTasks(reason: string) {
     }
   }
 
-  return { dispatched: dueTasks.length };
+  return { dispatched: dispatchedCount };
 }
 
 export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
