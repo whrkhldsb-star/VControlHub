@@ -5,13 +5,20 @@
  * and restore operations: they call CRUD + commands + command-runner
  * and update the record's status / log as the work progresses.
  *
+ * `pruneOldBackupRecordsNow` runs the retention plan produced by
+ * `pruneOldBackupRecords`, removes the underlying artifact (only for
+ * portable paths under `BACKUP_DIR` / `<projectRoot>/backups`), and
+ * removes the corresponding DB rows.
+ *
  * `getBackupPolicySummary` is a thin aggregate over `listBackupRecords`
  * + the pure `summarizeBackupPolicy` reducer.
  */
-import { stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 
+import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { createLogger } from "@/lib/logging";
 
 import { backupCommandErrorMessage, runBackupCommand } from "./command-runner";
 import {
@@ -24,7 +31,7 @@ import {
 	listBackupRecords,
 	updateBackupRecordStatus,
 } from "./service-crud";
-import { summarizeBackupPolicy } from "./service-policy";
+import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
 
 export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; projectRoot?: string }) {
 	const record = await createBackupRecord(input);
@@ -94,4 +101,140 @@ export async function restoreBackupRecord(input: { id: string; confirm: string; 
 export async function getBackupPolicySummary() {
 	const records = await listBackupRecords();
 	return summarizeBackupPolicy(records);
+}
+
+const retentionLogger = createLogger("backup-retention");
+
+export type PruneOldBackupRecordsResult = {
+	deletedRecords: number;
+	filesDeleted: number;
+	filesSkipped: number;
+	fileErrors: string[];
+	cutoff: Date;
+	olderThanDays: number;
+	keepLatestPerType: number;
+	candidateIds: string[];
+	oldestKeptByType: Record<string, Date | null>;
+};
+
+/**
+ * Execute the retention plan. For each candidate:
+ *   1. Resolve the file path through `resolveBackupPath` — that function
+ *      rejects non-portable paths and absolute / `..` traversal, so we
+ *      can only delete artifacts that are within the configured backup
+ *      root. If resolution fails, the file is left in place but the DB
+ *      row is still deleted (we never want an orphan DB row pointing at
+ *      a path we cannot unlink).
+ *   2. Best-effort `rm()` — missing files are recorded as `filesSkipped`
+ *      (not errors). Real errors (e.g. EACCES) go into `fileErrors`.
+ *   3. The DB row is deleted via prisma — this is the source of truth.
+ *
+ * Returns a small summary suitable for the durable-job completion
+ * payload and the UI toast.
+ */
+export async function pruneOldBackupRecordsNow(input: {
+	olderThanDays?: number;
+	keepLatestPerType?: number;
+	projectRoot?: string;
+} = {}): Promise<PruneOldBackupRecordsResult> {
+	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
+	const records = await listBackupRecords();
+	const plan = pruneOldBackupRecords(records, {
+		olderThanDays: input.olderThanDays,
+		keepLatestPerType: input.keepLatestPerType,
+	});
+
+	let filesDeleted = 0;
+	let filesSkipped = 0;
+	const fileErrors: string[] = [];
+	const deletedIds: string[] = [];
+
+	for (const candidate of plan.candidates) {
+		if (candidate.filePath) {
+			let fileExists = true;
+			let fullPath: string | null = null;
+			try {
+				fullPath = resolveBackupPath(projectRoot, candidate.filePath);
+			} catch (pathError) {
+				const message = pathError instanceof Error ? pathError.message : String(pathError);
+				fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
+				retentionLogger.warn("backup retention: file cleanup failed", {
+					backupId: candidate.id,
+					filePath: candidate.filePath,
+					error: message,
+				});
+			}
+			if (fullPath) {
+				try {
+					await stat(fullPath);
+				} catch (statError) {
+					if ((statError as NodeJS.ErrnoException).code === "ENOENT") {
+						fileExists = false;
+					} else {
+						const message = statError instanceof Error ? statError.message : String(statError);
+						fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
+						retentionLogger.warn("backup retention: stat failed", {
+							backupId: candidate.id,
+							filePath: fullPath,
+							error: message,
+						});
+					}
+				}
+				if (fileExists) {
+					try {
+						await rm(fullPath, { force: true });
+						filesDeleted += 1;
+					} catch (rmError) {
+						if ((rmError as NodeJS.ErrnoException).code === "ENOENT") {
+							filesSkipped += 1;
+						} else {
+							const message = rmError instanceof Error ? rmError.message : String(rmError);
+							fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
+							retentionLogger.warn("backup retention: rm failed", {
+								backupId: candidate.id,
+								filePath: fullPath,
+								error: message,
+							});
+						}
+					}
+				} else {
+					filesSkipped += 1;
+				}
+			}
+		} else {
+			filesSkipped += 1;
+		}
+
+		try {
+			await prisma.backupRecord.delete({ where: { id: candidate.id } });
+			deletedIds.push(candidate.id);
+		} catch (deleteError) {
+			const message = deleteError instanceof Error ? deleteError.message : String(deleteError);
+			retentionLogger.error("backup retention: DB delete failed", {
+				backupId: candidate.id,
+				error: message,
+			});
+			throw deleteError;
+		}
+	}
+
+	const result: PruneOldBackupRecordsResult = {
+		deletedRecords: deletedIds.length,
+		filesDeleted,
+		filesSkipped,
+		fileErrors,
+		cutoff: plan.cutoff,
+		olderThanDays: plan.olderThanDays,
+		keepLatestPerType: plan.keepLatestPerType,
+		candidateIds: deletedIds,
+		oldestKeptByType: plan.oldestKeptByType,
+	};
+	retentionLogger.info("backup retention: plan executed", {
+		deletedRecords: result.deletedRecords,
+		filesDeleted: result.filesDeleted,
+		filesSkipped: result.filesSkipped,
+		fileErrors: result.fileErrors.length,
+		cutoff: result.cutoff.toISOString(),
+	});
+	return result;
 }

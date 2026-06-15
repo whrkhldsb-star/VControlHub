@@ -18,6 +18,7 @@ export type BackupType = "DATABASE" | "FILES" | "FULL";
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
 export type BackupRecordForSummary = {
+	id: string;
 	type: string;
 	status: string;
 	filePath?: string | null;

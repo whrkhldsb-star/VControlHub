@@ -101,6 +101,103 @@ export function formatBackupSize(value: string | number | bigint | null | undefi
 	return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+export type BackupRetentionCandidate = {
+	id: string;
+	type: string;
+	filePath: string | null;
+	completedAt: Date;
+	reason: "older-than-cutoff" | "exceeds-keep-latest";
+};
+
+export type BackupRetentionPlan = {
+	candidates: BackupRetentionCandidate[];
+	olderThanDays: number;
+	keepLatestPerType: number;
+	cutoff: Date;
+	oldestKeptByType: Record<string, Date | null>;
+};
+
+/**
+ * Pure retention planner — given a list of backup records (already shaped
+ * for the policy summary), decide which `COMPLETED` records are eligible
+ * for automatic cleanup.
+ *
+ * Rule:
+ *   1. Sort each type's `COMPLETED` records by `completedAt` DESC.
+ *   2. Always keep the first `keepLatestPerType` per type.
+ *   3. Any older record whose `completedAt` is also older than the
+ *      `olderThanDays` cutoff is a candidate.
+ *   4. Records with `keepLatestPerType = 0` (i.e. "keep nothing") are
+ *      still gated by the cutoff — cutoff is a safety floor so a single
+ *      run can never delete brand-new backups.
+ *
+ * Default values match the existing 30-day hint surfaced on the
+ * `/backups` page (`recordsOlderThan30Days`) plus a 3-per-type keep.
+ */
+export function pruneOldBackupRecords(
+	records: BackupRecordForSummary[],
+	options: { olderThanDays?: number; keepLatestPerType?: number; now?: Date } = {},
+): BackupRetentionPlan {
+	const olderThanDays = options.olderThanDays ?? 30;
+	const keepLatestPerType = options.keepLatestPerType ?? 3;
+	const now = options.now ?? new Date();
+	const cutoff = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
+
+	const candidates: BackupRetentionCandidate[] = [];
+	const oldestKeptByType: Record<string, Date | null> = {};
+
+	const byType = new Map<string, BackupRecordForSummary[]>();
+	for (const record of records) {
+		if (record.status !== "COMPLETED") continue;
+		if (!isBackupType(record.type)) continue;
+		const list = byType.get(record.type) ?? [];
+		list.push(record);
+		byType.set(record.type, list);
+	}
+
+	for (const [type, list] of byType) {
+		const sorted = [...list].sort((a, b) => {
+			const aAt = a.completedAt ?? a.createdAt;
+			const bAt = b.completedAt ?? b.createdAt;
+			return bAt.getTime() - aAt.getTime();
+		});
+		const keepSet = new Set(sorted.slice(0, keepLatestPerType));
+		const oldestKept = sorted[keepLatestPerType - 1];
+		oldestKeptByType[type] = oldestKept ? (oldestKept.completedAt ?? oldestKept.createdAt) ?? null : null;
+		for (const record of sorted.slice(keepLatestPerType)) {
+			const completedAt = record.completedAt ?? record.createdAt;
+			if (completedAt >= cutoff) continue;
+			candidates.push({
+				id: record.id,
+				type: record.type,
+				filePath: record.filePath ?? null,
+				completedAt,
+				reason: "exceeds-keep-latest",
+			});
+		}
+		// Records within keep window but past cutoff — eligible to delete
+		// because the user explicitly chose keepLatestPerType (treats the
+		// cutoff as a hard floor for the keep window).
+		for (const record of keepSet) {
+			const completedAt = record.completedAt ?? record.createdAt;
+			if (completedAt < cutoff) {
+				candidates.push({
+					id: record.id,
+					type: record.type,
+					filePath: record.filePath ?? null,
+					completedAt,
+					reason: "older-than-cutoff",
+				});
+			}
+		}
+	}
+
+	// Stable sort: oldest first (FIFO cleanup) then by id for determinism.
+	candidates.sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime() || a.id.localeCompare(b.id));
+
+	return { candidates, olderThanDays, keepLatestPerType, cutoff, oldestKeptByType };
+}
+
 export function summarizeBackupPolicy(records: BackupRecordForSummary[], now = new Date()): BackupPolicySummary {
 	const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 	const byType: BackupPolicySummary["byType"] = {

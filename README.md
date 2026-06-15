@@ -735,7 +735,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [ ] **在线文件编辑器剩余增强**（TR-012）— 保存后可选重载服务、SFTP 编辑。
 - [ ] **设置页高风险设置**（TR-014）— 回滚入口、改动前后 diff、危险设置风险确认。
-- [ ] **备份策略管理**（TR-015）— 任务化执行、异地备份、恢复验证、保留策略自动清理。
+- [x] **备份策略管理**（TR-015）— **任务化执行**（T13a/T13b jobs 表迁移已落地） + **保留策略自动清理**（T16 落地, `pruneOldBackupRecords` planner + `BACKUP_RETENTION_JOB_TYPE` durable job + `/api/backups/retention` API + `/backups` RetentionButton UI + 11 测试）。**待续做**: 异地备份、恢复验证演练。
 - [ ] **仪表盘自定义**（TR-020）— 拖拽卡片、指标选择、时间范围筛选。
 - [x] **环境变量集中读取层**（TR-035）— 扩 `lib/config/env.ts`，23 文件已迁移。
 - [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。

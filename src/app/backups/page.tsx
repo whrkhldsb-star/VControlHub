@@ -7,6 +7,7 @@ import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
 import { ScheduleBackupForm } from "./schedule-backup-form";
 import { RestoreBackupButton } from "./restore-backup-button";
+import { RetentionButton } from "./retention-button";
 import { RetryBackupRecordButton } from "./retry-backup-record-button";
 import { VoidBackupRecordButton } from "./void-backup-record-button";
 import { formatZhDateTime } from "@/lib/datetime/format";
@@ -99,6 +100,20 @@ export default async function BackupsPage() {
 					</div>
 				)}
 			</section>
+
+			{canCreate && (
+				<section data-card className="mb-6 p-5">
+					<div className="flex flex-wrap items-start justify-between gap-4">
+						<div>
+							<h2 className="text-sm font-semibold text-white">保留策略自动清理</h2>
+							<p className="mt-1 text-xs text-slate-500">按保留天数和每类型保留最新 N 个参数，清理过期的 COMPLETED 备份记录和文件。可在任务中心追踪 <code>backup.retention</code> 任务的完成情况。</p>
+						</div>
+					</div>
+					<div className="mt-4">
+						<RetentionButton olderThan30Days={summary.recordsOlderThan30Days} totalRecords={summary.totalRecords} />
+					</div>
+				</section>
+			)}
 
 			{canCreate && (
 				<section data-card className="mb-6 p-5">

@@ -99,7 +99,7 @@ const ALERT_EVALUATION: WorkerSpec = {
 const BACKUP: WorkerSpec = {
   id: "backup",
   label: "备份任务",
-  jobType: "backup.create",
+  jobType: "backup.create / backup.restore / backup.retention",
   start: () => {
     startBackupJobWorker();
     return Promise.resolve();

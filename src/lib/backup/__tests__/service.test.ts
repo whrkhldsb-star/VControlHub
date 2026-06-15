@@ -277,12 +277,12 @@ describe("backup service", () => {
 
   it("summarizes backup policy capacity, type mix, retention hints, and failure reasons", () => {
     const summary = summarizeBackupPolicy([
-      { type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz", fileSize: "1048576", createdAt: new Date("2026-04-01T00:00:00Z"), completedAt: new Date("2026-04-01T00:00:00Z") },
-      { type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", fileSize: 2 * 1024 * 1024, createdAt: new Date("2026-05-20T00:00:00Z"), completedAt: new Date("2026-05-20T00:00:00Z") },
-      { type: "FULL", status: "FAILED", filePath: "backups/full.tar.gz", fileSize: "999999", errorMessage: "readonly path", createdAt: new Date("2026-05-21T00:00:00Z") },
-      { type: "FILES", status: "FAILED", filePath: "backups/files-old.tar.gz", fileSize: null, errorMessage: "EACCES: permission denied", createdAt: new Date("2026-05-23T00:00:00Z") },
-      { type: "DATABASE", status: "FAILED", filePath: "backups/missing.sql.gz", fileSize: null, errorMessage: "No such file or directory", createdAt: new Date("2026-05-24T00:00:00Z") },
-      { type: "DATABASE", status: "RUNNING", fileSize: null, createdAt: new Date("2026-05-22T00:00:00Z") },
+      { id: "bak_summary_1", type: "DATABASE", status: "COMPLETED", filePath: "backups/db.sql.gz", fileSize: "1048576", createdAt: new Date("2026-04-01T00:00:00Z"), completedAt: new Date("2026-04-01T00:00:00Z") },
+      { id: "bak_summary_2", type: "FILES", status: "COMPLETED", filePath: "backups/files.tar.gz", fileSize: 2 * 1024 * 1024, createdAt: new Date("2026-05-20T00:00:00Z"), completedAt: new Date("2026-05-20T00:00:00Z") },
+      { id: "bak_summary_3", type: "FULL", status: "FAILED", filePath: "backups/full.tar.gz", fileSize: "999999", errorMessage: "readonly path", createdAt: new Date("2026-05-21T00:00:00Z") },
+      { id: "bak_summary_4", type: "FILES", status: "FAILED", filePath: "backups/files-old.tar.gz", fileSize: null, errorMessage: "EACCES: permission denied", createdAt: new Date("2026-05-23T00:00:00Z") },
+      { id: "bak_summary_5", type: "DATABASE", status: "FAILED", filePath: "backups/missing.sql.gz", fileSize: null, errorMessage: "No such file or directory", createdAt: new Date("2026-05-24T00:00:00Z") },
+      { id: "bak_summary_6", type: "DATABASE", status: "RUNNING", fileSize: null, createdAt: new Date("2026-05-22T00:00:00Z") },
     ], new Date("2026-06-01T00:00:00Z"));
 
     expect(summary.totalRecords).toBe(6);

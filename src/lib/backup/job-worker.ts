@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 
-import { getBackupRecord, restoreBackupRecord, runExistingBackupRecord } from "@/lib/backup/service";
+import { getBackupRecord, pruneOldBackupRecordsNow, restoreBackupRecord, runExistingBackupRecord } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -9,8 +9,9 @@ const logger = createLogger("backup-job-worker");
 
 export const BACKUP_CREATE_JOB_TYPE = "backup.create";
 export const BACKUP_RESTORE_JOB_TYPE = "backup.restore";
+export const BACKUP_RETENTION_JOB_TYPE = "backup.retention";
 
-const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE];
+const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE, BACKUP_RETENTION_JOB_TYPE];
 const DEFAULT_POLL_MS = 5_000;
 const DEFAULT_LEASE_MS = 30_000;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup:${process.pid}`;
@@ -25,6 +26,27 @@ type BackupRestorePayload = {
   confirm: "RESTORE";
   projectRoot?: string;
 };
+
+type BackupRetentionPayload = {
+  olderThanDays?: number;
+  keepLatestPerType?: number;
+  projectRoot?: string;
+};
+
+function parseRetentionPayload(payload: Prisma.JsonValue): BackupRetentionPayload {
+  if (payload == null) return {};
+  if (!isRecord(payload)) {
+    throw new Error("备份保留任务 payload 格式无效");
+  }
+  const olderThanDays = typeof payload.olderThanDays === "number" && Number.isFinite(payload.olderThanDays) && payload.olderThanDays > 0
+    ? Math.floor(payload.olderThanDays)
+    : undefined;
+  const keepLatestPerType = typeof payload.keepLatestPerType === "number" && Number.isFinite(payload.keepLatestPerType) && payload.keepLatestPerType >= 0
+    ? Math.floor(payload.keepLatestPerType)
+    : undefined;
+  const projectRoot = typeof payload.projectRoot === "string" && payload.projectRoot.trim() ? payload.projectRoot.trim() : undefined;
+  return { olderThanDays, keepLatestPerType, projectRoot };
+}
 
 let timer: NodeJS.Timeout | null = null;
 let running = false;
@@ -76,6 +98,31 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       await heartbeatJob(job.id, WORKER_ID, { leaseMs: DEFAULT_LEASE_MS, progress: "正在恢复备份" });
       const restore = await restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot });
       await completeJob(job.id, WORKER_ID, restore);
+      return true;
+    }
+
+    if (job.type === BACKUP_RETENTION_JOB_TYPE) {
+      const payload = parseRetentionPayload(job.payload);
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: DEFAULT_LEASE_MS, progress: "正在清理旧备份" });
+      const summary = await pruneOldBackupRecordsNow({
+        olderThanDays: payload.olderThanDays,
+        keepLatestPerType: payload.keepLatestPerType,
+        projectRoot: payload.projectRoot,
+      });
+      await completeJob(job.id, WORKER_ID, {
+        retention: {
+          deletedRecords: summary.deletedRecords,
+          filesDeleted: summary.filesDeleted,
+          filesSkipped: summary.filesSkipped,
+          fileErrors: summary.fileErrors,
+          olderThanDays: summary.olderThanDays,
+          keepLatestPerType: summary.keepLatestPerType,
+          cutoff: summary.cutoff.toISOString(),
+          oldestKeptByType: Object.fromEntries(
+            Object.entries(summary.oldestKeptByType).map(([k, v]) => [k, v ? v.toISOString() : null]),
+          ),
+        },
+      });
       return true;
     }
 
