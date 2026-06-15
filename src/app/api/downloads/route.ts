@@ -290,6 +290,16 @@ export async function POST(request: Request) {
       const taskUrls = isHttpBatch ? allUrls : [allUrls[0]!];
 
       const createdTaskIds: string[] = [];
+      // New-A (2026-06-15): we used to dispatch `download.execute` jobs via
+      // `void enqueueDownloadExecutionJob(...).catch(logError)` (fire-and-
+      // forget). A short Prisma/Jobs-table blip would leave a downloadTask
+      // row in `PENDING` forever with no durable job to pick it up. Now the
+      // route waits for the enqueue synchronously and rolls back any tasks
+      // that have already been created in this batch if the dispatch path
+      // fails — the user gets a real 5xx with a business-level errorMessage
+      // instead of a misleading `success: true` and a stuck row.
+      const failedTaskIds: string[] = [];
+      let dispatchError: { taskId: string; message: string } | null = null;
 
       for (const taskUrl of taskUrls) {
         // For an HTTP batch a single user-supplied fileName cannot apply to
@@ -317,27 +327,34 @@ export async function POST(request: Request) {
         });
         createdTaskIds.push(task.id);
 
-        if (relayMode) {
-          // TR-001 (T12): aria2 relay dispatch is durable — the worker poll loop
-          // (download-execution-worker) will pick this job up, re-fetch the
-          // task/server from prisma, and call executeAria2RelayDownload. This
-          // makes the dispatch observable in /operation-tasks and survives
-          // process restarts.
-          void enqueueDownloadExecutionJob({
-            mode: "aria2_relay",
+        try {
+          // TR-001 (T12): aria2 relay / direct dispatch is durable — the
+          // worker poll loop (download-execution-worker) will pick this job
+          // up, re-fetch the task/server from prisma, and call
+          // executeAria2RelayDownload / executeDirectDownload. We now `await`
+          // the enqueue so a transient jobs-table / Prisma blip surfaces as
+          // a 5xx to the caller instead of a silently-PENDING task row.
+          await enqueueDownloadExecutionJob({
+            mode: relayMode ? "aria2_relay" : "direct",
             taskId: task.id,
             userId: session.userId,
-          }).catch((error) => {
-            logError("[DownloadAPI] Failed to enqueue aria2 relay job:", error);
           });
-        } else {
-          void enqueueDownloadExecutionJob({
-            mode: "direct",
-            taskId: task.id,
-            userId: session.userId,
-          }).catch((error) => {
-            logError("[DownloadAPI] Failed to enqueue direct download job:", error);
-          });
+        } catch (dispatchFailure) {
+          const message =
+            dispatchFailure instanceof Error
+              ? dispatchFailure.message
+              : "入队下载执行任务失败";
+          failedTaskIds.push(task.id);
+          logError(
+            `[DownloadAPI] Failed to enqueue ${relayMode ? "aria2 relay" : "direct download"} job for task ${task.id}:`,
+            dispatchFailure,
+          );
+          dispatchError = { taskId: task.id, message };
+          // Stop the batch at the first dispatch failure so we don't keep
+          // creating more downloadTask rows that would also need rolling
+          // back; the catch-block below rolls back both this row and any
+          // previously created ones in the same request.
+          break;
         }
 
         auditUserAction(session.userId, "download.create", {
@@ -349,6 +366,49 @@ export async function POST(request: Request) {
           category: category ?? "",
           isBatch: isBatch ?? false,
         });
+      }
+
+      if (dispatchError) {
+        // Roll back every task created in this request — both the one whose
+        // enqueue failed and any that succeeded before it (in batch mode).
+        // Use a Set so we never double-update the same row in the single-task
+        // case (where `failedTaskIds` and `createdTaskIds` both contain the
+        // same id because the loop pushes before it bails). This keeps the
+        // user-visible state consistent: no "PENDING forever" task row will
+        // outlive a failed dispatch.
+        const allRolledBackIds = Array.from(
+          new Set([...failedTaskIds, ...createdTaskIds]),
+        );
+        await Promise.allSettled(
+          allRolledBackIds.map((id) =>
+            prisma.downloadTask.update({
+              where: { id },
+              data: {
+                status: "FAILED",
+                progress: "任务派发失败",
+                errorMessage: dispatchError!.message,
+              },
+            }),
+          ),
+        );
+        // Audit the failure so the operation-tasks center / 运维看板 still
+        // see the attempt; we do NOT audit it as a successful
+        // `download.create`.
+        auditUserAction(session.userId, "download.dispatch_failed", {
+          taskId: dispatchError.taskId,
+          taskIds: allRolledBackIds,
+          errorMessage: dispatchError.message,
+          relayMode: relayMode ?? false,
+          isBatch: isBatch ?? false,
+        });
+        return NextResponse.json(
+          {
+            error: `下载任务创建失败：${dispatchError.message}`,
+            code: "DOWNLOAD_DISPATCH_FAILED",
+            taskIds: allRolledBackIds,
+          },
+          { status: 500 },
+        );
       }
 
       return NextResponse.json({
