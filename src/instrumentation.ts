@@ -42,4 +42,14 @@ export async function register() {
   } catch (err) {
     console.error(`[auth:bootstrap] admin password consistency check errored: ${err instanceof Error ? err.message : String(err)}`);
   }
+
+  // TR-002 R4: 启动期探测 direct gateway (31888) 是否在公网可访问。
+  // fire-and-forget（setImmediate 推到下个 tick），不阻塞启动，超时 3s 自动 abort。
+  // 若 HTTP 200 命中，打 WARNING 提示部署者检查 DIRECT_BIND / Caddy 反代 / 防火墙。
+  try {
+    const { scheduleDirectGatewayExposureProbe } = await import("./lib/server/direct-gateway-probe");
+    scheduleDirectGatewayExposureProbe();
+  } catch (err) {
+    console.error(`[direct-gateway:probe] schedule failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
