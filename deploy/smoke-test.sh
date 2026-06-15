@@ -122,7 +122,9 @@ wait_for_public_readiness() {
 
     while [ "${SECONDS}" -le "${deadline}" ]; do
         public_status="$(curl -sSk --max-time 2 "${PROXY_PUBLIC_URL}/api/status" 2>/dev/null || true)"
-        if printf '%s' "${public_status}" | grep -q healthy; then
+        # TR-053 之后公开 /api/status 只返 {generatedAt, service, summary:{overall}}, 不再含 "healthy" 字面量
+        # 检查 overall 字段是 healthy / warning / critical 之一 (即服务在跑, 不是 5xx / 502 之类的 dead 响应)
+        if printf '%s' "${public_status}" | grep -qE '"overall"\s*:\s*"(healthy|warning|critical)"'; then
             return 0
         fi
         sleep 1
@@ -200,7 +202,7 @@ if run_http_checks; then
     echo ""
     echo "── 7. Public HTTP Response ──"
     check "Login page (via ${PROXY_LABEL})" "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/login | grep 200" 0
-    check "API /api/status" "curl -sSk ${PROXY_PUBLIC_URL}/api/status | grep healthy" 0
+    check "API /api/status" "curl -sSk ${PROXY_PUBLIC_URL}/api/status | grep -qE '\"overall\"\\s*:\\s*\"(healthy|warning|critical)\"'" 0
     check "API auth blocks unauth" "curl -sSk ${PROXY_PUBLIC_URL}/api/users | grep '未登录'" 0
     check "Root redirects to login" "curl -sSk -o /dev/null -w '%{http_code}' ${PROXY_PUBLIC_URL}/ | grep 307" 0
 
