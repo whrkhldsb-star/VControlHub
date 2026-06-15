@@ -146,3 +146,46 @@ describe("booleanFlagSchema", () => {
     expect(booleanFlagSchema.parse(undefined)).toBe(false);
   });
 });
+
+/**
+ * TR-037 R1 proof-of-life: parseSearchParams 已落地到 2 路由
+ *   - /api/api-tokens DELETE 用 idQuerySchema
+ *   - /api/users/permissions GET 用 inline z.object({ userId })
+ * 验证 helper 在 Request URL 形态下的端到端行为
+ */
+describe("parseSearchParams 端到端 (TR-037 R1 采用)", () => {
+  it("Request + idQuerySchema: ?id=abc 解析成功", () => {
+    const req = new Request("https://example.com/api/api-tokens?id=abc");
+    expect(parseSearchParams(req, idQuerySchema)).toEqual({ id: "abc" });
+  });
+
+  it("Request + idQuerySchema: 缺 id 抛 VALIDATION_FAILED 400", () => {
+    const req = new Request("https://example.com/api/api-tokens");
+    try {
+      parseSearchParams(req, idQuerySchema);
+      expect.fail("应该抛错");
+    } catch (err) {
+      expect((err as { code?: string }).code).toBe("VALIDATION_FAILED");
+      expect((err as { status?: number }).status).toBe(400);
+    }
+  });
+
+  it("Request + inline userId schema: ?userId=u1 解析成功", () => {
+    const userIdSchema = z.object({ userId: z.string().trim().min(1, "缺少 userId 参数") });
+    const req = new Request("https://example.com/api/users/permissions?userId=u1");
+    expect(parseSearchParams(req, userIdSchema)).toEqual({ userId: "u1" });
+  });
+
+  it("Request + inline userId schema: 空 userId 抛 400 含 details.issues", () => {
+    const userIdSchema = z.object({ userId: z.string().trim().min(1, "缺少 userId 参数") });
+    const req = new Request("https://example.com/api/users/permissions?userId=%20%20");
+    try {
+      parseSearchParams(req, userIdSchema);
+      expect.fail("应该抛错");
+    } catch (err) {
+      expect((err as { code?: string }).code).toBe("VALIDATION_FAILED");
+      const details = (err as { details?: { issues?: unknown[] } }).details;
+      expect(Array.isArray(details?.issues)).toBe(true);
+    }
+  });
+});

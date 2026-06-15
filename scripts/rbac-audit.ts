@@ -24,9 +24,9 @@
  *   - `api-no-declared-perm`    — an API route exists but has no
  *                                 `declaredPermissions` (could be public,
  *                                 but worth flagging for review).
- *   - `api-decl-perm-unused`    — `declaredPermissions` lists X but the
- *                                 route handler never calls
- *                                 `requirePermission(X)`.
+ *   - `api-decl-perm-unused`    — `declaredPermissions` lists X but the route
+ *                                 handler never enforces it (via `requirePermission(X)`
+ *                                 or `withApiRoute(..., { permission: X }, ...)`).
  *   - `api-route-missing`       — `requirePermission` is called from a
  *                                 path not represented in route-catalog.
  *   - `page-button-perm-unused` — a `sessionHasPermission("X")` call in
@@ -234,7 +234,7 @@ export function loadCatalog(): RouteCatalog {
 
 export interface CallSite {
   permission: string;
-  kind: "sessionHasPermission" | "requirePermission";
+  kind: "sessionHasPermission" | "requirePermission" | "withApiRoutePermission";
   file: string;
   line: number;
   /** For `sessionHasPermission` only: the variable name assigned (e.g. `canDelete`) */
@@ -250,6 +250,11 @@ export function scanCallSites(files: string[]): CallSite[] {
     /sessionHasPermission\(\s*[^,]+,\s*"([a-z]+:[a-z][a-z_-]*)"\s*\)/g;
   // requirePermission("perm:key")
   const requireRe = /requirePermission\(\s*"([a-z]+:[a-z][a-z_-]*)"\s*\)/g;
+  // withApiRoute(  — match the wrapper opener; the `permission: "X"` arg
+  // may be on the same line or 1-5 lines below, so we do a window scan.
+  const withApiRouteRe = /\bwithApiRoute\s*\(/g;
+  // `permission: "perm:key"` (single-line, no `withApiRoute` qualifier)
+  const permArgRe = /\bpermission:\s*"([a-z]+:[a-z][a-z_-]*)"/g;
 
   for (const file of files) {
     const text = readFileSync(resolve(ROOT, file), "utf8");
@@ -279,6 +284,24 @@ export function scanCallSites(files: string[]): CallSite[] {
           line: i + 1,
           apiFile: fileMatch?.[0],
         });
+      }
+      // withApiRoute wrapper — collect a window of up to 5 lines forward,
+      // extract every `permission: "X"` arg, and record each as enforcement.
+      // Skip if this same line already matched `requirePermission` / `sessionHasPermission`
+      // to avoid double-counting in the (rare) case of a one-liner that mixes both.
+      if (withApiRouteRe.test(line)) {
+        withApiRouteRe.lastIndex = 0;
+        const windowEnd = Math.min(lines.length, i + 6);
+        for (let j = i; j < windowEnd; j++) {
+          for (const m of lines[j]!.matchAll(permArgRe)) {
+            sites.push({
+              permission: m[1]!,
+              kind: "withApiRoutePermission",
+              file,
+              line: j + 1,
+            });
+          }
+        }
       }
     }
   }
@@ -405,22 +428,34 @@ export function buildUsage(
         context: { path: r.path, file: r.file, methods: r.methods },
       });
     } else {
-      // Drift: api-decl-perm-unused  (declared but not in requirePermission call sites)
+      // Drift: api-decl-perm-unused  (declared but not enforced via
+      // requirePermission(...) OR withApiRoute(..., { permission: X }, ...))
       for (const declared of r.declaredPermissions) {
-        const used = callSites.some(
-          (cs) =>
-            cs.kind === "requirePermission" &&
-            cs.permission === declared &&
-            r.file.replace(/^src\/app\//, "").startsWith(
-              cs.file.replace(/^src\/app\//, "").replace(/\/route\.ts$/, ""),
-            ),
-        );
+        const targetPath = r.file
+          .replace(/^src\/app\//, "")
+          .replace(/\/route\.ts$/, "");
+        const used = callSites.some((cs) => {
+          if (cs.permission !== declared) return false;
+          if (cs.kind === "requirePermission") {
+            const csPath = cs.file
+              .replace(/^src\/app\//, "")
+              .replace(/\/route\.ts$/, "");
+            return targetPath.startsWith(csPath) || csPath.startsWith(targetPath);
+          }
+          if (cs.kind === "withApiRoutePermission") {
+            // Same file as the route — guaranteed by the route-catalog
+            // mapping. The withApiRoute enforcement happens in the same
+            // route.ts file, so a same-file match is sufficient.
+            return cs.file === r.file;
+          }
+          return false;
+        });
         if (!used) {
           drifts.push({
             code: "api-decl-perm-unused",
             severity: "medium",
-            message: `API route ${r.path} declares "${declared}" but the route handler doesn't call requirePermission("${declared}")`,
-            context: { path: r.path, declaredPermission: declared },
+            message: `API route ${r.path} declares "${declared}" but the route handler doesn't enforce it via requirePermission("${declared}") or withApiRoute(..., { permission: "${declared}" }, ...)`,
+            context: { path: r.path, declaredPermission: declared, file: r.file },
           });
         }
       }

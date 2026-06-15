@@ -6,6 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   getStorageAccessUsage,
@@ -89,11 +90,10 @@ async function serializeStorageAccessGrants(
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async () => {
-    const url = new URL(request.url);
-    const userId = url.searchParams.get("userId");
-    if (!userId) {
-      throw new ValidationError("缺少 userId 参数");
-    }
+    const { userId } = parseSearchParams(
+      request,
+      z.object({ userId: z.string().trim().min(1, "缺少 userId 参数") }),
+    );
 
     const [user, roles, permissions, storageNodes] = await Promise.all([
       prisma.user.findUnique({

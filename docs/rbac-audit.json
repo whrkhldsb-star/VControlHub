@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-06-15T09:27:02.723Z",
+  "generatedAt": "2026-06-15T09:54:42.549Z",
   "summary": {
     "permissionsInList": 41,
     "rolesDefined": 4,
     "apiRoutesAudited": 79,
     "pagesAudited": 39,
-    "callSitesAudited": 97,
-    "driftCount": 103,
+    "callSitesAudited": 197,
+    "driftCount": 42,
     "driftByCode": {
       "perm-not-in-list": 0,
       "perm-without-role": 0,
       "role-grants-unknown": 0,
       "api-no-declared-perm": 22,
-      "api-decl-perm-unused": 81,
+      "api-decl-perm-unused": 20,
       "api-route-missing": 0,
       "page-button-perm-unused": 0
     }
@@ -29,7 +29,16 @@
     },
     {
       "permission": "ai:chat",
-      "files": [],
+      "files": [
+        {
+          "path": "src/app/api/ai/chat/route.ts",
+          "line": 61
+        },
+        {
+          "path": "src/app/api/ai/conversations/route.ts",
+          "line": 51
+        }
+      ],
       "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -41,7 +50,24 @@
     },
     {
       "permission": "ai:manage",
-      "files": [],
+      "files": [
+        {
+          "path": "src/app/api/ai/models/probe/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/ai/providers/[id]/route.ts",
+          "line": 82
+        },
+        {
+          "path": "src/app/api/ai/providers/[id]/route.ts",
+          "line": 114
+        },
+        {
+          "path": "src/app/api/ai/providers/route.ts",
+          "line": 45
+        }
+      ],
       "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -59,6 +85,18 @@
         {
           "path": "src/app/api/announcements/route.ts",
           "line": 23
+        },
+        {
+          "path": "src/app/api/announcements/route.ts",
+          "line": 32
+        },
+        {
+          "path": "src/app/api/announcements/route.ts",
+          "line": 56
+        },
+        {
+          "path": "src/app/api/announcements/route.ts",
+          "line": 77
         }
       ],
       "pages": [
@@ -86,6 +124,10 @@
       "permission": "audit:read",
       "files": [
         {
+          "path": "src/app/api/audit/route.ts",
+          "line": 9
+        },
+        {
           "path": "src/app/audit/page.tsx",
           "line": 21
         }
@@ -104,6 +146,22 @@
     {
       "permission": "backup:create",
       "files": [
+        {
+          "path": "src/app/api/backups/[id]/retry/route.ts",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/backups/[id]/void/route.ts",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/backups/retention/route.ts",
+          "line": 37
+        },
+        {
+          "path": "src/app/api/backups/route.ts",
+          "line": 32
+        },
         {
           "path": "src/app/backups/actions.ts",
           "line": 19
@@ -126,6 +184,14 @@
       "permission": "backup:read",
       "files": [
         {
+          "path": "src/app/api/backups/retention/route.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/api/backups/route.ts",
+          "line": 14
+        },
+        {
           "path": "src/app/backups/page.tsx",
           "line": 21
         }
@@ -144,6 +210,10 @@
     {
       "permission": "backup:restore",
       "files": [
+        {
+          "path": "src/app/api/backups/[id]/restore/route.ts",
+          "line": 14
+        },
         {
           "path": "src/app/backups/page.tsx",
           "line": 23
@@ -183,6 +253,34 @@
       "permission": "command:create",
       "files": [
         {
+          "path": "src/app/api/command-templates/route.ts",
+          "line": 55
+        },
+        {
+          "path": "src/app/api/command-templates/route.ts",
+          "line": 72
+        },
+        {
+          "path": "src/app/api/command-templates/route.ts",
+          "line": 86
+        },
+        {
+          "path": "src/app/api/commands/route.ts",
+          "line": 20
+        },
+        {
+          "path": "src/app/api/scheduled-tasks/route.ts",
+          "line": 106
+        },
+        {
+          "path": "src/app/api/scheduled-tasks/route.ts",
+          "line": 150
+        },
+        {
+          "path": "src/app/api/scheduled-tasks/route.ts",
+          "line": 211
+        },
+        {
           "path": "src/app/scheduled-tasks/page.tsx",
           "line": 13
         },
@@ -213,6 +311,10 @@
         {
           "path": "src/app/api/commands/route.ts",
           "line": 24
+        },
+        {
+          "path": "src/app/api/commands/route.ts",
+          "line": 41
         }
       ],
       "pages": [],
@@ -226,7 +328,20 @@
     },
     {
       "permission": "command:read",
-      "files": [],
+      "files": [
+        {
+          "path": "src/app/api/command-templates/route.ts",
+          "line": 41
+        },
+        {
+          "path": "src/app/api/commands/route.ts",
+          "line": 13
+        },
+        {
+          "path": "src/app/api/scheduled-tasks/route.ts",
+          "line": 76
+        }
+      ],
       "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -239,6 +354,14 @@
     {
       "permission": "deploy:export",
       "files": [
+        {
+          "path": "src/app/api/deploy-export/route.ts",
+          "line": 25
+        },
+        {
+          "path": "src/app/api/deploy-export/route.ts",
+          "line": 34
+        },
         {
           "path": "src/app/deployments/page.tsx",
           "line": 25
@@ -266,6 +389,10 @@
       "permission": "deploy:read",
       "files": [
         {
+          "path": "src/app/api/deployments/route.ts",
+          "line": 28
+        },
+        {
           "path": "src/app/deployments/page.tsx",
           "line": 23
         }
@@ -283,6 +410,14 @@
     {
       "permission": "deploy:run",
       "files": [
+        {
+          "path": "src/app/api/deployments/[id]/rollback/route.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/api/deployments/route.ts",
+          "line": 84
+        },
         {
           "path": "src/app/deployments/page.tsx",
           "line": 24
@@ -305,6 +440,34 @@
     {
       "permission": "docker:manage",
       "files": [
+        {
+          "path": "src/app/api/docker/containers/route.ts",
+          "line": 137
+        },
+        {
+          "path": "src/app/api/docker/containers/route.ts",
+          "line": 209
+        },
+        {
+          "path": "src/app/api/quick-services/[slug]/route.ts",
+          "line": 14
+        },
+        {
+          "path": "src/app/api/quick-services/[slug]/route.ts",
+          "line": 43
+        },
+        {
+          "path": "src/app/api/quick-services/check-port/route.ts",
+          "line": 10
+        },
+        {
+          "path": "src/app/api/quick-services/route.ts",
+          "line": 25
+        },
+        {
+          "path": "src/app/api/quick-services/route.ts",
+          "line": 85
+        },
         {
           "path": "src/app/docker/page.tsx",
           "line": 8
@@ -332,6 +495,14 @@
     {
       "permission": "health:read",
       "files": [
+        {
+          "path": "src/app/api/health/route.ts",
+          "line": 33
+        },
+        {
+          "path": "src/app/api/system-health/route.ts",
+          "line": 9
+        },
         {
           "path": "src/app/health/page.tsx",
           "line": 10
@@ -389,6 +560,14 @@
       "permission": "media:manage",
       "files": [
         {
+          "path": "src/app/api/media/[id]/route.ts",
+          "line": 21
+        },
+        {
+          "path": "src/app/api/media/route.ts",
+          "line": 34
+        },
+        {
           "path": "src/app/media/page.tsx",
           "line": 18
         }
@@ -409,6 +588,30 @@
         {
           "path": "src/app/alert-rules/page.tsx",
           "line": 13
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 138
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 149
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 178
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 221
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 244
+        },
+        {
+          "path": "src/app/api/notifications/route.ts",
+          "line": 98
         }
       ],
       "pages": [
@@ -454,6 +657,14 @@
       "permission": "server:read",
       "files": [
         {
+          "path": "src/app/api/servers/monitor/route.ts",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/traffic/summary/route.ts",
+          "line": 96
+        },
+        {
           "path": "src/app/traffic/page.tsx",
           "line": 10
         }
@@ -472,6 +683,10 @@
     {
       "permission": "server:ssh",
       "files": [
+        {
+          "path": "src/app/api/auth/ws-token/route.ts",
+          "line": 31
+        },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
           "line": 107
@@ -569,6 +784,10 @@
           "line": 37
         },
         {
+          "path": "src/app/api/share-links/route.ts",
+          "line": 42
+        },
+        {
           "path": "src/app/files/page.tsx",
           "line": 43
         },
@@ -594,6 +813,10 @@
       "permission": "share:manage",
       "files": [
         {
+          "path": "src/app/api/share-links/route.ts",
+          "line": 92
+        },
+        {
           "path": "src/app/shares/page.tsx",
           "line": 17
         }
@@ -611,6 +834,10 @@
     {
       "permission": "share:read",
       "files": [
+        {
+          "path": "src/app/api/share-links/route.ts",
+          "line": 31
+        },
         {
           "path": "src/app/shares/page.tsx",
           "line": 14
@@ -630,6 +857,22 @@
     {
       "permission": "snippet:manage",
       "files": [
+        {
+          "path": "src/app/api/snippets/route.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/api/snippets/route.ts",
+          "line": 36
+        },
+        {
+          "path": "src/app/api/snippets/route.ts",
+          "line": 53
+        },
+        {
+          "path": "src/app/api/snippets/route.ts",
+          "line": 78
+        },
         {
           "path": "src/app/snippets/page.tsx",
           "line": 11
@@ -750,12 +993,68 @@
       "permission": "storage:read",
       "files": [
         {
+          "path": "src/app/api/downloads/route.ts",
+          "line": 437
+        },
+        {
+          "path": "src/app/api/files/archive-list/route.ts",
+          "line": 28
+        },
+        {
+          "path": "src/app/api/files/editable/[id]/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/files/list/route.ts",
+          "line": 31
+        },
+        {
+          "path": "src/app/api/images/publish-from-storage/route.ts",
+          "line": 39
+        },
+        {
           "path": "src/app/api/media/[id]/stream/route.ts",
           "line": 60
         },
         {
           "path": "src/app/api/media/[id]/thumbnail/route.ts",
           "line": 187
+        },
+        {
+          "path": "src/app/api/media/route.ts",
+          "line": 13
+        },
+        {
+          "path": "src/app/api/storage/archive-download/route.ts",
+          "line": 91
+        },
+        {
+          "path": "src/app/api/storage/direct-access/route.ts",
+          "line": 210
+        },
+        {
+          "path": "src/app/api/storage/direct-access/route.ts",
+          "line": 244
+        },
+        {
+          "path": "src/app/api/storage/direct-access/route.ts",
+          "line": 268
+        },
+        {
+          "path": "src/app/api/storage/local/route.ts",
+          "line": 455
+        },
+        {
+          "path": "src/app/api/storage/nodes/route.ts",
+          "line": 15
+        },
+        {
+          "path": "src/app/api/storage/sftp/route.ts",
+          "line": 138
+        },
+        {
+          "path": "src/app/api/storage/sftp-download/route.ts",
+          "line": 94
         },
         {
           "path": "src/app/downloads/page.tsx",
@@ -790,12 +1089,40 @@
       "permission": "storage:write",
       "files": [
         {
+          "path": "src/app/api/downloads/route.ts",
+          "line": 165
+        },
+        {
+          "path": "src/app/api/downloads/route.ts",
+          "line": 561
+        },
+        {
+          "path": "src/app/api/downloads/route.ts",
+          "line": 802
+        },
+        {
+          "path": "src/app/api/files/editable/[id]/route.ts",
+          "line": 43
+        },
+        {
+          "path": "src/app/api/files/extract/route.ts",
+          "line": 37
+        },
+        {
           "path": "src/app/api/files/list/route.ts",
           "line": 35
         },
         {
           "path": "src/app/api/images/upload/route.ts",
           "line": 75
+        },
+        {
+          "path": "src/app/api/storage/local/route.ts",
+          "line": 468
+        },
+        {
+          "path": "src/app/api/storage/sftp-sync/route.ts",
+          "line": 31
         },
         {
           "path": "src/app/downloads/page.tsx",
@@ -837,6 +1164,26 @@
     {
       "permission": "task:read",
       "files": [
+        {
+          "path": "src/app/api/admin/qa-reports/[id]/route.ts",
+          "line": 27
+        },
+        {
+          "path": "src/app/api/admin/qa-reports/route.ts",
+          "line": 25
+        },
+        {
+          "path": "src/app/api/admin/workers/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/jobs/[id]/events/route.ts",
+          "line": 26
+        },
+        {
+          "path": "src/app/api/operation-tasks/route.ts",
+          "line": 60
+        },
         {
           "path": "src/app/operation-tasks/page.tsx",
           "line": 11
@@ -897,6 +1244,10 @@
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
+          "line": 50
+        },
+        {
+          "path": "src/app/api/tickets/[id]/route.ts",
           "line": 68
         },
         {
@@ -906,6 +1257,10 @@
         {
           "path": "src/app/api/tickets/route.ts",
           "line": 62
+        },
+        {
+          "path": "src/app/api/tickets/route.ts",
+          "line": 78
         },
         {
           "path": "src/app/tickets/[id]/page.tsx",
@@ -932,7 +1287,12 @@
     },
     {
       "permission": "ticket:read",
-      "files": [],
+      "files": [
+        {
+          "path": "src/app/api/tickets/route.ts",
+          "line": 46
+        }
+      ],
       "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -945,6 +1305,42 @@
     {
       "permission": "user:manage",
       "files": [
+        {
+          "path": "src/app/api/app-sources/route.ts",
+          "line": 25
+        },
+        {
+          "path": "src/app/api/app-sources/route.ts",
+          "line": 113
+        },
+        {
+          "path": "src/app/api/app-sources/route.ts",
+          "line": 167
+        },
+        {
+          "path": "src/app/api/app-sources/route.ts",
+          "line": 208
+        },
+        {
+          "path": "src/app/api/settings/route.ts",
+          "line": 119
+        },
+        {
+          "path": "src/app/api/settings/route.ts",
+          "line": 129
+        },
+        {
+          "path": "src/app/api/users/permissions/route.ts",
+          "line": 177
+        },
+        {
+          "path": "src/app/api/users/route.ts",
+          "line": 50
+        },
+        {
+          "path": "src/app/api/users/route.ts",
+          "line": 119
+        },
         {
           "path": "src/app/settings/page.tsx",
           "line": 42
@@ -979,6 +1375,14 @@
           "line": 23
         },
         {
+          "path": "src/app/api/users/permissions/route.ts",
+          "line": 92
+        },
+        {
+          "path": "src/app/api/users/route.ts",
+          "line": 16
+        },
+        {
           "path": "src/app/users/page.tsx",
           "line": 10
         }
@@ -1001,15 +1405,6 @@
   ],
   "drifts": [
     {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/ai/chat declares \"ai:chat\" but the route handler doesn't call requirePermission(\"ai:chat\")",
-      "context": {
-        "path": "/src/app/api/ai/chat",
-        "declaredPermission": "ai:chat"
-      }
-    },
-    {
       "code": "api-no-declared-perm",
       "severity": "low",
       "message": "API route /src/app/api/ai/conversations/[id] has no declaredPermissions (could be intentionally public)",
@@ -1021,15 +1416,6 @@
           "GET",
           "PATCH"
         ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/ai/conversations declares \"ai:chat\" but the route handler doesn't call requirePermission(\"ai:chat\")",
-      "context": {
-        "path": "/src/app/api/ai/conversations",
-        "declaredPermission": "ai:chat"
       }
     },
     {
@@ -1057,15 +1443,6 @@
       }
     },
     {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/ai/models/probe declares \"ai:manage\" but the route handler doesn't call requirePermission(\"ai:manage\")",
-      "context": {
-        "path": "/src/app/api/ai/models/probe",
-        "declaredPermission": "ai:manage"
-      }
-    },
-    {
       "code": "api-no-declared-perm",
       "severity": "low",
       "message": "API route /src/app/api/ai/models has no declaredPermissions (could be intentionally public)",
@@ -1080,64 +1457,11 @@
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/ai/providers/[id] declares \"ai:manage\" but the route handler doesn't call requirePermission(\"ai:manage\")",
-      "context": {
-        "path": "/src/app/api/ai/providers/[id]",
-        "declaredPermission": "ai:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/ai/providers declares \"ai:manage\" but the route handler doesn't call requirePermission(\"ai:manage\")",
-      "context": {
-        "path": "/src/app/api/ai/providers",
-        "declaredPermission": "ai:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/alert-rules declares \"notification:manage\" but the route handler doesn't call requirePermission(\"notification:manage\")",
-      "context": {
-        "path": "/src/app/api/alert-rules",
-        "declaredPermission": "notification:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/announcements declares \"announcement:manage\" but the route handler doesn't call requirePermission(\"announcement:manage\")",
-      "context": {
-        "path": "/src/app/api/announcements",
-        "declaredPermission": "announcement:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/api-tokens declares \"api-token:manage\" but the route handler doesn't call requirePermission(\"api-token:manage\")",
+      "message": "API route /src/app/api/api-tokens declares \"api-token:manage\" but the route handler doesn't enforce it via requirePermission(\"api-token:manage\") or withApiRoute(..., { permission: \"api-token:manage\" }, ...)",
       "context": {
         "path": "/src/app/api/api-tokens",
-        "declaredPermission": "api-token:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/app-sources declares \"user:manage\" but the route handler doesn't call requirePermission(\"user:manage\")",
-      "context": {
-        "path": "/src/app/api/app-sources",
-        "declaredPermission": "user:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/audit declares \"audit:read\" but the route handler doesn't call requirePermission(\"audit:read\")",
-      "context": {
-        "path": "/src/app/api/audit",
-        "declaredPermission": "audit:read"
+        "declaredPermission": "api-token:manage",
+        "file": "src/app/api/api-tokens/route.ts"
       }
     },
     {
@@ -1226,78 +1550,6 @@
       }
     },
     {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/backups/[id]/retry declares \"backup:create\" but the route handler doesn't call requirePermission(\"backup:create\")",
-      "context": {
-        "path": "/src/app/api/backups/[id]/retry",
-        "declaredPermission": "backup:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/backups/[id]/void declares \"backup:create\" but the route handler doesn't call requirePermission(\"backup:create\")",
-      "context": {
-        "path": "/src/app/api/backups/[id]/void",
-        "declaredPermission": "backup:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/backups declares \"backup:create\" but the route handler doesn't call requirePermission(\"backup:create\")",
-      "context": {
-        "path": "/src/app/api/backups",
-        "declaredPermission": "backup:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/backups declares \"backup:read\" but the route handler doesn't call requirePermission(\"backup:read\")",
-      "context": {
-        "path": "/src/app/api/backups",
-        "declaredPermission": "backup:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/command-templates declares \"command:create\" but the route handler doesn't call requirePermission(\"command:create\")",
-      "context": {
-        "path": "/src/app/api/command-templates",
-        "declaredPermission": "command:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/command-templates declares \"command:read\" but the route handler doesn't call requirePermission(\"command:read\")",
-      "context": {
-        "path": "/src/app/api/command-templates",
-        "declaredPermission": "command:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/commands declares \"command:create\" but the route handler doesn't call requirePermission(\"command:create\")",
-      "context": {
-        "path": "/src/app/api/commands",
-        "declaredPermission": "command:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/commands declares \"command:read\" but the route handler doesn't call requirePermission(\"command:read\")",
-      "context": {
-        "path": "/src/app/api/commands",
-        "declaredPermission": "command:read"
-      }
-    },
-    {
       "code": "api-no-declared-perm",
       "severity": "low",
       "message": "API route /src/app/api/dashboard/analytics has no declaredPermissions (could be intentionally public)",
@@ -1335,24 +1587,6 @@
       }
     },
     {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/deployments declares \"deploy:read\" but the route handler doesn't call requirePermission(\"deploy:read\")",
-      "context": {
-        "path": "/src/app/api/deployments",
-        "declaredPermission": "deploy:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/docker/containers declares \"docker:manage\" but the route handler doesn't call requirePermission(\"docker:manage\")",
-      "context": {
-        "path": "/src/app/api/docker/containers",
-        "declaredPermission": "docker:manage"
-      }
-    },
-    {
       "code": "api-no-declared-perm",
       "severity": "low",
       "message": "API route /src/app/api/docs/openapi.json has no declaredPermissions (could be intentionally public)",
@@ -1379,199 +1613,131 @@
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/downloads declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/downloads",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/downloads declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
-      "context": {
-        "path": "/src/app/api/downloads",
-        "declaredPermission": "storage:write"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/archive-list declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/files/archive-list",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/editable/[id] declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/files/editable/[id]",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/editable/[id] declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
-      "context": {
-        "path": "/src/app/api/files/editable/[id]",
-        "declaredPermission": "storage:write"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/extract declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
-      "context": {
-        "path": "/src/app/api/files/extract",
-        "declaredPermission": "storage:write"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"share:create\" but the route handler doesn't call requirePermission(\"share:create\")",
+      "message": "API route /src/app/api/files/list declares \"share:create\" but the route handler doesn't enforce it via requirePermission(\"share:create\") or withApiRoute(..., { permission: \"share:create\" }, ...)",
       "context": {
         "path": "/src/app/api/files/list",
-        "declaredPermission": "share:create"
+        "declaredPermission": "share:create",
+        "file": "src/app/api/files/list/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"storage:delete\" but the route handler doesn't call requirePermission(\"storage:delete\")",
+      "message": "API route /src/app/api/files/list declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
       "context": {
         "path": "/src/app/api/files/list",
-        "declaredPermission": "storage:delete"
+        "declaredPermission": "storage:delete",
+        "file": "src/app/api/files/list/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
+      "message": "API route /src/app/api/files/list declares \"storage:write\" but the route handler doesn't enforce it via requirePermission(\"storage:write\") or withApiRoute(..., { permission: \"storage:write\" }, ...)",
       "context": {
         "path": "/src/app/api/files/list",
-        "declaredPermission": "storage:read"
+        "declaredPermission": "storage:write",
+        "file": "src/app/api/files/list/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
-      "context": {
-        "path": "/src/app/api/files/list",
-        "declaredPermission": "storage:write"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/health declares \"health:read\" but the route handler doesn't call requirePermission(\"health:read\")",
-      "context": {
-        "path": "/src/app/api/health",
-        "declaredPermission": "health:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/[id]/file declares \"user:read\" but the route handler doesn't call requirePermission(\"user:read\")",
+      "message": "API route /src/app/api/images/[id]/file declares \"user:read\" but the route handler doesn't enforce it via requirePermission(\"user:read\") or withApiRoute(..., { permission: \"user:read\" }, ...)",
       "context": {
         "path": "/src/app/api/images/[id]/file",
-        "declaredPermission": "user:read"
+        "declaredPermission": "user:read",
+        "file": "src/app/api/images/[id]/file/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/[id] declares \"role:manage\" but the route handler doesn't call requirePermission(\"role:manage\")",
+      "message": "API route /src/app/api/images/[id] declares \"role:manage\" but the route handler doesn't enforce it via requirePermission(\"role:manage\") or withApiRoute(..., { permission: \"role:manage\" }, ...)",
       "context": {
         "path": "/src/app/api/images/[id]",
-        "declaredPermission": "role:manage"
+        "declaredPermission": "role:manage",
+        "file": "src/app/api/images/[id]/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/[id] declares \"storage:delete\" but the route handler doesn't call requirePermission(\"storage:delete\")",
+      "message": "API route /src/app/api/images/[id] declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
       "context": {
         "path": "/src/app/api/images/[id]",
-        "declaredPermission": "storage:delete"
+        "declaredPermission": "storage:delete",
+        "file": "src/app/api/images/[id]/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/batch declares \"role:manage\" but the route handler doesn't call requirePermission(\"role:manage\")",
+      "message": "API route /src/app/api/images/batch declares \"role:manage\" but the route handler doesn't enforce it via requirePermission(\"role:manage\") or withApiRoute(..., { permission: \"role:manage\" }, ...)",
       "context": {
         "path": "/src/app/api/images/batch",
-        "declaredPermission": "role:manage"
+        "declaredPermission": "role:manage",
+        "file": "src/app/api/images/batch/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/batch declares \"storage:delete\" but the route handler doesn't call requirePermission(\"storage:delete\")",
+      "message": "API route /src/app/api/images/batch declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
       "context": {
         "path": "/src/app/api/images/batch",
-        "declaredPermission": "storage:delete"
+        "declaredPermission": "storage:delete",
+        "file": "src/app/api/images/batch/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/list declares \"image:read\" but the route handler doesn't call requirePermission(\"image:read\")",
+      "message": "API route /src/app/api/images/list declares \"image:read\" but the route handler doesn't enforce it via requirePermission(\"image:read\") or withApiRoute(..., { permission: \"image:read\" }, ...)",
       "context": {
         "path": "/src/app/api/images/list",
-        "declaredPermission": "image:read"
+        "declaredPermission": "image:read",
+        "file": "src/app/api/images/list/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/list declares \"user:read\" but the route handler doesn't call requirePermission(\"user:read\")",
+      "message": "API route /src/app/api/images/list declares \"user:read\" but the route handler doesn't enforce it via requirePermission(\"user:read\") or withApiRoute(..., { permission: \"user:read\" }, ...)",
       "context": {
         "path": "/src/app/api/images/list",
-        "declaredPermission": "user:read"
+        "declaredPermission": "user:read",
+        "file": "src/app/api/images/list/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/publish-from-storage declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/images/publish-from-storage",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/stats declares \"user:read\" but the route handler doesn't call requirePermission(\"user:read\")",
+      "message": "API route /src/app/api/images/stats declares \"user:read\" but the route handler doesn't enforce it via requirePermission(\"user:read\") or withApiRoute(..., { permission: \"user:read\" }, ...)",
       "context": {
         "path": "/src/app/api/images/stats",
-        "declaredPermission": "user:read"
+        "declaredPermission": "user:read",
+        "file": "src/app/api/images/stats/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/upload declares \"image:write\" but the route handler doesn't call requirePermission(\"image:write\")",
+      "message": "API route /src/app/api/images/upload declares \"image:write\" but the route handler doesn't enforce it via requirePermission(\"image:write\") or withApiRoute(..., { permission: \"image:write\" }, ...)",
       "context": {
         "path": "/src/app/api/images/upload",
-        "declaredPermission": "image:write"
+        "declaredPermission": "image:write",
+        "file": "src/app/api/images/upload/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/images/upload declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
+      "message": "API route /src/app/api/images/upload declares \"storage:write\" but the route handler doesn't enforce it via requirePermission(\"storage:write\") or withApiRoute(..., { permission: \"storage:write\" }, ...)",
       "context": {
         "path": "/src/app/api/images/upload",
-        "declaredPermission": "storage:write"
+        "declaredPermission": "storage:write",
+        "file": "src/app/api/images/upload/route.ts"
       }
     },
     {
@@ -1589,37 +1755,11 @@
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/media/[id] declares \"media:manage\" but the route handler doesn't call requirePermission(\"media:manage\")",
-      "context": {
-        "path": "/src/app/api/media/[id]",
-        "declaredPermission": "media:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/media/[id]/stream declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
+      "message": "API route /src/app/api/media/[id]/stream declares \"storage:read\" but the route handler doesn't enforce it via requirePermission(\"storage:read\") or withApiRoute(..., { permission: \"storage:read\" }, ...)",
       "context": {
         "path": "/src/app/api/media/[id]/stream",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/media declares \"media:manage\" but the route handler doesn't call requirePermission(\"media:manage\")",
-      "context": {
-        "path": "/src/app/api/media",
-        "declaredPermission": "media:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/media declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/media",
-        "declaredPermission": "storage:read"
+        "declaredPermission": "storage:read",
+        "file": "src/app/api/media/[id]/stream/route.ts"
       }
     },
     {
@@ -1635,24 +1775,6 @@
       }
     },
     {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/notifications declares \"notification:manage\" but the route handler doesn't call requirePermission(\"notification:manage\")",
-      "context": {
-        "path": "/src/app/api/notifications",
-        "declaredPermission": "notification:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/operation-tasks declares \"task:read\" but the route handler doesn't call requirePermission(\"task:read\")",
-      "context": {
-        "path": "/src/app/api/operation-tasks",
-        "declaredPermission": "task:read"
-      }
-    },
-    {
       "code": "api-no-declared-perm",
       "severity": "low",
       "message": "API route /src/app/api/preferences has no declaredPermissions (could be intentionally public)",
@@ -1663,51 +1785,6 @@
           "GET",
           "PUT"
         ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/quick-services/[slug] declares \"docker:manage\" but the route handler doesn't call requirePermission(\"docker:manage\")",
-      "context": {
-        "path": "/src/app/api/quick-services/[slug]",
-        "declaredPermission": "docker:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/quick-services/check-port declares \"docker:manage\" but the route handler doesn't call requirePermission(\"docker:manage\")",
-      "context": {
-        "path": "/src/app/api/quick-services/check-port",
-        "declaredPermission": "docker:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/quick-services declares \"docker:manage\" but the route handler doesn't call requirePermission(\"docker:manage\")",
-      "context": {
-        "path": "/src/app/api/quick-services",
-        "declaredPermission": "docker:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/scheduled-tasks declares \"command:create\" but the route handler doesn't call requirePermission(\"command:create\")",
-      "context": {
-        "path": "/src/app/api/scheduled-tasks",
-        "declaredPermission": "command:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/scheduled-tasks declares \"command:read\" but the route handler doesn't call requirePermission(\"command:read\")",
-      "context": {
-        "path": "/src/app/api/scheduled-tasks",
-        "declaredPermission": "command:read"
       }
     },
     {
@@ -1725,51 +1802,6 @@
       }
     },
     {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/servers/monitor declares \"server:read\" but the route handler doesn't call requirePermission(\"server:read\")",
-      "context": {
-        "path": "/src/app/api/servers/monitor",
-        "declaredPermission": "server:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/settings declares \"user:manage\" but the route handler doesn't call requirePermission(\"user:manage\")",
-      "context": {
-        "path": "/src/app/api/settings",
-        "declaredPermission": "user:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/share-links declares \"share:create\" but the route handler doesn't call requirePermission(\"share:create\")",
-      "context": {
-        "path": "/src/app/api/share-links",
-        "declaredPermission": "share:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/share-links declares \"share:manage\" but the route handler doesn't call requirePermission(\"share:manage\")",
-      "context": {
-        "path": "/src/app/api/share-links",
-        "declaredPermission": "share:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/share-links declares \"share:read\" but the route handler doesn't call requirePermission(\"share:read\")",
-      "context": {
-        "path": "/src/app/api/share-links",
-        "declaredPermission": "share:read"
-      }
-    },
-    {
       "code": "api-no-declared-perm",
       "severity": "low",
       "message": "API route /src/app/api/share/[token] has no declaredPermissions (could be intentionally public)",
@@ -1784,19 +1816,11 @@
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/snippets declares \"role:manage\" but the route handler doesn't call requirePermission(\"role:manage\")",
+      "message": "API route /src/app/api/snippets declares \"role:manage\" but the route handler doesn't enforce it via requirePermission(\"role:manage\") or withApiRoute(..., { permission: \"role:manage\" }, ...)",
       "context": {
         "path": "/src/app/api/snippets",
-        "declaredPermission": "role:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/snippets declares \"snippet:manage\" but the route handler doesn't call requirePermission(\"snippet:manage\")",
-      "context": {
-        "path": "/src/app/api/snippets",
-        "declaredPermission": "snippet:manage"
+        "declaredPermission": "role:manage",
+        "file": "src/app/api/snippets/route.ts"
       }
     },
     {
@@ -1814,190 +1838,41 @@
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/storage/archive-download declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/storage/archive-download",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/direct-access declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/storage/direct-access",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/local declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/storage/local",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/local declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
-      "context": {
-        "path": "/src/app/api/storage/local",
-        "declaredPermission": "storage:write"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/nodes declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/storage/nodes",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-download declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/storage/sftp-download",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:delete\" but the route handler doesn't call requirePermission(\"storage:delete\")",
+      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
       "context": {
         "path": "/src/app/api/storage/sftp-ops",
-        "declaredPermission": "storage:delete"
+        "declaredPermission": "storage:delete",
+        "file": "src/app/api/storage/sftp-ops/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
+      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:read\" but the route handler doesn't enforce it via requirePermission(\"storage:read\") or withApiRoute(..., { permission: \"storage:read\" }, ...)",
       "context": {
         "path": "/src/app/api/storage/sftp-ops",
-        "declaredPermission": "storage:read"
+        "declaredPermission": "storage:read",
+        "file": "src/app/api/storage/sftp-ops/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
+      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:write\" but the route handler doesn't enforce it via requirePermission(\"storage:write\") or withApiRoute(..., { permission: \"storage:write\" }, ...)",
       "context": {
         "path": "/src/app/api/storage/sftp-ops",
-        "declaredPermission": "storage:write"
+        "declaredPermission": "storage:write",
+        "file": "src/app/api/storage/sftp-ops/route.ts"
       }
     },
     {
       "code": "api-decl-perm-unused",
       "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-sync declares \"storage:write\" but the route handler doesn't call requirePermission(\"storage:write\")",
-      "context": {
-        "path": "/src/app/api/storage/sftp-sync",
-        "declaredPermission": "storage:write"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp declares \"storage:read\" but the route handler doesn't call requirePermission(\"storage:read\")",
-      "context": {
-        "path": "/src/app/api/storage/sftp",
-        "declaredPermission": "storage:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/system-health declares \"health:read\" but the route handler doesn't call requirePermission(\"health:read\")",
-      "context": {
-        "path": "/src/app/api/system-health",
-        "declaredPermission": "health:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/tickets/[id] declares \"ticket:manage\" but the route handler doesn't call requirePermission(\"ticket:manage\")",
-      "context": {
-        "path": "/src/app/api/tickets/[id]",
-        "declaredPermission": "ticket:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/tickets declares \"ticket:create\" but the route handler doesn't call requirePermission(\"ticket:create\")",
+      "message": "API route /src/app/api/tickets declares \"ticket:create\" but the route handler doesn't enforce it via requirePermission(\"ticket:create\") or withApiRoute(..., { permission: \"ticket:create\" }, ...)",
       "context": {
         "path": "/src/app/api/tickets",
-        "declaredPermission": "ticket:create"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/tickets declares \"ticket:manage\" but the route handler doesn't call requirePermission(\"ticket:manage\")",
-      "context": {
-        "path": "/src/app/api/tickets",
-        "declaredPermission": "ticket:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/tickets declares \"ticket:read\" but the route handler doesn't call requirePermission(\"ticket:read\")",
-      "context": {
-        "path": "/src/app/api/tickets",
-        "declaredPermission": "ticket:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/traffic/summary declares \"server:read\" but the route handler doesn't call requirePermission(\"server:read\")",
-      "context": {
-        "path": "/src/app/api/traffic/summary",
-        "declaredPermission": "server:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/users/permissions declares \"user:manage\" but the route handler doesn't call requirePermission(\"user:manage\")",
-      "context": {
-        "path": "/src/app/api/users/permissions",
-        "declaredPermission": "user:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/users/permissions declares \"user:read\" but the route handler doesn't call requirePermission(\"user:read\")",
-      "context": {
-        "path": "/src/app/api/users/permissions",
-        "declaredPermission": "user:read"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/users declares \"user:manage\" but the route handler doesn't call requirePermission(\"user:manage\")",
-      "context": {
-        "path": "/src/app/api/users",
-        "declaredPermission": "user:manage"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/users declares \"user:read\" but the route handler doesn't call requirePermission(\"user:read\")",
-      "context": {
-        "path": "/src/app/api/users",
-        "declaredPermission": "user:read"
+        "declaredPermission": "ticket:create",
+        "file": "src/app/api/tickets/route.ts"
       }
     }
   ]
