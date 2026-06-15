@@ -432,7 +432,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - **文件状态一致性 / 远端索引刷新 / 存储列表性能（TR-005, P2）** — 删除/恢复主路径已避免高风险不一致；剩余：远端 SFTP 文件在 Hub 外被删除时仍会保持 active（媒体流安全返回 No such file 但需专项刷新/校验任务清理 stale inventory）；存储概览和文件列表仍有未分页 `findMany` + 内存聚合，大文件索引性能风险。
 - **任务中心跨来源归档 / 长期保留（TR-006, P2）** — 已完成同类高频折叠、状态/类型筛选、聚合计数、失败归类、需处理排序、最近日志摘要、CSV 导出、`alert.evaluate` 历史保留策略；剩余：跨来源统一长期保留策略（避免命令/下载/备份/部署历史在大型实例继续增长）。
 - **备份运维（TR-007, P2）** — 作废入口、durable job 重试、status/alert 反馈、失败原因归类+修复建议已落地；剩余：异地备份 / 自动恢复演练 / 保留策略自动清理。
-- **设置页高风险设置（TR-014, P2）** — 当前值/配置来源/生效位置/重启边界、最近修改人+时间已展示；剩余：回滚入口、改动前后 diff、危险设置风险确认。
+- **设置页高风险设置（TR-014, P2）** — 当前值/配置来源/生效位置/重启边界、最近修改人+时间已展示；M01 完成：字段级 ↺ 恢复默认按钮（高/中风险 badge）+ Save 角标 "X 项已修改"（含 diff 表）+ high 风险提交时弹确认 modal。
 - **在线文件编辑器（TR-012, P2）** — 本机文本编辑/保存/权限/差异预览/并发修改检测 + SFTP 编辑（T17a） + 保存后重载服务（T17b）已全部落地；无剩余子项。
 
 ### 既知增强项队列
@@ -745,7 +745,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [x] **在线文件编辑器剩余增强**（TR-012）— **SFTP 编辑**（T17a 落地, `localEditable` 扩到 SFTP 节点 + `TextPreviewClient` 接 `driver/nodeId/relativePath` + `handleSave` 走 `/api/storage/sftp-ops action=write` + 响应 `byteSize` 字段返回 + 2 个新测覆盖 routing + 错误显示）+ **保存后重载服务**（T17b 落地, `POST /api/servers/[id]/reload` 走 `execRemoteCommand`，白名单约束 `unit:^[A-Za-z0-9._@-]{1,128}$` 防 shell 注入，`kind:"systemd"` 拼 `systemctl reload <unit>` (失败回退 `restart`)，`kind:"compose"` 拼 `cd <dir> && docker compose up -d [service]`，`RELOADABLE_CONFIG_MAP` 限定 nginx.conf/redis.conf/sshd_config/httpd.conf/my.cnf/docker-compose.yml 等候选配置，`TextPreviewClient` 串联 "保存 → 重载" 流程，状态机扩 `reloading/reloaded` + `reloadMessage`，amber 配色 "保存并重载 `<unit>`" 按钮在 editMode + SFTP + serverId + reloadUnit 同时满足时显示，6 个 reload route 测 + 3 个 frontend 测 = 9 新测覆盖 routing/错误/状态机)。
-- [ ] **设置页高风险设置**（TR-014）— 回滚入口、改动前后 diff、危险设置风险确认。
+- [x] **设置页高风险设置**（TR-014）— M01：↺ 恢复默认按钮 + Save diff 角标 + high 风险 confirm modal。
 - [x] **备份策略管理**（TR-015）— **任务化执行**（T13a/T13b jobs 表迁移已落地） + **保留策略自动清理**（T16 落地, `pruneOldBackupRecords` planner + `BACKUP_RETENTION_JOB_TYPE` durable job + `/api/backups/retention` API + `/backups` RetentionButton UI + 11 测试）。**待续做**: 异地备份、恢复验证演练。
 - [ ] **仪表盘自定义**（TR-020）— 拖拽卡片、指标选择、时间范围筛选。
 - [x] **环境变量集中读取层**（TR-035）— 扩 `lib/config/env.ts`，23 文件已迁移。
