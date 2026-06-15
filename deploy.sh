@@ -24,6 +24,53 @@ sudo -u "$APP_USER" npm run build
 echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
 
+echo "==> [2.6/7] TR-002: 检测 + patch /etc/caddy/Caddyfile 的 /direct 反代"
+CADDY_FILE="/etc/caddy/Caddyfile"
+if [ -f "$CADDY_FILE" ]; then
+	if ! grep -q 'reverse_proxy /direct' "$CADDY_FILE"; then
+		# 在最后一行 reverse_proxy 127.0.0.1:3000 之前注入 /direct 反代段
+		BACKUP="${CADDY_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+		cp "$CADDY_FILE" "$BACKUP"
+		awk '
+			/reverse_proxy 127\.0\.0\.1:3000/ && !done {
+				print "\n	# TR-002: Direct Gateway 反代 (本机 SFTP node 用)"
+				print "	# 远端 server 的 direct gateway 由各自反向代理/VPN/防火墙保护"
+				print "	reverse_proxy /direct 127.0.0.1:31888"
+				print "	reverse_proxy /direct/* 127.0.0.1:31888"
+				done=1
+			}
+			{ print }
+		' "$BACKUP" > "$CADDY_FILE"
+		echo "  注入 /direct 反代段 (备份: $BACKUP)"
+	else
+		echo "  /direct 反代已存在, 跳过"
+	fi
+	# caddy 自动 reload Caddyfile, 验证语法 (Caddyfile 需显式 --adapter caddyfile)
+	caddy validate --config "$CADDY_FILE" --adapter caddyfile >/dev/null 2>&1
+	validate_exit=$?
+	if [ "$validate_exit" -eq 0 ]; then
+		systemctl reload caddy || true
+		echo "  caddy validate OK + reload"
+	else
+		echo "  FAIL: caddy validate 退出码 $validate_exit, 恢复备份"
+		cp "$BACKUP" "$CADDY_FILE"
+		exit 1
+	fi
+else
+	echo "  跳过 ($CADDY_FILE 不存在)"
+fi
+
+echo "==> [2.7/7] TR-002: 验证 vcontrolhub-direct.service DIRECT_BIND=127.0.0.1 (如已装)"
+if systemctl list-unit-files vcontrolhub-direct.service >/dev/null 2>&1; then
+	if ! systemctl show vcontrolhub-direct.service -p Environment 2>/dev/null | grep -q DIRECT_BIND; then
+		echo "  WARNING: vcontrolhub-direct.service 未显式声明 DIRECT_BIND. 建议在 /etc/vcontrolhub-direct.env 加 DIRECT_BIND=127.0.0.1 然后 systemctl restart vcontrolhub-direct.service"
+	else
+		echo "  DIRECT_BIND 已声明"
+	fi
+else
+	echo "  跳过 (服务未安装)"
+fi
+
 echo "==> [3/6] 修正 .next owner"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" "$APP_DIR/.next/cache" 2>/dev/null || true
 
