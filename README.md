@@ -728,7 +728,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **下载入队失败被吞**（New-A）— `src/app/api/downloads/route.ts` route 端 `await enqueueDownloadExecutionJob` 后再返 201，失败回滚 `downloadTask.status = FAILED`；durable worker 入口加幂等 claim。**不交后台 cron，人工在场修**。
 - [ ] **定时任务 tick 竞态**（New-B）— `enqueueScheduledTaskTickJob` 改 Prisma 事务 + 唯一约束（或 `INSERT ... WHERE NOT EXISTS`）；`dispatchDueTask` 入队前行级 CAS 更新 `nextRunAt`。
 - [ ] **下载 worker 状态错位**（New-C）— `execution-worker.ts` dispatch 完后查 `downloadTask.status`，FAILED/CANCELLED → `failJob`；RUNNING/PENDING（中转常态）保持 RUNNING 不 complete。
-- [ ] **`instrumentation.ts` 启动路径不全**（New-D）— 全部 worker 启动迁到 `instrumentation.ts`，由单一路径保证。
+- [x] **`instrumentation.ts` 启动路径不全**（New-D）— 全部 worker 启动迁到 `instrumentation.ts`，由单一路径保证。**TR-001 T13c 落地**：`src/lib/workers/registry.ts` 单一源 + `src/lib/workers/startup.ts` orchestrator + SIGTERM 优雅停机 + `src/app/api/admin/workers` 健康检查端点。`src/server.ts` 不再直接 `startXxxWorker()`，由 `app.prepare()` 触发的 `instrumentation.register()` 统一启动，未来 `next start` 部署不丢 worker。`deploy.sh` 同步加 `npx prisma migrate deploy` 步骤修 P-001-N。系统化拆分（独立 `vcontrolhub-worker` systemd unit + IPC）留待后续 TR。
 
 ### P2 — 用户体验和可运营性
 

@@ -21,6 +21,9 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || rm -rf "$APP_DIR/
 echo "==> [2/6] 跑 build"
 sudo -u "$APP_USER" npm run build
 
+echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
+sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
+
 echo "==> [3/6] 修正 .next owner"
 chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" "$APP_DIR/.next/cache" 2>/dev/null || true
 

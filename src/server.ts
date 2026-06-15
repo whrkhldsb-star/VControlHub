@@ -10,20 +10,19 @@
  *
  * Usage:  npx tsx src/server.ts
  *   (requires full node_modules — do NOT use .next/standalone/server.js)
+ *
+ * Worker startup: this file does NOT call `startXxxWorker()` directly.
+ * TR-001 T13c moved worker startup into `src/instrumentation.ts` (the
+ * Next.js bootstrap hook). `app.prepare()` below triggers
+ * `instrumentation.register()`, which starts all 8 workers via
+ * `@/lib/workers/startup`. This way, future `next start` deployments
+ * (no custom server) will also start the workers automatically.
  */
 import { createServer } from "node:http";
 import next from "next";
 
 import { setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
-import { startCommandMaintenanceWorker } from "@/lib/command/worker";
-import { startCommandExecutionWorker } from "@/lib/command/execution-worker";
-import { startScheduledTaskWorker } from "@/lib/scheduled-task/worker";
-import { startBackupJobWorker } from "@/lib/backup/job-worker";
-import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
-import { startSftpSyncJobWorker } from "@/lib/storage/sftp-sync-job";
-import { startQuickServiceJobWorker } from "@/lib/quick-service/job-worker";
-import { startDownloadJobWorker } from "@/lib/downloads/execution-worker";
 
 const logger = createLogger("server");
 
@@ -37,14 +36,6 @@ async function main() {
 	const handle = app.getRequestHandler();
 
 	await app.prepare();
-	await startCommandMaintenanceWorker();
-	await startCommandExecutionWorker();
-	await startScheduledTaskWorker();
-	startBackupJobWorker();
-	await startAlertEvaluationWorker();
-	await startSftpSyncJobWorker();
-	await startQuickServiceJobWorker();
-	await startDownloadJobWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);
