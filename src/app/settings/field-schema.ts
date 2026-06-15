@@ -26,6 +26,8 @@ export type SelectOption = {
 	label: string;
 };
 
+export type FieldRiskLevel = "low" | "medium" | "high";
+
 export type FieldDef = {
 	/** 设置 key（同 settings record key） */
 	key: string;
@@ -47,6 +49,21 @@ export type FieldDef = {
 	disabled?: (settings: Record<string, string>) => boolean;
 	/** 关联到 runtime-settings DTO 的 key，默认等于 key 本身（仅 runtime 分组使用） */
 	runtimeSummaryKey?: string;
+	// ── TR-014 设置页高风险设置 (M01) ──────────────────────
+	/**
+	 * 风险等级：
+	 *   low    — 改了不影响现有用户/服务（默认）
+	 *   medium — 改了行为但不会立即破坏（多数 runtime.* 调参）
+	 *   high   — 改了可能立即破坏已运行服务（密码/超时/SMTP 密码等）
+	 * UI 据此渲染警告图标 + (M01b) 失焦时弹确认 modal。
+	 */
+	riskLevel?: FieldRiskLevel;
+	/**
+	 * 是否支持"恢复默认"按钮（点击把字段值重置为 `defaultValue`）。
+	 * 推断规则：有 `defaultValue` 的字段默认支持；显式设为 false 可关闭。
+	 * (M01a: 仅 text/number/select/textarea 渲染按钮; password 默认不渲染, 避免误清空)
+	 */
+	rollbackable?: boolean;
 };
 
 export type BadgeTone = "cyan" | "emerald" | "amber" | "slate";
@@ -176,6 +193,8 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 				max: 2_592_000,
 				helperText: "300–2592000 秒；已有 session 不会被 retroactively 缩短。",
 				validate: (value) => parseInteger(value, "会话超时", 300, 2_592_000),
+				// TR-014: 改 session 超时会影响所有新登录; 设错短值会立即影响生产
+				riskLevel: "high",
 			},
 			{
 				key: "password.minLength",
@@ -186,10 +205,12 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 				max: 128,
 				helperText: "8–128 位；保存后立即约束新密码。",
 				validate: (value) => parseInteger(value, "密码最小长度", 8, 128),
+				// TR-014: 改了立即约束新建/重置/改密流程; 调短可能让旧弱密码不通过
+				riskLevel: "high",
 			},
-			{ key: "password.requireUppercase", label: "要求大写字母", type: "switch" },
-			{ key: "password.requireNumber", label: "要求数字", type: "switch" },
-			{ key: "password.requireSpecial", label: "要求特殊字符", type: "switch" },
+			{ key: "password.requireUppercase", label: "要求大写字母", type: "switch", riskLevel: "medium" },
+			{ key: "password.requireNumber", label: "要求数字", type: "switch", riskLevel: "medium" },
+			{ key: "password.requireSpecial", label: "要求特殊字符", type: "switch", riskLevel: "medium" },
 		],
 	},
 	{
@@ -204,13 +225,14 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 		noticeBanner: "当前运行值来自数据库设置、环境变量或系统默认值；带“需重启”的项目保存后不会改变已启动的 SSH/维护扫描进程，需重启对应服务。",
 		saveMessage: "运行参数已保存；标注“需重启”的 SSH/维护扫描参数请重启对应服务，其余新请求/新任务立即读取。",
 		fields: [
-			runtimeNumber("runtime.commandExecutionTimeoutMs", "命令执行超时（毫秒）", "300000", 5_000, 3_600_000),
-			runtimeNumber("runtime.commandOutputLimitBytes", "命令输出保留上限（字节）", "262144", 4_096, 10_485_760),
-			runtimeNumber("runtime.commandStaleRunningAfterMs", "命令卡死判定时间（毫秒）", "600000", 30_000, 86_400_000),
-			runtimeNumber("runtime.commandExecutionHeartbeatMs", "命令执行心跳间隔（毫秒）", "60000", 5_000, 600_000),
-			runtimeNumber("runtime.commandReconcileIntervalMs", "命令维护扫描间隔（毫秒，需重启）", "60000", 5_000, 3_600_000),
-			runtimeNumber("runtime.sftpSyncDirectoryTimeoutMs", "SFTP 单目录同步超时（毫秒）", "60000", 5_000, 1_800_000),
-			runtimeNumber("runtime.sshWsHeartbeatIntervalMs", "SSH WebSocket 心跳间隔（毫秒，需重启）", "25000", 5_000, 600_000),
+			// TR-014: 命令执行超时调短会让中等长度任务被误杀; 卡死判定调短会让正常耗时任务被标 stale
+			Object.assign(runtimeNumber("runtime.commandExecutionTimeoutMs", "命令执行超时（毫秒）", "300000", 5_000, 3_600_000), { riskLevel: "high" as const }),
+			Object.assign(runtimeNumber("runtime.commandOutputLimitBytes", "命令输出保留上限（字节）", "262144", 4_096, 10_485_760), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.commandStaleRunningAfterMs", "命令卡死判定时间（毫秒）", "600000", 30_000, 86_400_000), { riskLevel: "high" as const }),
+			Object.assign(runtimeNumber("runtime.commandExecutionHeartbeatMs", "命令执行心跳间隔（毫秒）", "60000", 5_000, 600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.commandReconcileIntervalMs", "命令维护扫描间隔（毫秒，需重启）", "60000", 5_000, 3_600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.sftpSyncDirectoryTimeoutMs", "SFTP 单目录同步超时（毫秒）", "60000", 5_000, 1_800_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.sshWsHeartbeatIntervalMs", "SSH WebSocket 心跳间隔（毫秒，需重启）", "25000", 5_000, 600_000), { riskLevel: "medium" as const }),
 			{
 				key: "runtime.sshIdleTimeoutSec",
 				label: "SSH 空闲超时",
@@ -233,10 +255,12 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 					if (seconds < 60 || seconds > 7200) return "SSH 空闲超时 必须在 60 到 7200 秒之间 (0 表示永不)";
 					return null;
 				},
+				// TR-014: 改此值需重启 ssh-ws, 且误短会让用户 SSH 终端频繁掉线
+				riskLevel: "high",
 			},
-			runtimeNumber("runtime.operationTaskListLimit", "任务中心列表上限（条）", "100", 20, 500),
-			runtimeNumber("runtime.aiProviderListLimit", "AI 提供商列表上限（条）", "100", 10, 500),
-			runtimeNumber("runtime.aiConversationListLimit", "AI 对话列表上限（条）", "200", 20, 1_000),
+			Object.assign(runtimeNumber("runtime.operationTaskListLimit", "任务中心列表上限（条）", "100", 20, 500), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.aiProviderListLimit", "AI 提供商列表上限（条）", "100", 10, 500), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.aiConversationListLimit", "AI 对话列表上限（条）", "200", 20, 1_000), { riskLevel: "medium" as const }),
 		],
 	},
 	{
@@ -293,6 +317,8 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 				autoComplete: "new-password",
 				disabled: isSmtpDisabled,
 				helperText: (s) => (isSmtpDisabled(s) ? SMTP_DISABLED_HINT : undefined),
+				// TR-014: SMTP 密码错会让所有邮件告警失败; 改后无法立即验证
+				riskLevel: "high",
 			},
 			{
 				key: "smtp.from",

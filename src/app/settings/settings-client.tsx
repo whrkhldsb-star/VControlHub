@@ -441,6 +441,79 @@ function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) 
 	);
 }
 
+// ── TR-014 设置页高风险设置 (M01a) ─────────────────────────
+
+/**
+ * 风险等级徽标 (high/medium 时显示)。low 返 null — 多数字段不打扰用户。
+ * 颜色与 `src/app/servers/server-overview-details.tsx` 的 advice tone 保持同一调。
+ * 可见文本用 sr-only 隐藏 (testing-library getByLabelText 默认 exact=true,
+ * 兄弟节点文本会让它 fail); 视觉靠图标 (⚠) + 边框 + 背景传达。
+ */
+function FieldRiskBadge({ level }: { level: "low" | "medium" | "high" | undefined }) {
+	if (!level || level === "low") return null;
+	const className =
+		level === "high"
+			? "inline-flex items-center gap-0.5 rounded border border-rose-400/30 bg-rose-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-200 light:border-rose-700/25 light:bg-rose-50 light:text-rose-800"
+			: "inline-flex items-center gap-0.5 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200 light:border-amber-700/25 light:bg-amber-50 light:text-amber-800";
+	const label = level === "high" ? "高风险" : "中风险";
+	const title = level === "high"
+		? "改此值可能立即影响已运行服务（密码 / 强保活 / 鉴权相关）"
+		: "改此值会影响行为但不会立即破坏（多数 runtime 调参）";
+	return (
+		<span data-risk={level} title={title} aria-label={label} className={className}>
+			<span aria-hidden>⚠</span>
+			<span className="sr-only">{label}</span>
+		</span>
+	);
+}
+
+/**
+ * 字段级"恢复默认"小按钮。
+ * - 仅在有 `defaultValue` 的非 password 字段上渲染 (password 避免误清空, 但仍接受显式 rollbackable=true)
+ * - 当前值已是 defaultValue 或为空时禁用 (避免无操作)
+ * - 点击把字段值重置为 defaultValue
+ */
+function FieldRollbackButton({
+	field,
+	value,
+	onChange,
+	disabled,
+}: {
+	field: FieldDef;
+	value: string;
+	onChange: (value: string) => void;
+	disabled: boolean;
+}) {
+	const supportsRollback =
+		field.rollbackable !== false &&
+		field.defaultValue !== undefined &&
+		field.type !== "password";
+	if (!supportsRollback) return null;
+	const isAtDefault = value === field.defaultValue || value === "";
+	return (
+		<button
+			type="button"
+			onClick={() => onChange(field.defaultValue ?? "")}
+			disabled={disabled || isAtDefault}
+			title={isAtDefault ? "已经是默认值" : `恢复默认 (${field.defaultValue})`}
+			aria-label={`恢复 ${field.label} 到默认值`}
+			className="inline-flex items-center gap-0.5 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-[10px] font-medium text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40 light:border-slate-200 light:bg-slate-50 light:text-slate-600 light:hover:border-cyan-500/40 light:hover:text-cyan-700"
+		>
+			<span aria-hidden>↺</span>
+			{/* 可见文本用 sr-only 隐藏避免污染父 label.textContent; 视觉只看图标 ↺ */}
+			<span className="sr-only">默认</span>
+		</button>
+	);
+}
+
+/** label 行 chrome: 各 field 组件 inline 调用 FieldRiskBadge + FieldRollbackButton,
+ * 这样保留 label htmlFor=inputId 的 a11y 关联 (点击 label 仍 focus input)。
+ * 不抽 wrapper 是因为不同 field 用的 label tag 元素略不同 (select/textarea/input)。
+ *
+ * TR-014 M01a test-friendly: 三个 helper 都被 `export` 出去, 让单测能独立验证
+ * 风险徽标 / 恢复默认按钮的行为, 不需要起整个 settings-client. */
+export { FieldRiskBadge, FieldRollbackButton };
+
 type FieldRendererProps = {
 	field: FieldDef;
 	value: string;
@@ -457,6 +530,7 @@ function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSu
 				<span className="text-sm text-slate-300">{field.label}</span>
 				<SwitchField
 					label={field.label}
+					riskLevel={field.riskLevel}
 					value={value === "true"}
 					onChange={(v) => onChange(v ? "true" : "false")}
 				/>
@@ -525,9 +599,13 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 					: "border-transparent bg-white/[0.01]"
 			}`}
 		>
-			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">
-				{field.label}
-			</label>
+			<div className="flex items-center justify-between gap-2">
+				<label htmlFor={inputId} className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-white tracking-wide">
+					{field.label}
+				</label>
+				<FieldRiskBadge level={field.riskLevel} />
+				<FieldRollbackButton field={field} value={value} onChange={onChange} disabled={disabled} />
+			</div>
 			<select
 				id={inputId}
 				value={normalizedValue}
@@ -592,9 +670,13 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 					: "border-transparent bg-white/[0.01]"
 			}`}
 		>
-			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">
-				{field.label}
-			</label>
+			<div className="flex items-center justify-between gap-2">
+				<label htmlFor={inputId} className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-white tracking-wide">
+					{field.label}
+				</label>
+				<FieldRiskBadge level={field.riskLevel} />
+				<FieldRollbackButton field={field} value={value} onChange={onChange} disabled={disabled} />
+			</div>
 			<input
 				id={inputId}
 				type={field.type}
@@ -650,9 +732,13 @@ function TextAreaField({ field, value, disabled, helperText, onChange }: TextAre
 				disabled ? "border-white/[0.04] bg-slate-950/20 opacity-70" : "border-transparent bg-white/[0.01]"
 			}`}
 		>
-			<label htmlFor={inputId} className="block text-xs font-semibold text-white tracking-wide">
-				{field.label}
-			</label>
+			<div className="flex items-center justify-between gap-2">
+				<label htmlFor={inputId} className="flex flex-1 items-center gap-1.5 text-xs font-semibold text-white tracking-wide">
+					{field.label}
+				</label>
+				<FieldRiskBadge level={field.riskLevel} />
+				<FieldRollbackButton field={field} value={value} onChange={onChange} disabled={disabled} />
+			</div>
 			<textarea
 				id={inputId}
 				value={value}
@@ -672,10 +758,13 @@ function TextAreaField({ field, value, disabled, helperText, onChange }: TextAre
 	);
 }
 
-function SwitchField({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function SwitchField({ label, riskLevel, value, onChange }: { label: string; riskLevel?: "low" | "medium" | "high"; value: boolean; onChange: (v: boolean) => void }) {
 	return (
 		<div className="flex items-center justify-between gap-3">
-			<span className="text-sm text-slate-300">{label}</span>
+			<span className="flex items-center gap-1.5 text-sm text-slate-300">
+				{label}
+				<FieldRiskBadge level={riskLevel} />
+			</span>
 			<button
 				type="button"
 				role="switch"
