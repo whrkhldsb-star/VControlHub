@@ -274,22 +274,12 @@ export function scanCallSites(files: string[]): CallSite[] {
     const text = readFileSync(resolve(ROOT, file), "utf8");
     const lines = text.split("\n");
     // TR-043: multi-line `sessionHasPermission(\n  session,\n  "perm")` —
-    // do a whole-file pass first to capture perms that the per-line scan
-    // misses. Dedup happens later when callers compare by (file, permission).
-    const seenMultiline = new Set<string>();
-    for (const m of text.matchAll(sessionReMultiline)) {
-      const perm = m[1]!;
-      if (seenMultiline.has(perm)) continue;
-      seenMultiline.add(perm);
-      // Compute the line number from the match index for diagnostics.
-      const lineNum = text.slice(0, m.index ?? 0).split("\n").length;
-      sites.push({
-        permission: perm,
-        kind: "sessionHasPermission",
-        file,
-        line: lineNum,
-      });
-    }
+    // we'll do a fallback whole-file pass AFTER the per-line scan. Track
+    // (file, line, permission) tuples already emitted by the line scan
+    // so the multiline pass only adds genuinely-missed call sites.
+    const perFileSeen = new Set<string>();
+    const recordLineKey = (perm: string, lineNum: number) =>
+      perFileSeen.add(`${perm}@${lineNum}`);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
       // variable assignment: `const canX = sessionHasPermission(...)`
@@ -304,6 +294,7 @@ export function scanCallSites(files: string[]): CallSite[] {
           line: i + 1,
           variable: assignMatch?.[1],
         });
+        recordLineKey(m[1]!, i + 1);
       }
       for (const m of line.matchAll(requireRe)) {
         // Try to detect a nearby file:path comment for the route
@@ -343,6 +334,22 @@ export function scanCallSites(files: string[]): CallSite[] {
           }
         }
       }
+    }
+    // TR-043: multi-line `sessionHasPermission(\n  session,\n  "perm")` —
+    // whole-file fallback that adds only call sites the per-line scan
+    // missed (deduplicated by `${perm}@${line}`).
+    for (const m of text.matchAll(sessionReMultiline)) {
+      const perm = m[1]!;
+      const lineNum = text.slice(0, m.index ?? 0).split("\n").length;
+      const key = `${perm}@${lineNum}`;
+      if (perFileSeen.has(key)) continue;
+      perFileSeen.add(key);
+      sites.push({
+        permission: perm,
+        kind: "sessionHasPermission",
+        file,
+        line: lineNum,
+      });
     }
   }
   return sites;

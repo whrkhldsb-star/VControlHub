@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-15T11:03:32.783Z",
+  "generatedAt": "2026-06-15T11:35:55.568Z",
   "summary": {
     "permissionsInList": 41,
     "rolesDefined": 4,
     "apiRoutesAudited": 86,
     "pagesAudited": 41,
-    "callSitesAudited": 278,
+    "callSitesAudited": 205,
     "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
@@ -88,14 +88,6 @@
           "line": 12
         },
         {
-          "path": "src/app/announcements/page.tsx",
-          "line": 12
-        },
-        {
-          "path": "src/app/api/announcements/route.ts",
-          "line": 23
-        },
-        {
           "path": "src/app/api/announcements/route.ts",
           "line": 23
         },
@@ -141,10 +133,6 @@
         {
           "path": "src/app/api-tokens/page.tsx",
           "line": 11
-        },
-        {
-          "path": "src/app/api-tokens/page.tsx",
-          "line": 11
         }
       ],
       "pages": [
@@ -162,10 +150,6 @@
         {
           "path": "src/app/api/audit/route.ts",
           "line": 20
-        },
-        {
-          "path": "src/app/audit/page.tsx",
-          "line": 21
         },
         {
           "path": "src/app/audit/page.tsx",
@@ -207,14 +191,6 @@
           "line": 19
         },
         {
-          "path": "src/app/backups/actions.ts",
-          "line": 19
-        },
-        {
-          "path": "src/app/backups/page.tsx",
-          "line": 22
-        },
-        {
           "path": "src/app/backups/page.tsx",
           "line": 22
         }
@@ -242,10 +218,6 @@
         {
           "path": "src/app/backups/page.tsx",
           "line": 21
-        },
-        {
-          "path": "src/app/backups/page.tsx",
-          "line": 21
         }
       ],
       "pages": [
@@ -269,10 +241,6 @@
         {
           "path": "src/app/backups/page.tsx",
           "line": 23
-        },
-        {
-          "path": "src/app/backups/page.tsx",
-          "line": 23
         }
       ],
       "pages": [
@@ -289,10 +257,6 @@
         {
           "path": "src/app/requests/actions.ts",
           "line": 14
-        },
-        {
-          "path": "src/app/requests/page.tsx",
-          "line": 15
         },
         {
           "path": "src/app/requests/page.tsx",
@@ -345,16 +309,8 @@
           "line": 13
         },
         {
-          "path": "src/app/scheduled-tasks/page.tsx",
-          "line": 13
-        },
-        {
           "path": "src/app/servers/command-actions.ts",
           "line": 14
-        },
-        {
-          "path": "src/app/templates/page.tsx",
-          "line": 13
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -376,10 +332,6 @@
     {
       "permission": "command:execute",
       "files": [
-        {
-          "path": "src/app/api/commands/route.ts",
-          "line": 24
-        },
         {
           "path": "src/app/api/commands/route.ts",
           "line": 24
@@ -437,10 +389,6 @@
         {
           "path": "src/app/deployments/page.tsx",
           "line": 25
-        },
-        {
-          "path": "src/app/deployments/page.tsx",
-          "line": 25
         }
       ],
       "pages": [
@@ -471,10 +419,6 @@
         {
           "path": "src/app/deployments/page.tsx",
           "line": 23
-        },
-        {
-          "path": "src/app/deployments/page.tsx",
-          "line": 23
         }
       ],
       "pages": [
@@ -501,14 +445,6 @@
         {
           "path": "src/app/deployments/page.tsx",
           "line": 24
-        },
-        {
-          "path": "src/app/deployments/page.tsx",
-          "line": 24
-        },
-        {
-          "path": "src/app/templates/page.tsx",
-          "line": 14
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -561,19 +497,7 @@
           "line": 8
         },
         {
-          "path": "src/app/docker/page.tsx",
-          "line": 8
-        },
-        {
           "path": "src/app/monitoring/page.tsx",
-          "line": 11
-        },
-        {
-          "path": "src/app/monitoring/page.tsx",
-          "line": 11
-        },
-        {
-          "path": "src/app/quick-services/page.tsx",
           "line": 11
         },
         {
@@ -612,14 +536,6 @@
           "line": 10
         },
         {
-          "path": "src/app/health/page.tsx",
-          "line": 10
-        },
-        {
-          "path": "src/app/monitoring/page.tsx",
-          "line": 10
-        },
-        {
           "path": "src/app/monitoring/page.tsx",
           "line": 10
         }
@@ -646,10 +562,6 @@
         {
           "path": "src/app/image-bed/page.tsx",
           "line": 10
-        },
-        {
-          "path": "src/app/image-bed/page.tsx",
-          "line": 10
         }
       ],
       "pages": [
@@ -666,10 +578,6 @@
         {
           "path": "src/app/api/images/upload/route.ts",
           "line": 61
-        },
-        {
-          "path": "src/app/image-bed/page.tsx",
-          "line": 11
         },
         {
           "path": "src/app/image-bed/page.tsx",
@@ -698,10 +606,6 @@
         {
           "path": "src/app/media/page.tsx",
           "line": 18
-        },
-        {
-          "path": "src/app/media/page.tsx",
-          "line": 18
         }
       ],
       "pages": [
@@ -717,10 +621,6 @@
     {
       "permission": "notification:manage",
       "files": [
-        {
-          "path": "src/app/alert-rules/page.tsx",
-          "line": 13
-        },
         {
           "path": "src/app/alert-rules/page.tsx",
           "line": 13
@@ -767,20 +667,8 @@
           "line": 52
         },
         {
-          "path": "src/app/api/images/[id]/route.ts",
-          "line": 52
-        },
-        {
           "path": "src/app/api/images/batch/route.ts",
           "line": 47
-        },
-        {
-          "path": "src/app/api/images/batch/route.ts",
-          "line": 47
-        },
-        {
-          "path": "src/app/api/snippets/route.ts",
-          "line": 61
         },
         {
           "path": "src/app/api/snippets/route.ts",
@@ -815,10 +703,6 @@
         {
           "path": "src/app/traffic/page.tsx",
           "line": 10
-        },
-        {
-          "path": "src/app/traffic/page.tsx",
-          "line": 10
         }
       ],
       "pages": [
@@ -845,10 +729,6 @@
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
-          "line": 107
-        },
-        {
-          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
           "line": 207
         },
         {
@@ -858,14 +738,6 @@
         {
           "path": "src/app/api/servers/[id]/reload/route.ts",
           "line": 121
-        },
-        {
-          "path": "src/app/api/servers/[id]/reload/route.ts",
-          "line": 121
-        },
-        {
-          "path": "src/app/servers/page.tsx",
-          "line": 23
         },
         {
           "path": "src/app/servers/page.tsx",
@@ -924,14 +796,6 @@
           "line": 22
         },
         {
-          "path": "src/app/servers/page.tsx",
-          "line": 22
-        },
-        {
-          "path": "src/app/traffic/page.tsx",
-          "line": 11
-        },
-        {
           "path": "src/app/traffic/page.tsx",
           "line": 11
         }
@@ -956,24 +820,12 @@
           "line": 39
         },
         {
-          "path": "src/app/api/files/list/route.ts",
-          "line": 39
-        },
-        {
           "path": "src/app/api/share-links/route.ts",
           "line": 43
         },
         {
           "path": "src/app/files/page.tsx",
           "line": 43
-        },
-        {
-          "path": "src/app/files/page.tsx",
-          "line": 43
-        },
-        {
-          "path": "src/app/shares/page.tsx",
-          "line": 16
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -1003,10 +855,6 @@
         {
           "path": "src/app/shares/page.tsx",
           "line": 17
-        },
-        {
-          "path": "src/app/shares/page.tsx",
-          "line": 17
         }
       ],
       "pages": [
@@ -1025,10 +873,6 @@
         {
           "path": "src/app/api/share-links/route.ts",
           "line": 32
-        },
-        {
-          "path": "src/app/shares/page.tsx",
-          "line": 14
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -1068,10 +912,6 @@
         {
           "path": "src/app/snippets/page.tsx",
           "line": 11
-        },
-        {
-          "path": "src/app/snippets/page.tsx",
-          "line": 11
         }
       ],
       "pages": [
@@ -1092,14 +932,6 @@
           "line": 38
         },
         {
-          "path": "src/app/api/files/list/route.ts",
-          "line": 38
-        },
-        {
-          "path": "src/app/api/images/[id]/route.ts",
-          "line": 51
-        },
-        {
           "path": "src/app/api/images/[id]/route.ts",
           "line": 51
         },
@@ -1108,20 +940,8 @@
           "line": 46
         },
         {
-          "path": "src/app/api/images/batch/route.ts",
-          "line": 46
-        },
-        {
           "path": "src/app/files/page.tsx",
           "line": 42
-        },
-        {
-          "path": "src/app/files/page.tsx",
-          "line": 42
-        },
-        {
-          "path": "src/app/image-bed/page.tsx",
-          "line": 12
         },
         {
           "path": "src/app/image-bed/page.tsx",
@@ -1163,28 +983,12 @@
           "line": 588
         },
         {
-          "path": "src/app/api/downloads/route.ts",
-          "line": 588
-        },
-        {
-          "path": "src/app/api/storage/nodes/route.ts",
-          "line": 33
-        },
-        {
           "path": "src/app/api/storage/nodes/route.ts",
           "line": 33
         },
         {
           "path": "src/app/downloads/page.tsx",
           "line": 13
-        },
-        {
-          "path": "src/app/downloads/page.tsx",
-          "line": 13
-        },
-        {
-          "path": "src/app/files/page.tsx",
-          "line": 44
         },
         {
           "path": "src/app/files/page.tsx",
@@ -1249,14 +1053,6 @@
           "line": 62
         },
         {
-          "path": "src/app/api/media/[id]/stream/route.ts",
-          "line": 62
-        },
-        {
-          "path": "src/app/api/media/[id]/thumbnail/route.ts",
-          "line": 187
-        },
-        {
           "path": "src/app/api/media/[id]/thumbnail/route.ts",
           "line": 187
         },
@@ -1301,20 +1097,8 @@
           "line": 14
         },
         {
-          "path": "src/app/downloads/page.tsx",
-          "line": 14
-        },
-        {
           "path": "src/app/media/[id]/page.tsx",
           "line": 89
-        },
-        {
-          "path": "src/app/media/[id]/page.tsx",
-          "line": 89
-        },
-        {
-          "path": "src/app/media/page.tsx",
-          "line": 17
         },
         {
           "path": "src/app/media/page.tsx",
@@ -1365,14 +1149,6 @@
           "line": 37
         },
         {
-          "path": "src/app/api/files/list/route.ts",
-          "line": 37
-        },
-        {
-          "path": "src/app/api/images/upload/route.ts",
-          "line": 75
-        },
-        {
           "path": "src/app/api/images/upload/route.ts",
           "line": 75
         },
@@ -1389,16 +1165,8 @@
           "line": 12
         },
         {
-          "path": "src/app/downloads/page.tsx",
-          "line": 12
-        },
-        {
           "path": "src/app/files/move-file-action.ts",
           "line": 21
-        },
-        {
-          "path": "src/app/files/page.tsx",
-          "line": 41
         },
         {
           "path": "src/app/files/page.tsx",
@@ -1457,20 +1225,8 @@
           "line": 11
         },
         {
-          "path": "src/app/operation-tasks/page.tsx",
-          "line": 11
-        },
-        {
           "path": "src/app/qa-reports/[id]/page.tsx",
           "line": 36
-        },
-        {
-          "path": "src/app/qa-reports/[id]/page.tsx",
-          "line": 36
-        },
-        {
-          "path": "src/app/qa-reports/page.tsx",
-          "line": 24
         },
         {
           "path": "src/app/qa-reports/page.tsx",
@@ -1496,14 +1252,6 @@
         {
           "path": "src/app/api/tickets/route.ts",
           "line": 67
-        },
-        {
-          "path": "src/app/api/tickets/route.ts",
-          "line": 67
-        },
-        {
-          "path": "src/app/tickets/page.tsx",
-          "line": 34
         },
         {
           "path": "src/app/tickets/page.tsx",
@@ -1532,19 +1280,11 @@
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
-          "line": 38
-        },
-        {
-          "path": "src/app/api/tickets/[id]/route.ts",
           "line": 50
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
           "line": 68
-        },
-        {
-          "path": "src/app/api/tickets/route.ts",
-          "line": 50
         },
         {
           "path": "src/app/api/tickets/route.ts",
@@ -1561,14 +1301,6 @@
         {
           "path": "src/app/tickets/[id]/page.tsx",
           "line": 13
-        },
-        {
-          "path": "src/app/tickets/[id]/page.tsx",
-          "line": 13
-        },
-        {
-          "path": "src/app/tickets/page.tsx",
-          "line": 33
         },
         {
           "path": "src/app/tickets/page.tsx",
@@ -1650,14 +1382,6 @@
           "line": 42
         },
         {
-          "path": "src/app/settings/page.tsx",
-          "line": 42
-        },
-        {
-          "path": "src/app/users/page.tsx",
-          "line": 11
-        },
-        {
           "path": "src/app/users/page.tsx",
           "line": 11
         }
@@ -1679,20 +1403,8 @@
           "line": 58
         },
         {
-          "path": "src/app/api/images/[id]/file/route.ts",
-          "line": 58
-        },
-        {
           "path": "src/app/api/images/list/route.ts",
           "line": 35
-        },
-        {
-          "path": "src/app/api/images/list/route.ts",
-          "line": 35
-        },
-        {
-          "path": "src/app/api/images/stats/route.ts",
-          "line": 23
         },
         {
           "path": "src/app/api/images/stats/route.ts",
@@ -1705,10 +1417,6 @@
         {
           "path": "src/app/api/users/route.ts",
           "line": 16
-        },
-        {
-          "path": "src/app/users/page.tsx",
-          "line": 10
         },
         {
           "path": "src/app/users/page.tsx",

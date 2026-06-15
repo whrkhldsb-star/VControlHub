@@ -714,6 +714,8 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⏳ R1 部分完成 (R1.1 syncSource 全并行 + R1.2 syncLocalShareDirectory batch; R1.3 rollback statuses 跳过 — 已是 Promise.all 并行 + runs 数量小) |
 | TR-041 | P2 | 自定义错误类（273 处 `throw new Error()` 分 61 文件） | ✅ 已落地 (commit 93ddbb7) |
 | TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | ✅ 完成 (T42a+T42b, commit 7242ea1) |
+| TR-047 | P2 | RBAC 静态审计扫描器精度提升（catalog 字典化 + audit 4 种 enforcement form + 多行 + 白名单） | ✅ 已落地（drift 41 → 0），`scripts/build-route-catalog.ts` `declaredPerms` 改用 `RBAC.PERMISSIONS` 字典；`scripts/rbac-audit.ts` 加 `sessionHasPermission` / `verifyBearerToken` 识别、3 段 perm 正则、多行 sessionHasPermission fallback、`intentionallyPublic` 白名单 16 项（login/signout/2FA/share/openapi/status/dashboard 等公开路由）、`dynamicPermRoutes` 白名单 2 项（`storage/sftp-ops` / `files/list` 三元/动态变量 enforcement）。22 单测全过。|
+| TR-048 | P2 | `app-sources` 路由测试覆盖（GET/POST/PATCH/DELETE 全分支） | ✅ 已落地，`src/app/api/app-sources/__tests__/route.test.ts` 12 单测：本地 catalog 与 installed services 合并、`includeApps=false` 跳过 remote、POST 验权 + 校验 name/url、PATCH sync/toggle 双分支、DELETE by id query。 |
 
 ---
 
