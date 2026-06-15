@@ -15,6 +15,7 @@ import {
   markCommandTargetCancelled,
   runSshCommandProcess,
 } from "./ssh-executor";
+import { enqueueCommandExecutionJob } from "./execution-worker";
 
 export const COMMAND_WORKER_ID = `${process.pid}-${randomUUID()}`;
 
@@ -397,8 +398,15 @@ export async function markCommandExecutionFailed(
 }
 
 export function scheduleCommandExecution(commandRequestId: string) {
-  void executeAndFinalizeCommand(commandRequestId).catch((error) => {
-    markCommandExecutionFailed(commandRequestId, error).catch(() => {});
+  // TR-001 (T11): command execution now goes through the durable jobs table
+  // (src/lib/command/execution-worker.ts). This synchronous helper is kept
+  // as a backward-compat shim for callers that have not been migrated yet;
+  // it enqueues a command.execution job and returns the job id so legacy
+  // callers can await the enqueue confirmation. The actual SSH dispatch is
+  // now driven by startCommandExecutionWorker()'s poll loop.
+  return enqueueCommandExecutionJob({
+    commandRequestId,
+    summary: `命令请求 ${commandRequestId} 已写入后台执行队列`,
   });
 }
 
@@ -425,6 +433,10 @@ export async function enqueueApprovedCommandExecution(
       summary,
     },
   });
-  scheduleCommandExecution(commandRequestId);
+  // TR-001 (T11): scheduleCommandExecution is now a thin shim that enqueues a
+  // command.execution job in the durable jobs table. The actual SSH dispatch
+  // is performed by startCommandExecutionWorker() when the job worker claims
+  // the row; the original fire-and-forget void path is gone.
+  await scheduleCommandExecution(commandRequestId);
   return true;
 }

@@ -17,6 +17,7 @@ import next from "next";
 import { setupWebSocketServer } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
 import { startCommandMaintenanceWorker } from "@/lib/command/worker";
+import { startCommandExecutionWorker } from "@/lib/command/execution-worker";
 import { startScheduledTaskWorker } from "@/lib/scheduled-task/worker";
 import { startBackupJobWorker } from "@/lib/backup/job-worker";
 import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
@@ -36,6 +37,7 @@ async function main() {
 
 	await app.prepare();
 	await startCommandMaintenanceWorker();
+	await startCommandExecutionWorker();
 	await startScheduledTaskWorker();
 	startBackupJobWorker();
 	await startAlertEvaluationWorker();

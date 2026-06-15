@@ -55,6 +55,29 @@ vi.mock("@/lib/db", () => ({
     error instanceof Error && /P1001|Can't reach database server|PrismaClientInitializationError|database server/i.test(error.message),
 }));
 
+// TR-001 (T11): the command execution path now goes through the durable
+// jobs table. In production the actual SSH dispatch is performed by
+// startCommandExecutionWorker() when the job worker claims the row. In
+// these unit tests we mock the new module to behave like the old
+// fire-and-forget shim: enqueue is a no-op record, and we synchronously
+// kick off the real executeAndFinalizeCommand so the existing
+// `vi.waitFor(() => expect(spawnMock).toHaveBeenCalled())` assertions
+// keep working without rewriting every test.
+vi.mock("@/lib/command/execution-worker", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/command/execution-worker")>();
+  return {
+    ...actual,
+    enqueueCommandExecutionJob: vi.fn(async ({ commandRequestId }: { commandRequestId: string; summary?: string }) => {
+      const { executeAndFinalizeCommand } = await import("../service-execution");
+      void executeAndFinalizeCommand(commandRequestId).catch(() => {});
+      return { id: "job-test-1", type: actual.COMMAND_EXECUTION_JOB_TYPE, status: "PENDING" };
+    }),
+    runCommandExecutionJobWorkerOnce: vi.fn(async () => false),
+    startCommandExecutionWorker: vi.fn(async () => ({ started: true, running: false, timer: null })),
+    stopCommandExecutionWorkerForTests: vi.fn(),
+  };
+});
+
 import { createCommandRequest, listCommandRequests, reviewCommandRequest, cancelCommandRequest, recoverQueuedApprovedCommandRequests } from "../service";
 
 describe("command service execution flow", () => {

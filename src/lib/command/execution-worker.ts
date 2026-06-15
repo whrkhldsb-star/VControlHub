@@ -1,0 +1,203 @@
+import { Prisma } from "@prisma/client";
+
+import { config } from "@/lib/config/env";
+import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
+import { createLogger } from "@/lib/logging";
+
+import { executeAndFinalizeCommand } from "./service-execution";
+
+const logger = createLogger("command-execution-worker");
+
+// TR-001 (T11): command execution migrated to the durable jobs table so the
+// actual SSH dispatch is observable in the Operation Tasks center, survives
+// process restarts (claim + lease), and follows the same shape as the other
+// durable workers (alert.evaluate, scheduled-task.tick, quick_service.lifecycle,
+// backup.create / backup.restore). Deployment runs that delegate to
+// createCommandRequest automatically inherit the new path.
+export const COMMAND_EXECUTION_JOB_TYPE = "command.execution";
+
+const COMMAND_EXECUTION_INTERVAL_MS = 2_000;
+const COMMAND_EXECUTION_LEASE_MS = 5 * 60 * 1000;
+const COMMAND_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:command-execution:${process.pid}`;
+
+type CommandExecutionJobPayload = {
+  commandRequestId: string;
+  summary?: string;
+  requestedAt?: string;
+};
+
+type CommandExecutionWorkerState = {
+  started: boolean;
+  running: boolean;
+  timer: NodeJS.Timeout | null;
+};
+
+type CommandExecutionWorkerGlobal = typeof globalThis & {
+  __vcontrolhubCommandExecutionWorker?: CommandExecutionWorkerState;
+};
+
+function getWorkerState() {
+  const globalState = globalThis as CommandExecutionWorkerGlobal;
+  globalState.__vcontrolhubCommandExecutionWorker ??= {
+    started: false,
+    running: false,
+    timer: null,
+  };
+  return globalState.__vcontrolhubCommandExecutionWorker;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+export function parseCommandExecutionJobPayload(
+  payload: Prisma.JsonValue,
+): CommandExecutionJobPayload {
+  if (!isRecord(payload)) throw new Error("命令执行任务 payload 无效");
+  const commandRequestId =
+    typeof payload.commandRequestId === "string" && payload.commandRequestId.trim()
+      ? payload.commandRequestId.trim()
+      : null;
+  if (!commandRequestId) throw new Error("命令执行任务缺少 commandRequestId");
+  return {
+    commandRequestId,
+    summary: typeof payload.summary === "string" ? payload.summary : undefined,
+    requestedAt: typeof payload.requestedAt === "string" ? payload.requestedAt : undefined,
+  };
+}
+
+export async function enqueueCommandExecutionJob(input: {
+  commandRequestId: string;
+  summary?: string;
+}) {
+  const commandRequestId = input.commandRequestId?.trim();
+  if (!commandRequestId) throw new Error("命令执行任务缺少 commandRequestId");
+  return enqueueJob({
+    type: COMMAND_EXECUTION_JOB_TYPE,
+    title: `执行命令 ${commandRequestId}`,
+    payload: {
+      commandRequestId,
+      summary: input.summary,
+      requestedAt: new Date().toISOString(),
+    },
+    priority: 0,
+    maxAttempts: 1,
+  });
+}
+
+async function handleClaimedJob(
+  job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>,
+) {
+  let payload: CommandExecutionJobPayload;
+  try {
+    payload = parseCommandExecutionJobPayload(job.payload);
+  } catch (parseError) {
+    const message =
+      parseError instanceof Error ? parseError.message : "命令执行任务 payload 解析失败";
+    await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    logger.error("Command execution job payload invalid", { jobId: job.id, error: message });
+    return true;
+  }
+
+  try {
+    await heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+      leaseMs: COMMAND_EXECUTION_LEASE_MS,
+      progress: `正在派发命令请求 ${payload.commandRequestId}`,
+    });
+    const finalRequest = await executeAndFinalizeCommand(payload.commandRequestId);
+    await completeJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+      commandRequestId: payload.commandRequestId,
+      status: finalRequest?.status ?? null,
+    });
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // executeAndFinalizeCommand already marks the commandRequest/commandTarget
+    // FAILED via markCommandExecutionFailed in its own catch chain. From the
+    // job's perspective the dispatch attempt is still considered "failed"
+    // (transient prisma error or worker crash mid-execution), so we record
+    // the failure on the job but rely on maxAttempts=1 to avoid retrying
+    // SSH work that has already been recorded as FAILED on the request row.
+    await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    logger.error("Command execution job failed", {
+      jobId: job.id,
+      commandRequestId: payload.commandRequestId,
+      error: message,
+    });
+    return true;
+  }
+}
+
+export async function runCommandExecutionJobWorkerOnce() {
+  const state = getWorkerState();
+  if (state.running) {
+    logger.warn("Skipping command execution tick because a previous tick is still running");
+    return false;
+  }
+
+  state.running = true;
+  try {
+    const job = await claimNextJob({
+      workerId: COMMAND_EXECUTION_WORKER_ID,
+      types: [COMMAND_EXECUTION_JOB_TYPE],
+      leaseMs: COMMAND_EXECUTION_LEASE_MS,
+    });
+    if (!job) return false;
+    return await handleClaimedJob(job);
+  } catch (error) {
+    logger.error("Command execution worker tick failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  } finally {
+    state.running = false;
+  }
+}
+
+export async function startCommandExecutionWorker(options: { intervalMs?: number } = {}) {
+  const state = getWorkerState();
+  if (state.started) return state;
+
+  state.started = true;
+  const intervalMs = options.intervalMs ?? COMMAND_EXECUTION_INTERVAL_MS;
+
+  void runCommandExecutionJobWorkerOnce().catch((error) => {
+    logger.error("Command execution worker startup tick failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+  state.timer = setInterval(() => {
+    void runCommandExecutionJobWorkerOnce().catch((error) => {
+      logger.error("Command execution worker interval tick failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }, intervalMs);
+  state.timer.unref?.();
+
+  logger.info("command execution durable job worker started", {
+    intervalMs,
+    workerId: COMMAND_EXECUTION_WORKER_ID,
+  });
+  return state;
+}
+
+export function stopCommandExecutionWorkerForTests() {
+  const state = getWorkerState();
+  if (state.timer) {
+    clearInterval(state.timer);
+  }
+  state.started = false;
+  state.running = false;
+  state.timer = null;
+}
+
+// Internal helper used by tests to peek at the live worker state without
+// leaking the global symbol across module boundaries.
+export function getCommandExecutionWorkerStateForTests(): CommandExecutionWorkerState {
+  return getWorkerState();
+}
+
+// Internal helper used by tests / recovery scripts to verify there is no
+// other in-flight worker polling the same job type on this process.
+export const COMMAND_EXECUTION_INTERNAL_WORKER_ID = COMMAND_EXECUTION_WORKER_ID;
