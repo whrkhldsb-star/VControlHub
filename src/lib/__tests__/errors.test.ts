@@ -14,13 +14,13 @@ import {
 describe("lib/errors", () => {
 	it("AppError carries code, message, status, details", () => {
 		const err = new AppError({
-			code: "CUSTOM",
+			code: "QUOTA_EXCEEDED",
 			message: "boom",
 			status: 418,
 			details: { x: 1 },
 		});
 		expect(err).toBeInstanceOf(Error);
-		expect(err.code).toBe("CUSTOM");
+		expect(err.code).toBe("QUOTA_EXCEEDED");
 		expect(err.message).toBe("boom");
 		expect(err.status).toBe(418);
 		expect(err.details).toEqual({ x: 1 });

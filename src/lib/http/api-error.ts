@@ -32,12 +32,13 @@
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logging";
 import { isAppError } from "@/lib/errors";
+import { type ApiErrorCode, isApiErrorCode } from "@/lib/http/api-error-codes";
 
 const logger = createLogger("api");
 
 /** Wire format for every error response served by API routes (TR-034). */
 export type ApiErrorBody = {
-	code: string;
+	code: ApiErrorCode;
 	message: string;
 	details?: unknown;
 	/** Legacy `error` mirror — kept until all clients migrate to `message`. */
@@ -45,7 +46,7 @@ export type ApiErrorBody = {
 };
 
 export type ApiErrorOptions = {
-	code: string;
+	code: ApiErrorCode;
 	message: string;
 	status: number;
 	details?: unknown;
@@ -72,11 +73,11 @@ function buildBody(opts: ApiErrorOptions): ApiErrorBody {
  *   apiError(status, message, code)                 // legacy with explicit code
  */
 export function apiError(options: ApiErrorOptions): NextResponse;
-export function apiError(status: number, message: string, code?: string): NextResponse;
+export function apiError(status: number, message: string, code?: ApiErrorCode): NextResponse;
 export function apiError(
 	a: ApiErrorOptions | number,
 	b?: string,
-	c?: string,
+	c?: ApiErrorCode,
 ): NextResponse {
 	let opts: ApiErrorOptions;
 	if (typeof a === "number") {

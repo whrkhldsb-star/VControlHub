@@ -17,8 +17,10 @@
  * subclasses and produce the right status + code automatically.
  */
 
+import type { ApiErrorCode } from "@/lib/http/api-error-codes";
+
 export type AppErrorOptions = {
-	code: string;
+	code: ApiErrorCode;
 	message: string;
 	status: number;
 	details?: unknown;
@@ -31,7 +33,7 @@ export type AppErrorOptions = {
  * and optional `details` payload (validation field errors, etc.).
  */
 export class AppError extends Error {
-	readonly code: string;
+	readonly code: ApiErrorCode;
 	readonly status: number;
 	readonly details?: unknown;
 	readonly cause?: unknown;

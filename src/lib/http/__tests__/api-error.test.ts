@@ -48,9 +48,9 @@ describe("lib/http/api-error", () => {
 		});
 
 		it("legacy form accepts optional code arg", async () => {
-			const res = apiError(403, "无权访问", "CUSTOM_CODE");
+			const res = apiError(403, "无权访问", "PERMISSION_DENIED");
 			const body = await readJson(res);
-			expect(body.code).toBe("CUSTOM_CODE");
+			expect(body.code).toBe("PERMISSION_DENIED");
 		});
 	});
 
