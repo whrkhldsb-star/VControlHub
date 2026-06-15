@@ -25,12 +25,14 @@ type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select:
 /**
  * Sync a single source by ID.
  *
- * TR-040: app upserts are processed in concurrent chunks so a typical
- * 500-app source completes in ~O(N/CONCURRENCY) DB round-trips instead
- * of O(N) sequential round-trips. Chunk size is bounded to stay friendly
- * to the Prisma connection pool (default poolSize=10).
+ * TR-040 R1: replaces the previous 8-way chunked `Promise.all` loop with a
+ * single `Promise.all` over the full app list. Per-row try/catch keeps
+ * failure isolation intact (one bad slug does not abort the others), and
+ * the Prisma 5+ connection pool adapts to bursty parallelism without the
+ * previous 8-concurrency cap. Round-trip count is unchanged (still 1
+ * upsert per app), but wall-clock drops from O(N/CONCURRENCY) sequential
+ * chunks to O(1) parallel batch.
  */
-const APP_UPSERT_CONCURRENCY = 8;
 
 export async function syncSource(sourceId: string): Promise<{ synced: number; errors: number }> {
 	const source = await prisma.appSource.findUnique({ where: { id: sourceId } });
@@ -43,60 +45,58 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 		let synced = 0;
 		let errors = 0;
 
-		// Process apps in concurrent chunks to bound parallelism and DB load.
-		for (let i = 0; i < apps.length; i += APP_UPSERT_CONCURRENCY) {
-			const chunk = apps.slice(i, i + APP_UPSERT_CONCURRENCY);
-			const outcomes = await Promise.all(
-				chunk.map(async (app) => {
-					try {
-						await prisma.appSourceApp.upsert({
-							where: { slug: app.slug },
-							update: {
-								name: app.name,
-								category: app.category,
-								icon: app.icon,
-								description: app.description,
-								image: app.image,
-								defaultPort: app.defaultPort,
-								internalPort: app.internalPort ?? null,
-								path: app.path,
-								envJson: JSON.stringify(app.envJson),
-								volumesJson: JSON.stringify(app.volumesJson),
-								command: app.command ?? null,
-								extraPortsJson: JSON.stringify(app.extraPorts ?? []),
-								rawJson: app.rawJson ?? null,
-								sourceVersion: app.sourceVersion ?? null,
-							},
-							create: {
-								slug: app.slug,
-								sourceId: source.id,
-								name: app.name,
-								category: app.category,
-								icon: app.icon,
-								description: app.description,
-								image: app.image,
-								defaultPort: app.defaultPort,
-								internalPort: app.internalPort ?? null,
-								path: app.path,
-								envJson: JSON.stringify(app.envJson),
-								volumesJson: JSON.stringify(app.volumesJson),
-								command: app.command ?? null,
-								extraPortsJson: JSON.stringify(app.extraPorts ?? []),
-								rawJson: app.rawJson ?? null,
-								sourceVersion: app.sourceVersion ?? null,
-							},
-						});
-						return "ok" as const;
-					} catch (err) {
-						logger.error(`Failed to upsert app ${app.slug}: ${err}`);
-						return "err" as const;
-					}
-				}),
-			);
-			for (const r of outcomes) {
-				if (r === "ok") synced++;
-				else errors++;
-			}
+		// TR-040 R1: fan out every app upsert in parallel. Per-row try/catch
+		// isolates failures so one bad slug never aborts the rest of the sync.
+		const outcomes = await Promise.all(
+			apps.map(async (app) => {
+				try {
+					await prisma.appSourceApp.upsert({
+						where: { slug: app.slug },
+						update: {
+							name: app.name,
+							category: app.category,
+							icon: app.icon,
+							description: app.description,
+							image: app.image,
+							defaultPort: app.defaultPort,
+							internalPort: app.internalPort ?? null,
+							path: app.path,
+							envJson: JSON.stringify(app.envJson),
+							volumesJson: JSON.stringify(app.volumesJson),
+							command: app.command ?? null,
+							extraPortsJson: JSON.stringify(app.extraPorts ?? []),
+							rawJson: app.rawJson ?? null,
+							sourceVersion: app.sourceVersion ?? null,
+						},
+						create: {
+							slug: app.slug,
+							sourceId: source.id,
+							name: app.name,
+							category: app.category,
+							icon: app.icon,
+							description: app.description,
+							image: app.image,
+							defaultPort: app.defaultPort,
+							internalPort: app.internalPort ?? null,
+							path: app.path,
+							envJson: JSON.stringify(app.envJson),
+							volumesJson: JSON.stringify(app.volumesJson),
+							command: app.command ?? null,
+							extraPortsJson: JSON.stringify(app.extraPorts ?? []),
+							rawJson: app.rawJson ?? null,
+							sourceVersion: app.sourceVersion ?? null,
+						},
+					});
+					return "ok" as const;
+				} catch (err) {
+					logger.error(`Failed to upsert app ${app.slug}: ${err}`);
+					return "err" as const;
+				}
+			}),
+		);
+		for (const r of outcomes) {
+			if (r === "ok") synced++;
+			else errors++;
 		}
 
 		// Remove apps that are no longer in the source

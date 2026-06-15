@@ -73,8 +73,8 @@ describe("app source catalog bounds", () => {
 		expect(fetchSourceAppsMock).not.toHaveBeenCalled();
 	});
 
-	it("TR-040: syncSource upserts apps in concurrent chunks (no per-app sequential round-trip)", async () => {
-		// Generate 20 fake apps so we exercise the chunking loop.
+	it("TR-040 R1: syncSource fans out every app upsert in a single Promise.all (no chunking)", async () => {
+		// Generate 20 fake apps so we exercise the full fan-out.
 		const fakeApps = Array.from({ length: 20 }, (_, i) => ({
 			slug: `app-${i}`,
 			name: `App ${i}`,
@@ -115,9 +115,8 @@ describe("app source catalog bounds", () => {
 		expect(result.synced).toBe(20);
 		expect(result.errors).toBe(0);
 		expect(prismaMock.appSourceApp.upsert).toHaveBeenCalledTimes(20);
-		// Concurrency must be > 1 (proves we're parallel) and <= chunk bound (8).
-		expect(maxInFlight).toBeGreaterThan(1);
-		expect(maxInFlight).toBeLessThanOrEqual(8);
+		// All 20 fan out in parallel — concurrency must equal N (chunking removed).
+		expect(maxInFlight).toBe(20);
 	});
 
 	it("TR-040: syncSource isolates a single app failure without aborting the chunk", async () => {
