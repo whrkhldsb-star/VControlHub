@@ -622,6 +622,46 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 **不建议本轮立刻动**：TR-024（durable worker 全量迁移）、TR-030（多租户）、TR-032（智能运维 AI），三者都是大改造，需先单独方案评审。
 
+### 2026-06-15 第二轮审查新发现（worker 真假并存，未并入 TR 编号）
+
+由其他 AI + 主会话双重人工复核得出的高/中风险。前 4 项为**当前生产可能产生副作用**的真问题，必须人工在场修复（不交给后台 cron）；后 3 项是已落地的同类增强建议，可作为独立 TR 起案。
+
+#### New-A（高）下载入队失败被吞，下载任务永远 PENDING
+
+`src/app/api/downloads/route.ts` 创建 `downloadTask` 成功后，用 `void enqueueDownloadExecutionJob(...).catch(logError)` 异步 fire-and-forget 入队；若 `jobs` 表短暂抖动 / Prisma 短暂失败，下载 API 仍 `success: true`，留下永远 `PENDING` 且无 durable job 的任务。修复思路：route 端先 `await enqueueDownloadExecutionJob(...)` 再返回 201，并把入队失败回滚为 `downloadTask.status = FAILED` + 业务级 errorMessage；durable worker 启动入口对应改成"幂等 claim"（按 `downloadTask.status` 决定是否派发）。配套测试：mock `enqueueDownloadExecutionJob` 抛错 → API 返回 5xx 且 `downloadTask.status === "FAILED"`。
+
+#### New-B（高，多进程部署才暴露）定时任务 tick 竞态 → 同一任务重复触发
+
+`src/lib/scheduled-task/worker.ts:49` "查 active job 再 enqueue" 是非原子 read-then-write；多进程/cluster 模式下两台 worker 同时跑会都查到"无 active"，都 enqueue 多个 `scheduled-task.tick`，进而对同一到期 `ScheduledTask` 各创建一次 `CommandRequest`。
+- **当前部署**：单进程 `tsx src/server.ts` + `state.running` guard，单点下不会触发，但**单点故障**：systemd 短暂重叠启动 / 未来加 `node:cluster` 都会暴露。
+- **修复**：`enqueueScheduledTaskTickJob` 改 Prisma `$transaction` + 唯一约束（或利用 `(type, status) IN (PENDING, RUNNING)` 上的 `@@index` 改 `INSERT ... WHERE NOT EXISTS`），或换成 `prisma.job.upsert` with `where: { type_status: ... }` 复合唯一键。
+- **配套**：`dispatchDueTask` 入队前用 `updateMany({ where: { id, status: "ACTIVE", nextRunAt: oldNext }, data: { nextRunAt: newNext } })` 行级 CAS，确保只有一份 worker 真正派发。
+
+#### New-C（中）下载 durable worker 与 `downloadTask.status` 错位
+
+`src/lib/downloads/execution-worker.ts` 调 `executeAria2RelayDownload` / `executeDirectDownload` 后无脑 `completeJob`，但这俩函数在 `src/lib/downloads/execution.ts:120/134` 等多处把 `downloadTask.status = FAILED` 后正常 return，**不抛错**；于是出现 operation-tasks 显示 job 成功，但 `/downloads` 业务行显示 FAILED 的状态错位。修复：worker dispatch 完后 `prisma.downloadTask.findUnique` 查一次最终 `status`，若 `FAILED` / `CANCELLED` 走 `failJob` 而非 `completeJob`；若 `COMPLETED` 走 `completeJob`；若仍 `RUNNING` / `PENDING`（中转 aria2 的常态）则**保持 RUNNING 不 completeJob**，让后续 `pruneCompletedJobsByType` / 终态路由推进。
+
+#### New-D（中）`instrumentation.ts` 启动路径不全
+
+`src/instrumentation.ts:5-10` 只在 `VCONTROLHUB_START_COMMAND_WORKER_IN_NEXT=true` 时启动 command maintenance/execution；`scheduled-task.tick` / `download.execute` 等只在 `src/server.ts:40-47` 启动。当前 deploy 走 custom server 没暴露，但只要未来有人 `next start`（不带 custom server）部署，下载/定时任务 worker 全停。
+- **修法 A（推荐）**：把全部 worker 启动迁到 `instrumentation.ts`，由单一路径保证。
+- **修法 B**：在 `deploy.sh` 显式检测 `tsx src/server.ts` 是否在跑，没跑就 `journalctl` 强告警。
+
+#### New-E（P1 增强）Direct Gateway TLS / 防火墙默认边界 + 跨 worker 并发上限与 lease 策略
+
+- Direct Gateway 默认 `http://host:31888` 明文 + `0.0.0.0` 监听，README 428 行已点出。补：deploy 默认接 Caddy 反代 TLS / 文档化 "VPN / 防火墙白名单" 强制步骤 / 加启动期"是否暴露在公网" 探测 + 风险确认。
+- 当前 8 个 worker 各自 `setInterval` 互不知情；缺：全局并发上限、按用户/按节点并发上限、job lease 公式统一（参考 TR-001 T12 实测 `leaseMs > 2× maxSingleDispatchDuration`），可观测日志流（已有 `events.ts` T13a 雏形，需扩到每个 worker 强制调用 `recordJobEvent`）。可立 TR-043 跟进。
+
+#### New-F（P2 增强）继续拆 3 个超大 client
+
+`file-list-client.tsx:1600` / `ai-client.tsx:1071` / `quick-services-client.tsx:1002` 是 TR-036 9 文件拆解后剩余的真正大头（其余已 < 700 行）。`file-list-client` 优先拆 "批量操作 + 工具栏" 子组件 + `next/dynamic` 懒加载"更多操作"菜单与上传 dropzone；`ai-client` 拆对话列表 / 输入区 / 设置面板（已部分 lazy）；`quick-services-client` 拆源同步面板 / 安装预览弹窗。已通过 TR-036 实证"1.5x 系数 + 2 tick / 6 文件"可行。
+
+#### New-G（P2 增强）i18n / QA 报告 / README 状态对账 三件套
+
+- TR-042 i18n 覆盖审计：`scripts/i18n-coverage.ts` 扫 `app/**/*.tsx` 可见用户文案 + `data-i18n` 属性，与 `translations.ts` key 对账，CI 报缺。
+- TR-029 QA 报告产品化：把当前 `.hermes/remediation-state.json` 每天自动导出到 `/api/admin/qa-report` 内部页，运维自查不依赖 cron 私有状态。
+- README 状态自动对账：cron 后台跑完一个 TR-XXX 后自动 `sed` 更新本表状态列 + `changelog` 区块；避免像 2026-06-14 那样"代码已落地 / README 还写新发现"的双轨漂移。
+
 ---
 
 ## 📋 任务追踪编号表（TR-001 ~ TR-042）
@@ -685,6 +725,10 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
+- [ ] **下载入队失败被吞**（New-A）— `src/app/api/downloads/route.ts` route 端 `await enqueueDownloadExecutionJob` 后再返 201，失败回滚 `downloadTask.status = FAILED`；durable worker 入口加幂等 claim。**不交后台 cron，人工在场修**。
+- [ ] **定时任务 tick 竞态**（New-B）— `enqueueScheduledTaskTickJob` 改 Prisma 事务 + 唯一约束（或 `INSERT ... WHERE NOT EXISTS`）；`dispatchDueTask` 入队前行级 CAS 更新 `nextRunAt`。
+- [ ] **下载 worker 状态错位**（New-C）— `execution-worker.ts` dispatch 完后查 `downloadTask.status`，FAILED/CANCELLED → `failJob`；RUNNING/PENDING（中转常态）保持 RUNNING 不 complete。
+- [ ] **`instrumentation.ts` 启动路径不全**（New-D）— 全部 worker 启动迁到 `instrumentation.ts`，由单一路径保证。
 
 ### P2 — 用户体验和可运营性
 
@@ -698,6 +742,9 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **领域 DTO 边界续做**（TR-039）— 5 个域全域 DTO 闭环。
 - [ ] **N+1 查询修复**（TR-040）— 3 个候选文件。
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
+- [ ] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E）— 立 TR-043 跟进，deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。
+- [ ] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1600 / `ai-client` 1071 / `quick-services-client` 1002，TR-036 续做。
+- [ ] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。
 
 ### P3 — 长期愿景
 
