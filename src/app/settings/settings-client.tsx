@@ -103,11 +103,41 @@ export function SettingsClient({
 	} | null>(null);
 	// TR-014 M01b: 每个 section 的 diff 角标展开状态
 	const [expandedDiffs, setExpandedDiffs] = useState<Record<string, boolean>>({});
+	// TR-014 M02: 用户失焦过高风险且已改字段时, 在字段下方显示 inline 警告,
+	// 直到保存或字段值回到初值。`Set` 比 `Record` 更省重渲染键比较。
+	const [blurredHighRiskKeys, setBlurredHighRiskKeys] = useState<Set<string>>(() => new Set());
 
 	// Initial defaults from schema (defaultOpen).
 	const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
 		Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, s.defaultOpen])),
 	);
+
+	// TR-014 M02: 失焦时若高风险且值已变, 把字段 key 加入警告集合。
+	// 仅在 level==='high' 且 newValue !== initialValue 时触发 — 其它情况不打扰。
+	const handleHighRiskBlur = useCallback(
+		(field: FieldDef, currentValue: string) => {
+			if (field.riskLevel !== "high") return;
+			const initialValue = initialSettings[field.key] ?? "";
+			if (currentValue === initialValue) return;
+			setBlurredHighRiskKeys((prev) => {
+				if (prev.has(field.key)) return prev;
+				const next = new Set(prev);
+				next.add(field.key);
+				return next;
+			});
+		},
+		[initialSettings],
+	);
+
+	// TR-014 M02: 用户继续改值时清除该字段的警告 (可能改回初始值或新值, 让用户重新触发失焦再决定)。
+	const clearHighRiskBlur = useCallback((field: FieldDef) => {
+		setBlurredHighRiskKeys((prev) => {
+			if (!prev.has(field.key)) return prev;
+			const next = new Set(prev);
+			next.delete(field.key);
+			return next;
+		});
+	}, []);
 
 	const handleToggle = useCallback(
 		(id: string) => (event: SyntheticEvent<HTMLDetailsElement>) => {
@@ -166,6 +196,8 @@ export function SettingsClient({
 				setSavedMessage(null);
 				return;
 			}
+			// TR-014 M02: 保存成功后清掉所有高风险失焦警告 (字段已持久化, 警告使命完成)
+			setBlurredHighRiskKeys(new Set());
 			// TR-014 M01b: 如果本 section 的 pending changes 里有 high 风险, 弹 confirm modal
 			const pendingForSection = getPendingChanges([section], settings, initialSettings);
 			const highChanges = pendingForSection.filter((c) => c.riskLevel === "high");
@@ -282,6 +314,9 @@ export function SettingsClient({
 					twoFactorEnabled={twoFactorEnabled}
 					diffExpanded={expandedDiffs[section.id] ?? false}
 					onToggleDiff={() => setExpandedDiffs((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
+					blurredHighRiskKeys={blurredHighRiskKeys}
+					onHighRiskBlur={handleHighRiskBlur}
+					onHighRiskChange={clearHighRiskBlur}
 				/>
 			))}
 			{highRiskConfirm && (
@@ -315,6 +350,10 @@ type SchemaDrivenSectionProps = {
 	twoFactorEnabled: boolean;
 	diffExpanded: boolean;
 	onToggleDiff: () => void;
+	// TR-014 M02
+	blurredHighRiskKeys: Set<string>;
+	onHighRiskBlur: (field: FieldDef, currentValue: string) => void;
+	onHighRiskChange: (field: FieldDef) => void;
 };
 
 function SchemaDrivenSection({
@@ -331,6 +370,9 @@ function SchemaDrivenSection({
 	twoFactorEnabled,
 	diffExpanded,
 	onToggleDiff,
+	blurredHighRiskKeys,
+	onHighRiskBlur,
+	onHighRiskChange,
 }: SchemaDrivenSectionProps) {
 	const saveKeys = getSectionSaveKeys(section);
 	const hasSaveButton = saveKeys.length > 0;
@@ -414,8 +456,13 @@ function SchemaDrivenSection({
 											value={value}
 											disabled={disabled}
 											helperText={helperText}
-											onChange={(v) => updateField(field.key, v)}
+											onChange={(v) => {
+												updateField(field.key, v);
+												onHighRiskChange(field);
+											}}
 											runtimeSummary={runtimeSummaryByKey.get(field.key)}
+											showHighRiskWarning={blurredHighRiskKeys.has(field.key)}
+											onHighRiskBlur={(currentValue) => onHighRiskBlur(field, currentValue)}
 										/>
 									);
 								})}
@@ -609,9 +656,12 @@ type FieldRendererProps = {
 	helperText: string | undefined;
 	onChange: (value: string) => void;
 	runtimeSummary: RuntimeSettingSummary | undefined;
+	// TR-014 M02
+	showHighRiskWarning: boolean;
+	onHighRiskBlur: (currentValue: string) => void;
 };
 
-function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSummary }: FieldRendererProps) {
+function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: FieldRendererProps) {
 	if (field.type === "switch") {
 		return (
 			<div className="flex items-center justify-between gap-3">
@@ -634,6 +684,8 @@ function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSu
 				helperText={helperText}
 				onChange={onChange}
 				runtimeSummary={runtimeSummary}
+				showHighRiskWarning={showHighRiskWarning}
+				onHighRiskBlur={onHighRiskBlur}
 			/>
 		);
 	}
@@ -645,6 +697,8 @@ function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSu
 				disabled={disabled}
 				helperText={helperText}
 				onChange={onChange}
+				showHighRiskWarning={showHighRiskWarning}
+				onHighRiskBlur={onHighRiskBlur}
 			/>
 		);
 	}
@@ -656,6 +710,8 @@ function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSu
 			helperText={helperText}
 			onChange={onChange}
 			runtimeSummary={runtimeSummary}
+			showHighRiskWarning={showHighRiskWarning}
+			onHighRiskBlur={onHighRiskBlur}
 		/>
 	);
 }
@@ -667,14 +723,20 @@ type SelectFieldProps = {
 	helperText: string | undefined;
 	onChange: (value: string) => void;
 	runtimeSummary: RuntimeSettingSummary | undefined;
+	// TR-014 M02
+	showHighRiskWarning: boolean;
+	onHighRiskBlur: (currentValue: string) => void;
 };
 
-function SelectField({ field, value, disabled, helperText, onChange, runtimeSummary }: SelectFieldProps) {
+function SelectField({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: SelectFieldProps) {
 	const inputId = useId();
 	const helperId = useId();
 	const runtimeId = useId();
+	const warningId = useId();
 	const describedBy =
-		[helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
+		[helperText ? helperId : null, runtimeSummary ? runtimeId : null, showHighRiskWarning ? warningId : null]
+			.filter(Boolean)
+			.join(" ") || undefined;
 	const options = field.options ?? [];
 	// If the persisted value is not in the option list (legacy rows, custom edit),
 	// still render it as the current selection so users can see and switch away.
@@ -698,6 +760,7 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 				id={inputId}
 				value={normalizedValue}
 				onChange={(e) => onChange(e.target.value)}
+				onBlur={() => onHighRiskBlur(normalizedValue)}
 				disabled={disabled}
 				aria-describedby={describedBy}
 				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500"
@@ -708,6 +771,17 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 					</option>
 				))}
 			</select>
+			{showHighRiskWarning && (
+				<p
+					id={warningId}
+					role="alert"
+					data-testid="high-risk-blur-warning"
+					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+				>
+					<span aria-hidden className="mr-1">⚠</span>
+					高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。
+				</p>
+			)}
 			{helperText && (
 				<p id={helperId} className="text-xs text-white">
 					{helperText}
@@ -742,14 +816,20 @@ type InputFieldProps = {
 	helperText: string | undefined;
 	onChange: (value: string) => void;
 	runtimeSummary: RuntimeSettingSummary | undefined;
+	// TR-014 M02
+	showHighRiskWarning: boolean;
+	onHighRiskBlur: (currentValue: string) => void;
 };
 
-function InputField({ field, value, disabled, helperText, onChange, runtimeSummary }: InputFieldProps) {
+function InputField({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: InputFieldProps) {
 	const inputId = useId();
 	const helperId = useId();
 	const runtimeId = useId();
+	const warningId = useId();
 	const describedBy =
-		[helperText ? helperId : null, runtimeSummary ? runtimeId : null].filter(Boolean).join(" ") || undefined;
+		[helperText ? helperId : null, runtimeSummary ? runtimeId : null, showHighRiskWarning ? warningId : null]
+			.filter(Boolean)
+			.join(" ") || undefined;
 	return (
 		<div
 			className={`space-y-1.5 rounded-lg border p-3 transition ${
@@ -770,12 +850,24 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 				type={field.type}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				onBlur={() => onHighRiskBlur(value)}
 				placeholder={field.placeholder}
 				autoComplete={field.autoComplete}
 				disabled={disabled}
 				aria-describedby={describedBy}
 				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
 			/>
+			{showHighRiskWarning && (
+				<p
+					id={warningId}
+					role="alert"
+					data-testid="high-risk-blur-warning"
+					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+				>
+					<span aria-hidden className="mr-1">⚠</span>
+					高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。
+				</p>
+			)}
 			{helperText && (
 				<p id={helperId} className="text-xs text-white">
 					{helperText}
@@ -809,11 +901,15 @@ type TextAreaFieldProps = {
 	disabled: boolean;
 	helperText: string | undefined;
 	onChange: (value: string) => void;
+	// TR-014 M02
+	showHighRiskWarning: boolean;
+	onHighRiskBlur: (currentValue: string) => void;
 };
 
-function TextAreaField({ field, value, disabled, helperText, onChange }: TextAreaFieldProps) {
+function TextAreaField({ field, value, disabled, helperText, onChange, showHighRiskWarning, onHighRiskBlur }: TextAreaFieldProps) {
 	const inputId = useId();
 	const helperId = useId();
+	const warningId = useId();
 	return (
 		<div
 			className={`space-y-1.5 rounded-lg border p-3 transition ${
@@ -831,12 +927,24 @@ function TextAreaField({ field, value, disabled, helperText, onChange }: TextAre
 				id={inputId}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
+				onBlur={() => onHighRiskBlur(value)}
 				placeholder={field.placeholder}
 				disabled={disabled}
-				aria-describedby={helperText ? helperId : undefined}
+				aria-describedby={[helperText ? helperId : null, showHighRiskWarning ? warningId : null].filter(Boolean).join(" ") || undefined}
 				rows={4}
 				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed"
 			/>
+			{showHighRiskWarning && (
+				<p
+					id={warningId}
+					role="alert"
+					data-testid="high-risk-blur-warning"
+					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+				>
+					<span aria-hidden className="mr-1">⚠</span>
+					高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。
+				</p>
+			)}
 			{helperText && (
 				<p id={helperId} className="text-xs text-white">
 					{helperText}
