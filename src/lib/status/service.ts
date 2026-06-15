@@ -75,3 +75,16 @@ export async function getPublicStatus() {
 	checks.push(buildStorageStatus(storageAggregate));
 	return { generatedAt: new Date().toISOString(), service: getAppSlug(), summary: summarizeSystemHealth(checks), checks: checks.map(({ id, label, status, message }) => ({ id, label, status, message })) };
 }
+
+/**
+ * TR-053: 公开端点（未登录）只暴露 overall 状态，隐藏 storage / servers / database
+ * 详细检查内容，避免未授权访问者获取节点数、探测状态等内部信息。
+ */
+export async function getPublicStatusSummary() {
+	const full = await getPublicStatus();
+	return {
+		generatedAt: full.generatedAt,
+		service: full.service,
+		summary: { overall: full.summary.overall },
+	};
+}
