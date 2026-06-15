@@ -2,7 +2,9 @@ import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
@@ -97,9 +99,17 @@ export async function GET(request: Request) {
         throw new AuthError("未认证");
 
       const url = new URL(request.url);
-      const nodeId = url.searchParams.get("nodeId");
-      const remotePath = url.searchParams.get("path");
-      const download = url.searchParams.get("download") === "1";
+      const { nodeId, path: remotePath, download } = parseSearchParams(
+        request,
+        z.object({
+          nodeId: z.string().trim().min(1).optional(),
+          path: z.string().trim().min(1).optional(),
+          download: z
+            .string()
+            .optional()
+            .transform((value) => value === "1"),
+        }),
+      );
 
       if (!nodeId) {
         return NextResponse.json(

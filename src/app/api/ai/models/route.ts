@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
-import { fetchModelsFromProvider } from "@/lib/ai/service";
+import { verifyBearerToken } from "@/lib/auth/bearer-token";
 import { withApiRoute } from "@/lib/http/api-guard";
-
+import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { fetchModelsFromProvider } from "@/lib/ai/service";
 import { AuthError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,10 @@ export async function GET(request: Request) {
       if (!session)
         throw new AuthError("未认证");
 
-      const providerId = new URL(request.url).searchParams.get("providerId");
+      const { providerId } = parseSearchParams(
+        request,
+        z.object({ providerId: z.string().trim().min(1).optional() }),
+      );
       if (!providerId) {
         throw new ValidationError("缺少 providerId");
       }

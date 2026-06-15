@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/storage/remote-path";
 import { createLogger } from "@/lib/logging";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp");
@@ -20,8 +22,14 @@ export const dynamic = "force-dynamic";
 
 async function handleGet(request: Request, session: SessionPayload) {
   const url = new URL(request.url);
-  const nodeId = url.searchParams.get("nodeId");
-  const remotePath = url.searchParams.get("path") ?? "/";
+  const { nodeId, path: remotePath } = parseSearchParams(
+    request,
+    z.object({
+      nodeId: z.string().trim().min(1).optional(),
+      path: z.string().trim().min(1).default("/"),
+    }),
+  );
+  void nodeId; // currently unused beyond existence; preserved for parity with the prior ad-hoc parser.
 
   if (!nodeId) {
     throw new ValidationError("缺少 nodeId 参数");

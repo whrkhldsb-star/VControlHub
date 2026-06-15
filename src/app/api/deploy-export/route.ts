@@ -6,6 +6,7 @@ import {
   createDeploymentExport,
 } from "@/lib/deploy-export/service";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError } from "@/lib/errors";
@@ -23,7 +24,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "deploy:export" }, async () => {
-    const domain = new URL(request.url).searchParams.get("domain") ?? undefined;
+    const { domain } = parseSearchParams(
+      request,
+      z.object({ domain: z.string().trim().min(1).optional() }),
+    );
     return NextResponse.json(buildPortableDeploymentPackage({ domain }));
   });
 }

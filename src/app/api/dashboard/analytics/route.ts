@@ -3,8 +3,11 @@
  * GET /api/dashboard/analytics?type=servers|downloads|audit|image-bed
  */
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
 import { getApiSession } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 
 import { apiError } from "@/lib/http/api-error";
@@ -23,7 +26,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") || "all";
+    const { type } = parseSearchParams(
+      request,
+      z.object({
+        type: z.string().trim().min(1).default("all"),
+      }),
+    );
 
     const results: Record<string, unknown> = {};
 
