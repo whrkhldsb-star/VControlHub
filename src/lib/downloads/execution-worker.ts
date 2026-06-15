@@ -211,6 +211,71 @@ async function handleClaimedJob(
       return true;
     }
 
+    // New-C (2026-06-15): idempotency guard. The execute* helpers mark the
+    // downloadTask FAILED / CANCELLED on their own catch chains and
+    // return normally (no throw). With TR-001 T13b bumping
+    // `enqueueDownloadExecutionJob.maxAttempts` from 1 to 3, the durable
+    // job layer now retries transient dispatch errors, so a worker
+    // tick can come back and find the business row in a terminal state
+    // even though the durable job itself is still "RUNNING" (this is
+    // exactly the symptom another AI reviewer flagged as "operation
+    // job 成功、业务下载失败"). Cross-check here and pick the right
+    // outcome so the user-visible state stays consistent:
+    //
+    //   - COMPLETED  → business already done, just complete the job
+    //                   without re-running the dispatch side effects.
+    //   - FAILED     → business already failed, fail the job without
+    //                   a retry that would re-trigger execute*.
+    //   - CANCELLED  → user cancelled, fail the job and don't retry.
+    //   - PENDING /
+    //     RUNNING    → still in-flight (e.g. aria2 relay long-poll).
+    //                   complete the job because the worker has
+    //                   kicked off the dispatch; the execute* helpers
+    //                   will mark COMPLETED / FAILED in their own
+    //                   catch chains as the aria2 RPC progresses.
+    if (task.status === "COMPLETED") {
+      await completeJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
+        taskId: payload.taskId,
+        mode: payload.mode,
+        status: "already_completed",
+      });
+      logger.info(
+        "Download execution job found the task already COMPLETED; completing job without re-dispatching",
+        { jobId: job.id, taskId: payload.taskId, mode: payload.mode },
+      );
+      return true;
+    }
+    if (task.status === "FAILED") {
+      // The execute* helper already recorded the failure on the
+      // downloadTask row. failJob with the row's last error so the
+      // job's `lastError` matches the user-visible message.
+      await failJob(
+        job.id,
+        DOWNLOAD_EXECUTION_WORKER_ID,
+        (task.errorMessage ?? "下载任务已失败").slice(0, 2000),
+        // No retry: the business side is terminal.
+        { retryAfterMs: undefined },
+      );
+      logger.info(
+        "Download execution job found the task already FAILED; failing job without retrying",
+        { jobId: job.id, taskId: payload.taskId, errorMessage: task.errorMessage },
+      );
+      return true;
+    }
+    if (task.status === "CANCELLED") {
+      await failJob(
+        job.id,
+        DOWNLOAD_EXECUTION_WORKER_ID,
+        (task.errorMessage ?? "下载任务已取消").slice(0, 2000),
+        { retryAfterMs: undefined },
+      );
+      logger.info(
+        "Download execution job found the task CANCELLED; failing job without retrying",
+        { jobId: job.id, taskId: payload.taskId, errorMessage: task.errorMessage },
+      );
+      return true;
+    }
+
     const serverForExec = buildServerForExec(task.server);
     // The downstream execute* helpers re-decrypt server.password on demand (see
     // transferFileViaSsh2 which reads it again for sshpass). Surface the same
@@ -247,12 +312,40 @@ async function handleClaimedJob(
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // The execute* helpers mark the downloadTask FAILED in their own catch
-    // chains; from the job's perspective the dispatch attempt is still
-    // considered "failed" (transient prisma error / worker crash mid-dispatch),
-    // so we record the failure on the job but rely on maxAttempts=1 to avoid
-    // retrying real side-effect work that has already been recorded FAILED on
-    // the downloadTask row.
+    // New-C (2026-06-15): if our own dispatch path threw (i.e. the
+    // execute* helper itself crashed, not the underlying download), the
+    // business row may or may not already be FAILED. Re-fetch and only
+    // fail the durable job if the business row is still in-flight; if
+    // the business side already recorded FAILED, do not retry (avoids
+    // double-launching the side effects the next worker tick would
+    // otherwise pull in via T13b's bumped maxAttempts).
+    const postTask = await loadTaskRow(payload.taskId);
+    if (postTask && (postTask.status === "FAILED" || postTask.status === "CANCELLED" || postTask.status === "COMPLETED")) {
+      if (postTask.status === "COMPLETED") {
+        await completeJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
+          taskId: payload.taskId,
+          mode: payload.mode,
+          status: "already_completed_after_error",
+        });
+      } else {
+        await failJob(
+          job.id,
+          DOWNLOAD_EXECUTION_WORKER_ID,
+          (postTask.errorMessage ?? message).slice(0, 2000),
+          { retryAfterMs: undefined },
+        );
+      }
+      logger.info(
+        "Download execution job threw but the business row already reached a terminal state; not retrying",
+        {
+          jobId: job.id,
+          taskId: payload.taskId,
+          mode: payload.mode,
+          businessStatus: postTask.status,
+        },
+      );
+      return true;
+    }
     await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
     logger.error("Download execution job failed", {
       jobId: job.id,

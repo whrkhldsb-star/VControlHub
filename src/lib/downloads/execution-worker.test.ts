@@ -432,4 +432,118 @@ describe("download execution durable job worker", () => {
       stopDownloadJobWorkerForTests();
     });
   });
+
+  // New-C (2026-06-15): the execute* helpers mark the downloadTask row
+  // FAILED / CANCELLED on their own catch chains and return normally (no
+  // throw). With TR-001 T13b bumping maxAttempts from 1 to 3, the durable
+  // job layer now retries transient errors, so a worker tick can come
+  // back and find the business row already in a terminal state. The
+  // worker must NOT re-launch the side effects; it must mirror the
+  // business state into the job.
+  describe("New-C: idempotency guard on terminal downloadTask status", () => {
+    it("completes the job without re-dispatching when the task is already COMPLETED", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      prismaDownloadTaskFindUniqueMock.mockResolvedValueOnce({
+        ...makeTaskRow(),
+        status: "COMPLETED",
+      });
+
+      const result = await runDownloadExecutionJobWorkerOnce();
+
+      expect(result).toBe(true);
+      expect(executeDirectDownloadMock).not.toHaveBeenCalled();
+      expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
+      expect(completeJobMock).toHaveBeenCalledWith(
+        "job-dl-1",
+        expect.stringContaining(":download-execution:"),
+        expect.objectContaining({ status: "already_completed" }),
+      );
+      expect(failJobMock).not.toHaveBeenCalled();
+      expect(infoMock).toHaveBeenCalledWith(
+        expect.stringContaining("already COMPLETED"),
+        expect.objectContaining({ taskId: "task-1" }),
+      );
+    });
+
+    it("fails the job without retrying when the task is already FAILED", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      prismaDownloadTaskFindUniqueMock.mockResolvedValueOnce({
+        ...makeTaskRow(),
+        status: "FAILED",
+        errorMessage: "aria2 RPC 403: upstream rejected",
+      });
+
+      const result = await runDownloadExecutionJobWorkerOnce();
+
+      expect(result).toBe(true);
+      expect(executeDirectDownloadMock).not.toHaveBeenCalled();
+      expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
+      expect(failJobMock).toHaveBeenCalledWith(
+        "job-dl-1",
+        expect.stringContaining(":download-execution:"),
+        "aria2 RPC 403: upstream rejected",
+        expect.objectContaining({ retryAfterMs: undefined }),
+      );
+      expect(completeJobMock).not.toHaveBeenCalled();
+      expect(infoMock).toHaveBeenCalledWith(
+        expect.stringContaining("already FAILED"),
+        expect.objectContaining({ taskId: "task-1" }),
+      );
+    });
+
+    it("fails the job without retrying when the task is CANCELLED", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      prismaDownloadTaskFindUniqueMock.mockResolvedValueOnce({
+        ...makeTaskRow(),
+        status: "CANCELLED",
+        errorMessage: "用户手动取消",
+      });
+
+      const result = await runDownloadExecutionJobWorkerOnce();
+
+      expect(result).toBe(true);
+      expect(executeDirectDownloadMock).not.toHaveBeenCalled();
+      expect(failJobMock).toHaveBeenCalledWith(
+        "job-dl-1",
+        expect.stringContaining(":download-execution:"),
+        "用户手动取消",
+        expect.objectContaining({ retryAfterMs: undefined }),
+      );
+      expect(completeJobMock).not.toHaveBeenCalled();
+    });
+
+    it("fails the job with retryAfterMs=undefined when the dispatch path throws but the business row already terminal", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      // First findUnique: load before dispatch. Returns a PENDING row so
+      // the worker passes the idempotency guard and enters the dispatch
+      // path. Second findUnique: load after the throw. Returns FAILED —
+      // the execute* helper must have caught the error and recorded it
+      // before throwing.
+      prismaDownloadTaskFindUniqueMock
+        .mockResolvedValueOnce(makeTaskRow())
+        .mockResolvedValueOnce({
+          ...makeTaskRow(),
+          status: "FAILED",
+          errorMessage: "exec helper inner crash",
+        });
+      executeDirectDownloadMock.mockRejectedValueOnce(new Error("dispatch crashed"));
+
+      const result = await runDownloadExecutionJobWorkerOnce();
+
+      expect(result).toBe(true);
+      // Even though execute* threw, the business row already reached
+      // FAILED, so we mirror that without scheduling a retry.
+      expect(failJobMock).toHaveBeenCalledWith(
+        "job-dl-1",
+        expect.stringContaining(":download-execution:"),
+        "exec helper inner crash",
+        expect.objectContaining({ retryAfterMs: undefined }),
+      );
+      expect(completeJobMock).not.toHaveBeenCalled();
+      expect(infoMock).toHaveBeenCalledWith(
+        expect.stringContaining("threw but the business row already reached a terminal state"),
+        expect.objectContaining({ taskId: "task-1", businessStatus: "FAILED" }),
+      );
+    });
+  });
 });
