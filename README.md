@@ -668,6 +668,8 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 所有项目均有稳定追踪编号 `TR-XXX`，可通过 `grep "TR-0XX" README.md` 定位。代码注释 / 测试名 / QA 报告引用 TR 编号可与本表一一对应。
 
+> **🤖 后台自动推进**：状态列标 `⏳ 后台任务中 (Txx...)` 的 TR 由 cron job `9e36e64a75ae`（每 15min tick，模型 `MiniMax-M3 @ Api.tokenrouter.com`）自动拆 sub-task 推进。任务清单在 `~/.hermes/state/vcontrolhub-task-queue.json`，每 sub-task 完成后助手在 commit 时同步本表状态列（队列中 → 后台任务中 → ✅ 完成）。纯前端 / 脚本 / 报告类 TR 适合后台；涉及 worker / 跨进程 / 部署边界的 P0/P1 项由人工在场处理。
+
 | 编号 | 优先级 | 主题 | 状态 |
 |---|---|---|---|
 | TR-001 | P1 | 后台任务业务迁移与并发控制（命令/部署/下载/定时任务） | 定时任务已迁 |
@@ -694,24 +696,24 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-022 | P2 | 移动端适配（高频入口 / 复杂面板响应式） | ✅ 主体 9 轮完成 |
 | TR-023 | P3 | 自动化工作流 Playbook（条件触发 / 告警联动 / 步骤编排） | 队列中 |
 | TR-024 | P3 | 命令/部署执行 durable worker（DB-backed job / 跨进程取消 / 并发上限） | ✅ 主体已落地 |
-| TR-025 | P3 | RBAC 角色视角巡检（按钮可见 / API 可调一致性） | 队列中 |
+| TR-025 | P3 | RBAC 角色视角巡检（按钮可见 / API 可调一致性） | ⏳ 后台任务中 (T25a/T25b) |
 | TR-026 | P3 | 统一操作反馈模型（ActionResult + toast/alert + 任务中心链接） | ✅ 主体已落地 |
 | TR-027 | P3 | README/测试追踪标签 | ✅ 完成 |
 | TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） | ✅ 完成 39 page / 79 API / 41 perm |
-| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence） | 队列中 |
+| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence） | ⏳ 后台任务中 (T29a/T29b) |
 | TR-030 | P3 | 多租户 / 团队空间（资源隔离 / 配额 / 权限继承） | 队列中 |
 | TR-031 | P3 | 成本追踪（VPS 费用 / 带宽 / 存储 / 月报） | 队列中 |
 | TR-032 | P3 | 智能运维 AI（主动诊断 / 异常预测 / 自动修复建议） | 队列中 |
 | TR-033 | P3 | PWA 离线支持和集成市场 | 队列中 |
 | TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | 新发现 |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
-| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | 新发现，部分接 R23-R25 |
+| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ 后台任务中 (T36b/T36c, 续 R23-R25) |
 | TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | 新发现 |
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | 新发现 |
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | 新发现 |
 | TR-041 | P2 | 自定义错误类（273 处 `throw new Error()` 分 61 文件） | ✅ 已落地 (commit 93ddbb7) |
-| TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | 新发现 |
+| TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | ⏳ 后台任务中 (T42a/T42b) |
 
 ---
 
