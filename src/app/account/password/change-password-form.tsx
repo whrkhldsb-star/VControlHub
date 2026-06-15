@@ -1,59 +1,101 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
 
 import { changePasswordAction, type AccountPasswordActionState } from "./actions";
 
 const initialState: AccountPasswordActionState = {};
+const POST_SUCCESS_REDIRECT_DELAY_MS = 1500;
 
 export function ChangePasswordForm() {
-  const [state, formAction] = useActionState(changePasswordAction, initialState);
+	const [state, formAction] = useActionState(changePasswordAction, initialState);
+	const router = useRouter();
+	const searchParams = useSearchParams();
+	const [countdown, setCountdown] = useState<number | null>(null);
 
-  return (
-    <form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
-      <input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
-      <div>
-        <h2 className="text-xl font-semibold text-white">修改登录密码</h2>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。
-        </p>
-      </div>
+	// TR-052: 改密成功后自动跳到 dashboard (默认 "/"，尊重 ?next=)。给用户 1.5s 看 success message 再跳。
+	useEffect(() => {
+		if (!state.success) return;
+		const nextPath = searchParams.get("next");
+		const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
+		setCountdown(POST_SUCCESS_REDIRECT_DELAY_MS / 1000);
+		const interval = setInterval(() => {
+			setCountdown((current) => (current === null ? null : Math.max(0, current - 1)));
+		}, 1000);
+		const timer = setTimeout(() => {
+			clearInterval(interval);
+			router.push(safeNext);
+		}, POST_SUCCESS_REDIRECT_DELAY_MS);
+		return () => {
+			clearTimeout(timer);
+			clearInterval(interval);
+		};
+	}, [state.success, router, searchParams]);
 
-      <div className="grid gap-4">
-        <PasswordField
-          label="当前密码"
-          name="currentPassword"
-          autoComplete="current-password"
-          placeholder="请输入当前密码"
-        />
-        <PasswordField
-          label="新密码"
-          name="newPassword"
-          autoComplete="new-password"
-          placeholder="至少 8 位"
-        />
-        <PasswordField
-          label="确认新密码"
-          name="confirmPassword"
-          autoComplete="new-password"
-          placeholder="再次输入新密码"
-        />
-      </div>
+	return (
+		<form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
+			<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
+			<div>
+				<h2 className="text-xl font-semibold text-white">修改登录密码</h2>
+				<p className="mt-2 text-sm text-[var(--text-secondary)]">
+					输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。
+				</p>
+			</div>
 
-      {state.error ? (
-        <div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div>
-      ) : null}
-      {state.success ? (
-        <div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100">{state.success}</div>
-      ) : null}
+			<div className="grid gap-4">
+				<PasswordField
+					label="当前密码"
+					name="currentPassword"
+					autoComplete="current-password"
+					placeholder="请输入当前密码"
+				/>
+				<PasswordField
+					label="新密码"
+					name="newPassword"
+					autoComplete="new-password"
+					placeholder="至少 8 位"
+				/>
+				<PasswordField
+					label="确认新密码"
+					name="confirmPassword"
+					autoComplete="new-password"
+					placeholder="再次输入新密码"
+				/>
+			</div>
 
-      <div className="flex justify-end">
-        <SubmitButton pendingLabel="保存中...">保存新密码</SubmitButton>
-      </div>
-    </form>
-  );
+			{state.error ? (
+				<div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div>
+			) : null}
+			{state.success ? (
+				<div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100" role="status" aria-live="polite">
+					{state.success}
+					{countdown !== null && countdown > 0 ? (
+						<span className="ml-2 text-emerald-200/80">（{countdown}s 后自动跳到仪表盘…）</span>
+					) : null}
+				</div>
+			) : null}
+
+			<div className="flex items-center justify-end gap-3">
+				{state.success ? (
+					<button
+						type="button"
+						onClick={() => {
+							const nextPath = searchParams.get("next");
+							const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
+							router.push(safeNext);
+						}}
+						className="rounded-2xl border border-cyan-400/40 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+					>
+						立即跳到仪表盘
+					</button>
+				) : null}
+				<SubmitButton pendingLabel="保存中...">保存新密码</SubmitButton>
+			</div>
+		</form>
+	);
 }
 
 type PasswordFieldProps = {
