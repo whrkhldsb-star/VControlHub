@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/page-shell";
 import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
+import { JobEventsDialog } from "./job-events-dialog";
+
 const sourceLabels: Record<string, string> = { job: "后台", command: "命令", scheduled: "定时", download: "下载", sync: "同步", backup: "备份", deployment: "部署" };
 const statusTone: Record<string, "accent" | "success" | "warning" | "danger" | "neutral"> = {
   pending: "warning",
@@ -53,6 +55,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
   const [sort, setSort] = useState<(typeof sortOptions)[number]["value"]>("recent");
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [eventsJobId, setEventsJobId] = useState<string | null>(null);
   const taskTypeOptions = useMemo(() => Array.from(new Set(tasks.map((task) => task.taskType).filter((value): value is string => Boolean(value)))).sort(), [tasks]);
   const refresh = async () => {
     setRefreshing(true);
@@ -135,9 +138,17 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       <div className="divide-y divide-white/[0.06]">
         {tasks.length === 0 ? <EmptyState text="暂无匹配任务" /> : tasks.map((task) => <div key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-white/[0.05] px-2 py-1 text-xs text-slate-400">{sourceLabels[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-md border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-md border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200">已折叠 {task.foldedCount} 次周期完成记录</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : "后台执行器已认领，暂无心跳时间"} data-tone="accent" className="rounded-md border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-white">{task.title}</h3><p className="mt-1 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-white/[0.06] bg-slate-950/60 px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">最近日志</div><ul className="mt-2 space-y-1 text-xs text-slate-300">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
-          {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-cyan-200">查看来源 →</Link>}
+          <div className="flex flex-col items-end gap-2">
+            {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
+              <button type="button" onClick={() => setEventsJobId(task.sourceId)} className="text-xs text-cyan-300 hover:text-cyan-200">
+                查看事件流（{task.eventCount}）
+              </button>
+            ) : null}
+            {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-cyan-200">查看来源 →</Link>}
+          </div>
         </div>)}
       </div>
     </div>
+    <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />
   </div>;
 }

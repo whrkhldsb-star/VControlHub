@@ -390,12 +390,36 @@ model Job {
   updatedAt         DateTime  @updatedAt
 
   creator User? @relation("jobCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  events  JobEvent[]
 
   @@index([status, availableAt, priority, createdAt])
   @@index([status, leaseExpiresAt])
   @@index([type, status])
   @@index([createdBy, createdAt])
   @@map("jobs")
+}
+
+// TR-001 T13a: append-only event stream for the durable job workers so the
+// operation-tasks center can show a "view events" timeline (claim, heartbeat,
+// progress, completion, failure, recovery). The events are scoped to a single
+// jobId and ordered by createdAt so a worker crash mid-dispatch still leaves a
+// recoverable trail. Pruning is governed by `pruneJobEvents` (keepLatest +
+// olderThan) and the per-job `events` index.
+model JobEvent {
+  id        String   @id @default(cuid())
+  jobId     String
+  type      String
+  level     String   @default("info")
+  message   String
+  workerId  String?
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@index([type, createdAt])
+  @@map("job_events")
 }
 
 model ScheduledTask {

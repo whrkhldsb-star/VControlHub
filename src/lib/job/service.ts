@@ -2,6 +2,8 @@ import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 
+import { recordJobEvent } from "./events";
+
 export type JobPayload = Prisma.InputJsonValue;
 export type JobResult = Prisma.InputJsonValue;
 
@@ -97,13 +99,31 @@ export async function claimNextJob(options: ClaimJobOptions) {
     });
 
     if (claimed.count === 0) return null;
-    return tx.job.findUniqueOrThrow({ where: { id: candidate.id } });
+    const claimedJob = await tx.job.findUniqueOrThrow({ where: { id: candidate.id } });
+
+    // TR-001 T13a: persist a "claimed" event so the operation-tasks center can
+    // surface when a worker picked up the job. Recorded outside the transaction
+    // so an event-write failure can't roll back the actual claim.
+    void recordJobEvent({
+      jobId: claimedJob.id,
+      type: "claimed",
+      message: `后台执行器 ${options.workerId} 认领任务`,
+      workerId: options.workerId,
+      payload: {
+        type: claimedJob.type,
+        title: claimedJob.title,
+        priority: claimedJob.priority,
+        attempts: claimedJob.attempts,
+      },
+    });
+
+    return claimedJob;
   });
 }
 
 export async function heartbeatJob(jobId: string, workerId: string, options: { leaseMs?: number; progress?: string | null; now?: Date } = {}) {
   const now = options.now ?? new Date();
-  return prisma.job.updateMany({
+  const result = await prisma.job.updateMany({
     where: { id: jobId, status: JobStatus.RUNNING, workerId },
     data: {
       workerHeartbeatAt: now,
@@ -111,11 +131,23 @@ export async function heartbeatJob(jobId: string, workerId: string, options: { l
       ...(options.progress !== undefined ? { progress: options.progress } : {}),
     },
   });
+  // TR-001 T13a: only emit a heartbeat event when the caller actually changed
+  // the progress string — silent lease extensions (the common case) stay quiet
+  // to avoid burying the timeline under duplicate rows.
+  if (result.count > 0 && options.progress) {
+    void recordJobEvent({
+      jobId,
+      type: "heartbeat",
+      message: options.progress,
+      workerId,
+    });
+  }
+  return result;
 }
 
 export async function completeJob(jobId: string, workerId: string, result?: JobResult) {
   const now = new Date();
-  return prisma.job.updateMany({
+  const updated = await prisma.job.updateMany({
     where: { id: jobId, status: JobStatus.RUNNING, workerId },
     data: {
       status: JobStatus.COMPLETED,
@@ -126,6 +158,17 @@ export async function completeJob(jobId: string, workerId: string, result?: JobR
       progress: "100%",
     },
   });
+  // TR-001 T13a: surface a "completed" event for the timeline.
+  if (updated.count > 0) {
+    void recordJobEvent({
+      jobId,
+      type: "completed",
+      message: "任务已完成",
+      workerId,
+      ...(result ? { payload: result as Prisma.InputJsonValue } : {}),
+    });
+  }
+  return updated;
 }
 
 export async function failJob(jobId: string, workerId: string, errorMessage: string, options: { retryAfterMs?: number; now?: Date } = {}) {
@@ -134,7 +177,7 @@ export async function failJob(jobId: string, workerId: string, errorMessage: str
   if (!job) return { count: 0 };
 
   const canRetry = job.attempts < job.maxAttempts;
-  return prisma.job.updateMany({
+  const updated = await prisma.job.updateMany({
     where: { id: jobId, status: JobStatus.RUNNING, workerId },
     data: {
       status: canRetry ? JobStatus.PENDING : JobStatus.FAILED,
@@ -146,10 +189,25 @@ export async function failJob(jobId: string, workerId: string, errorMessage: str
       leaseExpiresAt: null,
     },
   });
+  // TR-001 T13a: surface a "failed" / "retrying" event for the timeline.
+  if (updated.count > 0) {
+    void recordJobEvent({
+      jobId,
+      type: canRetry ? "retrying" : "failed",
+      message: errorMessage.slice(0, 2000),
+      level: canRetry ? "warn" : "error",
+      workerId,
+      payload: {
+        attempts: job.attempts,
+        maxAttempts: job.maxAttempts,
+      },
+    });
+  }
+  return updated;
 }
 
 export async function cancelJob(jobId: string) {
-  return prisma.job.updateMany({
+  const updated = await prisma.job.updateMany({
     where: { id: jobId, status: { in: [JobStatus.PENDING, JobStatus.RUNNING] } },
     data: {
       status: JobStatus.CANCELLED,
@@ -159,6 +217,16 @@ export async function cancelJob(jobId: string) {
       leaseExpiresAt: null,
     },
   });
+  // TR-001 T13a: surface a "cancelled" event when the cancellation actually
+  // moved the row out of PENDING/RUNNING.
+  if (updated.count > 0) {
+    void recordJobEvent({
+      jobId,
+      type: "cancelled",
+      message: "任务已取消",
+    });
+  }
+  return updated;
 }
 
 export async function recoverStaleRunningJobs(options: { staleBefore: Date; retryAfterMs?: number; now?: Date }) {

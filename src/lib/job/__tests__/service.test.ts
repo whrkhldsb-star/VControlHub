@@ -12,6 +12,11 @@ const { mockPrisma } = vi.hoisted(() => ({
       deleteMany: vi.fn(),
       fields: { maxAttempts: "maxAttempts" },
     },
+    jobEvent: {
+      create: vi.fn(async () => ({ id: "event-1" })),
+      findMany: vi.fn(async () => []),
+      deleteMany: vi.fn(async () => ({ count: 0 })),
+    },
     $transaction: vi.fn(async (callback: any) => callback(mockPrisma)),
   },
 }));

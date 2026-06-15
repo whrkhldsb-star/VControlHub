@@ -50,6 +50,11 @@ export type OperationTask = {
   workerHeartbeatAt?: string | null;
   taskType?: string | null;
   foldedCount?: number;
+  // TR-001 T13a: durable-job event count (claimed / heartbeat / completed /
+  // failed / retrying / cancelled). Only set for `source === "job"` tasks;
+  // other sources (command, scheduled, download, sync, backup, deployment)
+  // don't have the JobEvent timeline.
+  eventCount?: number;
 };
 
 export type OperationTaskFailureSummary = {
