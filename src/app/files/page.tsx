@@ -173,6 +173,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       storageNodeId: entry.storageNode.id,
       storageNodeName: entry.storageNode.name,
       storageNodeDriver: entry.storageNode.driver,
+      storageNodeServerId: entry.storageNode.serverId ?? null,
       capabilities:
         capabilityMap.get(
           getStorageAccessCapabilityKey({

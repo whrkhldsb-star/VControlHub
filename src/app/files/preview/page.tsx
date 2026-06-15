@@ -20,6 +20,9 @@ type PreviewPageProps = {
 		relativePath?: string;
 		fileEntryId?: string;
 		editable?: string;
+		serverId?: string;
+		reloadUnit?: string;
+		reloadKind?: string;
 	}>;
 };
 
@@ -59,6 +62,14 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 	const relativePath = params?.relativePath ?? "";
 	const fileEntryId = params?.fileEntryId ?? "";
 	const editable = params?.editable === "1";
+	const serverId = params?.serverId ?? "";
+	const reloadUnit = params?.reloadUnit ?? "";
+	const reloadKind: "systemd" | "compose" | undefined =
+		params?.reloadKind === "compose"
+			? "compose"
+			: params?.reloadKind === "systemd"
+				? "systemd"
+				: undefined;
 
 	const downloadUrl = href ? `${href}${href.includes("?") ? "&" : "?"}download=1` : "";
 
@@ -151,7 +162,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : resolvedIsCsv && href ? (
 						<CsvPreviewClient href={href} />
 					) : resolvedIsText && href ? (
-						<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} driver={driver} nodeId={nodeId} relativePath={relativePath} />
+							<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} driver={driver} nodeId={nodeId} relativePath={relativePath} serverId={serverId || undefined} reloadUnit={reloadUnit || undefined} reloadKind={reloadKind} />
 					) : isOffice && href ? (
 						<OfficePreviewClient href={href} name={name} driver={driver} />
 					) : isArchive ? (

@@ -210,4 +210,138 @@ describe("TextPreviewClient editable mode", () => {
     expect(jumpInput).toHaveValue("2");
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "center" });
   });
+
+  it("exposes a '保存并重载 <unit>' button when SFTP driver + serverId + reloadUnit are supplied", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({
+      draft: {
+        content: "user www-data;\n",
+        byteSize: 15,
+        updatedAt: "2026-06-15T01:00:00.000Z",
+        lastModifiedMs: 1780999200000,
+      },
+    });
+
+    render(
+      <TextPreviewClient
+        href="/api/storage/sftp-download?nodeId=node_1&path=etc/nginx/nginx.conf"
+        name="nginx.conf"
+        fileEntryId="file_nginx"
+        editable
+        driver="SFTP"
+        nodeId="node_1"
+        relativePath="etc/nginx/nginx.conf"
+        serverId="srv_1"
+        reloadUnit="nginx"
+        reloadKind="systemd"
+      />,
+    );
+
+    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
+      target: { value: "user www-data;\nworker_processes 4;\n" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: "保存并重载 nginx" }),
+    ).toBeInTheDocument();
+  });
+
+  it("save + reload flow: writes draft then calls /api/servers/[serverId]/reload and surfaces success", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({
+        draft: {
+          content: "user www-data;\n",
+          byteSize: 15,
+          updatedAt: "2026-06-15T01:00:00.000Z",
+          lastModifiedMs: 1780999200000,
+        },
+      })
+      .mockResolvedValueOnce({ success: true, byteSize: 42 })
+      .mockResolvedValueOnce({ success: true, exitCode: 0, stdout: "", stderr: "" });
+
+    render(
+      <TextPreviewClient
+        href="/api/storage/sftp-download?nodeId=node_1&path=etc/nginx/nginx.conf"
+        name="nginx.conf"
+        fileEntryId="file_nginx"
+        editable
+        driver="SFTP"
+        nodeId="node_1"
+        relativePath="etc/nginx/nginx.conf"
+        serverId="srv_1"
+        reloadUnit="nginx"
+        reloadKind="systemd"
+      />,
+    );
+
+    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
+      target: { value: "user www-data;\nworker_processes 4;\n" },
+    });
+    await actor.click(screen.getByRole("button", { name: "保存并重载 nginx" }));
+
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/servers/srv_1/reload",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ kind: "systemd", unit: "nginx" }),
+        }),
+      ),
+    );
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("已保存 42 B · 服务已重载");
+    expect(status).toHaveTextContent("重载成功，无需 SSH 重连");
+  });
+
+  it("save + reload flow: shows reload stderr without closing editor when systemctl exits non-zero", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({
+        draft: {
+          content: "user www-data;\n",
+          byteSize: 15,
+          updatedAt: "2026-06-15T01:00:00.000Z",
+          lastModifiedMs: 1780999200000,
+        },
+      })
+      .mockResolvedValueOnce({ success: true, byteSize: 42 })
+      .mockResolvedValueOnce({
+        success: false,
+        exitCode: 1,
+        stdout: "",
+        stderr: "Job for nginx.service failed because the unit has a bad config",
+      });
+
+    render(
+      <TextPreviewClient
+        href="/api/storage/sftp-download?nodeId=node_1&path=etc/nginx/nginx.conf"
+        name="nginx.conf"
+        fileEntryId="file_nginx"
+        editable
+        driver="SFTP"
+        nodeId="node_1"
+        relativePath="etc/nginx/nginx.conf"
+        serverId="srv_1"
+        reloadUnit="nginx"
+        reloadKind="systemd"
+      />,
+    );
+
+    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
+      target: { value: "user www-data;\nbroken config\n" },
+    });
+    await actor.click(screen.getByRole("button", { name: "保存并重载 nginx" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("已保存 42 B · 服务重载失败");
+    expect(alert).toHaveTextContent("exit=1");
+    expect(alert).toHaveTextContent("bad config");
+  });
 });

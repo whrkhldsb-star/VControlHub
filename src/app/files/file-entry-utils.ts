@@ -23,7 +23,7 @@ export type StorageEntry = {
   previewable: boolean;
   localEditable?: boolean;
   directAccess: { mode: string; href?: string; description: string };
-  storageNode: { id: string; name: string; driver: string };
+  storageNode: { id: string; name: string; driver: string; serverId?: string | null };
   capabilities?: EntryCapabilities | null;
   updatedAt?: Date | string;
 };
@@ -44,6 +44,7 @@ export type FileProp = {
   storageNodeId: string;
   storageNodeName: string;
   storageNodeDriver: string;
+  storageNodeServerId?: string | null;
   capabilities?: EntryCapabilities | null;
   updatedAt?: string | null;
 };
@@ -120,6 +121,39 @@ export function buildForcedDownloadHref(entry: StorageEntry) {
   return appendDownloadFlag(buildProxyDownloadHref(entry));
 }
 
+/**
+ * Well-known config file → systemd unit mapping. When the user opens a
+ * config file on a SFTP-backed server, we surface a "保存并重载" button
+ * for these matches so the change can take effect without an SSH session.
+ *
+ * Add to this map carefully — false positives lead to silent reload attempts
+ * against a service that isn't installed on the target host (exit=1 noise).
+ */
+const RELOADABLE_CONFIG_MAP: Record<string, { kind: "systemd"; unit: string } | { kind: "compose" }> = {
+  "nginx.conf": { kind: "systemd", unit: "nginx" },
+  "redis.conf": { kind: "systemd", unit: "redis-server" },
+  "sshd_config": { kind: "systemd", unit: "sshd" },
+  "httpd.conf": { kind: "systemd", unit: "httpd" },
+  "my.cnf": { kind: "systemd", unit: "mysql" },
+  "docker-compose.yml": { kind: "compose" },
+  "docker-compose.yaml": { kind: "compose" },
+  "compose.yaml": { kind: "compose" },
+  "compose.yml": { kind: "compose" },
+};
+
+export function deriveReloadTarget(entry: StorageEntry): {
+  kind: "systemd" | "compose";
+  unit?: string;
+} | null {
+  if (entry.storageNode.driver !== "SFTP") return null;
+  if (!entry.storageNode.serverId) return null;
+  const basename = entry.name.toLowerCase();
+  const target = RELOADABLE_CONFIG_MAP[basename];
+  if (!target) return null;
+  if (target.kind === "systemd") return { kind: "systemd", unit: target.unit };
+  return { kind: "compose" };
+}
+
 export function getPreviewHref(entry: StorageEntry) {
   const mime = entry.mimeType ?? "";
   const isPreviewableMime =
@@ -141,7 +175,15 @@ export function getPreviewHref(entry: StorageEntry) {
       ...(entry.storageNode.id ? { nodeId: entry.storageNode.id } : {}),
       ...(entry.relativePath ? { relativePath: entry.relativePath } : {}),
       ...(entry.localEditable ? { fileEntryId: entry.id, editable: "1" } : {}),
+      ...(entry.storageNode.serverId
+        ? { serverId: entry.storageNode.serverId }
+        : {}),
     });
+    const reloadTarget = entry.localEditable ? deriveReloadTarget(entry) : null;
+    if (reloadTarget) {
+      params.set("reloadKind", reloadTarget.kind);
+      if (reloadTarget.unit) params.set("reloadUnit", reloadTarget.unit);
+    }
     return `/files/preview?${params.toString()}`;
   }
   return entry.directAccess.mode === "managed-download" &&
@@ -209,6 +251,9 @@ export function toStorageEntry(file: FileProp): StorageEntry {
       id: file.storageNodeId,
       name: file.storageNodeName,
       driver: file.storageNodeDriver,
+      ...(file.storageNodeServerId
+        ? { serverId: file.storageNodeServerId }
+        : {}),
     },
     capabilities: file.capabilities,
     updatedAt: file.updatedAt ?? undefined,

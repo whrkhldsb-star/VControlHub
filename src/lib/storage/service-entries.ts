@@ -85,6 +85,7 @@ type FileEntryListRow = Prisma.FileEntryGetPayload<{
         host: true;
         port: true;
         username: true;
+        serverId: true;
         directAccessMode: true;
         publicBaseUrl: true;
         directAccessExpiresSeconds: true;
@@ -348,6 +349,7 @@ export async function listFileEntries(storageNodeId?: string) {
           host: true,
           port: true,
           username: true,
+          serverId: true,
           directAccessMode: true,
           publicBaseUrl: true,
           directAccessExpiresSeconds: true,

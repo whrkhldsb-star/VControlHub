@@ -32,8 +32,9 @@ type PreviewState = { loading: true } | { loading: false; content: string | null
 type PreviewMetaState = {
 	editMode: boolean;
 	showDiffReview: boolean;
-	saveStatus: "idle" | "saving" | "saved" | "error";
+	saveStatus: "idle" | "saving" | "saved" | "reloading" | "reloaded" | "error";
 	saveMessage: string;
+	reloadMessage: string;
 };
 
 const INITIAL_PREVIEW_META: PreviewMetaState = {
@@ -41,6 +42,7 @@ const INITIAL_PREVIEW_META: PreviewMetaState = {
 	showDiffReview: false,
 	saveStatus: "idle",
 	saveMessage: "",
+	reloadMessage: "",
 };
 
 type DiffRow = { line: number; before: string; after: string; kind: "added" | "removed" | "changed" };
@@ -269,6 +271,9 @@ export function TextPreviewClient({
 	driver,
 	nodeId,
 	relativePath,
+	serverId,
+	reloadUnit,
+	reloadKind,
 }: {
 	href: string;
 	name?: string;
@@ -277,6 +282,9 @@ export function TextPreviewClient({
 	driver?: string;
 	nodeId?: string;
 	relativePath?: string;
+	serverId?: string;
+	reloadUnit?: string;
+	reloadKind?: "systemd" | "compose";
 }) {
 	const [state, setState] = useState<PreviewState>({ loading: true });
 	const [loadVersion, resetForLoad] = useReducer((value: number) => value + 1, 0);
@@ -285,7 +293,7 @@ export function TextPreviewClient({
 	const [previewMeta, setPreviewMeta] = useState<PreviewMetaState>(INITIAL_PREVIEW_META);
 	const [draft, setDraft] = useState("");
 	const [draftVersion, setDraftVersion] = useState<{ updatedAt?: string | null; lastModifiedMs?: number | null }>({});
-	const { editMode, showDiffReview, saveStatus, saveMessage } = previewMeta;
+	const { editMode, showDiffReview, saveStatus, saveMessage, reloadMessage } = previewMeta;
 	const setEditMode = useCallback((editMode: boolean) => {
 		setPreviewMeta((current) => ({ ...current, editMode }));
 	}, []);
@@ -297,6 +305,9 @@ export function TextPreviewClient({
 	}, []);
 	const setSaveMessage = useCallback((saveMessage: string) => {
 		setPreviewMeta((current) => ({ ...current, saveMessage }));
+	}, []);
+	const setReloadMessage = useCallback((reloadMessage: string) => {
+		setPreviewMeta((current) => ({ ...current, reloadMessage }));
 	}, []);
 	const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -372,10 +383,17 @@ export function TextPreviewClient({
 		}
 	}, [jumpLine]);
 
-	const handleSave = useCallback(async () => {
-		if (!fileEntryId) return;
+	/**
+	 * Persist the current draft to its backend (LOCAL fs or SFTP node).
+	 * Returns the resulting byte size on success, or null on failure.
+	 * Side-effects: sets state (content, draftVersion, editMode, showDiffReview,
+	 * saveStatus, saveMessage) so the user sees save progress.
+	 */
+	const performSave = useCallback(async (): Promise<number | null> => {
+		if (!fileEntryId) return null;
 		setSaveStatus("saving");
 		setSaveMessage("");
+		setReloadMessage("");
 		try {
 			if (driver === "SFTP" && nodeId && relativePath) {
 				const response = await csrfFetch<{ success: boolean; byteSize: number }>(
@@ -399,7 +417,7 @@ export function TextPreviewClient({
 				setShowDiffReview(false);
 				setSaveStatus("saved");
 				setSaveMessage(`已保存 ${response.byteSize} B`);
-				return;
+				return response.byteSize;
 			}
 			const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
 				method: "PUT",
@@ -418,11 +436,63 @@ export function TextPreviewClient({
 			setShowDiffReview(false);
 			setSaveStatus("saved");
 			setSaveMessage(`已保存 ${response.file.byteSize} B`);
+			return response.file.byteSize;
 		} catch (err) {
 			setSaveStatus("error");
 			setSaveMessage(err instanceof Error ? err.message : "保存失败");
+			return null;
 		}
-	}, [driver, nodeId, relativePath, draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setSaveMessage, setSaveStatus, setShowDiffReview]);
+	}, [driver, nodeId, relativePath, draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setReloadMessage, setSaveMessage, setSaveStatus, setShowDiffReview]);
+
+	const handleSave = useCallback(async () => {
+		await performSave();
+	}, [performSave]);
+
+	const canReloadAfterSave = Boolean(
+		driver === "SFTP" &&
+		serverId &&
+		reloadUnit &&
+		reloadKind &&
+		editMode,
+	);
+
+	const handleSaveAndReload = useCallback(async () => {
+		const bytes = await performSave();
+		if (bytes === null) return;
+		if (!serverId || !reloadUnit || !reloadKind) return;
+		setSaveStatus("reloading");
+		setReloadMessage("");
+		try {
+			const body =
+				reloadKind === "compose"
+					? { kind: "compose" as const, projectDir: relativePath ? `/${relativePath.split("/").slice(0, -1).join("/") || "root"}` : "/", service: reloadUnit }
+					: { kind: "systemd" as const, unit: reloadUnit };
+			const response = await csrfFetch<{
+				success: boolean;
+				exitCode: number | null;
+				stdout?: string;
+				stderr?: string;
+			}>(`/api/servers/${serverId}/reload`, {
+				method: "POST",
+				body: JSON.stringify(body),
+			});
+			if (response.success) {
+				setSaveStatus("reloaded");
+				setSaveMessage(`已保存 ${bytes} B · 服务已重载`);
+				setReloadMessage("重载成功，无需 SSH 重连");
+			} else {
+				setSaveStatus("error");
+				setSaveMessage(`已保存 ${bytes} B · 服务重载失败`);
+				setReloadMessage(
+					`exit=${response.exitCode ?? "?"}${response.stderr ? ` · ${response.stderr.split("\n")[0]?.slice(0, 200) ?? ""}` : ""}`,
+				);
+			}
+		} catch (err) {
+			setSaveStatus("error");
+			setSaveMessage(`已保存 ${bytes} B · 重载请求失败`);
+			setReloadMessage(err instanceof Error ? err.message : "重载请求失败");
+		}
+	}, [performSave, serverId, reloadUnit, reloadKind, relativePath, setSaveMessage, setSaveStatus, setReloadMessage]);
 
 	if (state.loading) {
 		return (
@@ -473,6 +543,9 @@ export function TextPreviewClient({
 						className={`text-xs ${saveStatus === "error" ? "text-rose-300" : "text-emerald-300"}`}
 					>
 						{saveMessage}
+						{reloadMessage ? (
+							<span className="ml-2 text-[var(--text-secondary)]">· {reloadMessage}</span>
+						) : null}
 					</span>
 				) : null}
 				<div className="flex-1" />
@@ -483,11 +556,28 @@ export function TextPreviewClient({
 								<button
 									type="button"
 									onClick={() => setShowDiffReview(true)}
-									disabled={saveStatus === "saving" || !hasUnsavedChanges}
+									disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
 									data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50"
 								>
 									{saveStatus === "saving" ? "保存中…" : "预览并保存"}
 								</button>
+								{canReloadAfterSave ? (
+									<button
+										type="button"
+										onClick={handleSaveAndReload}
+										disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
+										data-tone="amber" className="rounded-lg border border-amber-400/30 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/20 disabled:opacity-50"
+										title={reloadKind === "systemd"
+											? `保存后执行 systemctl reload ${reloadUnit} (失败时回退到 restart)`
+											: `保存后执行 docker compose up -d (service=${reloadUnit})`}
+									>
+										{saveStatus === "saving"
+											? "保存中…"
+											: saveStatus === "reloading"
+												? "重载中…"
+												: `保存并重载 ${reloadUnit}`}
+									</button>
+								) : null}
 								<button
 									type="button"
 									onClick={() => {
@@ -496,8 +586,9 @@ export function TextPreviewClient({
 										setShowDiffReview(false);
 										setSaveStatus("idle");
 										setSaveMessage("");
+										setReloadMessage("");
 									}}
-									disabled={saveStatus === "saving"}
+									disabled={saveStatus === "saving" || saveStatus === "reloading"}
 									className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
 								>
 									取消
@@ -541,7 +632,7 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={() => setShowDiffReview(false)}
-								disabled={saveStatus === "saving"}
+								disabled={saveStatus === "saving" || saveStatus === "reloading"}
 								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 disabled:opacity-50"
 							>
 								返回编辑
@@ -549,11 +640,28 @@ export function TextPreviewClient({
 							<button
 								type="button"
 								onClick={handleSave}
-								disabled={saveStatus === "saving" || diffRows.length === 0}
+								disabled={saveStatus === "saving" || saveStatus === "reloading" || diffRows.length === 0}
 								data-tone="emerald" className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
 							>
 								{saveStatus === "saving" ? "保存中…" : "确认保存"}
 							</button>
+							{canReloadAfterSave ? (
+								<button
+									type="button"
+									onClick={handleSaveAndReload}
+									disabled={saveStatus === "saving" || saveStatus === "reloading" || diffRows.length === 0}
+									data-tone="amber" className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-medium text-amber-100 disabled:opacity-50"
+									title={reloadKind === "systemd"
+										? `保存后 systemctl reload ${reloadUnit} (失败时回退到 restart)`
+										: `保存后 docker compose up -d (service=${reloadUnit})`}
+								>
+									{saveStatus === "saving"
+										? "保存中…"
+										: saveStatus === "reloading"
+											? "重载中…"
+											: `保存并重载 ${reloadUnit}`}
+								</button>
+							) : null}
 						</div>
 					</div>
 					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80">
