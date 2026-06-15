@@ -128,6 +128,92 @@ vi.mock("fs/promises", () => ({
   stat: statMock,
 }));
 
+// TR-001 (T12): the route used to fire executeAria2RelayDownload /
+// executeDirectDownload inline. Now it enqueues a `download.execute` job and
+// the durable worker poll loop is responsible for the actual dispatch. The
+// unit tests below still mock the aria2 + ssh + fs layers, so we mirror the
+// old fire-and-forget behaviour with a test seam: enqueueDownloadExecutionJob
+// is a no-op record and we synchronously kick off the real execute* helpers
+// inside a microtask so the existing `vi.waitFor(() => expect(...))` assertions
+// keep working without rewriting every test.
+vi.mock("@/lib/downloads/execution-worker", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/downloads/execution-worker")>();
+  return {
+    ...actual,
+    enqueueDownloadExecutionJob: vi.fn(async ({
+      mode,
+      taskId,
+    }: {
+      mode: "aria2_relay" | "direct";
+      taskId: string;
+      userId?: string | null;
+    }) => {
+      const { executeAria2RelayDownload, executeDirectDownload } = await import(
+        "@/lib/downloads/execution"
+      );
+      const { prisma } = await import("@/lib/db");
+      const task = await prisma.downloadTask.findUnique({
+        where: { id: taskId },
+        include: { server: { include: { sshKey: true, storageNode: true } } },
+      });
+      // Build a DownloadServer shape that mirrors what the real worker (and
+      // the old fire-and-forget route) would pass. The route-test mocks aria2
+      // + ssh + fs at their module boundary, so the helper bodies run
+      // happily and the existing `vi.waitFor(...)` assertions still see
+      // the side effects.
+      const serverForExec = task?.server
+        ? {
+            host: task.server.host,
+            port: task.server.port,
+            username: task.server.username,
+            sshKeyId: task.server.sshKeyId,
+            password: task.server.password,
+            storageNode: task.server.storageNode
+              ? { id: task.server.storageNode.id, basePath: task.server.storageNode.basePath }
+              : null,
+            sshKey: task.server.sshKey?.privateKey
+              ? { privateKey: task.server.sshKey.privateKey }
+              : null,
+          }
+        : {
+            host: "203.0.113.10",
+            port: 22,
+            username: "root",
+            sshKeyId: null,
+            password: null,
+            storageNode: { id: "store_1", basePath: "/srv/cloud" },
+            sshKey: null,
+          };
+      const fallbackUrl = "https://example.com/file.iso";
+      const fallbackPath = "/srv/cloud/downloads";
+      if (mode === "aria2_relay") {
+        void executeAria2RelayDownload(
+          taskId,
+          serverForExec,
+          [task?.url ?? fallbackUrl],
+          task?.targetPath ?? fallbackPath,
+          task?.fileName ?? null,
+          task?.maxSpeedKb ?? null,
+          task?.createdBy ?? undefined,
+        ).catch(() => {});
+      } else {
+        void executeDirectDownload(
+          taskId,
+          serverForExec,
+          task?.url ?? fallbackUrl,
+          task?.targetPath ?? fallbackPath,
+          task?.fileName ?? null,
+          task?.createdBy ?? undefined,
+        ).catch(() => {});
+      }
+      return { id: `job-test-${taskId}`, type: actual.DOWNLOAD_EXECUTION_JOB_TYPE, status: "PENDING" };
+    }),
+    runDownloadExecutionJobWorkerOnce: vi.fn(async () => false),
+    startDownloadJobWorker: vi.fn(async () => ({ started: true, running: false, timer: null })),
+    stopDownloadJobWorkerForTests: vi.fn(),
+  };
+});
+
 import { DELETE, GET, PATCH, POST } from "../route";
 
 const session = { userId: "u_1", username: "alice", roles: ["admin"] };
@@ -232,6 +318,19 @@ describe("/api/downloads", () => {
 
   it("indexes a started direct download as a pending storage file entry", async () => {
     prismaMock.downloadTask.create.mockResolvedValueOnce({ id: "task_direct" });
+    // TR-001 (T12): the route now enqueues a durable `download.execute` job
+    // and the test seam in this file looks the task row back up to dispatch
+    // the real executeDirectDownload helper. Provide the row the seam needs
+    // so fileName propagates into indexDownloadedFileEntry.
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
+      id: "task_direct",
+      url: "https://example.com/releases/app.iso",
+      targetPath: "/srv/cloud/downloads",
+      fileName: "app.iso",
+      relayMode: false,
+      maxSpeedKb: null,
+      createdBy: "u_1",
+    });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
 
     const response = await POST(request({

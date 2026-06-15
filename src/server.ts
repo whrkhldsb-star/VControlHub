@@ -23,6 +23,7 @@ import { startBackupJobWorker } from "@/lib/backup/job-worker";
 import { startAlertEvaluationWorker } from "@/lib/health/alert-worker";
 import { startSftpSyncJobWorker } from "@/lib/storage/sftp-sync-job";
 import { startQuickServiceJobWorker } from "@/lib/quick-service/job-worker";
+import { startDownloadJobWorker } from "@/lib/downloads/execution-worker";
 
 const logger = createLogger("server");
 
@@ -43,6 +44,7 @@ async function main() {
 	await startAlertEvaluationWorker();
 	await startSftpSyncJobWorker();
 	await startQuickServiceJobWorker();
+	await startDownloadJobWorker();
 
 	const server = createServer(async (req, res) => {
 		await handle(req, res);

@@ -14,7 +14,6 @@ import {
   changeGlobalOption,
 } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { shellQuote } from "@/lib/downloads/remote-command";
 import {
   getDownloadTargetRelativePath,
@@ -31,12 +30,8 @@ import {
   isMagnetLink,
 } from "@/lib/downloads/helpers";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
-import {
-  executeAria2RelayDownload,
-  executeDirectDownload,
-  cleanupTemp,
-  type DownloadServer,
-} from "@/lib/downloads/execution";
+import { cleanupTemp } from "@/lib/downloads/execution";
+import { enqueueDownloadExecutionJob } from "@/lib/downloads/execution-worker";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
@@ -322,43 +317,26 @@ export async function POST(request: Request) {
         });
         createdTaskIds.push(task.id);
 
-        const serverForExec: DownloadServer = {
-          host: server.host,
-          port: server.port,
-          username: server.username,
-          sshKeyId: server.sshKeyId,
-          password: server.password,
-          storageNode: server.storageNode
-            ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
-            : null,
-          sshKey: server.sshKey
-            ? { privateKey: decryptSshPrivateKey(server.sshKey.privateKey ?? "") }
-            : null,
-        };
-
         if (relayMode) {
-          // A magnet relay task carries all magnet URLs into one aria2 job.
-          executeAria2RelayDownload(
-            task.id,
-            serverForExec,
-            allUrls,
-            resolvedTargetPath,
-            safeFileName,
-            maxSpeedKb,
-            session.userId,
-          ).catch((error) => {
-            logError("[DownloadAPI] Relay execution error:", error);
+          // TR-001 (T12): aria2 relay dispatch is durable — the worker poll loop
+          // (download-execution-worker) will pick this job up, re-fetch the
+          // task/server from prisma, and call executeAria2RelayDownload. This
+          // makes the dispatch observable in /operation-tasks and survives
+          // process restarts.
+          void enqueueDownloadExecutionJob({
+            mode: "aria2_relay",
+            taskId: task.id,
+            userId: session.userId,
+          }).catch((error) => {
+            logError("[DownloadAPI] Failed to enqueue aria2 relay job:", error);
           });
         } else {
-          executeDirectDownload(
-            task.id,
-            serverForExec,
-            taskUrl!,
-            resolvedTargetPath,
-            taskFileName,
-            session.userId,
-          ).catch((error) => {
-            logError("[DownloadAPI] Direct execution error:", error);
+          void enqueueDownloadExecutionJob({
+            mode: "direct",
+            taskId: task.id,
+            userId: session.userId,
+          }).catch((error) => {
+            logError("[DownloadAPI] Failed to enqueue direct download job:", error);
           });
         }
 
