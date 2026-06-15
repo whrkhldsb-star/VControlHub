@@ -99,7 +99,20 @@ export async function enqueueDownloadExecutionJob(input: {
   mode: DownloadExecutionMode;
   taskId: string;
   userId?: string | null;
+  /**
+   * TR-001 T13b: storage node the download is targeting, propagated to
+   * the durable job so `claimNextJob` can apply the per-node concurrency
+   * cap. Caller is responsible for resolving it (the downloads route
+   * already has it on the joined `server.storageNode` row).
+   */
+  storageNodeId?: string | null;
 }) {
+  // Defensive trim + non-empty check: an empty/whitespace taskId would
+  // create a real durable job row that the worker cannot dispatch against
+  // (the worker re-fetches by id). Keep this as a hard contract — the
+  // download route is the only caller today, but the test `rejects an
+  // empty taskId to surface caller bugs early` enforces it, and removing
+  // the check lets a future caller silently enqueue a dead job.
   const taskId = input.taskId?.trim();
   if (!taskId) throw new Error("download.execute 任务缺少 taskId");
   const mode = input.mode;
@@ -112,8 +125,10 @@ export async function enqueueDownloadExecutionJob(input: {
       userId: input.userId ?? null,
       requestedAt: new Date().toISOString(),
     },
+    createdBy: input.userId ?? null,
+    targetStorageNodeId: input.storageNodeId ?? null,
     priority: 0,
-    maxAttempts: 1,
+    maxAttempts: 3,
   });
 }
 

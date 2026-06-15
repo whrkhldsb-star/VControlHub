@@ -338,6 +338,12 @@ export async function POST(request: Request) {
             mode: relayMode ? "aria2_relay" : "direct",
             taskId: task.id,
             userId: session.userId,
+            // TR-001 T13b: propagate the target storage node so the
+            // per-node concurrency cap inside `claimNextJob` can count
+            // in-flight jobs targeting the same node. The route already
+            // validated that `server.storageNode` is non-null above
+            // (line 229), so the bang is safe.
+            storageNodeId: server.storageNode!.id,
           });
         } catch (dispatchFailure) {
           const message =

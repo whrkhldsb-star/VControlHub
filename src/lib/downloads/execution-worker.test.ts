@@ -149,7 +149,11 @@ describe("download execution durable job worker", () => {
             userId: "u-1",
             requestedAt: expect.any(String),
           }),
-          maxAttempts: 1,
+          // TR-001 T13b: bumped from 1 to 3 so a transient dispatch blip
+          // (aria2 RPC timeout, ssh pipe EOF, etc.) retries instead of
+          // permanently failing the job. The claim worker still uses
+          // maxAttempts=1 internally for the `exhausted` bookkeeping.
+          maxAttempts: 3,
         }),
       );
     });

@@ -426,7 +426,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 > 这些条目主体已落地，描述里的"继续补"是后续增强，不影响当前可用性。
 
 - **Docker / QuickService / Direct Gateway 部署边界（TR-002, P1）** — 主体已落地（Docker 本机 socket 边界已在 UI 显式展示；QuickService 已限制宿主机挂载并默认禁止 Docker socket，生命周期审计/durable job/任务中心进度 + logPreview 已覆盖）；存储健康公开摘要已接最近探测结果。剩余：Direct Gateway 默认 `http://host:31888` 明文直连+监听 `0.0.0.0`（签名能鉴权但无传输加密），后续仍需补反代 TLS / VPN / 防火墙默认部署或更细的直连可达性探测。
-- **后台任务业务迁移与并发控制（TR-001, P1）** — Durable Job 底座已承接 SFTP 同步、备份创建/恢复、告警评估、QuickService 生命周期、命令执行、定时任务调度（`scheduled-task.tick` durable job + claim/heartbeat/complete 路径，与 `alert.evaluate` 同范式）；剩余：命令/部署、下载 direct/relay 补实际 durable worker；全局/按用户/按节点并发上限；可观测日志流；生产级 worker 部署策略。
+- **后台任务业务迁移与并发控制（TR-001, P1）** — Durable Job 底座已承接 SFTP 同步、备份创建/恢复、告警评估、QuickService 生命周期、命令执行、定时任务调度（`scheduled-task.tick` durable job + claim/heartbeat/complete 路径，与 `alert.evaluate` 同范式），并补齐下载 direct/relay 路径（`download.execute` job）。并发控制已加全局/按用户/按节点三道软上限（`JOB_MAX_CONCURRENT_GLOBAL` / `_PER_USER` / `_PER_NODE`，默认 0=不限制），`Job.targetStorageNodeId` 列 + `@@index([targetStorageNodeId, status])` 索引承载按节点计数。剩余：可观测日志流（`JobEvent` 表 + 5 个 worker 钩子已落，详情见 commit `4e6a0ed`）；生产级 worker 部署策略（vcontrolhub-worker systemd 拆分）。
 - **前端 a11y / 移动端 / 浏览器导航系统化收口（TR-003, P2）** — 主体已完成（统一 dialog 语义、focus 管理、SPA pushState/popstate、SSH 终端 mobile、跨入口可见 label/语义分组）；剩余继续巡检其它 placeholder-only / 低可见度控件。
 - **文件预览 / 分享边界文档化（TR-004, P1/P2）** — 公开目录 tar.gz、统一 Range/206/416、Office+压缩包入口边界已落地；剩余：README / API 文档补边界说明，或扩展压缩包受控解压到更细的格式/权限/配额策略。
 - **文件状态一致性 / 远端索引刷新 / 存储列表性能（TR-005, P2）** — 删除/恢复主路径已避免高风险不一致；剩余：远端 SFTP 文件在 Hub 外被删除时仍会保持 active（媒体流安全返回 No such file 但需专项刷新/校验任务清理 stale inventory）；存储概览和文件列表仍有未分页 `findMany` + 内存聚合，大文件索引性能风险。
@@ -650,7 +650,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 #### New-E（P1 增强）Direct Gateway TLS / 防火墙默认边界 + 跨 worker 并发上限与 lease 策略
 
 - Direct Gateway 默认 `http://host:31888` 明文 + `0.0.0.0` 监听，README 428 行已点出。补：deploy 默认接 Caddy 反代 TLS / 文档化 "VPN / 防火墙白名单" 强制步骤 / 加启动期"是否暴露在公网" 探测 + 风险确认。
-- 当前 8 个 worker 各自 `setInterval` 互不知情；缺：全局并发上限、按用户/按节点并发上限、job lease 公式统一（参考 TR-001 T12 实测 `leaseMs > 2× maxSingleDispatchDuration`），可观测日志流（已有 `events.ts` T13a 雏形，需扩到每个 worker 强制调用 `recordJobEvent`）。可立 TR-043 跟进。
+- 当前 8 个 worker 各自 `setInterval` 互不知情；已加：全局/按用户/按节点三道软上限（`JOB_MAX_CONCURRENT_*`，默认 0=不限制，TR-001 T13b 落地，commit 待 push）；`JobEvent` 表 + 5 个 worker 钩子（TR-001 T13a，`4e6a0ed`）。缺：job lease 公式统一（参考 TR-001 T12 实测 `leaseMs > 2× maxSingleDispatchDuration`），强制每个 worker 调 `recordJobEvent`（当前是 best-effort，缺审计强度）。可立 TR-043 跟进。
 
 #### New-F（P2 增强）继续拆 3 个超大 client
 

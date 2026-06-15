@@ -379,6 +379,7 @@ model Job {
   result            Json?
   errorMessage      String?
   createdBy         String?
+  targetStorageNodeId String?
   availableAt       DateTime  @default(now())
   startedAt         DateTime?
   completedAt       DateTime?
@@ -396,6 +397,7 @@ model Job {
   @@index([status, leaseExpiresAt])
   @@index([type, status])
   @@index([createdBy, createdAt])
+  @@index([targetStorageNodeId, status])
   @@map("jobs")
 }
 

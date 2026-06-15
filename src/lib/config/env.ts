@@ -180,6 +180,25 @@ export const config = {
 		get publicDemoMode(): boolean { return readBool("NEXT_PUBLIC_DEMO_MODE", false); },
 		get publicQuickServiceHost(): string | undefined { return readOptionalString("NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST"); },
 	},
+
+	/**
+	 * Durable job concurrency (TR-001 T13b).
+	 *
+	 * All three caps default to 0 (= unlimited) so existing deployments
+	 * keep working without any env change. Setting a positive value turns
+	 * on a soft guard inside `claimNextJob`: when the in-flight count is
+	 * already at the cap, the function returns `null` and the candidate
+	 * job stays in PENDING until a slot frees. This is a soft guard — the
+	 * check and the claim happen in the same transaction, but two workers
+	 * can still momentarily race past the cap by one job each; the cost of
+	 * a few extra in-flight dispatches is dwarfed by the simplicity of not
+	 * needing explicit row-level locks.
+	 */
+	job: {
+		get maxConcurrentGlobal(): number { return readInt("JOB_MAX_CONCURRENT_GLOBAL", 0); },
+		get maxConcurrentPerUser(): number { return readInt("JOB_MAX_CONCURRENT_PER_USER", 0); },
+		get maxConcurrentPerNode(): number { return readInt("JOB_MAX_CONCURRENT_PER_NODE", 0); },
+	},
 };
 
 export type AppConfig = typeof config;

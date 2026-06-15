@@ -1,6 +1,7 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
+import { config } from "@/lib/config/env";
 
 import { recordJobEvent } from "./events";
 
@@ -15,6 +16,13 @@ export type EnqueueJobInput = {
   priority?: number;
   maxAttempts?: number;
   availableAt?: Date;
+  /**
+   * TR-001 T13b: optional storage-node target for the per-node concurrency
+   * cap. Only command + download enqueue paths set this today; jobs
+   * without a node (alert.evaluate, scheduled-task.tick, quick-service
+   * lifecycle, etc.) leave it null and skip the per-node check entirely.
+   */
+  targetStorageNodeId?: string | null;
 };
 
 export type ClaimJobOptions = {
@@ -51,6 +59,7 @@ export async function enqueueJob(input: EnqueueJobInput) {
       priority: input.priority ?? 0,
       maxAttempts: sanitizeAttempts(input.maxAttempts),
       availableAt: input.availableAt ?? new Date(),
+      targetStorageNodeId: input.targetStorageNodeId ?? null,
     },
   });
 }
@@ -63,8 +72,25 @@ export async function claimNextJob(options: ClaimJobOptions) {
   const now = options.now ?? new Date();
   const leaseExpiresAt = futureFrom(now, options.leaseMs ?? DEFAULT_LEASE_MS);
   const typeFilter = options.types?.length ? { type: { in: options.types } } : {};
+  const maxGlobal = config.job.maxConcurrentGlobal;
+  const maxPerUser = config.job.maxConcurrentPerUser;
+  const maxPerNode = config.job.maxConcurrentPerNode;
 
   return prisma.$transaction(async (tx) => {
+    // TR-001 T13b: soft guard for the global in-flight cap. We count inside
+    // the same transaction as the claim so a freshly-completed job becomes
+    // a "free slot" only after `completeJob` commits — but two workers that
+    // start their claim at the same instant can each see a count of
+    // `cap - 1` and both claim, briefly overshooting the cap by one. The
+    // trade-off is intentional: a strict lock would serialise every claim
+    // across the entire cluster for a cap that is supposed to be a safety
+    // valve, not a hard quota. If we ever need a hard quota, swap the
+    // count for a `SELECT ... FOR UPDATE` on a dedicated "slots" table.
+    if (maxGlobal > 0) {
+      const inFlight = await tx.job.count({ where: { status: JobStatus.RUNNING } });
+      if (inFlight >= maxGlobal) return null;
+    }
+
     const candidate = await tx.job.findFirst({
       where: {
         ...typeFilter,
@@ -78,6 +104,30 @@ export async function claimNextJob(options: ClaimJobOptions) {
     });
 
     if (!candidate) return null;
+
+    // Per-user cap: skip the check when the candidate has no `createdBy`
+    // (system jobs like alert.evaluate, scheduled-task.tick) — they have
+    // no single user to charge the slot against, so the global cap is
+    // the only one that applies.
+    if (maxPerUser > 0 && candidate.createdBy) {
+      const inFlightForUser = await tx.job.count({
+        where: { status: JobStatus.RUNNING, createdBy: candidate.createdBy },
+      });
+      if (inFlightForUser >= maxPerUser) return null;
+    }
+
+    // Per-node cap: same skip-rule for jobs without a node target. The
+    // `@@index([targetStorageNodeId, status])` migration keeps this count
+    // query sub-millisecond even when the jobs table is large.
+    if (maxPerNode > 0 && candidate.targetStorageNodeId) {
+      const inFlightForNode = await tx.job.count({
+        where: {
+          status: JobStatus.RUNNING,
+          targetStorageNodeId: candidate.targetStorageNodeId,
+        },
+      });
+      if (inFlightForNode >= maxPerNode) return null;
+    }
 
     const claimed = await tx.job.updateMany({
       where: {
