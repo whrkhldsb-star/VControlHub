@@ -658,7 +658,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 #### New-G（P2 增强）i18n / QA 报告 / README 状态对账 三件套
 
-- TR-042 i18n 覆盖审计：`scripts/i18n-coverage.ts` 扫 `app/**/*.tsx` 可见用户文案 + `data-i18n` 属性，与 `translations.ts` key 对账，CI 报缺。
+- TR-042 i18n 覆盖审计:✅ 已落地 (T42a+T42b, commit `7242ea1`)。`scripts/i18n-coverage.ts` 扫 `src/app/components` 246 个 tsx 文件,提取 4 类属性(placeholder / title / aria-label / alt) + JSX 文本,跟 `translations.ts` 的 zh 表做精确值匹配,输出 `docs/i18n-coverage.{json,md}`。21 个单测覆盖 JSX 范围状态机 / 泛型过滤 / 中文弯引号 / data-i18n-skip 区域 / onClick 箭头函数等边界。`npm run i18n:coverage` 一键跑。实测:扫 246 文件,1410 中文串,164 已覆盖,1246 缺 (11.6% 覆盖率),最缺:加载中…(8x)、确认删除(6x)、下载(6x)、默认模型(5x)、目标节点(5x)。**待续做**:1246 缺键可立 TR-043 推进 (优先级 P2)。
 - TR-029 QA 报告产品化：把当前 `.hermes/remediation-state.json` 每天自动导出到 `/api/admin/qa-report` 内部页，运维自查不依赖 cron 私有状态。
 - README 状态自动对账：cron 后台跑完一个 TR-XXX 后自动 `sed` 更新本表状态列 + `changelog` 区块；避免像 2026-06-14 那样"代码已落地 / README 还写新发现"的双轨漂移。
 
@@ -713,7 +713,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | 新发现 |
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | 新发现 |
 | TR-041 | P2 | 自定义错误类（273 处 `throw new Error()` 分 61 文件） | ✅ 已落地 (commit 93ddbb7) |
-| TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | ⏳ 后台任务中 (T42a/T42b) |
+| TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | ✅ 完成 (T42a+T42b, commit 7242ea1) |
 
 ---
 
@@ -758,7 +758,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **成本追踪**（TR-031）。
 - [ ] **智能运维 AI**（TR-032）。
 - [ ] **PWA 离线支持和集成市场**（TR-033）。
-- [ ] **i18n 文案覆盖度审计**（TR-042）。
+- [x] **i18n 文案覆盖度审计**（TR-042）— `scripts/i18n-coverage.ts` 扫 `src/app/components` 246 个 tsx 文件的中文串 vs `translations.ts` 的 zh 表,输出 `docs/i18n-coverage.json/md` (覆盖率 + 模块/文件级清单 + 缺键排行),21 个单测覆盖 JSX 范围状态机 / 泛型过滤 / 中文弯引号 / data-i18n-skip 区域 / onClick 箭头函数等边界。`npm run i18n:coverage` 一键跑。实测:扫 246 文件,1410 中文串,164 已覆盖,1246 缺 (11.6% 覆盖率),最缺:加载中…(8x)、确认删除(6x)、下载(6x)、默认模型(5x)、目标节点(5x)。
 
 ---
 

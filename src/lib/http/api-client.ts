@@ -5,7 +5,17 @@
  *   import { api } from "@/lib/http/api-client";
  *   const data = await api.get<Server[]>("/api/servers");
  *   const result = await api.post<AlertRule>("/api/alert-rules", { name: "..." });
+ *
+ * Error handling (TR-034 R3):
+ *   Every non-2xx response throws an `ApiError` carrying the server's
+ *   `{ code, message, error, details? }` envelope (or the legacy `{ error }`
+ *   body). Front-end code can switch on `err.code` to pick the right UX:
+ *   redirect to /login for `AUTH_REQUIRED`, show a per-field error for
+ *   `VALIDATION_FAILED`, etc. `err.category` is a coarse grouping that
+ *   abstracts the exact code for toast variant / severity decisions.
  */
+
+import { categoryForCode, isApiErrorCode, toApiErrorCode, type ApiErrorCategory, type ApiErrorCode } from "@/lib/http/api-error-codes";
 
 // ── CSRF ──────────────────────────────────────────────────────────
 const CSRF_COOKIE_NAME = "csrf_token";
@@ -25,15 +35,41 @@ function isStateChanging(method: string): boolean {
 	return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
 }
 
-// ── Error types ───────────────────────────────────────────────────
+// ── Error type ───────────────────────────────────────────────────
+
+/**
+ * Thrown by the client for every non-2xx response. The original response body
+ * is preserved on `body` (typed loosely to support both the new
+ * `{ code, message, error, details? }` envelope and any legacy body shape),
+ * but the canonical `code`, `category`, and `message` fields are surfaced
+ * for ergonomic dispatch in the front-end.
+ */
 export class ApiError extends Error {
+	readonly status: number;
+	readonly code: ApiErrorCode;
+	readonly category: ApiErrorCategory;
+	readonly body: Record<string, unknown>;
+	readonly details?: unknown;
+
 	constructor(
-		public readonly status: number,
-		public readonly body: Record<string, unknown>,
-		message?: string,
+		status: number,
+		body: Record<string, unknown>,
 	) {
-		super(message || (body.error as string) || `API Error ${status}`);
+		// Prefer the canonical `message` field (TR-034 envelope), fall back to
+		// the legacy `error` mirror, fall back to statusText.
+		const rawMessage =
+			(typeof body.message === "string" && body.message) ||
+			(typeof body.error === "string" && body.error) ||
+			`API Error ${status}`;
+		super(rawMessage);
 		this.name = "ApiError";
+		this.status = status;
+		this.body = body;
+		this.code = isApiErrorCode(body.code) ? body.code : toApiErrorCode(body.code);
+		this.category = categoryForCode(this.code);
+		// Pass `details` through when it's a structured object; otherwise drop
+		// it to avoid leaking server-internal noise into the UI.
+		this.details = body.details !== undefined ? body.details : undefined;
 	}
 }
 
@@ -71,7 +107,7 @@ async function request<T>(
 	if (!response.ok) {
 		let body: Record<string, unknown> = {};
 		try {
-			body = await response.json();
+			body = (await response.json()) as Record<string, unknown>;
 		} catch {
 			body = { error: response.statusText };
 		}
