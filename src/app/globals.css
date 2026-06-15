@@ -1069,8 +1069,8 @@ html.light .prose pre {
 /* P18. modal 半透明遮罩 - 浅色下加强可见 */
 html.light .fixed.inset-0.bg-black\/40,
 html.light .fixed.inset-0.bg-black\/50,
-html.light .fixed.inset-0.bg-slate-950\\/70,
-html.light .fixed.inset-0.bg-slate-950\\/75 {
+html.light .fixed.inset-0.bg-slate-950\/70,
+html.light .fixed.inset-0.bg-slate-950\/75 {
 	background-color: rgba(31, 35, 40, 0.45) !important;
 	backdrop-filter: blur(2px);
 }
@@ -1504,8 +1504,8 @@ html.light .fixed.inset-0.bg-black\/60,
 html.light .fixed.inset-0.bg-black\/70,
 html.light .fixed.inset-0.bg-black\/80,
 html.light .fixed.inset-0.bg-black\/90,
-html.light .fixed.inset-0.bg-slate-950\\/70,
-html.light .fixed.inset-0.bg-slate-950\\/75 {
+html.light .fixed.inset-0.bg-slate-950\/70,
+html.light .fixed.inset-0.bg-slate-950\/75 {
 	background-color: rgba(31, 35, 40, 0.45) !important;
 	backdrop-filter: blur(2px);
 }
