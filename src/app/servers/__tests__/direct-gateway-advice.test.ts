@@ -73,23 +73,43 @@ describe("getDirectGatewayRepairAdvice", () => {
     expect(advice[1]!.priority).toBe("secondary");
   });
 
-  it("7. adds a 'healthy' documentation note only when there is no other advice and user can manage servers", () => {
+  it("7. shows a 'safe transport' banner (loopback bind) instead of the doc note when no other advice", () => {
+    // TR-002 R3: 直连已就位 + loopback bind → risk=safe 触发 emerald secondary
+    // banner。设计取舍：安全状态下不重复追加"边界文档"secondary，避免噪音。
     const advice = getDirectGatewayRepairAdvice({
       ...baseInput,
-      directGateway: { enabled: true, statusLabel: "目标直连", publicUrl: "http://1.2.3.4:31888", port: 31888 },
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "http://1.2.3.4:31888",
+        port: 31888,
+        bindAddress: "127.0.0.1",
+        publicProtocol: "http",
+      },
     });
     expect(advice).toHaveLength(1);
-    expect(advice[0]!.title).toBe("Direct Gateway 边界文档");
+    expect(advice[0]!.title).toBe("直连传输安全");
+    expect(advice[0]!.tone).toBe("emerald");
     expect(advice[0]!.priority).toBe("secondary");
   });
 
-  it("omits 'healthy' note when user cannot manage servers", () => {
+  it("omits boundary doc note when user cannot manage servers (safe banner still surfaces)", () => {
+    // TR-002 R3: 同上, 显式给 loopback bind → safe banner 仍会出现, 但无边界文档
     const advice = getDirectGatewayRepairAdvice({
       ...baseInput,
-      directGateway: { enabled: true, statusLabel: "目标直连", publicUrl: "http://1.2.3.4:31888", port: 31888 },
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "http://1.2.3.4:31888",
+        port: 31888,
+        bindAddress: "127.0.0.1",
+        publicProtocol: "http",
+      },
       canManageServers: false,
     });
-    expect(advice).toHaveLength(0);
+    expect(advice).toHaveLength(1);
+    expect(advice[0]!.title).toBe("直连传输安全");
+    expect(advice[0]!.tone).toBe("emerald");
   });
 
   it("hides '/servers' anchor when user cannot manage servers (rule 1 still shown)", () => {
@@ -114,5 +134,121 @@ describe("getDirectGatewayHealthyNote", () => {
 
   it("falls back to 'relay' wording when publicUrl is missing", () => {
     expect(getDirectGatewayHealthyNote({ statusLabel: "网站中转", publicUrl: null })).toContain("回退到网站服务器中转");
+  });
+});
+
+// TR-002 R3: 直连已就位时按 bind + protocol 输出 risk banner
+describe("TR-002 R3 risk banner", () => {
+  const enabledInput = {
+    serverEnabled: true,
+    hasStorageNode: true,
+    pendingCommandCount: 0,
+    canManageServers: true,
+  };
+
+  it("emits a safe emerald banner when bind is loopback + http", () => {
+    const advice = getDirectGatewayRepairAdvice({
+      ...enabledInput,
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "http://203.0.113.10:31888",
+        port: 31888,
+        bindAddress: "127.0.0.1",
+        publicProtocol: "http",
+      },
+    });
+    const banner = advice.find((a) => a.title === "直连传输安全");
+    expect(banner).toBeDefined();
+    expect(banner?.priority).toBe("secondary");
+    expect(banner?.tone).toBe("emerald");
+    expect(banner?.href).toBeNull();
+  });
+
+  it("emits an amber warning banner when bind is 0.0.0.0 + https", () => {
+    const advice = getDirectGatewayRepairAdvice({
+      ...enabledInput,
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "https://direct.example.com:31888",
+        port: 31888,
+        bindAddress: "0.0.0.0",
+        publicProtocol: "https",
+      },
+    });
+    const banner = advice.find((a) => a.title.startsWith("直连传输"));
+    expect(banner).toBeDefined();
+    expect(banner?.tone).toBe("amber");
+    expect(banner?.priority).toBe("primary");
+  });
+
+  it("emits a rose danger banner when bind is 0.0.0.0 + http", () => {
+    const advice = getDirectGatewayRepairAdvice({
+      ...enabledInput,
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "http://203.0.113.10:31888",
+        port: 31888,
+        bindAddress: "0.0.0.0",
+        publicProtocol: "http",
+      },
+    });
+    const banner = advice.find((a) => a.title.startsWith("直连传输"));
+    expect(banner).toBeDefined();
+    expect(banner?.tone).toBe("rose");
+    expect(banner?.priority).toBe("primary");
+    expect(banner?.detail).toMatch(/签名鉴权/);
+  });
+
+  it("adds an amber 'scheme unrecognized' secondary hint when protocol is unknown", () => {
+    const advice = getDirectGatewayRepairAdvice({
+      ...enabledInput,
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "garbage://something",
+        port: 31888,
+        bindAddress: "0.0.0.0",
+        publicProtocol: "unknown",
+      },
+    });
+    const hint = advice.find((a) => a.title === "公网入口协议未识别");
+    expect(hint).toBeDefined();
+    expect(hint?.tone).toBe("amber");
+    expect(hint?.priority).toBe("secondary");
+  });
+
+  it("does NOT emit a risk banner when the gateway is not enabled", () => {
+    const advice = getDirectGatewayRepairAdvice({
+      ...enabledInput,
+      directGateway: {
+        enabled: false,
+        statusLabel: "网站中转",
+        publicUrl: null,
+        port: 0,
+        bindAddress: "0.0.0.0",
+        publicProtocol: "http",
+      },
+    });
+    expect(advice.some((a) => a.title.startsWith("直连传输"))).toBe(false);
+  });
+
+  it("falls back to loopback when bindAddress is missing", () => {
+    const advice = getDirectGatewayRepairAdvice({
+      ...enabledInput,
+      directGateway: {
+        enabled: true,
+        statusLabel: "目标直连",
+        publicUrl: "http://203.0.113.10:31888",
+        port: 31888,
+        // bindAddress omitted on purpose
+        publicProtocol: "http",
+      },
+    });
+    const banner = advice.find((a) => a.title === "直连传输安全");
+    expect(banner).toBeDefined();
+    expect(banner?.tone).toBe("emerald");
   });
 });

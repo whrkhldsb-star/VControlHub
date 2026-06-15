@@ -2,6 +2,7 @@ import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -12,7 +13,8 @@ const logger = createLogger("alert-evaluation-worker");
 export const ALERT_EVALUATION_JOB_TYPE = "alert.evaluate";
 
 const ALERT_EVALUATION_INTERVAL_MS = 60_000;
-const ALERT_EVALUATION_LEASE_MS = 60_000;
+// TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= 60s, 等同原 ALERT_EVALUATION_LEASE_MS)。
+const ALERT_EVALUATION_LEASE_MS = computeLeaseMs("alert-evaluation");
 const ALERT_EVALUATION_RETENTION_KEEP_LATEST = 25;
 const ALERT_EVALUATION_RETENTION_DAYS = 7;
 const ALERT_EVALUATION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:alert:${process.pid}`;

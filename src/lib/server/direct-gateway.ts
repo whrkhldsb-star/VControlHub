@@ -70,6 +70,32 @@ export function getDirectGatewayStatusLabel(input: {
     : "网站中转";
 }
 
+/**
+ * TR-002 R3: derive the effective transport protocol for the Direct Gateway
+ * from the public URL. The publicUrl is the link handed to the browser /
+ * download client; its scheme IS the transport that data flows over, so we
+ * parse it directly. This is purely a presentation helper — it does not
+ * touch the actual service config.
+ *
+ * Returns `"unknown"` when the URL can't be parsed (which we surface in the
+ * UI as a warning rather than a danger, since the configured scheme is
+ * unclear and the user should investigate).
+ */
+export function getResolvedDirectGatewayProtocol(input: {
+  publicUrl: string | null;
+}): "http" | "https" | "unknown" {
+  const raw = input.publicUrl;
+  if (!raw) return "unknown";
+  try {
+    const u = new URL(raw);
+    if (u.protocol === "https:") return "https";
+    if (u.protocol === "http:") return "http";
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 function shellQuote(value: string | number) {
   return `'${String(value).replace(/'/g, `'"'"'`)}'`;
 }

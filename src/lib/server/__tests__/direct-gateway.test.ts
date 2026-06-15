@@ -8,6 +8,7 @@ import {
   buildUninstallDirectGatewayCommand,
   getDirectGatewayRiskAssessment,
   getDirectGatewayStatusLabel,
+  getResolvedDirectGatewayProtocol,
 } from "@/lib/server/direct-gateway";
 
 describe("direct gateway helpers", () => {
@@ -158,5 +159,37 @@ describe("TR-002 direct gateway TLS hardening", () => {
     });
     expect(command).toContain("DIRECT_BIND='0.0.0.0'");
     expect(command).toContain("Environment=DIRECT_BIND=0.0.0.0");
+  });
+});
+
+// TR-002 R3: protocol derivation from publicUrl
+describe("TR-002 R3 getResolvedDirectGatewayProtocol", () => {
+  it("returns https when the public url uses https scheme", () => {
+    expect(
+      getResolvedDirectGatewayProtocol({
+        publicUrl: "https://direct.example.com:31888",
+      }),
+    ).toBe("https");
+  });
+
+  it("returns http when the public url uses http scheme", () => {
+    expect(
+      getResolvedDirectGatewayProtocol({ publicUrl: "http://203.0.113.10:31888" }),
+    ).toBe("http");
+  });
+
+  it("returns unknown for null or empty public url", () => {
+    expect(getResolvedDirectGatewayProtocol({ publicUrl: null })).toBe("unknown");
+    expect(getResolvedDirectGatewayProtocol({ publicUrl: "" })).toBe("unknown");
+  });
+
+  it("returns unknown when the url is malformed", () => {
+    expect(getResolvedDirectGatewayProtocol({ publicUrl: "not a url" })).toBe("unknown");
+  });
+
+  it("returns unknown for unsupported schemes like ftp", () => {
+    expect(
+      getResolvedDirectGatewayProtocol({ publicUrl: "ftp://direct.example.com/x" }),
+    ).toBe("unknown");
   });
 });

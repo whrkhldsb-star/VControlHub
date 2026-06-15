@@ -3,6 +3,7 @@ import { JobStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { config } from "@/lib/config/env";
+import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
   completeJob,
@@ -23,7 +24,8 @@ const logger = createLogger("scheduled-task-worker");
 export const SCHEDULED_TASK_TICK_JOB_TYPE = "scheduled-task.tick";
 
 const SCHEDULED_TASK_INTERVAL_MS = 60_000;
-const SCHEDULED_TASK_LEASE_MS = 5 * 60 * 1000;
+// TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= SCHEDULED_TASK_LEASE_MS 等同原值)。
+const SCHEDULED_TASK_LEASE_MS = computeLeaseMs("scheduled-task");
 const SCHEDULED_TASK_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:scheduled-task:${process.pid}`;
 
 type ScheduledTaskWorkerState = {

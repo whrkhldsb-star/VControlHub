@@ -649,8 +649,8 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 #### New-E（P1 增强）Direct Gateway TLS / 防火墙默认边界 + 跨 worker 并发上限与 lease 策略
 
-- Direct Gateway TLS 加固（TR-002 R1 落地）：Python 服务默认绑定 `127.0.0.1`（`DIRECT_GATEWAY_BIND_DEFAULT`），显式 `DIRECT_BIND=0.0.0.0` 才监听全部接口；systemd unit 显式 `Environment=DIRECT_BIND=…` 便于 `systemctl show` 审计；`getDirectGatewayRiskAssessment()` 在 `bind=0.0.0.0 + http 明文` 时返 `level: "danger"` + 4 条修复建议；`deploy/Caddyfile.example` 加 `/direct` 反代段。**剩余**：UI 风险 banner（server card 显式提示）、`/api/status` 启动期公网暴露探测、跨 worker lease 公式统一（见 New-E 下半段）。
-- 当前 8 个 worker 各自 `setInterval` 互不知情；已加：全局/按用户/按节点三道软上限（`JOB_MAX_CONCURRENT_*`，默认 0=不限制，TR-001 T13b 落地，commit 待 push）；`JobEvent` 表 + 5 个 worker 钩子（TR-001 T13a，`4e6a0ed`）。缺：job lease 公式统一（参考 TR-001 T12 实测 `leaseMs > 2× maxSingleDispatchDuration`），强制每个 worker 调 `recordJobEvent`（当前是 best-effort，缺审计强度）。可立 TR-043 跟进。
+- Direct Gateway TLS 加固（TR-002 R1+R1.5+R2+R3 落地）：Python 服务默认绑定 `127.0.0.1`（`DIRECT_GATEWAY_BIND_DEFAULT`），显式 `DIRECT_BIND=0.0.0.0` 才监听全部接口；systemd unit 显式 `Environment=DIRECT_BIND=…` 便于 `systemctl show` 审计；`getDirectGatewayRiskAssessment()` 在 `bind=0.0.0.0 + http 明文` 时返 `level: "danger"` + 4 条修复建议；`deploy.sh` 自动 patch 生产 `/etc/caddy/Caddyfile` 注入 `/direct` 反代段（R1.5，模板不动）+ `caddy validate` 强校验（`ab258b6`）；7 个 worker 接入统一 lease 公式 `max(preset, 2× observedMaxDispatchMs) × 1.1`（R2，新增 `src/lib/job/lease.ts` + 6 test，7 worker 替换硬编码 `*_LEASE_MS`）；`/servers` 详情 UI 接收 `bindAddress` + `publicProtocol` 投影（R3），在直连已就位时输出 3 级（emerald=安全 / amber=警告 / rose=危险）risk banner，新增 `getResolvedDirectGatewayProtocol()` 解析 publicUrl scheme（+5 test）。**剩余**：`/api/status` 启动期公网暴露探测、强制 `recordJobEvent`（R4/R5）。
+- 当前 8 个 worker 各自 `setInterval` 互不知情；已加：全局/按用户/按节点三道软上限（`JOB_MAX_CONCURRENT_*`，默认 0=不限制，TR-001 T13b 落地，commit 待 push）；`JobEvent` 表 + 5 个 worker 钩子（TR-001 T13a，`4e6a0ed`）；7 worker 接入统一 lease 公式（TR-002 R2，见上一条）。缺：强制每个 worker 调 `recordJobEvent`（当前是 best-effort，缺审计强度）。可立 TR-043 跟进。
 
 #### New-F（P2 增强）继续拆 3 个超大 client
 

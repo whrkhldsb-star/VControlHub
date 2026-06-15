@@ -1,7 +1,14 @@
 import { Prisma } from "@prisma/client";
 
-import { getBackupRecord, pruneOldBackupRecordsNow, restoreBackupRecord, runExistingBackupRecord } from "@/lib/backup/service";
+import {
+  getBackupRecord,
+  pruneOldBackupRecordsNow,
+  restoreBackupRecord,
+  runExistingBackupRecord,
+} from "@/lib/backup/service";
+import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
+import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -13,8 +20,9 @@ export const BACKUP_RETENTION_JOB_TYPE = "backup.retention";
 
 const BACKUP_JOB_TYPES = [BACKUP_CREATE_JOB_TYPE, BACKUP_RESTORE_JOB_TYPE, BACKUP_RETENTION_JOB_TYPE];
 const DEFAULT_POLL_MS = 5_000;
-const DEFAULT_LEASE_MS = 30_000;
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:backup:${process.pid}`;
+// TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= 30s, 等同原 LEASE_MS)。
+const LEASE_MS = computeLeaseMs("backup");
 
 type BackupCreatePayload = {
   backupId: string;
@@ -82,7 +90,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     if (job.type === BACKUP_CREATE_JOB_TYPE) {
       const payload = parseCreatePayload(job.payload);
       const record = await getBackupRecord(payload.backupId);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: DEFAULT_LEASE_MS, progress: `正在执行 ${record?.type ?? "UNKNOWN"} 备份` });
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: `正在执行 ${record?.type ?? "UNKNOWN"} 备份` });
       const backup = await runExistingBackupRecord({ id: payload.backupId, projectRoot: payload.projectRoot });
       await completeJob(job.id, WORKER_ID, {
         backupId: backup.id,
@@ -95,7 +103,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RESTORE_JOB_TYPE) {
       const payload = parseRestorePayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: DEFAULT_LEASE_MS, progress: "正在恢复备份" });
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "正在恢复备份" });
       const restore = await restoreBackupRecord({ id: payload.backupId, confirm: payload.confirm, projectRoot: payload.projectRoot });
       await completeJob(job.id, WORKER_ID, restore);
       return true;
@@ -103,7 +111,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RETENTION_JOB_TYPE) {
       const payload = parseRetentionPayload(job.payload);
-      await heartbeatJob(job.id, WORKER_ID, { leaseMs: DEFAULT_LEASE_MS, progress: "正在清理旧备份" });
+      await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS, progress: "正在清理旧备份" });
       const summary = await pruneOldBackupRecordsNow({
         olderThanDays: payload.olderThanDays,
         keepLatestPerType: payload.keepLatestPerType,
@@ -139,7 +147,7 @@ export async function runBackupJobWorkerOnce() {
   if (running) return false;
   running = true;
   try {
-    const job = await claimNextJob({ workerId: WORKER_ID, types: BACKUP_JOB_TYPES, leaseMs: DEFAULT_LEASE_MS });
+    const job = await claimNextJob({ workerId: WORKER_ID, types: BACKUP_JOB_TYPES, leaseMs: LEASE_MS });
     return handleJob(job);
   } finally {
     running = false;

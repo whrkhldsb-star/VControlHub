@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
+import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
   completeJob,
@@ -32,7 +33,8 @@ const DOWNLOAD_EXECUTION_INTERVAL_MS = 5_000;
 // Aria2 relay downloads can take up to 2 hours (maxWait = 7200 in execution.ts),
 // so the worker lease must outlive the longest possible single dispatch by a
 // safe margin. Direct downloads finish in seconds; the same lease is fine.
-const DOWNLOAD_EXECUTION_LEASE_MS = 150 * 60 * 1000;
+// TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= DOWNLOAD_EXECUTION_LEASE_MS 等同原值)。
+const DOWNLOAD_EXECUTION_LEASE_MS = computeLeaseMs("download-execution");
 const DOWNLOAD_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:download-execution:${process.pid}`;
 
 type DownloadExecutionMode = "aria2_relay" | "direct";

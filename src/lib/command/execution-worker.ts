@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
+import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 
@@ -17,7 +18,8 @@ const logger = createLogger("command-execution-worker");
 export const COMMAND_EXECUTION_JOB_TYPE = "command.execution";
 
 const COMMAND_EXECUTION_INTERVAL_MS = 2_000;
-const COMMAND_EXECUTION_LEASE_MS = 5 * 60 * 1000;
+// TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= COMMAND_EXECUTION_LEASE_MS 等同原值)。
+const COMMAND_EXECUTION_LEASE_MS = computeLeaseMs("command-execution");
 const COMMAND_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:command-execution:${process.pid}`;
 
 type CommandExecutionJobPayload = {

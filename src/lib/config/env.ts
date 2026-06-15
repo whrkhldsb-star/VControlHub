@@ -182,6 +182,26 @@ export const config = {
 	},
 
 	/**
+	 * Deployment-level network / direct-gateway defaults (TR-002 R3).
+	 *
+	 * `directBindAddress` is the listen address used by the Direct Gateway
+	 * `vcontrolhub-direct.service` on remote nodes. The default of
+	 * `127.0.0.1` is safe (loopback only). Setting it to `0.0.0.0` (or `::`)
+	 * means the gateway port is reachable from outside the node — at that
+	 * point a UI risk banner must be raised: HMAC signatures prevent
+	 * tampering but do NOT encrypt transport, so the only acceptable
+	 * exposures are TLS reverse proxy (Caddy) or VPN/firewall whitelists.
+	 *
+	 * This env is read by the service layer to compute the risk level
+	 * surfaced in the `/servers` overview details; the actual systemd
+	 * unit on the remote node reads the same `DIRECT_BIND` variable, so
+	 * the banner reflects the real on-node config (single source of truth).
+	 */
+	deployment: {
+		get directBindAddress(): string { return readString("DIRECT_BIND", "127.0.0.1"); },
+	},
+
+	/**
 	 * Durable job concurrency (TR-001 T13b).
 	 *
 	 * All three caps default to 0 (= unlimited) so existing deployments

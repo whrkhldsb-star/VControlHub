@@ -51,6 +51,9 @@ export type ServerOverviewDetailsServer = {
 		statusLabel: string;
 		publicUrl: string | null;
 		port: number;
+		// TR-002 R3: 节点监听地址 + 解析的传输协议，UI 用作 risk banner 输入
+		bindAddress?: string | null;
+		publicProtocol?: "http" | "https" | "unknown" | null;
 	} | null;
 };
 
@@ -88,6 +91,38 @@ function statusToneClass(tone: "success" | "warning" | "info") {
 	return "border-sky-400/25 bg-sky-400/10 text-sky-200 light:border-sky-700/20 light:bg-sky-50";
 }
 
+// TR-002 R3: advice 项的 tone 决定背景与边框；emerald=safe / amber=warning / rose=danger
+function adviceToneClass(tone: "emerald" | "amber" | "rose" | undefined) {
+	if (tone === "emerald") {
+		return "border-emerald-400/20 bg-emerald-400/[0.05] light:border-emerald-700/20 light:bg-emerald-50/60";
+	}
+	if (tone === "rose") {
+		return "border-rose-400/20 bg-rose-400/[0.05] light:border-rose-700/20 light:bg-rose-50/60";
+	}
+	// amber (default) 与原版一致
+	return "border-amber-400/15 light:border-amber-700/20 light:bg-amber-50/60";
+}
+
+function adviceTitleClass(tone: "emerald" | "amber" | "rose" | undefined) {
+	if (tone === "emerald") {
+		return "text-emerald-100 light:text-emerald-900";
+	}
+	if (tone === "rose") {
+		return "text-rose-100 light:text-rose-900";
+	}
+	return "text-amber-100 light:text-amber-900";
+}
+
+function adviceBadgeClass(tone: "emerald" | "amber" | "rose" | undefined) {
+	if (tone === "emerald") {
+		return "border-emerald-300/30 bg-emerald-300/10 text-emerald-200 light:border-emerald-700/25 light:text-emerald-800";
+	}
+	if (tone === "rose") {
+		return "border-rose-300/30 bg-rose-300/10 text-rose-200 light:border-rose-700/25 light:text-rose-800";
+	}
+	return "border-amber-300/30 bg-amber-300/10 text-amber-200 light:border-amber-700/25 light:text-amber-800";
+}
+
 function DirectGatewayHealthyDetail({
 	statusLabel: dgLabel,
 	publicUrl,
@@ -111,6 +146,8 @@ function DirectGatewayAdviceList({
 		priority: "primary" | "secondary";
 		href: string | null;
 		hrefLabel?: string;
+		// TR-002 R3: 风险等级 tone，决定色彩。undefined = 沿用 amber 默认
+		tone?: "emerald" | "amber" | "rose";
 	}>;
 }) {
 	if (advice.length === 0) return null;
@@ -123,15 +160,15 @@ function DirectGatewayAdviceList({
 			{advice.map((item, index) => (
 				<li
 					key={`${item.title}-${index}`}
-					data-tone="amber"
-					className="rounded-md border border-amber-400/15 px-2 py-1.5 light:border-amber-700/20 light:bg-amber-50/60"
+					data-tone={item.tone ?? "amber"}
+					className={`rounded-md border px-2 py-1.5 ${adviceToneClass(item.tone)}`}
 				>
-					<div className="flex flex-wrap items-baseline gap-1.5 text-[11px] font-medium leading-5 text-amber-100 light:text-amber-900">
+					<div className={`flex flex-wrap items-baseline gap-1.5 text-[11px] font-medium leading-5 ${adviceTitleClass(item.tone)}`}>
 						<span
 							data-priority={item.priority}
 							className={
 								item.priority === "primary"
-									? "rounded border border-amber-300/30 bg-amber-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-200 light:border-amber-700/25 light:text-amber-800"
+									? `rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${adviceBadgeClass(item.tone)}`
 									: "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200 light:border-slate-400/30"
 							}
 						>

@@ -9,7 +9,8 @@ import {
   execRemoteCommand,
 } from "@/lib/ssh/client";
 import { getServerConnectionSummary } from "./config";
-import { getDirectGatewayStatusLabel } from "./direct-gateway";
+import { config } from "@/lib/config/env";
+import { getDirectGatewayStatusLabel, getResolvedDirectGatewayProtocol } from "./direct-gateway";
 
 type ServerCommandTarget = {
   id: string;
@@ -258,6 +259,14 @@ export function enrichServer(server: ServerWithRelations) {
       statusLabel: getDirectGatewayStatusLabel({
         fileProxyPort: server.fileProxyPort,
         publicUrl: server.publicUrl,
+      }),
+      // TR-002 R3: bind + protocol come from the runtime env (single source
+      // of truth shared with the on-node systemd unit) and the publicUrl
+      // scheme. They're added to the projection so the UI risk banner has
+      // the two inputs it needs to call `getDirectGatewayRiskAssessment`.
+      bindAddress: config.deployment.directBindAddress,
+      publicProtocol: getResolvedDirectGatewayProtocol({
+        publicUrl: server.publicUrl ?? null,
       }),
     },
     statusLabel: buildServerStatusLabel(server.enabled),

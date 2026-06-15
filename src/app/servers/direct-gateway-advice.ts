@@ -10,7 +10,13 @@
  *
  * 输出：每条建议包含一句可直接展示的"下一步"提示 + 可选锚链接（/files?nodeId=...、
  *      /servers、/requests），UI 决定样式。
+ *
+ * TR-002 R3: 同步接收 `bindAddress` + `publicProtocol` 两个字段，以便在
+ * 启用直连时调用 `getDirectGatewayRiskAssessment` 给出 3 级（safe/warning/danger）
+ * banner。两个字段兼容可空——尚未配置直连的节点不会用到。
  */
+
+import { getDirectGatewayRiskAssessment } from "@/lib/server/direct-gateway";
 
 export type DirectGatewayInput = {
   /** 服务端下发的直连状态（已规整为 {enabled, statusLabel, publicUrl, port}） */
@@ -19,6 +25,10 @@ export type DirectGatewayInput = {
     statusLabel: string;
     publicUrl: string | null;
     port: number;
+    /** TR-002 R3: 节点侧的直连服务监听地址，默认 127.0.0.1 */
+    bindAddress?: string | null;
+    /** TR-002 R3: 解析自 publicUrl 的实际传输协议 */
+    publicProtocol?: "http" | "https" | "unknown" | null;
   } | null | undefined;
   /** 节点是否启用（已纳入"接收操作"的白名单） */
   serverEnabled: boolean;
@@ -41,6 +51,9 @@ export type DirectGatewayAdviceItem = {
   href: string | null;
   /** 链接可访问名称（可空时由 UI 隐藏链接） */
   hrefLabel?: string;
+  /** TR-002 R3: 风险等级横幅专用标签。advice 项附上 level 后，UI 可以在同一个
+   * 列表里用不同色彩（emerald=安全 / amber=警告 / rose=危险）区分渲染。 */
+  tone?: "emerald" | "amber" | "rose";
 };
 
 /**
@@ -54,6 +67,7 @@ export type DirectGatewayAdviceItem = {
  *  5. 未启用直连 + 没有 SFTP + 节点启用 → "先绑定 SFTP，再考虑直连"
  *  6. 待审批命令 > 0 → secondary：先处理审批中心，避免修复被命令流遮蔽
  *  7. 具备 server:write 但没有任何建议 → secondary：参考直连签名边界文档
+ *  8. TR-002 R3：已启用直连 + bind/protocol 已知 → 插入一条 risk banner（按等级染色）
  */
 export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectGatewayAdviceItem[] {
   const result: DirectGatewayAdviceItem[] = [];
@@ -92,6 +106,58 @@ export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectG
           href: input.canManageServers ? "/servers" : null,
           hrefLabel: "去节点列表",
         });
+      } else {
+        // TR-002 R3: 直连已就位 + bind/protocol 已知 → 评估传输风险
+        // 协议不可解析时降级为 warning（与 danger 区分），不阻塞其它 primary 项
+        const bindAddress = dg?.bindAddress ?? "127.0.0.1";
+        const resolvedProtocol = dg?.publicProtocol ?? "unknown";
+        const protocolForRisk =
+          resolvedProtocol === "http" || resolvedProtocol === "https"
+            ? resolvedProtocol
+            : "http"; // unknown → 保守按明文对待，避免低估风险
+        const risk = getDirectGatewayRiskAssessment({
+          bindAddress,
+          publicProtocol: protocolForRisk,
+        });
+        if (risk.level === "safe") {
+          result.push({
+            title: "直连传输安全",
+            detail: `监听 ${bindAddress}，仅本机可访问；HMAC 签名 + 本地监听足以保证签名下载不被外部抓取。`,
+            priority: "secondary",
+            href: null,
+            tone: "emerald",
+          });
+        } else if (risk.level === "warning") {
+          result.push({
+            title: "直连传输：警告",
+            detail: `${risk.reasons[0] ?? "公网可达 + 已加密"}；${risk.recommendations[0] ?? ""}`,
+            priority: "primary",
+            href: input.canManageServers ? "/servers" : null,
+            hrefLabel: "去节点列表",
+            tone: "amber",
+          });
+        } else {
+          // danger：多 reason / 多 recommendation 用分号拼成一句可读 detail
+          result.push({
+            title: "直连传输：危险",
+            detail: `${risk.reasons.join("；")}。建议：${risk.recommendations[0] ?? "改回 127.0.0.1"}`,
+            priority: "primary",
+            href: input.canManageServers ? "/servers" : null,
+            hrefLabel: "去节点列表",
+            tone: "rose",
+          });
+        }
+        // protocol 解析失败时再补一条 secondary 提示用户自查
+        if (resolvedProtocol === "unknown") {
+          result.push({
+            title: "公网入口协议未识别",
+            detail: "无法解析 publicUrl 的 scheme，请检查节点卡片中的直连公网入口是否配置正确。",
+            priority: "secondary",
+            href: input.canManageServers ? "/servers" : null,
+            hrefLabel: "去节点列表",
+            tone: "amber",
+          });
+        }
       }
     }
   } else {

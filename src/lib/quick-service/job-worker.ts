@@ -2,6 +2,7 @@ import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { computeLeaseMs } from "@/lib/job/lease";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import type { QuickServiceCredential } from "@/lib/quick-service/install-notice";
@@ -20,7 +21,8 @@ const logger = createLogger("quick-service-job-worker");
 
 export const QUICK_SERVICE_JOB_TYPE = "quick_service.lifecycle";
 const QUICK_SERVICE_WORKER_INTERVAL_MS = 5_000;
-const QUICK_SERVICE_WORKER_LEASE_MS = 10 * 60 * 1000;
+// TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= QUICK_SERVICE_WORKER_LEASE_MS 等同原值)。
+const QUICK_SERVICE_WORKER_LEASE_MS = computeLeaseMs("quick-service");
 const QUICK_SERVICE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:quick-service:${process.pid}`;
 
 type QuickServiceInstallJobPayload = {
