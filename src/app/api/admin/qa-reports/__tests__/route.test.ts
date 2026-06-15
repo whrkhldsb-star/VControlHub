@@ -51,6 +51,14 @@ describe("GET /api/admin/qa-reports", () => {
 			],
 			totals: { total: 1, slices: 1, blockers: 0, qaRuns: 0 },
 			lastUpdatedAt: "2026-06-07T16:22:34.000Z",
+			trends: {
+				cards: [],
+				dailyBuckets: [],
+				moduleCoverage: [],
+				recentRuns: [],
+				lastFailure: null,
+				sourceUpdatedAt: null,
+			},
 		});
 	});
 

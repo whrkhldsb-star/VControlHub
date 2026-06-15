@@ -559,9 +559,9 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### 现有 TR 核实结果
 
 按"复选框语义与代码事实是否吻合"重新分类：
-- **真已完成** TR-008 / TR-012 / TR-013 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022
+- **真已完成** TR-008 / TR-012 / TR-013 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-029
 - **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-003 / TR-004 / TR-005 / TR-006 / TR-007 / TR-014 / TR-019
-- **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-025 / TR-026 / TR-029 / TR-030 / TR-031 / TR-032 / TR-033
+- **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-025 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
 
 ### 新发现问题 TR-034 ~ TR-042
 
@@ -700,7 +700,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-026 | P3 | 统一操作反馈模型（ActionResult + toast/alert + 任务中心链接） | ✅ 主体已落地 |
 | TR-027 | P3 | README/测试追踪标签 | ✅ 完成 |
 | TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） | ✅ 完成 39 page / 79 API / 41 perm |
-| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence） | ⏳ 后台任务中 (T29a 完成, T29b 待续做) |
+| TR-029 | P3 | 站内 QA 报告产品化（canary/cron QA + smoke evidence） | ✅ 完成 (T29a + T29b, commit da08543 + T29b) |
 | TR-030 | P3 | 多租户 / 团队空间（资源隔离 / 配额 / 权限继承） | 队列中 |
 | TR-031 | P3 | 成本追踪（VPS 费用 / 带宽 / 存储 / 月报） | 队列中 |
 | TR-032 | P3 | 智能运维 AI（主动诊断 / 异常预测 / 自动修复建议） | 队列中 |
@@ -753,7 +753,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
 - [ ] **RBAC 角色视角巡检**（TR-025）。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面。
-- [x] **站内 QA 报告产品化**（TR-029）— T29a 落地（list + detail + 读 .hermes/ + 复用 admin/qa-reports 模式），T29b 待续做（趋势卡片 + cron-tick 日志接入）。
+- [x] **站内 QA 报告产品化**（TR-029）— T29a 落地（list + detail + 读 .hermes/ + 复用 admin/qa-reports 模式），T29b 落地（趋势卡片 + 日柱图 + 模块覆盖 + 最近 5 run + 失败摘要 + autonomous-maintenance-state.json 接入）。
 - [ ] **多租户 / 团队空间**（TR-030）。
 - [ ] **成本追踪**（TR-031）。
 - [ ] **智能运维 AI**（TR-032）。

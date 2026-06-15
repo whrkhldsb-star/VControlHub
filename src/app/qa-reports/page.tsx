@@ -34,9 +34,14 @@ export default async function QaReportsPage() {
 			<PageHeader
 				eyebrow="QA Reports"
 				title="站内 QA 报告"
-				description="汇总维护环、QA 环和已解除 blocker 的闭环记录；数据来源 .hermes/remediation-state.json + .hermes/qa-loop-state.json。"
+				description="汇总维护环、QA 环和已解除 blocker 的闭环记录；数据来源 .hermes/remediation-state.json + .hermes/qa-loop-state.json + .hermes/autonomous-maintenance-state.json。"
 			/>
-			<QaReportsListClient initialReports={initial.reports} initialTotals={initial.totals} initialUpdatedAt={initial.lastUpdatedAt} />
+			<QaReportsListClient
+				initialReports={initial.reports}
+				initialTotals={initial.totals}
+				initialUpdatedAt={initial.lastUpdatedAt}
+				initialTrends={initial.trends}
+			/>
 		</PageShell>
 	);
 }
