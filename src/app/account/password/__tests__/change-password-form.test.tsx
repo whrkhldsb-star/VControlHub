@@ -44,6 +44,8 @@ describe("ChangePasswordForm", () => {
     render(<ChangePasswordForm />);
 
     for (const label of ["当前密码", "新密码", "确认新密码"]) {
+      const input = screen.getByLabelText(label);
+      expect(input).toHaveAttribute("type", "password");
 
       const field = input.closest("div.grid");
       expect(field).not.toBeNull();

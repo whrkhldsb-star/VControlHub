@@ -16,11 +16,12 @@ export function ChangePasswordForm() {
 	const searchParams = useSearchParams();
 	const [countdown, setCountdown] = useState<number | null>(null);
 
-	// TR-052: 改密成功后自动跳到 dashboard (默认 "/"，尊重 ?next=)。给用户 1.5s 看 success message 再跳。
+	// TR-052: 改密成功后自动跳到 dashboard (默认 "/", 尊重 ?next=). 给用户 1.5s 看 success message 再跳.
 	useEffect(() => {
 		if (!state.success) return;
 		const nextPath = searchParams.get("next");
 		const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- success → 启动 countdown + 1.5s 后的 setTimeout 跳转; 业务上需要 setState-in-effect 来同步启动客户端计时器
 		setCountdown(POST_SUCCESS_REDIRECT_DELAY_MS / 1000);
 		const interval = setInterval(() => {
 			setCountdown((current) => (current === null ? null : Math.max(0, current - 1)));
