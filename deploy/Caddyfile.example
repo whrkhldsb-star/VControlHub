@@ -29,5 +29,11 @@ http://your-domain.example, https://your-domain.example {
     reverse_proxy /web/* 127.0.0.1:8096
     reverse_proxy /Startup/* 127.0.0.1:8096
 
+    # TR-002: Direct Gateway 反代 (本机 SFTP node 用)
+    # VControlHub 主机本身作为 SFTP 节点时，把 31888 端口收回到 Caddy 后面。
+    # 远端 server 的 direct gateway 仍由各自的反向代理/VPN/防火墙保护，详见 README。
+    reverse_proxy /direct 127.0.0.1:31888
+    reverse_proxy /direct/* 127.0.0.1:31888
+
     reverse_proxy 127.0.0.1:3000
 }

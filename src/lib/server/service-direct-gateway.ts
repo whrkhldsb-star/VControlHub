@@ -45,6 +45,9 @@ export async function applyServerDirectGatewayState(input: {
   serverId: string;
   enabled: boolean;
   bestEffort?: boolean;
+  // TR-002: Direct Gateway 监听地址，默认 127.0.0.1（仅本机可访问）。
+  // 显式传 "0.0.0.0" 才监听全部接口，需 UI 风险提示 (TLS/VPN/防火墙任一)。
+  bindAddress?: string;
 }) {
   const server = await loadServerForDirectGateway(input.serverId);
   if (!server) {
@@ -104,6 +107,8 @@ export async function applyServerDirectGatewayState(input: {
           rootPath: basePath,
           secret: getConfiguredDirectAccessSecret(),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
+          // TR-002: 透传 bindAddress (默认 127.0.0.1，安全). 如用户显式传 0.0.0.0 需 UI 风险提示。
+          bindAddress: input.bindAddress,
         })
       : buildUninstallDirectGatewayCommand();
   } catch (error) {

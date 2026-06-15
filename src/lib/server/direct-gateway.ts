@@ -1,14 +1,60 @@
 export const DIRECT_GATEWAY_DEFAULT_PORT = 31888;
 export const DIRECT_GATEWAY_SERVICE_NAME = "vcontrolhub-direct.service";
+// TR-002: 默认仅监听 loopback，避免公网意外暴露。需显式 opt-in 才能监听 0.0.0.0。
+export const DIRECT_GATEWAY_BIND_DEFAULT = "127.0.0.1";
+
+export type DirectGatewayRiskLevel = "safe" | "warning" | "danger";
+
+export type DirectGatewayRiskAssessment = {
+	level: DirectGatewayRiskLevel;
+	reasons: string[];
+	recommendations: string[];
+};
+
+/**
+ * TR-002: 评估 Direct Gateway 部署风险。
+ *  - safe:    bind 127.0.0.1，仅本机可访问
+ *  - warning: bind 0.0.0.0 但走 https/caddy 反代，外部可访问但传输加密
+ *  - danger:  bind 0.0.0.0 且走 http 明文直连，签名鉴权 ≠ 传输加密，公网暴露风险
+ */
+export function getDirectGatewayRiskAssessment(input: {
+	bindAddress: string;
+	publicProtocol: "http" | "https";
+}): DirectGatewayRiskAssessment {
+	const reasons: string[] = [];
+	const recommendations: string[] = [];
+	const bind = input.bindAddress.trim();
+	const isPublic = bind === "0.0.0.0" || bind === "::" || bind === "[::]";
+
+	if (!isPublic) {
+		return { level: "safe", reasons: [`仅监听 ${bind}，不会暴露公网`], recommendations: [] };
+	}
+
+	if (input.publicProtocol === "https") {
+		reasons.push(`监听 ${bind} 但走 https/Caddy 反代，传输已加密`);
+		recommendations.push("确认 Caddy 已配 TLS 证书 + 反代 `/direct` 到 127.0.0.1:31888");
+		return { level: "warning", reasons, recommendations };
+	}
+
+	reasons.push("监听 0.0.0.0 + http 明文直连 = 签名鉴权 ≠ 传输加密");
+	reasons.push("HMAC 签名可防篡改，但任何中间人都能读取文件内容");
+	recommendations.push("方案 A：在远端 server 上部署 Caddy 反代 `/direct` → 127.0.0.1:31888 + 自动 TLS");
+	recommendations.push("方案 B：用 VPN / WireGuard / Tailscale 把 31888 仅暴露给可信网段");
+	recommendations.push("方案 C：防火墙白名单，仅允许已知 IP 段访问 31888");
+	recommendations.push("短期兜底：把 bindAddress 改回 127.0.0.1 + 走 VControlHub 主站中转");
+	return { level: "danger", reasons, recommendations };
+}
 
 export function buildDirectGatewayPublicBaseUrl(input: {
-  host: string;
-  port?: number;
+	host: string;
+	port?: number;
+	protocol?: "http" | "https";
 }) {
-  const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
-  const host = input.host.trim();
-  const urlHost = shouldBracketIpv6Host(host) ? `[${host}]` : host;
-  return `http://${urlHost}:${port}`;
+	const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
+	const protocol = input.protocol ?? "http";
+	const host = input.host.trim();
+	const urlHost = shouldBracketIpv6Host(host) ? `[${host}]` : host;
+	return `${protocol}://${urlHost}:${port}`;
 }
 
 function shouldBracketIpv6Host(host: string) {
@@ -104,8 +150,10 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("DIRECT_PORT", "31888"))
+    # TR-002: 默认 127.0.0.1，仅本机可访问；显式 DIRECT_BIND=0.0.0.0 才监听全部接口。
+    bind = os.environ.get("DIRECT_BIND", "127.0.0.1")
     os.chdir(ROOT)
-    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
+    ThreadingHTTPServer((bind, port), Handler).serve_forever()
 `;
 }
 
@@ -113,8 +161,10 @@ export function buildInstallDirectGatewayCommand(input: {
   rootPath: string;
   secret: string;
   port?: number;
+  bindAddress?: string;
 }) {
   const port = input.port ?? DIRECT_GATEWAY_DEFAULT_PORT;
+  const bind = input.bindAddress ?? DIRECT_GATEWAY_BIND_DEFAULT;
   const source = pythonGatewaySource();
   return `set -eu
 install -d -m 0755 /opt/vcontrolhub-direct
@@ -127,6 +177,7 @@ cat > /etc/vcontrolhub-direct.env <<VCH_DIRECT_ENV
 DIRECT_ROOT=${shellQuote(input.rootPath)}
 DIRECT_SECRET=${shellQuote(input.secret)}
 DIRECT_PORT=${port}
+DIRECT_BIND=${shellQuote(bind)}
 VCH_DIRECT_ENV
 chmod 0600 /etc/vcontrolhub-direct.env
 cat > /etc/systemd/system/${DIRECT_GATEWAY_SERVICE_NAME} <<'VCH_DIRECT_UNIT'
@@ -138,6 +189,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/vcontrolhub-direct.env
+# TR-002: 显式声明 DIRECT_BIND (默认 127.0.0.1)。EnvironmentFile 也注入同名, 此处声明便于 systemctl show 审计。
+Environment=DIRECT_BIND=${bind}
 ExecStart=/usr/bin/env python3 /opt/vcontrolhub-direct/server.py
 Restart=always
 RestartSec=3
