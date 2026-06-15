@@ -716,6 +716,11 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | ✅ 完成 (T42a+T42b, commit 7242ea1) |
 | TR-047 | P2 | RBAC 静态审计扫描器精度提升（catalog 字典化 + audit 4 种 enforcement form + 多行 + 白名单） | ✅ 已落地（drift 41 → 0），`scripts/build-route-catalog.ts` `declaredPerms` 改用 `RBAC.PERMISSIONS` 字典；`scripts/rbac-audit.ts` 加 `sessionHasPermission` / `verifyBearerToken` 识别、3 段 perm 正则、多行 sessionHasPermission fallback、`intentionallyPublic` 白名单 16 项（login/signout/2FA/share/openapi/status/dashboard 等公开路由）、`dynamicPermRoutes` 白名单 2 项（`storage/sftp-ops` / `files/list` 三元/动态变量 enforcement）。22 单测全过。|
 | TR-048 | P2 | `app-sources` 路由测试覆盖（GET/POST/PATCH/DELETE 全分支） | ✅ 已落地，`src/app/api/app-sources/__tests__/route.test.ts` 12 单测：本地 catalog 与 installed services 合并、`includeApps=false` 跳过 remote、POST 验权 + 校验 name/url、PATCH sync/toggle 双分支、DELETE by id query。 |
+| TR-049 | P2 | 存储节点实时健康探测（SFTP / Direct Gateway）— `/api/status` storage check 显示 6 节点 0 健康 0 异常 6 待探测；探测从未跑过，UI 看不到节点状态。 | ⏳ 建议：起一次性后台 probe job 或在 `/api/status` 触发 lazy probe。 |
+| TR-050 | P2 | VPS 健康检查实时 TCP ping — `/api/status` servers check 注释 "已启用 5 台 VPS，未做实时 SSH/网络探测"；known-good 显示 healthy 误导用户。 | ⏳ 建议：servers check 加轻量 TCP ping，failures 标 warning。 |
+| TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — `.env.local` 密码登录返 invalid，DB hash 不匹配（memory 记录的 quirk，生产化后是阻塞门）。 | ⏳ 建议：boot 时若 DB hash 与 env 不一致，自动 reseed admin（开发环境）或显式报错（生产）。 |
+| TR-052 | P3 | 落地页 `/` 307→login 后无 dashboard — 默认页 redirect 而非真 dashboard。 | ⏳ 建议：首屏直接看概览，做一个 `/dashboard` 路由专属页面。 |
+| TR-053 | P1 | 公开 `/api/status` 泄露存储节点详情 — 未登录可见 `"6 个存储节点, 0 健康, 0 异常, 6 待探测"`。 | ⏳ 建议：公开端点只返回 `overall: warning`，详细 checks 给登录后页面。 |
 
 ---
 
@@ -733,6 +738,8 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [x] **定时任务 tick 竞态**（New-B）— `enqueueScheduledTaskTickJob` 改 `prisma.$transaction(async tx => { hasActive(tx); enqueueJob() })` 串行化存在性检查 + 入队；`dispatchDueTask` 入队前行级 CAS `updateMany({id, status, nextRunAt: oldNext}, data: {nextRunAt: claimSentinel})`，count===0 跳过 + `info` 日志；失败回滚原 nextRunAt。`dispatched` counter 只数 CAS 赢 + createCommandRequest 成功的任务。3 个新测：CAS count=0 / CAS 赢但 createCommandRequest 失败回滚 / 事务存在性检查。
 - [x] **下载 worker 状态错位**（New-C）— `execution-worker.ts` handleClaimedJob dispatch 前查 `downloadTask.status`，COMPLETED→completeJob+`status:already_completed`、FAILED/CANCELLED→failJob+`retryAfterMs:undefined`（不重试 side effects）；post-throw re-fetch 业务行也走终态分支。接受 T13b maxAttempts=3 重试，aria2 transient 错误自动恢复。4 个新测：COMPLETED / FAILED / CANCELLED / post-throw-FAILED。
 - [x] **`instrumentation.ts` 启动路径不全**（New-D）— 全部 worker 启动迁到 `instrumentation.ts` + `src/lib/workers/registry.ts` 8 worker 单一注册表 + SIGTERM 优雅停机。已合 T13c 落地。
+- [ ] **admin 密码 env vs DB hash 不一致**（TR-051）— boot 时若 DB hash 与 env 不一致，开发环境自动 reseed admin，生产环境显式报错。阻塞门。
+- [ ] **公开 `/api/status` 泄露存储节点详情**（TR-053）— 未登录可见 6 节点探测状态。公开端点只返 `overall`，详细 checks 给登录后页面。安全/隐私。
 
 ### P2 — 用户体验和可运营性
 
@@ -748,7 +755,10 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
 - [ ] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E）— 立 TR-043 跟进，deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。
 - [x] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1245 ✅ T36b (1600→1245) / `ai-client` 1071 / `quick-services-client` 1002，T36c 续做。
+- [ ] **存储节点实时健康探测**（TR-049）— `/api/status` storage check 6 节点 0 健康，UI 看不到节点状态。起一次性后台 probe job 或 `/api/status` 触发 lazy probe。
+- [ ] **VPS 健康检查实时 TCP ping**（TR-050）— `servers` check known-good 显示 healthy 误导用户。加轻量 TCP ping，failures 标 warning。
 - [ ] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。
+- [ ] **落地页真 dashboard**（TR-052）— `/` 307→login 后无 dashboard，首屏直接看概览，做一个 `/dashboard` 路由专属页面。
 
 ### P3 — 长期愿景
 
