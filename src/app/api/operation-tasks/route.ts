@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { listOperationTaskResult, type OperationTask, type OperationTaskListSort, type OperationTaskStatus } from "@/lib/operation-task/service";
+import { listOperationTaskResult } from "@/lib/operation-task/service";
+import type { OperationTask, OperationTaskListSort, OperationTaskStatus } from "@/lib/operation-task/dto";
 
 const allowedStatuses = new Set<OperationTaskStatus>(["pending", "running", "completed", "failed", "cancelled", "paused"]);
 const allowedSorts = new Set<OperationTaskListSort>(["recent", "attention"]);
