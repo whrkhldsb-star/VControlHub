@@ -25,6 +25,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { writeStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import type { SessionPayload } from "@/lib/auth/session";
 
+import { AppError, ForbiddenError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const ALLOWED_MIME_PREFIXES = ["image/"];
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
           { status: 401 },
         );
       if (!sessionHasPermission(session, "storage:write")) {
-        return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+        throw new ForbiddenError("缺少权限");
       }
       return handleUpload(request, session.userId, session);
     },
@@ -90,7 +91,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
       String(formData.get("relativePath") ?? "").trim() || undefined;
 
     if (!isUploadFile(file)) {
-      return NextResponse.json({ error: "缺少上传文件" }, { status: 400 });
+      throw new ValidationError("缺少上传文件");
     }
 
     const mimeType = file.type || "application/octet-stream";
@@ -185,7 +186,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     // If linked to a storage node, also copy there (cloud storage integration)
     if (storageNodeId && relativePath) {
       if (!session) {
-        return NextResponse.json({ error: "Bearer 上传暂不支持写入存储节点副本" }, { status: 403 });
+        throw new ForbiddenError("Bearer 上传暂不支持写入存储节点副本");
       }
       const access = await assertStorageAccess({
         session,
@@ -195,7 +196,7 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
         writeBytes: buffer.byteLength,
       });
       if (!access.allowed) {
-        return NextResponse.json({ error: access.reason ?? "无权写入该存储路径" }, { status: 403 });
+        throw new ForbiddenError(access.reason ?? "无权写入该存储路径");
       }
       try {
         const storageNode = await prisma.storageNode.findUnique({
@@ -253,6 +254,6 @@ async function handleUpload(request: Request, userId: string, session?: SessionP
     );
   } catch (error) {
     logError("image-bed:upload", error);
-    return NextResponse.json({ error: "上传失败" }, { status: 500 });
+    throw new AppError({ code: "INTERNAL_ERROR", message: "上传失败", status: 500 });
   }
 }

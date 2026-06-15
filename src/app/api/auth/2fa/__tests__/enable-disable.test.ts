@@ -22,14 +22,23 @@ vi.mock("@/lib/http/api-guard", () => ({
     opts: { requireAuth?: boolean; errorMessage?: string },
     handler: (ctx: { session: { userId: string } | null }) => Promise<Response>,
   ) => {
-    if (opts.requireAuth) {
-      const session = requireSessionMock(request);
-      if (!session) {
-        return new Response(JSON.stringify({ error: "未登录或会话已过期" }), { status: 401 });
+    try {
+      if (opts.requireAuth) {
+        const session = requireSessionMock(request);
+        if (!session) {
+          return new Response(JSON.stringify({ error: "未登录或会话已过期" }), { status: 401 });
+        }
+        return await handler({ session });
       }
-      return handler({ session });
+      return await handler({ session: null });
+    } catch (e) {
+      // Mirror the real `withApiRoute` catch: route handlers now throw
+      // `AppError` subclasses instead of returning `NextResponse.json({...})`,
+      // so the mock has to wrap the throw in `apiCatch` to keep test
+      // assertions stable. TR-034 R2.
+      const { apiCatch } = await import("@/lib/http/api-error");
+      return apiCatch(e);
     }
-    return handler({ session: null });
   },
 }));
 

@@ -6,6 +6,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   getStorageAccessUsage,
   parseNullableBigIntInput,
@@ -91,7 +92,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId");
     if (!userId) {
-      return NextResponse.json({ error: "缺少 userId 参数" }, { status: 400 });
+      throw new ValidationError("缺少 userId 参数");
     }
 
     const [user, roles, permissions, storageNodes] = await Promise.all([
@@ -127,7 +128,7 @@ export async function GET(request: Request) {
     ]);
 
     if (!user) {
-      return NextResponse.json({ error: "用户不存在" }, { status: 404 });
+      throw new NotFoundError("用户不存在");
     }
 
     const effectivePermissions = Array.from(
@@ -179,13 +180,13 @@ export async function PATCH(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const parsed = patchPermissionsSchema.safeParse(
         await request.json().catch(() => null),
       );
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
 
       // Prevent self-modification of permissions (privilege escalation).
       if (parsed.data.userId === session.userId) {
@@ -200,7 +201,7 @@ export async function PATCH(request: Request) {
         select: { id: true, username: true },
       });
       if (!targetUser) {
-        return NextResponse.json({ error: "用户不存在" }, { status: 404 });
+        throw new NotFoundError("用户不存在");
       }
 
       const roleKeys = Array.isArray(parsed.data.roleKeys)

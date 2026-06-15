@@ -11,6 +11,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { AuthError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const allowedScopes = new Set<string>(ALLOWED_API_TOKEN_SCOPES);
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
     { permission: "api-token:manage" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       return NextResponse.json({ tokens: await listApiTokens(session.userId) });
     },
   );
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const parsed = createTokenSchema.parse(await parseCreateBody(request));
       const scopes = validateScopes(parsed.scopes);
@@ -139,10 +140,10 @@ export async function DELETE(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const id = new URL(request.url).searchParams.get("id");
-      if (!id) return NextResponse.json({ error: "id 必填" }, { status: 400 });
+      if (!id) throw new ValidationError("id 必填");
       const token = await revokeApiToken({ userId: session.userId, id });
       auditUserAction(session.userId, "api_token.revoke", {
         tokenId: token.id,

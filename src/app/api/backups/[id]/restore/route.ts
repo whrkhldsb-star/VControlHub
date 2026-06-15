@@ -7,6 +7,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
+import { NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const body = await request.json().catch(() => ({}));
     const parsed = restoreBackupSchema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "恢复确认无效" }, { status: 400 });
+      throw new ValidationError(parsed.error.issues[0]?.message ?? "恢复确认无效");
     }
 
     try {
@@ -25,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ restore });
       }
       const backup = await getBackupRecord(id);
-      if (!backup) return NextResponse.json({ error: "备份记录不存在" }, { status: 404 });
+      if (!backup) throw new NotFoundError("备份记录不存在");
       const job = await enqueueJob({
         type: BACKUP_RESTORE_JOB_TYPE,
         title: "恢复备份",

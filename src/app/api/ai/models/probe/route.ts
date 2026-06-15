@@ -5,6 +5,7 @@ import { fetchModelsFromCredentials } from "@/lib/ai/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const probeModelsSchema = z.object({
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       const body = await request.json().catch(() => null);
       const parsed = probeModelsSchema.safeParse(body);
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
 
       const models = await fetchModelsFromCredentials(parsed.data);
       return NextResponse.json({ models });

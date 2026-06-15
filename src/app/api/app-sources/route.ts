@@ -14,6 +14,7 @@ import {
 import { listQuickServices } from "@/lib/quick-service/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
+import { AppError, ConflictError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /* ── GET /api/app-sources — list sources + remote apps ────────── */
@@ -114,9 +115,9 @@ export async function POST(request: Request) {
       onError: (error) => {
         const msg = error instanceof Error ? error.message : "添加源失败";
         if (msg.includes("Unique")) {
-          return NextResponse.json({ error: "源名称已存在" }, { status: 409 });
+          throw new ConflictError("源名称已存在");
         }
-        return NextResponse.json({ error: msg }, { status: 500 });
+        throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       },
     },
     async () => {
@@ -212,7 +213,7 @@ export async function DELETE(request: Request) {
       const { searchParams } = new URL(request.url);
       const sourceId = searchParams.get("sourceId");
       if (!sourceId)
-        return NextResponse.json({ error: "缺少 sourceId" }, { status: 400 });
+        throw new ValidationError("缺少 sourceId");
 
       await prisma.appSource.delete({ where: { id: sourceId } });
       return NextResponse.json({ ok: true });

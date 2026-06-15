@@ -22,6 +22,7 @@ import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 const publishSchema = z.object({
   storageNodeId: z.string().min(1),
   relativePath: z.string().min(1),
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
         await request.json().catch(() => null),
       );
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       const { storageNodeId, relativePath, filename, album } = parsed.data;
 
       // Verify the storage node exists and is accessible
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
         operation: "read",
       });
       if (!readAccess.allowed) {
-        return NextResponse.json({ error: readAccess.reason }, { status: 403 });
+        throw new ForbiddenError(readAccess.reason);
       }
 
       // Read file from storage after the exact storage path has been authorized.

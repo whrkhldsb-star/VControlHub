@@ -17,6 +17,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getRemoteApps, normalizedAppToTemplate } from "@/lib/quick-service/app-source-sync";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services — list catalog + installed + remote services */
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
 		},
 	}, async ({ session }) => {
 		const parsed = installSchema.safeParse(await request.json());
-		if (!parsed.success) return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+		if (!parsed.success) throw new ValidationError("输入参数无效");
 		const { slug, customPort } = parsed.data;
 
 		// First try local catalog
@@ -108,12 +109,12 @@ export async function POST(request: Request) {
 			}
 		}
 
-		if (!template) return NextResponse.json({ error: "未知服务" }, { status: 400 });
+		if (!template) throw new ValidationError("未知服务");
 
 		// Validate custom port if provided
 		if (customPort !== undefined) {
 			if (isNaN(customPort) || customPort < 1 || customPort > 65535) {
-				return NextResponse.json({ error: "端口号无效，请输入 1-65535 之间的数字" }, { status: 400 });
+				throw new ValidationError("端口号无效，请输入 1-65535 之间的数字");
 			}
 			const check = checkPort(customPort);
 			if (!check.available) {

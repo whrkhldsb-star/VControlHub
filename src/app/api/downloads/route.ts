@@ -35,6 +35,7 @@ import { enqueueDownloadExecutionJob } from "@/lib/downloads/execution-worker";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { AppError, AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 function taskTargetRelativePath(task: { targetPath: string | null; server?: { storageNode?: { basePath: string } | null } | null }) {
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const body = await request.json();
       const parsed = postDownloadSchema.safeParse(body);
       if (!parsed.success) {
@@ -225,7 +226,7 @@ export async function POST(request: Request) {
         include: { sshKey: true, storageNode: true },
       });
       if (!server)
-        return NextResponse.json({ error: "VPS 节点不存在" }, { status: 404 });
+        throw new NotFoundError("VPS 节点不存在");
       if (!server.storageNode) {
         return NextResponse.json(
           { error: "该 VPS 未绑定存储节点，无法创建下载任务" },
@@ -436,7 +437,7 @@ export async function GET(request: Request) {
     { permission: "storage:read", errorMessage: "获取下载任务失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const { searchParams } = new URL(request.url);
       const serverId = searchParams.get("serverId");
       const category = searchParams.get("category");
@@ -563,7 +564,7 @@ export async function PATCH(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const body = await request.json();
       const parsed = patchDownloadSchema.safeParse(body);
       if (!parsed.success) {
@@ -580,7 +581,7 @@ export async function PATCH(request: Request) {
       // Global speed limit
       if (globalMaxSpeedKb !== undefined) {
         if (!sessionHasPermission(session, "storage:manage-node")) {
-          return NextResponse.json({ error: "缺少全局下载限速管理权限" }, { status: 403 });
+          throw new ForbiddenError("缺少全局下载限速管理权限");
         }
         try {
           await ensureAria2Daemon();
@@ -598,16 +599,16 @@ export async function PATCH(request: Request) {
       }
 
       if (!taskId)
-        return NextResponse.json({ error: "缺少 taskId" }, { status: 400 });
+        throw new ValidationError("缺少 taskId");
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
         include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
-        return NextResponse.json({ error: "任务不存在" }, { status: 404 });
+        throw new NotFoundError("任务不存在");
       if (!(await canAccessDownloadTask({ session, task, operation: "write" }))) {
-        return NextResponse.json({ error: "没有该下载任务的控制权限" }, { status: 403 });
+        throw new ForbiddenError("没有该下载任务的控制权限");
       }
 
       // Per-task speed limit
@@ -624,7 +625,7 @@ export async function PATCH(request: Request) {
           return NextResponse.json({ success: true });
         } catch (err) {
           logError("[DownloadAPI] Per-task speed limit failed:", err);
-          return NextResponse.json({ error: "设置限速失败" }, { status: 500 });
+          throw new AppError({ code: "INTERNAL_ERROR", message: "设置限速失败", status: 500 });
         }
       }
 
@@ -787,7 +788,7 @@ export async function PATCH(request: Request) {
         });
       }
 
-      return NextResponse.json({ error: "未知操作" }, { status: 400 });
+      throw new ValidationError("未知操作");
     },
   );
 }
@@ -804,20 +805,20 @@ export async function DELETE(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const { searchParams } = new URL(request.url);
       const taskId = searchParams.get("taskId");
       if (!taskId)
-        return NextResponse.json({ error: "缺少 taskId" }, { status: 400 });
+        throw new ValidationError("缺少 taskId");
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
         include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
-        return NextResponse.json({ error: "任务不存在" }, { status: 404 });
+        throw new NotFoundError("任务不存在");
       if (!(await canAccessDownloadTask({ session, task, operation: "delete" }))) {
-        return NextResponse.json({ error: "没有该下载任务的取消权限" }, { status: 403 });
+        throw new ForbiddenError("没有该下载任务的取消权限");
       }
 
       // Purge: hard-delete a terminal-state task row from history.

@@ -40,9 +40,14 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/http/api-guard", () => ({
-  withApiRoute: vi.fn(async (_request, _options, handler) =>
-    handler({ session: { userId: "u_1", username: "admin", roles: ["admin"] } }),
-  ),
+  withApiRoute: vi.fn(async (_request, _options, handler) => {
+    try {
+      return await handler({ session: { userId: "u_1", username: "admin", roles: ["admin"] } });
+    } catch (e) {
+      const { apiCatch } = await import("@/lib/http/api-error");
+      return apiCatch(e);
+    }
+  }),
 }));
 
 vi.mock("@/lib/storage/access-control", () => ({

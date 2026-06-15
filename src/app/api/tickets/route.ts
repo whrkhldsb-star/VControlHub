@@ -5,6 +5,7 @@ import { addTicketComment, canViewTicket, createTicket, listTickets, updateTicke
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ForbiddenError, ValidationError } from "@/lib/errors";
 const ticketCreateSchema = z.object({
   subject: z.string().min(1).optional(),
   title: z.string().min(1).optional(),
@@ -57,17 +58,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     if (body && typeof body === "object" && "ticketId" in body) {
       const parsed = ticketCommentSchema.safeParse(body);
-      if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+      if (!parsed.success) throw new ValidationError("输入校验失败", parsed.error.flatten().fieldErrors);
       if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(parsed.data.ticketId, session.userId)))) {
-        return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+        throw new ForbiddenError("缺少权限");
       }
       return NextResponse.json({ comment: await addTicketComment({ ticketId: parsed.data.ticketId, authorId: session?.userId ?? "", body: parsed.data.body }) }, { status: 201 });
     }
     if (!session || !sessionHasPermission(session, "ticket:create")) {
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+      throw new ForbiddenError("缺少权限");
     }
     const parsed = ticketCreateSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+    if (!parsed.success) throw new ValidationError("输入校验失败", parsed.error.flatten().fieldErrors);
     const data = parsed.data;
     return NextResponse.json({ ticket: await createTicket({ title: data.subject ?? data.title ?? "", description: data.description, priority: normalizePriority(data.priority), createdBy: session?.userId ?? "" }) }, { status: 201 });
   });
@@ -77,7 +78,7 @@ export async function PATCH(request: Request) {
   return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT }, async () => {
     const body = await request.json();
     const parsed = ticketPatchSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: "输入校验失败", details: parsed.error.flatten().fieldErrors }, { status: 400 });
+    if (!parsed.success) throw new ValidationError("输入校验失败", parsed.error.flatten().fieldErrors);
     const data = parsed.data;
     return NextResponse.json({ ticket: await updateTicketStatus({ id: data.id, status: normalizeStatus(data.status), assigneeId: data.assigneeId, priority: normalizePriority(data.priority) }) });
   });

@@ -8,6 +8,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { AuthError } from "@/lib/errors";
 const deployExportPostSchema = z.object({
   // Legacy clients may still send these fields; the current export service only
   // needs domain/appName, so keep them optional instead of blocking the UI.
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     { permission: "deploy:export", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const body = await request.json().catch(() => ({}));
       const parsed = deployExportPostSchema.safeParse(body);

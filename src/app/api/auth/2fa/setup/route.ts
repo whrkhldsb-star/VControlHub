@@ -11,6 +11,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ValidationError } from "@/lib/errors";
 const setupSchema = z.object({
   code: z.string().min(1),
   secret: z.string().min(1),
@@ -76,7 +77,7 @@ export async function PUT(request: Request) {
         await request.json().catch(() => null),
       );
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       const { code, secret } = parsed.data;
       const valid = verifyTOTP({ token: code, secret });
       return NextResponse.json({ valid });

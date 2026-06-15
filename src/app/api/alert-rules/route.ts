@@ -15,6 +15,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
+import { AuthError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const metrics = [
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       try {
         const input = alertRuleSchema.parse(await parseBody(request));
         const rule = await createAlertRule(input);
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ rule }, { status: 201 });
       } catch (err) {
         const message = err instanceof Error ? err.message : "创建失败";
-        return NextResponse.json({ error: message }, { status: 400 });
+        throw new ValidationError(message);
       }
     },
   );
@@ -177,7 +178,7 @@ export async function PATCH(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       try {
         const body = await request.json().catch(() => null);
         if (body?.toggleId) {
@@ -208,7 +209,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ rule: result });
       } catch (err) {
         const message = err instanceof Error ? err.message : "更新失败";
-        return NextResponse.json({ error: message }, { status: 400 });
+        throw new ValidationError(message);
       }
     },
   );
@@ -220,18 +221,18 @@ export async function DELETE(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         if (!id)
-          return NextResponse.json({ error: "缺少规则 ID" }, { status: 400 });
+          throw new ValidationError("缺少规则 ID");
         await deleteAlertRule(id);
         auditUserAction(session.userId, "alert_rule.delete", { ruleId: id });
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "删除失败";
-        return NextResponse.json({ error: message }, { status: 400 });
+        throw new ValidationError(message);
       }
     },
   );
@@ -243,7 +244,7 @@ export async function PUT(request: Request) {
     { permission: "notification:manage", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       try {
         await evaluateAlerts();
         auditUserAction(session.userId, "alert_rule.evaluate", {
@@ -252,7 +253,7 @@ export async function PUT(request: Request) {
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "检测失败";
-        return NextResponse.json({ error: message }, { status: 400 });
+        throw new ValidationError(message);
       }
     },
   );

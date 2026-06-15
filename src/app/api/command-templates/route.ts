@@ -5,6 +5,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const postSchema = z.object({
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
 		const rawBody = await request.json();
 		const parsed = postSchema.safeParse(rawBody);
 		if (!parsed.success) {
-			return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+			throw new ValidationError("输入参数无效");
 		}
 		const body = parsed.data;
 		const template = await createTemplate({
@@ -72,7 +73,7 @@ export async function PATCH(request: Request) {
 		const rawBody = await request.json();
 		const parsed = patchSchema.safeParse(rawBody);
 		if (!parsed.success) {
-			return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+			throw new ValidationError("输入参数无效");
 		}
 		const { id, ...updates } = parsed.data;
 		const result = await updateTemplate(id, updates);
@@ -85,7 +86,7 @@ export async function DELETE(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "删除失败" }, async ({ session }) => {
 		const { searchParams } = new URL(request.url);
 		const id = searchParams.get("id");
-		if (!id) return NextResponse.json({ error: "缺少模板 ID" }, { status: 400 });
+		if (!id) throw new ValidationError("缺少模板 ID");
 		const deleted = await deleteTemplate(id);
 		auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted));
 		return NextResponse.json({ success: true });

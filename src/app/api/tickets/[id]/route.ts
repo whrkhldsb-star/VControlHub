@@ -6,6 +6,7 @@ import { canViewTicket, getTicketById, updateTicketStatus, addTicketComment } fr
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /**
@@ -35,10 +36,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return withApiRoute(_request, { requireAuth: true }, async ({ session }) => {
     const { id } = await params;
     if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
-      return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+      throw new ForbiddenError("缺少权限");
     }
     const ticket = await getTicketById(id);
-    if (!ticket) return NextResponse.json({ error: "工单不存在" }, { status: 404 });
+    if (!ticket) throw new NotFoundError("工单不存在");
     return NextResponse.json({ ticket });
   });
 }
@@ -65,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     async ({ session, body }) => {
       const { id } = await params;
       if (!session || (!sessionHasPermission(session, "ticket:manage") && !(await canViewTicket(id, session.userId)))) {
-        return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+        throw new ForbiddenError("缺少权限");
       }
       const comment = await addTicketComment({ ticketId: id, authorId: session.userId, body: body.body });
       return NextResponse.json({ comment }, { status: 201 });

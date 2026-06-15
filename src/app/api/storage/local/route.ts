@@ -24,6 +24,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
+import { AuthError, ValidationError } from "@/lib/errors";
 type UploadLike = {
   arrayBuffer(): Promise<ArrayBuffer>;
   name?: string;
@@ -90,7 +91,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   const download = url.searchParams.get("download") === "1";
 
   if (!relativePath) {
-    return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
+    throw new ValidationError("缺少 path 参数");
   }
 
   const normalizedDownloadPath = normalizeStorageRelativePath(relativePath);
@@ -220,7 +221,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   }
 
   if (!isUploadLike(file)) {
-    return NextResponse.json({ error: "缺少上传文件" }, { status: 400 });
+    throw new ValidationError("缺少上传文件");
   }
 
   const declaredFileSize =
@@ -454,7 +455,7 @@ export async function GET(request: Request) {
     { permission: "storage:read", errorMessage: "读取本机文件失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       return handleGet(request, session);
     },
   );
@@ -470,7 +471,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       return handlePost(request, session);
     },
   );

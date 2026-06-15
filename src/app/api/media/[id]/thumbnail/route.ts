@@ -18,6 +18,7 @@ import { expandStorageBasePath, normalizeStorageRelativePath } from "@/lib/stora
 import { normalizeRemoteRelativePath, normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
+import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:media:thumbnail");
@@ -184,18 +185,18 @@ function readRemoteIntoBuffer(client: Client, remotePath: string, maxBytes: numb
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
 	const session = await requireSession("/media");
 	if (!sessionHasPermission(session, "storage:read")) {
-		return NextResponse.json({ error: "缺少存储读取权限" }, { status: 403 });
+		return apiError({ code: "FORBIDDEN", message: "缺少存储读取权限", status: 403 });
 	}
 
 	const { id } = await params;
 	const item = await getMediaItem(id);
-	if (!item || !item.storageNode) return NextResponse.json({ error: "媒体不存在" }, { status: 404 });
+	if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "媒体不存在", status: 404 });
 
 	const mime = (item.mimeType ?? "").toLowerCase();
 	if (!mime.startsWith(SUPPORTED_IMAGE_MIME_PREFIX)) {
 		// Tell the client we don't have a thumbnail; the UI then falls back to the
 		// generic kind icon (and avoids hammering /stream for big videos).
-		return NextResponse.json({ error: "该媒体类型暂不支持缩略图" }, { status: 415 });
+		return apiError({ code: "UNSUPPORTED_MEDIA_TYPE", message: "该媒体类型暂不支持缩略图", status: 415 });
 	}
 
 	const accessDecision = await assertStorageAccess({
@@ -205,7 +206,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 		operation: "read",
 	});
 	if (!accessDecision.allowed) {
-		return NextResponse.json({ error: accessDecision.reason ?? "缺少存储访问授权" }, { status: 403 });
+		return apiError({ code: "FORBIDDEN", message: accessDecision.reason ?? "缺少存储访问授权", status: 403 });
 	}
 
 	const cacheRoot = thumbnailCacheRoot();
@@ -261,14 +262,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 				operation: "read",
 			});
 			if (!remoteAccess.allowed) {
-				return NextResponse.json({ error: remoteAccess.reason ?? "缺少存储访问授权" }, { status: 403 });
+				return apiError({ code: "FORBIDDEN", message: remoteAccess.reason ?? "缺少存储访问授权", status: 403 });
 			}
 			const credentials = (() => {
 				try { return resolveStorageSshCredentials(node); }
 				catch (e) { return e instanceof Error ? e : new Error("缺少远端主机地址或连接凭据"); }
 			})();
 			if (credentials instanceof Error) {
-				return NextResponse.json({ error: credentials.message }, { status: 400 });
+				return apiError({ code: "VALIDATION_FAILED", message: credentials.message, status: 400 });
 			}
 			const client = await connectSsh({
 				host: credentials.host,
@@ -291,7 +292,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "未知错误";
 		if (message === "THUMBNAIL_SOURCE_TOO_LARGE") {
-			return NextResponse.json({ error: "原始图片过大，无法生成缩略图" }, { status: 413 });
+			return apiError({ code: "REQUEST_ENTITY_TOO_LARGE", message: "原始图片过大，无法生成缩略图", status: 413 });
 		}
 		// SFTP / SSH transport failures trip the circuit breaker — the next
 		// gallery render won't try this node again until the cooldown elapses.
@@ -310,7 +311,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 		thumbnail = await generateThumbnailFromBuffer(sourceBuffer);
 	} catch (error) {
 		logger.error("media thumbnail generate failed", error, { id });
-		return NextResponse.json({ error: "缩略图生成失败" }, { status: 500 });
+		return apiError({ code: "INTERNAL_ERROR", message: "缩略图生成失败", status: 500 });
 	}
 
 	try {

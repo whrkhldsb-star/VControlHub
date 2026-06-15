@@ -12,6 +12,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { defaultUserPreferences, normalizeUserPreferences } from "@/lib/preferences/user-preferences";
 
+import { AuthError, ValidationError } from "@/lib/errors";
 const prefsSchema = z.object({
   defaultPage: z.string().optional(),
   dashboardWidgets: z.array(z.string()).optional(),
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     { requireAuth: true, errorMessage: "获取偏好设置失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
@@ -59,13 +60,13 @@ export async function PUT(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const parsed = prefsSchema.safeParse(
         await request.json().catch(() => null),
       );
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
 
       const prefs = normalizeUserPreferences(parsed.data);
 

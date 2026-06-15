@@ -18,6 +18,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 
+import { AuthError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:docker:containers");
 
 const containerActionSchema = z.object({
@@ -211,13 +212,13 @@ export async function POST(req: NextRequest) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const parsed = containerActionSchema.safeParse(
         await req.json().catch(() => null),
       );
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       const { id, action } = parsed.data;
 
       // Validate container ID to prevent path traversal

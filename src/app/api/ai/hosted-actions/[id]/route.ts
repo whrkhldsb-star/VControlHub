@@ -14,6 +14,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { AuthError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function PATCH(
@@ -31,14 +32,14 @@ export async function PATCH(
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const { id } = await params;
 
       let body: { action: "approve" | "reject"; reason?: string };
       try {
         body = await request.json();
       } catch {
-        return NextResponse.json({ error: "无效请求" }, { status: 400 });
+        throw new ValidationError("无效请求");
       }
 
       if (body.action === "approve") {

@@ -13,6 +13,7 @@ import {
 import { createLogger } from "@/lib/logging";
 import { withApiRoute } from "@/lib/http/api-guard";
 
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp");
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   const remotePath = url.searchParams.get("path") ?? "/";
 
   if (!nodeId) {
-    return NextResponse.json({ error: "缺少 nodeId 参数" }, { status: 400 });
+    throw new ValidationError("缺少 nodeId 参数");
   }
 
   const node = await prisma.storageNode.findUnique({
@@ -56,7 +57,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   });
 
   if (!node) {
-    return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+    throw new NotFoundError("存储节点不存在");
   }
 
   if (node.driver !== "SFTP") {
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
     { permission: "storage:read", errorMessage: "列出远端目录失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       return handleGet(request, session);
     },
   );

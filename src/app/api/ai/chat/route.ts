@@ -9,6 +9,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
 import { getOpenAIToolsFormat } from "@/lib/ai/hosted-tools";
+import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   parseToolCall,
   createHostedAction,
@@ -75,23 +76,23 @@ export async function POST(request: Request) {
       try {
         body = await request.json();
       } catch {
-        return NextResponse.json({ error: "无效请求" }, { status: 400 });
+        throw new ValidationError("无效请求");
       }
 
       const parsed = chatSchema.safeParse(body);
       if (!parsed.success) {
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       }
 
       if (!body.conversationId || !body.content?.trim()) {
-        return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
+        throw new ValidationError("缺少必要参数");
       }
 
       let conv: Awaited<ReturnType<typeof getConversationById>>;
       try {
         conv = await getConversationById(body.conversationId, session.userId);
       } catch {
-        return NextResponse.json({ error: "对话不存在" }, { status: 404 });
+        throw new NotFoundError("对话不存在");
       }
 
       const provider = conv.provider;
@@ -247,7 +248,7 @@ export async function POST(request: Request) {
           );
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : "AI 请求失败";
-          return NextResponse.json({ error: msg }, { status: 502 });
+          throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
         }
 
         // ── 第一轮：流式返回给客户端，同时检测 tool_calls ───────────
@@ -572,7 +573,7 @@ export async function POST(request: Request) {
       }
 
       // Fallback (should not reach here)
-      return NextResponse.json({ error: "意外错误" }, { status: 500 });
+      throw new AppError({ code: "INTERNAL_ERROR", message: "意外错误", status: 500 });
     },
   );
 }

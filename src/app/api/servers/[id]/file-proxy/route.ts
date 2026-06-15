@@ -12,6 +12,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { randomUUID } from "crypto";
+import { AppError, NotFoundError } from "@/lib/errors";
 import {
   withRateLimit,
   rateLimitResponse,
@@ -117,7 +118,7 @@ export async function GET(
       });
 
       if (!server) {
-        return NextResponse.json({ error: "服务器不存在" }, { status: 404 });
+        throw new NotFoundError("服务器不存在");
       }
 
       const proxy = await prisma.serverFileProxy.findUnique({
@@ -217,7 +218,7 @@ export async function POST(
         });
 
         if (!server) {
-          return NextResponse.json({ error: "服务器不存在" }, { status: 404 });
+          throw new NotFoundError("服务器不存在");
         }
 
         if (!server.publicUrl) {
@@ -364,7 +365,7 @@ export async function POST(
         });
       } catch (error) {
         const msg = error instanceof Error ? error.message : "操作失败";
-        return NextResponse.json({ error: msg }, { status: 500 });
+        throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       }
     },
   );
@@ -432,7 +433,7 @@ export async function DELETE(
         return NextResponse.json({ status: "stopped" });
       } catch (error) {
         const msg = error instanceof Error ? error.message : "操作失败";
-        return NextResponse.json({ error: msg }, { status: 500 });
+        throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       }
     },
   );

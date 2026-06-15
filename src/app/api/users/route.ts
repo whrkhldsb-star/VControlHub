@@ -8,6 +8,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 
+import { NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /** GET: List all users with their roles */
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const passwordPolicyError = await validatePasswordPolicy(body.password);
       if (passwordPolicyError) {
-        return NextResponse.json({ error: passwordPolicyError }, { status: 400 });
+        throw new ValidationError(passwordPolicyError);
       }
       const username = body.username;
       const displayName = body.displayName ?? null;
@@ -127,11 +128,11 @@ export async function PATCH(request: Request) {
         where: { id: userId },
       });
       if (!targetUser) {
-        return NextResponse.json({ error: "用户不存在" }, { status: 404 });
+        throw new NotFoundError("用户不存在");
       }
 
       if (userId === session!.userId && userAction === "disable") {
-        return NextResponse.json({ error: "不能禁用自己" }, { status: 400 });
+        throw new ValidationError("不能禁用自己");
       }
 
       if (userAction === "disable") {
@@ -153,7 +154,7 @@ export async function PATCH(request: Request) {
       } else if (userAction === "reset_password" && newPassword) {
         const resetPolicyError = await validatePasswordPolicy(newPassword);
         if (resetPolicyError) {
-          return NextResponse.json({ error: resetPolicyError }, { status: 400 });
+          throw new ValidationError(resetPolicyError);
         }
         const passwordHash = await hashPassword(newPassword);
         await prisma.user.update({

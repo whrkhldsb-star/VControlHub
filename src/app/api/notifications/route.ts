@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { AuthError, ValidationError } from "@/lib/errors";
 import {
   deleteNotification,
   getUnreadCount,
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
     { requireAuth: true, errorMessage: "获取通知失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const [notifications, unreadCount] = await Promise.all([
         listUserNotifications(session.userId, { limit: 50 }),
         getUnreadCount(session.userId),
@@ -52,7 +53,7 @@ export async function PATCH(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const body = await request.json().catch(() => null);
 
       // Legacy format support
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const rawBody = await request.json().catch(() => null);
       const parsed = postSchema.safeParse(rawBody);
       if (!parsed.success)
@@ -140,11 +141,11 @@ export async function DELETE(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const { searchParams } = new URL(request.url);
       const notificationId = searchParams.get("id");
       if (!notificationId)
-        return NextResponse.json({ error: "缺少通知 ID" }, { status: 400 });
+        throw new ValidationError("缺少通知 ID");
       await deleteNotification(notificationId, session.userId);
       return NextResponse.json({ success: true });
     },

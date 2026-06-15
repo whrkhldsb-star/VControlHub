@@ -10,6 +10,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { AppError, isAppError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const createDeploymentSchema = z.object({
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
           const message = parsed.error.issues[0]?.message ?? "部署参数无效";
           if (wantsHtmlResponse(request))
             return redirectToDeploymentsWithError(request, message);
-          return NextResponse.json({ error: message }, { status: 400 });
+          throw new ValidationError(message);
         }
         const deployment = await createDeploymentRunFromTemplate({
           ...parsed.data,
@@ -114,10 +115,15 @@ export async function POST(request: Request) {
         }
         return NextResponse.json({ deployment }, { status: 201 });
       } catch (error) {
+        // Re-throw typed AppErrors (e.g. ValidationError) so `withApiRoute`'s
+        // `apiCatch` envelope preserves their `code` / `status` / `details`.
+        // Only opaque errors (plain Error / unknown) get wrapped into a
+        // generic INTERNAL_ERROR 500. TR-034 R2.
+        if (isAppError(error)) throw error;
         const message = error instanceof Error ? error.message : "操作失败";
         if (wantsHtmlResponse(request))
           return redirectToDeploymentsWithError(request, message);
-        return NextResponse.json({ error: message }, { status: 500 });
+        throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
     },
   );

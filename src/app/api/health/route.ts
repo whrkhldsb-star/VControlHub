@@ -8,6 +8,7 @@ import {
 } from "@/lib/health/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 
+import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 function parseHistoryHours(value: string | null) {
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   if (hasBearerHeader) {
     const tokenAuth = await verifyBearerToken(request, "health:read");
     if (!tokenAuth)
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
+      return apiError({ code: "AUTH_REQUIRED", message: "未认证", status: 401 });
     return handleHealthRequest(request);
   }
 

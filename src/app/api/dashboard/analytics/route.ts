@@ -7,6 +7,7 @@ import { getApiSession } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 
+import { apiError } from "@/lib/http/api-error";
 const logger = createLogger("api:dashboard:analytics");
 
 export const dynamic = "force-dynamic";
@@ -156,6 +157,6 @@ export async function GET(request: Request) {
     return NextResponse.json(results);
   } catch (error) {
     logger.error("[dashboard/analytics]", error);
-    return NextResponse.json({ error: "获取分析数据失败" }, { status: 500 });
+    return apiError({ code: "INTERNAL_ERROR", message: "获取分析数据失败", status: 500 });
   }
 }

@@ -11,6 +11,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const updateConversationSchema = z.object({
@@ -69,7 +70,7 @@ export async function PATCH(
       const body = await request.json().catch(() => null);
       const parsed = updateConversationSchema.safeParse(body);
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
 
       // Special action: clear all messages in the conversation
       if (parsed.data.clearMessages) {

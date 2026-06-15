@@ -6,6 +6,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { auditUserAction } from "@/lib/audit/service";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   return withApiRoute(request, { permission: "command:create", rateLimit: COMMAND_LIMIT }, async ({ session }) => {
     const json = await request.json().catch(() => null);
     const parsed = createCommandSchema.safeParse({ ...json, requesterId: session!.userId, submissionMode: json?.submissionMode ?? "user" });
-    if (!parsed.success) return NextResponse.json({ error: "请求参数无效", issues: parsed.error.flatten() }, { status: 400 });
+    if (!parsed.success) throw new ValidationError("请求参数无效", parsed.error.flatten());
     if (parsed.data.submissionMode === "user" && !sessionHasPermission(session!, "command:execute")) {
       parsed.data.submissionMode = "assistant";
     }
@@ -42,7 +43,7 @@ export async function PATCH(request: Request) {
     const action = String(json?.action ?? "");
     const commandRequestId = String(json?.commandRequestId ?? json?.id ?? "");
     if (action !== "cancel" || !commandRequestId) {
-      return NextResponse.json({ error: "请求参数无效" }, { status: 400 });
+      throw new ValidationError("请求参数无效");
     }
 
     const command = await cancelCommandRequest({

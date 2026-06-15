@@ -20,6 +20,7 @@ import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/li
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:storage:archive-download");
@@ -89,7 +90,7 @@ async function findDirectoryEntry(nodeId: string, relativePath: string) {
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "storage:read" }, async ({ session }) => {
     if (!session) {
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
+      throw new AuthError("未认证");
     }
 
     const url = new URL(request.url);
@@ -97,23 +98,23 @@ export async function GET(request: Request) {
     const requestedPath = url.searchParams.get("path");
 
     if (!nodeId) {
-      return NextResponse.json({ error: "缺少 nodeId 参数" }, { status: 400 });
+      throw new ValidationError("缺少 nodeId 参数");
     }
     if (!requestedPath) {
-      return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
+      throw new ValidationError("缺少 path 参数");
     }
 
     const normalizedPath = normalizeStorageRelativePath(requestedPath);
     if (!normalizedPath.ok) {
-      return NextResponse.json({ error: normalizedPath.reason }, { status: 400 });
+      throw new ValidationError(normalizedPath.reason);
     }
 
     const entry = await findDirectoryEntry(nodeId, normalizedPath.path);
     if (!entry) {
-      return NextResponse.json({ error: "目录条目不存在" }, { status: 404 });
+      throw new NotFoundError("目录条目不存在");
     }
     if (!isDirectoryEntry(entry)) {
-      return NextResponse.json({ error: "目标不是目录" }, { status: 400 });
+      throw new ValidationError("目标不是目录");
     }
 
     const accessDecision = await assertStorageAccess({
@@ -134,18 +135,18 @@ export async function GET(request: Request) {
     if (entry.storageNode.driver === "LOCAL") {
       const resolved = resolveStoragePathWithinBase(entry.storageNode.basePath, entry.relativePath);
       if (!resolved.ok) {
-        return NextResponse.json({ error: resolved.reason }, { status: 400 });
+        throw new ValidationError(resolved.reason);
       }
       const directoryStat = await stat(resolved.path).catch(() => null);
       if (!directoryStat?.isDirectory()) {
-        return NextResponse.json({ error: "本机目录不存在或不可读取" }, { status: 404 });
+        throw new NotFoundError("本机目录不存在或不可读取");
       }
       const stream = streamLocalTarGz(resolved.path, path.basename(resolved.path));
       return archiveStreamResponse(stream, archiveName);
     }
 
     if (entry.storageNode.driver !== "SFTP") {
-      return NextResponse.json({ error: "该存储节点暂不支持目录下载" }, { status: 400 });
+      throw new ValidationError("该存储节点暂不支持目录下载");
     }
 
     const credentials = (() => {
@@ -156,7 +157,7 @@ export async function GET(request: Request) {
       }
     })();
     if (credentials instanceof Error) {
-      return NextResponse.json({ error: credentials.message }, { status: 400 });
+      throw new ValidationError(credentials.message);
     }
 
     let client: Client | null = null;

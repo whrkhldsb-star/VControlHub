@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { AuthError, ValidationError } from "@/lib/errors";
 import {
   createScheduledTask,
   deleteScheduledTask,
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const body = await request.json().catch(() => null);
       const parsed = scheduledTaskPostSchema.safeParse(body);
       if (!parsed.success)
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       const data = parsed.data;
       const cronExpression = data.cronExpression ?? data.cron;
       if (!cronExpression)
-        return NextResponse.json({ error: "Cron 表达式不能为空" }, { status: 400 });
+        throw new ValidationError("Cron 表达式不能为空");
       const task = await createScheduledTask({
         name: data.name,
         cronExpression,
@@ -153,7 +154,7 @@ export async function PATCH(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const body = await request.json().catch(() => null);
       const parsed = scheduledTaskPatchSchema.safeParse(body);
       if (!parsed.success)
@@ -184,7 +185,7 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ task: result });
       }
       if (!data.id)
-        return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
+        throw new ValidationError("缺少任务 ID");
       const result = await updateScheduledTask(data.id, {
         name: data.name,
         cronExpression: data.cronExpression ?? data.cron,
@@ -214,11 +215,11 @@ export async function DELETE(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const { searchParams } = new URL(request.url);
       const id = searchParams.get("id");
       if (!id)
-        return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
+        throw new ValidationError("缺少任务 ID");
       const deleted = await deleteScheduledTask(id);
       auditUserAction(
         session.userId,

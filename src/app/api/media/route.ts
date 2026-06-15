@@ -4,6 +4,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
 
+import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       return NextResponse.json(await scanMediaFromFileEntries(session.userId));
     },
   );

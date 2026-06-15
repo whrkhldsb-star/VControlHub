@@ -11,6 +11,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
 import { createFileEntry } from "@/lib/storage/service";
 
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
@@ -39,18 +40,18 @@ export async function POST(request: NextRequest) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未授权" }, { status: 401 });
+        throw new AuthError("未授权");
 
       let rawBody: unknown;
       try {
         rawBody = await request.json();
       } catch {
-        return NextResponse.json({ error: "无效请求体" }, { status: 400 });
+        throw new ValidationError("无效请求体");
       }
 
       const parsed = postSchema.safeParse(rawBody);
       if (!parsed.success) {
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       }
 
       const body = parsed.data;
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!nodeId || !relativePath) {
-        return NextResponse.json({ error: "缺少必要参数" }, { status: 400 });
+        throw new ValidationError("缺少必要参数");
       }
 
       const node = await prisma.storageNode.findUnique({
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {
-        return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+        throw new NotFoundError("存储节点不存在");
       }
 
       const resolvedPath = resolveStoragePathWithinBase(
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
       try {
         await fs.access(fullPath);
       } catch {
-        return NextResponse.json({ error: "文件不存在" }, { status: 404 });
+        throw new NotFoundError("文件不存在");
       }
 
       const lowerName = name.toLowerCase();

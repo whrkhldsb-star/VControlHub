@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 
+import { NotFoundError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
@@ -34,7 +35,7 @@ export async function PATCH(
 
       const existing = await prisma.mediaItem.findUnique({ where: { id } });
       if (!existing)
-        return NextResponse.json({ error: "媒体不存在" }, { status: 404 });
+        throw new NotFoundError("媒体不存在");
 
       const data: Record<string, unknown> = {};
       if (parsed.data.favorite !== undefined)

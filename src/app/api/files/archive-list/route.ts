@@ -10,6 +10,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
 
+import { AppError, AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const execFileAsync = promisify(execFile);
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     { permission: "storage:read", errorMessage: "读取压缩包失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未授权" }, { status: 401 });
+        throw new AuthError("未授权");
       const { searchParams } = request.nextUrl;
       const nodeId = searchParams.get("nodeId") ?? "";
       const relativePath = (searchParams.get("relativePath") ?? "").replace(
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (!relativePath) {
-        return NextResponse.json({ error: "缺少文件路径" }, { status: 400 });
+        throw new ValidationError("缺少文件路径");
       }
 
       const node = await prisma.storageNode.findUnique({
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
         select: { id: true, name: true, driver: true, basePath: true },
       });
       if (!node) {
-        return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+        throw new NotFoundError("存储节点不存在");
       }
 
       const resolvedPath = resolveStoragePathWithinBase(
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ entries });
       } catch (err) {
         const message = err instanceof Error ? err.message : "读取压缩包失败";
-        return NextResponse.json({ error: message }, { status: 500 });
+        throw new AppError({ code: "INTERNAL_ERROR", message: message, status: 500 });
       }
     },
   );

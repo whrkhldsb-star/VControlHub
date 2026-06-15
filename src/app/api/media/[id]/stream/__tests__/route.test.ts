@@ -110,7 +110,11 @@ describe("media stream route", () => {
     });
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "no grant" });
+    expect(await response.json()).toEqual({
+      code: "FORBIDDEN",
+      message: "no grant",
+      error: "no grant",
+    });
   });
 
   it("rejects traversal-like media paths before touching local storage", async () => {

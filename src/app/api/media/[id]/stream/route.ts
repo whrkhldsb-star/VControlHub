@@ -15,6 +15,7 @@ import { normalizeRemoteRelativePath, normalizeRemoteTargetPath, toClientStorage
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
+import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 const logger = createLogger("api:media:stream");
@@ -57,14 +58,14 @@ function openSftpStream(client: Client, remotePath: string, rangeHeader: string 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession("/media");
   if (!sessionHasPermission(session, "storage:read")) {
-    return NextResponse.json({ error: "缺少存储读取权限" }, { status: 403 });
+    return apiError({ code: "FORBIDDEN", message: "缺少存储读取权限", status: 403 });
   }
 
   const { id } = await params;
   const url = new URL(request.url);
   const download = url.searchParams.get("download") === "1";
   const item = await getMediaItem(id);
-  if (!item || !item.storageNode) return NextResponse.json({ error: "媒体不存在" }, { status: 404 });
+  if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "媒体不存在", status: 404 });
 
   const node = item.storageNode;
   const accessDecision = await assertStorageAccess({
@@ -74,7 +75,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     operation: "read",
   });
   if (!accessDecision.allowed) {
-    return NextResponse.json({ error: accessDecision.reason ?? "缺少存储访问授权" }, { status: 403 });
+    return apiError({ code: "FORBIDDEN", message: accessDecision.reason ?? "缺少存储访问授权", status: 403 });
   }
 
   if (node.driver === "LOCAL") {
@@ -82,7 +83,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     try {
       ({ absolutePath: localPath } = resolveManagedLocalPath(node.basePath, item.relativePath));
       const fileStat = await stat(localPath);
-      if (!fileStat.isFile()) return NextResponse.json({ error: "目标不是可播放文件" }, { status: 400 });
+      if (!fileStat.isFile()) return apiError({ code: "VALIDATION_FAILED", message: "目标不是可播放文件", status: 400 });
       const range = parseStorageRange(request.headers.get("range"), fileStat.size);
       if (range instanceof Response) return range;
       const stream = createReadStream(localPath, { start: range.start, end: range.end });
@@ -96,12 +97,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       });
     } catch (error) {
       logger.error("read local media stream failed", error, { id });
-      return NextResponse.json({ error: "文件不存在或暂时无法读取" }, { status: 404 });
+      return apiError({ code: "NOT_FOUND", message: "文件不存在或暂时无法读取", status: 404 });
     }
   }
 
   if (node.driver !== "SFTP") {
-    return NextResponse.json({ error: "该存储节点暂不支持媒体流播放" }, { status: 400 });
+    return apiError({ code: "VALIDATION_FAILED", message: "该存储节点暂不支持媒体流播放", status: 400 });
   }
 
   let normalizedRemotePath: string;
@@ -120,7 +121,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     operation: "read",
   });
   if (!remoteAccess.allowed) {
-    return NextResponse.json({ error: remoteAccess.reason ?? "缺少存储访问授权" }, { status: 403 });
+    return apiError({ code: "FORBIDDEN", message: remoteAccess.reason ?? "缺少存储访问授权", status: 403 });
   }
 
   const connectionCredentials = (() => {
@@ -131,7 +132,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
   })();
   if (connectionCredentials instanceof Error) {
-    return NextResponse.json({ error: connectionCredentials.message }, { status: 400 });
+    return apiError({ code: "VALIDATION_FAILED", message: connectionCredentials.message, status: 400 });
   }
 
   let client: Client | null = null;

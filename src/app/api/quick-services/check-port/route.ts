@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
 
+import { AppError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /** GET /api/quick-services/check-port?port=XXX — real-time port availability check */
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
 				return NextResponse.json({ port, available: true });
 			} catch (err) {
 				const msg = err instanceof Error ? err.message : "分配失败";
-				return NextResponse.json({ error: msg }, { status: 503 });
+				throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
 			}
 		}
 
@@ -31,11 +32,11 @@ export async function GET(request: Request) {
 
 		// Default: check a specific port
 		if (!portStr) {
-			return NextResponse.json({ error: "请提供 port 参数" }, { status: 400 });
+			throw new ValidationError("请提供 port 参数");
 		}
 		const port = Number(portStr);
 		if (isNaN(port) || port < 1 || port > 65535) {
-			return NextResponse.json({ error: "端口号无效" }, { status: 400 });
+			throw new ValidationError("端口号无效");
 		}
 
 		const result = checkPort(port);

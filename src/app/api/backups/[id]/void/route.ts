@@ -5,6 +5,7 @@ import { voidBackupRecord } from "@/lib/backup/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +13,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const body = await request.json().catch(() => ({}));
     const parsed = voidBackupSchema.safeParse(body);
-    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "作废参数无效" }, { status: 400 });
+    if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "作废参数无效");
     const backup = await voidBackupRecord({ id, reason: parsed.data.reason });
     return NextResponse.json({ backup });
   });

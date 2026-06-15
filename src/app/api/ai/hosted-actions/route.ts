@@ -8,12 +8,13 @@ import { NextResponse } from "next/server";
 import { getPendingActions } from "@/lib/ai/hosted-service";
 import { withApiRoute } from "@/lib/http/api-guard";
 
+import { AuthError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { requireAuth: true }, async ({ session }) => {
     if (!session)
-      return NextResponse.json({ error: "未认证" }, { status: 401 });
+      throw new AuthError("未认证");
     const actions = await getPendingActions(session.userId);
     return NextResponse.json({ actions });
   });

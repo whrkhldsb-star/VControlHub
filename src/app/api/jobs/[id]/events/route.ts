@@ -4,6 +4,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { prisma } from "@/lib/db";
 import { listJobEvents } from "@/lib/job/events";
 
+import { NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_LIMIT = 100;
@@ -27,11 +28,11 @@ export async function GET(
       const { id: rawId } = await params;
       const id = rawId?.trim();
       if (!id) {
-        return NextResponse.json({ error: "缺少任务 ID" }, { status: 400 });
+        throw new ValidationError("缺少任务 ID");
       }
       const job = await prisma.job.findUnique({ where: { id }, select: { id: true } });
       if (!job) {
-        return NextResponse.json({ error: "任务不存在" }, { status: 404 });
+        throw new NotFoundError("任务不存在");
       }
       const { searchParams } = new URL(request.url);
       const limit = parseLimit(searchParams.get("limit"));

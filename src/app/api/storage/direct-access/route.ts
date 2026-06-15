@@ -11,6 +11,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
+import { AuthError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
   normalizeRemoteTargetPath,
   normalizeRemoteRelativePath,
@@ -126,7 +127,7 @@ async function resolveDirectAccessPayload(input: {
   });
 
   if (!node) {
-    return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+    throw new NotFoundError("存储节点不存在");
   }
 
   let normalizedRelativePath: string;
@@ -148,7 +149,7 @@ async function resolveDirectAccessPayload(input: {
     operation: "read",
   });
   if (!access.allowed) {
-    return NextResponse.json({ error: access.reason }, { status: 403 });
+    throw new ForbiddenError(access.reason);
   }
 
   if (node.driver !== "SFTP") {
@@ -209,7 +210,7 @@ export async function GET(request: Request) {
     { permission: "storage:read" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const parsed = parseDirectAccessQuery(request);
       if (!parsed.success)
         return NextResponse.json(
@@ -243,7 +244,7 @@ export async function POST(request: Request) {
     { permission: "storage:read", rateLimit: UPLOAD_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       const parsed = parseDirectAccessJson(await request.json());
       if (!parsed.success)
         return NextResponse.json(

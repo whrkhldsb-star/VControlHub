@@ -10,6 +10,7 @@ import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { ValidationError } from "@/lib/errors";
 const disableSchema = z.object({ code: z.string().min(1) });
 
 export async function POST(request: Request) {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
         await request.json().catch(() => null),
       );
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       const { code } = parsed.data;
 
       const user = await prisma.user.findUnique({
@@ -40,12 +41,12 @@ export async function POST(request: Request) {
       });
 
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
-        return NextResponse.json({ error: "两步验证未启用" }, { status: 400 });
+        throw new ValidationError("两步验证未启用");
       }
 
       const valid = verifyTOTP({ token: code, secret: user.twoFactorSecret });
       if (!valid) {
-        return NextResponse.json({ error: "验证码错误" }, { status: 400 });
+        throw new ValidationError("验证码错误");
       }
 
       await prisma.user.update({

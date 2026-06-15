@@ -9,6 +9,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 
+import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 function resolveUploadPath(storageKey: string) {
@@ -66,14 +67,14 @@ export async function GET(
 
     const filePath = resolveUploadPath(image.storageKey);
     if (!filePath) {
-      return NextResponse.json({ error: "文件路径无效" }, { status: 400 });
+      return apiError({ code: "VALIDATION_FAILED", message: "文件路径无效", status: 400 });
     }
 
     let fileStat;
     try {
       fileStat = await stat(filePath);
     } catch {
-      return NextResponse.json({ error: "文件已丢失" }, { status: 404 });
+      return apiError({ code: "NOT_FOUND", message: "文件已丢失", status: 404 });
     }
 
     const stream = createReadStream(filePath);
@@ -102,6 +103,6 @@ export async function GET(
       },
     });
   } catch {
-    return NextResponse.json({ error: "获取图片失败" }, { status: 500 });
+    return apiError({ code: "INTERNAL_ERROR", message: "获取图片失败", status: 500 });
   }
 }

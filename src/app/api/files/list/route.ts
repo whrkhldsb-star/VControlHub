@@ -7,6 +7,7 @@ import {
   getStorageAccessCapabilityKey,
 } from "@/lib/storage/access-control";
 import { getStorageOverview } from "@/lib/storage/service";
+import { AuthError } from "@/lib/errors";
 import {
   getSftpSyncNode,
   syncSftpDirectoryEntries,
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     { permission: "storage:read", errorMessage: "获取文件列表失败" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        throw new AuthError("Unauthorized");
       const canEditLocalFiles = sessionHasPermission(session, "storage:write");
       const canDelete = sessionHasPermission(session, "storage:delete");
       const canShare = sessionHasPermission(session, "share:create");

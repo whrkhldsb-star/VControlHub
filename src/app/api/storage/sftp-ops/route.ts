@@ -24,6 +24,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
 
+import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp-ops");
 
 function guessMimeType(relativePath: string) {
@@ -148,12 +149,12 @@ async function handlePost(request: Request, session: SessionPayload) {
   try {
     rawBody = await request.json();
   } catch {
-    return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
+    throw new ValidationError("无效的请求体");
   }
 
   const zodResult = postSchema.safeParse(rawBody);
   if (!zodResult.success) {
-    return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+    throw new ValidationError("输入参数无效");
   }
 
   const body: SftpOpsBody = rawBody as SftpOpsBody;
@@ -161,11 +162,11 @@ async function handlePost(request: Request, session: SessionPayload) {
   const { action, nodeId, path: remotePath } = body;
 
   if (!nodeId) {
-    return NextResponse.json({ error: "缺少 nodeId 参数" }, { status: 400 });
+    throw new ValidationError("缺少 nodeId 参数");
   }
 
   if (!remotePath) {
-    return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
+    throw new ValidationError("缺少 path 参数");
   }
 
   // Resolve storage node connection params (same pattern as sftp/route.ts)
@@ -199,7 +200,7 @@ async function handlePost(request: Request, session: SessionPayload) {
   });
 
   if (!node) {
-    return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+    throw new NotFoundError("存储节点不存在");
   }
 
   if (node.driver !== "SFTP") {
@@ -246,7 +247,7 @@ async function handlePost(request: Request, session: SessionPayload) {
         ? "storage:delete"
         : "storage:write";
   if (!sessionHasPermission(session, requiredPermission)) {
-    return NextResponse.json({ error: "缺少权限" }, { status: 403 });
+    throw new ForbiddenError("缺少权限");
   }
   const accessDecision = await assertStorageAccess({
     session,
@@ -479,7 +480,7 @@ export async function POST(request: Request) {
     },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
       return handlePost(request, session);
     },
   );

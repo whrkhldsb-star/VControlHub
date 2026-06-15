@@ -6,6 +6,7 @@ import { config } from "@/lib/config/env";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
+import { AuthError } from "@/lib/errors";
 const HANDSHAKE_TTL_MS = 60_000;
 
 const requestSchema = z.object({
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     { permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const secret = config.ssh.wsSecret;
       if (!secret) {

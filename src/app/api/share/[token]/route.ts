@@ -18,6 +18,7 @@ import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
+import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
 
 function guessContentType(fileName: string): string {
@@ -80,7 +81,7 @@ export async function GET(
 	const { token } = await params;
 
 	if (!token || token.length < 10) {
-		return NextResponse.json({ error: "分享链接无效" }, { status: 400 });
+		return apiError({ code: "VALIDATION_FAILED", message: "分享链接无效", status: 400 });
 	}
 
 	let share: Awaited<ReturnType<typeof resolveShareToken>>;
@@ -88,7 +89,7 @@ export async function GET(
 		share = await resolveShareToken(token);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : "分享链接无效";
-		return NextResponse.json({ error: message }, { status: 404 });
+		return apiError({ code: "NOT_FOUND", message: message, status: 404 });
 	}
 
 	let targetPath = share.path;
@@ -99,19 +100,19 @@ export async function GET(
 		if (wantsArchive) {
 			targetPath = share.path;
 		} else {
-			if (!childPath) return NextResponse.json({ error: "请选择目录中的具体文件或使用 archive=1 下载整个目录" }, { status: 400 });
+			if (!childPath) return apiError({ code: "VALIDATION_FAILED", message: "请选择目录中的具体文件或使用 archive=1 下载整个目录", status: 400 });
 			try {
 				targetPath = normalizeSharePath(childPath);
 			} catch {
-				return NextResponse.json({ error: "非法路径" }, { status: 400 });
+				return apiError({ code: "VALIDATION_FAILED", message: "非法路径", status: 400 });
 			}
 			const prefix = `${share.path.replace(/^\/+|\/+$/g, "")}/`;
 			if (targetPath !== share.path && !targetPath.startsWith(prefix)) {
-				return NextResponse.json({ error: "文件不在分享目录范围内" }, { status: 403 });
+				return apiError({ code: "FORBIDDEN", message: "文件不在分享目录范围内", status: 403 });
 			}
 		}
 	} else if (share.entryType !== "FILE") {
-		return NextResponse.json({ error: "分享目标不是可下载文件" }, { status: 400 });
+		return apiError({ code: "VALIDATION_FAILED", message: "分享目标不是可下载文件", status: 400 });
 	}
 
 	const node = share.storageNode;
@@ -122,21 +123,21 @@ export async function GET(
 		const absolutePath = path.resolve(allowedRoot, targetPath);
 		const relativeToRoot = path.relative(allowedRoot, absolutePath);
 		if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
-			return NextResponse.json({ error: "非法路径" }, { status: 400 });
+			return apiError({ code: "VALIDATION_FAILED", message: "非法路径", status: 400 });
 		}
 		try {
 			const fileStat = await stat(absolutePath);
 			if (wantsArchive) {
 				if (share.entryType !== "DIRECTORY" || !fileStat.isDirectory()) {
-					return NextResponse.json({ error: "分享目标不是可打包目录" }, { status: 400 });
+					return apiError({ code: "VALIDATION_FAILED", message: "分享目标不是可打包目录", status: 400 });
 				}
 				const stream = streamLocalTarGz(absolutePath, path.basename(absolutePath));
 				return archiveStreamResponse(stream, safeArchiveName(share.name || path.basename(absolutePath)));
 			}
-			if (!fileStat.isFile()) return NextResponse.json({ error: "分享目标不是可下载文件" }, { status: 400 });
+			if (!fileStat.isFile()) return apiError({ code: "VALIDATION_FAILED", message: "分享目标不是可下载文件", status: 400 });
 			return fileResponse(createReadStream(absolutePath), { size: fileStat.size, fileName });
 		} catch {
-			return NextResponse.json({ error: "文件不存在或暂时无法读取" }, { status: 404 });
+			return apiError({ code: "NOT_FOUND", message: "文件不存在或暂时无法读取", status: 404 });
 		}
 	}
 
@@ -145,13 +146,13 @@ export async function GET(
 		try {
 			remotePath = normalizeRemoteTargetPath(node.basePath, targetPath);
 		} catch {
-			return NextResponse.json({ error: "非法路径" }, { status: 400 });
+			return apiError({ code: "VALIDATION_FAILED", message: "非法路径", status: 400 });
 		}
 		let credentials: ReturnType<typeof resolveStorageSshCredentials>;
 		try {
 			credentials = resolveStorageSshCredentials(node);
 		} catch (err) {
-			return NextResponse.json({ error: err instanceof Error ? err.message : "缺少远端连接凭据" }, { status: 400 });
+			return apiError({ code: "VALIDATION_FAILED", message: err instanceof Error ? err.message : "缺少远端连接凭据", status: 400 });
 		}
 		let client: Client | null = null;
 		try {
@@ -166,7 +167,7 @@ export async function GET(
 			});
 			if (wantsArchive) {
 				if (share.entryType !== "DIRECTORY") {
-					return NextResponse.json({ error: "分享目标不是可打包目录" }, { status: 400 });
+					return apiError({ code: "VALIDATION_FAILED", message: "分享目标不是可打包目录", status: 400 });
 				}
 				const stream = await streamRemoteTarGz(client, remotePath);
 				closeSshClientOnStreamEnd(stream, client);
@@ -179,9 +180,9 @@ export async function GET(
 			return fileResponse(stream, { size, fileName });
 		} catch {
 			client?.end();
-			return NextResponse.json({ error: "远端文件不存在或暂时无法读取" }, { status: 404 });
+			return apiError({ code: "NOT_FOUND", message: "远端文件不存在或暂时无法读取", status: 404 });
 		}
 	}
 
-	return NextResponse.json({ error: "该存储节点暂不支持公开分享下载" }, { status: 400 });
+	return apiError({ code: "VALIDATION_FAILED", message: "该存储节点暂不支持公开分享下载", status: 400 });
 }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { collectServerMetrics } from "@/lib/server/monitor";
 
+import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
       const { searchParams } = new URL(request.url);
       const serverId = searchParams.get("serverId");
       if (!serverId)
-        return NextResponse.json({ error: "缺少 serverId" }, { status: 400 });
+        throw new ValidationError("缺少 serverId");
 
       const result = await collectServerMetrics(serverId);
       return NextResponse.json(result);

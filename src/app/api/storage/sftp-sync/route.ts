@@ -6,6 +6,7 @@ import { enqueueJob } from "@/lib/job/service";
 import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   getSftpSyncNode,
   syncSftpDirectoryEntries,
@@ -30,18 +31,18 @@ export async function POST(request: Request) {
     { permission: "storage:write", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       let rawBody: unknown;
       try {
         rawBody = await request.json();
       } catch {
-        return NextResponse.json({ error: "无效的请求体" }, { status: 400 });
+        throw new ValidationError("无效的请求体");
       }
 
       const parsed = sftpSyncSchema.safeParse(rawBody);
       if (!parsed.success)
-        return NextResponse.json({ error: "输入参数无效" }, { status: 400 });
+        throw new ValidationError("输入参数无效");
       const {
         nodeId,
         remotePath,
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
 
       const node = await getSftpSyncNode(nodeId);
       if (!node) {
-        return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+        throw new NotFoundError("存储节点不存在");
       }
       if (node.driver !== "SFTP") {
         return NextResponse.json(

@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage/remote-path";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
+import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp-download");
 
 export const dynamic = "force-dynamic";
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
     { permission: "storage:read" },
     async ({ session }) => {
       if (!session)
-        return NextResponse.json({ error: "未认证" }, { status: 401 });
+        throw new AuthError("未认证");
 
       const url = new URL(request.url);
       const nodeId = url.searchParams.get("nodeId");
@@ -108,7 +109,7 @@ export async function GET(request: Request) {
       }
 
       if (!remotePath) {
-        return NextResponse.json({ error: "缺少 path 参数" }, { status: 400 });
+        throw new ValidationError("缺少 path 参数");
       }
 
       const node = await prisma.storageNode.findUnique({
@@ -141,7 +142,7 @@ export async function GET(request: Request) {
       });
 
       if (!node) {
-        return NextResponse.json({ error: "存储节点不存在" }, { status: 404 });
+        throw new NotFoundError("存储节点不存在");
       }
 
       if (node.driver !== "SFTP") {

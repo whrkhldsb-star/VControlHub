@@ -12,6 +12,7 @@ import { UPLOAD_DIR } from "@/lib/image-bed/constants";
 import { logError } from "@/lib/logging";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
+import { ForbiddenError, NotFoundError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 function isNotFoundError(error: unknown) {
@@ -83,12 +84,12 @@ export async function DELETE(
       });
 
       if (!image)
-        return NextResponse.json({ error: "图片不存在" }, { status: 404 });
+        throw new NotFoundError("图片不存在");
 
       // Only owner or explicit destructive/admin permissions can delete.
       // `user:read` is intentionally not enough because viewer accounts have it.
       if (!canDeleteImage({ ownerId: image.userId, session })) {
-        return NextResponse.json({ error: "无权删除" }, { status: 403 });
+        throw new ForbiddenError("无权删除");
       }
 
       // If linked to a LOCAL storage node, delete the published copy before the
