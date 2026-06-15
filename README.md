@@ -654,7 +654,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 #### New-F（P2 增强）继续拆 3 个超大 client
 
-`file-list-client.tsx:1600` / `ai-client.tsx:1071` / `quick-services-client.tsx:1002` 是 TR-036 9 文件拆解后剩余的真正大头（其余已 < 700 行）。`file-list-client` 优先拆 "批量操作 + 工具栏" 子组件 + `next/dynamic` 懒加载"更多操作"菜单与上传 dropzone；`ai-client` 拆对话列表 / 输入区 / 设置面板（已部分 lazy）；`quick-services-client` 拆源同步面板 / 安装预览弹窗。已通过 TR-036 实证"1.5x 系数 + 2 tick / 6 文件"可行。
+`file-list-client.tsx:1245` / `ai-client.tsx:1071` / `quick-services-client.tsx:1002` 是 TR-036 9 文件拆解后剩余的真正大头（其余已 < 700 行）。`file-list-client` T36b 已拆 "批量操作 + 工具栏 + 详情面板 + 更多操作" 4 子组件走 `next/dynamic` 懒加载（1600→1245, -355）；`ai-client` 拆对话列表 / 输入区 / 设置面板（已部分 lazy，T36c 续做）；`quick-services-client` 拆源同步面板 / 安装预览弹窗。已通过 TR-036 实证"1.5x 系数 + 2 tick / 6 文件"可行。
 
 #### New-G（P2 增强）i18n / QA 报告 / README 状态对账 三件套
 
@@ -707,7 +707,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-033 | P3 | PWA 离线支持和集成市场 | 队列中 |
 | TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | ✅ 完成 (R1 union + R2 219 处 codemod + R3 client envelope) |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
-| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ 后台任务中 (T36b/T36c, 续 R23-R25) |
+| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ T36b 完成 (file-list-client 1600→1245), T36c (ai-client 1071) 后台任务中 |
 | TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ⏳ R4 扫 3 路由 (app-sources + docker/containers GET + media GET; R1-R4 累计 15 路由, 剩 24 路由待 R5+) |
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | ✅ 完成 (1/1 leak 修 + 4 域 0 leak 审计; commit 见 git log) |
@@ -724,7 +724,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### P1 — 阻塞性
 
 - [ ] **API 错误响应统一 shape**（TR-034）— `apiError("CODE", message, details, status)` codemod。
-- [ ] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。
+- [ ] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。T36b 完成 file-list-client 1600→1245 (-355)；T36c 续做 ai-client 1071。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
 - [x] **下载入队失败被吞**（New-A）— `src/app/api/downloads/route.ts` route 端 `await enqueueDownloadExecutionJob` 后再返 201，失败回滚 `downloadTask.status = FAILED` + 5xx + `code: DOWNLOAD_DISPATCH_FAILED` + `auditUserAction("download.dispatch_failed")`。durable worker 入口配合 New-C idempotency guard 防 FAILED 后重试 side effects。3 个新测：单任务回滚 / batch 部分失败回滚 / happy path。
@@ -745,7 +745,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **N+1 查询修复**（TR-040）— 3 个候选文件。
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
 - [ ] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E）— 立 TR-043 跟进，deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。
-- [ ] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1600 / `ai-client` 1071 / `quick-services-client` 1002，TR-036 续做。
+- [x] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1245 ✅ T36b (1600→1245) / `ai-client` 1071 / `quick-services-client` 1002，T36c 续做。
 - [ ] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。
 
 ### P3 — 长期愿景

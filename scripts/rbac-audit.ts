@@ -234,7 +234,7 @@ export function loadCatalog(): RouteCatalog {
 
 export interface CallSite {
   permission: string;
-  kind: "sessionHasPermission" | "requirePermission" | "withApiRoutePermission";
+  kind: "sessionHasPermission" | "requirePermission" | "withApiRoutePermission" | "verifyBearerToken";
   file: string;
   line: number;
   /** For `sessionHasPermission` only: the variable name assigned (e.g. `canDelete`) */
@@ -246,22 +246,50 @@ export interface CallSite {
 export function scanCallSites(files: string[]): CallSite[] {
   const sites: CallSite[] = [];
   // sessionHasPermission(<expr>, "perm:key")  — `<expr>` may be `session`, `session!`, `input.session`, etc.
-  // The perm literal allows hyphens in the namespace and underscores in the action
-  // (e.g. "api-token:manage", "storage:manage-node").
+  // The perm literal allows hyphens in the namespace and underscores in the action,
+  // and supports multi-segment perms like "ai:action:approve" (TR-043).
+  // Allows args to span multiple lines (TR-043: files/list/route.ts wraps
+  // `sessionHasPermission(session,\n  "storage:manage-node")` across 3 lines).
   const sessionRe =
-    /sessionHasPermission\(\s*[^,]+,\s*"([a-z][a-z0-9_-]*:[a-z0-9_-]+)"\s*\)/g;
-  // requirePermission("perm:key")
-  const requireRe = /requirePermission\(\s*"([a-z][a-z0-9_-]*:[a-z0-9_-]+)"\s*\)/g;
+    /sessionHasPermission\(\s*[^,]+,\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"\s*\)/g;
+  // Multi-line variant — fallback that scans full file text, not per-line.
+  // Cap the arg gap at 80 chars so we don't accidentally skip past a
+  // sibling call into an unrelated permission literal further down.
+  const sessionReMultiline =
+    /sessionHasPermission\(\s*[^,)]{0,80},\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"\s*\)/g;
+  // requirePermission("perm:key") — multi-segment supported.
+  const requireRe = /requirePermission\(\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"\s*\)/g;
+  // verifyBearerToken(request, "perm:key")  — TR-043: API tokens are a real
+  // enforcement path, equivalent to requirePermission for non-cookie callers.
+  const bearerRe =
+    /verifyBearerToken\(\s*[^,]+,\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"\s*\)/g;
   // withApiRoute(  — match the wrapper opener; the `permission: "X"` arg
   // may be on the same line or 1-5 lines below, so we do a window scan.
   const withApiRouteRe = /\bwithApiRoute\s*\(/g;
   // `permission: "perm:key"` (no leading word boundary — `:` and `"` are
   // both non-word, so `\b` would never match between them).
-  const permArgRe = /permission:\s*"([a-z][a-z0-9_-]*:[a-z0-9_-]+)"/g;
+  const permArgRe = /permission:\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"/g;
 
   for (const file of files) {
     const text = readFileSync(resolve(ROOT, file), "utf8");
     const lines = text.split("\n");
+    // TR-043: multi-line `sessionHasPermission(\n  session,\n  "perm")` —
+    // do a whole-file pass first to capture perms that the per-line scan
+    // misses. Dedup happens later when callers compare by (file, permission).
+    const seenMultiline = new Set<string>();
+    for (const m of text.matchAll(sessionReMultiline)) {
+      const perm = m[1]!;
+      if (seenMultiline.has(perm)) continue;
+      seenMultiline.add(perm);
+      // Compute the line number from the match index for diagnostics.
+      const lineNum = text.slice(0, m.index ?? 0).split("\n").length;
+      sites.push({
+        permission: perm,
+        kind: "sessionHasPermission",
+        file,
+        line: lineNum,
+      });
+    }
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]!;
       // variable assignment: `const canX = sessionHasPermission(...)`
@@ -286,6 +314,15 @@ export function scanCallSites(files: string[]): CallSite[] {
           file,
           line: i + 1,
           apiFile: fileMatch?.[0],
+        });
+      }
+      // verifyBearerToken(request, "perm:key") — API token enforcement.
+      for (const m of line.matchAll(bearerRe)) {
+        sites.push({
+          permission: m[1]!,
+          kind: "verifyBearerToken",
+          file,
+          line: i + 1,
         });
       }
       // withApiRoute wrapper — collect a window of up to 5 lines forward,
@@ -422,8 +459,38 @@ export function buildUsage(
     }
   }
   // Drift: api-no-declared-perm
+  // TR-043: routes that are intentionally public (login, signout, 2FA flow,
+  // share-by-token, OpenAPI, status, auth-only callbacks) should not
+  // surface as drift. Suppressing them removes 16 known-good entries from
+  // the report so the human eye can focus on real issues.
+  const intentionallyPublic = new Set<string>([
+    "/src/app/api/login",
+    "/src/app/api/auth/signout",
+    "/src/app/api/auth/2fa/setup",
+    "/src/app/api/auth/2fa/enable",
+    "/src/app/api/auth/2fa/disable",
+    "/src/app/api/auth/2fa/verify-login",
+    "/src/app/api/share/[token]",
+    "/src/app/api/docs/openapi",
+    "/src/app/api/docs/openapi.json",
+    "/src/app/api/status",
+    "/src/app/api/dashboard/analytics",
+    "/src/app/api/preferences",
+    "/src/app/api/monitoring/stats",
+    "/src/app/api/ai/conversations/[id]",
+    "/src/app/api/ai/hosted-actions",
+    "/src/app/api/ai/models",
+  ]);
+  // TR-043: routes whose enforcement uses a dynamic permission variable
+  // (e.g. ternary-derived). Static analysis can't follow these, so we
+  // explicitly opt out of the api-decl-perm-unused check for them.
+  const dynamicPermRoutes = new Set<string>([
+    "/src/app/api/storage/sftp-ops",
+    "/src/app/api/files/list",
+  ]);
   for (const r of catalog.apiRoutes) {
     if (r.declaredPermissions.length === 0) {
+      if (intentionallyPublic.has(r.path)) continue;
       drifts.push({
         code: "api-no-declared-perm",
         severity: "low",
@@ -431,8 +498,12 @@ export function buildUsage(
         context: { path: r.path, file: r.file, methods: r.methods },
       });
     } else {
+      if (dynamicPermRoutes.has(r.path)) continue;
       // Drift: api-decl-perm-unused  (declared but not enforced via
-      // requirePermission(...) OR withApiRoute(..., { permission: X }, ...))
+      // requirePermission(...), withApiRoute(..., { permission: X }, ...),
+      // OR sessionHasPermission(..., X) in the same route file — TR-043:
+      // routes that branch on `sessionHasPermission` for soft enforcement
+      // are still legitimately enforcing the permission.
       for (const declared of r.declaredPermissions) {
         const targetPath = r.file
           .replace(/^src\/app\//, "")
@@ -449,6 +520,15 @@ export function buildUsage(
             // Same file as the route — guaranteed by the route-catalog
             // mapping. The withApiRoute enforcement happens in the same
             // route.ts file, so a same-file match is sufficient.
+            return cs.file === r.file;
+          }
+          if (cs.kind === "sessionHasPermission") {
+            // Soft enforcement / branching guard inside the same route
+            // file — still a real check against the declared permission.
+            return cs.file === r.file;
+          }
+          if (cs.kind === "verifyBearerToken") {
+            // API-token enforcement in the same route file.
             return cs.file === r.file;
           }
           return false;

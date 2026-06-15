@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-12T07:14:56.347Z",
+  "generatedAt": "2026-06-15T11:03:31.410Z",
   "summary": {
     "sidebarMain": 22,
-    "sidebarSystem": 4,
+    "sidebarSystem": 5,
     "sidebarMobile": 4,
-    "pages": 39,
-    "apiRoutes": 79,
+    "pages": 41,
+    "apiRoutes": 86,
     "permissionsDefined": 41
   },
   "sidebar": {
@@ -115,6 +115,10 @@
       {
         "href": "/audit",
         "fallbackLabel": "审计日志"
+      },
+      {
+        "href": "/qa-reports",
+        "fallbackLabel": "QA 报告"
       }
     ],
     "mobileHrefs": [
@@ -189,7 +193,8 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "backup:create",
-        "backup:read"
+        "backup:read",
+        "backup:restore"
       ]
     },
     {
@@ -198,7 +203,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "deploy:read"
+        "deploy:export",
+        "deploy:read",
+        "deploy:run"
       ]
     },
     {
@@ -216,6 +223,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "storage:manage-node",
         "storage:read",
         "storage:write"
       ]
@@ -228,6 +236,7 @@
       "declaredPermissions": [
         "share:create",
         "storage:delete",
+        "storage:manage-node",
         "storage:write"
       ]
     },
@@ -332,6 +341,24 @@
       "declaredPermissions": []
     },
     {
+      "path": "/qa-reports/[id]",
+      "file": "src/app/qa-reports/[id]/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
+      "path": "/qa-reports",
+      "file": "src/app/qa-reports/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": true,
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
       "path": "/quick-services",
       "file": "src/app/quick-services/page.tsx",
       "inSidebarMain": true,
@@ -364,6 +391,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "server:ssh",
         "server:write"
       ]
     },
@@ -423,7 +451,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "command:create"
+        "command:create",
+        "deploy:run"
       ]
     },
     {
@@ -468,6 +497,36 @@
   ],
   "apiRoutes": [
     {
+      "path": "/src/app/api/admin/qa-reports/[id]",
+      "file": "src/app/api/admin/qa-reports/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/admin/qa-reports",
+      "file": "src/app/api/admin/qa-reports/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/admin/workers",
+      "file": "src/app/api/admin/workers/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
       "path": "/src/app/api/ai/chat",
       "file": "src/app/api/ai/chat/route.ts",
       "methods": [
@@ -504,7 +563,9 @@
       "methods": [
         "PATCH"
       ],
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "ai:action:approve"
+      ]
     },
     {
       "path": "/src/app/api/ai/hosted-actions",
@@ -664,7 +725,9 @@
       "methods": [
         "POST"
       ],
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "server:ssh"
+      ]
     },
     {
       "path": "/src/app/api/backups/[id]/restore",
@@ -672,7 +735,9 @@
       "methods": [
         "POST"
       ],
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "backup:restore"
+      ]
     },
     {
       "path": "/src/app/api/backups/[id]/retry",
@@ -692,6 +757,18 @@
       ],
       "declaredPermissions": [
         "backup:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/backups/retention",
+      "file": "src/app/api/backups/retention/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "backup:create",
+        "backup:read"
       ]
     },
     {
@@ -730,6 +807,7 @@
       ],
       "declaredPermissions": [
         "command:create",
+        "command:execute",
         "command:read"
       ]
     },
@@ -748,7 +826,9 @@
         "GET",
         "POST"
       ],
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "deploy:export"
+      ]
     },
     {
       "path": "/src/app/api/deployments/[id]/rollback",
@@ -756,7 +836,9 @@
       "methods": [
         "POST"
       ],
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "deploy:run"
+      ]
     },
     {
       "path": "/src/app/api/deployments",
@@ -766,7 +848,8 @@
         "POST"
       ],
       "declaredPermissions": [
-        "deploy:read"
+        "deploy:read",
+        "deploy:run"
       ]
     },
     {
@@ -806,6 +889,7 @@
         "POST"
       ],
       "declaredPermissions": [
+        "storage:manage-node",
         "storage:read",
         "storage:write"
       ]
@@ -851,6 +935,7 @@
       "declaredPermissions": [
         "share:create",
         "storage:delete",
+        "storage:manage-node",
         "storage:read",
         "storage:write"
       ]
@@ -940,6 +1025,16 @@
       ]
     },
     {
+      "path": "/src/app/api/jobs/[id]/events",
+      "file": "src/app/api/jobs/[id]/events/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "task:read"
+      ]
+    },
+    {
       "path": "/src/app/api/login",
       "file": "src/app/api/login/route.ts",
       "methods": [
@@ -960,6 +1055,16 @@
     {
       "path": "/src/app/api/media/[id]/stream",
       "file": "src/app/api/media/[id]/stream/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/media/[id]/thumbnail",
+      "file": "src/app/api/media/[id]/thumbnail/route.ts",
       "methods": [
         "GET"
       ],
@@ -1073,7 +1178,19 @@
         "GET",
         "POST"
       ],
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "server:ssh"
+      ]
+    },
+    {
+      "path": "/src/app/api/servers/[id]/reload",
+      "file": "src/app/api/servers/[id]/reload/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "server:ssh"
+      ]
     },
     {
       "path": "/src/app/api/servers/monitor",
@@ -1181,6 +1298,7 @@
         "GET"
       ],
       "declaredPermissions": [
+        "storage:manage-node",
         "storage:read"
       ]
     },

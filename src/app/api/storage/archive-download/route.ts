@@ -3,9 +3,11 @@ import path from "node:path";
 
 import { NextResponse } from "next/server";
 import type { Client } from "ssh2";
+import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import {
@@ -94,8 +96,13 @@ export async function GET(request: Request) {
     }
 
     const url = new URL(request.url);
-    const nodeId = url.searchParams.get("nodeId")?.trim();
-    const requestedPath = url.searchParams.get("path");
+    const { nodeId, path: requestedPath } = parseSearchParams(
+      request,
+      z.object({
+        nodeId: z.string().trim().min(1).optional(),
+        path: z.string().trim().min(1).optional(),
+      }),
+    );
 
     if (!nodeId) {
       throw new ValidationError("缺少 nodeId 参数");

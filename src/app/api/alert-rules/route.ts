@@ -13,6 +13,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { evaluateAlerts } from "@/lib/health/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 
 import { AuthError, ValidationError } from "@/lib/errors";
@@ -223,12 +224,11 @@ export async function DELETE(request: Request) {
       if (!session)
         throw new AuthError("未认证");
       try {
-        const { searchParams } = new URL(request.url);
-        const id = searchParams.get("id");
-        if (!id)
+        const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
+        if (!alertRuleId)
           throw new ValidationError("缺少规则 ID");
-        await deleteAlertRule(id);
-        auditUserAction(session.userId, "alert_rule.delete", { ruleId: id });
+        await deleteAlertRule(alertRuleId);
+        auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId });
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "删除失败";

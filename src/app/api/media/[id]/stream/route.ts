@@ -1,10 +1,12 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import path from "node:path";
-
-import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
+import path from "node:path";
+import { Client, type ConnectConfig } from "ssh2";
+import { z } from "zod";
 
+import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { createLogger } from "@/lib/logging";
@@ -63,7 +65,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { id } = await params;
   const url = new URL(request.url);
-  const download = url.searchParams.get("download") === "1";
+  const { download } = parseSearchParams(
+    request,
+    z.object({
+      download: z
+        .string()
+        .optional()
+        .transform((value) => value === "1"),
+    }),
+  );
   const item = await getMediaItem(id);
   if (!item || !item.storageNode) return apiError({ code: "NOT_FOUND", message: "媒体不存在", status: 404 });
 

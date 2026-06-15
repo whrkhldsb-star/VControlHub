@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
@@ -83,7 +85,16 @@ export async function POST(request: Request) {
         );
       }
 
-      const waitForCompletion = new URL(request.url).searchParams.get("wait") === "1";
+      const { wait } = parseSearchParams(
+        request,
+        z.object({
+          wait: z
+            .string()
+            .optional()
+            .transform((value) => value === "1"),
+        }),
+      );
+      const waitForCompletion = wait;
       if (waitForCompletion) {
         try {
           const result = await syncSftpDirectoryEntries({

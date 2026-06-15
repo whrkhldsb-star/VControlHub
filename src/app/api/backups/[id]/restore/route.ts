@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
+import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { BACKUP_RESTORE_JOB_TYPE } from "@/lib/backup/job-worker";
 import { restoreBackupSchema } from "@/lib/backup/schema";
 import { getBackupRecord, restoreBackupRecord } from "@/lib/backup/service";
-import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
@@ -20,7 +22,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     try {
-      const waitForCompletion = new URL(request.url).searchParams.get("wait") === "1";
+      const { wait } = parseSearchParams(
+        request,
+        z.object({
+          wait: z
+            .string()
+            .optional()
+            .transform((value) => value === "1"),
+        }),
+      );
+      const waitForCompletion = wait;
       if (waitForCompletion) {
         const restore = await restoreBackupRecord({ id, confirm: parsed.data.confirm });
         return NextResponse.json({ restore });

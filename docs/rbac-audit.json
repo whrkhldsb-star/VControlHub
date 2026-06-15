@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-06-15T10:09:25.073Z",
+  "generatedAt": "2026-06-15T11:03:32.783Z",
   "summary": {
     "permissionsInList": 41,
     "rolesDefined": 4,
-    "apiRoutesAudited": 79,
-    "pagesAudited": 39,
-    "callSitesAudited": 201,
-    "driftCount": 41,
+    "apiRoutesAudited": 86,
+    "pagesAudited": 41,
+    "callSitesAudited": 278,
+    "driftCount": 0,
     "driftByCode": {
       "perm-not-in-list": 0,
       "perm-without-role": 0,
       "role-grants-unknown": 0,
-      "api-no-declared-perm": 22,
-      "api-decl-perm-unused": 19,
+      "api-no-declared-perm": 0,
+      "api-decl-perm-unused": 0,
       "api-route-missing": 0,
       "page-button-perm-unused": 0
     }
@@ -20,7 +20,12 @@
   "permissions": [
     {
       "permission": "ai:action:approve",
-      "files": [],
+      "files": [
+        {
+          "path": "src/app/api/ai/hosted-actions/[id]/route.ts",
+          "line": 28
+        }
+      ],
       "pages": [],
       "apiRoutes": [],
       "grantedToRoles": [
@@ -83,6 +88,14 @@
           "line": 12
         },
         {
+          "path": "src/app/announcements/page.tsx",
+          "line": 12
+        },
+        {
+          "path": "src/app/api/announcements/route.ts",
+          "line": 23
+        },
+        {
           "path": "src/app/api/announcements/route.ts",
           "line": 23
         },
@@ -128,6 +141,10 @@
         {
           "path": "src/app/api-tokens/page.tsx",
           "line": 11
+        },
+        {
+          "path": "src/app/api-tokens/page.tsx",
+          "line": 11
         }
       ],
       "pages": [
@@ -145,6 +162,10 @@
         {
           "path": "src/app/api/audit/route.ts",
           "line": 20
+        },
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 21
         },
         {
           "path": "src/app/audit/page.tsx",
@@ -179,11 +200,19 @@
         },
         {
           "path": "src/app/api/backups/route.ts",
-          "line": 32
+          "line": 38
         },
         {
           "path": "src/app/backups/actions.ts",
           "line": 19
+        },
+        {
+          "path": "src/app/backups/actions.ts",
+          "line": 19
+        },
+        {
+          "path": "src/app/backups/page.tsx",
+          "line": 22
         },
         {
           "path": "src/app/backups/page.tsx",
@@ -208,7 +237,11 @@
         },
         {
           "path": "src/app/api/backups/route.ts",
-          "line": 14
+          "line": 20
+        },
+        {
+          "path": "src/app/backups/page.tsx",
+          "line": 21
         },
         {
           "path": "src/app/backups/page.tsx",
@@ -231,7 +264,11 @@
       "files": [
         {
           "path": "src/app/api/backups/[id]/restore/route.ts",
-          "line": 14
+          "line": 16
+        },
+        {
+          "path": "src/app/backups/page.tsx",
+          "line": 23
         },
         {
           "path": "src/app/backups/page.tsx",
@@ -256,6 +293,10 @@
         {
           "path": "src/app/requests/page.tsx",
           "line": 15
+        },
+        {
+          "path": "src/app/requests/page.tsx",
+          "line": 15
         }
       ],
       "pages": [
@@ -273,15 +314,15 @@
       "files": [
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 55
+          "line": 56
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 72
+          "line": 73
         },
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 86
+          "line": 87
         },
         {
           "path": "src/app/api/commands/route.ts",
@@ -289,15 +330,19 @@
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 106
+          "line": 107
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 150
+          "line": 151
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 211
+          "line": 212
+        },
+        {
+          "path": "src/app/scheduled-tasks/page.tsx",
+          "line": 13
         },
         {
           "path": "src/app/scheduled-tasks/page.tsx",
@@ -306,6 +351,10 @@
         {
           "path": "src/app/servers/command-actions.ts",
           "line": 14
+        },
+        {
+          "path": "src/app/templates/page.tsx",
+          "line": 13
         },
         {
           "path": "src/app/templates/page.tsx",
@@ -333,6 +382,10 @@
         },
         {
           "path": "src/app/api/commands/route.ts",
+          "line": 24
+        },
+        {
+          "path": "src/app/api/commands/route.ts",
           "line": 41
         }
       ],
@@ -350,7 +403,7 @@
       "files": [
         {
           "path": "src/app/api/command-templates/route.ts",
-          "line": 41
+          "line": 42
         },
         {
           "path": "src/app/api/commands/route.ts",
@@ -358,7 +411,7 @@
         },
         {
           "path": "src/app/api/scheduled-tasks/route.ts",
-          "line": 76
+          "line": 77
         }
       ],
       "pages": [],
@@ -375,11 +428,15 @@
       "files": [
         {
           "path": "src/app/api/deploy-export/route.ts",
-          "line": 25
+          "line": 26
         },
         {
           "path": "src/app/api/deploy-export/route.ts",
-          "line": 34
+          "line": 38
+        },
+        {
+          "path": "src/app/deployments/page.tsx",
+          "line": 25
         },
         {
           "path": "src/app/deployments/page.tsx",
@@ -414,6 +471,10 @@
         {
           "path": "src/app/deployments/page.tsx",
           "line": 23
+        },
+        {
+          "path": "src/app/deployments/page.tsx",
+          "line": 23
         }
       ],
       "pages": [
@@ -442,6 +503,14 @@
           "line": 24
         },
         {
+          "path": "src/app/deployments/page.tsx",
+          "line": 24
+        },
+        {
+          "path": "src/app/templates/page.tsx",
+          "line": 14
+        },
+        {
           "path": "src/app/templates/page.tsx",
           "line": 14
         }
@@ -461,11 +530,11 @@
       "files": [
         {
           "path": "src/app/api/docker/containers/route.ts",
-          "line": 137
+          "line": 138
         },
         {
           "path": "src/app/api/docker/containers/route.ts",
-          "line": 209
+          "line": 215
         },
         {
           "path": "src/app/api/quick-services/[slug]/route.ts",
@@ -492,7 +561,19 @@
           "line": 8
         },
         {
+          "path": "src/app/docker/page.tsx",
+          "line": 8
+        },
+        {
           "path": "src/app/monitoring/page.tsx",
+          "line": 11
+        },
+        {
+          "path": "src/app/monitoring/page.tsx",
+          "line": 11
+        },
+        {
+          "path": "src/app/quick-services/page.tsx",
           "line": 11
         },
         {
@@ -516,7 +597,11 @@
       "files": [
         {
           "path": "src/app/api/health/route.ts",
-          "line": 33
+          "line": 23
+        },
+        {
+          "path": "src/app/api/health/route.ts",
+          "line": 31
         },
         {
           "path": "src/app/api/system-health/route.ts",
@@ -524,6 +609,14 @@
         },
         {
           "path": "src/app/health/page.tsx",
+          "line": 10
+        },
+        {
+          "path": "src/app/health/page.tsx",
+          "line": 10
+        },
+        {
+          "path": "src/app/monitoring/page.tsx",
           "line": 10
         },
         {
@@ -547,6 +640,14 @@
       "permission": "image:read",
       "files": [
         {
+          "path": "src/app/api/images/list/route.ts",
+          "line": 14
+        },
+        {
+          "path": "src/app/image-bed/page.tsx",
+          "line": 10
+        },
+        {
           "path": "src/app/image-bed/page.tsx",
           "line": 10
         }
@@ -562,6 +663,14 @@
     {
       "permission": "image:write",
       "files": [
+        {
+          "path": "src/app/api/images/upload/route.ts",
+          "line": 61
+        },
+        {
+          "path": "src/app/image-bed/page.tsx",
+          "line": 11
+        },
         {
           "path": "src/app/image-bed/page.tsx",
           "line": 11
@@ -584,7 +693,11 @@
         },
         {
           "path": "src/app/api/media/route.ts",
-          "line": 34
+          "line": 47
+        },
+        {
+          "path": "src/app/media/page.tsx",
+          "line": 18
         },
         {
           "path": "src/app/media/page.tsx",
@@ -609,20 +722,24 @@
           "line": 13
         },
         {
-          "path": "src/app/api/alert-rules/route.ts",
-          "line": 138
+          "path": "src/app/alert-rules/page.tsx",
+          "line": 13
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 149
+          "line": 139
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 178
+          "line": 150
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
-          "line": 221
+          "line": 179
+        },
+        {
+          "path": "src/app/api/alert-rules/route.ts",
+          "line": 222
         },
         {
           "path": "src/app/api/alert-rules/route.ts",
@@ -630,7 +747,7 @@
         },
         {
           "path": "src/app/api/notifications/route.ts",
-          "line": 98
+          "line": 99
         }
       ],
       "pages": [
@@ -650,8 +767,20 @@
           "line": 52
         },
         {
+          "path": "src/app/api/images/[id]/route.ts",
+          "line": 52
+        },
+        {
           "path": "src/app/api/images/batch/route.ts",
           "line": 47
+        },
+        {
+          "path": "src/app/api/images/batch/route.ts",
+          "line": 47
+        },
+        {
+          "path": "src/app/api/snippets/route.ts",
+          "line": 61
         },
         {
           "path": "src/app/api/snippets/route.ts",
@@ -686,6 +815,10 @@
         {
           "path": "src/app/traffic/page.tsx",
           "line": 10
+        },
+        {
+          "path": "src/app/traffic/page.tsx",
+          "line": 10
         }
       ],
       "pages": [
@@ -712,6 +845,10 @@
         },
         {
           "path": "src/app/api/servers/[id]/file-proxy/route.ts",
+          "line": 107
+        },
+        {
+          "path": "src/app/api/servers/[id]/file-proxy/route.ts",
           "line": 207
         },
         {
@@ -721,6 +858,14 @@
         {
           "path": "src/app/api/servers/[id]/reload/route.ts",
           "line": 121
+        },
+        {
+          "path": "src/app/api/servers/[id]/reload/route.ts",
+          "line": 121
+        },
+        {
+          "path": "src/app/servers/page.tsx",
+          "line": 23
         },
         {
           "path": "src/app/servers/page.tsx",
@@ -779,6 +924,14 @@
           "line": 22
         },
         {
+          "path": "src/app/servers/page.tsx",
+          "line": 22
+        },
+        {
+          "path": "src/app/traffic/page.tsx",
+          "line": 11
+        },
+        {
           "path": "src/app/traffic/page.tsx",
           "line": 11
         }
@@ -800,7 +953,11 @@
       "files": [
         {
           "path": "src/app/api/files/list/route.ts",
-          "line": 37
+          "line": 39
+        },
+        {
+          "path": "src/app/api/files/list/route.ts",
+          "line": 39
         },
         {
           "path": "src/app/api/share-links/route.ts",
@@ -809,6 +966,14 @@
         {
           "path": "src/app/files/page.tsx",
           "line": 43
+        },
+        {
+          "path": "src/app/files/page.tsx",
+          "line": 43
+        },
+        {
+          "path": "src/app/shares/page.tsx",
+          "line": 16
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -838,6 +1003,10 @@
         {
           "path": "src/app/shares/page.tsx",
           "line": 17
+        },
+        {
+          "path": "src/app/shares/page.tsx",
+          "line": 17
         }
       ],
       "pages": [
@@ -856,6 +1025,10 @@
         {
           "path": "src/app/api/share-links/route.ts",
           "line": 32
+        },
+        {
+          "path": "src/app/shares/page.tsx",
+          "line": 14
         },
         {
           "path": "src/app/shares/page.tsx",
@@ -895,6 +1068,10 @@
         {
           "path": "src/app/snippets/page.tsx",
           "line": 11
+        },
+        {
+          "path": "src/app/snippets/page.tsx",
+          "line": 11
         }
       ],
       "pages": [
@@ -912,7 +1089,15 @@
       "files": [
         {
           "path": "src/app/api/files/list/route.ts",
-          "line": 36
+          "line": 38
+        },
+        {
+          "path": "src/app/api/files/list/route.ts",
+          "line": 38
+        },
+        {
+          "path": "src/app/api/images/[id]/route.ts",
+          "line": 51
         },
         {
           "path": "src/app/api/images/[id]/route.ts",
@@ -923,8 +1108,20 @@
           "line": 46
         },
         {
+          "path": "src/app/api/images/batch/route.ts",
+          "line": 46
+        },
+        {
           "path": "src/app/files/page.tsx",
           "line": 42
+        },
+        {
+          "path": "src/app/files/page.tsx",
+          "line": 42
+        },
+        {
+          "path": "src/app/image-bed/page.tsx",
+          "line": 12
         },
         {
           "path": "src/app/image-bed/page.tsx",
@@ -963,7 +1160,15 @@
       "files": [
         {
           "path": "src/app/api/downloads/route.ts",
-          "line": 583
+          "line": 588
+        },
+        {
+          "path": "src/app/api/downloads/route.ts",
+          "line": 588
+        },
+        {
+          "path": "src/app/api/storage/nodes/route.ts",
+          "line": 33
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -972,6 +1177,14 @@
         {
           "path": "src/app/downloads/page.tsx",
           "line": 13
+        },
+        {
+          "path": "src/app/downloads/page.tsx",
+          "line": 13
+        },
+        {
+          "path": "src/app/files/page.tsx",
+          "line": 44
         },
         {
           "path": "src/app/files/page.tsx",
@@ -1013,11 +1226,11 @@
       "files": [
         {
           "path": "src/app/api/downloads/route.ts",
-          "line": 437
+          "line": 438
         },
         {
           "path": "src/app/api/files/archive-list/route.ts",
-          "line": 28
+          "line": 30
         },
         {
           "path": "src/app/api/files/editable/[id]/route.ts",
@@ -1025,7 +1238,7 @@
         },
         {
           "path": "src/app/api/files/list/route.ts",
-          "line": 31
+          "line": 33
         },
         {
           "path": "src/app/api/images/publish-from-storage/route.ts",
@@ -1033,7 +1246,15 @@
         },
         {
           "path": "src/app/api/media/[id]/stream/route.ts",
-          "line": 60
+          "line": 62
+        },
+        {
+          "path": "src/app/api/media/[id]/stream/route.ts",
+          "line": 62
+        },
+        {
+          "path": "src/app/api/media/[id]/thumbnail/route.ts",
+          "line": 187
         },
         {
           "path": "src/app/api/media/[id]/thumbnail/route.ts",
@@ -1041,27 +1262,27 @@
         },
         {
           "path": "src/app/api/media/route.ts",
-          "line": 13
+          "line": 16
         },
         {
           "path": "src/app/api/storage/archive-download/route.ts",
-          "line": 91
+          "line": 93
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 210
+          "line": 211
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 244
+          "line": 252
         },
         {
           "path": "src/app/api/storage/direct-access/route.ts",
-          "line": 268
+          "line": 276
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 455
+          "line": 465
         },
         {
           "path": "src/app/api/storage/nodes/route.ts",
@@ -1069,11 +1290,15 @@
         },
         {
           "path": "src/app/api/storage/sftp/route.ts",
-          "line": 138
+          "line": 146
         },
         {
           "path": "src/app/api/storage/sftp-download/route.ts",
-          "line": 94
+          "line": 96
+        },
+        {
+          "path": "src/app/downloads/page.tsx",
+          "line": 14
         },
         {
           "path": "src/app/downloads/page.tsx",
@@ -1082,6 +1307,14 @@
         {
           "path": "src/app/media/[id]/page.tsx",
           "line": 89
+        },
+        {
+          "path": "src/app/media/[id]/page.tsx",
+          "line": 89
+        },
+        {
+          "path": "src/app/media/page.tsx",
+          "line": 17
         },
         {
           "path": "src/app/media/page.tsx",
@@ -1109,15 +1342,15 @@
       "files": [
         {
           "path": "src/app/api/downloads/route.ts",
-          "line": 165
+          "line": 166
         },
         {
           "path": "src/app/api/downloads/route.ts",
-          "line": 561
+          "line": 566
         },
         {
           "path": "src/app/api/downloads/route.ts",
-          "line": 802
+          "line": 807
         },
         {
           "path": "src/app/api/files/editable/[id]/route.ts",
@@ -1129,7 +1362,15 @@
         },
         {
           "path": "src/app/api/files/list/route.ts",
-          "line": 35
+          "line": 37
+        },
+        {
+          "path": "src/app/api/files/list/route.ts",
+          "line": 37
+        },
+        {
+          "path": "src/app/api/images/upload/route.ts",
+          "line": 75
         },
         {
           "path": "src/app/api/images/upload/route.ts",
@@ -1137,11 +1378,15 @@
         },
         {
           "path": "src/app/api/storage/local/route.ts",
-          "line": 468
+          "line": 478
         },
         {
           "path": "src/app/api/storage/sftp-sync/route.ts",
-          "line": 31
+          "line": 33
+        },
+        {
+          "path": "src/app/downloads/page.tsx",
+          "line": 12
         },
         {
           "path": "src/app/downloads/page.tsx",
@@ -1150,6 +1395,10 @@
         {
           "path": "src/app/files/move-file-action.ts",
           "line": 21
+        },
+        {
+          "path": "src/app/files/page.tsx",
+          "line": 41
         },
         {
           "path": "src/app/files/page.tsx",
@@ -1197,7 +1446,7 @@
         },
         {
           "path": "src/app/api/jobs/[id]/events/route.ts",
-          "line": 26
+          "line": 28
         },
         {
           "path": "src/app/api/operation-tasks/route.ts",
@@ -1208,8 +1457,20 @@
           "line": 11
         },
         {
+          "path": "src/app/operation-tasks/page.tsx",
+          "line": 11
+        },
+        {
           "path": "src/app/qa-reports/[id]/page.tsx",
           "line": 36
+        },
+        {
+          "path": "src/app/qa-reports/[id]/page.tsx",
+          "line": 36
+        },
+        {
+          "path": "src/app/qa-reports/page.tsx",
+          "line": 24
         },
         {
           "path": "src/app/qa-reports/page.tsx",
@@ -1235,6 +1496,14 @@
         {
           "path": "src/app/api/tickets/route.ts",
           "line": 67
+        },
+        {
+          "path": "src/app/api/tickets/route.ts",
+          "line": 67
+        },
+        {
+          "path": "src/app/tickets/page.tsx",
+          "line": 34
         },
         {
           "path": "src/app/tickets/page.tsx",
@@ -1263,11 +1532,19 @@
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
+          "line": 38
+        },
+        {
+          "path": "src/app/api/tickets/[id]/route.ts",
           "line": 50
         },
         {
           "path": "src/app/api/tickets/[id]/route.ts",
           "line": 68
+        },
+        {
+          "path": "src/app/api/tickets/route.ts",
+          "line": 50
         },
         {
           "path": "src/app/api/tickets/route.ts",
@@ -1284,6 +1561,14 @@
         {
           "path": "src/app/tickets/[id]/page.tsx",
           "line": 13
+        },
+        {
+          "path": "src/app/tickets/[id]/page.tsx",
+          "line": 13
+        },
+        {
+          "path": "src/app/tickets/page.tsx",
+          "line": 33
         },
         {
           "path": "src/app/tickets/page.tsx",
@@ -1326,19 +1611,19 @@
       "files": [
         {
           "path": "src/app/api/app-sources/route.ts",
-          "line": 25
+          "line": 26
         },
         {
           "path": "src/app/api/app-sources/route.ts",
-          "line": 113
+          "line": 121
         },
         {
           "path": "src/app/api/app-sources/route.ts",
-          "line": 167
+          "line": 175
         },
         {
           "path": "src/app/api/app-sources/route.ts",
-          "line": 208
+          "line": 216
         },
         {
           "path": "src/app/api/settings/route.ts",
@@ -1365,6 +1650,14 @@
           "line": 42
         },
         {
+          "path": "src/app/settings/page.tsx",
+          "line": 42
+        },
+        {
+          "path": "src/app/users/page.tsx",
+          "line": 11
+        },
+        {
           "path": "src/app/users/page.tsx",
           "line": 11
         }
@@ -1386,8 +1679,20 @@
           "line": 58
         },
         {
+          "path": "src/app/api/images/[id]/file/route.ts",
+          "line": 58
+        },
+        {
           "path": "src/app/api/images/list/route.ts",
-          "line": 33
+          "line": 35
+        },
+        {
+          "path": "src/app/api/images/list/route.ts",
+          "line": 35
+        },
+        {
+          "path": "src/app/api/images/stats/route.ts",
+          "line": 23
         },
         {
           "path": "src/app/api/images/stats/route.ts",
@@ -1400,6 +1705,10 @@
         {
           "path": "src/app/api/users/route.ts",
           "line": 16
+        },
+        {
+          "path": "src/app/users/page.tsx",
+          "line": 10
         },
         {
           "path": "src/app/users/page.tsx",
@@ -1422,467 +1731,5 @@
       ]
     }
   ],
-  "drifts": [
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/ai/conversations/[id] has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/ai/conversations/[id]",
-        "file": "src/app/api/ai/conversations/[id]/route.ts",
-        "methods": [
-          "DELETE",
-          "GET",
-          "PATCH"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/ai/hosted-actions/[id] has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/ai/hosted-actions/[id]",
-        "file": "src/app/api/ai/hosted-actions/[id]/route.ts",
-        "methods": [
-          "PATCH"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/ai/hosted-actions has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/ai/hosted-actions",
-        "file": "src/app/api/ai/hosted-actions/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/ai/models has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/ai/models",
-        "file": "src/app/api/ai/models/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/auth/2fa/disable has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/auth/2fa/disable",
-        "file": "src/app/api/auth/2fa/disable/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/auth/2fa/enable has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/auth/2fa/enable",
-        "file": "src/app/api/auth/2fa/enable/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/auth/2fa/setup has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/auth/2fa/setup",
-        "file": "src/app/api/auth/2fa/setup/route.ts",
-        "methods": [
-          "POST",
-          "PUT"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/auth/2fa/verify-login has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/auth/2fa/verify-login",
-        "file": "src/app/api/auth/2fa/verify-login/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/auth/signout has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/auth/signout",
-        "file": "src/app/api/auth/signout/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/auth/ws-token has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/auth/ws-token",
-        "file": "src/app/api/auth/ws-token/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/backups/[id]/restore has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/backups/[id]/restore",
-        "file": "src/app/api/backups/[id]/restore/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/dashboard/analytics has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/dashboard/analytics",
-        "file": "src/app/api/dashboard/analytics/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/deploy-export has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/deploy-export",
-        "file": "src/app/api/deploy-export/route.ts",
-        "methods": [
-          "GET",
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/deployments/[id]/rollback has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/deployments/[id]/rollback",
-        "file": "src/app/api/deployments/[id]/rollback/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/docs/openapi.json has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/docs/openapi.json",
-        "file": "src/app/api/docs/openapi.json/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/docs/openapi has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/docs/openapi",
-        "file": "src/app/api/docs/openapi/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"share:create\" but the route handler doesn't enforce it via requirePermission(\"share:create\") or withApiRoute(..., { permission: \"share:create\" }, ...)",
-      "context": {
-        "path": "/src/app/api/files/list",
-        "declaredPermission": "share:create",
-        "file": "src/app/api/files/list/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
-      "context": {
-        "path": "/src/app/api/files/list",
-        "declaredPermission": "storage:delete",
-        "file": "src/app/api/files/list/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/files/list declares \"storage:write\" but the route handler doesn't enforce it via requirePermission(\"storage:write\") or withApiRoute(..., { permission: \"storage:write\" }, ...)",
-      "context": {
-        "path": "/src/app/api/files/list",
-        "declaredPermission": "storage:write",
-        "file": "src/app/api/files/list/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/[id]/file declares \"user:read\" but the route handler doesn't enforce it via requirePermission(\"user:read\") or withApiRoute(..., { permission: \"user:read\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/[id]/file",
-        "declaredPermission": "user:read",
-        "file": "src/app/api/images/[id]/file/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/[id] declares \"role:manage\" but the route handler doesn't enforce it via requirePermission(\"role:manage\") or withApiRoute(..., { permission: \"role:manage\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/[id]",
-        "declaredPermission": "role:manage",
-        "file": "src/app/api/images/[id]/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/[id] declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/[id]",
-        "declaredPermission": "storage:delete",
-        "file": "src/app/api/images/[id]/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/batch declares \"role:manage\" but the route handler doesn't enforce it via requirePermission(\"role:manage\") or withApiRoute(..., { permission: \"role:manage\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/batch",
-        "declaredPermission": "role:manage",
-        "file": "src/app/api/images/batch/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/batch declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/batch",
-        "declaredPermission": "storage:delete",
-        "file": "src/app/api/images/batch/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/list declares \"image:read\" but the route handler doesn't enforce it via requirePermission(\"image:read\") or withApiRoute(..., { permission: \"image:read\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/list",
-        "declaredPermission": "image:read",
-        "file": "src/app/api/images/list/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/list declares \"user:read\" but the route handler doesn't enforce it via requirePermission(\"user:read\") or withApiRoute(..., { permission: \"user:read\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/list",
-        "declaredPermission": "user:read",
-        "file": "src/app/api/images/list/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/stats declares \"user:read\" but the route handler doesn't enforce it via requirePermission(\"user:read\") or withApiRoute(..., { permission: \"user:read\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/stats",
-        "declaredPermission": "user:read",
-        "file": "src/app/api/images/stats/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/upload declares \"image:write\" but the route handler doesn't enforce it via requirePermission(\"image:write\") or withApiRoute(..., { permission: \"image:write\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/upload",
-        "declaredPermission": "image:write",
-        "file": "src/app/api/images/upload/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/images/upload declares \"storage:write\" but the route handler doesn't enforce it via requirePermission(\"storage:write\") or withApiRoute(..., { permission: \"storage:write\" }, ...)",
-      "context": {
-        "path": "/src/app/api/images/upload",
-        "declaredPermission": "storage:write",
-        "file": "src/app/api/images/upload/route.ts"
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/login has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/login",
-        "file": "src/app/api/login/route.ts",
-        "methods": [
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/media/[id]/stream declares \"storage:read\" but the route handler doesn't enforce it via requirePermission(\"storage:read\") or withApiRoute(..., { permission: \"storage:read\" }, ...)",
-      "context": {
-        "path": "/src/app/api/media/[id]/stream",
-        "declaredPermission": "storage:read",
-        "file": "src/app/api/media/[id]/stream/route.ts"
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/monitoring/stats has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/monitoring/stats",
-        "file": "src/app/api/monitoring/stats/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/preferences has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/preferences",
-        "file": "src/app/api/preferences/route.ts",
-        "methods": [
-          "GET",
-          "PUT"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/servers/[id]/file-proxy has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/servers/[id]/file-proxy",
-        "file": "src/app/api/servers/[id]/file-proxy/route.ts",
-        "methods": [
-          "DELETE",
-          "GET",
-          "POST"
-        ]
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/share/[token] has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/share/[token]",
-        "file": "src/app/api/share/[token]/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/snippets declares \"role:manage\" but the route handler doesn't enforce it via requirePermission(\"role:manage\") or withApiRoute(..., { permission: \"role:manage\" }, ...)",
-      "context": {
-        "path": "/src/app/api/snippets",
-        "declaredPermission": "role:manage",
-        "file": "src/app/api/snippets/route.ts"
-      }
-    },
-    {
-      "code": "api-no-declared-perm",
-      "severity": "low",
-      "message": "API route /src/app/api/status has no declaredPermissions (could be intentionally public)",
-      "context": {
-        "path": "/src/app/api/status",
-        "file": "src/app/api/status/route.ts",
-        "methods": [
-          "GET"
-        ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:delete\" but the route handler doesn't enforce it via requirePermission(\"storage:delete\") or withApiRoute(..., { permission: \"storage:delete\" }, ...)",
-      "context": {
-        "path": "/src/app/api/storage/sftp-ops",
-        "declaredPermission": "storage:delete",
-        "file": "src/app/api/storage/sftp-ops/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:read\" but the route handler doesn't enforce it via requirePermission(\"storage:read\") or withApiRoute(..., { permission: \"storage:read\" }, ...)",
-      "context": {
-        "path": "/src/app/api/storage/sftp-ops",
-        "declaredPermission": "storage:read",
-        "file": "src/app/api/storage/sftp-ops/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/storage/sftp-ops declares \"storage:write\" but the route handler doesn't enforce it via requirePermission(\"storage:write\") or withApiRoute(..., { permission: \"storage:write\" }, ...)",
-      "context": {
-        "path": "/src/app/api/storage/sftp-ops",
-        "declaredPermission": "storage:write",
-        "file": "src/app/api/storage/sftp-ops/route.ts"
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/tickets declares \"ticket:create\" but the route handler doesn't enforce it via requirePermission(\"ticket:create\") or withApiRoute(..., { permission: \"ticket:create\" }, ...)",
-      "context": {
-        "path": "/src/app/api/tickets",
-        "declaredPermission": "ticket:create",
-        "file": "src/app/api/tickets/route.ts"
-      }
-    }
-  ]
+  "drifts": []
 }

@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
+import { z } from "zod";
 
 import {
 	archiveStreamResponse,
@@ -13,6 +14,8 @@ import {
 } from "@/lib/storage/archive-stream";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { normalizeSharePath, resolveShareToken } from "@/lib/share-link/service";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
@@ -94,8 +97,17 @@ export async function GET(
 
 	let targetPath = share.path;
 	const searchParams = new URL(request.url).searchParams;
-	const childPath = searchParams.get("path");
-	const wantsArchive = searchParams.get("archive") === "1";
+	const { path: childPath, archive } = parseSearchParams(
+		request,
+		z.object({
+			path: z.string().trim().min(1).optional(),
+			archive: z
+				.string()
+				.optional()
+				.transform((value) => value === "1"),
+		}),
+	);
+	const wantsArchive = archive;
 	if (share.entryType === "DIRECTORY") {
 		if (wantsArchive) {
 			targetPath = share.path;

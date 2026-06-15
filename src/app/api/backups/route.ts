@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
-import { createBackupRecord, listBackupRecords, runBackupRecord } from "@/lib/backup/service";
+import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
+import {
+  createBackupRecord,
+  listBackupRecords,
+  runBackupRecord,
+} from "@/lib/backup/service";
 import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
 import { createBackupSchema } from "@/lib/backup/schema";
-import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
 
@@ -33,7 +39,16 @@ export async function POST(request: Request) {
     const body = await readRequestBody(request);
     const parsed = createBackupSchema.safeParse(body);
     if (!parsed.success) throw new ValidationError(parsed.error.issues[0]?.message ?? "备份参数无效");
-    const waitForCompletion = new URL(request.url).searchParams.get("wait") === "1";
+    const { wait } = parseSearchParams(
+      request,
+      z.object({
+        wait: z
+          .string()
+          .optional()
+          .transform((value) => value === "1"),
+      }),
+    );
+    const waitForCompletion = wait;
     if (waitForCompletion) {
       const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session?.userId ?? "", note: parsed.data.note });
       if ((request.headers.get("accept") || "").includes("text/html")) {

@@ -45,12 +45,40 @@ function parseNavItems(block: string): { href: string; fallbackLabel: string }[]
   return items;
 }
 
+/**
+ * Build a Set of every permission key declared in src/lib/auth/rbac.ts.
+ * Treating the RBAC PERMISSIONS list as the authoritative dictionary lets us
+ * match permission references in pages/routes by exact membership instead of
+ * guessing a suffix list (TR-043: previous regex missed `backup:restore`,
+ * `command:execute`, `server:ssh`, `deploy:run`, `deploy:export`,
+ * `ai:action:approve`, etc.).
+ */
+function loadPermissionVocabulary(): Set<string> {
+  const text = readFileSync(RBAC_FILE, 'utf8');
+  const match = text.match(/export const PERMISSIONS\s*=\s*\[([\s\S]*?)\];/);
+  const set = new Set<string>();
+  if (!match) return set;
+  for (const m of match[1]!.matchAll(/"([^"]+)"/g)) {
+    set.add(m[1]!);
+  }
+  return set;
+}
+
+const PERMISSION_VOCAB = loadPermissionVocabulary();
+
 function declaredPerms(text: string): string[] {
-  const re = /['"]([a-z][a-z0-9-]+:(?:read|write|manage|create|delete|approve|chat|hosted|action))['"]/g;
+  // Match any single- or double-quoted string and keep only those that appear
+  // in the PERMISSIONS dictionary. Conservative: ignores everything that is
+  // not an exact RBAC permission, so noise like file paths or i18n keys cannot
+  // pollute the catalog.
+  const re = /['"]([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)['"]/g;
   const set = new Set<string>();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
-    set.add(m[1]!);
+    const candidate = m[1]!;
+    if (PERMISSION_VOCAB.has(candidate)) {
+      set.add(candidate);
+    }
   }
   return [...set].sort();
 }
