@@ -141,37 +141,89 @@ export async function peekShareToken(token: string) {
 }
 
 async function syncLocalShareDirectory(share: { storageNodeId: string; storageNode?: { basePath: string }; path: string }) {
-  const basePath = share.storageNode?.basePath;
-  if (!basePath) return;
-  const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
-  const allowedRoot = path.resolve(expandStorageBasePath(basePath));
-  const absoluteDir = path.resolve(allowedRoot, normalizedPrefix);
-  const relativeToRoot = path.relative(allowedRoot, absoluteDir);
-  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return;
+	const basePath = share.storageNode?.basePath;
+	if (!basePath) return;
+	const normalizedPrefix = share.path.replace(/^\/+|\/+$/g, "");
+	const allowedRoot = path.resolve(expandStorageBasePath(basePath));
+	const absoluteDir = path.resolve(allowedRoot, normalizedPrefix);
+	const relativeToRoot = path.relative(allowedRoot, absoluteDir);
+	if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) return;
 
-  let entries: Dirent[];
-  try {
-    entries = await readdir(absoluteDir, { withFileTypes: true });
-  } catch {
-    return;
-  }
+	let entries: Dirent[];
+	try {
+		entries = await readdir(absoluteDir, { withFileTypes: true });
+	} catch {
+		return;
+	}
 
-  await Promise.all(entries.map(async (entry) => {
-    if (!entry.isFile() && !entry.isDirectory()) return;
-    const relativePath = `${normalizedPrefix}/${entry.name}`.replace(/^\/+/, "");
-    const absolutePath = path.join(absoluteDir, entry.name);
-    const fileStat = await stat(absolutePath).catch(() => null);
-    if (!fileStat) return;
-    const entryType = entry.isDirectory() ? "DIRECTORY" : "FILE";
-    const mimeType = entryType === "DIRECTORY" ? "inode/directory" : guessMimeType(entry.name);
-    const size = entryType === "FILE" ? BigInt(fileStat.size) : null;
-    const existing = await prisma.fileEntry.findFirst({ where: { storageNodeId: share.storageNodeId, relativePath } });
-    if (existing) {
-      await prisma.fileEntry.update({ where: { id: existing.id }, data: { name: entry.name, entryType, mimeType, size, isDeleted: false } });
-      return;
-    }
-    await prisma.fileEntry.create({ data: { storageNodeId: share.storageNodeId, relativePath, name: entry.name, entryType, mimeType, size: size ?? undefined } });
-  }));
+	// Build a deterministic list of records (filter + stat) so we can
+	// resolve the existing rows in a single `findMany` instead of one
+	// `findFirst` per entry. (TR-040 R1.2)
+	const records: Array<{
+		relativePath: string;
+		name: string;
+		entryType: "FILE" | "DIRECTORY";
+		mimeType: string;
+		size: bigint | null;
+	}> = [];
+	for (const entry of entries) {
+		if (!entry.isFile() && !entry.isDirectory()) continue;
+		const relativePath = `${normalizedPrefix}/${entry.name}`.replace(/^\/+/, "");
+		const absolutePath = path.join(absoluteDir, entry.name);
+		const fileStat = await stat(absolutePath).catch(() => null);
+		if (!fileStat) continue;
+		const entryType: "FILE" | "DIRECTORY" = entry.isDirectory() ? "DIRECTORY" : "FILE";
+		records.push({
+			relativePath,
+			name: entry.name,
+			entryType,
+			mimeType: entryType === "DIRECTORY" ? "inode/directory" : (guessMimeType(entry.name) ?? "application/octet-stream"),
+			size: entryType === "FILE" ? BigInt(fileStat.size) : null,
+		});
+	}
+	if (records.length === 0) return;
+
+	// Single round-trip to learn which records already exist.
+	const existingRows = await prisma.fileEntry.findMany({
+		where: {
+			storageNodeId: share.storageNodeId,
+			relativePath: { in: records.map((r) => r.relativePath) },
+		},
+		select: { id: true, relativePath: true },
+	});
+	const existingByPath = new Map(existingRows.map((row) => [row.relativePath, row]));
+
+	const toCreate = records.filter((r) => !existingByPath.has(r.relativePath));
+	const toUpdate = records.filter((r) => existingByPath.has(r.relativePath));
+
+	// Batch inserts (createMany) + parallel updates (Promise.all). Per-row
+	// failure isolation only matters for the update branch; createMany is
+	// atomic on the DB side and a schema mismatch will surface as a single
+	// thrown error, matching the prior all-or-nothing semantics of the
+	// per-entry findFirst path.
+	if (toCreate.length > 0) {
+		await prisma.fileEntry.createMany({
+			data: toCreate.map((r) => ({
+				storageNodeId: share.storageNodeId,
+				relativePath: r.relativePath,
+				name: r.name,
+				entryType: r.entryType,
+				mimeType: r.mimeType,
+				size: r.size ?? undefined,
+			})),
+		});
+	}
+	if (toUpdate.length > 0) {
+		await Promise.all(
+			toUpdate.map((r) => {
+				const row = existingByPath.get(r.relativePath)!;
+				return prisma.fileEntry.update({
+					where: { id: row.id },
+					data: { name: r.name, entryType: r.entryType, mimeType: r.mimeType, size: r.size, isDeleted: false },
+				});
+			}),
+		);
+	}
 }
 
 async function refreshShareDirectoryIndex(share: Awaited<ReturnType<typeof peekShareToken>>) {
