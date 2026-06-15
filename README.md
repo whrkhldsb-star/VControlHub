@@ -725,10 +725,10 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-- [ ] **下载入队失败被吞**（New-A）— `src/app/api/downloads/route.ts` route 端 `await enqueueDownloadExecutionJob` 后再返 201，失败回滚 `downloadTask.status = FAILED`；durable worker 入口加幂等 claim。**不交后台 cron，人工在场修**。
-- [ ] **定时任务 tick 竞态**（New-B）— `enqueueScheduledTaskTickJob` 改 Prisma 事务 + 唯一约束（或 `INSERT ... WHERE NOT EXISTS`）；`dispatchDueTask` 入队前行级 CAS 更新 `nextRunAt`。
-- [ ] **下载 worker 状态错位**（New-C）— `execution-worker.ts` dispatch 完后查 `downloadTask.status`，FAILED/CANCELLED → `failJob`；RUNNING/PENDING（中转常态）保持 RUNNING 不 complete。
-- [x] **`instrumentation.ts` 启动路径不全**（New-D）— 全部 worker 启动迁到 `instrumentation.ts`，由单一路径保证。**TR-001 T13c 落地**：`src/lib/workers/registry.ts` 单一源 + `src/lib/workers/startup.ts` orchestrator + SIGTERM 优雅停机 + `src/app/api/admin/workers` 健康检查端点。`src/server.ts` 不再直接 `startXxxWorker()`，由 `app.prepare()` 触发的 `instrumentation.register()` 统一启动，未来 `next start` 部署不丢 worker。`deploy.sh` 同步加 `npx prisma migrate deploy` 步骤修 P-001-N。系统化拆分（独立 `vcontrolhub-worker` systemd unit + IPC）留待后续 TR。
+- [x] **下载入队失败被吞**（New-A）— `src/app/api/downloads/route.ts` route 端 `await enqueueDownloadExecutionJob` 后再返 201，失败回滚 `downloadTask.status = FAILED` + 5xx + `code: DOWNLOAD_DISPATCH_FAILED` + `auditUserAction("download.dispatch_failed")`。durable worker 入口配合 New-C idempotency guard 防 FAILED 后重试 side effects。3 个新测：单任务回滚 / batch 部分失败回滚 / happy path。
+- [x] **定时任务 tick 竞态**（New-B）— `enqueueScheduledTaskTickJob` 改 `prisma.$transaction(async tx => { hasActive(tx); enqueueJob() })` 串行化存在性检查 + 入队；`dispatchDueTask` 入队前行级 CAS `updateMany({id, status, nextRunAt: oldNext}, data: {nextRunAt: claimSentinel})`，count===0 跳过 + `info` 日志；失败回滚原 nextRunAt。`dispatched` counter 只数 CAS 赢 + createCommandRequest 成功的任务。3 个新测：CAS count=0 / CAS 赢但 createCommandRequest 失败回滚 / 事务存在性检查。
+- [x] **下载 worker 状态错位**（New-C）— `execution-worker.ts` handleClaimedJob dispatch 前查 `downloadTask.status`，COMPLETED→completeJob+`status:already_completed`、FAILED/CANCELLED→failJob+`retryAfterMs:undefined`（不重试 side effects）；post-throw re-fetch 业务行也走终态分支。接受 T13b maxAttempts=3 重试，aria2 transient 错误自动恢复。4 个新测：COMPLETED / FAILED / CANCELLED / post-throw-FAILED。
+- [x] **`instrumentation.ts` 启动路径不全**（New-D）— 全部 worker 启动迁到 `instrumentation.ts` + `src/lib/workers/registry.ts` 8 worker 单一注册表 + SIGTERM 优雅停机。已合 T13c 落地。
 
 ### P2 — 用户体验和可运营性
 
