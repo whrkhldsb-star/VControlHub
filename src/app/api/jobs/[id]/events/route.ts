@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { prisma } from "@/lib/db";
 import { listJobEvents } from "@/lib/job/events";
 
@@ -34,9 +36,17 @@ export async function GET(
       if (!job) {
         throw new NotFoundError("任务不存在");
       }
-      const { searchParams } = new URL(request.url);
-      const limit = parseLimit(searchParams.get("limit"));
-      const beforeId = searchParams.get("beforeId")?.trim() || undefined;
+      const { limit, beforeId } = parseSearchParams(
+        request,
+        z.object({
+          limit: z
+            .string()
+            .trim()
+            .optional()
+            .transform((value) => (value ? parseLimit(value) : undefined)),
+          beforeId: z.string().trim().min(1).optional(),
+        }),
+      );
       const events = await listJobEvents({ jobId: id, limit, beforeId });
       return NextResponse.json({
         jobId: id,

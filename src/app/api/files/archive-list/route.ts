@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
+import { z } from "zod";
 import {
   resolveStoragePathWithinBase,
   sanitizeArchiveEntries,
 } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
 
@@ -29,14 +31,16 @@ export async function GET(request: NextRequest) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("未授权");
-      const { searchParams } = request.nextUrl;
-      const nodeId = searchParams.get("nodeId") ?? "";
-      const relativePath = (searchParams.get("relativePath") ?? "").replace(
-        /^\/+/,
-        "",
+      const { nodeId, relativePath, driver, name } = parseSearchParams(
+        request,
+        z.object({
+          nodeId: z.string().trim().optional(),
+          relativePath: z.string().trim().optional(),
+          driver: z.enum(["LOCAL", "SFTP"]).default("LOCAL"),
+          name: z.string().trim().min(1).default("archive"),
+        }),
       );
-      const driver = searchParams.get("driver") ?? "LOCAL";
-      const name = searchParams.get("name") ?? "archive";
+      const cleanedRelativePath = (relativePath ?? "").replace(/^\/+/, "");
 
       if (driver !== "LOCAL") {
         return NextResponse.json(

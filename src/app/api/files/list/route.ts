@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   getStorageAccessCapabilities,
   getStorageAccessCapabilityKey,
@@ -40,14 +42,18 @@ export async function GET(request: NextRequest) {
         "storage:manage-node",
       );
 
-      const searchParams = request.nextUrl.searchParams;
-      const currentPath = normalizeFilePath(
-        searchParams.get("path") ?? undefined,
+      const { path: currentPathRaw, q, scope, nodeId: nodeIdFilter } = parseSearchParams(
+        request,
+        z.object({
+          path: z.string().trim().min(1).optional(),
+          q: z.string().trim().optional(),
+          scope: z.enum(["all", "current"]).default("current"),
+          nodeId: z.string().trim().optional(),
+        }),
       );
-      const searchQuery = (searchParams.get("q") ?? "").trim();
-      const searchScope =
-        searchParams.get("scope") === "all" ? "all" : "current";
-      const nodeIdFilter = searchParams.get("nodeId") ?? "";
+      const currentPath = normalizeFilePath(currentPathRaw);
+      const searchQuery = (q ?? "").trim();
+      const searchScope = scope;
       let syncWarning: string | null = null;
 
       let storage = await getStorageOverview();

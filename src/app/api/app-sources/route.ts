@@ -15,7 +15,7 @@ import {
 import { listQuickServices } from "@/lib/quick-service/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
-import { AppError, ConflictError, ValidationError } from "@/lib/errors";
+import { AppError, ConflictError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
 
 /* ── GET /api/app-sources — list sources + remote apps ────────── */

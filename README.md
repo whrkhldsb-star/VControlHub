@@ -708,7 +708,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | ✅ 完成 (R1 union + R2 219 处 codemod + R3 client envelope) |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
 | TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ 后台任务中 (T36b/T36c, 续 R23-R25) |
-| TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ⏳ R2 扫 5 路由 (storage/nodes + quick-services/check-port + audit + servers/monitor + share-links DELETE; 剩 30 路由待 R3+) |
+| TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ⏳ R4 扫 3 路由 (app-sources + docker/containers GET + media GET; R1-R4 累计 15 路由, 剩 24 路由待 R5+) |
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | ✅ 完成 (1/1 leak 修 + 4 域 0 leak 审计; commit 见 git log) |
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⏳ R1 部分完成 (R1.1 syncSource 全并行 + R1.2 syncLocalShareDirectory batch; R1.3 rollback statuses 跳过 — 已是 Promise.all 并行 + runs 数量小) |

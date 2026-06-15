@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { verifyBearerToken } from "@/lib/auth/bearer-token";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 
 export const dynamic = "force-dynamic";
 
@@ -37,16 +39,19 @@ export async function GET(request: Request) {
 }
 
 async function listImages(request: Request, userId: string, isAdmin: boolean) {
-  const { searchParams } = new URL(request.url);
-
-  const album = searchParams.get("album")?.trim() || undefined;
-  const q = searchParams.get("q")?.trim() || undefined;
-  const page = Math.max(1, Number(searchParams.get("page")) || 1);
-  const limit = Math.min(
-    100,
-    Math.max(1, Number(searchParams.get("limit")) || 30),
+  const { album, q, page, limit, all: showAll } = parseSearchParams(
+    request,
+    z.object({
+      album: z.string().trim().min(1).optional(),
+      q: z.string().trim().min(1).optional(),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(100).default(30),
+      all: z
+        .string()
+        .optional()
+        .transform((value) => value === "true"),
+    }),
   );
-  const showAll = searchParams.get("all") === "true";
 
   const where: Record<string, unknown> = {};
   if (album) where.album = album;

@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 import { verifyBearerToken } from "@/lib/auth/bearer-token";
-import {
-  collectAllHealth,
-  getMetricHistory,
-  snapshotMetrics,
-} from "@/lib/health/service";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { collectAllHealth, getMetricHistory, snapshotMetrics } from "@/lib/health/service";
 
 import { apiError } from "@/lib/http/api-error";
 export const dynamic = "force-dynamic";
@@ -36,9 +34,17 @@ export async function GET(request: Request) {
 }
 
 async function handleHealthRequest(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const historyFor = searchParams.get("historyFor");
-  const hours = parseHistoryHours(searchParams.get("hours"));
+  const { historyFor, hours } = parseSearchParams(
+    request,
+    z.object({
+      historyFor: z.string().trim().min(1).optional(),
+      hours: z
+        .string()
+        .trim()
+        .optional()
+        .transform((value) => (value ? parseHistoryHours(value) : undefined)),
+    }),
+  );
 
   if (historyFor) {
     try {
