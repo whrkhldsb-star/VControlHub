@@ -75,7 +75,10 @@ describe("SettingsClient", () => {
     render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
     await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
+    // runtime.commandExecutionTimeoutMs is a high-risk field, so Save opens the confirm modal
     await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
+    await screen.findByTestId("high-risk-confirm-modal");
+    await user.click(screen.getByRole("button", { name: "确认保存" }));
 
     await waitFor(() => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({

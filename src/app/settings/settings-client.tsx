@@ -41,6 +41,49 @@ function latestSectionMetadata(keys: string[], metadata: Record<string, SettingU
 	);
 }
 
+// ── TR-014 M01b ──
+
+export type PendingChange = {
+	key: string;
+	label: string;
+	oldValue: string;
+	newValue: string;
+	riskLevel: "low" | "medium" | "high";
+	sectionId: string;
+};
+
+/** 比较当前 settings 与初始 settings, 返回已修改的字段列表 (按 section 顺序)。 */
+function getPendingChanges(
+	sections: SectionDef[],
+	settings: Record<string, string>,
+	initialSettings: Record<string, string>,
+): PendingChange[] {
+	const out: PendingChange[] = [];
+	for (const section of sections) {
+		for (const field of section.fields) {
+			const newValue = settings[field.key] ?? "";
+			const oldValue = initialSettings[field.key] ?? "";
+			if (newValue === oldValue) continue;
+			out.push({
+				key: field.key,
+				label: field.label,
+				oldValue,
+				newValue,
+				riskLevel: field.riskLevel ?? "low",
+				sectionId: section.id,
+			});
+		}
+	}
+	return out;
+}
+
+/** 把任意 string 值截断并转义, 适合在 diff modal 表格里展示。空值显示 "（空）"。 */
+function renderDiffValue(value: string, max = 60): string {
+	if (value === "") return "（空）";
+	if (value.length <= max) return value;
+	return `${value.slice(0, max)}…`;
+}
+
 export function SettingsClient({
 	settings: initialSettings,
 	runtimeSettings = [],
@@ -53,6 +96,13 @@ export function SettingsClient({
 	const [saved, setSaved] = useState(false);
 	const [savedMessage, setSavedMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	// TR-014 M01b: 保存高风险设置前的二次确认 modal
+	const [highRiskConfirm, setHighRiskConfirm] = useState<{
+		changes: PendingChange[];
+		execute: () => void;
+	} | null>(null);
+	// TR-014 M01b: 每个 section 的 diff 角标展开状态
+	const [expandedDiffs, setExpandedDiffs] = useState<Record<string, boolean>>({});
 
 	// Initial defaults from schema (defaultOpen).
 	const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
@@ -116,31 +166,41 @@ export function SettingsClient({
 				setSavedMessage(null);
 				return;
 			}
-			setSaving(true);
-			setError(null);
-			try {
-				const payload: Record<string, string> = {};
-				for (const k of keys) {
-					payload[k] = settings[k] ?? "";
+			// TR-014 M01b: 如果本 section 的 pending changes 里有 high 风险, 弹 confirm modal
+			const pendingForSection = getPendingChanges([section], settings, initialSettings);
+			const highChanges = pendingForSection.filter((c) => c.riskLevel === "high");
+			const performSave = async () => {
+				setSaving(true);
+				setError(null);
+				try {
+					const payload: Record<string, string> = {};
+					for (const k of keys) {
+						payload[k] = settings[k] ?? "";
+					}
+					await csrfFetch("/api/settings", {
+						method: "PATCH",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(payload),
+					});
+					setSaved(true);
+					setSavedMessage(section.saveMessage || "设置已保存。");
+					setTimeout(() => {
+						setSaved(false);
+						setSavedMessage(null);
+					}, 5000);
+				} catch (err) {
+					setError(err instanceof Error ? err.message : "保存失败");
+				} finally {
+					setSaving(false);
 				}
-				await csrfFetch("/api/settings", {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify(payload),
-				});
-				setSaved(true);
-				setSavedMessage(section.saveMessage || "设置已保存。");
-				setTimeout(() => {
-					setSaved(false);
-					setSavedMessage(null);
-				}, 5000);
-			} catch (err) {
-				setError(err instanceof Error ? err.message : "保存失败");
-			} finally {
-				setSaving(false);
+			};
+			if (highChanges.length > 0) {
+				setHighRiskConfirm({ changes: highChanges, execute: () => void performSave() });
+				return;
 			}
+			await performSave();
 		},
-		[settings],
+		[settings, initialSettings],
 	);
 
 	if (!canManage) {
@@ -213,14 +273,28 @@ export function SettingsClient({
 					open={openSections[section.id] ?? section.defaultOpen}
 					onToggle={handleToggle(section.id)}
 					settings={settings}
+					initialSettings={initialSettings}
 					updateField={updateField}
 					runtimeSummaryByKey={runtimeSummaryByKey}
 					auditMetadata={latestSectionMetadata(getSectionSaveKeys(section), settingUpdateMetadata)}
 					saving={saving}
 					onSave={() => handleSave(section)}
 					twoFactorEnabled={twoFactorEnabled}
+					diffExpanded={expandedDiffs[section.id] ?? false}
+					onToggleDiff={() => setExpandedDiffs((prev) => ({ ...prev, [section.id]: !prev[section.id] }))}
 				/>
 			))}
+			{highRiskConfirm && (
+				<HighRiskConfirmModal
+					changes={highRiskConfirm.changes}
+					onCancel={() => setHighRiskConfirm(null)}
+					onConfirm={async () => {
+						const exec = highRiskConfirm.execute;
+						setHighRiskConfirm(null);
+						await exec();
+					}}
+				/>
+			)}
 		</div>
 	);
 }
@@ -232,12 +306,15 @@ type SchemaDrivenSectionProps = {
 	open: boolean;
 	onToggle: (event: SyntheticEvent<HTMLDetailsElement>) => void;
 	settings: Record<string, string>;
+	initialSettings: Record<string, string>;
 	updateField: (key: string, value: string) => void;
 	runtimeSummaryByKey: Map<string, RuntimeSettingSummary>;
 	auditMetadata: SettingUpdateMetadata | null;
 	saving: boolean;
 	onSave: () => void;
 	twoFactorEnabled: boolean;
+	diffExpanded: boolean;
+	onToggleDiff: () => void;
 };
 
 function SchemaDrivenSection({
@@ -245,12 +322,15 @@ function SchemaDrivenSection({
 	open,
 	onToggle,
 	settings,
+	initialSettings,
 	updateField,
 	runtimeSummaryByKey,
 	auditMetadata,
 	saving,
 	onSave,
 	twoFactorEnabled,
+	diffExpanded,
+	onToggleDiff,
 }: SchemaDrivenSectionProps) {
 	const saveKeys = getSectionSaveKeys(section);
 	const hasSaveButton = saveKeys.length > 0;
@@ -342,7 +422,15 @@ function SchemaDrivenSection({
 							</div>
 						);
 					})()}
-					{hasSaveButton && <SaveButton onClick={onSave} saving={saving} />}
+					{hasSaveButton && (
+					<SaveButtonWithDiff
+						pendingChanges={getPendingChanges([section], settings, initialSettings)}
+						expanded={diffExpanded}
+						onToggleExpand={onToggleDiff}
+						saving={saving}
+						onClick={onSave}
+					/>
+				)}
 				</>
 			)}
 		</CollapsibleSection>
@@ -779,16 +867,205 @@ function SwitchField({ label, riskLevel, value, onChange }: { label: string; ris
 	);
 }
 
-function SaveButton({ onClick, saving }: { onClick: () => void; saving: boolean }) {
+// ── TR-014 M01b: SaveButtonWithDiff ──
+
+/**
+ * 替代原 SaveButton:
+ * - 角标显示本 section 已修改字段数 (无变化时隐藏)
+ * - 点击角标展开/折叠 inline diff 表格 (key + before + after + 风险色条)
+ * - 真实保存按钮始终在右侧, 高风险修改时按钮文字变红强调
+ */
+function SaveButtonWithDiff({
+	pendingChanges,
+	expanded,
+	onToggleExpand,
+	saving,
+	onClick,
+}: {
+	pendingChanges: PendingChange[];
+	expanded: boolean;
+	onToggleExpand: () => void;
+	saving: boolean;
+	onClick: () => void;
+}) {
+	const count = pendingChanges.length;
+	const highCount = pendingChanges.filter((c) => c.riskLevel === "high").length;
+	const mediumCount = pendingChanges.filter((c) => c.riskLevel === "medium").length;
 	return (
-		<div className="pt-2">
-			<button
-				onClick={onClick}
-				disabled={saving}
-				className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
-			>
-				{saving ? "保存中…" : "保存"}
-			</button>
+		<div className="pt-2 space-y-2" data-component="save-button-with-diff">
+			<div className="flex flex-wrap items-center gap-2">
+				{count > 0 && (
+					<button
+						type="button"
+						onClick={onToggleExpand}
+						aria-expanded={expanded}
+						aria-label={`${count} 项已修改, ${expanded ? "收起" : "展开"} 改动列表`}
+						data-pending-count={count}
+						className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
+							highCount > 0
+								? "border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/15 light:border-rose-700/30 light:bg-rose-50 light:text-rose-800"
+								: mediumCount > 0
+									? "border-amber-400/30 bg-amber-400/10 text-amber-200 hover:bg-amber-400/15 light:border-amber-700/30 light:bg-amber-50 light:text-amber-800"
+									: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15 light:border-cyan-700/30 light:bg-cyan-50 light:text-cyan-800"
+						}`}
+					>
+						<span aria-hidden>{expanded ? "▾" : "▸"}</span>
+						<span>
+							{count} 项已修改{highCount > 0 ? ` · ${highCount} 高风险` : mediumCount > 0 ? ` · ${mediumCount} 中风险` : ""}
+						</span>
+					</button>
+				)}
+				<button
+					onClick={onClick}
+					disabled={saving}
+					data-component="save-button"
+					className={`rounded-2xl px-5 py-2 text-sm font-medium transition disabled:opacity-60 ${
+						highCount > 0
+							? "bg-rose-500 text-white hover:bg-rose-400 light:bg-rose-600 light:hover:bg-rose-500"
+							: "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
+					}`}
+				>
+					{saving ? "保存中…" : "保存"}
+				</button>
+			</div>
+			{expanded && count > 0 && (
+				<div
+					data-component="diff-table"
+					role="region"
+					aria-label="未保存的修改"
+					className="overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02] light:border-slate-200 light:bg-slate-50"
+				>
+					<table className="w-full text-xs">
+						<thead className="border-b border-white/[0.08] bg-white/[0.02] text-left text-[11px] uppercase tracking-wide text-slate-400 light:border-slate-200 light:bg-slate-100/70 light:text-slate-500">
+							<tr>
+								<th className="px-3 py-2 font-medium">字段</th>
+								<th className="px-3 py-2 font-medium">原值</th>
+								<th className="px-3 py-2 font-medium">新值</th>
+								<th className="px-3 py-2 font-medium">风险</th>
+							</tr>
+						</thead>
+						<tbody>
+							{pendingChanges.map((change) => (
+								<tr
+									key={change.key}
+									data-pending-key={change.key}
+									data-pending-risk={change.riskLevel}
+									className="border-t border-white/[0.04] align-top light:border-slate-200"
+								>
+									<td className="px-3 py-2 font-mono text-[11px] text-white light:text-slate-900">{change.label}</td>
+									<td className="px-3 py-2 text-slate-400 line-through light:text-slate-500">
+										{renderDiffValue(change.oldValue)}
+									</td>
+									<td className="px-3 py-2 text-cyan-100 light:text-cyan-800">{renderDiffValue(change.newValue)}</td>
+									<td className="px-3 py-2">
+										<FieldRiskBadge level={change.riskLevel} />
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
 		</div>
+	);
+}
+
+// ── TR-014 M01b: HighRiskConfirmModal ──
+
+/**
+ * 提交保存前, 如果 pending changes 含 high 风险, 弹此 modal 强制二次确认。
+ * 用 `<dialog>` 实现 (自带 backdrop + ESC 关闭), fallback 用 fixed 面板。
+ */
+function HighRiskConfirmModal({
+	changes,
+	onCancel,
+	onConfirm,
+}: {
+	changes: PendingChange[];
+	onCancel: () => void;
+	onConfirm: () => void | Promise<void>;
+}) {
+	const dialogRef = useRef<HTMLDialogElement | null>(null);
+	const [busy, setBusy] = useState(false);
+	useEffect(() => {
+		const dialog = dialogRef.current;
+		if (!dialog) return;
+		// jsdom test env doesn't implement HTMLDialogElement.showModal
+		if (typeof dialog.showModal === "function") {
+			if (!dialog.open) dialog.showModal();
+		} else if (!dialog.open) {
+			dialog.open = true;
+		}
+		const handleClose = () => onCancel();
+		dialog.addEventListener("close", handleClose);
+		return () => dialog.removeEventListener("close", handleClose);
+	}, [onCancel]);
+	return (
+		<dialog
+			ref={dialogRef}
+			aria-labelledby="high-risk-confirm-title"
+			data-component="high-risk-confirm-modal"
+			data-testid="high-risk-confirm-modal"
+			className="rounded-2xl border border-white/[0.08] bg-slate-900/95 p-0 text-white shadow-2xl backdrop:bg-slate-950/70 light:border-slate-200 light:bg-white light:text-slate-900 light:backdrop:bg-slate-900/60"
+		>
+			<div className="w-[min(560px,90vw)] p-5">
+				<h2 id="high-risk-confirm-title" className="text-base font-semibold text-rose-200 light:text-rose-700">
+					确认高风险修改
+				</h2>
+				<p className="mt-1 text-xs text-slate-400 light:text-slate-600">
+					以下 {changes.length} 项修改会立即影响已运行服务或安全策略，请二次确认。
+				</p>
+				<ul className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
+					{changes.map((change) => (
+						<li
+							key={change.key}
+							className="rounded-lg border border-rose-400/20 bg-rose-500/[0.06] p-3 text-xs light:border-rose-200 light:bg-rose-50"
+						>
+							<div className="flex items-center justify-between gap-2">
+								<span className="font-mono text-[11px] text-white light:text-slate-900">{change.label}</span>
+								<FieldRiskBadge level={change.riskLevel} />
+							</div>
+							<div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
+								<div>
+									<span className="text-slate-500">原值 </span>
+									<span className="text-slate-300 line-through light:text-slate-500">{renderDiffValue(change.oldValue, 40)}</span>
+								</div>
+								<div>
+									<span className="text-slate-500">新值 </span>
+									<span className="text-rose-100 light:text-rose-800">{renderDiffValue(change.newValue, 40)}</span>
+								</div>
+							</div>
+						</li>
+					))}
+				</ul>
+				<div className="mt-4 flex justify-end gap-2">
+					<button
+						type="button"
+						onClick={onCancel}
+						disabled={busy}
+						data-action="cancel"
+						className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 light:border-slate-200 light:bg-white light:text-slate-700 light:hover:bg-slate-50"
+					>
+						取消
+					</button>
+					<button
+						type="button"
+						onClick={async () => {
+							setBusy(true);
+							try {
+								await onConfirm();
+							} finally {
+								setBusy(false);
+							}
+						}}
+						disabled={busy}
+						data-action="confirm"
+						className="rounded-lg bg-rose-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:opacity-50 light:bg-rose-600 light:hover:bg-rose-500"
+					>
+						{busy ? "保存中…" : "确认保存"}
+					</button>
+				</div>
+			</div>
+		</dialog>
 	);
 }
