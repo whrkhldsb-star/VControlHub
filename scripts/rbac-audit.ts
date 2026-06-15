@@ -246,15 +246,18 @@ export interface CallSite {
 export function scanCallSites(files: string[]): CallSite[] {
   const sites: CallSite[] = [];
   // sessionHasPermission(<expr>, "perm:key")  — `<expr>` may be `session`, `session!`, `input.session`, etc.
+  // The perm literal allows hyphens in the namespace and underscores in the action
+  // (e.g. "api-token:manage", "storage:manage-node").
   const sessionRe =
-    /sessionHasPermission\(\s*[^,]+,\s*"([a-z]+:[a-z][a-z_-]*)"\s*\)/g;
+    /sessionHasPermission\(\s*[^,]+,\s*"([a-z][a-z0-9_-]*:[a-z0-9_-]+)"\s*\)/g;
   // requirePermission("perm:key")
-  const requireRe = /requirePermission\(\s*"([a-z]+:[a-z][a-z_-]*)"\s*\)/g;
+  const requireRe = /requirePermission\(\s*"([a-z][a-z0-9_-]*:[a-z0-9_-]+)"\s*\)/g;
   // withApiRoute(  — match the wrapper opener; the `permission: "X"` arg
   // may be on the same line or 1-5 lines below, so we do a window scan.
   const withApiRouteRe = /\bwithApiRoute\s*\(/g;
-  // `permission: "perm:key"` (single-line, no `withApiRoute` qualifier)
-  const permArgRe = /\bpermission:\s*"([a-z]+:[a-z][a-z_-]*)"/g;
+  // `permission: "perm:key"` (no leading word boundary — `:` and `"` are
+  // both non-word, so `\b` would never match between them).
+  const permArgRe = /permission:\s*"([a-z][a-z0-9_-]*:[a-z0-9_-]+)"/g;
 
   for (const file of files) {
     const text = readFileSync(resolve(ROOT, file), "utf8");

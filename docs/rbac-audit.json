@@ -1,18 +1,18 @@
 {
-  "generatedAt": "2026-06-15T09:54:42.549Z",
+  "generatedAt": "2026-06-15T09:59:31.222Z",
   "summary": {
     "permissionsInList": 41,
     "rolesDefined": 4,
     "apiRoutesAudited": 79,
     "pagesAudited": 39,
-    "callSitesAudited": 197,
-    "driftCount": 42,
+    "callSitesAudited": 201,
+    "driftCount": 41,
     "driftByCode": {
       "perm-not-in-list": 0,
       "perm-without-role": 0,
       "role-grants-unknown": 0,
       "api-no-declared-perm": 22,
-      "api-decl-perm-unused": 20,
+      "api-decl-perm-unused": 19,
       "api-route-missing": 0,
       "page-button-perm-unused": 0
     }
@@ -112,8 +112,27 @@
     },
     {
       "permission": "api-token:manage",
-      "files": [],
-      "pages": [],
+      "files": [
+        {
+          "path": "src/app/api/api-tokens/route.ts",
+          "line": 77
+        },
+        {
+          "path": "src/app/api/api-tokens/route.ts",
+          "line": 90
+        },
+        {
+          "path": "src/app/api/api-tokens/route.ts",
+          "line": 138
+        },
+        {
+          "path": "src/app/api-tokens/page.tsx",
+          "line": 11
+        }
+      ],
+      "pages": [
+        "api-tokens"
+      ],
       "apiRoutes": [],
       "grantedToRoles": [
         "admin",
@@ -1452,16 +1471,6 @@
         "methods": [
           "GET"
         ]
-      }
-    },
-    {
-      "code": "api-decl-perm-unused",
-      "severity": "medium",
-      "message": "API route /src/app/api/api-tokens declares \"api-token:manage\" but the route handler doesn't enforce it via requirePermission(\"api-token:manage\") or withApiRoute(..., { permission: \"api-token:manage\" }, ...)",
-      "context": {
-        "path": "/src/app/api/api-tokens",
-        "declaredPermission": "api-token:manage",
-        "file": "src/app/api/api-tokens/route.ts"
       }
     },
     {

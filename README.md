@@ -559,9 +559,9 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### 现有 TR 核实结果
 
 按"复选框语义与代码事实是否吻合"重新分类：
-- **真已完成** TR-008 / TR-012 / TR-013 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-029
+- **真已完成** TR-008 / TR-012 / TR-013 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-025 / TR-029
 - **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-003 / TR-004 / TR-005 / TR-006 / TR-007 / TR-014 / TR-019
-- **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-025 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
+- **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
 
 ### 新发现问题 TR-034 ~ TR-042
 
@@ -696,7 +696,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-022 | P2 | 移动端适配（高频入口 / 复杂面板响应式） | ✅ 主体 9 轮完成 |
 | TR-023 | P3 | 自动化工作流 Playbook（条件触发 / 告警联动 / 步骤编排） | 队列中 |
 | TR-024 | P3 | 命令/部署执行 durable worker（DB-backed job / 跨进程取消 / 并发上限） | ✅ 主体已落地 |
-| TR-025 | P3 | RBAC 角色视角巡检（按钮可见 / API 可调一致性） | ⏳ 后台任务中 (T25a/T25b) |
+| TR-025 | P3 | RBAC 角色视角巡检（按钮可见 / API 可调一致性） | ✅ 完成 (T25a + T25b, commit e129d86 + T25b) |
 | TR-026 | P3 | 统一操作反馈模型（ActionResult + toast/alert + 任务中心链接） | ✅ 主体已落地 |
 | TR-027 | P3 | README/测试追踪标签 | ✅ 完成 |
 | TR-028 | P3 | 路由与导航真源（`docs/route-catalog.json` + 守卫脚本） | ✅ 完成 39 page / 79 API / 41 perm |
@@ -751,7 +751,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### P3 — 长期愿景
 
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
-- [ ] **RBAC 角色视角巡检**（TR-025）。
+- [x] **RBAC 角色视角巡检**（TR-025）— T25a 落地 (`scripts/rbac-audit.ts` + 4-source cross-ref + 11 个单测 + `npm run rbac:audit`),T25b 落地 (脚本扩 withApiRoute-permission 检测,扫出 41 perm × 4 role × 79 API × 39 page,输出 `docs/rbac-audit.json` + `docs/rbac-audit.md`;真实漂移 22 个 `api-no-declared-perm` + 19 个 `api-decl-perm-unused` 待人工修 — 需按 perm 单独决定加/不改,机械替换会改坏语义)。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面。
 - [x] **站内 QA 报告产品化**（TR-029）— T29a 落地（list + detail + 读 .hermes/ + 复用 admin/qa-reports 模式），T29b 落地（趋势卡片 + 日柱图 + 模块覆盖 + 最近 5 run + 失败摘要 + autonomous-maintenance-state.json 接入）。
 - [ ] **多租户 / 团队空间**（TR-030）。

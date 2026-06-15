@@ -1,6 +1,6 @@
 # VControlHub RBAC Audit Report
 
-> Generated: 2026-06-15T09:54:42.549Z | Permissions: 41 | Roles: 4 | API routes: 79 | Pages: 39 | Drift: 42
+> Generated: 2026-06-15T09:59:31.222Z | Permissions: 41 | Roles: 4 | API routes: 79 | Pages: 39 | Drift: 41
 
 This report cross-references four RBAC sources of truth:
 1. `src/lib/auth/rbac.ts` — `PERMISSIONS` tuple + `DEFAULT_ROLE_PERMISSIONS` map
@@ -16,7 +16,7 @@ This report cross-references four RBAC sources of truth:
 | `perm-without-role` | low | 0 |
 | `role-grants-unknown` | low | 0 |
 | `api-no-declared-perm` | low | 22 |
-| `api-decl-perm-unused` | medium | 20 |
+| `api-decl-perm-unused` | medium | 19 |
 | `api-route-missing` | low | 0 |
 | `page-button-perm-unused` | low | 0 |
 
@@ -28,7 +28,7 @@ This report cross-references four RBAC sources of truth:
 | `ai:chat` | admin, operator, viewer, storage_manager | 0 | 0 | 2 |
 | `ai:manage` | admin, operator | 0 | 0 | 4 |
 | `announcement:manage` | admin, operator | 1 | 1 | 5 |
-| `api-token:manage` | admin, operator | 0 | 0 | 0 |
+| `api-token:manage` | admin, operator | 1 | 0 | 4 |
 | `audit:read` | admin, operator, viewer, storage_manager | 1 | 0 | 2 |
 | `backup:create` | admin, operator | 1 | 0 | 6 |
 | `backup:read` | admin, operator, viewer, storage_manager | 1 | 0 | 3 |
@@ -119,17 +119,6 @@ API route /src/app/api/ai/models has no declaredPermissions (could be intentiona
   "methods": [
     "GET"
   ]
-}
-```
-
-### `api-decl-perm-unused` (medium)
-API route /src/app/api/api-tokens declares "api-token:manage" but the route handler doesn't enforce it via requirePermission("api-token:manage") or withApiRoute(..., { permission: "api-token:manage" }, ...)
-
-```json
-{
-  "path": "/src/app/api/api-tokens",
-  "declaredPermission": "api-token:manage",
-  "file": "src/app/api/api-tokens/route.ts"
 }
 ```
 

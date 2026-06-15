@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { ValidationError } from "@/lib/errors";
 import {
   createShareLink,
@@ -94,8 +95,7 @@ export async function DELETE(request: Request) {
       errorMessage: "操作失败",
     },
     async () => {
-      const id = new URL(request.url).searchParams.get("id");
-      if (!id) throw new ValidationError("id 必填");
+      const { id } = parseSearchParams(request, idQuerySchema);
       return NextResponse.json({ share: await revokeShareLink(id) });
     },
   );

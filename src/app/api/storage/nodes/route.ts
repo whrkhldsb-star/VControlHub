@@ -1,29 +1,33 @@
 import { NextResponse } from "next/server";
 
+import { z } from "zod";
+
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { getStorageOverview } from "@/lib/storage/service";
 
 export const dynamic = "force-dynamic";
 
 const SUPPORTED_DRIVER_FILTERS = new Set(["LOCAL", "SFTP"]);
+const driverFilterSchema = z
+  .object({
+    driver: z
+      .string()
+      .trim()
+      .transform((value) => value.toUpperCase())
+      .refine((value) => value === "" || SUPPORTED_DRIVER_FILTERS.has(value), "不支持的存储节点类型")
+      .optional(),
+  })
+  .transform((value) => value.driver ?? "");
 
 export async function GET(request: Request) {
   return withApiRoute(
     request,
     { permission: "storage:read", errorMessage: "读取存储节点失败" },
     async ({ session }) => {
-      const url = new URL(request.url);
-      const driverFilter = (url.searchParams.get("driver") ?? "")
-        .trim()
-        .toUpperCase();
-      if (driverFilter && !SUPPORTED_DRIVER_FILTERS.has(driverFilter)) {
-        return NextResponse.json(
-          { error: "不支持的存储节点类型" },
-          { status: 400 },
-        );
-      }
+      const driverFilter = parseSearchParams(request, driverFilterSchema);
 
       const storage = await getStorageOverview();
       const canManageNodes = Boolean(session && sessionHasPermission(session, "storage:manage-node"));
