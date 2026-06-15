@@ -266,11 +266,17 @@ export function TextPreviewClient({
 	name,
 	fileEntryId,
 	editable = false,
+	driver,
+	nodeId,
+	relativePath,
 }: {
 	href: string;
 	name?: string;
 	fileEntryId?: string;
 	editable?: boolean;
+	driver?: string;
+	nodeId?: string;
+	relativePath?: string;
 }) {
 	const [state, setState] = useState<PreviewState>({ loading: true });
 	const [loadVersion, resetForLoad] = useReducer((value: number) => value + 1, 0);
@@ -371,6 +377,30 @@ export function TextPreviewClient({
 		setSaveStatus("saving");
 		setSaveMessage("");
 		try {
+			if (driver === "SFTP" && nodeId && relativePath) {
+				const response = await csrfFetch<{ success: boolean; byteSize: number }>(
+					`/api/storage/sftp-ops`,
+					{
+						method: "POST",
+						body: JSON.stringify({
+							action: "write",
+							nodeId,
+							path: relativePath,
+							content: draft,
+						}),
+					}
+				);
+				setState({ loading: false, content: draft, error: null });
+				setDraftVersion({
+					updatedAt: new Date().toISOString(),
+					lastModifiedMs: Date.now(),
+				});
+				setEditMode(false);
+				setShowDiffReview(false);
+				setSaveStatus("saved");
+				setSaveMessage(`已保存 ${response.byteSize} B`);
+				return;
+			}
 			const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
 				method: "PUT",
 				body: JSON.stringify({
@@ -392,7 +422,7 @@ export function TextPreviewClient({
 			setSaveStatus("error");
 			setSaveMessage(err instanceof Error ? err.message : "保存失败");
 		}
-	}, [draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setSaveMessage, setSaveStatus, setShowDiffReview]);
+	}, [driver, nodeId, relativePath, draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setSaveMessage, setSaveStatus, setShowDiffReview]);
 
 	if (state.loading) {
 		return (

@@ -427,6 +427,10 @@ async function handlePost(request: Request, session: SessionPayload) {
           remotePath: normalizedRemotePath,
           content: body.content,
         });
+        const writtenSize =
+          typeof body.content === "string"
+            ? Buffer.byteLength(body.content, "utf8")
+            : Buffer.byteLength(body.content);
         try {
           await upsertSftpFileIndex({
             storageNodeId: node.id,
@@ -447,7 +451,7 @@ async function handlePost(request: Request, session: SessionPayload) {
           }
           throw indexError;
         }
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, byteSize: writtenSize });
       }
 
       default:

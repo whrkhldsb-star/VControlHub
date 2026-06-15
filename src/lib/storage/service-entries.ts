@@ -386,7 +386,8 @@ export async function listFileEntries(storageNodeId?: string) {
       sizeLabel: entry.size == null ? "-" : formatFileSize(Number(entry.size)),
       directAccess,
       localEditable:
-        entry.storageNode.driver === "LOCAL" &&
+        (entry.storageNode.driver === "LOCAL" ||
+          entry.storageNode.driver === "SFTP") &&
         isEditableTextFile({
           entryType: entry.entryType,
           name: entry.name,

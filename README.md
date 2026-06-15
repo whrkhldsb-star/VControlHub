@@ -733,7 +733,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### P2 — 用户体验和可运营性
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
-- [ ] **在线文件编辑器剩余增强**（TR-012）— 保存后可选重载服务、SFTP 编辑。
+- [x] **在线文件编辑器剩余增强**（TR-012）— **SFTP 编辑**（T17a 落地, `localEditable` 扩到 SFTP 节点 + `TextPreviewClient` 接 `driver/nodeId/relativePath` + `handleSave` 走 `/api/storage/sftp-ops action=write` + 响应 `byteSize` 字段返回 + 2 个新测覆盖 routing + 错误显示）。**待续做**: 保存后可选重载服务（T17b 留 tick）。
 - [ ] **设置页高风险设置**（TR-014）— 回滚入口、改动前后 diff、危险设置风险确认。
 - [x] **备份策略管理**（TR-015）— **任务化执行**（T13a/T13b jobs 表迁移已落地） + **保留策略自动清理**（T16 落地, `pruneOldBackupRecords` planner + `BACKUP_RETENTION_JOB_TYPE` durable job + `/api/backups/retention` API + `/backups` RetentionButton UI + 11 测试）。**待续做**: 异地备份、恢复验证演练。
 - [ ] **仪表盘自定义**（TR-020）— 拖拽卡片、指标选择、时间范围筛选。

@@ -92,6 +92,97 @@ describe("TextPreviewClient editable mode", () => {
     expect(screen.getByRole("textbox", { name: "在线编辑文件内容" })).toHaveValue("alpha\nchanged\n");
   });
 
+  it("routes SFTP save through /api/storage/sftp-ops when driver is SFTP and exposes nodeId/relativePath", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({
+        draft: {
+          content: "alpha\nbeta\n",
+          byteSize: 11,
+          updatedAt: "2026-06-08T01:02:03.000Z",
+          lastModifiedMs: 1780880523000,
+        },
+      })
+      .mockResolvedValueOnce({ success: true, byteSize: 18 });
+
+    render(
+      <TextPreviewClient
+        href="/api/storage/sftp-download?nodeId=node_1&path=etc/app.conf"
+        name="app.conf"
+        fileEntryId="file_sftp_1"
+        editable
+        driver="SFTP"
+        nodeId="node_1"
+        relativePath="etc/app.conf"
+      />,
+    );
+
+    expect(await screen.findByText("可在线编辑 · 保存会校验并发修改")).toBeInTheDocument();
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
+      target: { value: "alpha\ngamma\ndelta\n" },
+    });
+    await actor.click(screen.getByRole("button", { name: "预览并保存" }));
+    expect(screen.getByRole("dialog", { name: "保存前差异预览" })).toBeInTheDocument();
+
+    await actor.click(screen.getByRole("button", { name: "确认保存" }));
+
+    await waitFor(() =>
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/storage/sftp-ops",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            action: "write",
+            nodeId: "node_1",
+            path: "etc/app.conf",
+            content: "alpha\ngamma\ndelta\n",
+          }),
+        }),
+      ),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent("已保存 18 B");
+  });
+
+  it("surfaces SFTP save errors without closing the editor", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({
+        draft: {
+          content: "alpha\nbeta\n",
+          byteSize: 11,
+          updatedAt: "2026-06-08T01:02:03.000Z",
+          lastModifiedMs: 1780880523000,
+        },
+      })
+      .mockRejectedValueOnce(new Error("远端 SFTP 写入失败: 磁盘空间不足"));
+
+    render(
+      <TextPreviewClient
+        href="/api/storage/sftp-download?nodeId=node_1&path=etc/app.conf"
+        name="app.conf"
+        fileEntryId="file_sftp_1"
+        editable
+        driver="SFTP"
+        nodeId="node_1"
+        relativePath="etc/app.conf"
+      />,
+    );
+
+    await screen.findByText("可在线编辑 · 保存会校验并发修改");
+    await actor.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "在线编辑文件内容" }), {
+      target: { value: "alpha\nchanged\n" },
+    });
+    await actor.click(screen.getByRole("button", { name: "预览并保存" }));
+    await actor.click(screen.getByRole("button", { name: "确认保存" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "远端 SFTP 写入失败: 磁盘空间不足",
+    );
+    expect(screen.getByRole("textbox", { name: "在线编辑文件内容" })).toHaveValue("alpha\nchanged\n");
+  });
+
   it("shows visible labels for search and line jump controls", async () => {
     const actor = userEvent.setup();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({

@@ -151,7 +151,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : resolvedIsCsv && href ? (
 						<CsvPreviewClient href={href} />
 					) : resolvedIsText && href ? (
-						<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} />
+						<TextPreviewClient href={href} name={name} fileEntryId={fileEntryId} editable={editable} driver={driver} nodeId={nodeId} relativePath={relativePath} />
 					) : isOffice && href ? (
 						<OfficePreviewClient href={href} name={name} driver={driver} />
 					) : isArchive ? (
