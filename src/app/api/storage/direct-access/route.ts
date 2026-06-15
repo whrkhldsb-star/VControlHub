@@ -9,6 +9,7 @@ import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { AuthError, ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -224,8 +225,15 @@ export async function GET(request: Request) {
       });
       if (payload instanceof NextResponse) return payload;
 
-      const shouldForceDownload =
-        new URL(request.url).searchParams.get("download") === "1";
+      const shouldForceDownload = parseSearchParams(
+        request,
+        z.object({
+          download: z
+            .string()
+            .optional()
+            .transform((value) => value === "1"),
+        }),
+      ).download;
       const redirectUrl = payload.mode === "direct-url"
         ? shouldForceDownload
           ? forceAttachmentFallbackUrl(payload.url)

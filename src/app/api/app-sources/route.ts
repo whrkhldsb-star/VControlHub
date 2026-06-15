@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { type NormalizedApp } from "@/lib/quick-service/adapters";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import {
@@ -24,8 +25,15 @@ export async function GET(request: Request) {
     request,
     { permission: "user:manage", errorMessage: "服务器错误" },
     async () => {
-      const { searchParams } = new URL(request.url);
-      const includeApps = searchParams.get("includeApps") !== "false";
+      const { includeApps = true } = parseSearchParams(
+        request,
+        z.object({
+          includeApps: z
+            .string()
+            .optional()
+            .transform((value) => value !== "false"),
+        }),
+      );
 
       const sources = await prisma.appSource.findMany({
         orderBy: [{ name: "asc" }],
@@ -210,11 +218,7 @@ export async function DELETE(request: Request) {
       errorMessage: "删除失败",
     },
     async () => {
-      const { searchParams } = new URL(request.url);
-      const sourceId = searchParams.get("sourceId");
-      if (!sourceId)
-        throw new ValidationError("缺少 sourceId");
-
+      const { id: sourceId } = parseSearchParams(request, idQuerySchema);
       await prisma.appSource.delete({ where: { id: sourceId } });
       return NextResponse.json({ ok: true });
     },

@@ -16,6 +16,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { parseDockerStats } from "@/lib/docker/stats";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 
 import { AuthError, ValidationError } from "@/lib/errors";
@@ -136,11 +137,16 @@ export async function GET(req: NextRequest) {
     req,
     { permission: "docker:manage", errorMessage: "Docker API 请求失败" },
     async () => {
-      const id = req.nextUrl.searchParams.get("id");
-      const logs = req.nextUrl.searchParams.get("logs");
-      const stats = req.nextUrl.searchParams.get("stats");
-      const tailRaw = req.nextUrl.searchParams.get("tail") || "100";
-      const tail = isValidTail(tailRaw) ? tailRaw : "100";
+      const { id, logs, stats, tail: tailRaw } = parseSearchParams(
+        req,
+        z.object({
+          id: z.string().trim().min(1).optional(),
+          logs: z.string().trim().min(1).optional(),
+          stats: z.string().trim().min(1).optional(),
+          tail: z.string().trim().min(1).optional(),
+        }),
+      );
+      const tail = tailRaw && isValidTail(tailRaw) ? tailRaw : "100";
 
       // Validate container IDs to prevent path traversal
       if (id && !isValidDockerId(id)) {

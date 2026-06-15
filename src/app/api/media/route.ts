@@ -1,7 +1,10 @@
+import { z } from "zod";
+
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { listMediaItems, scanMediaFromFileEntries } from "@/lib/media/service";
 
 import { AuthError } from "@/lib/errors";
@@ -12,15 +15,25 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", errorMessage: "获取媒体列表失败" },
     async () => {
-      const searchParams = new URL(request.url).searchParams;
-      const type = searchParams.get("type");
+      const { type, q, favorite, tag } = parseSearchParams(
+        request,
+        z.object({
+          type: z.enum(["image", "video", "audio"]).optional(),
+          q: z.string().trim().min(1).optional(),
+          favorite: z
+            .string()
+            .optional()
+            .transform((value) => value === "1"),
+          tag: z.string().trim().min(1).optional(),
+        }),
+      );
 
       return NextResponse.json({
         media: await listMediaItems({
-          mediaType: type === "image" || type === "video" || type === "audio" ? type : undefined,
-          q: searchParams.get("q") ?? undefined,
-          favorite: searchParams.get("favorite") === "1" ? true : undefined,
-          tag: searchParams.get("tag")?.trim() || undefined,
+          mediaType: type,
+          q,
+          favorite: favorite ? true : undefined,
+          tag,
         }),
       });
     },
