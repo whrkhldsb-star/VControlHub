@@ -705,7 +705,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-031 | P3 | 成本追踪（VPS 费用 / 带宽 / 存储 / 月报） | 队列中 |
 | TR-032 | P3 | 智能运维 AI（主动诊断 / 异常预测 / 自动修复建议） | 队列中 |
 | TR-033 | P3 | PWA 离线支持和集成市场 | 队列中 |
-| TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | 新发现 |
+| TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | ✅ 完成 (R1 union + R2 219 处 codemod + R3 client envelope) |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
 | TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ 后台任务中 (T36b/T36c, 续 R23-R25) |
 | TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | 新发现 |
