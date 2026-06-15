@@ -28,4 +28,18 @@ export async function register() {
 
   const { startWorkerLifecycle } = await import("./lib/workers/startup");
   await startWorkerLifecycle();
+
+  // TR-051: 启动时校验 ADMIN_INITIAL_PASSWORD (env) 与 DB hash 一致性。
+  // 只读 + 只 log, 失败不抛错 (避免锁死生产)。详细结果查 npm run admin:consistency-check。
+  try {
+    const { verifyAdminPasswordConsistency } = await import("./lib/auth/bootstrap");
+    const result = await verifyAdminPasswordConsistency();
+    if (result.ok) {
+      console.log(`[auth:bootstrap] admin password consistency OK (user=${result.username})`);
+    } else {
+      console.error(`[auth:bootstrap] admin password consistency FAILED: ${result.message}`);
+    }
+  } catch (err) {
+    console.error(`[auth:bootstrap] admin password consistency check errored: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
