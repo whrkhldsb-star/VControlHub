@@ -231,6 +231,30 @@ export function getThumbnailUrl(entry: StorageEntry): string | null {
   return buildProxyDownloadHref(entry);
 }
 
+/**
+ * Build a `/media?...` link that pre-fills the media library search
+ * with this entry's name and (when the mime type maps to a known
+ * media kind) a `type` filter. The media library page already wires
+ * `q` and `type` query params into its search form, so this is just
+ * a thin URL builder that lives next to the other `build*` helpers
+ * to keep the detail panel chunk free of inline URLSearchParams
+ * plumbing.
+ */
+export function getMediaTypeFromMime(mime: string | null | undefined): "image" | "video" | "audio" | null {
+  const value = mime ?? "";
+  if (value.startsWith("image/")) return "image";
+  if (value.startsWith("video/")) return "video";
+  if (value.startsWith("audio/")) return "audio";
+  return null;
+}
+
+export function buildMediaLibraryHref(entry: StorageEntry): string {
+  const params = new URLSearchParams({ q: entry.name });
+  const mediaType = getMediaTypeFromMime(entry.mimeType);
+  if (mediaType) params.set("type", mediaType);
+  return `/media?${params.toString()}`;
+}
+
 export function toStorageEntry(file: FileProp): StorageEntry {
   return {
     id: file.id,

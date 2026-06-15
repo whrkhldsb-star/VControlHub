@@ -247,12 +247,12 @@ describe("FileListClient", () => {
     expect(screen.getByText("cover.jpg")).toBeInTheDocument();
   });
 
-  it("excludes hidden directory payload entries from batch selection", () => {
+  it("excludes hidden directory payload entries from batch selection", async () => {
     renderFileList({ files: [directoryFile, directoryMimeFile, imageFile] });
 
     fireEvent.click(screen.getByLabelText("全选文件"));
 
-    expect(screen.getByText("已选 1 个文件")).toBeInTheDocument();
+    expect(await screen.findByText("已选 1 个文件")).toBeInTheDocument();
     expect(firstFileCheckbox("cover.jpg")).toBeChecked();
   });
 
@@ -382,7 +382,7 @@ describe("FileListClient", () => {
     );
   });
 
-  it("keeps secondary file actions under a More menu across dense file rows", () => {
+  it("keeps secondary file actions under a More menu across dense file rows", async () => {
     renderFileList({ files: [imageFile], folders: [], canShare: true });
 
     expect(
@@ -392,12 +392,20 @@ describe("FileListClient", () => {
       screen.getAllByRole("link", { name: "下载 cover.jpg" }).length,
     ).toBeGreaterThan(0);
     expect(
-      screen.getAllByRole("button", { name: "更多操作 cover.jpg" }).length,
+      (await screen.findAllByRole("button", { name: "更多操作 cover.jpg" })).length,
     ).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "分享" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "重命名 cover.jpg" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "移动 cover.jpg" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: "删除 cover.jpg" }).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByRole("button", { name: "分享" })).length,
+    ).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByRole("button", { name: "重命名 cover.jpg" })).length,
+    ).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByRole("button", { name: "移动 cover.jpg" })).length,
+    ).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByRole("button", { name: "删除 cover.jpg" })).length,
+    ).toBeGreaterThan(0);
   });
 
   it("renders archive download actions for readable folders", () => {
@@ -411,14 +419,14 @@ describe("FileListClient", () => {
     );
   });
 
-  it("opens an asset detail panel that consolidates preview, download, share, and media actions", () => {
+  it("opens an asset detail panel that consolidates preview, download, share, and media actions", async () => {
     renderFileList({ files: [imageFile], folders: [], canShare: true });
 
     fireEvent.click(
       screen.getAllByRole("button", { name: "资料详情 cover.jpg" })[0]!,
     );
 
-    const dialog = screen.getByRole("dialog", { name: "cover.jpg" });
+    const dialog = await screen.findByRole("dialog", { name: "cover.jpg" });
     expect(dialog).toHaveTextContent("资料详情");
     expect(dialog).toHaveTextContent("photos/cover.jpg");
     expect(dialog).toHaveTextContent("本机存储");
@@ -438,13 +446,13 @@ describe("FileListClient", () => {
         .some((button) => button.textContent === "分享 cover.jpg"),
     ).toBe(true);
 
-    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(await screen.findByRole("button", { name: "关闭" }));
     expect(
       screen.queryByRole("dialog", { name: "cover.jpg" }),
     ).not.toBeInTheDocument();
   });
 
-  it("hides detail panel actions when entry read permission is denied", () => {
+  it("hides detail panel actions when entry read permission is denied", async () => {
     renderFileList({
       files: [
         {
@@ -462,7 +470,7 @@ describe("FileListClient", () => {
     );
 
     expect(
-      screen.getByRole("dialog", { name: "cover.jpg" }),
+      await screen.findByRole("dialog", { name: "cover.jpg" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "预览 / 在线编辑" }),
@@ -496,7 +504,7 @@ describe("FileListClient", () => {
     expect(screen.queryByText(/已选/)).not.toBeInTheDocument();
   });
 
-  it("uses per-entry capabilities for batch actions", () => {
+  it("uses per-entry capabilities for batch actions", async () => {
     renderFileList({
       files: [
         {
@@ -512,7 +520,7 @@ describe("FileListClient", () => {
 
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     expect(
-      screen.getByRole("button", { name: "批量移动" }),
+      await screen.findByRole("button", { name: "批量移动" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "批量删除" }),
@@ -537,17 +545,15 @@ describe("FileListClient", () => {
 
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     fireEvent.click(firstFileCheckbox("archive.zip"));
-    fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
-    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    fireEvent.click(await screen.findByRole("button", { name: "批量删除" }));
+    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
 
     await waitFor(() =>
       expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(2),
     );
-    await waitFor(() =>
-      expect(
-        screen.getByRole("alert", { name: /批量操作完成/ }),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByRole("alert", { name: /批量操作完成/ }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "文件批量操作" }),
     ).toHaveAccessibleDescription(
@@ -570,19 +576,17 @@ describe("FileListClient", () => {
     fireEvent.click(firstFileCheckbox("cover.jpg"));
     fireEvent.click(firstFileCheckbox("archive.zip"));
     fireEvent.click(firstFileCheckbox("report.pdf"));
-    fireEvent.click(screen.getByRole("button", { name: "批量移动" }));
+    fireEvent.click(await screen.findByRole("button", { name: "批量移动" }));
     fireEvent.change(
-      screen.getByRole("textbox", { name: "批量移动目标路径" }),
+      await screen.findByRole("textbox", { name: "批量移动目标路径" }),
       { target: { value: "archive" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: "确认移动" }));
+    fireEvent.click(await screen.findByRole("button", { name: "确认移动" }));
 
     await waitFor(() => expect(moveFileActionMock).toHaveBeenCalledTimes(3));
-    await waitFor(() =>
-      expect(
-        screen.getByRole("alert", { name: /批量操作完成/ }),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByRole("alert", { name: /批量操作完成/ }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: "文件批量操作" }),
     ).toHaveAccessibleDescription(
@@ -613,17 +617,15 @@ describe("FileListClient", () => {
     );
 
     fireEvent.click(firstFileCheckbox("cover.jpg"));
-    fireEvent.click(screen.getByRole("button", { name: "批量删除" }));
-    fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
+    fireEvent.click(await screen.findByRole("button", { name: "批量删除" }));
+    fireEvent.click(await screen.findByRole("button", { name: "确认删除" }));
 
     await waitFor(() =>
       expect(deleteFileEntryActionMock).toHaveBeenCalledTimes(1),
     );
-    await waitFor(() =>
-      expect(
-        screen.getByRole("alert", { name: /批量操作完成/ }),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByRole("alert", { name: /批量操作完成/ }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/节点不可写/)).toBeInTheDocument();
 
     rerender(

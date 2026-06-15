@@ -1,17 +1,15 @@
 "use client";
 
-import { useState, useCallback, useTransition, useMemo, useId } from "react";
+import { useState, useCallback, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { deleteFileEntryAction } from "../storage/actions";
 import { moveFileAction } from "./move-file-action";
-import {
-	DeleteConfirmButton,
-	RenameInlineForm,
-	MoveInlineForm,
-	ShareFileButton,
-} from "./file-row-actions";
+import { FileBatchToolbarLazy } from "./file-batch-toolbar-lazy";
+import { FileDetailPanelLazy } from "./file-detail-panel-lazy";
+import { FileMoreActionsLazy } from "./file-more-actions-lazy";
+import { RenameInlineForm, MoveInlineForm } from "./file-row-actions";
 import { DownloadIcon, FileTypeIcon, PreviewIcon } from "./file-entry-icons";
 import {
 	entryCanDelete as canDeleteEntry,
@@ -80,10 +78,6 @@ export function FileListClient({
 }: FileListClientProps) {
   const router = useRouter();
   const { toasts, showToast, dismissToast } = useFileToast();
-  const fileListId = useId();
-  const batchToolbarTitleId = `${fileListId}-batch-toolbar-title`;
-  const batchToolbarDescriptionId = `${fileListId}-batch-toolbar-description`;
-  const batchErrorTitleId = `${fileListId}-batch-error-title`;
 
   /** Navigate to a folder path */
   const navigateToFolder = useCallback(
@@ -247,12 +241,6 @@ export function FileListClient({
     setSelectedScopeKey,
   ]);
 
-  const handleBatchMove = useCallback(() => {
-    setBatchAction("moving");
-    setMoveTargetDir("");
-    setMoveProgress({ done: 0, total: 0, errors: [] });
-  }, [setBatchAction, setMoveProgress, setMoveTargetDir]);
-
   const submitBatchMove = useCallback(() => {
     const ids = [...effectiveSelectedIds];
     const targetDir = moveTargetDir.trim();
@@ -331,21 +319,6 @@ export function FileListClient({
     const file = visibleFiles.find((item) => item.id === detailEntryId);
     return file ? toStorageEntry(file) : null;
   }, [detailEntryId, visibleFiles]);
-
-  function getMediaType(entry: StorageEntry) {
-    const mime = entry.mimeType ?? "";
-    if (mime.startsWith("image/")) return "image";
-    if (mime.startsWith("video/")) return "video";
-    if (mime.startsWith("audio/")) return "audio";
-    return null;
-  }
-
-  function buildMediaLibraryHref(entry: StorageEntry) {
-    const params = new URLSearchParams({ q: entry.name });
-    const mediaType = getMediaType(entry);
-    if (mediaType) params.set("type", mediaType);
-    return `/media?${params.toString()}`;
-  }
 
   function renderDetailAction(entry: StorageEntry, compact = false) {
     return (
@@ -435,69 +408,6 @@ export function FileListClient({
     );
   }
 
-  function renderMoreActions(entry: StorageEntry, compact = false) {
-    const hasMoreActions =
-      (canShare && entryCanRead(entry) && entry.entryType === "FILE") ||
-      entryCanWrite(entry) ||
-      (canDelete && entryCanDelete(entry));
-    if (!hasMoreActions) return null;
-    return (
-      <details className="relative inline-flex group/more">
-        <summary
-          role="button"
-          title="更多操作"
-          aria-label={`更多操作 ${entry.name}`}
-          className={
-            compact
-              ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
-              : "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
-          }
-        >
-          <span aria-hidden="true">⋯</span>
-          {compact ? null : <span>更多</span>}
-        </summary>
-        <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:shadow-slate-200/70">
-          {canShare && entryCanRead(entry) ? (
-            <ShareFileButton entry={entry} compact variant="menu" onNotify={showToast} />
-          ) : null}
-          {entryCanWrite(entry) ? (
-            <RenameInlineForm
-              fileEntryId={entry.id}
-              currentName={entry.name}
-              currentPath={entry.relativePath}
-              entryType={entry.entryType as "FILE" | "DIRECTORY"}
-              variant="menu"
-              onRefresh={onRefresh}
-              onNotify={showToast}
-            />
-          ) : null}
-          {entryCanWrite(entry) ? (
-            <MoveInlineForm
-              fileEntryId={entry.id}
-              name={entry.name}
-              relativePath={entry.relativePath}
-              storageNodeId={entry.storageNode.id}
-              storageNodeName={entry.storageNode.name}
-              variant="menu"
-              onRefresh={onRefresh}
-              onNotify={showToast}
-            />
-          ) : null}
-          {canDelete && entryCanDelete(entry) ? (
-            <DeleteConfirmButton
-              fileEntryId={entry.id}
-              entryName={entry.name}
-              entryType={entry.entryType as "FILE" | "DIRECTORY"}
-              variant="menu"
-              onRefresh={onRefresh}
-              onNotify={showToast}
-            />
-          ) : null}
-        </div>
-      </details>
-    );
-  }
-
   /* helper to render file actions for any view */
   function renderFileActions(
     entry: StorageEntry,
@@ -520,7 +430,17 @@ export function FileListClient({
           </Link>
         ) : null}
         {renderDownloadActions(entry, downloadUrl, true)}
-        {renderMoreActions(entry, compact)}
+        <FileMoreActionsLazy
+          entry={entry}
+          compact={compact}
+          canShare={canShare}
+          canDelete={canDelete}
+          onRefresh={onRefresh}
+          onNotify={showToast}
+          entryCanRead={entryCanRead}
+          entryCanWrite={entryCanWrite}
+          entryCanDelete={entryCanDelete}
+        />
       </div>
     );
   }
@@ -1288,313 +1208,38 @@ export function FileListClient({
       </div>
 
       {detailEntry ? (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 p-3 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="file-detail-panel-title"
-          onClick={() => setDetailEntryId(null)}
-        >
-          <aside
-            className="flex h-full w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 text-slate-100 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300">
-                  资料详情
-                </p>
-                <h2
-                  id="file-detail-panel-title"
-                  className="mt-1 truncate text-lg font-semibold"
-                >
-                  {detailEntry.name}
-                </h2>
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  {detailEntry.relativePath}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetailEntryId(null)}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/10"
-              >
-                关闭
-              </button>
-            </div>
-            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-                <div className="grid gap-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <p className="text-xs text-slate-500">存储节点</p>
-                    <p className="mt-1 font-medium">
-                      {detailEntry.storageNode.name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">驱动</p>
-                    <p className="mt-1 font-medium">
-                      {detailEntry.storageNode.driver}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">大小</p>
-                    <p className="mt-1 font-medium">{detailEntry.sizeLabel}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500">修改时间</p>
-                    <p className="mt-1 font-medium">
-                      {detailEntry.updatedAt
-                        ? formatDate(detailEntry.updatedAt)
-                        : "—"}
-                    </p>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <p className="text-xs text-slate-500">访问方式</p>
-                    <p className="mt-1 font-medium">
-                      {detailEntry.directAccess.description}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-slate-200">
-                  快捷操作
-                </h3>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {detailEntry.previewable && entryCanRead(detailEntry) ? (
-                    <Link
-                      href={getPreviewHref(detailEntry)}
-                      data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-500/20"
-                    >
-                      预览 / 在线编辑
-                    </Link>
-                  ) : null}
-                  {entryCanRead(detailEntry) ? (
-                    <Link
-                      href={buildForcedDownloadHref(detailEntry)}
-                      download
-                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-white/10"
-                    >
-                      下载文件
-                    </Link>
-                  ) : null}
-                  {entryCanRead(detailEntry) ? (
-                    <Link
-                      href={buildMediaLibraryHref(detailEntry)}
-                      data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm font-medium text-emerald-100 transition hover:bg-emerald-500/20"
-                    >
-                      在媒体库中查找
-                    </Link>
-                  ) : null}
-                  {canShare && entryCanRead(detailEntry) ? (
-                    <div data-tone="amber" className="rounded-2xl border border-amber-400/30 p-2">
-                      <ShareFileButton entry={detailEntry} />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-slate-200">
-                  管理操作
-                </h3>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {entryCanWrite(detailEntry) ? (
-                    <RenameInlineForm
-                      fileEntryId={detailEntry.id}
-                      currentName={detailEntry.name}
-                      currentPath={detailEntry.relativePath}
-                      entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
-                      onRefresh={onRefresh}
-                      onNotify={showToast}
-                    />
-                  ) : null}
-                  {entryCanWrite(detailEntry) ? (
-                    <MoveInlineForm
-                      fileEntryId={detailEntry.id}
-                      name={detailEntry.name}
-                      relativePath={detailEntry.relativePath}
-                      storageNodeId={detailEntry.storageNode.id}
-                      storageNodeName={detailEntry.storageNode.name}
-                      onRefresh={onRefresh}
-                      onNotify={showToast}
-                    />
-                  ) : null}
-                  {canDelete && entryCanDelete(detailEntry) ? (
-                    <DeleteConfirmButton
-                      fileEntryId={detailEntry.id}
-                      entryName={detailEntry.name}
-                      entryType={detailEntry.entryType as "FILE" | "DIRECTORY"}
-                      onRefresh={onRefresh}
-                      onNotify={showToast}
-                    />
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
+        <FileDetailPanelLazy
+          detailEntry={detailEntry}
+          onClose={() => setDetailEntryId(null)}
+          canShare={canShare}
+          canDelete={canDelete}
+          onRefresh={onRefresh}
+          onNotify={showToast}
+          entryCanRead={entryCanRead}
+          entryCanWrite={entryCanWrite}
+          entryCanDelete={entryCanDelete}
+        />
       ) : null}
 
-      {selectedScopeMatches &&
-      (progress.errors.length > 0 || moveProgress.errors.length > 0) ? (
-        <div
-          role="alert"
-          aria-labelledby={batchErrorTitleId}
-          className="fixed bottom-20 left-1/2 z-50 max-w-lg -translate-x-1/2 rounded-2xl border border-amber-400/30 bg-amber-950/95 px-4 py-3 text-sm text-amber-100 shadow-2xl"
-        >
-          <p id={batchErrorTitleId} className="font-medium">
-            批量操作完成，{progress.errors.length + moveProgress.errors.length}{" "}
-            个失败
-          </p>
-          <ul className="mt-1 max-h-28 overflow-y-auto text-xs text-amber-100/80/80">
-            {[...progress.errors, ...moveProgress.errors].map((error) => (
-              <li key={error}>• {error}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {/* Batch action toolbar (all view modes) */}
-      {selectedCount > 0 ? (
-        <div
-          role="region"
-          aria-labelledby={batchToolbarTitleId}
-          aria-describedby={batchToolbarDescriptionId}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/95 backdrop-blur border border-[var(--border)] rounded-2xl shadow-2xl px-5 py-3"
-        >
-          <span id={batchToolbarTitleId} className="sr-only">
-            文件批量操作
-          </span>
-          <span id={batchToolbarDescriptionId} className="sr-only">
-            已选择 {selectedCount}{" "}
-            个文件，可取消选择或执行当前权限允许的批量操作。
-          </span>
-          {batchAction === "confirm-delete" ? (
-            <>
-              <span className="text-sm text-rose-200">
-                确认删除 {selectedCount} 个文件？
-              </span>
-              <button
-                type="button"
-                onClick={handleBatchDelete}
-                disabled={isPending}
-                data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-50"
-              >
-                确认删除
-              </button>
-              <button
-                type="button"
-                onClick={() => setBatchAction("none")}
-                disabled={isPending}
-                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
-              >
-                取消
-              </button>
-            </>
-          ) : batchAction === "deleting" ? (
-            <>
-              <span className="text-sm text-rose-200">
-                已删除 {progress.done}/{progress.total} 个
-              </span>
-              {progress.done < progress.total ? (
-                <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-rose-400 transition-all"
-                    style={{
-                      width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-              ) : null}
-              {progress.errors.length > 0 ? (
-                <span className="text-sm text-amber-200">
-                  {progress.errors.length} 个失败
-                </span>
-              ) : null}
-            </>
-          ) : batchAction === "moving" ? (
-            <>
-              <span className="text-sm text-slate-200">
-                目标路径：
-              </span>
-              <input
-                type="text"
-                value={moveTargetDir}
-                onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
-                placeholder={currentPath || "目标路径"}
-                aria-label="批量移动目标路径"
-                className="w-40 rounded-2xl border border-[var(--border)] bg-slate-950 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
-              />
-              {moveProgress.total > 0 ? (
-                <span className="text-sm text-cyan-200">
-                  已移动 {moveProgress.done}/{moveProgress.total} 个
-                  {moveProgress.errors.length > 0
-                    ? `（${moveProgress.errors.length} 个失败）`
-                    : ""}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                onClick={submitBatchMove}
-                disabled={
-                  !moveTargetDir.trim() || isPending || moveProgress.done > 0
-                }
-                data-tone="accent"
-                className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                确认移动
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setBatchAction("none");
-                  setMoveTargetDir("");
-                  setMoveProgress({ done: 0, total: 0, errors: [] });
-                }}
-                disabled={isPending && moveProgress.done > 0}
-                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 disabled:opacity-50"
-              >
-                取消
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-sm text-slate-200">
-                已选 {selectedCount} 个文件
-              </span>
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
-              >
-                取消选择
-              </button>
-              {canDelete && selectedEntriesCanDelete ? (
-                <button
-                  type="button"
-                  onClick={() => setBatchAction("confirm-delete")}
-                  data-tone="rose" className="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20"
-                >
-                  批量删除
-                </button>
-              ) : null}
-              {selectedEntriesCanMove ? (
-                <button
-                  type="button"
-                  onClick={handleBatchMove}
-                  data-tone="accent"
-                  className="rounded-full border px-4 py-2 text-sm font-medium transition"
-                >
-                  批量移动
-                </button>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : null}
+      <FileBatchToolbarLazy
+        selectedCount={selectedCount}
+        batchAction={batchAction}
+        setBatchAction={setBatchAction}
+        progress={progress}
+        moveProgress={moveProgress}
+        moveTargetDir={moveTargetDir}
+        setMoveTargetDir={setMoveTargetDir}
+        setMoveProgress={setMoveProgress}
+        isPending={isPending}
+        canDelete={canDelete}
+        selectedEntriesCanDelete={selectedEntriesCanDelete}
+        selectedEntriesCanMove={selectedEntriesCanMove}
+        selectedScopeMatches={selectedScopeMatches}
+        currentPath={currentPath}
+        onClearSelection={clearSelection}
+        onConfirmDelete={handleBatchDelete}
+        onSubmitMove={submitBatchMove}
+      />
     </>
   );
 }

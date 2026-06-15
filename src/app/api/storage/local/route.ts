@@ -3,6 +3,8 @@ import { access, mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
+import { z } from "zod";
+
 import type { SessionPayload } from "@/lib/auth/session";
 
 import { prisma } from "@/lib/db";
@@ -21,6 +23,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
@@ -85,10 +88,17 @@ function guessContentType(fileName: string, mimeType: string | null) {
 }
 
 async function handleGet(request: Request, session: SessionPayload) {
-  const url = new URL(request.url);
-  const relativePath = url.searchParams.get("path");
-  const storageNodeId = url.searchParams.get("nodeId");
-  const download = url.searchParams.get("download") === "1";
+  const { path: relativePath, nodeId: storageNodeId, download } = parseSearchParams(
+    request,
+    z.object({
+      path: z.string().trim().min(1).optional(),
+      nodeId: z.string().trim().min(1).optional(),
+      download: z
+        .string()
+        .optional()
+        .transform((value) => value === "1"),
+    }),
+  );
 
   if (!relativePath) {
     throw new ValidationError("缺少 path 参数");
