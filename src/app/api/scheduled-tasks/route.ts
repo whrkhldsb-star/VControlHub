@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { AuthError, ValidationError } from "@/lib/errors";
 import {
   createScheduledTask,
@@ -216,10 +217,7 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("未认证");
-      const { searchParams } = new URL(request.url);
-      const id = searchParams.get("id");
-      if (!id)
-        throw new ValidationError("缺少任务 ID");
+      const { id } = parseSearchParams(request, idQuerySchema);
       const deleted = await deleteScheduledTask(id);
       auditUserAction(
         session.userId,

@@ -14,6 +14,7 @@ import {
   changeGlobalOption,
 } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { shellQuote } from "@/lib/downloads/remote-command";
 import {
   getDownloadTargetRelativePath,
@@ -438,9 +439,13 @@ export async function GET(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("未认证");
-      const { searchParams } = new URL(request.url);
-      const serverId = searchParams.get("serverId");
-      const category = searchParams.get("category");
+      const { serverId, category } = parseSearchParams(
+        request,
+        z.object({
+          serverId: z.string().trim().min(1).optional(),
+          category: z.string().trim().min(1).optional(),
+        }),
+      );
 
       const where: Record<string, unknown> = {};
       if (serverId) where.serverId = serverId;
@@ -806,10 +811,16 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("未认证");
-      const { searchParams } = new URL(request.url);
-      const taskId = searchParams.get("taskId");
-      if (!taskId)
-        throw new ValidationError("缺少 taskId");
+      const { taskId, purge } = parseSearchParams(
+        request,
+        z.object({
+          taskId: z.string().trim().min(1, "缺少 taskId"),
+          purge: z
+            .string()
+            .optional()
+            .transform((value) => value === "1"),
+        }),
+      );
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
@@ -822,7 +833,7 @@ export async function DELETE(request: Request) {
       }
 
       // Purge: hard-delete a terminal-state task row from history.
-      const purge = searchParams.get("purge") === "1";
+
       if (purge) {
         if (task.status === "RUNNING" || task.status === "PENDING") {
           return NextResponse.json(

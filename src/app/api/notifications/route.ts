@@ -3,7 +3,8 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { AuthError, ValidationError } from "@/lib/errors";
+import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
+import { AuthError } from "@/lib/errors";
 import {
   deleteNotification,
   getUnreadCount,
@@ -142,10 +143,7 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       if (!session)
         throw new AuthError("未认证");
-      const { searchParams } = new URL(request.url);
-      const notificationId = searchParams.get("id");
-      if (!notificationId)
-        throw new ValidationError("缺少通知 ID");
+      const { id: notificationId } = parseSearchParams(request, idQuerySchema);
       await deleteNotification(notificationId, session.userId);
       return NextResponse.json({ success: true });
     },

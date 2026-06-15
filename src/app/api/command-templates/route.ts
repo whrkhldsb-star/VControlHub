@@ -4,6 +4,7 @@ import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 
 import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
@@ -84,8 +85,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "删除失败" }, async ({ session }) => {
-		const { searchParams } = new URL(request.url);
-		const id = searchParams.get("id");
+		const { id } = parseSearchParams(request, idQuerySchema);
 		if (!id) throw new ValidationError("缺少模板 ID");
 		const deleted = await deleteTemplate(id);
 		auditUserAction(session?.userId ?? "", "command_template.delete", auditTemplateDetail(deleted));
