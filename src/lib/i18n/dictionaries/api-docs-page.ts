@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `apiDocsPage.*` (11 keys).
+ * i18n dictionary: `apiDocsPage.*` (14 keys).
  */
 export const zh: Record<string, string> = {
 	"apiDocsPage.title": "API 文档",
@@ -13,6 +13,9 @@ export const zh: Record<string, string> = {
 	"apiDocsPage.label.responses": "响应",
 	"apiDocsPage.label.requestBody": "请求体",
 	"apiDocsPage.loadingInline": "正在加载接口定义...",
+	"apiDocsPage.summaryCount": "{count}/{total} 个接口",
+	"apiDocsPage.tagCount": "{count} 个接口",
+	"apiDocsPage.paramCount": "参数 {count}",
 };
 
 export const en: Record<string, string> = {
@@ -27,4 +30,7 @@ export const en: Record<string, string> = {
 	"apiDocsPage.label.responses": "Responses",
 	"apiDocsPage.label.requestBody": "Request body",
 	"apiDocsPage.loadingInline": "Loading endpoint definitions...",
+	"apiDocsPage.summaryCount": "{count}/{total} endpoints",
+	"apiDocsPage.tagCount": "{count} endpoints",
+	"apiDocsPage.paramCount": "Parameters: {count}",
 };

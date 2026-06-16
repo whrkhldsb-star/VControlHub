@@ -129,7 +129,11 @@ export default function ApiDocsPage() {
 							/>
 						</label>
 						<div className="text-sm text-slate-400">
-							{spec ? `${filtered.length}/${entries.length} 个接口` : t("apiDocsPage.loadingInline")}
+							{spec
+								? t("apiDocsPage.summaryCount")
+									.replace("{count}", String(filtered.length))
+									.replace("{total}", String(entries.length))
+								: t("apiDocsPage.loadingInline")}
 						</div>
 					</div>
 				</section>
@@ -152,7 +156,7 @@ export default function ApiDocsPage() {
 									<h2 className="text-base font-semibold text-white">{tag}</h2>
 									{tagDescriptions.get(tag) ? <p className="mt-1 text-xs text-slate-500">{tagDescriptions.get(tag)}</p> : null}
 								</div>
-								<span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-slate-400">{tagEntries.length} 个接口</span>
+								<span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-xs text-slate-400">{t("apiDocsPage.tagCount").replace("{count}", String(tagEntries.length))}</span>
 							</div>
 						</div>
 						<div className="divide-y divide-white/[0.06]">
@@ -170,7 +174,7 @@ export default function ApiDocsPage() {
 											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400">{entry.operation.description}</p> : null}
 										</div>
 										<div className="flex flex-wrap gap-2 text-xs text-slate-500 lg:justify-end">
-											{entry.operation.parameters?.length ? <span className="rounded-full bg-white/[0.04] px-2 py-1">参数 {entry.operation.parameters.length}</span> : null}
+											{entry.operation.parameters?.length ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.paramCount").replace("{count}", String(entry.operation.parameters.length))}</span> : null}
 											{entry.operation.requestBody ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.label.requestBody")}</span> : null}
 											{entry.operation.responses ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.label.responses")} {Object.keys(entry.operation.responses).join("/")}</span> : null}
 										</div>

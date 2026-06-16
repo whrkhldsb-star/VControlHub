@@ -11,6 +11,16 @@ const spec = {
 		"/health": {
 			get: { tags: ["系统"], summary: "健康检查", responses: { "200": { description: "OK" } } },
 		},
+		"/test": {
+			get: {
+				tags: ["系统"],
+				summary: "测试参数",
+				parameters: [
+					{ name: "id", in: "query", description: "标识" },
+				],
+				responses: { "200": { description: "OK" } },
+			},
+		},
 	},
 };
 
@@ -33,6 +43,10 @@ describe("ApiDocsPage", () => {
 		expect(screen.getByText("/api/health")).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "OpenAPI JSON" })).toHaveAttribute("href", "/api/docs/openapi.json");
 		await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledWith("/api/docs/openapi.json", { credentials: "same-origin" }));
+		// Count templates are now i18n-aware and produce "{count}/{total} 个接口" / "{count} 个接口" / "参数 {count}".
+		expect(await screen.findByText("2/2 个接口")).toBeInTheDocument();
+		expect(screen.getByText("2 个接口")).toBeInTheDocument();
+		expect(screen.getByText("参数 1")).toBeInTheDocument();
 		expect(appendSpy).not.toHaveBeenCalledWith(expect.objectContaining({ src: expect.stringContaining("scalar") }));
 		expect(appendSpy).not.toHaveBeenCalledWith(expect.objectContaining({ href: expect.stringContaining("scalar") }));
 	});

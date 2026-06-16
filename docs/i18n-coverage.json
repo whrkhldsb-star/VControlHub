@@ -1,21 +1,14 @@
 {
-  "generatedAt": "2026-06-16T16:11:15.579Z",
+  "generatedAt": "2026-06-16T19:10:10.978Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 82,
-    "totalStrings": 773,
+    "filesWithStrings": 80,
+    "totalStrings": 769,
     "coveredStrings": 184,
-    "missingStrings": 589,
-    "coveragePercent": 23.8
+    "missingStrings": 585,
+    "coveragePercent": 23.9
   },
   "perModule": [
-    {
-      "module": "src/app/api-docs",
-      "total": 3,
-      "covered": 0,
-      "missing": 3,
-      "coveragePercent": 0
-    },
     {
       "module": "src/app/health",
       "total": 4,
@@ -25,13 +18,6 @@
     },
     {
       "module": "src/app/snippets",
-      "total": 1,
-      "covered": 0,
-      "missing": 1,
-      "coveragePercent": 0
-    },
-    {
-      "module": "src/components/app-sidebar.tsx",
       "total": 1,
       "covered": 0,
       "missing": 1,
@@ -921,34 +907,34 @@
       ]
     },
     {
-      "text": "/$  个接口` : t(\"apiDocsPage.loadingInline\")}",
+      "text": "创建下载",
       "count": 1,
       "files": [
         {
-          "path": "src/app/api-docs/api-docs-page-client.tsx",
-          "line": 131,
+          "path": "src/app/audit/audit-client.tsx",
+          "line": 170,
           "kind": "text"
         }
       ]
     },
     {
-      "text": "个接口",
+      "text": "↻ 刷新",
       "count": 1,
       "files": [
         {
-          "path": "src/app/api-docs/api-docs-page-client.tsx",
-          "line": 155,
+          "path": "src/app/audit/audit-client.tsx",
+          "line": 177,
           "kind": "text"
         }
       ]
     },
     {
-      "text": "参数",
+      "text": "操作者",
       "count": 1,
       "files": [
         {
-          "path": "src/app/api-docs/api-docs-page-client.tsx",
-          "line": 173,
+          "path": "src/app/audit/audit-client.tsx",
+          "line": 213,
           "kind": "text"
         }
       ]
@@ -1291,32 +1277,10 @@
     },
     "src/app/api-docs/api-docs-page-client.tsx": {
       "path": "src/app/api-docs/api-docs-page-client.tsx",
-      "total": 3,
+      "total": 0,
       "covered": 0,
-      "missing": 3,
-      "candidates": [
-        {
-          "text": "/$  个接口` : t(\"apiDocsPage.loadingInline\")}",
-          "line": 131,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-400\"> {spec ? `${filtered.length}/${en",
-          "covered": false
-        },
-        {
-          "text": "个接口",
-          "line": 155,
-          "kind": "text",
-          "context": "<span className=\"rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 ",
-          "covered": false
-        },
-        {
-          "text": "参数",
-          "line": 173,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-white/[0.04] px-2 py-1\">参数 {entry.operation.par",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/api-docs/error.tsx": {
       "path": "src/app/api-docs/error.tsx",
@@ -8086,19 +8050,10 @@
     },
     "src/components/app-sidebar.tsx": {
       "path": "src/components/app-sidebar.tsx",
-      "total": 1,
+      "total": 0,
       "covered": 0,
-      "missing": 1,
-      "candidates": [
-        {
-          "text": "打开导航菜单",
-          "line": 153,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button\n\t\t\t\tonClick={() => setMobileOpen(true)}\n\t\t\t\tclassName=\"fixed left-4 top-",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/components/change-password-modal.tsx": {
       "path": "src/components/change-password-modal.tsx",
