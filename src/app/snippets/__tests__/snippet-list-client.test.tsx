@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ToastProvider } from "@/components/toast-provider";
 import { SnippetList } from "../snippet-list-client";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),

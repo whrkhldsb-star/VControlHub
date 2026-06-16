@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "lucide-react";
@@ -18,6 +19,7 @@ interface Snippet {
 }
 
 export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
+  const { t } = useI18n();
   const { addToast } = useToast();
   const [items, setItems] = useState(initial);
   const [editing, setEditing] = useState<Snippet | null>(null);
@@ -53,9 +55,9 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       await csrfFetch(`/api/snippets?id=${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
       setItems((prev) => prev.filter((s) => s.id !== pendingDelete.id));
       setPendingDelete(null);
-      addToast("success", "代码片段已删除");
+      addToast("success", t("snippetsPage.toast.deleted"));
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : "删除代码片段失败");
+      setDeleteError(error instanceof Error ? error.message : t("snippetsPage.toast.deleteFailed"));
     } finally {
       setDeleteBusy(false);
     }
@@ -67,7 +69,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      addToast("error", "复制失败，请手动复制");
+      addToast("error", t("snippetsPage.toast.copyFailed"));
     }
   };
 
@@ -84,7 +86,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             htmlFor="snippets-search"
             className="mb-1 block text-xs font-medium text-slate-400"
           >
-            搜索代码片段
+            {t("snippetsPage.search")}
           </label>
           <Search size={14} className="absolute left-3 top-[2.15rem] text-slate-500" />
           <input
@@ -92,18 +94,18 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="标题、内容、标签…"
+            placeholder={t("snippetsPage.titlePlaceholder")}
             className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>
         <select
           value={langFilter}
           onChange={(e) => setLangFilter(e.target.value)}
-          aria-label="按语言过滤"
+          aria-label={t("snippetsPage.filter.placeholder")}
           className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
         >
           {languages.map((l) => (
-            <option key={l} value={l}>{l === "ALL" ? "全部语言" : l}</option>
+            <option key={l} value={l}>{l === "ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
           ))}
         </select>
         <span className="text-xs text-slate-500">{filtered.length} 条</span>
@@ -111,7 +113,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           onClick={() => setCreating(true)}
           className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
-          <Plus size={14} /> 新建片段
+          <Plus size={14} /> {t("snippetsPage.new")}
         </button>
       </div>
 
@@ -122,23 +124,23 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
               <div className="flex items-center gap-3">
                 <b className="text-sm text-white">{s.title}</b>
                 <span className="rounded-full border border-white/[0.06] bg-white/[0.06] px-2 py-0.5 text-[10px] text-slate-400">{s.language}</span>
-                {s.isPrivate && <span className="text-[10px] text-amber-400">🔒 私有</span>}
+                {s.isPrivate && <span className="text-[10px] text-amber-400">{t("snippetsPage.private")}</span>}
                 {s.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1">
-                    {s.tags.map((t) => (
-                      <span key={t} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300">{t}</span>
+                    {s.tags.map((tag) => (
+                      <span key={tag} className="rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] text-cyan-300">{tag}</span>
                     ))}
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                <button onClick={() => handleCopy(s.content, s.id)} title="复制" className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-                <button onClick={() => setEditing(s)} title="编辑" className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title="删除" aria-label={`删除代码片段 ${s.title}`} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
+                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -149,7 +151,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
         ))}
         {filtered.length === 0 && (
           <div data-card className=" p-8 text-center text-sm text-slate-500">
-            {items.length === 0 ? "暂无代码片段" : "无匹配结果"}
+            {items.length === 0 ? t("snippetsPage.empty") : t("snippetsPage.noMatch")}
           </div>
         )}
       </div>
@@ -159,7 +161,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
           onClose={() => setCreating(false)}
           onCreated={(created) => {
             setItems((prev) => [created, ...prev]);
-            addToast("success", "代码片段已创建");
+            addToast("success", t("snippetsPage.toast.created"));
           }}
         />
       )}
@@ -175,15 +177,17 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="delete-snippet-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-            <h3 id="delete-snippet-title" className="text-base font-semibold text-white">删除代码片段</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">确认删除代码片段 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
+            <h3 id="delete-snippet-title" className="text-base font-semibold text-white">{t("snippetsPage.deleteDialog.title")}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              {t("snippetsPage.deleteDialog.body").replace("{title}", pendingDelete.title)}
+            </p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className="min-h-11 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
-                取消
+                {t("snippetsPage.deleteDialog.cancel")}
               </button>
               <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
-                {deleteBusy ? "正在删除..." : "确认删除"}
+                {deleteBusy ? t("snippetsPage.deleteDialog.deleting") : t("snippetsPage.deleteDialog.confirm")}
               </button>
             </div>
           </div>

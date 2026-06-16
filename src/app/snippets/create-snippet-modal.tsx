@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface Snippet {
   id: string;
@@ -20,6 +21,7 @@ export function CreateSnippetModal({
   onClose: () => void;
   onCreated: (created: Snippet) => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [language, setLanguage] = useState("");
@@ -35,7 +37,7 @@ export function CreateSnippetModal({
     try {
       const tags = tagsInput
         .split(",")
-        .map((t) => t.trim())
+        .map((tag) => tag.trim())
         .filter(Boolean);
       const data = await csrfFetch<{ snippet: Snippet }>("/api/snippets", {
         method: "POST",
@@ -52,7 +54,7 @@ export function CreateSnippetModal({
       onCreated(data.snippet);
       onClose();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setError(e instanceof Error ? e.message : t("snippetsPage.toast.createFailed"));
     } finally {
       setSaving(false);
     }
@@ -66,55 +68,67 @@ export function CreateSnippetModal({
         aria-labelledby="create-snippet-title"
         className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl"
       >
-        <h3 id="create-snippet-title" className="text-lg font-semibold text-white">新建代码片段</h3>
+        <h3 id="create-snippet-title" className="text-lg font-semibold text-white">
+          {t("snippetsPage.modal.createTitle")}
+        </h3>
 
         <div className="mt-4 space-y-3">
           <div>
-            <label htmlFor="create-snippet-title-input" className="block text-xs text-slate-400">标题</label>
+            <label htmlFor="create-snippet-title-input" className="block text-xs text-slate-400">
+              {t("snippetsPage.modal.field.title")}
+            </label>
             <input
               id="create-snippet-title-input"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
               data-input
-				className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-language-input" className="block text-xs text-slate-400">语言</label>
+            <label htmlFor="create-snippet-language-input" className="block text-xs text-slate-400">
+              {t("snippetsPage.modal.field.language")}
+            </label>
             <input
               id="create-snippet-language-input"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              placeholder="例如 javascript、python（留空默认 text）"
+              placeholder={t("snippetsPage.modal.field.languageHint")}
               data-input
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-description-input" className="block text-xs text-slate-400">描述（可选）</label>
+            <label htmlFor="create-snippet-description-input" className="block text-xs text-slate-400">
+              {t("snippetsPage.modal.field.description")}
+            </label>
             <input
               id="create-snippet-description-input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="简要说明此片段的用途"
+              placeholder={t("snippetsPage.modal.field.descriptionHint")}
               data-input
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-tags-input" className="block text-xs text-slate-400">标签（用逗号分隔）</label>
+            <label htmlFor="create-snippet-tags-input" className="block text-xs text-slate-400">
+              {t("snippetsPage.modal.field.tags")}
+            </label>
             <input
               id="create-snippet-tags-input"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="例如 备份, nginx"
+              placeholder={t("snippetsPage.modal.field.tagsHint")}
               data-input
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             />
           </div>
           <div>
-            <label htmlFor="create-snippet-content-input" className="block text-xs text-slate-400">内容</label>
+            <label htmlFor="create-snippet-content-input" className="block text-xs text-slate-400">
+              {t("snippetsPage.modal.field.content")}
+            </label>
             <textarea
               id="create-snippet-content-input"
               value={content}
@@ -131,7 +145,7 @@ export function CreateSnippetModal({
               onChange={(e) => setIsPrivate(e.target.checked)}
               className="rounded border-white/20"
             />
-            仅自己可见
+            {t("snippetsPage.modal.field.private")}
           </label>
         </div>
 
@@ -142,14 +156,14 @@ export function CreateSnippetModal({
             onClick={onClose}
             className="min-h-11 rounded-lg border border-white/10 px-4 py-2 text-sm text-slate-400 transition hover:bg-white/5"
           >
-            取消
+            {t("snippetsPage.modal.action.cancel")}
           </button>
           <button
             onClick={handleCreate}
             disabled={saving || !title.trim() || !content.trim()}
             className="min-h-11 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
-            {saving ? "创建中…" : "创建"}
+            {saving ? t("snippetsPage.modal.action.creating") : t("snippetsPage.modal.action.create")}
           </button>
         </div>
       </div>
