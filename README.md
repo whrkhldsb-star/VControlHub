@@ -663,6 +663,31 @@ R1-R5 累计 17 路由, R6 (T38b) 走 storage 域 8 路由 (archive-download / d
 - TR-029 QA 报告产品化：把当前 `.hermes/remediation-state.json` 每天自动导出到 `/api/admin/qa-report` 内部页，运维自查不依赖 cron 私有状态。
 - README 状态自动对账：cron 后台跑完一个 TR-XXX 后自动 `sed` 更新本表状态列 + `changelog` 区块；避免像 2026-06-14 那样"代码已落地 / README 还写新发现"的双轨漂移。
 
+#### R10E (TR-054) — i18n 工程化批量补齐, 27 commit 链
+
+**目标**: 把 1246 缺键从 11.6% 推进到 22.8%, 工程化批量接入 `useI18n()` + server `t(key, locale)`, 摸清哪些大客户端组件最值得拆。
+
+**进度**: 27 i18n commit (R9 → R10E.20), 累计 1698 i18n key (zh+en), 1410→1107 字符串, 164→252 covered, 855 待续做。
+
+**commit 链 (R10E.7-R10E.20 本 session, 之前 R9-R10E.6 见 git log)**:
+- R10E.7 login (`b2f935a`) + R10E.8 notifications (`b68885a`) + R10E.9 tickets (`d484e4d`) — server page 范式 (`getServerLocale()` + `t(key, locale)`)
+- R10E.10 templates (`63edc60`) + R10E.11 image-bed (`f186c8e`) + R10E.12 requests (`a7e3e3c`) + R10E.13 announcements (`d1e8268`) + R10E.14 media/page (`075f4f4`) + R10E.15 media-item-card (`c8cbeec`) + R10E.16 tickets/[id] (`3519223`) + R10E.17 media-image-upload-panel (`de91530`) + R10E.18 media-scan-button (`4158fe4`) + R10E.19 api-tokens (`322425c`) + R10E.20 text-preview (`6071659`) — client component 范式 (`useI18n()` + `renderWithI18n as render` 测试 wrap)
+
+**关键模式 (R10E 沉淀, 后续 R10F+ 复用)**:
+- server page: `getServerLocale()` (R10E.7 新建, 读 `vps-locale` cookie) + `t(key, locale)`
+- client component: `useI18n()` + 测试用 `renderWithI18n as render` alias (业务断言零改)
+- inner component: 各自独立 `useI18n()` (DeployButton / CreateTemplateForm 等)
+- pure fn 接受 t 作参数: `statusLabel(t, s)` / `formatSize(b, t)` / `langLabel(t, l)` / `levelLabel(t, l)` / `modeTitle(t, type)` / `scopeLabel(t, s)` / `tokenStatus(t, tok)` / `storageLabel(s, t)` / `mediaTypeLabel(m, t)`
+- 占位符: `t(key).replace("{var}", val)` (useI18n 不支持第二参数)
+- 命名冲突避让: `tickets.map((t) => ...)` 改 `ticket`; `removeTag(t: string)` 改 `tag`; `tags.map((t) =>` 改 `tag` (R10E.15 修了原代码 latent bug)
+- 命名空间避 sibling 撞车: `serversPage.*` / `apiTokensPage.*` / `mediaUploadPanel.*` / `mediaScanButton.*` / `mediaItemCard.*` / `ticketsDetail.*` / `textPreview.*`
+- 测 wrap 模式: 有 I18nProvider → t() 走 zh 表; 无 wrap → t() 返回 key; production 有 root layout wrap, 测试要手动 wrap
+- `getByText` 改 regex: 改组件后 hardcoded 文本嵌进翻译消息里, `getByText("CLI")` 精确匹配失败 → 改 `/CLI/`
+
+**收尾 (2026-06-16)**: i18n 子集测试 8/8 全过, tsc 0 错, working tree 干净 (R10E.20 push 成功, sibling T38c AI 域 zod 12 文件未 commit 待 sibling 自行收尾)。
+
+**R10F 候选 (按字符串数排)**: `health/health-dashboard-client` (92) / `settings/settings-client` (82) / `ai/ai-client` (69) / `alert-rules/alert-rule-list-client` (59) / `servers/server-overview-details` (54) / `files/files-browser-spa` (48) / `files/file-list-client` (48) / `quick-services/quick-services-client` (45) / `docker/docker-page-client` (35) / `backups/page` (35) / `traffic/traffic-page-client` (34) / `preferences/preferences-page-client` (32) / `qa-reports/qa-reports-list-client` (34) / `recycle-bin` (25)。预计 R10F 一轮再做 8-12 个, 22.8% → ~35-40%。
+
 ---
 
 ## 📋 任务追踪编号表（TR-001 ~ TR-042）
@@ -722,7 +747,7 @@ R1-R5 累计 17 路由, R6 (T38b) 走 storage 域 8 路由 (archive-download / d
 | TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — `.env.local` 密码登录返 invalid，DB hash 不匹配（memory 记录的 quirk，生产化后是阻塞门）。 | ⏳ 建议：boot 时若 DB hash 与 env 不一致，自动 reseed admin（开发环境）或显式报错（生产）。 |
 | TR-052 | P3 | 落地页 `/` 307→login 后无 dashboard — 默认页 redirect 而非真 dashboard。 | ⏳ 建议：首屏直接看概览，做一个 `/dashboard` 路由专属页面。 |
 | TR-053 | P1 | 公开 `/api/status` 泄露存储节点详情 — 未登录可见 `"6 个存储节点, 0 健康, 0 异常, 6 待探测"`。 | ⏳ 建议：公开端点只返回 `overall: warning`，详细 checks 给登录后页面。 |
-| TR-054 | P2 | i18n 1246 缺键工程化补齐 — TR-042 报告显示 1246 个 hardcode 字符串未走 t() 调用,覆盖率 11.6%,工程化批量补齐(top-N 字符串 + 各模块调用点)。 | ⏳ 启动中 (R1 ✅,165→202 covered,11.6%→14.2%,`scripts/i18n-coverage.ts` 加 ellipsis 归一化,`translations.ts` +5 common + 4 error.* zh+en,`error.tsx` + `audit-client.tsx` 共 5 处 hardcode 改 t() 调用)。R2-R5 续做剩余 1220 缺键。 |
+| TR-054 | P2 | i18n 1246 缺键工程化补齐 — TR-042 报告显示 1246 个 hardcode 字符串未走 t() 调用,工程化批量补齐(top-N 字符串 + 各模块调用点)。 | ✅ R1-R10E.20 完成 (27 i18n commit, 1410→1107 字符串,164→252 covered,11.6%→22.8%,+88 covered,−303 hardcode,855 待续做)。详情见 R10E 段。 |
 
 ---
 
