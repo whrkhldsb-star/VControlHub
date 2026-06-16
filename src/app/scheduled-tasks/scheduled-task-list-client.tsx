@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { EmptyState } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type Task = {
 	id: string; name: string; cronExpression: string; cronDescription: string;
@@ -27,11 +28,12 @@ const statusTone: Record<string, "success" | "warning" | "neutral"> = {
 	DISABLED: "neutral",
 };
 
-const statusLabel: Record<string, string> = {
-	ACTIVE: "运行中",
-	PAUSED: "已暂停",
-	DISABLED: "已禁用",
-};
+function statusLabelFor(status: string, t: (key: string) => string): string {
+	if (status === "ACTIVE") return t("scheduledTasks.status.active");
+	if (status === "PAUSED") return t("scheduledTasks.status.paused");
+	if (status === "DISABLED") return t("scheduledTasks.status.disabled");
+	return status;
+}
 
 function formatTime(iso: string | null): string {
 	if (!iso) return "—";
@@ -50,21 +52,23 @@ const fieldLabelClass = "text-xs font-medium text-slate-300 tracking-wide";
 const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 light:placeholder:text-slate-500 focus:border-cyan-400/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
-function describeCronPreview(expr: string) {
+function describeCronPreview(expr: string, t: (key: string) => string) {
 	const parts = expr.trim().split(/\s+/);
-	if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
+	if (parts.length !== 5) return t("scheduledTasks.cron.invalid");
 	const [min, hour, day, month, dow] = parts;
-	if (min!.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `每 ${min!.slice(2)} 分钟执行一次`;
-	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return "每小时整点执行";
-	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `每天 ${hour!}:${min!.padStart(2, "0")} 执行`;
+	if (min!.startsWith("*/") && hour === "*" && day === "*" && month === "*" && dow === "*") return `${t("scheduledTasks.cron.intervalPrefix")}${min!.slice(2)}${t("scheduledTasks.cron.intervalMiddle")}`;
+	if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return t("scheduledTasks.cron.hourly");
+	if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `${t("scheduledTasks.cron.dailyPrefix")} ${hour!}:${min!.padStart(2, "0")} ${t("scheduledTasks.cron.dailySuffix")}`.trim();
 	if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
-		const names: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
-		return `每${names[dow!] ?? `周${dow!}`} ${hour!}:${min!.padStart(2, "0")} 执行`;
+		const weekdayKey = `scheduledTasks.weekday.${dow}`;
+		const wd = t(weekdayKey);
+		return `${t("scheduledTasks.cron.weeklyPrefix")}${wd} ${hour!}:${min!.padStart(2, "0")} ${t("scheduledTasks.cron.weeklySuffix")}`.trim();
 	}
-	return "自定义 Cron；保存时服务端会计算下一次运行时间";
+	return t("scheduledTasks.cron.custom");
 }
 
 export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreate, canManage }: Props) {
+	const { t } = useI18n();
 	const [tasks, setTasks] = useState(initialTasks);
 	const [showCreate, setShowCreate] = useState(false);
 	const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
@@ -88,7 +92,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			});
 			void refresh();
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : "切换定时任务状态失败");
+			setActionError(err instanceof Error ? err.message : t("scheduledTasks.toggleFailed"));
 		}
 	}, [refresh]);
 
@@ -102,7 +106,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			});
 			void refresh();
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : "重试定时任务失败");
+			setActionError(err instanceof Error ? err.message : t("scheduledTasks.retryFailed"));
 		}
 	}, [refresh]);
 
@@ -113,7 +117,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			await csrfFetch(`/api/scheduled-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" });
 			void refresh();
 		} catch (err) {
-			setActionError(err instanceof Error ? err.message : "删除定时任务失败");
+			setActionError(err instanceof Error ? err.message : t("scheduledTasks.deleteFailed"));
 		}
 	}, [refresh]);
 
@@ -128,7 +132,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						type="search"
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
-						placeholder="按名称、命令、Cron、上次结果搜索"
+						placeholder={t("scheduledTasks.searchPlaceholder")}
 						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
 					/>
 				</div>
@@ -148,7 +152,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			)}
 
 			{tasks.length === 0 && !showCreate ? (
-				<EmptyState icon="⏰" text="暂无定时任务" variant="boxed" />
+				<EmptyState icon="⏰" text={t("scheduledTasks.empty.title")} variant="boxed" />
 			) : filteredTasks.length === 0 ? (
 				<EmptyState text={`没有匹配“${searchQuery}”的定时任务或执行日志`} variant="boxed" />
 			) : (
@@ -160,7 +164,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									<div className="flex flex-wrap items-center gap-2.5">
 										<h2 className="text-lg font-semibold text-white">{task.name}</h2>
 										<span data-tone={statusTone[task.status] ?? "neutral"} className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium">
-											{statusLabel[task.status] ?? task.status}
+											{statusLabelFor(task.status, t)}
 										</span>
 									</div>
 									<p className="mt-1 text-xs text-slate-500">Cron: <code className="text-cyan-300/70 font-mono">{task.cronExpression}</code> — {task.cronDescription}</p>
@@ -176,7 +180,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 									</div>
 									<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2 text-[11px] text-slate-400">
 										<div className="mb-1 font-medium text-slate-300">最近执行日志</div>
-										<div className="whitespace-pre-wrap break-words">{task.lastResult || "暂无执行记录"}</div>
+										<div className="whitespace-pre-wrap break-words">{task.lastResult || t("scheduledTasks.empty.lastResult")}</div>
 									</div>
 								</div>
 								<div className="flex flex-col gap-2 shrink-0">
@@ -195,7 +199,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 											data-tone={task.status === "ACTIVE" ? "warning" : "success"}
 											className="min-h-11 rounded-2xl border px-4 py-2 text-xs font-medium transition"
 										>
-											{task.status === "ACTIVE" ? "暂停" : "恢复"}
+											{task.status === "ACTIVE" ? t("scheduledTasks.pause") : t("scheduledTasks.resume")}
 										</button>
 									)}
 									{canManage && (
@@ -238,6 +242,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 /* ── Create form ──────────────────────────────────────────── */
 
 function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
+	const { t } = useI18n();
 	const [name, setName] = useState("");
 	const [cronExpression, setCron] = useState("0 3 * * *");
 	const [command, setCommand] = useState("");
@@ -245,7 +250,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(new Set());
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const cronPreview = useMemo(() => describeCronPreview(cronExpression), [cronExpression]);
+	const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
 
 	const toggleServer = (id: string) => {
 		setSelectedServerIds((prev) => {
@@ -273,19 +278,19 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			});
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "创建失败");
+			setError(err instanceof Error ? err.message : t("scheduledTasks.createFailed"));
 		} finally {
 			setSubmitting(false);
 		}
 	};
 
 	const presetCrons = [
-		{ label: "每小时", expr: "0 * * * *" },
-		{ label: "每天 3:00", expr: "0 3 * * *" },
-		{ label: "每天 0:00", expr: "0 0 * * *" },
-		{ label: "每周一 9:00", expr: "0 9 * * 1" },
-		{ label: "每月1日 0:00", expr: "0 0 1 * *" },
-		{ label: "每5分钟", expr: "*/5 * * * *" },
+		{ label: t("scheduledTasks.preset.hourly"), expr: "0 * * * *" },
+		{ label: t("scheduledTasks.preset.daily3am"), expr: "0 3 * * *" },
+		{ label: t("scheduledTasks.preset.dailyMidnight"), expr: "0 0 * * *" },
+		{ label: t("scheduledTasks.preset.weeklyMon9am"), expr: "0 9 * * 1" },
+		{ label: t("scheduledTasks.preset.monthly1st"), expr: "0 0 1 * *" },
+		{ label: t("scheduledTasks.preset.every5min"), expr: "*/5 * * * *" },
 	];
 
 	const enabledServers = servers.filter((s) => s.enabled);
@@ -297,7 +302,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-name" className={fieldLabelClass}>任务名称</label>
-				<input id="scheduled-task-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：清理日志" className={fieldInputClass} />
+				<input id="scheduled-task-name" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("scheduledTasks.namePlaceholder")} className={fieldInputClass} />
 			</div>
 
 			<div className="space-y-1.5">
@@ -326,7 +331,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			<div className="space-y-1.5">
 				<label htmlFor="scheduled-task-reason" className={fieldLabelClass}>原因 / 备注</label>
-				<input id="scheduled-task-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="可选" className={fieldInputClass} />
+				<input id="scheduled-task-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={t("scheduledTasks.reasonPlaceholder")} className={fieldInputClass} />
 			</div>
 
 			{enabledServers.length > 0 && (
@@ -347,7 +352,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
-					{submitting ? "创建中…" : "创建任务"}
+					{submitting ? t("scheduledTasks.submit.creating") : t("scheduledTasks.submit.create")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
 					取消
