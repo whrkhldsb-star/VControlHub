@@ -1,21 +1,14 @@
 {
-  "generatedAt": "2026-06-16T20:35:18.316Z",
+  "generatedAt": "2026-06-16T21:13:21.341Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 79,
-    "totalStrings": 765,
+    "filesWithStrings": 78,
+    "totalStrings": 764,
     "coveredStrings": 184,
-    "missingStrings": 581,
+    "missingStrings": 580,
     "coveragePercent": 24.1
   },
   "perModule": [
-    {
-      "module": "src/app/snippets",
-      "total": 1,
-      "covered": 0,
-      "missing": 1,
-      "coveragePercent": 0
-    },
     {
       "module": "src/components/storage",
       "total": 6,
@@ -7454,19 +7447,10 @@
     },
     "src/app/snippets/page.tsx": {
       "path": "src/app/snippets/page.tsx",
-      "total": 1,
+      "total": 0,
       "covered": 0,
-      "missing": 1,
-      "candidates": [
-        {
-          "text": "代码片段库",
-          "line": 20,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader\n\t\t\t\teyebrow=\"Snippets\"\n\t\t\t\ttitle=\"代码片段库\"\n\t\t\t\tdescription=\"沉淀常用脚本、命令和",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/snippets/snippet-edit-modal.tsx": {
       "path": "src/app/snippets/snippet-edit-modal.tsx",

@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listSnippets } from "@/lib/snippet/service";
 import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell";
 import { SnippetList } from "./snippet-list-client";
+import { t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,8 @@ export default async function Page() {
 		<PageShell>
 			<PageHeader
 				eyebrow="Snippets"
-				title="代码片段库"
-				description="沉淀常用脚本、命令和配置片段，支持语言、标签和私有片段。"
+				title={t("snippetsPage.pageTitle")}
+				description={t("snippetsPage.pageDescription")}
 			/>
 			<div className="mt-6">
 				<SnippetList snippets={serialized} />
