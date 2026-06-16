@@ -16,13 +16,19 @@
  * 默认 dry-run (只 print 差异); 加 --write 才会写 README.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 
 const ROOT = resolve(__dirname, "..");
 const README = resolve(ROOT, "README.md");
-const QUEUE = resolve(ROOT, ".hermes/state/vcontrolhub-task-queue.json");
+// queue 实际位置: ~/.hermes/state/ (cron 用 user home) 或 repo .hermes/ (兼容旧位置)
+const QUEUE_CANDIDATES = [
+  resolve(homedir(), ".hermes/state/vcontrolhub-task-queue.json"),
+  resolve(ROOT, ".hermes/state/vcontrolhub-task-queue.json"),
+];
+const QUEUE = QUEUE_CANDIDATES.find((p) => existsSync(p)) ?? QUEUE_CANDIDATES[0]!;
 
 type TaskStatus = "pending" | "in_progress" | "done" | "failed_permanently" | "blocked" | "manual";
 
@@ -39,7 +45,7 @@ interface QueueShape {
   tasks: QueueTask[];
 }
 
-const TR_RE = /TR-(\d{3})/g;
+const trStandalone = /(?<=[\s:,(/])(TR-\d{3})(?=[\s:/),.])/g;
 
 function loadQueue(): QueueShape {
   try {
@@ -52,15 +58,23 @@ function loadQueue(): QueueShape {
 
 function gitTrCommits(): Map<string, string[]> {
   // TR-001 ~ TR-050 范围
+  // 严格匹配: TR-XXX 必须是"独立 token" (前后是空格/冒号/逗号/斜杠/括号/字符串边界)
+  // 避免误匹 commit 标题 "TR-008/017/018" 中所有出现 TR-0XX 的位置
+  // 例如 "TR-008/017/018" 中 TR-008 后是 / 但 017/018 的前导字符是 / 不是空格 → 不匹
+  //    "TR-008 " 后面是空格 → 匹
+  //    "(TR-008)" 前后是括号 → 匹
+  //    ":TR-008," 前后是冒号逗号 → 匹
+  const trStandalone = /(?<=[\s:,(/])(TR-\d{3})(?=[\s:/),.])/g;
   const map = new Map<string, string[]>();
   try {
-    const out = execSync(`git log --oneline --grep="TR-0[0-9][0-9]" --grep="tr-0[0-9][0-9]" -i -n 500`, {
+    // 1) 先 grep 出含 TR-XXX 的 commit 行 (省时间)
+    const out = execSync(`git log --oneline --grep="TR-0" -i -n 500`, {
       cwd: ROOT,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
     });
     for (const line of out.split("\n")) {
-      const matches = [...line.matchAll(TR_RE)];
+      const matches = [...line.matchAll(trStandalone)];
       for (const m of matches) {
         const id = m[1];
         if (!id) continue;
@@ -107,23 +121,27 @@ function classify(queue: QueueShape, commits: Map<string, string[]>, table: Set<
   const noTask: string[] = [];
   const inspection: string[] = []; // TR-003 这类
 
+  // 分类规则 (3 类):
+  //   真已完成: git log 标了此 TR (commit 是事实)
+  //   真未启动: git log 没标 + queue 也没 task (完全没做)
+  //   主体已落地: git log 没标 + queue 有 task (做了但没标 commit, 多数是 in_progress/pending)
   for (const tr of [...table].sort()) {
     const tasks = queueTr.get(tr) ?? [];
     if (tr === "TR-003") {
       inspection.push(tr);
       continue;
     }
-    if (tasks.length === 0) {
-      noTask.push(tr);
-      continue;
-    }
-    const anyDone = tasks.some((t) => t.status === "done");
     const hasCommit = (commits.get(tr) ?? []).length > 0;
-    if (anyDone && hasCommit) {
+    const anyDone = tasks.some((t) => t.status === "done");
+    if (hasCommit) {
       trulyDone.push(tr);
+    } else if (tasks.length === 0) {
+      noTask.push(tr);
     } else {
       partial.push(tr);
     }
+    // 副作用: anyDone 仅用于日志统计, 不影响分类
+    void anyDone;
   }
   return { trulyDone, partial, noTask, inspection };
 }
