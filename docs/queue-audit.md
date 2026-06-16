@@ -1,15 +1,15 @@
 # VControlHub Cron Queue Audit
 
-Generated: 2026-06-16T11:27:11.907Z
+Generated: 2026-06-16T15:56:42.542Z
 Source: `/root/.hermes/state/vcontrolhub-task-queue.json`
 
 ## Summary
 
 | Metric | Value |
 | --- | --- |
-| Total tasks | 58 |
-| done | 49 |
-| pending | 6 |
+| Total tasks | 63 |
+| done | 50 |
+| pending | 8 |
 | in_progress | 0 |
 | blocked | 2 |
 | failed_permanently | 1 |
@@ -19,8 +19,8 @@ Source: `/root/.hermes/state/vcontrolhub-task-queue.json`
 
 | Check | Declared | Actual | OK |
 | --- | --- | --- | --- |
-| done_count | 49 | 49 | ✅ |
-| total | 58 | 58 | ✅ |
+| done_count | 50 | 50 | ✅ |
+| total | 63 | 63 | ✅ |
 
 ## Drifts
 
@@ -57,16 +57,16 @@ Source: `/root/.hermes/state/vcontrolhub-task-queue.json`
 
 | hash | subject |
 | --- | --- |
-| `df5f378` | docs(readme): E05 TR-005 T34b.1 done + T34b.2 不可行 (跟 queue 同步) |
-| `d6837de` | feat(scripts): E04 queue-audit — cron 任务队列自检 tooling (queue + git log 15 类 drift 检测, 26 个新测, scripts/ + docs/ 不需要 deploy) |
-| `bedf1a2` | i18n R10F.2 (TR-054): 接 traffic 35 key (eyebrow/title/desc/refresh/autoRefresh×3/error/card×3/loading/iface×2/lastUpdated/rxRate/txRate/rxTotal/txTotal/noIface/th×5/remoteSampling/noRemote/badge×3/rxShort/txShort/noPrimaryIface/health×4) + formatStorageHealthStatus 改 fn 接受 t |
-| `6b972d1` | i18n R10F.1 (TR-054): 接 alert-rules 80 key (eyebrow/title/desc/empty/error×4/toast×3/condition×4/metric×4/operator×5/channel×3/badge×3/lastTriggered/action×6/delete×5/createForm×34) + metricLabel/operatorLabel/channelLabel/deliveryStatusLabel 4 fn |
-| `7d5a730` | refactor(storage): TR-005 T34b.1 listFileEntries/listDeletedFileEntries 加 cursor/分页参数 (take/skip/cursor 可选, 默认行为不变) + 3 个新测 |
-| `ca744f0` | fix(dashboard): 修 4 列 grid 错位 — Header/StatsSection 移出 grid 外,grid 改 2 列,避免 StatsSection 跟 ServerHero 抢 server-status id |
-| `479e9c3` | docs(readme): TR-037 R9 (T38e) command/backup 域收口 + 100% 覆盖 (5 域全闭环) |
-| `b7590cb` | refactor(command/backup): TR-037 R9 (T38e) command 域 + 零散 1 路由 zod 迁移 |
-| `26e1fc4` | docs(readme): TR-037 R8 (T38d) files 域 3 路由 zod 迁移落地 + 91.7% 覆盖 |
-| `d15beca` | refactor(files): TR-037 R7 files 域 3 路由 zod 迁移 (T38d) + audit 脚本支持多 boundary |
+| `aca87cd` | test(i18n): wrap AI/office-preview/quick-services 测试 with I18nProvider (drive-by, 阻 verify) |
+| `5a4e8a0` | i18n R10G.13 (TR-054): 接 quick-services 5 文件 52 hardcode 改 t() + quick-services 字典 50 key (card / install-dialog / pending-uninstall / pending-source-delete / page) (35/35 测过) |
+| `985f83d` | i18n R10G.11+12 (TR-054): 接 ai 6 客户端 137+ hardcode 改 t() + ai 字典 120 key (sidebar / chat-header / input-area / confirm-dialog / client / settings-panel / provider-panel) (46/46 i18n+ai 测过) |
+| `297025c` | feat(dashboard): /dashboard 路由专属页 (TR-052) + 2 pre-existing lint 修复 |
+| `6b28ff2` | i18n R10G.7+8+9+10 (TR-054): 接 office-preview 4 key + media-preview 3 key + markdown-preview 4 key + csv-preview 10 key + 4 客户端 19+ hardcode 改 t() (10/10 preview 测过,8/8 i18n 测过) |
+| `c6e46ab` | i18n R10G.5+6 (TR-054): 接 archive-preview 12 key + api-docs 11 key + 23 hardcode 改 t() (11/11 测过) |
+| `a7632cd` | i18n R10G.4 (TR-054): 接 recycle-bin-section 11 key + 14 hardcode 改 t() (15/15 file-browser-spa 测过) |
+| `17463a9` | i18n R10G.3 (TR-054): 接 snippets 38 key (list + 2 modal 共享 snippetsPage.* 命名空间) + 3 文件 47 hardcode 改 t() |
+| `e4bb138` | i18n R10G.2 (TR-054): 接 monitoring 35 key + monitoring-page-client 30+ hardcode 改 t() + test wrap I18nProvider |
+| `3d2d2fe` | feat(scripts): i18n-backlog.py 报告生成 + 模板 — 扫未 i18n 页面输出密度表,加速 R10G.N 选页 |
 
 ## Notes
 

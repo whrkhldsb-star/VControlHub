@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-16T11:27:11.907Z",
+  "generatedAt": "2026-06-16T15:56:42.542Z",
   "queuePath": "/root/.hermes/state/vcontrolhub-task-queue.json",
   "summary": {
-    "total": 58,
-    "done": 49,
-    "pending": 6,
+    "total": 63,
+    "done": 50,
+    "pending": 8,
     "inProgress": 0,
     "blocked": 2,
     "failedPermanently": 1,
@@ -119,17 +119,105 @@
   ],
   "topLevelChecks": {
     "doneCount": {
-      "declared": 49,
-      "actual": 49,
+      "declared": 50,
+      "actual": 50,
       "ok": true
     },
     "total": {
-      "declared": 58,
-      "actual": 58,
+      "declared": 63,
+      "actual": 63,
       "ok": true
     }
   },
   "recentCommits": [
+    {
+      "hash": "aca87cd",
+      "subject": "test(i18n): wrap AI/office-preview/quick-services 测试 with I18nProvider (drive-by, 阻 verify)"
+    },
+    {
+      "hash": "5a4e8a0",
+      "subject": "i18n R10G.13 (TR-054): 接 quick-services 5 文件 52 hardcode 改 t() + quick-services 字典 50 key (card / install-dialog / pending-uninstall / pending-source-delete / page) (35/35 测过)"
+    },
+    {
+      "hash": "985f83d",
+      "subject": "i18n R10G.11+12 (TR-054): 接 ai 6 客户端 137+ hardcode 改 t() + ai 字典 120 key (sidebar / chat-header / input-area / confirm-dialog / client / settings-panel / provider-panel) (46/46 i18n+ai 测过)"
+    },
+    {
+      "hash": "297025c",
+      "subject": "feat(dashboard): /dashboard 路由专属页 (TR-052) + 2 pre-existing lint 修复"
+    },
+    {
+      "hash": "6b28ff2",
+      "subject": "i18n R10G.7+8+9+10 (TR-054): 接 office-preview 4 key + media-preview 3 key + markdown-preview 4 key + csv-preview 10 key + 4 客户端 19+ hardcode 改 t() (10/10 preview 测过,8/8 i18n 测过)"
+    },
+    {
+      "hash": "c6e46ab",
+      "subject": "i18n R10G.5+6 (TR-054): 接 archive-preview 12 key + api-docs 11 key + 23 hardcode 改 t() (11/11 测过)"
+    },
+    {
+      "hash": "a7632cd",
+      "subject": "i18n R10G.4 (TR-054): 接 recycle-bin-section 11 key + 14 hardcode 改 t() (15/15 file-browser-spa 测过)"
+    },
+    {
+      "hash": "17463a9",
+      "subject": "i18n R10G.3 (TR-054): 接 snippets 38 key (list + 2 modal 共享 snippetsPage.* 命名空间) + 3 文件 47 hardcode 改 t()"
+    },
+    {
+      "hash": "e4bb138",
+      "subject": "i18n R10G.2 (TR-054): 接 monitoring 35 key + monitoring-page-client 30+ hardcode 改 t() + test wrap I18nProvider"
+    },
+    {
+      "hash": "3d2d2fe",
+      "subject": "feat(scripts): i18n-backlog.py 报告生成 + 模板 — 扫未 i18n 页面输出密度表,加速 R10G.N 选页"
+    },
+    {
+      "hash": "59d28f7",
+      "subject": "refactor(i18n): 拆 translations.ts → 41 域字典 (dictionaries/*) + 拆分脚本 (零撞车,8/8 i18n 测过,7/7 qa-reports 测过)"
+    },
+    {
+      "hash": "f41bbb4",
+      "subject": "i18n R10G.1 (TR-054): 接 qa-reports 41 key (server 3 + client 38) + qa-reports-list-client 34 处 hardcode 改 t() + test wrap I18nProvider"
+    },
+    {
+      "hash": "5a92ef3",
+      "subject": "docs(readme): 标 New-E [x] 全部落地 (强制 recordJobEvent 全 8 函数 + lease + Caddy)"
+    },
+    {
+      "hash": "bee0ed1",
+      "subject": "feat(job): TR-001 T13a 强制 recordJobEvent — enqueueJob 加 'enqueued' event,recoverStaleRunningJobs 加 'recovered' event(返回 shape {count, recovered})"
+    },
+    {
+      "hash": "55acf93",
+      "subject": "docs(readme): 标完成 [x] New-G (i18n+QA+README 对账脚本) / New-E lease+Caddy;修任务追踪表 TR-051/053 状态 ✅"
+    },
+    {
+      "hash": "dd820fa",
+      "subject": "docs(readme): 标完成 [x] TR-053 / TR-051 / TR-040 R1, [~] New-E / New-G 部分落地"
+    },
+    {
+      "hash": "0a8f11f",
+      "subject": "i18n R10F.3 (TR-054): 接 status 4 key (title/desc/overallLabel/updatedAt) + status page 4 硬编码改 t()"
+    },
+    {
+      "hash": "8745813",
+      "subject": "i18n R10F.4 (TR-054): 接 preferences 34 key (eyebrow/title/desc/loading/status×1/section×5/toggle×3/hint×2/error×2/page×7/widget×4) + pageLabel/widgetLabel 2 fn 接受 t"
+    },
+    {
+      "hash": "2134918",
+      "subject": "i18n R10F.3 (TR-054): 接 docker 90 key (eyebrow/title/desc/scope×4/toolbar×3/refresh×2/autoRefresh×3/loading/empty/group×1/ungrouped×1/stat×4/label×2/action×5/error×3/state×6/removeDialog×4/logsDialog×2) + getContainerName/stateLabel 改 fn 接受 t"
+    },
+    {
+      "hash": "461e7c0",
+      "subject": "chore(readme): 大幅精简 — 删 6 大段已完成内容(✅ 关键闭环 / 🟡 边界 / 维护批次 / 全量审查 / 新发现问题 TR-034~042 / 第二轮审查 / R10E),只留 11 个待办 TR 表 + [ ] 升级方向 (810→410 行, 81K→17K, -64K)"
+    },
+    {
+      "hash": "600b486",
+      "subject": "chore(readme): 修 L562 漂移 — 真未启动精简到 TR-009/TR-030,真已完成补回 TR-016/017/018/024/026/027/028 (这 7 个 README 已 ✅ 但 L562 漏列);P1 TR-034 勾上 (L738 标已完成)"
+    },
+    {
+      "hash": "a4f415a",
+      "subject": "docs(queue-audit): E05 closeout — total/total_tasks drift 修 58 (真问题 1 个,剩 19 全 soft signal)"
+    },
     {
       "hash": "df5f378",
       "subject": "docs(readme): E05 TR-005 T34b.1 done + T34b.2 不可行 (跟 queue 同步)"
@@ -241,94 +329,6 @@
     {
       "hash": "b2f935a",
       "subject": "i18n R10E.7 (TR-054): 接 login/page+login-form 21 key (error/branding/feature/form) + getServerLocale() helper"
-    },
-    {
-      "hash": "4b41b76",
-      "subject": "i18n R10E.6 (TR-054): 接 audit-client 20 actionLabels (auth/api_token/docker/user/storage/server/command/download) + formatAction→(action,t)"
-    },
-    {
-      "hash": "8c7f351",
-      "subject": "feat(audit): TR-019 DTO 边界覆盖巡检脚本 (T42)"
-    },
-    {
-      "hash": "7b348e9",
-      "subject": "i18n R10E.5 (TR-054): 接 user-permission-panel 30 key (title/desc/section/grants/error/success) + formatBytes→(val,t)"
-    },
-    {
-      "hash": "1af2403",
-      "subject": "i18n R10E.4 (TR-054): 接 users-client 16 key (status/role/action/form/empty/loading/error) + ROLE_OPTIONS→ROLE_KEYS (i18n 友好)"
-    },
-    {
-      "hash": "dfe3ec3",
-      "subject": "i18n R10E.3 (TR-054): 接 shares/page 13 key (title/desc/empty/status/time)"
-    },
-    {
-      "hash": "bf00b4f",
-      "subject": "i18n R10E.2 (TR-054): 接 servers/page 14 key (title/desc/links/stats/empty) - 用 serversPage.* 避免撞 sibling.servers.title"
-    },
-    {
-      "hash": "57497d9",
-      "subject": "i18n R10E.1 (TR-054): 接 users/page 4 key (noPerm/title/2 desc)"
-    },
-    {
-      "hash": "1821854",
-      "subject": "docs(readme): TR-036 T37 closeout — quick-services-client 1002→574 + TR-036 P1 状态 ✅ 完成 (T36b + T36c + T37)"
-    },
-    {
-      "hash": "28c2d37",
-      "subject": "i18n R10D (TR-054): 接 scheduled-task-list 39 key (status/cron/weekday/preset/error/empty)"
-    },
-    {
-      "hash": "aa6adb0",
-      "subject": "refactor(quick-services): TR-036 T37 — 拆 quick-services-client (1002→574 行) 抽 ServiceCard + InstallDialog + ConfigPreview (lazy) + SourcesPanel (4 文件 + 0 业务逻辑改)"
-    },
-    {
-      "hash": "0f2a534",
-      "subject": "i18n R10C (TR-054): 接 operation-task-list 17 key (filter/sort/summary/empty/error)"
-    },
-    {
-      "hash": "84043dc",
-      "subject": "i18n R10B (TR-054): 接 audit-client 3 key (error + 2 aria-label)"
-    },
-    {
-      "hash": "174ad06",
-      "subject": "i18n R10A (TR-054): 接 image-bed showToast 14 key"
-    },
-    {
-      "hash": "6bd59ad",
-      "subject": "i18n R9 (TR-054): 接 not-found 页 (3 key)"
-    },
-    {
-      "hash": "cbb2f23",
-      "subject": "docs(readme): closeout TR-011 (失败回滚) + TR-020 (M02 完成对账)"
-    },
-    {
-      "hash": "f44f0b5",
-      "subject": "feat(quick-service): TR-011 失败回滚 + 真实 diff 记录 (3 文件 +440/-60)"
-    },
-    {
-      "hash": "0eb6021",
-      "subject": "i18n R8 (TR-054): 接 backups × 3 form / button"
-    },
-    {
-      "hash": "c2d9c09",
-      "subject": "i18n R7 (TR-054): 接 api-tokens/downloads/files 6 key (server + client 混合)"
-    },
-    {
-      "hash": "894bde0",
-      "subject": "i18n R6 (TR-054): 接 announcements × 3 + audit-client 6 key"
-    },
-    {
-      "hash": "8502994",
-      "subject": "i18n R5 (TR-054): 加 renderWithI18n test helper + 接 ai-provider-panel + change-password-form"
-    },
-    {
-      "hash": "666b765",
-      "subject": "i18n R4: 32 新 key (TR-054 R4) + ai-chat-header + dashboard-widget-detail-dialog 接入"
-    },
-    {
-      "hash": "d188c4b",
-      "subject": "docs(README): M02 (TR-020) 状态 ⏳→✅ — unblock M02 + closeout"
     }
   ]
 }
