@@ -1,6 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 /**
  * Root-level error boundary for route segments.
@@ -17,17 +18,18 @@ export default function RootError({
 	error: Error & { digest?: string };
 	reset: () => void;
 }) {
+	const { t } = useI18n();
 	return (
 		<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
 			<h2 className="mb-3 text-2xl font-semibold text-white">
-				页面加载出错
+				{t("error.title")}
 			</h2>
 			<p className="mb-2 text-[15px] leading-relaxed text-neutral-400">
-				{error.message || "发生了未知错误"}
+				{error.message || t("error.unknown")}
 			</p>
 			{error.digest && (
 				<p className="mb-4 text-[13px] text-neutral-500">
-					错误标识: {error.digest}
+					{t("error.digest-label")} {error.digest}
 				</p>
 			)}
 			<div className="mt-5 flex justify-center gap-3">
@@ -35,13 +37,13 @@ export default function RootError({
 					onClick={reset}
 					className="cursor-pointer rounded-lg border-none bg-blue-600 px-6 py-2 text-sm text-white hover:bg-blue-700"
 				>
-					重试
+					{t("common.retry")}
 				</button>
 				<NextLink
 					href="/"
 					className="inline-flex items-center rounded-lg bg-neutral-800 light:bg-neutral-100 px-6 py-2 text-sm text-neutral-200 no-underline hover:bg-neutral-700 light:hover:bg-neutral-200"
 				>
-					返回首页
+					{t("error.back-home")}
 				</NextLink>
 			</div>
 		</div>

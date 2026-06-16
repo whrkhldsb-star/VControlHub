@@ -193,11 +193,20 @@ function buildReverseIndex(
 ): Map<string, string[]> {
   const idx = new Map<string, string[]>();
   for (const [key, value] of Object.entries(zh)) {
-    const arr = idx.get(value) ?? [];
+    const arr = idx.get(normalizeForMatch(value)) ?? [];
     arr.push(key);
-    idx.set(value, arr);
+    idx.set(normalizeForMatch(value), arr);
   }
   return idx;
+}
+
+/**
+ * Normalize a string for reverse-index matching.
+ * U+2026 horizontal ellipsis ("…") and three ASCII dots ("...") appear
+ * interchangeably in zh translations vs tsx sources, so unify them here.
+ */
+function normalizeForMatch(s: string): string {
+  return s.replace(/\.\.\./g, "\u2026");
 }
 
 // ---------------------------------------------------------------------------
@@ -682,7 +691,7 @@ function aggregate(
     }
 
     const annotated = candidates.map((c) => {
-      const keys = zhReverse.get(c.text);
+      const keys = zhReverse.get(normalizeForMatch(c.text));
       const isCovered = keys !== undefined && keys.length > 0;
       return { ...c, covered: isCovered, key: keys?.[0] };
     });

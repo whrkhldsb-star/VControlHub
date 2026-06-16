@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type AuditLog = {
   id: string;
@@ -67,6 +68,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
+  const { t } = useI18n();
   const [data, setData] = useState<AuditListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -131,7 +133,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}
             className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10"
           >
-            清除
+            {t("common.clear")}
           </button>
         </div>
         <div className="flex flex-wrap gap-3">

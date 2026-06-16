@@ -73,6 +73,18 @@ const translations: Record<Locale, Record<string, string>> = {
 		"common.time": "时间",
 		"common.success": "操作成功",
 		"common.error": "操作失败",
+		"common.confirmDelete": "确认删除",
+		"common.download": "下载",
+		"common.targetNode": "目标节点",
+		"common.retry": "重试",
+		"common.optional": "可选",
+		"common.clear": "清除",
+
+		// Error boundary
+		"error.title": "页面加载出错",
+		"error.unknown": "发生了未知错误",
+		"error.digest-label": "错误标识:",
+		"error.back-home": "返回首页",
 
 		// Dashboard
 		"dashboard.title": "仪表盘",
@@ -255,6 +267,18 @@ const translations: Record<Locale, Record<string, string>> = {
 		"common.time": "Time",
 		"common.success": "Success",
 		"common.error": "Error",
+		"common.confirmDelete": "Confirm delete",
+		"common.download": "Download",
+		"common.targetNode": "Target node",
+		"common.retry": "Retry",
+		"common.optional": "Optional",
+		"common.clear": "Clear",
+
+		// Error boundary
+		"error.title": "Page failed to load",
+		"error.unknown": "An unknown error occurred",
+		"error.digest-label": "Error ID:",
+		"error.back-home": "Back to home",
 
 		// Dashboard
 		"dashboard.title": "Dashboard",
