@@ -1,23 +1,16 @@
 {
-  "generatedAt": "2026-06-16T10:37:34.856Z",
+  "generatedAt": "2026-06-16T12:18:33.713Z",
   "summary": {
     "files": 260,
-    "filesWithStrings": 107,
-    "totalStrings": 1036,
-    "coveredStrings": 244,
-    "missingStrings": 792,
-    "coveragePercent": 23.6
+    "filesWithStrings": 104,
+    "totalStrings": 992,
+    "coveredStrings": 229,
+    "missingStrings": 763,
+    "coveragePercent": 23.1
   },
   "perModule": [
     {
       "module": "src/app/health",
-      "total": 4,
-      "covered": 0,
-      "missing": 4,
-      "coveragePercent": 0
-    },
-    {
-      "module": "src/app/status",
       "total": 4,
       "covered": 0,
       "missing": 4,
@@ -71,13 +64,6 @@
       "covered": 4,
       "missing": 42,
       "coveragePercent": 8.7
-    },
-    {
-      "module": "src/app/preferences",
-      "total": 11,
-      "covered": 1,
-      "missing": 10,
-      "coveragePercent": 9.1
     },
     {
       "module": "src/app/downloads",
@@ -218,13 +204,6 @@
       "covered": 10,
       "missing": 13,
       "coveragePercent": 43.5
-    },
-    {
-      "module": "src/app/docker",
-      "total": 29,
-      "covered": 14,
-      "missing": 15,
-      "coveragePercent": 48.3
     },
     {
       "module": "src/app/global-error.tsx",
@@ -3191,230 +3170,10 @@
     },
     "src/app/docker/docker-page-client.tsx": {
       "path": "src/app/docker/docker-page-client.tsx",
-      "total": 29,
-      "covered": 14,
-      "missing": 15,
-      "candidates": [
-        {
-          "text": "Docker 容器",
-          "line": 223,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader eyebrow=\"Containers\" title=\"Docker 容器\" description=\"管理 VControlHub 所",
-          "covered": true,
-          "key": "nav.docker"
-        },
-        {
-          "text": "运行边界：本机 Docker socket",
-          "line": 228,
-          "kind": "text",
-          "context": "<h2 id=\"docker-scope-title\" className=\"text-sm font-semibold\">运行边界：本机 Docker soc",
-          "covered": false
-        },
-        {
-          "text": "Socket：  · 远端 VPS 容器请通过对应节点的 SSH/Direct Gateway/QuickService 部署链路管理。",
-          "line": 232,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-xs text-amber-200/80\"> Socket：{dockerScope?.socketP",
-          "covered": false
-        },
-        {
-          "text": "支持按 compose 项目浏览",
-          "line": 237,
-          "kind": "text",
-          "context": "<span>支持按 compose 项目浏览",
-          "covered": false
-        },
-        {
-          "text": "个编排组",
-          "line": 239,
-          "kind": "text",
-          "context": "<span>{projectCount} 个编排组",
-          "covered": false
-        },
-        {
-          "text": "个独立容器",
-          "line": 241,
-          "kind": "text",
-          "context": "<span>{ungrouped.length} 个独立容器",
-          "covered": false
-        },
-        {
-          "text": "刷新列表",
-          "line": 250,
-          "kind": "text",
-          "context": "<button onClick={() => { setLoading(true); void fetchContainers",
-          "covered": false
-        },
-        {
-          "text": "刷新统计",
-          "line": 258,
-          "kind": "text",
-          "context": "<button onClick={() => { for (const container of runningContainers) v",
-          "covered": false
-        },
-        {
-          "text": "加载中...",
-          "line": 273,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">加载中...",
-          "covered": true,
-          "key": "common.loading"
-        },
-        {
-          "text": "未发现 Docker 容器，或 Docker 服务未运行",
-          "line": 275,
-          "kind": "text",
-          "context": "<div data-empty-state className=\"bg-white/[0.02]\"> 未发现 Docker 容器，或 Docker 服",
-          "covered": false
-        },
-        {
-          "text": "compose 项目 ·   个容器",
-          "line": 284,
-          "kind": "text",
-          "context": "<p className=\"text-[11px] text-slate-500\">compose 项目 · {group.containers.length}",
-          "covered": false
-        },
-        {
-          "text": "内存   /  %",
-          "line": 308,
-          "kind": "text",
-          "context": "<div className=\"rounded-lg bg-purple-500/10 px-2 py-1.5 text-purple-300\">内存 {for",
-          "covered": false
-        },
-        {
-          "text": "启动",
-          "line": 315,
-          "kind": "text",
-          "context": "<button onClick={() => handleAction(c, \"start\")} disabled={actionLoading === c.I",
-          "covered": true,
-          "key": "docker.start"
-        },
-        {
-          "text": "停止",
-          "line": 319,
-          "kind": "text",
-          "context": "<button onClick={() => handleAction(c, \"stop\")} disabled={actionLoading === c.Id",
-          "covered": true,
-          "key": "docker.stop"
-        },
-        {
-          "text": "重启",
-          "line": 320,
-          "kind": "text",
-          "context": "<button onClick={() => handleAction(c, \"restart\")} disabled={actionLoading === c",
-          "covered": true,
-          "key": "docker.restart"
-        },
-        {
-          "text": "日志",
-          "line": 323,
-          "kind": "text",
-          "context": "<button onClick={() => fetchLogs(c.Id)} className=\"min-h-11 px-2.5 py-1 text-[10",
-          "covered": true,
-          "key": "docker.logs"
-        },
-        {
-          "text": "删除",
-          "line": 324,
-          "kind": "text",
-          "context": "<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} clas",
-          "covered": true,
-          "key": "common.delete"
-        },
-        {
-          "text": "独立容器",
-          "line": 335,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-medium text-white mb-3\">独立容器",
-          "covered": false
-        },
-        {
-          "text": "启动",
-          "line": 352,
-          "kind": "text",
-          "context": "<button onClick={() => handleAction(c, \"start\")} disabled={actionLoading === c.I",
-          "covered": true,
-          "key": "docker.start"
-        },
-        {
-          "text": "停止",
-          "line": 355,
-          "kind": "text",
-          "context": "<button onClick={() => handleAction(c, \"stop\")} disabled={actionLoading === c.Id",
-          "covered": true,
-          "key": "docker.stop"
-        },
-        {
-          "text": "重启",
-          "line": 356,
-          "kind": "text",
-          "context": "<button onClick={() => handleAction(c, \"restart\")} disabled={actionLoading === c",
-          "covered": true,
-          "key": "docker.restart"
-        },
-        {
-          "text": "日志",
-          "line": 359,
-          "kind": "text",
-          "context": "<button onClick={() => fetchLogs(c.Id)} className=\"min-h-11 px-2.5 py-1 text-[10",
-          "covered": true,
-          "key": "docker.logs"
-        },
-        {
-          "text": "删除",
-          "line": 360,
-          "kind": "text",
-          "context": "<button onClick={() => requestRemoval(c)} disabled={actionLoading === c.Id} clas",
-          "covered": true,
-          "key": "common.delete"
-        },
-        {
-          "text": "确认删除容器",
-          "line": 380,
-          "kind": "text",
-          "context": "<h3 id=\"docker-remove-confirm-title\" className=\"text-base font-semibold text-whi",
-          "covered": false
-        },
-        {
-          "text": "即将删除容器",
-          "line": 381,
-          "kind": "text",
-          "context": "<p className=\"mt-3 text-sm text-[var(--text-secondary)]\"> 即将删除容器 ",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 390,
-          "kind": "text",
-          "context": "<button ref={removeCancelButtonRef} type=\"button\" onClic",
-          "covered": true,
-          "key": "common.cancel"
-        },
-        {
-          "text": "确认删除",
-          "line": 398,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={() => void confirmRemoval()} ",
-          "covered": true,
-          "key": "common.confirmDelete"
-        },
-        {
-          "text": "容器日志 —",
-          "line": 418,
-          "kind": "text",
-          "context": "<h3 id=\"docker-logs-dialog-title\" className=\"text-sm font-medium text-white\">容器日",
-          "covered": false
-        },
-        {
-          "text": "关闭容器日志",
-          "line": 419,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button\n\t\t\t\t\t\t\t\tref={logsCloseButtonRef}\n\t\t\t\t\t\t\t\ttype=\"button\"\n\t\t\t\t\t\t\t\tonClick={",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/docker/error.tsx": {
       "path": "src/app/docker/error.tsx",
@@ -6475,95 +6234,10 @@
     },
     "src/app/preferences/preferences-page-client.tsx": {
       "path": "src/app/preferences/preferences-page-client.tsx",
-      "total": 11,
-      "covered": 1,
-      "missing": 10,
-      "candidates": [
-        {
-          "text": "加载中...",
-          "line": 188,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">加载中...",
-          "covered": true,
-          "key": "common.loading"
-        },
-        {
-          "text": "个性化设置",
-          "line": 192,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader eyebrow=\"Preferences\" title=\"个性化设置\" />",
-          "covered": false
-        },
-        {
-          "text": "自定义你的工作环境",
-          "line": 193,
-          "kind": "text",
-          "context": "<p className=\"text-[var(--text-secondary)] mb-6\">自定义你的工作环境",
-          "covered": false
-        },
-        {
-          "text": "✓ 设置已保存",
-          "line": 195,
-          "kind": "text",
-          "context": "<div role=\"status\" className=\"mb-4 text-xs text-emerald-400 bg-emerald-500/10 ro",
-          "covered": false
-        },
-        {
-          "text": "🏠 默认页面",
-          "line": 202,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Section title=\"🏠 默认页面\">",
-          "covered": false
-        },
-        {
-          "text": "📊 仪表盘组件",
-          "line": 220,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Section title=\"📊 仪表盘组件\">",
-          "covered": false
-        },
-        {
-          "text": "🔔 通知",
-          "line": 233,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Section title=\"🔔 通知\">",
-          "covered": false
-        },
-        {
-          "text": "⏱️ 自动刷新",
-          "line": 238,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Section title=\"⏱️ 自动刷新\">",
-          "covered": false
-        },
-        {
-          "text": "控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。",
-          "line": 254,
-          "kind": "text",
-          "context": "<p className=\"text-[11px] text-slate-500\">控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔",
-          "covered": false
-        },
-        {
-          "text": "🛰️ VPS 自动探测",
-          "line": 257,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Section title=\"🛰️ VPS 自动探测\">",
-          "covered": false
-        },
-        {
-          "text": "周期性 SSH 只读采样，仅在节点启用且「自动探测」打开时生效。调短间隔可以更快发现异常，调长则减轻 VPS 负载。",
-          "line": 279,
-          "kind": "text",
-          "context": "<p className=\"text-[11px] text-slate-500\"> 周期性 SSH 只读采样，仅在节点启用且「自动探测」打开时生效",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/qa-reports/[id]/page.tsx": {
       "path": "src/app/qa-reports/[id]/page.tsx",
@@ -9627,39 +9301,10 @@
     },
     "src/app/status/page.tsx": {
       "path": "src/app/status/page.tsx",
-      "total": 4,
+      "total": 0,
       "covered": 0,
-      "missing": 4,
-      "candidates": [
-        {
-          "text": "服务状态",
-          "line": 11,
-          "kind": "text",
-          "context": "<h1 className=\"text-3xl font-semibold\">服务状态",
-          "covered": false
-        },
-        {
-          "text": "公开安全摘要，不展示主机名、端口、连接串或内部凭据。",
-          "line": 12,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-sm text-[var(--text-secondary)]\"> 公开安全摘要，不展示主机",
-          "covered": false
-        },
-        {
-          "text": "总体：",
-          "line": 23,
-          "kind": "text",
-          "context": "<span className=\"text-lg font-medium\">总体：{status.summary.overall === \"healthy\" ?",
-          "covered": false
-        },
-        {
-          "text": "更新时间：",
-          "line": 25,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-xs text-slate-500\"> 更新时间：{new Date(status.ge",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/storage/error.tsx": {
       "path": "src/app/storage/error.tsx",

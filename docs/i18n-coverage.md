@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T10:37:34.856Z | Files: 260 | Strings: 1036 | Coverage: **23.6%** (244/1036)
+> Generated: 2026-06-16T12:18:33.713Z | Files: 260 | Strings: 992 | Coverage: **23.1%** (229/992)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -11,7 +11,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | Module | Strings | Covered | Missing | Coverage |
 |---|---|---|---|---|
 | `src/app/health` | 4 | 0 | 4 | 0% |
-| `src/app/status` | 4 | 0 | 4 | 0% |
 | `src/components/app-sidebar.tsx` | 1 | 0 | 1 | 0% |
 | `src/components/storage` | 6 | 0 | 6 | 0% |
 | `src/app/deployments` | 44 | 2 | 42 | 4.5% |
@@ -19,7 +18,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/components/ssh-terminal-modal.tsx` | 14 | 1 | 13 | 7.1% |
 | `src/app/account` | 12 | 1 | 11 | 8.3% |
 | `src/app/backups` | 46 | 4 | 42 | 8.7% |
-| `src/app/preferences` | 11 | 1 | 10 | 9.1% |
 | `src/app/downloads` | 38 | 4 | 34 | 10.5% |
 | `src/app/api-docs` | 9 | 1 | 8 | 11.1% |
 | `src/app/requests` | 24 | 3 | 21 | 12.5% |
@@ -40,7 +38,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/app/image-bed` | 22 | 8 | 14 | 36.4% |
 | `src/app/share` | 12 | 5 | 7 | 41.7% |
 | `src/app/scheduled-tasks` | 23 | 10 | 13 | 43.5% |
-| `src/app/docker` | 29 | 14 | 15 | 48.3% |
 | `src/app/global-error.tsx` | 4 | 2 | 2 | 50% |
 | `src/app/audit` | 28 | 15 | 13 | 53.6% |
 | `src/components/change-password-modal.tsx` | 5 | 3 | 2 | 60% |
@@ -227,18 +224,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L189 placeholder placeholder= "例如 prod-1"
 - _…and 8 more_
 
-### `src/app/docker/docker-page-client.tsx` — 15/29 missing (48.3%)
-
-- L228 text "运行边界：本机 Docker socket"
-- L232 text "Socket：  · 远端 VPS 容器请通过对应节点的 SSH/Direct Gateway/QuickService 部署链路管理。"
-- L237 text "支持按 compose 项目浏览"
-- L239 text "个编排组"
-- L241 text "个独立容器"
-- L250 text "刷新列表"
-- L258 text "刷新统计"
-- L275 text "未发现 Docker 容器，或 Docker 服务未运行"
-- _…and 7 more_
-
 ### `src/app/files/page.tsx` — 15/17 missing (11.8%)
 
 - L217 title title= "文件与存储管理"
@@ -326,3 +311,15 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L77 text "*（SFTP 必填远端主机或绑定VPS）"
 - L89 text "访问模式"
 - _…and 6 more_
+
+### `src/app/downloads/create-download-form.tsx` — 13/15 missing (13.3%)
+
+- L89 text "新建下载任务"
+- L101 text "📋 批量模式"
+- L104 text "每行一个链接"
+- L112 text "下载链接（每行一个）"
+- L123 text "批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。"
+- L133 text "下载链接"
+- L177 text "保存路径"
+- L191 placeholder placeholder= "留空自动"
+- _…and 5 more_

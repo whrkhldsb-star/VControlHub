@@ -1,16 +1,18 @@
 import { getPublicStatus } from "@/lib/status/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const status = await getPublicStatus();
+  const locale = await getServerLocale();
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-3xl px-6 py-14">
-        <h1 className="text-3xl font-semibold">服务状态</h1>
+        <h1 className="text-3xl font-semibold">{t("statusPage.title", locale)}</h1>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          公开安全摘要，不展示主机名、端口、连接串或内部凭据。
+          {t("statusPage.desc", locale)}
         </p>
 
         <div data-card className="mt-6 p-5">
@@ -20,10 +22,10 @@ export default async function Page() {
               status.summary.overall === "warning" ? "bg-amber-400" :
               "bg-rose-400"
             }`} />
-            <span className="text-lg font-medium">总体：{status.summary.overall === "healthy" ? "正常" : status.summary.overall === "warning" ? "警告" : "异常"}</span>
+            <span className="text-lg font-medium">{t("statusPage.overallLabel", locale)}{status.summary.overall === "healthy" ? "正常" : status.summary.overall === "warning" ? "警告" : "异常"}</span>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            更新时间：{new Date(status.generatedAt).toLocaleString("zh-CN")}
+            {t("statusPage.updatedAt", locale)}{new Date(status.generatedAt).toLocaleString("zh-CN")}
           </p>
         </div>
 
