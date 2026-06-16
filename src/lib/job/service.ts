@@ -50,7 +50,7 @@ function sanitizeAttempts(value: number | undefined) {
 }
 
 export async function enqueueJob(input: EnqueueJobInput) {
-  return prisma.job.create({
+  const job = await prisma.job.create({
     data: {
       type: input.type.trim(),
       title: input.title.trim(),
@@ -62,6 +62,22 @@ export async function enqueueJob(input: EnqueueJobInput) {
       targetStorageNodeId: input.targetStorageNodeId ?? null,
     },
   });
+  // TR-001 T13a: surface an "enqueued" event so the timeline starts at the
+  // moment the job was scheduled (not only when a worker later claims it).
+  void recordJobEvent({
+    jobId: job.id,
+    type: "enqueued",
+    message: `任务入队 (type=${job.type}, priority=${job.priority})`,
+    level: "info",
+    workerId: null,
+    payload: {
+      type: job.type,
+      title: job.title,
+      priority: job.priority,
+      createdBy: job.createdBy,
+    },
+  });
+  return job;
 }
 
 export async function getJob(jobId: string) {
@@ -281,11 +297,22 @@ export async function cancelJob(jobId: string) {
 
 export async function recoverStaleRunningJobs(options: { staleBefore: Date; retryAfterMs?: number; now?: Date }) {
   const now = options.now ?? new Date();
-  return prisma.job.updateMany({
+  // TR-001 T13a: find stale jobs first so we can emit a "recovered" event per
+  // job after the update commits (updateMany doesn't return rows).
+  const staleJobs = await prisma.job.findMany({
     where: {
       status: JobStatus.RUNNING,
       OR: [{ leaseExpiresAt: { lt: options.staleBefore } }, { workerHeartbeatAt: { lt: options.staleBefore } }],
       attempts: { lt: prisma.job.fields.maxAttempts },
+    },
+    select: { id: true, type: true, title: true, attempts: true, maxAttempts: true },
+  });
+  if (staleJobs.length === 0) return { count: 0, recovered: [] };
+
+  const result = await prisma.job.updateMany({
+    where: {
+      id: { in: staleJobs.map((j) => j.id) },
+      status: JobStatus.RUNNING,
     },
     data: {
       status: JobStatus.PENDING,
@@ -296,6 +323,26 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
       errorMessage: "后台执行器心跳过期，已重新入队",
     },
   });
+
+  // Surface one "recovered" event per recovered job so the timeline shows
+  // the moment the worker regained ownership.
+  for (const job of staleJobs) {
+    void recordJobEvent({
+      jobId: job.id,
+      type: "recovered",
+      message: "后台执行器心跳过期，已重新入队",
+      level: "warn",
+      workerId: null,
+      payload: {
+        type: job.type,
+        title: job.title,
+        attempts: job.attempts,
+        maxAttempts: job.maxAttempts,
+      },
+    });
+  }
+
+  return { count: result.count, recovered: staleJobs.map((j) => j.id) };
 }
 
 export async function pruneCompletedJobsByType(options: PruneCompletedJobsByTypeOptions) {
