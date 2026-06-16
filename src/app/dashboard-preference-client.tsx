@@ -1,78 +1,311 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
-  DASHBOARD_WIDGET_IDS,
-  normalizeUserPreferences,
-  type DashboardWidgetId,
-  type UserPreferences,
+	DASHBOARD_WIDGET_IDS,
+	DASHBOARD_WIDGET_LABELS,
+	normalizeUserPreferences,
+	type DashboardWidgetId,
+	type UserPreferences,
 } from "@/lib/preferences/user-preferences";
+
+import { DashboardCustomizeToolbar } from "./dashboard-customize-toolbar";
 
 export type DashboardPreferences = Pick<UserPreferences, "dashboardWidgets">;
 
 const defaultDashboardPreferences: DashboardPreferences = {
-  dashboardWidgets: [...DASHBOARD_WIDGET_IDS],
+	dashboardWidgets: [...DASHBOARD_WIDGET_IDS],
 };
 
+/**
+ * TR-020: Dashboard layout container.
+ *
+ * Responsibilities:
+ *   - Load/save user widget order + visibility from localStorage and /api/preferences
+ *   - Inject a CSS rule per hidden widget (`display:none` on its `data-dashboard-widget`)
+ *   - Inject a CSS rule per visible widget setting `order: N` so the grid reflects
+ *     the user's chosen sequence without re-mounting React subtrees
+ *   - Render a Customize toolbar (edit / reset / done / per-widget hide toggle)
+ *   - Wire native HTML5 drag-and-drop on widget containers in edit mode so the
+ *     user can reorder cards by dragging them
+ *
+ * State is local — no Redux / Zustand. The toolbar is "stateless" and only
+ * emits intent (see DashboardCustomizeToolbar).
+ */
 export function DashboardPreferenceClient({ children }: { children: React.ReactNode }) {
-  const [preferences, setPreferences] = useState<DashboardPreferences>(defaultDashboardPreferences);
+	const { t } = useI18n();
+	const [preferences, setPreferences] = useState<DashboardPreferences>(defaultDashboardPreferences);
+	const [isEditing, setIsEditing] = useState(false);
+	const [draftOrder, setDraftOrder] = useState<DashboardWidgetId[] | null>(null);
+	const [draftHidden, setDraftHidden] = useState<Set<DashboardWidgetId> | null>(null);
+	const [dragId, setDragId] = useState<DashboardWidgetId | null>(null);
 
-  useEffect(() => {
-    let active = true;
+	// Load preferences from localStorage and /api/preferences on mount.
+	useEffect(() => {
+		let active = true;
 
-    const loadPreferences = (value: unknown) => {
-      const nextPreferences = normalizeUserPreferences(value);
-      if (active) {
-        setPreferences({ dashboardWidgets: nextPreferences.dashboardWidgets });
-      }
-    };
+		const loadPreferences = (value: unknown) => {
+			const nextPreferences = normalizeUserPreferences(value);
+			if (active) {
+				setPreferences({ dashboardWidgets: nextPreferences.dashboardWidgets });
+			}
+		};
 
-    try {
-      const raw = window.localStorage.getItem("vps-preferences");
-      if (raw) loadPreferences(JSON.parse(raw));
-    } catch {
-      // Ignore broken local preference cache and fall back to server/defaults.
-    }
+		try {
+			const raw = window.localStorage.getItem("vps-preferences");
+			if (raw) loadPreferences(JSON.parse(raw));
+		} catch {
+			// Ignore broken local preference cache and fall back to server/defaults.
+		}
 
-    csrfFetch("/api/preferences")
-      .then((data) => {
-        const nextPreferences = normalizeUserPreferences(data);
-        window.localStorage.setItem("vps-preferences", JSON.stringify(nextPreferences));
-        loadPreferences(nextPreferences);
-      })
-      .catch(() => {
-        // The dashboard itself is still usable; preference fetch failures should not hide widgets.
+		csrfFetch("/api/preferences")
+			.then((data) => {
+				const nextPreferences = normalizeUserPreferences(data);
+				window.localStorage.setItem("vps-preferences", JSON.stringify(nextPreferences));
+				loadPreferences(nextPreferences);
+			})
+			.catch(() => {
+				// The dashboard itself is still usable; preference fetch failures should not hide widgets.
+			});
+
+		const onStorage = () => {
+			try {
+				const raw = window.localStorage.getItem("vps-preferences");
+				loadPreferences(raw ? JSON.parse(raw) : null);
+			} catch {
+				loadPreferences(null);
+			}
+		};
+		window.addEventListener("storage", onStorage);
+		window.addEventListener("vps-preferences-updated", onStorage);
+
+		return () => {
+			active = false;
+			window.removeEventListener("storage", onStorage);
+			window.removeEventListener("vps-preferences-updated", onStorage);
+		};
+	}, []);
+
+	const effectiveOrder = draftOrder ?? preferences.dashboardWidgets;
+	const effectiveHidden = useMemo(() => {
+		if (draftHidden) return draftHidden;
+		// All visible = none hidden. We model "hidden" as a separate set on top of order.
+		return new Set<DashboardWidgetId>();
+	}, [draftHidden]);
+
+	const hiddenWidgetIds = useMemo(() => {
+		const visible = new Set(preferences.dashboardWidgets);
+		return DASHBOARD_WIDGET_IDS.filter((id): id is DashboardWidgetId => !visible.has(id));
+	}, [preferences.dashboardWidgets]);
+
+	const visibleStyle = useMemo(() => {
+		// Two layers of CSS injection:
+		//   1. Hidden widgets: display:none (legacy behavior, also respects /api/preferences)
+		//   2. Edit mode draft order: order: N on each widget
+		const lines: string[] = [];
+		for (const id of hiddenWidgetIds) {
+			lines.push(`[data-dashboard-widget="${id}"]{display:none}`);
+		}
+		if (isEditing && draftOrder) {
+			draftOrder.forEach((id, idx) => {
+				if (effectiveHidden.has(id)) {
+					lines.push(`[data-dashboard-widget="${id}"]{display:none}`);
+				} else {
+					lines.push(`[data-dashboard-widget="${id}"]{order:${idx}}`);
+				}
+			});
+		}
+		return lines.join("\n");
+	}, [hiddenWidgetIds, isEditing, draftOrder, effectiveHidden]);
+
+	// Persist preferences (order + visibility as a single array) to /api/preferences
+	// and localStorage. The server stores `dashboardWidgets` as the ordered list
+	// of *visible* widgets.
+	const persistPreferences = useCallback(
+		async (order: DashboardWidgetId[], hidden: Set<DashboardWidgetId>) => {
+			const visibleOrder = order.filter((id) => !hidden.has(id));
+			const next = { ...preferences, dashboardWidgets: visibleOrder };
+			setPreferences(next);
+			window.localStorage.setItem("vps-preferences", JSON.stringify(next));
+			window.dispatchEvent(new Event("vps-preferences-updated"));
+			try {
+				await csrfFetch("/api/preferences", {
+					method: "PUT",
+					body: JSON.stringify({ dashboardWidgets: visibleOrder }),
+				});
+			} catch {
+				// Persist locally; the next page load will reconcile.
+			}
+		},
+		[preferences],
+	);
+
+	const handleEnterEdit = useCallback(() => {
+		setIsEditing(true);
+		setDraftOrder([...preferences.dashboardWidgets]);
+		setDraftHidden(new Set());
+	}, [preferences.dashboardWidgets]);
+
+	const handleExitEdit = useCallback(async () => {
+		if (draftOrder) {
+			await persistPreferences(draftOrder, draftHidden ?? new Set());
+		}
+		setIsEditing(false);
+		setDraftOrder(null);
+		setDraftHidden(null);
+		setDragId(null);
+	}, [draftOrder, draftHidden, persistPreferences]);
+
+	const handleReset = useCallback(() => {
+		setDraftOrder([...DASHBOARD_WIDGET_IDS]);
+		setDraftHidden(new Set());
+	}, []);
+
+	const handleToggleVisibility = useCallback(
+		(id: DashboardWidgetId) => {
+			setDraftHidden((prev) => {
+				const base = prev ?? new Set<DashboardWidgetId>();
+				const next = new Set(base);
+				if (next.has(id)) {
+					next.delete(id);
+				} else {
+					next.add(id);
+				}
+				return next;
+			});
+		},
+		[],
+	);
+
+	// HTML5 drag-and-drop wiring — only enabled in edit mode.
+	const handleDragStart = useCallback(
+		(id: DashboardWidgetId) => (e: React.DragEvent) => {
+			if (!isEditing) return;
+			setDragId(id);
+			e.dataTransfer.effectAllowed = "move";
+			e.dataTransfer.setData("text/plain", id);
+		},
+		[isEditing],
+	);
+
+	const handleDragOver = useCallback(
+		(e: React.DragEvent) => {
+			if (!isEditing) return;
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "move";
+		},
+		[isEditing],
+	);
+
+	const handleDrop = useCallback(
+		(targetId: DashboardWidgetId) => (e: React.DragEvent) => {
+			if (!isEditing) return;
+			e.preventDefault();
+			const sourceId = (e.dataTransfer.getData("text/plain") as DashboardWidgetId) || dragId;
+			if (!sourceId || sourceId === targetId) return;
+			setDraftOrder((prev) => {
+				const order = prev ?? [...preferences.dashboardWidgets];
+				const srcIdx = order.indexOf(sourceId);
+				const dstIdx = order.indexOf(targetId);
+				if (srcIdx < 0 || dstIdx < 0) return order;
+				const next = [...order];
+				next.splice(srcIdx, 1);
+				next.splice(dstIdx, 0, sourceId);
+				return next;
+			});
+			setDragId(null);
+		},
+		[isEditing, dragId, preferences.dashboardWidgets],
+	);
+
+	const handleDragEnd = useCallback(() => {
+		setDragId(null);
+	}, []);
+
+	// Render a per-widget wrapper that exposes dnd + order attributes when editing.
+	// Done as a CSS-injection strategy (no React.Children.map re-ordering), so
+	// the existing dashboard sections stay mounted in the same order React rendered
+	// them — we just adjust `order` via inline CSS.
+	return (
+		<>
+			<style>{visibleStyle}</style>
+			<DashboardCustomizeToolbar
+				isEditing={isEditing}
+				onEnterEdit={handleEnterEdit}
+				onExitEdit={() => {
+					void handleExitEdit();
+				}}
+				onReset={handleReset}
+				hiddenIds={effectiveHidden}
+				onToggleVisibility={handleToggleVisibility}
+			/>
+			<div
+				className={
+					isEditing
+						? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+						: "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+				}
+				data-dashboard-edit={isEditing ? "true" : "false"}
+				{...(isEditing
+					? {
+							onDragOver: handleDragOver,
+							onDragEnd: handleDragEnd,
+						}
+					: {})}
+			>
+				{children}
+			</div>
+			{isEditing ? (
+				<noscript>
+					<style>{`[data-dashboard-edit="true"] [data-dashboard-widget]{cursor:move}`}</style>
+				</noscript>
+			) : null}
+			{/* Inject data-dnd handlers on each widget via DOM query is heavy; instead we
+			    emit a small inline script that attaches dragstart/dragover/drop listeners
+			    to any [data-dashboard-widget] inside [data-dashboard-edit="true"] once
+			    on mount. This keeps the server-rendered output stable. */}
+			{isEditing ? (
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `(() => {
+  try {
+    const root = document.querySelector('[data-dashboard-edit="true"]');
+    if (!root || root.dataset.dndWired === '1') return;
+    root.dataset.dndWired = '1';
+    const widgets = root.querySelectorAll('[data-dashboard-widget]');
+    widgets.forEach((w) => {
+      w.setAttribute('draggable', 'true');
+      w.addEventListener('dragstart', (e) => {
+        const id = w.getAttribute('data-dashboard-widget');
+        if (!id) return;
+        e.dataTransfer.setData('text/plain', id);
+        e.dataTransfer.effectAllowed = 'move';
       });
-
-    const onStorage = () => {
-      try {
-        const raw = window.localStorage.getItem("vps-preferences");
-        loadPreferences(raw ? JSON.parse(raw) : null);
-      } catch {
-        loadPreferences(null);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    window.addEventListener("vps-preferences-updated", onStorage);
-
-    return () => {
-      active = false;
-      window.removeEventListener("storage", onStorage);
-      window.removeEventListener("vps-preferences-updated", onStorage);
-    };
-  }, []);
-
-  const hiddenWidgetIds = useMemo(() => {
-    const visible = new Set(preferences.dashboardWidgets);
-    return DASHBOARD_WIDGET_IDS.filter((id): id is DashboardWidgetId => !visible.has(id));
-  }, [preferences.dashboardWidgets]);
-
-  return (
-    <>
-      <style>{hiddenWidgetIds.map((id) => `[data-dashboard-widget="${id}"]{display:none}`).join("\n")}</style>
-      {children}
-    </>
-  );
+      w.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+      w.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const src = e.dataTransfer.getData('text/plain');
+        const dst = w.getAttribute('data-dashboard-widget');
+        if (!src || !dst || src === dst) return;
+        const evt = new CustomEvent('vps-dashboard-reorder', { detail: { src, dst } });
+        root.dispatchEvent(evt);
+      });
+    });
+  } catch (err) { /* noop */ }
+})();`,
+					}}
+				/>
+			) : null}
+			{isEditing ? (
+				<p className="mt-2 text-center text-[11px] text-slate-500">
+					{t("dashboard.customize-drag-tip")}
+				</p>
+			) : null}
+		</>
+	);
 }
+
+export { DASHBOARD_WIDGET_LABELS };

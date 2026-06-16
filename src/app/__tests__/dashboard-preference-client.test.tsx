@@ -1,11 +1,20 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { DashboardPreferenceClient } from "../dashboard-preference-client";
 
+vi.mock("@/lib/i18n/use-locale", () => ({
+	useI18n: () => ({
+		t: (key: string) => key,
+		locale: "zh" as const,
+		setLocale: () => {},
+		translations: {},
+	}),
+}));
+
 vi.mock("@/lib/auth/csrf-client", () => ({
-  csrfFetch: vi.fn(),
+	csrfFetch: vi.fn(),
 }));
 
 const csrfFetchMock = vi.mocked(csrfFetch);
@@ -54,5 +63,84 @@ describe("DashboardPreferenceClient", () => {
     expect(document.querySelector("style")?.textContent).toContain('[data-dashboard-widget="server-status"]{display:none}');
     expect(document.querySelector("style")?.textContent).toContain('[data-dashboard-widget="analytics"]{display:none}');
     expect(document.querySelector("style")?.textContent).toContain('[data-dashboard-widget="audit-log"]{display:none}');
+  });
+
+  it("enters edit mode, toggles widget visibility, and writes the order on done", async () => {
+    csrfFetchMock.mockResolvedValue({
+      defaultPage: "/",
+      dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+      notificationsEnabled: true,
+      notificationSound: true,
+      autoRefreshInterval: 30,
+    });
+
+    renderDashboardPreferenceClient();
+    // Wait for the server preferences to be applied (otherwise we might race the
+    // initial useEffect-driven load).
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+
+    // Enter edit mode via the toolbar's edit button.
+    fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
+
+    // Edit-mode toolbar is up: drag-tip + per-widget toggles + reset + done.
+    expect(screen.getByTestId("toggle-widget-server-status")).toBeInTheDocument();
+    expect(screen.getByTestId("customize-done")).toBeInTheDocument();
+
+    // Hide analytics.
+    fireEvent.click(screen.getByTestId("toggle-widget-analytics"));
+
+    // Hit done: PUT /api/preferences should be called with the visible order
+    // (analytics filtered out).
+    fireEvent.click(screen.getByTestId("customize-done"));
+
+    await waitFor(() => {
+      const putCall = csrfFetchMock.mock.calls.find(([url, init]) => {
+        return url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT";
+      });
+      expect(putCall).toBeDefined();
+    });
+    const putCall = csrfFetchMock.mock.calls.find(([url, init]) => {
+      return url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT";
+    });
+    const init = putCall?.[1] as RequestInit | undefined;
+    expect(JSON.parse(String(init?.body))).toEqual({
+      dashboardWidgets: ["server-status", "quick-links", "audit-log"],
+    });
+  });
+
+  it("reset restores the default widget order in edit mode", async () => {
+    csrfFetchMock.mockResolvedValue({
+      defaultPage: "/",
+      dashboardWidgets: ["quick-links", "server-status"], // user-prefs from server
+      notificationsEnabled: true,
+      notificationSound: true,
+      autoRefreshInterval: 30,
+    });
+
+    renderDashboardPreferenceClient();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+
+    // Enter edit mode.
+    fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-edit" }));
+
+    // Hit reset.
+    fireEvent.click(screen.getByRole("button", { name: "dashboard.customize-reset" }));
+
+    // Now click done — PUT body should reflect the default order (DASHBOARD_WIDGET_IDS).
+    fireEvent.click(screen.getByTestId("customize-done"));
+
+    await waitFor(() => {
+      const putCall = csrfFetchMock.mock.calls.find(([url, init]) => {
+        return url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT";
+      });
+      expect(putCall).toBeDefined();
+    });
+    const putCall = csrfFetchMock.mock.calls.find(([url, init]) => {
+      return url === "/api/preferences" && (init as RequestInit | undefined)?.method === "PUT";
+    });
+    const init = putCall?.[1] as RequestInit | undefined;
+    expect(JSON.parse(String(init?.body))).toEqual({
+      dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+    });
   });
 });
