@@ -1,0 +1,340 @@
+{
+  "generatedAt": "2026-06-16T11:03:03.309Z",
+  "queuePath": "/root/.hermes/state/vcontrolhub-task-queue.json",
+  "summary": {
+    "total": 58,
+    "done": 48,
+    "pending": 6,
+    "inProgress": 1,
+    "blocked": 2,
+    "failedPermanently": 1,
+    "driftCount": 20,
+    "driftsByCode": {
+      "orphan-pending-manual_only": 6,
+      "total-mismatch": 1,
+      "txx-id-sequence-gap": 13
+    }
+  },
+  "drifts": [
+    {
+      "code": "orphan-pending-manual_only",
+      "severity": "info",
+      "taskId": "M01",
+      "message": "task M01 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
+    },
+    {
+      "code": "orphan-pending-manual_only",
+      "severity": "info",
+      "taskId": "M03",
+      "message": "task M03 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
+    },
+    {
+      "code": "orphan-pending-manual_only",
+      "severity": "info",
+      "taskId": "M04",
+      "message": "task M04 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
+    },
+    {
+      "code": "orphan-pending-manual_only",
+      "severity": "info",
+      "taskId": "M05",
+      "message": "task M05 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
+    },
+    {
+      "code": "orphan-pending-manual_only",
+      "severity": "info",
+      "taskId": "E01",
+      "message": "task E01 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
+    },
+    {
+      "code": "orphan-pending-manual_only",
+      "severity": "info",
+      "taskId": "E02",
+      "message": "task E02 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
+    },
+    {
+      "code": "total-mismatch",
+      "severity": "error",
+      "message": "top-level total_tasks=57 but tasks.length is 58"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T13 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T14 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T15 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T20 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T21 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T22 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T23 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T24 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T25 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T26 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T27 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T28 not present in queue (sequence gap; soft informational)"
+    },
+    {
+      "code": "txx-id-sequence-gap",
+      "severity": "info",
+      "message": "T29 not present in queue (sequence gap; soft informational)"
+    }
+  ],
+  "topLevelChecks": {
+    "doneCount": {
+      "declared": 48,
+      "actual": 48,
+      "ok": true
+    },
+    "total": {
+      "declared": 57,
+      "actual": 58,
+      "ok": false
+    }
+  },
+  "recentCommits": [
+    {
+      "hash": "bedf1a2",
+      "subject": "i18n R10F.2 (TR-054): 接 traffic 35 key (eyebrow/title/desc/refresh/autoRefresh×3/error/card×3/loading/iface×2/lastUpdated/rxRate/txRate/rxTotal/txTotal/noIface/th×5/remoteSampling/noRemote/badge×3/rxShort/txShort/noPrimaryIface/health×4) + formatStorageHealthStatus 改 fn 接受 t"
+    },
+    {
+      "hash": "6b972d1",
+      "subject": "i18n R10F.1 (TR-054): 接 alert-rules 80 key (eyebrow/title/desc/empty/error×4/toast×3/condition×4/metric×4/operator×5/channel×3/badge×3/lastTriggered/action×6/delete×5/createForm×34) + metricLabel/operatorLabel/channelLabel/deliveryStatusLabel 4 fn"
+    },
+    {
+      "hash": "7d5a730",
+      "subject": "refactor(storage): TR-005 T34b.1 listFileEntries/listDeletedFileEntries 加 cursor/分页参数 (take/skip/cursor 可选, 默认行为不变) + 3 个新测"
+    },
+    {
+      "hash": "ca744f0",
+      "subject": "fix(dashboard): 修 4 列 grid 错位 — Header/StatsSection 移出 grid 外,grid 改 2 列,避免 StatsSection 跟 ServerHero 抢 server-status id"
+    },
+    {
+      "hash": "479e9c3",
+      "subject": "docs(readme): TR-037 R9 (T38e) command/backup 域收口 + 100% 覆盖 (5 域全闭环)"
+    },
+    {
+      "hash": "b7590cb",
+      "subject": "refactor(command/backup): TR-037 R9 (T38e) command 域 + 零散 1 路由 zod 迁移"
+    },
+    {
+      "hash": "26e1fc4",
+      "subject": "docs(readme): TR-037 R8 (T38d) files 域 3 路由 zod 迁移落地 + 91.7% 覆盖"
+    },
+    {
+      "hash": "d15beca",
+      "subject": "refactor(files): TR-037 R7 files 域 3 路由 zod 迁移 (T38d) + audit 脚本支持多 boundary"
+    },
+    {
+      "hash": "0918df1",
+      "subject": "docs(readme): TR-037 R7 (T38c) ai 域 8 路由 zod 迁移 + chatSchema bug fix 落地"
+    },
+    {
+      "hash": "16126d9",
+      "subject": "refactor(ai): TR-037 R7 ai 域 9 路由 zod 迁移 + 修 chatSchema 实际 client payload 不匹配 bug + audit 脚本支持多 boundary (T38c)"
+    },
+    {
+      "hash": "4ceff51",
+      "subject": "i18n R10E 收尾 (TR-054): README 标 R10E 段 + 进度同步 11.6%→22.8% (252/1107, +88 covered, -303 hardcode, 855 待续做) + 沉淀 9 个模式 (server t(key,locale) / client useI18n / pure fn+t 参数 / 命名空间避 sibling / 测试 wrap renderWithI18n 等) + R10F 候选 14 文件"
+    },
+    {
+      "hash": "6071659",
+      "subject": "i18n R10E.20 (TR-054): 接 text-preview-client 39 key (type×5/loading/linesCount/editHint/editAria/button×8/error×4/saved×4/reloaded.message/diffDialog×3/diffEmpty/diffKind×3/diffMore/reloadHint×4) + langLabel fn"
+    },
+    {
+      "hash": "322425c",
+      "subject": "i18n R10E.19 (TR-054): 接 api-tokens page+client 44 key (eyebrow/title/desc/hint/permissionDenied/stat×3/plaintext×3/create×9/list×9/status×3/revoke×7/scope×7) + scopeLabel/tokenStatus 改 fn"
+    },
+    {
+      "hash": "4158fe4",
+      "subject": "i18n R10E.18 (TR-054): 接 media-scan-button 5 key (scanning/idle/summary/removed/error) + handleScan error fallback 改 t()"
+    },
+    {
+      "hash": "de91530",
+      "subject": "i18n R10E.17 (TR-054): 接 media-image-upload-panel 31 key (heading/subheading/loadNodes/refreshNodes/loadingNodes/chooseFiles/uploading/storageNodeLabel/defaultStorage/targetPathLabel/Placeholder/progress×3/status×4/item×4/error×4/summary×3) + statusBadgeLabel fn"
+    },
+    {
+      "hash": "3519223",
+      "subject": "i18n R10E.16 (TR-054): 接 tickets/[id] 详情 30 key (header/title/permission/status×4/priority×4/createdAt/updatedAt/closedAt/creator/assignee/assignTo/assignAria/unassigned/transitions/transitionTo/error×3/comments/empty/placeholder/aria/submit/sending/backToList) + statusLabel/priorityLabel 改 fn"
+    },
+    {
+      "hash": "c8cbeec",
+      "subject": "i18n R10E.15 (TR-054): 接 media-item-card 26 key (unknown/unknownStorage/localServer/directAccess/managedDownload/type×4/preview×2/thumbnail×2/videoCover/previewAriaLabel/button×3/publish×4/error×2/tag×3/favorite×2) + formatSize/storageLabel/mediaTypeLabel 改 fn + MediaCover/CreateStorageEntry 接 t + 修 t 命名 shadow 改 tag"
+    },
+    {
+      "hash": "670465d",
+      "subject": "refactor(storage): TR-037 R6 storage 域 8 路由 zod 迁移 + sftp-ops tsc 残修"
+    },
+    {
+      "hash": "075f4f4",
+      "subject": "i18n R10E.14 (TR-054): 接 media/page 18 key (eyebrow/title/desc/stat×3/workspace×8/group) + modeTitle/modeDescription 改 fn"
+    },
+    {
+      "hash": "d1e8268",
+      "subject": "i18n R10E.13 (TR-054): 接 announcements 35 key (header/toast/search/filter/level×3/empty/emptyFiltered/action×3/delete×4/create×10) + levelLabel 改 fn"
+    },
+    {
+      "hash": "a7e3e3c",
+      "subject": "i18n R10E.12 (TR-054): 接 requests/page 19 key (eyebrow/title/desc/workflowNote/stat×5/ai×4/cmd×4) + next/headers mock"
+    },
+    {
+      "hash": "f186c8e",
+      "subject": "i18n R10E.11 (TR-054): 接 image-bed 80 key (hero/stat/publish/manage/toggle/batch/stats/legacy/queue/progress/summary/copy/source) — 收尾 R10A 剩的硬编码"
+    },
+    {
+      "hash": "63edc60",
+      "subject": "i18n R10E.10 (TR-054): 接 templates/page+client 41 key (header/toast/delete/filter/badge/variable/action/create) + DeployButton+CreateTemplateForm 独立 useI18n"
+    },
+    {
+      "hash": "d484e4d",
+      "subject": "i18n R10E.9 (TR-054): 接 tickets/page+create-form 24 key (eyebrow/title/desc/list/empty/priority/status/form/label) + priorityLabel/statusLabel 改 fn"
+    },
+    {
+      "hash": "b68885a",
+      "subject": "i18n R10E.8 (TR-054): 接 notifications/page+client 17 key (header/error/empty/action/time) + getServerLocale+useI18n 联动"
+    },
+    {
+      "hash": "b2f935a",
+      "subject": "i18n R10E.7 (TR-054): 接 login/page+login-form 21 key (error/branding/feature/form) + getServerLocale() helper"
+    },
+    {
+      "hash": "4b41b76",
+      "subject": "i18n R10E.6 (TR-054): 接 audit-client 20 actionLabels (auth/api_token/docker/user/storage/server/command/download) + formatAction→(action,t)"
+    },
+    {
+      "hash": "8c7f351",
+      "subject": "feat(audit): TR-019 DTO 边界覆盖巡检脚本 (T42)"
+    },
+    {
+      "hash": "7b348e9",
+      "subject": "i18n R10E.5 (TR-054): 接 user-permission-panel 30 key (title/desc/section/grants/error/success) + formatBytes→(val,t)"
+    },
+    {
+      "hash": "1af2403",
+      "subject": "i18n R10E.4 (TR-054): 接 users-client 16 key (status/role/action/form/empty/loading/error) + ROLE_OPTIONS→ROLE_KEYS (i18n 友好)"
+    },
+    {
+      "hash": "dfe3ec3",
+      "subject": "i18n R10E.3 (TR-054): 接 shares/page 13 key (title/desc/empty/status/time)"
+    },
+    {
+      "hash": "bf00b4f",
+      "subject": "i18n R10E.2 (TR-054): 接 servers/page 14 key (title/desc/links/stats/empty) - 用 serversPage.* 避免撞 sibling.servers.title"
+    },
+    {
+      "hash": "57497d9",
+      "subject": "i18n R10E.1 (TR-054): 接 users/page 4 key (noPerm/title/2 desc)"
+    },
+    {
+      "hash": "1821854",
+      "subject": "docs(readme): TR-036 T37 closeout — quick-services-client 1002→574 + TR-036 P1 状态 ✅ 完成 (T36b + T36c + T37)"
+    },
+    {
+      "hash": "28c2d37",
+      "subject": "i18n R10D (TR-054): 接 scheduled-task-list 39 key (status/cron/weekday/preset/error/empty)"
+    },
+    {
+      "hash": "aa6adb0",
+      "subject": "refactor(quick-services): TR-036 T37 — 拆 quick-services-client (1002→574 行) 抽 ServiceCard + InstallDialog + ConfigPreview (lazy) + SourcesPanel (4 文件 + 0 业务逻辑改)"
+    },
+    {
+      "hash": "0f2a534",
+      "subject": "i18n R10C (TR-054): 接 operation-task-list 17 key (filter/sort/summary/empty/error)"
+    },
+    {
+      "hash": "84043dc",
+      "subject": "i18n R10B (TR-054): 接 audit-client 3 key (error + 2 aria-label)"
+    },
+    {
+      "hash": "174ad06",
+      "subject": "i18n R10A (TR-054): 接 image-bed showToast 14 key"
+    },
+    {
+      "hash": "6bd59ad",
+      "subject": "i18n R9 (TR-054): 接 not-found 页 (3 key)"
+    },
+    {
+      "hash": "cbb2f23",
+      "subject": "docs(readme): closeout TR-011 (失败回滚) + TR-020 (M02 完成对账)"
+    },
+    {
+      "hash": "f44f0b5",
+      "subject": "feat(quick-service): TR-011 失败回滚 + 真实 diff 记录 (3 文件 +440/-60)"
+    },
+    {
+      "hash": "0eb6021",
+      "subject": "i18n R8 (TR-054): 接 backups × 3 form / button"
+    },
+    {
+      "hash": "c2d9c09",
+      "subject": "i18n R7 (TR-054): 接 api-tokens/downloads/files 6 key (server + client 混合)"
+    },
+    {
+      "hash": "894bde0",
+      "subject": "i18n R6 (TR-054): 接 announcements × 3 + audit-client 6 key"
+    },
+    {
+      "hash": "8502994",
+      "subject": "i18n R5 (TR-054): 加 renderWithI18n test helper + 接 ai-provider-panel + change-password-form"
+    },
+    {
+      "hash": "666b765",
+      "subject": "i18n R4: 32 新 key (TR-054 R4) + ai-chat-header + dashboard-widget-detail-dialog 接入"
+    },
+    {
+      "hash": "d188c4b",
+      "subject": "docs(README): M02 (TR-020) 状态 ⏳→✅ — unblock M02 + closeout"
+    },
+    {
+      "hash": "d9e6089",
+      "subject": "feat(dashboard): TR-020 R3 widget click → detail dialog (弹窗,非路由)"
+    },
+    {
+      "hash": "fc65edf",
+      "subject": "feat(dashboard): TR-020 R2 customize mode + 4 列 grid + HTML5 dnd 接 toolbar"
+    }
+  ]
+}
