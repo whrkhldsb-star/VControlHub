@@ -50,6 +50,7 @@ import {
   checkStorageNodeHealth,
   getLocalEditableFileDraft,
   getStorageOverview,
+  listDeletedFileEntries,
   listFileEntries,
   restoreFileEntry,
   saveLocalEditableFileDraft,
@@ -182,6 +183,93 @@ describe("storage service", () => {
       "/api/storage/direct-access",
     );
     expect(result[0]?.sizeLabel).toBe("1.0 KB");
+  });
+
+  it("passes take / skip / cursor through to the fileEntry findMany call", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([
+      {
+        id: "file_paginated",
+        name: "page.mp4",
+        entryType: "FILE",
+        mimeType: "video/mp4",
+        size: BigInt(2048),
+        checksumSha256: null,
+        relativePath: "videos/page.mp4",
+        storageNodeId: "node_2",
+        parentId: null,
+        isDeleted: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        storageNode: {
+          id: "node_2",
+          name: "香港媒体库",
+          driver: "SFTP",
+          basePath: "/data/media",
+          host: null,
+          port: null,
+          username: null,
+          serverId: null,
+          directAccessMode: "PROXY",
+          publicBaseUrl: null,
+          directAccessExpiresSeconds: 300,
+          server: null,
+        },
+      } as any,
+    ]);
+
+    const result = await listFileEntries(undefined, {
+      take: 25,
+      skip: 10,
+      cursor: "file_seed",
+    });
+
+    expect(prisma.fileEntry.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { isDeleted: false },
+        orderBy: [
+          { entryType: "asc" },
+          { relativePath: "asc" },
+          { id: "asc" },
+        ],
+        take: 25,
+        // skip is bumped by 1 so the cursor row is included in the page
+        skip: 11,
+        cursor: { id: "file_seed" },
+      }),
+    );
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe("file_paginated");
+  });
+
+  it("uses cursor without skip when no skip is requested", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([]);
+
+    await listFileEntries(undefined, { cursor: "file_seed" });
+
+    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArgs).toMatchObject({
+      where: { isDeleted: false },
+      cursor: { id: "file_seed" },
+    });
+    expect("skip" in callArgs ? callArgs.skip : undefined).toBeUndefined();
+  });
+
+  it("passes pagination options through listDeletedFileEntries to findMany", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([]);
+
+    await listDeletedFileEntries("node_1", { take: 5, cursor: "deleted_seed" });
+
+    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArgs).toMatchObject({
+      where: { isDeleted: true, storageNodeId: "node_1" },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      take: 5,
+      cursor: { id: "deleted_seed" },
+    });
+    expect("skip" in callArgs ? callArgs.skip : undefined).toBeUndefined();
   });
 
   it("builds storage overview stats", async () => {

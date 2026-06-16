@@ -330,15 +330,36 @@ export async function restoreFileEntry(input: FileEntryMutationInput) {
   });
 }
 
-export async function listFileEntries(storageNodeId?: string) {
+export async function listFileEntries(
+  storageNodeId?: string,
+  options: { take?: number; skip?: number; cursor?: string } = {},
+) {
   const where = {
     isDeleted: false,
     ...(storageNodeId ? { storageNodeId } : {}),
   };
 
+  const paginationArgs: { take?: number; skip?: number; cursor?: { id: string } } = {};
+  if (typeof options.take === "number") paginationArgs.take = options.take;
+  if (typeof options.skip === "number") {
+    paginationArgs.skip = options.skip;
+    if (options.cursor) {
+      // With both `cursor` and `skip` set, Prisma positions *at* the cursor
+      // and then skips N more. We always want the cursor row included, so
+      // bump skip by one to offset the cursor row being skipped internally.
+      paginationArgs.cursor = { id: options.cursor };
+      paginationArgs.skip = options.skip + 1;
+    }
+  } else if (options.cursor) {
+    // Prisma's `cursor` alone (no skip) returns rows starting at the cursor
+    // (inclusive). That matches the "give me the page starting at this id"
+    // semantic callers expect.
+    paginationArgs.cursor = { id: options.cursor };
+  }
+
   const entries = await prisma.fileEntry.findMany({
     where,
-    orderBy: [{ entryType: "asc" }, { relativePath: "asc" }],
+    orderBy: [{ entryType: "asc" }, { relativePath: "asc" }, { id: "asc" }],
     include: {
       storageNode: {
         select: {
@@ -357,6 +378,7 @@ export async function listFileEntries(storageNodeId?: string) {
         },
       },
     },
+    ...paginationArgs,
   });
 
   return entries.map((entry: FileEntryListRow) => {
@@ -404,15 +426,30 @@ export async function listFileEntries(storageNodeId?: string) {
   });
 }
 
-export async function listDeletedFileEntries(storageNodeId?: string) {
+export async function listDeletedFileEntries(
+  storageNodeId?: string,
+  options: { take?: number; skip?: number; cursor?: string } = {},
+) {
   const where = {
     isDeleted: true,
     ...(storageNodeId ? { storageNodeId } : {}),
   };
 
+  const paginationArgs: { take?: number; skip?: number; cursor?: { id: string } } = {};
+  if (typeof options.take === "number") paginationArgs.take = options.take;
+  if (typeof options.skip === "number") {
+    paginationArgs.skip = options.skip;
+    if (options.cursor) {
+      paginationArgs.cursor = { id: options.cursor };
+      paginationArgs.skip = options.skip + 1;
+    }
+  } else if (options.cursor) {
+    paginationArgs.cursor = { id: options.cursor };
+  }
+
   const entries = await prisma.fileEntry.findMany({
     where,
-    orderBy: [{ updatedAt: "desc" }],
+    orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
     include: {
       storageNode: {
         select: {
@@ -425,6 +462,7 @@ export async function listDeletedFileEntries(storageNodeId?: string) {
         },
       },
     },
+    ...paginationArgs,
   });
 
   return entries.map((entry: DeletedFileEntryRow) => ({
