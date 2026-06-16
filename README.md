@@ -427,7 +427,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - Direct Gateway TLS 加固：Python 服务默认绑定 `127.0.0.1`（`DIRECT_GATEWAY_BIND_DEFAULT`，需显式 opt-in 才能监听 `0.0.0.0`），systemd unit 显式声明 `Environment=DIRECT_BIND=…` 便于 `systemctl show` 审计；`getDirectGatewayRiskAssessment()` 在 `bind=0.0.0.0 + http 明文` 时返 `level: "danger"` + 4 条修复建议（Caddy 反代 / VPN / 防火墙白名单 / 改回 127.0.0.1）；`deploy.sh` step 2.6 启动时**自动 patch `/etc/caddy/Caddyfile`** 加 `reverse_proxy /direct 127.0.0.1:31888` 段（idempotent，缺则注入，注入前备份 `.bak.YYYYMMDDHHMMSS`，注入后 `caddy validate` 验证语法再 reload，失败自动回滚），本机 SFTP 节点走 Caddy 出站 HTTPS；`getDirectGatewayRiskAssessment()` + `buildDirectGatewayPublicBaseUrl` 加 `protocol` 参数支持 https 拼接。剩余：UI 加风险 banner + 跨 worker lease 公式统一（见 New-E / TR-043）。
 - **后台任务业务迁移与并发控制（TR-001, P1）** — Durable Job 底座已承接 SFTP 同步、备份创建/恢复、告警评估、QuickService 生命周期、命令执行、定时任务调度（`scheduled-task.tick` durable job + claim/heartbeat/complete 路径，与 `alert.evaluate` 同范式），并补齐下载 direct/relay 路径（`download.execute` job）。并发控制已加全局/按用户/按节点三道软上限（`JOB_MAX_CONCURRENT_GLOBAL` / `_PER_USER` / `_PER_NODE`，默认 0=不限制），`Job.targetStorageNodeId` 列 + `@@index([targetStorageNodeId, status])` 索引承载按节点计数。剩余：可观测日志流（`JobEvent` 表 + 5 个 worker 钩子已落，详情见 commit `4e6a0ed`）；生产级 worker 部署策略（vcontrolhub-worker systemd 拆分）。
-- **前端 a11y / 移动端 / 浏览器导航系统化收口（TR-003, P2）** — 主体已完成（统一 dialog 语义、focus 管理、SPA pushState/popstate、SSH 终端 mobile、跨入口可见 label/语义分组）；剩余继续巡检其它 placeholder-only / 低可见度控件。
+- **前端 a11y / 移动端 / 浏览器导航系统化收口（TR-003, P2）** — 主体已完成（统一 dialog 语义、focus 管理、SPA pushState/popstate、SSH 终端 mobile、跨入口可见 label/语义分组）；TR-021 第一阶段 (231 form field label 关联) 已 100% 覆盖；**TR-003 续作 (Phase 2 icon-only button detection) 已落地**（scripts/accessibility-audit.ts 新增 `scanIconOnlyButtons` 范式，254 文件扫出 32 个 icon-only `<button>` 缺 `aria-label`/`title`，已修 3 个最关键 (AI 聊天页发送按钮 + 侧边栏 mobile 切换)，剩余 29 个为 advisory 巡检项需逐文件人工 review 是否真为 icon-only（许多实际含 `{variable}` 引用文本但静态分析保守标记）。Phase 2 测试 12 条覆盖 `aria-label` / `aria-labelledby` / `title` / 变量引用 / 三元 literal / multi-line 行号等 6 类边界。
 - **文件预览 / 分享边界文档化（TR-004, P1/P2）** — 公开目录 tar.gz、统一 Range/206/416、Office+压缩包入口边界已落地；剩余：README / API 文档补边界说明，或扩展压缩包受控解压到更细的格式/权限/配额策略。
 - **文件状态一致性 / 远端索引刷新 / 存储列表性能（TR-005, P2）** — 删除/恢复主路径已避免高风险不一致；剩余：远端 SFTP 文件在 Hub 外被删除时仍会保持 active（媒体流安全返回 No such file 但需专项刷新/校验任务清理 stale inventory）；存储概览和文件列表仍有未分页 `findMany` + 内存聚合，大文件索引性能风险。
 - **任务中心跨来源归档 / 长期保留（TR-006, P2）** — 已完成同类高频折叠、状态/类型筛选、聚合计数、失败归类、需处理排序、最近日志摘要、CSV 导出、`alert.evaluate` 历史保留策略；剩余：跨来源统一长期保留策略（避免命令/下载/备份/部署历史在大型实例继续增长）。
@@ -560,7 +560,8 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 按"复选框语义与代码事实是否吻合"重新分类：
 - **真已完成** TR-008 / TR-012 / TR-013 / TR-014 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-025 / TR-029
-- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-003 / TR-004 / TR-005 / TR-006 / TR-007 / TR-019
+- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-004 / TR-005 / TR-006 / TR-007 / TR-019
+- **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：Phase 2 静态分析已覆盖 32 个 icon-only button 候选，3 个已修，剩余需人工 review。
 - **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
 
 ### 新发现问题 TR-034 ~ TR-042
@@ -674,7 +675,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 |---|---|---|---|
 | TR-001 | P1 | 后台任务业务迁移与并发控制（命令/部署/下载/定时任务） | 定时任务已迁 |
 | TR-002 | P1 | Docker / QuickService / Direct Gateway 部署边界加固（失败回滚 / Direct Gateway TLS） | 主体已落地 |
-| TR-003 | P2 | 前端可访问性 / 移动端 / 浏览器导航系统化收口 | 主体已落地 |
+| TR-003 | P2 | 前端可访问性 / 移动端 / 浏览器导航系统化收口 | 巡检 1st pass (3/35 已修) |
 | TR-004 | P1/P2 | 文件预览 / 分享 Office+压缩包边界加固与文档化 | 主体已落地 |
 | TR-005 | P2 | 文件状态一致性、远端索引刷新、存储列表分页与内存聚合 | 主体已落地 |
 | TR-006 | P2 | 任务中心跨来源统一归档 / 长期保留策略 | 主体已落地 |

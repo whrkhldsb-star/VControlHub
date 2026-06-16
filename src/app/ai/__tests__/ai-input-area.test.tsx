@@ -72,7 +72,7 @@ describe("AiInputArea", () => {
 		const textarea = screen.getByRole("textbox", { name: "消息输入" });
 		expect(textarea).toBeInTheDocument();
 		// Send button is disabled when input is empty and no attachments
-		const sendButton = screen.getByRole("button", { name: "" });
+		const sendButton = screen.getByRole("button", { name: "发送消息" });
 		expect(sendButton).toBeDisabled();
 		// Stop button is hidden while not streaming
 		expect(screen.queryByTitle("停止生成")).not.toBeInTheDocument();
@@ -146,7 +146,7 @@ describe("AiInputArea", () => {
 				handleStopGeneration={vi.fn()}
 			/>
 		);
-		const sendButton = screen.getByRole("button", { name: "" });
+		const sendButton = screen.getByRole("button", { name: "发送消息" });
 		expect(sendButton).not.toBeDisabled();
 	});
 

@@ -14,6 +14,8 @@ import { describe, expect, it } from "vitest";
 import {
   scanFile,
   auditFiles,
+  scanIconOnlyButtons,
+  auditIconOnlyButtons,
   type FieldResult,
 } from "../accessibility-audit";
 
@@ -293,5 +295,105 @@ describe("scanFile — FieldResult discriminants", () => {
     const results: FieldResult[] = scanFile("two.tsx", text);
     expect(results).toHaveLength(2);
     expect(results.every((r) => r.ok && r.reason === "htmlFor-match")).toBe(true);
+  });
+});
+
+describe("scanIconOnlyButtons — basic positive cases (button is labeled)", () => {
+  it("passes a button with visible text inside", () => {
+    const text = `<button>Save</button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("passes a button with aria-label", () => {
+    const text = `<button aria-label="Close menu"><svg /></button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("passes a button with aria-labelledby", () => {
+    const text = `<button aria-labelledby="x"><svg /></button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("passes a button with title (acceptable fallback)", () => {
+    const text = `<button title="Refresh"><svg /></button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(0);
+  });
+
+  it("passes a button whose text is in a JSX ternary with literal strings", () => {
+    const text = `<button>{count > 0 ? "Show " + count : "Empty"}</button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(0);
+  });
+});
+
+describe("scanIconOnlyButtons — negative / flag cases", () => {
+  it("flags a button with only an svg and no text or aria", () => {
+    const text = `<button onClick={onClick}><svg width="20" height="20"><path d="..." /></svg></button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.line).toBe(1);
+  });
+
+  it("flags a button with empty aria-label (treated as missing)", () => {
+    const text = `<button aria-label=""><svg /></button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(1);
+  });
+
+  it("flags a button with {variable} reference (conservative — var is not evaluated)", () => {
+    const text = `<button>{label}</button>`;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(1);
+  });
+
+  it("flags a multi-line button correctly with correct line number", () => {
+    const text = `
+      <div>
+        <button
+          onClick={onClick}
+          className="foo"
+        >
+          <svg />
+        </button>
+      </div>
+    `;
+    const findings = scanIconOnlyButtons("x.tsx", text);
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.line).toBe(3);
+  });
+});
+
+describe("auditIconOnlyButtons — aggregation", () => {
+  it("groups findings by file and counts total/flagged", () => {
+    const files = [
+      { path: "a.tsx", text: `<button><svg /></button><button aria-label="x">OK</button>` },
+      { path: "b.tsx", text: `<button onClick={fn}><svg /></button>` },
+    ];
+    const summary = auditIconOnlyButtons(files);
+    expect(summary.total).toBe(2);
+    expect(summary.flagged).toBe(2);
+    expect(summary.byFile["a.tsx"]).toHaveLength(1);
+    expect(summary.byFile["b.tsx"]).toHaveLength(1);
+  });
+
+  it("returns zero totals on empty file list", () => {
+    const summary = auditIconOnlyButtons([]);
+    expect(summary.total).toBe(0);
+    expect(summary.flagged).toBe(0);
+    expect(summary.byFile).toEqual({});
+  });
+
+  it("omits files with no findings from byFile", () => {
+    const files = [
+      { path: "clean.tsx", text: `<button>OK</button>` },
+      { path: "dirty.tsx", text: `<button><svg /></button>` },
+    ];
+    const summary = auditIconOnlyButtons(files);
+    expect(summary.byFile["clean.tsx"]).toBeUndefined();
+    expect(summary.byFile["dirty.tsx"]).toHaveLength(1);
   });
 });

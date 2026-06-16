@@ -1,26 +1,41 @@
 /**
  * scripts/accessibility-audit.ts
  *
- * Static analyzer that scans VControlHub's user-facing TSX files for form
- * fields (input / textarea / select) that lack a visible label association.
+ * Static analyzer that scans VControlHub's user-facing TSX files for two
+ * distinct classes of accessibility issues:
  *
- * A field is considered labeled when ANY of the following is true:
- *   1. The field has `aria-label="..."`.
- *   2. The field has `aria-labelledby="X"` AND some element in the same
- *      file has `id="X"`.
- *   3. The field has `id="X"` AND a <label htmlFor="X"> exists in the
- *      same file.
- *   4. The field is wrapped inside a <label>...</label> (we track label
- *      tag open/close boundaries).
+ *   Phase 1 — form field label association. For every user-facing form field
+ *             (input / textarea / select) in a TSX file, decide whether it has
+ *             a visible label association. A field is considered labeled when
+ *             ANY of the following is true:
+ *               1. The field has `aria-label="..."`.
+ *               2. The field has `aria-labelledby="X"` AND some element in the
+ *                  same file has `id="X"`.
+ *               3. The field has `id="X"` AND a <label htmlFor="X"> exists in
+ *                  the same file.
+ *               4. The field is wrapped inside a <label>...</label> (we track
+ *                  label tag open/close boundaries).
+ *             Fields that are purely structural (`type="hidden" | "submit" |
+ *             "button" | "reset" | "image"`) are skipped — they don't represent
+ *             a form input that needs a label.
  *
- * Fields that are purely structural (`type="hidden" | "submit" | "button" |
- * "reset" | "image"`) are skipped — they don't represent a form input that
- * needs a label.
+ *   Phase 2 — icon-only <button> elements. For every <button> in a TSX file,
+ *             decide whether it has any way for a screen reader user to know
+ *             what it does. A button is "icon-only" if it has NO visible text,
+ *             NO `aria-label`, NO `aria-labelledby`, and NO `title`. These
+ *             buttons are accessible only by visual icon recognition.
+ *
+ *             The audit is conservative: variable references like `{label}`
+ *             are NOT evaluated (treated as icon-only), and ternaries with
+ *             literal text (e.g. `cond ? "yes" : "no"`) DO count. True
+ *             positives need a manual review pass to confirm.
  *
  * Output:
- *   - JSON report to docs/accessibility-audit.json (machine-readable)
- *   - Human summary on stdout (counts + first N flagged items per file)
- *   - Exit code 0 if no flags, 1 if any flagged (for CI gates later)
+ *   - JSON report to docs/accessibility-audit.json (machine-readable, both
+ *     phases included under separate top-level keys).
+ *   - Human summary on stdout (phase 1 counts + phase 2 counts + first N
+ *     flagged items per file).
+ *   - Exit code 0 if no phase 1 flags (phase 2 is advisory; not gated).
  *
  * Run: npx tsx scripts/accessibility-audit.ts
  */
@@ -321,6 +336,116 @@ export type AuditSummary = {
   byFile: Record<string, FieldResult[]>;
 };
 
+// ---------------------------------------------------------------------------
+// Phase 2: icon-only button detection (button has no visible text, no aria-label,
+// no aria-labelledby, no title — screen readers would have no idea what it does).
+// ---------------------------------------------------------------------------
+
+export type ButtonFinding = {
+  /** 1-based line number of the <button> opening tag */
+  line: number;
+  /** raw opening tag text */
+  raw: string;
+};
+
+/**
+ * Find the matching </button> after the given offset. Returns -1 if not found.
+ * Tracks <button> open / </button> close nesting (e.g. <button>...</button> works
+ * fine, but in JSX a button can wrap expressions; we just find the first close).
+ */
+function findClosingButton(text: string, startOffset: number): number {
+  // Simple: find the next </button> (buttons don't nest in practice)
+  const re = /<\/button\s*>/g;
+  re.lastIndex = startOffset;
+  const m = re.exec(text);
+  return m ? m.index : -1;
+}
+
+/**
+ * Extract visible text from a JSX element body. The body may contain:
+ *   - <span>{text}</span> with literal text or variable references
+ *   - <svg/> elements (treated as icon — no text)
+ *   - other elements with no text
+ *   - direct text nodes
+ *
+ * We strip HTML tags and JSX comments, then look at what's left. JSX expressions
+ * with literal string contents (e.g. `cond ? "yes" : "no"`) are kept; variable
+ * references (e.g. `{label}`) are NOT evaluated and contribute no text, which is
+ * a conservative choice (tends to over-flag — fine for an audit, since a manual
+ * reviewer can confirm).
+ */
+function extractJsxVisibleText(body: string): string {
+  let result = body;
+  // Remove HTML comments
+  result = result.replace(/<!--[\s\S]*?-->/g, "");
+  // Remove all HTML tags
+  result = result.replace(/<[^>]+>/g, "");
+  // For each JSX expression, pull out string literals (for ternaries / fallbacks)
+  result = result.replace(/\{([^{}]*)\}/g, (_match, inner: string) => {
+    const stringLiterals: string[] = [];
+    const strRe = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'/g;
+    let sm: RegExpExecArray | null;
+    while ((sm = strRe.exec(inner)) !== null) {
+      stringLiterals.push(sm[1] ?? sm[2] ?? "");
+    }
+    return stringLiterals.join(" ");
+  });
+  return result.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Scan a single file's TSX text and return icon-only button findings.
+ * A button is "icon-only" if it has no visible text, no aria-label, no
+ * aria-labelledby, and no title. SR-only labels via aria-label are valid;
+ * `title` is acceptable but not preferred — we treat it as labeled for
+ * the purpose of the audit (passes for the user, but we note it).
+ */
+export function scanIconOnlyButtons(filePath: string, text: string): ButtonFinding[] {
+  const findings: ButtonFinding[] = [];
+  const openRe = /<button\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = openRe.exec(text)) !== null) {
+    const tagStart = m.index;
+    const tagNameEnd = tagStart + 1 + "button".length;
+    const tagEnd = findTagEnd(text, tagNameEnd);
+    if (tagEnd < 0) continue;
+    const inner = text.slice(tagNameEnd, tagEnd);
+    const attrs = extractAttrs(inner);
+    if (attrs["aria-label"] && attrs["aria-label"].length > 0) continue;
+    if (attrs["aria-labelledby"] && attrs["aria-labelledby"].length > 0) continue;
+    if (attrs.title && attrs.title.length > 0) continue;
+    const closeOffset = findClosingButton(text, tagEnd + 1);
+    if (closeOffset < 0) continue;
+    const body = text.slice(tagEnd + 1, closeOffset);
+    const visible = extractJsxVisibleText(body);
+    if (visible.length > 0) continue;
+    findings.push({
+      line: lineForOffset(text, tagStart),
+      raw: `<button${inner}>`,
+    });
+  }
+  return findings;
+}
+
+export type IconOnlySummary = {
+  total: number;
+  flagged: number;
+  byFile: Record<string, ButtonFinding[]>;
+};
+
+export function auditIconOnlyButtons(files: { path: string; text: string }[]): IconOnlySummary {
+  const byFile: Record<string, ButtonFinding[]> = {};
+  let total = 0;
+  let flagged = 0;
+  for (const f of files) {
+    const findings = scanIconOnlyButtons(f.path, f.text);
+    if (findings.length > 0) byFile[f.path] = findings;
+    total += findings.length;
+    flagged += findings.length;
+  }
+  return { total, flagged, byFile };
+}
+
 /**
  * Aggregate per-file scan results into a summary.
  */
@@ -382,6 +507,7 @@ function main() {
   }));
 
   const summary = auditFiles(inputs);
+  const phase2 = auditIconOnlyButtons(inputs);
 
   // Build JSON report
   const report = {
@@ -410,6 +536,20 @@ function main() {
             })),
         ])
     ),
+    phase2: {
+      description:
+        "Icon-only <button> elements with no visible text, no aria-label, no aria-labelledby, and no title attribute. Screen readers will announce these as unlabeled buttons.",
+      summary: {
+        total: phase2.total,
+        flagged: phase2.flagged,
+      },
+      iconOnlyByFile: Object.fromEntries(
+        Object.entries(phase2.byFile).map(([path, findings]) => [
+          path,
+          findings.map((f) => ({ line: f.line, raw: f.raw })),
+        ])
+      ),
+    },
   };
 
   writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2) + "\n");
@@ -418,6 +558,9 @@ function main() {
   const fileCount = Object.keys(report.flaggedByFile).length;
   console.log(
     `scanned ${inputs.length} files: ${summary.total} fields, ${summary.ok} ok, ${summary.flagged} flagged across ${fileCount} files`
+  );
+  console.log(
+    `phase2 (icon-only buttons): ${phase2.flagged} flagged across ${Object.keys(phase2.byFile).length} files`
   );
   console.log(`wrote ${REPORT_PATH} (${statSync(REPORT_PATH).size} bytes)`);
 
@@ -439,6 +582,19 @@ function main() {
     }
   }
 
+  if (phase2.flagged > 0) {
+    console.log(`\nphase2 first ${PREVIEW_PER_FILE} icon-only buttons per file:`);
+    for (const [filePath, items] of Object.entries(report.phase2.iconOnlyByFile)) {
+      console.log(`  ${filePath} (${(items as unknown[]).length}):`);
+      for (const item of (items as Array<{ line: number; raw: string }>).slice(0, PREVIEW_PER_FILE)) {
+        console.log(`    L${item.line}  ${item.raw.slice(0, 80).replace(/\n/g, " ")}`);
+      }
+    }
+  }
+
+  // Phase 1 (form label associations) is the critical a11y gate; phase 2 is
+  // advisory (true positives need a manual review pass to confirm icon vs text
+  // interpretation). So we exit 0 unless phase 1 fails.
   process.exit(summary.flagged > 0 ? 1 : 0);
 }
 
