@@ -164,6 +164,25 @@ const translations: Record<Locale, Record<string, string>> = {
 		"audit.filterBySeverity": "按严重级别过滤",
 		"audit.filterByAction": "按动作类型过滤",
 
+		// Operation tasks
+		"operationTasks.refreshFailed": "刷新任务中心失败",
+		"operationTasks.filter.all": "全部",
+		"operationTasks.filter.attention": "需处理",
+		"operationTasks.filter.failed": "失败",
+		"operationTasks.filter.running": "运行中",
+		"operationTasks.filter.pending": "待处理",
+		"operationTasks.filter.completed": "已完成",
+		"operationTasks.sort.recent": "最新优先",
+		"operationTasks.sort.attention": "需处理优先",
+		"operationTasks.summary.sourceGroup": "来源聚合",
+		"operationTasks.summary.sourceGroupDesc": "按任务来源汇总当前筛选结果,优先显示失败/运行中/待处理数量。",
+		"operationTasks.summary.failureGroup": "失败原因聚合",
+		"operationTasks.summary.noSources": "暂无来源分布",
+		"operationTasks.summary.noFailures": "当前筛选结果暂无失败任务",
+		"operationTasks.tasks.empty": "暂无匹配任务",
+		"operationTasks.action.applyFilter": "应用筛选",
+		"operationTasks.action.refreshing": "刷新中...",
+
 		// Dashboard
 		"dashboard.title": "仪表盘",
 		"dashboard.welcome": "欢迎回来",
@@ -442,6 +461,27 @@ const translations: Record<Locale, Record<string, string>> = {
 		"audit.loadFailed": "Failed to load audit log",
 		"audit.filterBySeverity": "Filter by severity",
 		"audit.filterByAction": "Filter by action",
+
+		// Operation tasks (filter / sort labels)
+		"operationTasks.filter.all": "All",
+		"operationTasks.filter.attention": "Needs attention",
+		"operationTasks.filter.failed": "Failed",
+		"operationTasks.filter.running": "Running",
+		"operationTasks.filter.pending": "Pending",
+		"operationTasks.filter.completed": "Completed",
+		"operationTasks.sort.recent": "Newest first",
+		"operationTasks.sort.attention": "Needs attention first",
+
+		// Operation tasks (R10C additions)
+		"operationTasks.refreshFailed": "Failed to refresh task center",
+		"operationTasks.summary.sourceGroup": "Source aggregation",
+		"operationTasks.summary.sourceGroupDesc": "Aggregated by source. Shows failed / running / pending counts first.",
+		"operationTasks.summary.failureGroup": "Failure aggregation",
+		"operationTasks.summary.noSources": "No source distribution yet",
+		"operationTasks.summary.noFailures": "No failed tasks in the current filter",
+		"operationTasks.tasks.empty": "No matching tasks",
+		"operationTasks.action.applyFilter": "Apply filter",
+		"operationTasks.action.refreshing": "Refreshing...",
 
 		// Dashboard
 		"dashboard.title": "Dashboard",

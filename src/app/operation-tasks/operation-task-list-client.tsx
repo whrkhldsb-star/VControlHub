@@ -5,6 +5,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/page-shell";
 import type { OperationTask, OperationTaskFailureSummary, OperationTaskSourceSummary, OperationTaskStatus } from "@/lib/operation-task/dto";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { JobEventsDialog } from "./job-events-dialog";
 
@@ -17,19 +18,6 @@ const statusTone: Record<string, "accent" | "success" | "warning" | "danger" | "
   cancelled: "neutral",
   paused: "neutral",
 };
-const statusFilters = [
-  { label: "全部", value: "all" },
-  { label: "需处理", value: "attention" },
-  { label: "失败", value: "failed" },
-  { label: "运行中", value: "running" },
-  { label: "待处理", value: "pending" },
-  { label: "已完成", value: "completed" },
-] as const;
-
-const sortOptions = [
-  { label: "最新优先", value: "recent" },
-  { label: "需处理优先", value: "attention" },
-] as const;
 
 function getRefreshPath(statusFilter: string, taskTypeFilter: string, sort: string) {
   const params = new URLSearchParams();
@@ -47,6 +35,20 @@ function getExportPath(statusFilter: string, taskTypeFilter: string, sort: strin
 }
 
 export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
+  const { t } = useI18n();
+  const statusFilters = [
+    { label: t("operationTasks.filter.all"), value: "all" },
+    { label: t("operationTasks.filter.attention"), value: "attention" },
+    { label: t("operationTasks.filter.failed"), value: "failed" },
+    { label: t("operationTasks.filter.running"), value: "running" },
+    { label: t("operationTasks.filter.pending"), value: "pending" },
+    { label: t("operationTasks.filter.completed"), value: "completed" },
+  ] as const;
+
+  const sortOptions = [
+    { label: t("operationTasks.sort.recent"), value: "recent" },
+    { label: t("operationTasks.sort.attention"), value: "attention" },
+  ] as const;
   const [tasks, setTasks] = useState(initialTasks);
   const [sourceSummary, setSourceSummary] = useState(initialSourceSummary);
   const [failureSummary, setFailureSummary] = useState(initialFailureSummary);
@@ -66,39 +68,39 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "刷新任务中心失败");
+      setError(err instanceof Error ? err.message : t("operationTasks.refreshFailed"));
     } finally { setRefreshing(false); }
   };
   const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
   return <div className="space-y-5">
     {error && <div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-100">{error}</div>}
     <div className="grid gap-3 sm:grid-cols-4">
-      {[["running","运行中"],["pending","待处理"],["failed","失败"],["completed","已完成"]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
+      {[["running", t("operationTasks.filter.running")],["pending", t("operationTasks.filter.pending")],["failed", t("operationTasks.filter.failed")],["completed", t("operationTasks.filter.completed")]].map(([key,label]) => <div key={key} data-card className=" p-4"><div className="text-xs text-slate-500">{label}</div><div className="mt-2 text-2xl font-semibold text-white">{counts[key as OperationTaskStatus] ?? 0}</div></div>)}
     </div>
-    <section aria-label="来源聚合" data-card className="p-4">
+    <section aria-label={t("operationTasks.summary.sourceGroup")} data-card className="p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">来源聚合</h2>
-          <p className="mt-1 text-xs text-slate-500">按任务来源汇总当前筛选结果，优先显示失败/运行中/待处理数量。</p>
+          <h2 className="text-sm font-semibold text-white">{t("operationTasks.summary.sourceGroup")}</h2>
+          <p className="mt-1 text-xs text-slate-500">{t("operationTasks.summary.sourceGroupDesc")}</p>
         </div>
         <div className="text-xs text-slate-500">共 {tasks.length} 条</div>
       </div>
-      {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">暂无来源分布</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-3">
           <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-white">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-slate-500">总计 {item.total}</span></div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400"><span>需处理 {item.attention}</span><span>失败 {item.failed}</span><span>运行中 {item.running}</span><span>待处理 {item.pending}</span></div>
         </div>)}
       </div>}
     </section>
-    <section aria-label="失败原因聚合" data-tone="rose" className="rounded-xl border border-rose-400/15 p-4">
+    <section aria-label={t("operationTasks.summary.failureGroup")} data-tone="rose" className="rounded-xl border border-rose-400/15 p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">失败原因聚合</h2>
+          <h2 className="text-sm font-semibold text-white">{t("operationTasks.summary.failureGroup")}</h2>
           <p className="mt-1 text-xs text-slate-500">按当前筛选结果归类失败任务，优先处理重复出现的失败模式。</p>
         </div>
         <div className="text-xs text-slate-500">共 {failureSummary.reduce((total, item) => total + item.total, 0)} 条失败</div>
       </div>
-      {failureSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">当前筛选结果暂无失败任务</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      {failureSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div key={item.reason} data-tone="rose" className="rounded-lg border border-rose-400/15 px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-white">{item.reason}</span><span data-tone="danger" className="rounded-md border px-2 py-1 text-xs font-medium">{item.total} 条</span></div>
           <p className="mt-2 text-xs text-slate-500">来源：{item.sources.map((source) => sourceLabels[source] ?? source).join("、")} · 最新：{item.latestTitle}</p>
@@ -131,12 +133,12 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? "刷新中..." : "应用筛选"}</button>
+          <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
           <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-tone="accent" className="rounded-lg border px-3 py-2 text-xs font-medium">导出当前结果 CSV</a>
         </div>
       </div>
       <div className="divide-y divide-white/[0.06]">
-        {tasks.length === 0 ? <EmptyState text="暂无匹配任务" /> : tasks.map((task) => <div key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+        {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <div key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-white/[0.05] px-2 py-1 text-xs text-slate-400">{sourceLabels[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-md border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-md border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200">已折叠 {task.foldedCount} 次周期完成记录</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : "后台执行器已认领，暂无心跳时间"} data-tone="accent" className="rounded-md border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-white">{task.title}</h3><p className="mt-1 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-white/[0.06] bg-slate-950/60 px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">最近日志</div><ul className="mt-2 space-y-1 text-xs text-slate-300">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
           <div className="flex flex-col items-end gap-2">
             {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
