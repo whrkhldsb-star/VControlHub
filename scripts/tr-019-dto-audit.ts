@@ -32,16 +32,20 @@ const REPORT_MD_PATH = join(ROOT, "docs", "tr-019-dto-audit.md");
  *   - apiDir: where its API routes live under src/app/api.
  *   - boundaryFile: which file in src/lib/<module> holds the DTO/schema
  *     boundary (relative to src/lib/<module>).
+ *   - extraBoundaryFiles: optional additional boundary files (e.g. when a
+ *     module has both a DTO boundary and a zod schema boundary, like ai).
+ *     The audit accepts an import from any of the listed files.
  *
  * "dto" modules export pure-type wire shapes (no zod). "schema" modules
  * export zod request schemas. We accept either as the "boundary" — the
- * audit just checks for an import of the boundary path.
+ * audit just checks for an import of one of the boundary paths.
  */
 const MODULES: ReadonlyArray<{
   name: string;
   apiDir: string;
   boundaryFile: string;
   boundaryKind: "dto" | "schema";
+  extraBoundaryFiles?: string[];
 }> = [
   {
     name: "files",
@@ -66,6 +70,10 @@ const MODULES: ReadonlyArray<{
     apiDir: "src/app/api/ai",
     boundaryFile: "dto.ts",
     boundaryKind: "dto",
+    // TR-037 R7 introduced `schema.ts` for zod request schemas. Routes may
+    // import either the DTO types (TR-039) or the zod schemas (TR-037) to
+    // satisfy the boundary audit.
+    extraBoundaryFiles: ["schema.ts"],
   },
   {
     name: "backup",
@@ -173,9 +181,18 @@ export function analyzeRoute(
   moduleName: string,
   boundaryFile: string,
   source: string,
+  extraBoundaryFiles: string[] = [],
 ): RouteReport {
+  // Build a regex that matches an import from any of the boundary files
+  // (primary + extras). When the primary boundary is `dto.ts` and a module
+  // also has a `schema.ts` (TR-037 zod), importing either is acceptable.
+  const boundaryFiles = [boundaryFile, ...extraBoundaryFiles].map((f) =>
+    f.replace(/\.ts$/, ""),
+  );
   const boundaryImportRe = new RegExp(
-    String.raw`from\s+["']@/lib/${moduleName}/${boundaryFile.replace(/\.ts$/, "")}["']`,
+    String.raw`from\s+["']@/lib/${moduleName}/(?:${boundaryFiles.join(
+      "|",
+    )})["']`,
   );
 
   const importsBoundary = boundaryImportRe.test(source);
@@ -207,7 +224,9 @@ export function analyzeRoute(
   let firstBoundaryImportLine: number | null = null;
   if (importsBoundary) {
     const importRe = new RegExp(
-      String.raw`^import\s.*from\s+["']@/lib/${moduleName}/${boundaryFile.replace(/\.ts$/, "")}["']`,
+      String.raw`^import\s.*from\s+["']@/lib/${moduleName}/(?:${boundaryFiles.join(
+        "|",
+      )})["']`,
       "m",
     );
     const importMatch = source.match(importRe);
@@ -238,7 +257,13 @@ function analyzeModule(cfg: (typeof MODULES)[number]): ModuleReport {
 
   const reports: RouteReport[] = routeFiles.map((p) => {
     const source = readSource(p);
-    return analyzeRoute(p, cfg.name, cfg.boundaryFile, source);
+    return analyzeRoute(
+      p,
+      cfg.name,
+      cfg.boundaryFile,
+      source,
+      cfg.extraBoundaryFiles ?? [],
+    );
   });
 
   const totalRoutes = reports.length;

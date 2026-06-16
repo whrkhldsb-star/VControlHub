@@ -1,27 +1,16 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import {
   createProvider,
   listProviders,
   serializeProvider,
 } from "@/lib/ai/service";
+import { createProviderSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-
-const createProviderSchema = z.object({
-  name: z.string().min(1),
-  type: z.string().optional(),
-  apiKey: z.string().min(1),
-  baseUrl: z.string().url().optional(),
-  models: z.string().optional(),
-  availableModels: z.array(z.string()).optional(),
-  defaultModel: z.string().optional(),
-  isDefault: z.boolean().optional(),
-});
 
 function parseModels(data: { availableModels?: string[]; models?: string }) {
   const rawModels = data.availableModels ?? data.models?.split(",") ?? [];

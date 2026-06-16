@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-16T07:29:59.871Z",
+  "generatedAt": "2026-06-16T08:35:39.002Z",
   "summary": {
     "modulesAudited": 5,
     "totalRoutes": 28,
-    "inlineZodRoutes": 12,
-    "boundaryConsumerRoutes": 11,
-    "overallCoveragePercent": 47.8
+    "inlineZodRoutes": 5,
+    "boundaryConsumerRoutes": 19,
+    "overallCoveragePercent": 79.2
   },
   "modules": [
     {
@@ -211,61 +211,46 @@
       "boundaryKind": "dto",
       "boundaryExists": true,
       "totalRoutes": 9,
-      "inlineZodRoutes": 7,
-      "boundaryConsumerRoutes": 0,
-      "cleanRoutes": 2,
-      "coveragePercent": 0,
+      "inlineZodRoutes": 0,
+      "boundaryConsumerRoutes": 8,
+      "cleanRoutes": 1,
+      "coveragePercent": 100,
       "routes": [
         {
           "path": "/opt/VControlHub/src/app/api/ai/chat/route.ts",
           "relPath": "src/app/api/ai/chat/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 23,
-              "text": "const chatSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 7
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/conversations/[id]/route.ts",
           "relPath": "src/app/api/ai/conversations/[id]/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 17,
-              "text": "const updateConversationSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 10
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/conversations/route.ts",
           "relPath": "src/app/api/ai/conversations/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 15,
-              "text": "const createConversationSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 8
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/hosted-actions/[id]/route.ts",
           "relPath": "src/app/api/ai/hosted-actions/[id]/route.ts",
-          "verdict": "no-schema",
+          "verdict": "boundary-imported",
           "hasInlineZod": false,
-          "importsBoundary": false,
+          "importsBoundary": true,
           "inlineZodSites": [],
-          "firstBoundaryImportLine": null
+          "firstBoundaryImportLine": 14
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/hosted-actions/route.ts",
@@ -279,58 +264,38 @@
         {
           "path": "/opt/VControlHub/src/app/api/ai/models/probe/route.ts",
           "relPath": "src/app/api/ai/models/probe/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 11,
-              "text": "const probeModelsSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 4
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/models/route.ts",
           "relPath": "src/app/api/ai/models/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 25,
-              "text": "z.object({ providerId: z.string().trim().min(1).optional() }),"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 7
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/providers/[id]/route.ts",
           "relPath": "src/app/api/ai/providers/[id]/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 15,
-              "text": "const updateProviderSchema = z.object({"
-            }
-          ],
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
           "firstBoundaryImportLine": null
         },
         {
           "path": "/opt/VControlHub/src/app/api/ai/providers/route.ts",
           "relPath": "src/app/api/ai/providers/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 15,
-              "text": "const createProviderSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 8
         }
       ]
     },

@@ -1,27 +1,19 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import {
   deleteProvider,
   getProviderById,
   updateProvider,
 } from "@/lib/ai/service";
+import {
+  type UpdateProviderInputWire,
+  updateProviderSchema,
+} from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-
-const updateProviderSchema = z.object({
-  name: z.string().min(1).optional(),
-  apiKey: z.string().min(1).optional(),
-  baseUrl: z.string().url().optional(),
-  models: z.string().optional(),
-  availableModels: z.array(z.string()).optional(),
-  defaultModel: z.string().optional(),
-  isDefault: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
 
 function maskProvider(provider: Awaited<ReturnType<typeof getProviderById>>) {
   return {
@@ -32,7 +24,7 @@ function maskProvider(provider: Awaited<ReturnType<typeof getProviderById>>) {
   };
 }
 
-function parseAvailableModels(data: z.infer<typeof updateProviderSchema>) {
+function parseAvailableModels(data: UpdateProviderInputWire) {
   if (data.availableModels !== undefined) {
     return {
       availableModels: Array.from(

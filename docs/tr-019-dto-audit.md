@@ -1,6 +1,6 @@
 # TR-019 DTO 边界覆盖审计
 
-Generated: 2026-06-16T07:29:59.871Z
+Generated: 2026-06-16T08:35:39.002Z
 
 本报告扫描 5 个 TR-019 closure 域的 API route 看其 DTO/schema 边界覆盖率。
 
@@ -10,9 +10,9 @@ Generated: 2026-06-16T07:29:59.871Z
 
 - 模块审计数: **5**
 - API route 总数: **28**
-- 仍 inline zod 的 route: **12**
-- 已 import boundary 的 route: **11**
-- 总体覆盖率: **47.8%**
+- 仍 inline zod 的 route: **5**
+- 已 import boundary 的 route: **19**
+- 总体覆盖率: **79.2%**
 
 ## 各模块
 
@@ -21,7 +21,7 @@ Generated: 2026-06-16T07:29:59.871Z
 | `files` | `src/lib/files/dto.ts` | ✅ | 4 | 3 | 0 | 1 | **0.0%** |
 | `storage` | `src/lib/storage/schema.ts` | ✅ | 9 | 0 | 8 | 1 | **100.0%** |
 | `command` | `src/lib/command/schema.ts` | ✅ | 1 | 1 | 0 | 0 | **0.0%** |
-| `ai` | `src/lib/ai/dto.ts` | ✅ | 9 | 7 | 0 | 2 | **0.0%** |
+| `ai` | `src/lib/ai/dto.ts` | ✅ | 9 | 0 | 8 | 1 | **100.0%** |
 | `backup` | `src/lib/backup/schema.ts` | ✅ | 5 | 1 | 3 | 1 | **75.0%** |
 
 ## Inline-zod gap 详情
@@ -47,22 +47,9 @@ Generated: 2026-06-16T07:29:59.871Z
   - L12: `const postSchema = z.object({`
   - L21: `const patchSchema = z.object({`
 
-### ai (7 gap routes)
+### ai
 
-- `src/app/api/ai/chat/route.ts` — 1 个 inline zod 站点
-  - L23: `const chatSchema = z.object({`
-- `src/app/api/ai/conversations/[id]/route.ts` — 1 个 inline zod 站点
-  - L17: `const updateConversationSchema = z.object({`
-- `src/app/api/ai/conversations/route.ts` — 1 个 inline zod 站点
-  - L15: `const createConversationSchema = z.object({`
-- `src/app/api/ai/models/probe/route.ts` — 1 个 inline zod 站点
-  - L11: `const probeModelsSchema = z.object({`
-- `src/app/api/ai/models/route.ts` — 1 个 inline zod 站点
-  - L25: `z.object({ providerId: z.string().trim().min(1).optional() }),`
-- `src/app/api/ai/providers/[id]/route.ts` — 1 个 inline zod 站点
-  - L15: `const updateProviderSchema = z.object({`
-- `src/app/api/ai/providers/route.ts` — 1 个 inline zod 站点
-  - L15: `const createProviderSchema = z.object({`
+✅ 无 inline zod gap
 
 ### backup (1 gap routes)
 

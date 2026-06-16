@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import {
   sendChatRequest,
   createMessage,
   getConversationById,
 } from "@/lib/ai/service";
+import { chatRequestSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/db";
@@ -19,13 +19,6 @@ import {
 export const dynamic = "force-dynamic";
 
 const AI_CHAT_LIMIT = { maxRequests: 20, windowMs: 60_000 };
-
-const chatSchema = z.object({
-  conversationId: z.string().optional(),
-  message: z.string().min(1),
-  model: z.string().optional(),
-  providerId: z.string().optional(),
-});
 
 type HistoryMessage = {
   role: "user" | "assistant" | "system" | "tool";
@@ -79,7 +72,7 @@ export async function POST(request: Request) {
         throw new ValidationError("无效请求");
       }
 
-      const parsed = chatSchema.safeParse(body);
+      const parsed = chatRequestSchema.safeParse(body);
       if (!parsed.success) {
         throw new ValidationError("输入参数无效");
       }

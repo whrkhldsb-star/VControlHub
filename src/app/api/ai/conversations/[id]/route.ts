@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import {
   clearConversationMessages,
@@ -8,25 +7,12 @@ import {
   serializeConversation,
   updateConversation,
 } from "@/lib/ai/service";
+import { updateConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-
-const updateConversationSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  systemPrompt: z.string().max(2000).optional(),
-  model: z.string().optional(),
-  temperature: z.number().min(0).max(2).optional(),
-  maxTokens: z.number().int().min(1).max(128000).optional(),
-  topP: z.number().min(0).max(1).optional(),
-  frequencyPenalty: z.number().min(-2).max(2).optional(),
-  presencePenalty: z.number().min(-2).max(2).optional(),
-  enableVision: z.boolean().optional(),
-  hostingEnabled: z.boolean().optional(),
-  clearMessages: z.boolean().optional(),
-});
 
 export async function GET(
   request: Request,
