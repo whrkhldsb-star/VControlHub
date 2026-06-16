@@ -30,5 +30,26 @@ export const reviewCommandSchema = z.object({
   comment: z.string().trim().max(500, "审批意见最多 500 个字符").optional(),
 });
 
+export const createCommandTemplateSchema = z.object({
+  name: z.string().min(1),
+  command: z.string().min(1),
+  rollbackCommand: z.string().optional().nullable(),
+  description: z.string().optional(),
+  variables: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+});
+
+export const updateCommandTemplateSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1).optional(),
+  command: z.string().min(1).optional(),
+  rollbackCommand: z.string().optional().nullable(),
+  description: z.string().optional(),
+  variables: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+});
+
 export type CreateCommandInput = z.infer<typeof createCommandSchema>;
 export type ReviewCommandInput = z.infer<typeof reviewCommandSchema>;
+export type CreateCommandTemplateInput = z.infer<typeof createCommandTemplateSchema>;
+export type UpdateCommandTemplateInput = z.infer<typeof updateCommandTemplateSchema>;

@@ -1,32 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/lib/command-template/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
+import { createCommandTemplateSchema, updateCommandTemplateSchema } from "@/lib/command/schema";
 
 import { ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
-
-const postSchema = z.object({
-	name: z.string().min(1),
-	command: z.string().min(1),
-	rollbackCommand: z.string().optional().nullable(),
-	description: z.string().optional(),
-	variables: z.array(z.string()).optional(),
-	tags: z.array(z.string()).optional(),
-});
-
-const patchSchema = z.object({
-	id: z.string().min(1),
-	name: z.string().min(1).optional(),
-	command: z.string().min(1).optional(),
-	rollbackCommand: z.string().optional().nullable(),
-	description: z.string().optional(),
-	variables: z.array(z.string()).optional(),
-	tags: z.array(z.string()).optional(),
-});
 
 function auditTemplateDetail(template: { id: string; name?: string | null; isBuiltin?: boolean | null; tags?: string[] | null; variables?: string[] | null }) {
 	return {
@@ -55,7 +36,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "创建失败" }, async ({ session }) => {
 		const rawBody = await request.json();
-		const parsed = postSchema.safeParse(rawBody);
+		const parsed = createCommandTemplateSchema.safeParse(rawBody);
 		if (!parsed.success) {
 			throw new ValidationError("输入参数无效");
 		}
@@ -72,7 +53,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: "更新失败" }, async ({ session }) => {
 		const rawBody = await request.json();
-		const parsed = patchSchema.safeParse(rawBody);
+		const parsed = updateCommandTemplateSchema.safeParse(rawBody);
 		if (!parsed.success) {
 			throw new ValidationError("输入参数无效");
 		}

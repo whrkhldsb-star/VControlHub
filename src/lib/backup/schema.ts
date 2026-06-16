@@ -65,3 +65,11 @@ export const voidBackupSchema = z.object({
 
 export type VoidBackupInput = z.input<typeof voidBackupSchema>;
 export type VoidBackupOutput = z.output<typeof voidBackupSchema>;
+
+export const backupRetentionInputSchema = z.object({
+  olderThanDays: z.number().int().positive().max(3650).optional(),
+  keepLatestPerType: z.number().int().min(0).max(1000).optional(),
+});
+
+export type BackupRetentionInput = z.input<typeof backupRetentionInputSchema>;
+export type BackupRetentionOutput = z.output<typeof backupRetentionInputSchema>;

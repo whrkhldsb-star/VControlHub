@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-16T09:10:54.042Z",
+  "generatedAt": "2026-06-16T09:43:16.789Z",
   "summary": {
     "modulesAudited": 5,
     "totalRoutes": 28,
-    "inlineZodRoutes": 2,
-    "boundaryConsumerRoutes": 22,
-    "overallCoveragePercent": 91.7
+    "inlineZodRoutes": 0,
+    "boundaryConsumerRoutes": 24,
+    "overallCoveragePercent": 100
   },
   "modules": [
     {
@@ -157,28 +157,19 @@
       "boundaryKind": "schema",
       "boundaryExists": true,
       "totalRoutes": 1,
-      "inlineZodRoutes": 1,
-      "boundaryConsumerRoutes": 0,
+      "inlineZodRoutes": 0,
+      "boundaryConsumerRoutes": 1,
       "cleanRoutes": 0,
-      "coveragePercent": 0,
+      "coveragePercent": 100,
       "routes": [
         {
           "path": "/opt/VControlHub/src/app/api/command-templates/route.ts",
           "relPath": "src/app/api/command-templates/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 12,
-              "text": "const postSchema = z.object({"
-            },
-            {
-              "line": 21,
-              "text": "const patchSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 7
         }
       ]
     },
@@ -282,10 +273,10 @@
       "boundaryKind": "schema",
       "boundaryExists": true,
       "totalRoutes": 5,
-      "inlineZodRoutes": 1,
-      "boundaryConsumerRoutes": 3,
+      "inlineZodRoutes": 0,
+      "boundaryConsumerRoutes": 4,
       "cleanRoutes": 1,
-      "coveragePercent": 75,
+      "coveragePercent": 100,
       "routes": [
         {
           "path": "/opt/VControlHub/src/app/api/backups/[id]/restore/route.ts",
@@ -322,16 +313,11 @@
         {
           "path": "/opt/VControlHub/src/app/api/backups/retention/route.ts",
           "relPath": "src/app/api/backups/retention/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 25,
-              "text": "const retentionInputSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 5
         },
         {
           "path": "/opt/VControlHub/src/app/api/backups/route.ts",

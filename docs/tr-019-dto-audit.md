@@ -1,6 +1,6 @@
 # TR-019 DTO 边界覆盖审计
 
-Generated: 2026-06-16T09:10:54.042Z
+Generated: 2026-06-16T09:43:16.789Z
 
 本报告扫描 5 个 TR-019 closure 域的 API route 看其 DTO/schema 边界覆盖率。
 
@@ -10,9 +10,9 @@ Generated: 2026-06-16T09:10:54.042Z
 
 - 模块审计数: **5**
 - API route 总数: **28**
-- 仍 inline zod 的 route: **2**
-- 已 import boundary 的 route: **22**
-- 总体覆盖率: **91.7%**
+- 仍 inline zod 的 route: **0**
+- 已 import boundary 的 route: **24**
+- 总体覆盖率: **100.0%**
 
 ## 各模块
 
@@ -20,9 +20,9 @@ Generated: 2026-06-16T09:10:54.042Z
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `files` | `src/lib/files/dto.ts` | ✅ | 4 | 0 | 3 | 1 | **100.0%** |
 | `storage` | `src/lib/storage/schema.ts` | ✅ | 9 | 0 | 8 | 1 | **100.0%** |
-| `command` | `src/lib/command/schema.ts` | ✅ | 1 | 1 | 0 | 0 | **0.0%** |
+| `command` | `src/lib/command/schema.ts` | ✅ | 1 | 0 | 1 | 0 | **100.0%** |
 | `ai` | `src/lib/ai/dto.ts` | ✅ | 9 | 0 | 8 | 1 | **100.0%** |
-| `backup` | `src/lib/backup/schema.ts` | ✅ | 5 | 1 | 3 | 1 | **75.0%** |
+| `backup` | `src/lib/backup/schema.ts` | ✅ | 5 | 0 | 4 | 1 | **100.0%** |
 
 ## Inline-zod gap 详情
 
@@ -34,20 +34,17 @@ Generated: 2026-06-16T09:10:54.042Z
 
 ✅ 无 inline zod gap
 
-### command (1 gap routes)
+### command
 
-- `src/app/api/command-templates/route.ts` — 2 个 inline zod 站点
-  - L12: `const postSchema = z.object({`
-  - L21: `const patchSchema = z.object({`
+✅ 无 inline zod gap
 
 ### ai
 
 ✅ 无 inline zod gap
 
-### backup (1 gap routes)
+### backup
 
-- `src/app/api/backups/retention/route.ts` — 1 个 inline zod 站点
-  - L25: `const retentionInputSchema = z.object({`
+✅ 无 inline zod gap
 
 ## Re-run
 
