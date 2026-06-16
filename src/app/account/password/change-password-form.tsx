@@ -44,28 +44,28 @@ export function ChangePasswordForm() {
 			<div>
 				<h2 className="text-xl font-semibold text-white">{t("common.editPassword")}</h2>
 				<p className="mt-2 text-sm text-[var(--text-secondary)]">
-					输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。
+					{t("accountPasswordPage.formDescription")}
 				</p>
 			</div>
 
 			<div className="grid gap-4">
 				<PasswordField
-					label="当前密码"
+					label={t("accountPasswordPage.fields.currentLabel")}
 					name="currentPassword"
 					autoComplete="current-password"
-					placeholder="请输入当前密码"
+					placeholder={t("accountPasswordPage.fields.currentPlaceholder")}
 				/>
 				<PasswordField
-					label="新密码"
+					label={t("accountPasswordPage.fields.newLabel")}
 					name="newPassword"
 					autoComplete="new-password"
-					placeholder="至少 8 位"
+					placeholder={t("accountPasswordPage.fields.newPlaceholder")}
 				/>
 				<PasswordField
-					label="确认新密码"
+					label={t("accountPasswordPage.fields.confirmLabel")}
 					name="confirmPassword"
 					autoComplete="new-password"
-					placeholder="再次输入新密码"
+					placeholder={t("accountPasswordPage.fields.confirmPlaceholder")}
 				/>
 			</div>
 
@@ -76,7 +76,9 @@ export function ChangePasswordForm() {
 				<div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100" role="status" aria-live="polite">
 					{state.success}
 					{countdown !== null && countdown > 0 ? (
-						<span className="ml-2 text-emerald-200/80">（{countdown}s 后自动跳到仪表盘…）</span>
+						<span className="ml-2 text-emerald-200/80">
+							{t("accountPasswordPage.redirectCountdown").replace("{seconds}", String(countdown))}
+						</span>
 					) : null}
 				</div>
 			) : null}
@@ -92,10 +94,10 @@ export function ChangePasswordForm() {
 						}}
 						className="rounded-2xl border border-cyan-400/40 px-4 py-2 text-sm text-cyan-100 transition hover:bg-cyan-500/10 focus:outline-none focus:ring-2 focus:ring-cyan-400"
 					>
-						立即跳到仪表盘
+						{t("accountPasswordPage.redirectNow")}
 					</button>
 				) : null}
-				<SubmitButton pendingLabel="保存中...">{t("common.saveNewPassword")}</SubmitButton>
+				<SubmitButton pendingLabel={t("accountPasswordPage.saving")}>{t("common.saveNewPassword")}</SubmitButton>
 			</div>
 		</form>
 	);
@@ -109,6 +111,7 @@ type PasswordFieldProps = {
 };
 
 function PasswordField({ label, name, autoComplete, placeholder }: PasswordFieldProps) {
+  const { t } = useI18n();
   const inputId = useId();
   const [visible, setVisible] = useState(false);
 
@@ -127,12 +130,12 @@ function PasswordField({ label, name, autoComplete, placeholder }: PasswordField
         />
         <button
           type="button"
-          aria-label={`${visible ? "隐藏" : "显示"}${label}`}
+          aria-label={`${visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}${label}`}
           aria-pressed={visible}
           onClick={() => setVisible((current) => !current)}
           className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
         >
-          {visible ? "隐藏" : "显示"}
+          {visible ? t("accountPasswordPage.toggle.hide") : t("accountPasswordPage.toggle.show")}
         </button>
       </div>
     </div>

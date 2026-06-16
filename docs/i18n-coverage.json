@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-16T22:33:55.003Z",
+  "generatedAt": "2026-06-16T23:13:57.946Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 76,
-    "totalStrings": 728,
-    "coveredStrings": 184,
-    "missingStrings": 544,
-    "coveragePercent": 25.3
+    "filesWithStrings": 74,
+    "totalStrings": 716,
+    "coveredStrings": 183,
+    "missingStrings": 533,
+    "coveragePercent": 25.6
   },
   "perModule": [
     {
@@ -22,13 +22,6 @@
       "covered": 1,
       "missing": 13,
       "coveragePercent": 7.1
-    },
-    {
-      "module": "src/app/account",
-      "total": 12,
-      "covered": 1,
-      "missing": 11,
-      "coveragePercent": 8.3
     },
     {
       "module": "src/app/qa-reports",
@@ -738,127 +731,6 @@
       ]
     },
     {
-      "text": "输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/change-password-form.tsx",
-          "line": 46,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "请输入当前密码",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/change-password-form.tsx",
-          "line": 52,
-          "kind": "placeholder"
-        }
-      ]
-    },
-    {
-      "text": "至少 8 位",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/change-password-form.tsx",
-          "line": 58,
-          "kind": "placeholder"
-        }
-      ]
-    },
-    {
-      "text": "再次输入新密码",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/change-password-form.tsx",
-          "line": 64,
-          "kind": "placeholder"
-        }
-      ]
-    },
-    {
-      "text": "（ s 后自动跳到仪表盘…）",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/change-password-form.tsx",
-          "line": 79,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "立即跳到仪表盘",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/change-password-form.tsx",
-          "line": 94,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "修改当前账号的后台登录密码",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/page.tsx",
-          "line": 15,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "安全建议",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/page.tsx",
-          "line": 22,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/page.tsx",
-          "line": 24,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "• 修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/page.tsx",
-          "line": 25,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "• 若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
-      "count": 1,
-      "files": [
-        {
-          "path": "src/app/account/password/page.tsx",
-          "line": 26,
-          "kind": "text"
-        }
-      ]
-    },
-    {
       "text": "编辑公告",
       "count": 1,
       "files": [
@@ -912,61 +784,136 @@
           "kind": "text"
         }
       ]
+    },
+    {
+      "text": "第   /   页 · 共   条",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/audit-client.tsx",
+          "line": 289,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "下一页 →",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/audit-client.tsx",
+          "line": 297,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "回到首页",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 42,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "去系统自检",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 43,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "高风险动作监控",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 62,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "已重点跟踪命令执行、文件删除、服务器删除、权限变更、容器重启和令牌创建。当前 WARNING 占比  % ，CRITICAL 占比  % ，异常增多时优先从下方日志按动作筛选复核。",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 63,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "按动作筛查：",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 70,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "最常见动作",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 77,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "暂无动作统计。",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/page.tsx",
+          "line": 80,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "备份备注",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/backups/create-backup-form.tsx",
+          "line": 36,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "例如：升级前备份",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/backups/create-backup-form.tsx",
+          "line": 37,
+          "kind": "placeholder"
+        }
+      ]
     }
   ],
   "reportsByFile": {
     "src/app/account/password/change-password-form.tsx": {
       "path": "src/app/account/password/change-password-form.tsx",
-      "total": 6,
+      "total": 0,
       "covered": 0,
-      "missing": 6,
-      "candidates": [
-        {
-          "text": "输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。",
-          "line": 46,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-sm text-[var(--text-secondary)]\"> 输入当前密码后设置新密码。修改后不",
-          "covered": false
-        },
-        {
-          "text": "请输入当前密码",
-          "line": 52,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<PasswordField\n\t\t\t\t\tlabel=\"当前密码\"\n\t\t\t\t\tname=\"currentPassword\"\n\t\t\t\t\tautoComplete=\"",
-          "covered": false
-        },
-        {
-          "text": "至少 8 位",
-          "line": 58,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<PasswordField\n\t\t\t\t\tlabel=\"新密码\"\n\t\t\t\t\tname=\"newPassword\"\n\t\t\t\t\tautoComplete=\"new-p",
-          "covered": false
-        },
-        {
-          "text": "再次输入新密码",
-          "line": 64,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<PasswordField\n\t\t\t\t\tlabel=\"确认新密码\"\n\t\t\t\t\tname=\"confirmPassword\"\n\t\t\t\t\tautoComplete=",
-          "covered": false
-        },
-        {
-          "text": "（ s 后自动跳到仪表盘…）",
-          "line": 79,
-          "kind": "text",
-          "context": "<span className=\"ml-2 text-emerald-200/80\">（{countdown}s 后自动跳到仪表盘…）",
-          "covered": false
-        },
-        {
-          "text": "立即跳到仪表盘",
-          "line": 94,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={() => { const nextPath = searc",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/account/password/error.tsx": {
       "path": "src/app/account/password/error.tsx",
@@ -984,54 +931,10 @@
     },
     "src/app/account/password/page.tsx": {
       "path": "src/app/account/password/page.tsx",
-      "total": 6,
-      "covered": 1,
-      "missing": 5,
-      "candidates": [
-        {
-          "text": "修改密码",
-          "line": 14,
-          "kind": "text",
-          "context": "<h1 className=\"text-3xl font-semibold tracking-tight\">修改密码",
-          "covered": true,
-          "key": "audit.action.auth.password_change"
-        },
-        {
-          "text": "修改当前账号的后台登录密码",
-          "line": 15,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-sm text-[var(--text-secondary)]\">修改当前账号的后台登录密码",
-          "covered": false
-        },
-        {
-          "text": "安全建议",
-          "line": 22,
-          "kind": "text",
-          "context": "<h2 className=\"text-xl font-semibold text-white\">安全建议",
-          "covered": false
-        },
-        {
-          "text": "• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
-          "line": 24,
-          "kind": "text",
-          "context": "<li>• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
-          "covered": false
-        },
-        {
-          "text": "• 修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
-          "line": 25,
-          "kind": "text",
-          "context": "<li>• 修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
-          "covered": false
-        },
-        {
-          "text": "• 若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
-          "line": 26,
-          "kind": "text",
-          "context": "<li>• 若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/ai-chat-header.tsx": {
       "path": "src/app/ai/ai-chat-header.tsx",
@@ -1349,7 +1252,7 @@
           "kind": "text",
           "context": "<option value=\"auth.password_change\">修改密码",
           "covered": true,
-          "key": "audit.action.auth.password_change"
+          "key": "accountPasswordPage.title"
         },
         {
           "text": "删除文件",

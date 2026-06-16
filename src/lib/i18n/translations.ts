@@ -13,6 +13,7 @@ export type Locale = "zh" | "en";
  */
 
 
+import { zh as accountpasswordpageZh, en as accountpasswordpageEn } from "./dictionaries/account-password-page";
 import { zh as aiZh, en as aiEn } from "./dictionaries/ai";
 import { zh as alertrulespageZh, en as alertrulespageEn } from "./dictionaries/alert-rules-page";
 import { zh as apidocspageZh, en as apidocspageEn } from "./dictionaries/api-docs-page";
@@ -69,6 +70,7 @@ import { zh as userspageZh, en as userspageEn } from "./dictionaries/users-page"
 import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm";
 
 const zh: Record<string, string> = {
+	...accountpasswordpageZh,
 	...aiZh,
 	...alertrulespageZh,
 	...apidocspageZh,
@@ -126,6 +128,7 @@ const zh: Record<string, string> = {
 };
 
 const en: Record<string, string> = {
+	...accountpasswordpageEn,
 	...aiEn,
 	...alertrulespageEn,
 	...apidocspageEn,

@@ -1,4 +1,5 @@
 import { requireSession } from "@/lib/auth/require-session";
+import { t } from "@/lib/i18n/translations";
 
 import { ChangePasswordForm } from "./change-password-form";
 
@@ -11,19 +12,19 @@ export default async function AccountPasswordPage() {
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-4xl px-6 py-10 lg:px-10">
  <header className="mb-8">
- <h1 className="text-3xl font-semibold tracking-tight">修改密码</h1>
- <p className="mt-2 text-sm text-[var(--text-secondary)]">修改当前账号的后台登录密码</p>
+ <h1 className="text-3xl font-semibold tracking-tight">{t("accountPasswordPage.title")}</h1>
+ <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("accountPasswordPage.description")}</p>
  </header>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <ChangePasswordForm />
 
           <aside className="rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
-            <h2 className="text-xl font-semibold text-white">安全建议</h2>
+            <h2 className="text-xl font-semibold text-white">{t("accountPasswordPage.securityTips")}</h2>
             <ul className="mt-4 space-y-3 text-sm leading-7 text-[var(--text-secondary)]">
-              <li>• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。</li>
-              <li>• 修改成功后，现有会话不会立即失效；下次登录会使用新密码。</li>
-              <li>• 若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。</li>
+              <li>{t("accountPasswordPage.tip1")}</li>
+              <li>{t("accountPasswordPage.tip2")}</li>
+              <li>{t("accountPasswordPage.tip3")}</li>
             </ul>
           </aside>
         </section>
