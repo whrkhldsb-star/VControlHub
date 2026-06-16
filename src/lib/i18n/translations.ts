@@ -58,6 +58,7 @@ import { zh as serversZh, en as serversEn } from "./dictionaries/servers";
 import { zh as serverspageZh, en as serverspageEn } from "./dictionaries/servers-page";
 import { zh as sharesZh, en as sharesEn } from "./dictionaries/shares";
 import { zh as snippetsPageZh, en as snippetsPageEn } from "./dictionaries/snippets-page";
+import { zh as sshterminalmodalZh, en as sshterminalmodalEn } from "./dictionaries/ssh-terminal-modal";
 import { zh as statuspageZh, en as statuspageEn } from "./dictionaries/status-page";
 import { zh as templatespageZh, en as templatespageEn } from "./dictionaries/templates-page";
 import { zh as textpreviewZh, en as textpreviewEn } from "./dictionaries/text-preview";
@@ -115,6 +116,7 @@ const zh: Record<string, string> = {
 	...serverspageZh,
 	...sharesZh,
 	...snippetsPageZh,
+	...sshterminalmodalZh,
 	...statuspageZh,
 	...templatespageZh,
 	...textpreviewZh,
@@ -173,6 +175,7 @@ const en: Record<string, string> = {
 	...serverspageEn,
 	...sharesEn,
 	...snippetsPageEn,
+	...sshterminalmodalEn,
 	...statuspageEn,
 	...templatespageEn,
 	...textpreviewEn,

@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T23:13:57.946Z | Files: 261 | Strings: 716 | Coverage: **25.6%** (183/716)
+> Generated: 2026-06-16T23:47:47.751Z | Files: 261 | Strings: 702 | Coverage: **25.9%** (182/702)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -11,7 +11,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | Module | Strings | Covered | Missing | Coverage |
 |---|---|---|---|---|
 | `src/app/deployments` | 44 | 2 | 42 | 4.5% |
-| `src/components/ssh-terminal-modal.tsx` | 14 | 1 | 13 | 7.1% |
 | `src/app/qa-reports` | 10 | 1 | 9 | 10% |
 | `src/app/downloads` | 38 | 4 | 34 | 10.5% |
 | `src/app/requests` | 24 | 3 | 21 | 12.5% |
@@ -291,18 +290,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L182 text "最近执行日志"
 - _…and 5 more_
 
-### `src/components/ssh-terminal-modal.tsx` — 13/14 missing (7.1%)
-
-- L328 text "SSH 终端 —"
-- L348 title title= "命令面板"
-- L354 text "📋 命令面板"
-- L362 text "重连"
-- L366 aria-label aria-label= "关闭 SSH 终端"
-- L395 text "⭐ 常用命令"
-- L397 text "添加常用 SSH 命令"
-- L400 placeholder placeholder= "添加常用命令…"
-- _…and 5 more_
-
 ### `src/app/deployments/deployment-launch-form.tsx` — 12/13 missing (7.7%)
 
 - L45 text "请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。"
@@ -313,4 +300,16 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L111 text "部署原因"
 - L113 placeholder placeholder= "例如：上线新版本 / 修复服务异常"
 - L122 text "模板变量"
+- _…and 4 more_
+
+### `src/app/shares/create-share-form.tsx` — 12/13 missing (7.7%)
+
+- L71 text "+ 高级创建分享链接"
+- L78 text "高级分享链接"
+- L79 text "选择存储节点和路径。目录分享会公开列出该路径下已索引文件，访问者可逐个下载。"
+- L81 text "收起"
+- L92 text "访问路径"
+- L96 text "分享类型"
+- L98 text "目录：允许访问路径下所有已索引文件"
+- L99 text "单文件：只允许下载该文件"
 - _…and 4 more_

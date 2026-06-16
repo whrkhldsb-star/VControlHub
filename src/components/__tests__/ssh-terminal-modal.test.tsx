@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { SshTerminalModal } from "../ssh-terminal-modal";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(() => Promise.resolve({ token: "handshake-token" })),

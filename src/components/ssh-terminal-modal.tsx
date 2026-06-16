@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildSshWebSocketUrl } from "@/components/ssh-terminal-url";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 /* ------------------------------------------------------------------ */
 /* SSH Terminal Modal — xterm.js + WebSocket */
@@ -30,6 +31,7 @@ type SshTerminalModalProps = {
 };
 
 export function SshTerminalModal({ serverId, serverName, host, sessionToken, onClose }: SshTerminalModalProps) {
+	const { t } = useI18n();
 	const closeButtonRef = useRef<HTMLButtonElement>(null);
 	const termRef = useRef<HTMLDivElement>(null);
 	const wsRef = useRef<WebSocket | null>(null);
@@ -101,7 +103,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 			} catch {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
-					setErrorMsg("无法获取 SSH WebSocket 临时令牌，请重新登录后再试");
+					setErrorMsg(t("sshTerminalModal.errTokenFetchFailed"));
 				}
 				return;
 			}
@@ -109,7 +111,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 			if (!handshakeToken) {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
-					setErrorMsg("SSH WebSocket 临时令牌为空，请检查服务配置");
+					setErrorMsg(t("sshTerminalModal.errTokenEmpty"));
 				}
 				return;
 			}
@@ -183,12 +185,12 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 					} else if (msg.type === "error") {
 						if (!disposed && nonce === connectionNonceRef.current) {
 							setStatus("error");
-							setErrorMsg(msg.data || "未知错误");
+							setErrorMsg(msg.data || t("sshTerminalModal.errUnknown"));
 						}
 					} else if (msg.type === "closed") {
 						if (!disposed && nonce === connectionNonceRef.current) {
 							setStatus("closed");
-							setErrorMsg(msg.data || "连接已关闭");
+							setErrorMsg(msg.data || t("sshTerminalModal.errClosed"));
 						}
 					}
 				} catch {
@@ -199,14 +201,13 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 			ws.onclose = () => {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("closed");
-					setErrorMsg("WebSocket 连接已断开");
+					setErrorMsg(t("sshTerminalModal.errDisconnected"));
 				}
 			};
-
 			ws.onerror = () => {
 				if (!disposed && nonce === connectionNonceRef.current) {
 					setStatus("error");
-					setErrorMsg("WebSocket 连接失败，请确认 SSH 代理服务正在运行");
+					setErrorMsg(t("sshTerminalModal.errConnectionFailed"));
 				}
 			};
 
@@ -326,7 +327,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 						<span className="text-xl" aria-hidden="true">💻</span>
 						<div>
 							<h3 id={`ssh-terminal-title-${serverId}`} className="text-lg font-semibold text-white">
-								SSH 终端 — {serverName}
+								{t("sshTerminalModal.title").replace("{serverName}", serverName)}
 							</h3>
 							<p id={`ssh-terminal-host-${serverId}`} className="text-xs text-[var(--text-secondary)]">{host}</p>
 						</div>
@@ -343,34 +344,40 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 									: "border border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-400/40 light:bg-rose-500/15"
 							}`}
 						>
-							{status === "connected" ? "已连接" : status === "connecting" ? "连接中" : status === "error" ? "连接失败" : "已断开"}
+							{status === "connected"
+								? t("sshTerminalModal.statusConnected")
+								: status === "connecting"
+									? t("sshTerminalModal.statusConnecting")
+									: status === "error"
+										? t("sshTerminalModal.statusError")
+										: t("sshTerminalModal.statusClosed")}
 						</span>
 						<button
 							type="button"
 							onClick={() => setShowSidePanel(!showSidePanel)}
 							aria-expanded={showSidePanel}
 							className={`min-h-11 min-w-11 rounded-full border px-4 py-1.5 text-xs transition ${showSidePanel ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 light:border-cyan-500/40 light:bg-cyan-500/15" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 light:hover:bg-slate-200"}`}
-							title="命令面板"
-						>
-							📋 命令面板
-						</button>
+							title={t("sshTerminalModal.panelToggleTitle")}
+							>
+							{t("sshTerminalModal.panelToggle")}
+							</button>
 						{(status === "error" || status === "closed") && (
 							<button
 								type="button"
 								onClick={handleReconnect}
 								data-tone="cyan" className="min-h-11 min-w-11 rounded-full border border-cyan-400/30 px-4 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-500/40 light:bg-cyan-500/15 light:hover:bg-cyan-500/25"
 							>
-								重连
+								{t("sshTerminalModal.reconnect")}
 							</button>
 						)}
 						<button
 							ref={closeButtonRef}
 							type="button"
 							onClick={onClose}
-							aria-label="关闭 SSH 终端"
+							aria-label={t("sshTerminalModal.ariaClose")}
 							className="min-h-11 min-w-11 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/10 light:hover:bg-slate-200"
 						>
-							关闭
+							{t("sshTerminalModal.close")}
 						</button>
 					</div>
 				</div>
@@ -392,39 +399,39 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 					{showSidePanel && (
 						<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-64">
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white/60">⭐ 常用命令</h4>
+								<h4 className="mb-2 text-xs font-medium text-white/60">{t("sshTerminalModal.favoritesTitle")}</h4>
 								<div className="mb-2 flex gap-1.5">
 									<label htmlFor={`ssh-favorite-command-${serverId}`} className="sr-only">
-										添加常用 SSH 命令
+										{t("sshTerminalModal.favoritesLabel")}
 									</label>
 									<input
 										id={`ssh-favorite-command-${serverId}`}
 										value={newFavorite}
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}
-										placeholder="添加常用命令…"
+										placeholder={t("sshTerminalModal.favoritesPlaceholder")}
 										className="min-h-11 min-w-0 flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
-									<button onClick={addFavorite} aria-label="添加常用命令" data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-md border border-cyan-400/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-md border border-cyan-400/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
 										+
 									</button>
 								</div>
 								{favoriteCommands.length === 0 ? (
-									<p className="text-[10px] text-slate-600">暂无常用命令</p>
+									<p className="text-[10px] text-slate-600">{t("sshTerminalModal.favoritesEmpty")}</p>
 								) : (
 									<div className="space-y-1">
 										{favoriteCommands.map((cmd) => (
 											<div key={cmd} className="group flex items-center gap-1">
 												<button
-																onClick={() => sendCommand(cmd)}
-																className="min-h-11 min-w-0 flex-1 truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
-																title={cmd}
-															>
-																{cmd}
-															</button>
+													onClick={() => sendCommand(cmd)}
+													className="min-h-11 min-w-0 flex-1 truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
+													title={cmd}
+												>
+													{cmd}
+												</button>
 												<button
 													onClick={() => removeFavorite(cmd)}
-													aria-label={`删除常用命令 ${cmd}`}
+													aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)}
 													className="min-h-11 min-w-11 shrink-0 rounded-md px-1 text-[12px] text-rose-400/70 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
 												>
 													✕
@@ -436,9 +443,9 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</section>
 
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white/60">📜 命令历史</h4>
+								<h4 className="mb-2 text-xs font-medium text-white/60">{t("sshTerminalModal.historyTitle")}</h4>
 								{commandHistory.length === 0 ? (
-									<p className="text-[10px] text-slate-600">暂无历史命令</p>
+									<p className="text-[10px] text-slate-600">{t("sshTerminalModal.historyEmpty")}</p>
 								) : (
 									<div className="max-h-[300px] space-y-1 overflow-y-auto">
 										{commandHistory.map((cmd, i) => (
@@ -456,7 +463,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 							</section>
 
 							<section className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
-								<h4 className="mb-2 text-xs font-medium text-white/60">⚡ 快捷命令</h4>
+								<h4 className="mb-2 text-xs font-medium text-white/60">{t("sshTerminalModal.quickCommandsTitle")}</h4>
 								<div className="space-y-1">
 									{["ls -la", "df -h", "free -m", "top -bn1 | head -20", "uptime", "whoami", "cat /etc/os-release", "ps aux --sort=-%mem | head -10"].map((cmd) => (
 										<button

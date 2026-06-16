@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-16T23:13:57.946Z",
+  "generatedAt": "2026-06-16T23:47:47.751Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 74,
-    "totalStrings": 716,
-    "coveredStrings": 183,
-    "missingStrings": 533,
-    "coveragePercent": 25.6
+    "filesWithStrings": 73,
+    "totalStrings": 702,
+    "coveredStrings": 182,
+    "missingStrings": 520,
+    "coveragePercent": 25.9
   },
   "perModule": [
     {
@@ -15,13 +15,6 @@
       "covered": 2,
       "missing": 42,
       "coveragePercent": 4.5
-    },
-    {
-      "module": "src/components/ssh-terminal-modal.tsx",
-      "total": 14,
-      "covered": 1,
-      "missing": 13,
-      "coveragePercent": 7.1
     },
     {
       "module": "src/app/qa-reports",
@@ -7846,114 +7839,10 @@
     },
     "src/components/ssh-terminal-modal.tsx": {
       "path": "src/components/ssh-terminal-modal.tsx",
-      "total": 14,
-      "covered": 1,
-      "missing": 13,
-      "candidates": [
-        {
-          "text": "SSH 终端 —",
-          "line": 328,
-          "kind": "text",
-          "context": "<h3 id={`ssh-terminal-title-${serverId}`} className=\"text-lg font-semibold text-",
-          "covered": false
-        },
-        {
-          "text": "命令面板",
-          "line": 348,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button\n\t\t\t\t\t\t\ttype=\"button\"\n\t\t\t\t\t\t\tonClick={() => setShowSidePanel(!showSidePan",
-          "covered": false
-        },
-        {
-          "text": "📋 命令面板",
-          "line": 354,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={() => setShowSidePanel(!showSidePan",
-          "covered": false
-        },
-        {
-          "text": "重连",
-          "line": 362,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={handleReconnect} data-ton",
-          "covered": false
-        },
-        {
-          "text": "关闭 SSH 终端",
-          "line": 366,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button\n\t\t\t\t\t\t\tref={closeButtonRef}\n\t\t\t\t\t\t\ttype=\"button\"\n\t\t\t\t\t\t\tonClick={onClose",
-          "covered": false
-        },
-        {
-          "text": "关闭",
-          "line": 372,
-          "kind": "text",
-          "context": "<button ref={closeButtonRef} type=\"button\" onClick={onClose",
-          "covered": true,
-          "key": "common.close"
-        },
-        {
-          "text": "⭐ 常用命令",
-          "line": 395,
-          "kind": "text",
-          "context": "<h4 className=\"mb-2 text-xs font-medium text-white/60\">⭐ 常用命令",
-          "covered": false
-        },
-        {
-          "text": "添加常用 SSH 命令",
-          "line": 397,
-          "kind": "text",
-          "context": "<label htmlFor={`ssh-favorite-command-${serverId}`} className=\"sr-only\"> ",
-          "covered": false
-        },
-        {
-          "text": "添加常用命令…",
-          "line": 400,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n\t\t\t\t\t\t\t\t\t\tid={`ssh-favorite-command-${serverId}`}\n\t\t\t\t\t\t\t\t\t\tvalue={newFav",
-          "covered": false
-        },
-        {
-          "text": "添加常用命令",
-          "line": 408,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button onClick={addFavorite} aria-label=\"添加常用命令\" data-tone=\"cyan\" className=\"mi",
-          "covered": false
-        },
-        {
-          "text": "暂无常用命令",
-          "line": 413,
-          "kind": "text",
-          "context": "<p className=\"text-[10px] text-slate-600\">暂无常用命令",
-          "covered": false
-        },
-        {
-          "text": "📜 命令历史",
-          "line": 439,
-          "kind": "text",
-          "context": "<h4 className=\"mb-2 text-xs font-medium text-white/60\">📜 命令历史",
-          "covered": false
-        },
-        {
-          "text": "暂无历史命令",
-          "line": 441,
-          "kind": "text",
-          "context": "<p className=\"text-[10px] text-slate-600\">暂无历史命令",
-          "covered": false
-        },
-        {
-          "text": "⚡ 快捷命令",
-          "line": 459,
-          "kind": "text",
-          "context": "<h4 className=\"mb-2 text-xs font-medium text-white/60\">⚡ 快捷命令",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/components/storage/file-upload-dropzone.tsx": {
       "path": "src/components/storage/file-upload-dropzone.tsx",
