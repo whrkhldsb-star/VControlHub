@@ -108,7 +108,7 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
             <option key={l} value={l}>{l === "ALL" ? t("snippetsPage.filter.allLanguages") : l}</option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{filtered.length} 条</span>
+        <span className="text-xs text-slate-500">{t("snippetsPage.count").replace("{count}", String(filtered.length))}</span>
         <button
           onClick={() => setCreating(true)}
           className="min-h-11 inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"

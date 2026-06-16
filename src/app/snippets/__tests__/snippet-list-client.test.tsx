@@ -74,6 +74,15 @@ describe("SnippetList", () => {
     expect(screen.queryByText("部署脚本")).not.toBeInTheDocument();
   });
 
+  it("renders the filtered snippet count using the i18n template", () => {
+    renderList();
+    // The snippetsPage.count template is "{count} 条" — assert the rendered
+    // span contains the count number followed by the Chinese counter, so a
+    // hardcoded fallback ("1 条") would still pass but a missing t() key would
+    // surface as the raw key string "{count} 条" in production.
+    expect(screen.getByText("1 条")).toBeInTheDocument();
+  });
+
   it("uses an accessible confirmation dialog instead of native confirm before deleting", async () => {
     const confirmSpy = vi.spyOn(window, "confirm");
     renderList();

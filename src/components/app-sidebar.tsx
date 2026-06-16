@@ -153,7 +153,7 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 			<button
 				onClick={() => setMobileOpen(true)}
 				className="fixed left-4 top-4 z-50 rounded-lg border border-white/10 bg-slate-950/90 p-2.5 text-slate-200 backdrop-blur transition hover:bg-white/10 lg:hidden"
-				aria-label="打开导航菜单"
+				aria-label={t("nav.openMenu") === "nav.openMenu" ? "打开导航菜单" : t("nav.openMenu")}
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 					<path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
