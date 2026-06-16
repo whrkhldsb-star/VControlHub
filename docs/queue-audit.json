@@ -1,17 +1,16 @@
 {
-  "generatedAt": "2026-06-16T11:03:03.309Z",
+  "generatedAt": "2026-06-16T11:27:11.907Z",
   "queuePath": "/root/.hermes/state/vcontrolhub-task-queue.json",
   "summary": {
     "total": 58,
-    "done": 48,
+    "done": 49,
     "pending": 6,
-    "inProgress": 1,
+    "inProgress": 0,
     "blocked": 2,
     "failedPermanently": 1,
-    "driftCount": 20,
+    "driftCount": 19,
     "driftsByCode": {
       "orphan-pending-manual_only": 6,
-      "total-mismatch": 1,
       "txx-id-sequence-gap": 13
     }
   },
@@ -51,11 +50,6 @@
       "severity": "info",
       "taskId": "E02",
       "message": "task E02 is pending + manual_only; cron ticks will skip this (correct, soft reminder only)"
-    },
-    {
-      "code": "total-mismatch",
-      "severity": "error",
-      "message": "top-level total_tasks=57 but tasks.length is 58"
     },
     {
       "code": "txx-id-sequence-gap",
@@ -125,17 +119,25 @@
   ],
   "topLevelChecks": {
     "doneCount": {
-      "declared": 48,
-      "actual": 48,
+      "declared": 49,
+      "actual": 49,
       "ok": true
     },
     "total": {
-      "declared": 57,
+      "declared": 58,
       "actual": 58,
-      "ok": false
+      "ok": true
     }
   },
   "recentCommits": [
+    {
+      "hash": "df5f378",
+      "subject": "docs(readme): E05 TR-005 T34b.1 done + T34b.2 不可行 (跟 queue 同步)"
+    },
+    {
+      "hash": "d6837de",
+      "subject": "feat(scripts): E04 queue-audit — cron 任务队列自检 tooling (queue + git log 15 类 drift 检测, 26 个新测, scripts/ + docs/ 不需要 deploy)"
+    },
     {
       "hash": "bedf1a2",
       "subject": "i18n R10F.2 (TR-054): 接 traffic 35 key (eyebrow/title/desc/refresh/autoRefresh×3/error/card×3/loading/iface×2/lastUpdated/rxRate/txRate/rxTotal/txTotal/noIface/th×5/remoteSampling/noRemote/badge×3/rxShort/txShort/noPrimaryIface/health×4) + formatStorageHealthStatus 改 fn 接受 t"
@@ -327,14 +329,6 @@
     {
       "hash": "d188c4b",
       "subject": "docs(README): M02 (TR-020) 状态 ⏳→✅ — unblock M02 + closeout"
-    },
-    {
-      "hash": "d9e6089",
-      "subject": "feat(dashboard): TR-020 R3 widget click → detail dialog (弹窗,非路由)"
-    },
-    {
-      "hash": "fc65edf",
-      "subject": "feat(dashboard): TR-020 R2 customize mode + 4 列 grid + HTML5 dnd 接 toolbar"
     }
   ]
 }
