@@ -3,6 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listShareLinks } from "@/lib/share-link/service";
 import { listStorageNodes } from "@/lib/storage/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
+import { t } from "@/lib/i18n/translations";
 import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
@@ -11,14 +12,14 @@ export const dynamic = "force-dynamic";
 
 export default async function SharesPage() {
 	const session = await requireSession("/shares");
-	if (!sessionHasPermission(session, "share:read")) return <PageShell><EmptyState text="你没有分享链接查看权限。" /></PageShell>;
+	if (!sessionHasPermission(session, "share:read")) return <PageShell><EmptyState text={t("shares.noPermission")} /></PageShell>;
 	const [shares, nodes] = await Promise.all([listShareLinks(), listStorageNodes()]);
 	const canCreate = sessionHasPermission(session, "share:create");
 	const canManage = sessionHasPermission(session, "share:manage");
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow="Sharing" title="文件分享链接" description="管理从文件管理中真实文件生成的可撤销、可过期分享链接；数据库仅保存 token 哈希。" />
+			<PageHeader eyebrow="Sharing" title={t("shares.title")} description={t("shares.desc")} />
 
 			{canCreate ? (
 				<div className="mb-6 space-y-4">
@@ -28,23 +29,23 @@ export default async function SharesPage() {
 			) : null}
 
 			<div data-card className="">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">分享记录</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">{t("shares.records")}</div>
 				<div className="divide-y divide-white/[0.06]">
-					{shares.length === 0 ? <EmptyState text="暂无分享链接" /> : shares.map((s) => (
+					{shares.length === 0 ? <EmptyState text={t("shares.empty")} /> : shares.map((s) => (
 						<div key={s.id} className="px-5 py-4">
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-white">{s.name || s.path}</h3>
-									<p className="mt-1 text-xs text-slate-500">{s.storageNode.name} · {s.path} · 访问 {s.accessCount} 次</p>
+									<p className="mt-1 text-xs text-slate-500">{s.storageNode.name} · {s.path} · {t("shares.accessCountPrefix")}{s.accessCount}{t("shares.accessCountSuffix")}</p>
 								</div>
 								<div className="flex items-center gap-3">
-								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
-									{s.revokedAt ? "已撤销" : s.expiresAt && s.expiresAt < new Date() ? "已过期" : "有效"}
-								</span>
-								{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}
+									<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
+										{s.revokedAt ? t("shares.status.revoked") : s.expiresAt && s.expiresAt < new Date() ? t("shares.status.expired") : t("shares.status.active")}
+									</span>
+									{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}
+								</div>
 							</div>
-							</div>
-							<p className="mt-2 text-xs text-slate-500">创建：{s.createdAt.toLocaleString("zh-CN")} · 到期：{s.expiresAt?.toLocaleString("zh-CN") ?? "永不过期"}</p>
+							<p className="mt-2 text-xs text-slate-500">{t("shares.createdAt")}：{s.createdAt.toLocaleString("zh-CN")} · {t("shares.expiresAt")}：{s.expiresAt?.toLocaleString("zh-CN") ?? t("shares.neverExpires")}</p>
 						</div>
 					))}
 				</div>

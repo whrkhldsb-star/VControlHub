@@ -181,6 +181,21 @@ const translations: Record<Locale, Record<string, string>> = {
 		"serversPage.noManage": "当前角色无节点纳管权限。",
 		"serversPage.batchEmpty": "暂无可批量操作的 VPS。",
 
+		// Shares (page-level)
+		"shares.noPermission": "你没有分享链接查看权限。",
+		"shares.title": "文件分享链接",
+		"shares.desc": "管理从文件管理中真实文件生成的可撤销、可过期分享链接；数据库仅保存 token 哈希。",
+		"shares.records": "分享记录",
+		"shares.empty": "暂无分享链接",
+		"shares.status.revoked": "已撤销",
+		"shares.status.expired": "已过期",
+		"shares.status.active": "有效",
+		"shares.accessCountPrefix": "访问 ",
+		"shares.accessCountSuffix": " 次",
+		"shares.createdAt": "创建",
+		"shares.expiresAt": "到期",
+		"shares.neverExpires": "永不过期",
+
 		// Audit (filter / error)
 		"audit.loadFailed": "审计日志加载失败",
 		"audit.filterBySeverity": "按严重级别过滤",
@@ -540,6 +555,21 @@ const translations: Record<Locale, Record<string, string>> = {
 		"serversPage.overview.empty": "No managed VPS yet. Use \"Add VPS\" above to register SSH key, IP, and port.",
 		"serversPage.noManage": "Your role doesn't have node management permission.",
 		"serversPage.batchEmpty": "No VPS available for batch operations.",
+
+		// Shares (page-level)
+		"shares.noPermission": "You don't have permission to view share links.",
+		"shares.title": "File share links",
+		"shares.desc": "Manage revocable, expiring share links generated from real files in the file manager. The database stores only token hashes.",
+		"shares.records": "Share records",
+		"shares.empty": "No share links yet",
+		"shares.status.revoked": "Revoked",
+		"shares.status.expired": "Expired",
+		"shares.status.active": "Active",
+		"shares.accessCountPrefix": "Accessed ",
+		"shares.accessCountSuffix": " times",
+		"shares.createdAt": "Created",
+		"shares.expiresAt": "Expires",
+		"shares.neverExpires": "Never expires",
 
 		// Audit (filter / error)
 		"audit.loadFailed": "Failed to load audit log",
