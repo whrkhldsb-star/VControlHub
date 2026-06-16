@@ -37,28 +37,28 @@ function severityTone(severity: string): "accent" | "warning" | "danger" {
   return tones[severity] ?? tones.INFO!;
 }
 
-function formatAction(action: string): string {
+function formatAction(action: string, t: (k: string) => string): string {
   const labels: Record<string, string> = {
-    "auth.login": "登录",
-    "auth.login_failed": "登录失败",
-    "auth.login_rate_limited": "登录限速",
-    "auth.password_change": "修改密码",
-    "auth.signout": "退出登录",
-    "api_token.create": "创建令牌",
-    "docker.container_restart": "重启容器",
-    "user.permission_update": "调整权限",
-    "storage.file_delete": "删除文件",
-    "storage.file_upload": "上传文件",
-    "storage.file_move": "移动文件",
-    "storage.file_rename": "重命名文件",
-    "server.create": "创建节点",
-    "server.update": "更新节点",
-    "server.delete": "删除节点",
-    "command.execute": "执行命令",
-    "command.approve": "审批命令",
-    "command.reject": "拒绝命令",
-    "download.create": "创建下载任务",
-    "download.cancel": "取消下载",
+    "auth.login": t("audit.action.auth.login"),
+    "auth.login_failed": t("audit.action.auth.login_failed"),
+    "auth.login_rate_limited": t("audit.action.auth.login_rate_limited"),
+    "auth.password_change": t("audit.action.auth.password_change"),
+    "auth.signout": t("audit.action.auth.signout"),
+    "api_token.create": t("audit.action.api_token.create"),
+    "docker.container_restart": t("audit.action.docker.container_restart"),
+    "user.permission_update": t("audit.action.user.permission_update"),
+    "storage.file_delete": t("audit.action.storage.file_delete"),
+    "storage.file_upload": t("audit.action.storage.file_upload"),
+    "storage.file_move": t("audit.action.storage.file_move"),
+    "storage.file_rename": t("audit.action.storage.file_rename"),
+    "server.create": t("audit.action.server.create"),
+    "server.update": t("audit.action.server.update"),
+    "server.delete": t("audit.action.server.delete"),
+    "command.execute": t("audit.action.command.execute"),
+    "command.approve": t("audit.action.command.approve"),
+    "command.reject": t("audit.action.command.reject"),
+    "download.create": t("audit.action.download.create"),
+    "download.cancel": t("audit.action.download.cancel"),
   };
   return labels[action] ?? action;
 }
@@ -190,7 +190,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               data-tone={actionFilter === action ? "accent" : undefined}
               className={`rounded-full border px-3 py-1 text-xs transition ${actionFilter === action ? "" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"}`}
             >
-              {formatAction(action)}
+              {formatAction(action, t)}
             </button>
           ))}
         </div>
@@ -232,7 +232,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                       {log.severity}
                     </span>
                   </div>
-                  <div className="text-white">{formatAction(log.action)}</div>
+                  <div className="text-white">{formatAction(log.action, t)}</div>
                   <div className="text-slate-300 truncate">
                     {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType}
                   </div>
@@ -258,7 +258,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             data.logs.map((log) => (
               <div key={log.id} className="px-4 py-3 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-white text-sm">{formatAction(log.action)}</span>
+                  <span className="text-white text-sm">{formatAction(log.action, t)}</span>
                   <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
                     {log.severity}
                   </span>
