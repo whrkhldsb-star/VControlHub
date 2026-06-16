@@ -60,6 +60,7 @@ const SKIP_DIR_NAMES = new Set([
 ]);
 const REPORT_JSON_PATH = join(ROOT, "docs", "i18n-coverage.json");
 const REPORT_MD_PATH = join(ROOT, "docs", "i18n-coverage.md");
+const DICTIONARIES_DIR = join(ROOT, "src", "lib", "i18n", "dictionaries");
 const TRANSLATIONS_PATH = join(
   ROOT,
   "src",
@@ -178,6 +179,63 @@ function loadTranslationValues(
       const key = lm[1]!;
       const value = lm[2]!;
       result[locale][key] = value;
+    }
+  }
+  return result;
+}
+
+/**
+ * Load translation values from the per-domain dictionary files
+ * under `src/lib/i18n/dictionaries/*.ts`. Each file is expected
+ * to export `zh: Record<string, string>` and `en: Record<string, string>`
+ * blocks (mirroring the spread aggregation in `translations.ts`).
+ *
+ * The function uses the same brace-depth walker as `loadTranslationValues`
+ * to extract the contents of each block, then concatenates into a single
+ * zh / en map.
+ */
+export function loadTranslationValuesFromDictionaries(
+  dictionariesDir: string,
+): { zh: Record<string, string>; en: Record<string, string> } {
+  const result = {
+    zh: {} as Record<string, string>,
+    en: {} as Record<string, string>,
+  };
+  const files = readdirSync(dictionariesDir)
+    .filter((name) => name.endsWith(".ts"))
+    .map((name) => join(dictionariesDir, name))
+    .sort();
+  for (const file of files) {
+    const text = readFileSync(file, "utf8");
+    // Each dictionary declares
+    //   `export const zh: Record<string, string> = { ... }`
+    //   `export const en: Record<string, string> = { ... }`
+    // so anchor on that signature (with `\b` to avoid matching `enzh` etc.).
+    const blockRe =
+      /export\s+const\s+(\bzh|\ben)\s*:\s*Record<string,\s*string>\s*=\s*\{/g;
+    let m: RegExpExecArray | null;
+    while ((m = blockRe.exec(text)) !== null) {
+      const locale = m[1] as "zh" | "en";
+      const start = m.index + m[0].length;
+      let depth = 1;
+      let i = start;
+      while (i < text.length && depth > 0) {
+        const ch = text[i];
+        if (ch === "{") depth++;
+        else if (ch === "}") depth--;
+        i++;
+        if (depth === 0) break;
+      }
+      if (depth !== 0) continue;
+      const block = text.slice(start, i - 1);
+      const lineRe =
+        /"([^"\\]*(?:\\.[^"\\]*)*)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*,?/g;
+      let lm: RegExpExecArray | null;
+      while ((lm = lineRe.exec(block)) !== null) {
+        const key = lm[1]!;
+        const value = lm[2]!;
+        result[locale][key] = value;
+      }
     }
   }
   return result;
@@ -854,15 +912,14 @@ function buildMarkdown(report: CoverageReport): string {
 // ---------------------------------------------------------------------------
 
 export function runAudit(): CoverageReport {
-  if (!existsSync(TRANSLATIONS_PATH)) {
-    console.error("Missing translations at", TRANSLATIONS_PATH);
+  if (!existsSync(DICTIONARIES_DIR)) {
+    console.error("Missing dictionaries at", DICTIONARIES_DIR);
     process.exit(2);
   }
-  const translationsText = readFileSync(TRANSLATIONS_PATH, "utf8");
-  const { zh } = loadTranslationValues(translationsText);
+  const { zh } = loadTranslationValuesFromDictionaries(DICTIONARIES_DIR);
   const reverse = buildReverseIndex(zh);
   console.error(
-    `loaded ${Object.keys(zh).length} zh keys from translations.ts`,
+    `loaded ${Object.keys(zh).length} zh keys from ${DICTIONARIES_DIR}/`,
   );
 
   const files = collectSourceFiles();

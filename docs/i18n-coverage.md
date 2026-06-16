@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T12:18:33.713Z | Files: 260 | Strings: 992 | Coverage: **23.1%** (229/992)
+> Generated: 2026-06-16T16:11:15.579Z | Files: 261 | Strings: 773 | Coverage: **23.8%** (184/773)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -10,35 +10,33 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 
 | Module | Strings | Covered | Missing | Coverage |
 |---|---|---|---|---|
+| `src/app/api-docs` | 3 | 0 | 3 | 0% |
 | `src/app/health` | 4 | 0 | 4 | 0% |
+| `src/app/snippets` | 1 | 0 | 1 | 0% |
 | `src/components/app-sidebar.tsx` | 1 | 0 | 1 | 0% |
 | `src/components/storage` | 6 | 0 | 6 | 0% |
 | `src/app/deployments` | 44 | 2 | 42 | 4.5% |
-| `src/app/qa-reports` | 32 | 2 | 30 | 6.3% |
 | `src/components/ssh-terminal-modal.tsx` | 14 | 1 | 13 | 7.1% |
 | `src/app/account` | 12 | 1 | 11 | 8.3% |
 | `src/app/backups` | 46 | 4 | 42 | 8.7% |
+| `src/app/qa-reports` | 10 | 1 | 9 | 10% |
 | `src/app/downloads` | 38 | 4 | 34 | 10.5% |
-| `src/app/api-docs` | 9 | 1 | 8 | 11.1% |
 | `src/app/requests` | 24 | 3 | 21 | 12.5% |
 | `src/app/shares` | 14 | 2 | 12 | 14.3% |
-| `src/app/monitoring` | 13 | 2 | 11 | 15.4% |
+| `src/app/quick-services` | 48 | 7 | 41 | 14.6% |
 | `src/app/media` | 38 | 6 | 32 | 15.8% |
 | `src/app/settings` | 31 | 5 | 26 | 16.1% |
-| `src/app/quick-services` | 83 | 15 | 68 | 18.1% |
-| `src/app/ai` | 83 | 20 | 63 | 24.1% |
 | `src/app/servers` | 105 | 26 | 79 | 24.8% |
 | `src/components/route-error.tsx` | 4 | 1 | 3 | 25% |
 | `src/components/two-factor-settings.tsx` | 12 | 3 | 9 | 25% |
-| `src/app/snippets` | 33 | 9 | 24 | 27.3% |
 | `src/app/storage` | 46 | 13 | 33 | 28.3% |
-| `src/app/files` | 167 | 50 | 117 | 29.9% |
-| `src/app/operation-tasks` | 29 | 9 | 20 | 31% |
+| `src/app/files` | 139 | 44 | 95 | 31.7% |
 | `src/app/login` | 3 | 1 | 2 | 33.3% |
+| `src/app/operation-tasks` | 29 | 10 | 19 | 34.5% |
 | `src/app/image-bed` | 22 | 8 | 14 | 36.4% |
-| `src/app/share` | 12 | 5 | 7 | 41.7% |
 | `src/app/scheduled-tasks` | 23 | 10 | 13 | 43.5% |
 | `src/app/global-error.tsx` | 4 | 2 | 2 | 50% |
+| `src/app/share` | 12 | 6 | 6 | 50% |
 | `src/app/audit` | 28 | 15 | 13 | 53.6% |
 | `src/components/change-password-modal.tsx` | 5 | 3 | 2 | 60% |
 | `src/app/announcements` | 6 | 5 | 1 | 83.3% |
@@ -60,21 +58,21 @@ Each row is a Chinese string that appears in source but has no matching key in `
 | 系统自检 | 2 | `src/app/files/page.tsx:232` (text), `src/components/route-error.tsx:58` (text) |
 | 当前目录 | 2 | `src/app/files/page.tsx:262` (text), `src/app/files/search-scope-toggle.tsx:42` (text) |
 | 回收站 | 2 | `src/app/files/page.tsx:270` (text), `src/app/files/page.tsx:304` (text) |
-| 正在加载… | 2 | `src/app/files/preview/csv-preview-client.tsx:103` (text), `src/app/files/preview/markdown-preview-client.tsx:303` (text) |
-| ⬇ 下载文件 | 2 | `src/app/files/preview/office-preview-client.tsx:25` (text), `src/app/share/[token]/page.tsx:130` (text) |
-| 🗑️ 回收站 | 2 | `src/app/files/recycle-bin-section-client.tsx:36` (text), `src/app/files/recycle-bin-section-client.tsx:46` (text) |
-| 无权限 | 2 | `src/app/files/recycle-bin-section-client.tsx:84` (text), `src/app/files/recycle-bin-section-client.tsx:110` (text) |
 | 重命名 | 2 | `src/app/files/rename-inline-form.tsx:70` (title), `src/app/files/rename-inline-form.tsx:94` (text) |
 | 共   条 | 2 | `src/app/operation-tasks/job-events-dialog.tsx:208` (text), `src/app/operation-tasks/operation-task-list-client.tsx:86` (text) |
 | ← 返回报告列表 | 2 | `src/app/qa-reports/[id]/page.tsx:53` (text), `src/app/qa-reports/[id]/page.tsx:68` (text) |
-| 维护环趋势 | 2 | `src/app/qa-reports/qa-reports-list-client.tsx:94` (aria-label), `src/app/qa-reports/qa-reports-list-client.tsx:96` (text) |
-| 镜像： | 2 | `src/app/quick-services/config-preview-dialog.tsx:81` (text), `src/app/quick-services/install-dialog.tsx:192` (text) |
-| 确认删除应用源 | 2 | `src/app/quick-services/pending-source-delete-dialog.tsx:27` (aria-label), `src/app/quick-services/pending-source-delete-dialog.tsx:34` (text) |
-| 确认卸载快捷服务 | 2 | `src/app/quick-services/pending-uninstall-dialog.tsx:29` (aria-label), `src/app/quick-services/pending-uninstall-dialog.tsx:36` (text) |
 | 原因： | 2 | `src/app/requests/page.tsx:93` (text), `src/app/scheduled-tasks/scheduled-task-list-client.tsx:174` (text) |
 | 原因 / 备注 | 2 | `src/app/scheduled-tasks/scheduled-task-list-client.tsx:333` (text), `src/app/servers/command-create-form.tsx:60` (text) |
 | 确认删除「 」？ | 2 | `src/app/servers/server-card-actions.tsx:350` (text), `src/app/storage/storage-node-delete-button.tsx:39` (text) |
 | 当前运行值： | 2 | `src/app/settings/settings-client.tsx:795` (text), `src/app/settings/settings-client.tsx:881` (text) |
+| 生效位置： | 2 | `src/app/settings/settings-client.tsx:798` (text), `src/app/settings/settings-client.tsx:884` (text) |
+| 保存后需重启对应服务才会改变已启动进程。 | 2 | `src/app/settings/settings-client.tsx:804` (text), `src/app/settings/settings-client.tsx:890` (text) |
+| 原值 | 2 | `src/app/settings/settings-client.tsx:1050` (text), `src/app/settings/settings-client.tsx:1138` (text) |
+| 新值 | 2 | `src/app/settings/settings-client.tsx:1051` (text), `src/app/settings/settings-client.tsx:1142` (text) |
+| 根目录 | 2 | `src/app/storage/storage-node-create-form.tsx:46` (text), `src/app/storage/storage-node-edit-form.tsx:62` (text) |
+| 绑定 VPS | 2 | `src/app/storage/storage-node-create-form.tsx:52` (text), `src/app/storage/storage-node-edit-form.tsx:68` (text) |
+| *（SFTP 必填绑定VPS或远端主机） | 2 | `src/app/storage/storage-node-create-form.tsx:52` (text), `src/app/storage/storage-node-edit-form.tsx:68` (text) |
+| 不绑定 | 2 | `src/app/storage/storage-node-create-form.tsx:54` (text), `src/app/storage/storage-node-edit-form.tsx:70` (text) |
 
 ## Files with missing translations (most gaps first)
 
@@ -138,18 +136,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L396 text "安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。"
 - _…and 15 more_
 
-### `src/app/ai/ai-client.tsx` — 22/24 missing (8.3%)
-
-- L568 text "修改对话标题"
-- L569 text "新标题"
-- L571 placeholder placeholder= "输入新的对话标题"
-- L679 text "发送消息开始对话"
-- L680 text "支持:   · 拖拽/粘贴上传"
-- L705 text "💭 思考过程"
-- L787 text "💭 正在思考..."
-- L806 text "正在思考..."
-- _…and 14 more_
-
 ### `src/app/downloads/downloads-client.tsx` — 21/22 missing (4.5%)
 
 - L292 text "全局下载速度"
@@ -162,19 +148,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L354 text "暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。"
 - _…and 13 more_
 
-### `src/app/ai/ai-settings-panel.tsx` — 20/22 missing (9.1%)
-
-- L57 text "模型
-            {modelsLoading &&"
-- L72 placeholder placeholder= "搜索模型..."
-- L72 aria-label aria-label= "搜索模型"
-- L72 text "无可用模型"
-- L79 title title= "支持图片"
-- L82 title title= "支持视频"
-- L85 title title= "支持音频"
-- L88 title title= "支持文档"
-- _…and 12 more_
-
 ### `src/app/files/files-browser-spa.tsx` — 20/27 missing (25.9%)
 
 - L207 text "当前："
@@ -185,18 +158,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L253 text "没有匹配的节点"
 - L396 aria-label aria-label= "面包屑"
 - L527 aria-label aria-label= "目录树"
-- _…and 12 more_
-
-### `src/app/qa-reports/qa-reports-list-client.tsx` — 20/21 missing (4.8%)
-
-- L94 aria-label aria-label= "维护环趋势"
-- L96 text "维护环趋势"
-- L97 text "数据来源 .hermes/autonomous-maintenance-state.json#completed_runs[]。总 tick、成功率、模块覆盖、最近失败摘要。"
-- L105 text "当前 .hermes/autonomous-maintenance-state.json 不可用或暂无 completed_runs 历史。"
-- L125 text "近 7 日 tick 数（绿=成功 / 琥珀=失败）"
-- L126 text "峰值"
-- L128 aria-label aria-label= "近 7 日 tick 柱状图"
-- L161 text "模块覆盖（按访问次数排序，截前 6）"
 - _…and 12 more_
 
 ### `src/app/servers/server-card-actions.tsx` — 16/24 missing (33.3%)
@@ -234,18 +195,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L270 text "回收站"
 - L284 text "全局文件搜索"
 - L285 text "跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。"
-- _…and 7 more_
-
-### `src/app/operation-tasks/operation-task-list-client.tsx` — 15/20 missing (25%)
-
-- L86 text "共   条"
-- L90 text "总计"
-- L99 text "按当前筛选结果归类失败任务，优先处理重复出现的失败模式。"
-- L101 text "共   条失败"
-- L106 text "来源：  · 最新："
-- L113 text "最近任务"
-- L114 text "可优先查看失败/运行中任务，并按 durable job 类型缩小排查范围。"
-- L118 text "状态筛选"
 - _…and 7 more_
 
 ### `src/app/servers/server-overview-details.tsx` — 15/15 missing (0%)
@@ -288,16 +237,16 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L145 aria-label aria-label= "批量移动目标路径"
 - _…and 6 more_
 
-### `src/app/files/file-list-client.tsx` — 14/23 missing (39.1%)
+### `src/app/operation-tasks/operation-task-list-client.tsx` — 14/20 missing (30%)
 
-- L394 title title= "下载目录归档"
-- L615 text "目录"
-- L759 aria-label aria-label= "全选文件"
-- L781 text "修改时间"
-- L799 aria-label aria-label= "选择文件夹（暂未启用）"
-- L966 text "打开"
-- L1086 aria-label aria-label= "关闭提醒"
-- L1104 text "· 已选   个"
+- L86 text "共   条"
+- L99 text "按当前筛选结果归类失败任务，优先处理重复出现的失败模式。"
+- L101 text "共   条失败"
+- L106 text "来源：  · 最新："
+- L113 text "最近任务"
+- L114 text "可优先查看失败/运行中任务，并按 durable job 类型缩小排查范围。"
+- L118 text "状态筛选"
+- L124 text "任务类型"
 - _…and 6 more_
 
 ### `src/app/storage/storage-node-edit-form.tsx` — 14/19 missing (26.3%)
@@ -322,4 +271,52 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L133 text "下载链接"
 - L177 text "保存路径"
 - L191 placeholder placeholder= "留空自动"
+- _…and 5 more_
+
+### `src/app/files/file-list-client.tsx` — 13/23 missing (43.5%)
+
+- L394 title title= "下载目录归档"
+- L759 aria-label aria-label= "全选文件"
+- L781 text "修改时间"
+- L799 aria-label aria-label= "选择文件夹（暂未启用）"
+- L966 text "打开"
+- L1086 aria-label aria-label= "关闭提醒"
+- L1104 text "· 已选   个"
+- L1110 title title= "列表视图"
+- _…and 5 more_
+
+### `src/app/image-bed/image-bed-page-client.tsx` — 13/19 missing (31.6%)
+
+- L504 text "暂无图片，上传第一张吧"
+- L545 text "来源："
+- L563 text "上一页"
+- L565 text "下一页"
+- L585 text "☁️ 从云盘发布到图床"
+- L588 text "存储节点（本地或 SFTP）"
+- L590 text "选择存储节点"
+- L595 text "文件相对路径"
+- _…and 5 more_
+
+### `src/app/scheduled-tasks/scheduled-task-list-client.tsx` — 13/22 missing (40.9%)
+
+- L129 text "搜索定时任务 / 执行日志"
+- L144 text "+ 创建定时任务"
+- L174 text "原因："
+- L176 text "目标节点：  台"
+- L177 text "已执行：  次"
+- L178 text "上次运行："
+- L179 text "下次运行："
+- L182 text "最近执行日志"
+- _…and 5 more_
+
+### `src/components/ssh-terminal-modal.tsx` — 13/14 missing (7.1%)
+
+- L328 text "SSH 终端 —"
+- L348 title title= "命令面板"
+- L354 text "📋 命令面板"
+- L362 text "重连"
+- L366 aria-label aria-label= "关闭 SSH 终端"
+- L395 text "⭐ 常用命令"
+- L397 text "添加常用 SSH 命令"
+- L400 placeholder placeholder= "添加常用命令…"
 - _…and 5 more_

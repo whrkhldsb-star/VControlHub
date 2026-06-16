@@ -11,11 +11,15 @@
  * "missing" (a coverage gap).
  */
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   isChineseLabel,
   extractCandidates,
   findJsxRanges,
+  loadTranslationValuesFromDictionaries,
 } from "../i18n-coverage";
 
 describe("isChineseLabel — character count threshold", () => {
@@ -308,5 +312,76 @@ describe("extractCandidates — line numbers", () => {
     const textNodes = candidates.filter((c) => c.kind === "text");
     expect(textNodes).toHaveLength(1);
     expect(textNodes[0]!.line).toBe(3);
+  });
+});
+
+describe("loadTranslationValuesFromDictionaries", () => {
+  it("extracts zh/en key-value pairs from a single dictionary file", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "i18n-cov-test-"));
+    try {
+      writeFileSync(
+        join(tmp, "snippets.ts"),
+        `export const zh: Record<string, string> = {\n` +
+          `  "snippetsPage.title": "代码片段",\n` +
+          `  "snippetsPage.empty": "暂无片段",\n` +
+          `};\n` +
+          `export const en: Record<string, string> = {\n` +
+          `  "snippetsPage.title": "Snippets",\n` +
+          `  "snippetsPage.empty": "No snippets",\n` +
+          `};\n`,
+      );
+      const { zh, en } = loadTranslationValuesFromDictionaries(tmp);
+      expect(zh).toEqual({
+        "snippetsPage.title": "代码片段",
+        "snippetsPage.empty": "暂无片段",
+      });
+      expect(en).toEqual({
+        "snippetsPage.title": "Snippets",
+        "snippetsPage.empty": "No snippets",
+      });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("aggregates key-value pairs across multiple dictionary files", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "i18n-cov-test-"));
+    try {
+      writeFileSync(
+        join(tmp, "alpha.ts"),
+        `export const zh: Record<string, string> = { "alpha.key": "甲" };\n` +
+          `export const en: Record<string, string> = { "alpha.key": "Alpha" };\n`,
+      );
+      writeFileSync(
+        join(tmp, "beta.ts"),
+        `export const zh: Record<string, string> = { "beta.key": "乙" };\n` +
+          `export const en: Record<string, string> = { "beta.key": "Beta" };\n`,
+      );
+      const { zh, en } = loadTranslationValuesFromDictionaries(tmp);
+      expect(zh).toEqual({ "alpha.key": "甲", "beta.key": "乙" });
+      expect(en).toEqual({ "alpha.key": "Alpha", "beta.key": "Beta" });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores non-export zh/en blocks (e.g. inline identifiers)", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "i18n-cov-test-"));
+    try {
+      writeFileSync(
+        join(tmp, "page.ts"),
+        `// comments that look like const zh: { ... } = { ... } should be ignored\n` +
+          `const x = { zh: { foo: "bar" } };\n` +
+          `export const zh: Record<string, string> = { "page.greet": "你好" };\n` +
+          `export const en: Record<string, string> = { "page.greet": "Hello" };\n`,
+      );
+      const { zh, en } = loadTranslationValuesFromDictionaries(tmp);
+      // Only the `export const` blocks are captured — the inline `x.zh.foo`
+      // is not picked up by the regex (no `export const` prefix).
+      expect(zh).toEqual({ "page.greet": "你好" });
+      expect(en).toEqual({ "page.greet": "Hello" });
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

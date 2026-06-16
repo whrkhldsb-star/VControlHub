@@ -1,19 +1,33 @@
 {
-  "generatedAt": "2026-06-16T12:18:33.713Z",
+  "generatedAt": "2026-06-16T16:11:15.579Z",
   "summary": {
-    "files": 260,
-    "filesWithStrings": 104,
-    "totalStrings": 992,
-    "coveredStrings": 229,
-    "missingStrings": 763,
-    "coveragePercent": 23.1
+    "files": 261,
+    "filesWithStrings": 82,
+    "totalStrings": 773,
+    "coveredStrings": 184,
+    "missingStrings": 589,
+    "coveragePercent": 23.8
   },
   "perModule": [
+    {
+      "module": "src/app/api-docs",
+      "total": 3,
+      "covered": 0,
+      "missing": 3,
+      "coveragePercent": 0
+    },
     {
       "module": "src/app/health",
       "total": 4,
       "covered": 0,
       "missing": 4,
+      "coveragePercent": 0
+    },
+    {
+      "module": "src/app/snippets",
+      "total": 1,
+      "covered": 0,
+      "missing": 1,
       "coveragePercent": 0
     },
     {
@@ -38,13 +52,6 @@
       "coveragePercent": 4.5
     },
     {
-      "module": "src/app/qa-reports",
-      "total": 32,
-      "covered": 2,
-      "missing": 30,
-      "coveragePercent": 6.3
-    },
-    {
       "module": "src/components/ssh-terminal-modal.tsx",
       "total": 14,
       "covered": 1,
@@ -66,18 +73,18 @@
       "coveragePercent": 8.7
     },
     {
+      "module": "src/app/qa-reports",
+      "total": 10,
+      "covered": 1,
+      "missing": 9,
+      "coveragePercent": 10
+    },
+    {
       "module": "src/app/downloads",
       "total": 38,
       "covered": 4,
       "missing": 34,
       "coveragePercent": 10.5
-    },
-    {
-      "module": "src/app/api-docs",
-      "total": 9,
-      "covered": 1,
-      "missing": 8,
-      "coveragePercent": 11.1
     },
     {
       "module": "src/app/requests",
@@ -94,11 +101,11 @@
       "coveragePercent": 14.3
     },
     {
-      "module": "src/app/monitoring",
-      "total": 13,
-      "covered": 2,
-      "missing": 11,
-      "coveragePercent": 15.4
+      "module": "src/app/quick-services",
+      "total": 48,
+      "covered": 7,
+      "missing": 41,
+      "coveragePercent": 14.6
     },
     {
       "module": "src/app/media",
@@ -113,20 +120,6 @@
       "covered": 5,
       "missing": 26,
       "coveragePercent": 16.1
-    },
-    {
-      "module": "src/app/quick-services",
-      "total": 83,
-      "covered": 15,
-      "missing": 68,
-      "coveragePercent": 18.1
-    },
-    {
-      "module": "src/app/ai",
-      "total": 83,
-      "covered": 20,
-      "missing": 63,
-      "coveragePercent": 24.1
     },
     {
       "module": "src/app/servers",
@@ -150,13 +143,6 @@
       "coveragePercent": 25
     },
     {
-      "module": "src/app/snippets",
-      "total": 33,
-      "covered": 9,
-      "missing": 24,
-      "coveragePercent": 27.3
-    },
-    {
       "module": "src/app/storage",
       "total": 46,
       "covered": 13,
@@ -165,17 +151,10 @@
     },
     {
       "module": "src/app/files",
-      "total": 167,
-      "covered": 50,
-      "missing": 117,
-      "coveragePercent": 29.9
-    },
-    {
-      "module": "src/app/operation-tasks",
-      "total": 29,
-      "covered": 9,
-      "missing": 20,
-      "coveragePercent": 31
+      "total": 139,
+      "covered": 44,
+      "missing": 95,
+      "coveragePercent": 31.7
     },
     {
       "module": "src/app/login",
@@ -185,18 +164,18 @@
       "coveragePercent": 33.3
     },
     {
+      "module": "src/app/operation-tasks",
+      "total": 29,
+      "covered": 10,
+      "missing": 19,
+      "coveragePercent": 34.5
+    },
+    {
       "module": "src/app/image-bed",
       "total": 22,
       "covered": 8,
       "missing": 14,
       "coveragePercent": 36.4
-    },
-    {
-      "module": "src/app/share",
-      "total": 12,
-      "covered": 5,
-      "missing": 7,
-      "coveragePercent": 41.7
     },
     {
       "module": "src/app/scheduled-tasks",
@@ -210,6 +189,13 @@
       "total": 4,
       "covered": 2,
       "missing": 2,
+      "coveragePercent": 50
+    },
+    {
+      "module": "src/app/share",
+      "total": 12,
+      "covered": 6,
+      "missing": 6,
       "coveragePercent": 50
     },
     {
@@ -403,70 +389,6 @@
       ]
     },
     {
-      "text": "正在加载…",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/files/preview/csv-preview-client.tsx",
-          "line": 103,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/files/preview/markdown-preview-client.tsx",
-          "line": 303,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "⬇ 下载文件",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/files/preview/office-preview-client.tsx",
-          "line": 25,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/share/[token]/page.tsx",
-          "line": 130,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "🗑️ 回收站",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/files/recycle-bin-section-client.tsx",
-          "line": 36,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/files/recycle-bin-section-client.tsx",
-          "line": 46,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "无权限",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/files/recycle-bin-section-client.tsx",
-          "line": 84,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/files/recycle-bin-section-client.tsx",
-          "line": 110,
-          "kind": "text"
-        }
-      ]
-    },
-    {
       "text": "重命名",
       "count": 2,
       "files": [
@@ -510,70 +432,6 @@
         {
           "path": "src/app/qa-reports/[id]/page.tsx",
           "line": 68,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "维护环趋势",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/qa-reports/qa-reports-list-client.tsx",
-          "line": 94,
-          "kind": "aria-label"
-        },
-        {
-          "path": "src/app/qa-reports/qa-reports-list-client.tsx",
-          "line": 96,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "镜像：",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/quick-services/config-preview-dialog.tsx",
-          "line": 81,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/quick-services/install-dialog.tsx",
-          "line": 192,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "确认删除应用源",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/quick-services/pending-source-delete-dialog.tsx",
-          "line": 27,
-          "kind": "aria-label"
-        },
-        {
-          "path": "src/app/quick-services/pending-source-delete-dialog.tsx",
-          "line": 34,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "确认卸载快捷服务",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/quick-services/pending-uninstall-dialog.tsx",
-          "line": 29,
-          "kind": "aria-label"
-        },
-        {
-          "path": "src/app/quick-services/pending-uninstall-dialog.tsx",
-          "line": 36,
           "kind": "text"
         }
       ]
@@ -702,102 +560,6 @@
         {
           "path": "src/app/settings/settings-client.tsx",
           "line": 1142,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "语言",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 84,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 78,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "描述（可选）",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 95,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 88,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "简要说明此片段的用途",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 96,
-          "kind": "placeholder"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 89,
-          "kind": "placeholder"
-        }
-      ]
-    },
-    {
-      "text": "标签（用逗号分隔）",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 106,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 99,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "例如 备份, nginx",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 107,
-          "kind": "placeholder"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 100,
-          "kind": "placeholder"
-        }
-      ]
-    },
-    {
-      "text": "仅自己可见",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 133,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 126,
           "kind": "text"
         }
       ]
@@ -1036,6 +798,160 @@
           "kind": "text"
         }
       ]
+    },
+    {
+      "text": "请输入当前密码",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/change-password-form.tsx",
+          "line": 52,
+          "kind": "placeholder"
+        }
+      ]
+    },
+    {
+      "text": "至少 8 位",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/change-password-form.tsx",
+          "line": 58,
+          "kind": "placeholder"
+        }
+      ]
+    },
+    {
+      "text": "再次输入新密码",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/change-password-form.tsx",
+          "line": 64,
+          "kind": "placeholder"
+        }
+      ]
+    },
+    {
+      "text": "（ s 后自动跳到仪表盘…）",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/change-password-form.tsx",
+          "line": 79,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "立即跳到仪表盘",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/change-password-form.tsx",
+          "line": 94,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "修改当前账号的后台登录密码",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/page.tsx",
+          "line": 15,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "安全建议",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/page.tsx",
+          "line": 22,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "• 新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/page.tsx",
+          "line": 24,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "• 修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/page.tsx",
+          "line": 25,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "• 若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/account/password/page.tsx",
+          "line": 26,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "编辑公告",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/announcements/announcement-edit-modal.tsx",
+          "line": 55,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "/$  个接口` : t(\"apiDocsPage.loadingInline\")}",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/api-docs/api-docs-page-client.tsx",
+          "line": 131,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "个接口",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/api-docs/api-docs-page-client.tsx",
+          "line": 155,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "参数",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/api-docs/api-docs-page-client.tsx",
+          "line": 173,
+          "kind": "text"
+        }
+      ]
     }
   ],
   "reportsByFile": {
@@ -1118,7 +1034,7 @@
           "kind": "text",
           "context": "<h1 className=\"text-3xl font-semibold tracking-tight\">修改密码",
           "covered": true,
-          "key": "auth.change-password"
+          "key": "audit.action.auth.password_change"
         },
         {
           "text": "修改当前账号的后台登录密码",
@@ -1159,255 +1075,24 @@
     },
     "src/app/ai/ai-chat-header.tsx": {
       "path": "src/app/ai/ai-chat-header.tsx",
-      "total": 6,
+      "total": 0,
       "covered": 0,
-      "missing": 6,
-      "candidates": [
-        {
-          "text": "⚙ 设置",
-          "line": 55,
-          "kind": "text",
-          "context": "<button onClick={onToggleSettings} className=\"h-7 px-2.5 rou",
-          "covered": false
-        },
-        {
-          "text": "清空对话消息",
-          "line": 58,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button\n          onClick={onClearMessages}\n          className=\"h-7 px-2.5 roun",
-          "covered": false
-        },
-        {
-          "text": "🗑 清空",
-          "line": 62,
-          "kind": "text",
-          "context": "<button onClick={onClearMessages} className=\"h-7 px-2.5 roun",
-          "covered": false
-        },
-        {
-          "text": "✏ 重命名",
-          "line": 68,
-          "kind": "text",
-          "context": "<button onClick={onRenameConv} className=\"h-7 px-2.5 rounded",
-          "covered": false
-        },
-        {
-          "text": "导出对话为 Markdown",
-          "line": 71,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button\n          onClick={onExportConv}\n          className=\"h-7 px-2.5 rounded",
-          "covered": false
-        },
-        {
-          "text": "📥 导出",
-          "line": 75,
-          "kind": "text",
-          "context": "<button onClick={onExportConv} className=\"h-7 px-2.5 rounded",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/ai-client.tsx": {
       "path": "src/app/ai/ai-client.tsx",
-      "total": 24,
-      "covered": 2,
-      "missing": 22,
-      "candidates": [
-        {
-          "text": "修改对话标题",
-          "line": 568,
-          "kind": "text",
-          "context": "<h3 id=\"rename-conversation-title\" className=\"text-sm font-semibold text-white\">",
-          "covered": false
-        },
-        {
-          "text": "新标题",
-          "line": 569,
-          "kind": "text",
-          "context": "<label htmlFor=\"rename-conversation-title-input\" className=\"mt-4 grid gap-1 text",
-          "covered": false
-        },
-        {
-          "text": "输入新的对话标题",
-          "line": 571,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n                id=\"rename-conversation-title-input\"\n                valu",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 587,
-          "kind": "text",
-          "context": "<button type=\"button\" disabled={renameBusy} ",
-          "covered": true,
-          "key": "common.cancel"
-        },
-        {
-          "text": "发送消息开始对话",
-          "line": 679,
-          "kind": "text",
-          "context": "<p className=\"text-sm\">发送消息开始对话",
-          "covered": false
-        },
-        {
-          "text": "支持:   · 拖拽/粘贴上传",
-          "line": 680,
-          "kind": "text",
-          "context": "<p className=\"text-xs mt-1 text-slate-700\"> 支持: {formatAllow",
-          "covered": false
-        },
-        {
-          "text": "💭 思考过程",
-          "line": 705,
-          "kind": "text",
-          "context": "<summary className=\"text-[10px] text-slate-500 cursor-pointer hover:text-slate-4",
-          "covered": false
-        },
-        {
-          "text": "💭 正在思考...",
-          "line": 787,
-          "kind": "text",
-          "context": "<summary className=\"text-[10px] text-cyan-400/60 cursor-pointer\">💭 正在思考...",
-          "covered": false
-        },
-        {
-          "text": "正在思考...",
-          "line": 806,
-          "kind": "text",
-          "context": "<div className=\"rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-500 text-sm\">",
-          "covered": false
-        },
-        {
-          "text": "🔒 待审批操作 ( )",
-          "line": 815,
-          "kind": "text",
-          "context": "<div className=\"text-xs text-amber-400 font-medium mb-2\">🔒 待审批操作 ({pendingAppro",
-          "covered": false
-        },
-        {
-          "text": "风险:",
-          "line": 821,
-          "kind": "text",
-          "context": "<div className=\"text-xs text-[var(--text-secondary)] truncate\"> 风险: ",
-          "covered": false
-        },
-        {
-          "text": "服务器:",
-          "line": 827,
-          "kind": "text",
-          "context": "<span className=\"ml-2\">服务器: {approval.params.serverId}",
-          "covered": false
-        },
-        {
-          "text": "拒绝",
-          "line": 844,
-          "kind": "text",
-          "context": "<button className=\"px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700",
-          "covered": false
-        },
-        {
-          "text": "批准",
-          "line": 858,
-          "kind": "text",
-          "context": "<button className=\"px-3 py-1 text-xs rounded bg-green-600 hover:bg-green",
-          "covered": false
-        },
-        {
-          "text": "视频文件",
-          "line": 891,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-base\" title=\"视频文件\">",
-          "covered": false
-        },
-        {
-          "text": "音频文件",
-          "line": 893,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-base\" title=\"音频文件\">",
-          "covered": false
-        },
-        {
-          "text": "文档文件",
-          "line": 895,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-base\" title=\"文档文件\">",
-          "covered": false
-        },
-        {
-          "text": "输入图片 URL（回车添加）",
-          "line": 920,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n                    value={imageUrlInput}\n                    onChange={(",
-          "covered": false
-        },
-        {
-          "text": "图片 URL",
-          "line": 920,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<input\n                    value={imageUrlInput}\n                    onChange={(",
-          "covered": false
-        },
-        {
-          "text": "还没有可用的 AI 提供商",
-          "line": 969,
-          "kind": "text",
-          "context": "<p className=\"text-sm font-medium text-slate-300\">还没有可用的 AI 提供商",
-          "covered": false
-        },
-        {
-          "text": "先添加一个 OpenAI 兼容或其它提供商并填写 API Key、Base URL 和默认模型；配置完成后即可创建新对话。",
-          "line": 970,
-          "kind": "text",
-          "context": "<p className=\"mt-2 max-w-md text-xs leading-5 text-slate-500\"> ",
-          "covered": false
-        },
-        {
-          "text": "配置 AI 提供商",
-          "line": 977,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={() => setShow",
-          "covered": false
-        },
-        {
-          "text": "选择一个对话或创建新对话",
-          "line": 983,
-          "kind": "text",
-          "context": "<p className=\"text-sm mb-3\">选择一个对话或创建新对话",
-          "covered": false
-        },
-        {
-          "text": "+ 新对话",
-          "line": 988,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={handleNewConv",
-          "covered": true,
-          "key": "common.newChat"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/ai-confirm-dialog.tsx": {
       "path": "src/app/ai/ai-confirm-dialog.tsx",
-      "total": 1,
-      "covered": 1,
+      "total": 0,
+      "covered": 0,
       "missing": 0,
-      "candidates": [
-        {
-          "text": "取消",
-          "line": 51,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={onCancel} dis",
-          "covered": true,
-          "key": "common.cancel"
-        }
-      ]
+      "candidates": []
     },
     "src/app/ai/ai-input-area-lazy.tsx": {
       "path": "src/app/ai/ai-input-area-lazy.tsx",
@@ -1418,35 +1103,10 @@
     },
     "src/app/ai/ai-input-area.tsx": {
       "path": "src/app/ai/ai-input-area.tsx",
-      "total": 3,
+      "total": 0,
       "covered": 0,
-      "missing": 3,
-      "candidates": [
-        {
-          "text": "消息输入",
-          "line": 90,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<textarea\n          ref={textareaRef}\n          value={input}\n          onChange",
-          "covered": false
-        },
-        {
-          "text": "发送消息",
-          "line": 117,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button\n          onClick={handleSend}\n          disabled={streaming || (!input.",
-          "covered": false
-        },
-        {
-          "text": "停止生成",
-          "line": 128,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button\n            onClick={handleStopGeneration}\n            className=\"h-10 w",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/ai-markdown-renderer.tsx": {
       "path": "src/app/ai/ai-markdown-renderer.tsx",
@@ -1464,190 +1124,10 @@
     },
     "src/app/ai/ai-provider-panel.tsx": {
       "path": "src/app/ai/ai-provider-panel.tsx",
-      "total": 23,
-      "covered": 12,
-      "missing": 11,
-      "candidates": [
-        {
-          "text": "AI 提供商管理",
-          "line": 144,
-          "kind": "text",
-          "context": "<h3 id=\"ai-provider-panel-title\" className=\"text-sm font-semibold text-[var(--te",
-          "covered": false
-        },
-        {
-          "text": "关闭提供商管理",
-          "line": 145,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button\n            onClick={onClose}\n            className=\"text-slate-500 hove",
-          "covered": false
-        },
-        {
-          "text": "已添加的提供商",
-          "line": 159,
-          "kind": "text",
-          "context": "<h4 className=\"text-xs text-slate-500 uppercase tracking-wider\">已添加的提供商",
-          "covered": false
-        },
-        {
-          "text": "已禁用",
-          "line": 169,
-          "kind": "text",
-          "context": "<span className=\"text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded\">已",
-          "covered": true,
-          "key": "scheduledTasks.status.disabled"
-        },
-        {
-          "text": "编辑",
-          "line": 193,
-          "kind": "text",
-          "context": "<button onClick={() => startEditing(p)} ",
-          "covered": true,
-          "key": "common.edit"
-        },
-        {
-          "text": "删除",
-          "line": 200,
-          "kind": "text",
-          "context": "<button onClick={() => onDeleteProvider(p.id)} ",
-          "covered": true,
-          "key": "common.delete"
-        },
-        {
-          "text": "编辑提供商",
-          "line": 212,
-          "kind": "text",
-          "context": "<h4 className=\"text-xs text-cyan-200 uppercase tracking-wider\">编辑提供商",
-          "covered": false
-        },
-        {
-          "text": "取消编辑",
-          "line": 213,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={cancelEditing} className=\"text-xs text-[var(--tex",
-          "covered": false
-        },
-        {
-          "text": "名称",
-          "line": 217,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500\" htmlFor=\"ai-provider-edit-name\">名称",
-          "covered": true,
-          "key": "common.name"
-        },
-        {
-          "text": "类型",
-          "line": 221,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500\" htmlFor=\"ai-provider-edit-type\">类型",
-          "covered": true,
-          "key": "common.type"
-        },
-        {
-          "text": "留空保持不变",
-          "line": 228,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input id=\"ai-provider-edit-key\" type=\"password\" value={editForm.apiKey} onChang",
-          "covered": false
-        },
-        {
-          "text": "默认模型",
-          "line": 235,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500\" htmlFor=\"ai-provider-edit-default-",
-          "covered": true,
-          "key": "ai.defaultModel"
-        },
-        {
-          "text": "默认模型",
-          "line": 236,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<input id=\"ai-provider-edit-default-model\" aria-label=\"默认模型\" value={editForm.def",
-          "covered": true,
-          "key": "ai.defaultModel"
-        },
-        {
-          "text": "添加新提供商",
-          "line": 247,
-          "kind": "text",
-          "context": "<h4 className=\"text-xs text-slate-500 uppercase tracking-wider\">添加新提供商",
-          "covered": false
-        },
-        {
-          "text": "名称",
-          "line": 250,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500\" htmlFor=\"ai-provider-name\">名称",
-          "covered": true,
-          "key": "common.name"
-        },
-        {
-          "text": "类型",
-          "line": 254,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500\" htmlFor=\"ai-provider-type\">类型",
-          "covered": true,
-          "key": "common.type"
-        },
-        {
-          "text": "默认模型",
-          "line": 272,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500\" htmlFor=\"ai-provider-default-model",
-          "covered": true,
-          "key": "ai.defaultModel"
-        },
-        {
-          "text": "默认模型",
-          "line": 274,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<select id=\"ai-provider-default-model\" aria-label=\"默认模型\" value={provForm.default",
-          "covered": true,
-          "key": "ai.defaultModel"
-        },
-        {
-          "text": "点击下方获取模型清单",
-          "line": 278,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input id=\"ai-provider-default-model\" aria-label=\"默认模型\" value={provForm.defaultM",
-          "covered": false
-        },
-        {
-          "text": "默认模型",
-          "line": 278,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<input id=\"ai-provider-default-model\" aria-label=\"默认模型\" value={provForm.defaultM",
-          "covered": true,
-          "key": "ai.defaultModel"
-        },
-        {
-          "text": "模型清单",
-          "line": 284,
-          "kind": "text",
-          "context": "<div className=\"text-[10px] text-[var(--text-secondary)]\">模型清单",
-          "covered": false
-        },
-        {
-          "text": "输入账号密钥后自动拉取模型，然后选择默认模型。",
-          "line": 285,
-          "kind": "text",
-          "context": "<p className=\"text-[11px] text-slate-500\">输入账号密钥后自动拉取模型，然后选择默认模型。",
-          "covered": false
-        },
-        {
-          "text": "添加提供商",
-          "line": 298,
-          "kind": "text",
-          "context": "<button onClick={onCreateProvider} className=\"w-full h-9 rounded-xl bg-cyan-500/",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/ai-settings-panel-lazy.tsx": {
       "path": "src/app/ai/ai-settings-panel-lazy.tsx",
@@ -1658,216 +1138,17 @@
     },
     "src/app/ai/ai-settings-panel.tsx": {
       "path": "src/app/ai/ai-settings-panel.tsx",
-      "total": 22,
-      "covered": 2,
-      "missing": 20,
-      "candidates": [
-        {
-          "text": "模型\n            {modelsLoading &&",
-          "line": 57,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500 uppercase tracking-wider\"> ",
-          "covered": false
-        },
-        {
-          "text": "加载中...",
-          "line": 59,
-          "kind": "text",
-          "context": "<span className=\"ml-2 text-cyan-400 animate-pulse\">加载中...",
-          "covered": true,
-          "key": "common.loading"
-        },
-        {
-          "text": "搜索模型...",
-          "line": 72,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} plac",
-          "covered": false
-        },
-        {
-          "text": "搜索模型",
-          "line": 72,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} plac",
-          "covered": false
-        },
-        {
-          "text": "无可用模型",
-          "line": 72,
-          "kind": "text",
-          "context": "<div className=\"px-3 py-4 text-xs text-slate-500 text-center\"> 无可用模型 ",
-          "covered": false
-        },
-        {
-          "text": "刷新",
-          "line": 72,
-          "kind": "text",
-          "context": "<button onClick={onRefreshModels} className=\"ml-2 text-cyan-400 hover:text-cyan-",
-          "covered": true,
-          "key": "common.refresh"
-        },
-        {
-          "text": "支持图片",
-          "line": 79,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-[9px] text-cyan-400/60\" title=\"支持图片\">",
-          "covered": false
-        },
-        {
-          "text": "支持视频",
-          "line": 82,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-[9px] text-blue-400/60\" title=\"支持视频\">",
-          "covered": false
-        },
-        {
-          "text": "支持音频",
-          "line": 85,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-[9px] text-purple-400/60\" title=\"支持音频\">",
-          "covered": false
-        },
-        {
-          "text": "支持文档",
-          "line": 88,
-          "kind": "title",
-          "attr": "title",
-          "context": "<span className=\"text-[9px] text-green-400/60\" title=\"支持文档\">",
-          "covered": false
-        },
-        {
-          "text": "手动输入模型 ID...",
-          "line": 107,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n                      value={modelSearch || settingsForm.model}\n         ",
-          "covered": false
-        },
-        {
-          "text": "手动输入模型 ID",
-          "line": 107,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<input\n                      value={modelSearch || settingsForm.model}\n         ",
-          "covered": false
-        },
-        {
-          "text": "应用",
-          "line": 130,
-          "kind": "text",
-          "context": "<button onClick={() => { if (model",
-          "covered": false
-        },
-        {
-          "text": "频率惩罚",
-          "line": 197,
-          "kind": "text",
-          "context": "<label htmlFor=\"ai-setting-freq-pen\" className=\"text-[10px] text-slate-500 upper",
-          "covered": false
-        },
-        {
-          "text": "存在惩罚",
-          "line": 216,
-          "kind": "text",
-          "context": "<label htmlFor=\"ai-setting-pres-pen\" className=\"text-[10px] text-slate-500 upper",
-          "covered": false
-        },
-        {
-          "text": "👁 多模态 (视觉)\n              {currentModelSupportsVision && (",
-          "line": 242,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-[var(--text-secondary)]\"> 👁 多模态 (视觉",
-          "covered": false
-        },
-        {
-          "text": "推荐",
-          "line": 245,
-          "kind": "text",
-          "context": "<span className=\"text-[9px] text-cyan-400/60 ml-1\">推荐",
-          "covered": false
-        },
-        {
-          "text": "🤖 AI托管模式",
-          "line": 260,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-[var(--text-secondary)]\"> 🤖 AI托管模式 ",
-          "covered": false
-        },
-        {
-          "text": "AI可操作VPS",
-          "line": 262,
-          "kind": "text",
-          "context": "<span className=\"text-[9px] text-amber-400/60 ml-1\">AI可操作VPS",
-          "covered": false
-        },
-        {
-          "text": "保存设置",
-          "line": 272,
-          "kind": "text",
-          "context": "<button onClick={onSaveSettings} className=\"h-7 px-3 rou",
-          "covered": false
-        },
-        {
-          "text": "系统提示词 (System Prompt)",
-          "line": 280,
-          "kind": "text",
-          "context": "<label className=\"text-[10px] text-slate-500 uppercase tracking-wider\" htmlFor=\"",
-          "covered": false
-        },
-        {
-          "text": "设定 AI 的角色和行为方式...",
-          "line": 281,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<textarea\n          id=\"ai-setting-system-prompt\"\n          value={settingsForm.",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/ai-sidebar.tsx": {
       "path": "src/app/ai/ai-sidebar.tsx",
-      "total": 4,
-      "covered": 3,
-      "missing": 1,
-      "candidates": [
-        {
-          "text": "AI 助手",
-          "line": 40,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">AI 助手",
-          "covered": true,
-          "key": "nav.ai"
-        },
-        {
-          "text": "+ 新对话",
-          "line": 44,
-          "kind": "text",
-          "context": "<button onClick={onNewConv} className=\"h-7 px-2.5 ro",
-          "covered": true,
-          "key": "common.newChat"
-        },
-        {
-          "text": "暂无对话，点击新建开始",
-          "line": 52,
-          "kind": "text",
-          "context": "<EmptyState>暂无对话，点击新建开始",
-          "covered": false
-        },
-        {
-          "text": "打开侧边栏",
-          "line": 109,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<button\n          onClick={() => onToggleSidebar(true)}\n          className=\"abs",
-          "covered": true,
-          "key": "common.openSidebar"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/ai/error.tsx": {
       "path": "src/app/ai/error.tsx",
@@ -1937,7 +1218,7 @@
           "kind": "text",
           "context": "<label className=\"block text-xs text-slate-400\" htmlFor=\"announcementTitle\">标题",
           "covered": true,
-          "key": "common.title"
+          "key": "announcementsPage.create.titleLabel"
         },
         {
           "text": "ℹ️ 信息",
@@ -1961,7 +1242,7 @@
           "kind": "text",
           "context": "<label className=\"block text-xs text-slate-400\" htmlFor=\"announcementContent\">内容",
           "covered": true,
-          "key": "common.content"
+          "key": "announcementsPage.create.contentLabel"
         },
         {
           "text": "取消",
@@ -1969,7 +1250,7 @@
           "kind": "text",
           "context": "<button onClick={onClose} className=\"rounded-lg border b",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -2010,73 +1291,29 @@
     },
     "src/app/api-docs/api-docs-page-client.tsx": {
       "path": "src/app/api-docs/api-docs-page-client.tsx",
-      "total": 9,
-      "covered": 1,
-      "missing": 8,
+      "total": 3,
+      "covered": 0,
+      "missing": 3,
       "candidates": [
         {
-          "text": "API 文档",
-          "line": 103,
-          "kind": "text",
-          "context": "<h1 className=\"mt-2 text-3xl font-semibold tracking-tight text-[var(--text-prima",
-          "covered": true,
-          "key": "nav.api-docs"
-        },
-        {
-          "text": "搜索接口",
-          "line": 121,
-          "kind": "text",
-          "context": "<span className=\"sr-only\">搜索接口",
-          "covered": false
-        },
-        {
-          "text": "搜索路径、方法、模块或说明",
-          "line": 122,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n\t\t\t\t\t\t\t\tvalue={query}\n\t\t\t\t\t\t\t\tonChange={(event) => setQuery(event.target.",
-          "covered": false
-        },
-        {
-          "text": "/$  个接口` : \"正在加载接口定义...\"}",
-          "line": 129,
+          "text": "/$  个接口` : t(\"apiDocsPage.loadingInline\")}",
+          "line": 131,
           "kind": "text",
           "context": "<div className=\"text-sm text-slate-400\"> {spec ? `${filtered.length}/${en",
           "covered": false
         },
         {
-          "text": "正在加载 API 文档...",
-          "line": 142,
-          "kind": "text",
-          "context": "<div className=\"rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-",
-          "covered": false
-        },
-        {
           "text": "个接口",
-          "line": 153,
+          "line": 155,
           "kind": "text",
           "context": "<span className=\"rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 ",
           "covered": false
         },
         {
           "text": "参数",
-          "line": 171,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-white/[0.04] px-2 py-1\">参数 {entry.operation.par",
-          "covered": false
-        },
-        {
-          "text": "请求体",
-          "line": 172,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-white/[0.04] px-2 py-1\">请求体",
-          "covered": false
-        },
-        {
-          "text": "响应",
           "line": 173,
           "kind": "text",
-          "context": "<span className=\"rounded-full bg-white/[0.04] px-2 py-1\">响应 {Object.keys(entry.o",
+          "context": "<span className=\"rounded-full bg-white/[0.04] px-2 py-1\">参数 {entry.operation.par",
           "covered": false
         }
       ]
@@ -2158,7 +1395,7 @@
           "kind": "text",
           "context": "<option value=\"auth.login\">登录",
           "covered": true,
-          "key": "auth.login"
+          "key": "audit.action.auth.login"
         },
         {
           "text": "登录失败",
@@ -2174,7 +1411,7 @@
           "kind": "text",
           "context": "<option value=\"auth.password_change\">修改密码",
           "covered": true,
-          "key": "auth.change-password"
+          "key": "audit.action.auth.password_change"
         },
         {
           "text": "删除文件",
@@ -2228,7 +1465,7 @@
           "kind": "text",
           "context": "<div>类型",
           "covered": true,
-          "key": "common.type"
+          "key": "aiPage.typeLabel"
         },
         {
           "text": "操作者",
@@ -2243,7 +1480,7 @@
           "kind": "text",
           "context": "<EmptyState>加载中…",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "暂无审计日志。",
@@ -2259,7 +1496,7 @@
           "kind": "text",
           "context": "<EmptyState>加载中…",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "暂无审计日志。",
@@ -2319,7 +1556,7 @@
           "attr": "title",
           "context": "<PageHeader eyebrow=\"Audit\" title=\"审计日志\" description=\"平台操作追踪与安全审计\">",
           "covered": true,
-          "key": "nav.audit"
+          "key": "dashboard.audit-log"
         },
         {
           "text": "回到首页",
@@ -2662,7 +1899,7 @@
           "kind": "text",
           "context": "<button type=\"button\" disabled={pending} ",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -2799,6 +2036,13 @@
     },
     "src/app/dashboard-widget-detail-dialog.tsx": {
       "path": "src/app/dashboard-widget-detail-dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src/app/dashboard/page.tsx": {
+      "path": "src/app/dashboard/page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
@@ -3388,7 +2632,7 @@
           "kind": "text",
           "context": "<EmptyState>加载中…",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "的任务`}",
@@ -3512,7 +2756,7 @@
           "attr": "title",
           "context": "<PageHeader\n\t\t\t\teyebrow=\"Transfer\"\n\t\t\t\ttitle=\"远程下载\"\n\t\t\t\tdescription=\"输入 URL 或磁力链",
           "covered": true,
-          "key": "nav.downloads"
+          "key": "dashboard.quick.downloads"
         }
       ]
     },
@@ -3535,7 +2779,7 @@
           "kind": "text",
           "context": "<span>目标节点",
           "covered": true,
-          "key": "common.targetNode"
+          "key": "alertRulesPage.createForm.targetNodes"
         },
         {
           "text": "文件夹名称",
@@ -3566,7 +2810,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={handleCancel} className=\"",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -3583,7 +2827,7 @@
           "attr": "title",
           "context": "<button\n        type=\"button\"\n        onClick={() => setConfirming(true)}\n      ",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "删除",
@@ -3591,7 +2835,7 @@
           "kind": "text",
           "context": "<span>删除",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "确认删除  \n         ？",
@@ -3614,7 +2858,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={handleCancel} className=\"",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -3672,7 +2916,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={onConfirmDelete} ",
           "covered": true,
-          "key": "common.confirmDelete"
+          "key": "aiPage.confirmDelete"
         },
         {
           "text": "取消",
@@ -3680,7 +2924,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => setBatchAct",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "已删除  /  个",
@@ -3731,7 +2975,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => { ",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "已选   个文件",
@@ -3806,7 +3050,7 @@
           "kind": "text",
           "context": "<p className=\"text-xs text-slate-500\">大小",
           "covered": true,
-          "key": "common.size"
+          "key": "archivePreview.table.size"
         },
         {
           "text": "修改时间",
@@ -3869,8 +3113,8 @@
     "src/app/files/file-list-client.tsx": {
       "path": "src/app/files/file-list-client.tsx",
       "total": 23,
-      "covered": 9,
-      "missing": 14,
+      "covered": 10,
+      "missing": 13,
       "candidates": [
         {
           "text": "资料详情",
@@ -3927,7 +3171,8 @@
           "line": 615,
           "kind": "text",
           "context": "<span>目录",
-          "covered": false
+          "covered": true,
+          "key": "archivePreview.entryType.directory"
         },
         {
           "text": "全选文件",
@@ -3943,7 +3188,7 @@
           "kind": "text",
           "context": "<div> 名称 ",
           "covered": true,
-          "key": "common.name"
+          "key": "aiPage.nameLabel"
         },
         {
           "text": "大小",
@@ -3951,7 +3196,7 @@
           "kind": "text",
           "context": "<div> 大小 ",
           "covered": true,
-          "key": "common.size"
+          "key": "archivePreview.table.size"
         },
         {
           "text": "来源",
@@ -4230,7 +3475,7 @@
           "kind": "text",
           "context": "<span className=\"ml-2 text-sm text-cyan-300 animate-pulse\"> ",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "` : \"当前路径：全部节点：/\"}",
@@ -4357,7 +3602,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={handleCancel} className=\"",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -4381,7 +3626,7 @@
           "kind": "text",
           "context": "<Link href=\"/audit\" className=\"rounded-full border borde",
           "covered": true,
-          "key": "nav.audit"
+          "key": "dashboard.audit-log"
         },
         {
           "text": "系统自检",
@@ -4396,7 +3641,7 @@
           "kind": "text",
           "context": "<Link href=\"/servers\" className=\"rounded-full border bor",
           "covered": true,
-          "key": "servers.title"
+          "key": "preferencesPage.page.servers"
         },
         {
           "text": "文件节点",
@@ -4525,90 +3770,31 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={handleCancel} className=\"",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
     "src/app/files/preview/archive-preview-client.tsx": {
       "path": "src/app/files/preview/archive-preview-client.tsx",
-      "total": 4,
-      "covered": 2,
-      "missing": 2,
+      "total": 1,
+      "covered": 0,
+      "missing": 1,
       "candidates": [
         {
-          "text": "名称",
-          "line": 114,
-          "kind": "text",
-          "context": "<div>名称",
-          "covered": true,
-          "key": "common.name"
-        },
-        {
-          "text": "大小",
-          "line": 115,
-          "kind": "text",
-          "context": "<div className=\"text-right\">大小",
-          "covered": true,
-          "key": "common.size"
-        },
-        {
           "text": "共   项",
-          "line": 135,
+          "line": 137,
           "kind": "text",
           "context": "<div className=\"px-4 py-2 text-xs text-slate-500 border-t border-white/[0.04]\"> ",
-          "covered": false
-        },
-        {
-          "text": "压缩包为空",
-          "line": 140,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-[var(--text-secondary)]\">压缩包为空",
           "covered": false
         }
       ]
     },
     "src/app/files/preview/csv-preview-client.tsx": {
       "path": "src/app/files/preview/csv-preview-client.tsx",
-      "total": 5,
+      "total": 0,
       "covered": 0,
-      "missing": 5,
-      "candidates": [
-        {
-          "text": "正在加载…",
-          "line": 103,
-          "kind": "text",
-          "context": "<span className=\"animate-pulse text-sm\">正在加载…",
-          "covered": false
-        },
-        {
-          "text": "CSV 文件为空",
-          "line": 121,
-          "kind": "text",
-          "context": "<p className=\"text-sm\">CSV 文件为空",
-          "covered": false
-        },
-        {
-          "text": "CSV 表格预览",
-          "line": 129,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium te",
-          "covered": false
-        },
-        {
-          "text": "行 ×   列",
-          "line": 130,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-[var(--text-secondary)]\">{dataRows.length} 行 × {co",
-          "covered": false
-        },
-        {
-          "text": "⚠ 数据量较大，仅显示前   行（共   行）。建议下载后使用专业工具查看。",
-          "line": 155,
-          "kind": "text",
-          "context": "<div data-tone=\"amber\" className=\"rounded-2xl border border-amber-400/30 px-4 py",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/files/preview/error.tsx": {
       "path": "src/app/files/preview/error.tsx",
@@ -4670,90 +3856,24 @@
     },
     "src/app/files/preview/markdown-preview-client.tsx": {
       "path": "src/app/files/preview/markdown-preview-client.tsx",
-      "total": 2,
+      "total": 0,
       "covered": 0,
-      "missing": 2,
-      "candidates": [
-        {
-          "text": "正在加载…",
-          "line": 303,
-          "kind": "text",
-          "context": "<span className=\"animate-pulse text-sm\">正在加载…",
-          "covered": false
-        },
-        {
-          "text": "Markdown 预览",
-          "line": 321,
-          "kind": "text",
-          "context": "<span data-tone=\"cyan\" className=\"rounded-full border border-cyan-400/30 px-3 py",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/files/preview/media-preview-client.tsx": {
       "path": "src/app/files/preview/media-preview-client.tsx",
-      "total": 3,
+      "total": 0,
       "covered": 0,
-      "missing": 3,
-      "candidates": [
-        {
-          "text": "您的浏览器不支持视频播放。",
-          "line": 28,
-          "kind": "text",
-          "context": "<track kind=\"captions\" /> 您的浏览器不支持视频播放。 ",
-          "covered": false
-        },
-        {
-          "text": "您的浏览器不支持音频播放。",
-          "line": 35,
-          "kind": "text",
-          "context": "<audio src={href} controls className=\"w-full max-w-lg\" autoPlay> 您的浏览器不支持音",
-          "covered": false
-        },
-        {
-          "text": "在线预览固定使用网站受控流，避免目标服务器直连被浏览器策略或跨域阻拦；下载按钮仍按节点设置使用唯一的有效路径。",
-          "line": 42,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-slate-500\"> 在线预览固定使用网站受控流，避免目标服务器直连被浏览器策略或跨域阻",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/files/preview/office-preview-client.tsx": {
       "path": "src/app/files/preview/office-preview-client.tsx",
-      "total": 4,
+      "total": 0,
       "covered": 0,
-      "missing": 4,
-      "candidates": [
-        {
-          "text": "此 Office 文件暂不支持稳定在线渲染预览",
-          "line": 15,
-          "kind": "text",
-          "context": "<p className=\"text-lg text-slate-200\">此 Office 文件暂不支持稳定在线渲染预览",
-          "covered": false
-        },
-        {
-          "text": "Office Online 需要 Microsoft 服务器直接访问文件 URL；当前文件预览使用登录态保护的主站受控流，\n\t\t\t\t\t不会把私有文件暴露为公网直连地址。请下载后使用本地软件打开。",
-          "line": 16,
-          "kind": "text",
-          "context": "<p className=\"max-w-xl text-sm text-slate-500\"> Office Online 需要 Microsoft ",
-          "covered": false
-        },
-        {
-          "text": "⬇ 下载文件",
-          "line": 25,
-          "kind": "text",
-          "context": "<a href={href.includes(\"?\") ? `${href}&download=1` : `${href}?download=1`} ",
-          "covered": false
-        },
-        {
-          "text": "文件名：",
-          "line": 28,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-600\" title={name}> 文件名：{name} ",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/files/preview/page.tsx": {
       "path": "src/app/files/preview/page.tsx",
@@ -4814,93 +3934,10 @@
     },
     "src/app/files/recycle-bin-section-client.tsx": {
       "path": "src/app/files/recycle-bin-section-client.tsx",
-      "total": 11,
-      "covered": 5,
-      "missing": 6,
-      "candidates": [
-        {
-          "text": "🗑️ 回收站",
-          "line": 36,
-          "kind": "text",
-          "context": "<h3 className=\"text-xl font-semibold text-white\">🗑️ 回收站",
-          "covered": false
-        },
-        {
-          "text": "回收站为空，没有已删除的文件。",
-          "line": 37,
-          "kind": "text",
-          "context": "<p className=\"mt-4 text-sm text-slate-400\">回收站为空，没有已删除的文件。",
-          "covered": false
-        },
-        {
-          "text": "🗑️ 回收站",
-          "line": 46,
-          "kind": "text",
-          "context": "<h3 className=\"text-xl font-semibold text-white\">🗑️ 回收站",
-          "covered": false
-        },
-        {
-          "text": "共   个已删除条目。恢复后文件将回到原路径。",
-          "line": 47,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-sm text-slate-300\"> 共 {deletedEntries.length} 个已删除",
-          "covered": false
-        },
-        {
-          "text": "名称",
-          "line": 58,
-          "kind": "text",
-          "context": "<div>名称",
-          "covered": true,
-          "key": "common.name"
-        },
-        {
-          "text": "类型",
-          "line": 59,
-          "kind": "text",
-          "context": "<div>类型",
-          "covered": true,
-          "key": "common.type"
-        },
-        {
-          "text": "大小",
-          "line": 60,
-          "kind": "text",
-          "context": "<div>大小",
-          "covered": true,
-          "key": "common.size"
-        },
-        {
-          "text": "路径",
-          "line": 61,
-          "kind": "text",
-          "context": "<div>路径",
-          "covered": true,
-          "key": "common.path"
-        },
-        {
-          "text": "操作",
-          "line": 62,
-          "kind": "text",
-          "context": "<div>操作",
-          "covered": true,
-          "key": "common.actions"
-        },
-        {
-          "text": "无权限",
-          "line": 84,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-slate-500\">无权限",
-          "covered": false
-        },
-        {
-          "text": "无权限",
-          "line": 110,
-          "kind": "text",
-          "context": "<span className=\"mt-2 inline-block text-xs text-slate-500\">无权限",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/files/rename-inline-form.tsx": {
       "path": "src/app/files/rename-inline-form.tsx",
@@ -4960,7 +3997,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={handleCancel} className=\"",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -5184,7 +4221,7 @@
           "kind": "text",
           "context": "<EmptyState>加载中…",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "暂无图片，上传第一张吧",
@@ -5200,7 +4237,7 @@
           "attr": "title",
           "context": "<button onClick={() => requestDelete(img)} className=\"min-h-11 min-w-11 rounded ",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "删除",
@@ -5209,7 +4246,7 @@
           "attr": "aria-label",
           "context": "<button onClick={() => requestDelete(img)} className=\"min-h-11 min-w-11 rounded ",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "来源：",
@@ -5297,7 +4334,7 @@
           "kind": "text",
           "context": "<button onClick={() => setShowPublishModal(false)} className=\"px-4 py-2 text-sm ",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "发布",
@@ -5319,7 +4356,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => setPendingDelete(null)} className=\"px-4 py-",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -5350,7 +4387,7 @@
           "kind": "text",
           "context": "<button onClick={() => onRequestDelete(image)} className=\"min-h-",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "关闭预览",
@@ -5532,7 +4569,7 @@
           "kind": "text",
           "context": "<dt className=\"text-xs uppercase tracking-wide text-slate-500\"> ",
           "covered": true,
-          "key": "common.size"
+          "key": "archivePreview.table.size"
         },
         {
           "text": "存储",
@@ -5804,111 +4841,10 @@
     },
     "src/app/monitoring/monitoring-page-client.tsx": {
       "path": "src/app/monitoring/monitoring-page-client.tsx",
-      "total": 13,
-      "covered": 2,
-      "missing": 11,
-      "candidates": [
-        {
-          "text": "加载中...",
-          "line": 101,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">加载中...",
-          "covered": true,
-          "key": "common.loading"
-        },
-        {
-          "text": "无法获取监控数据",
-          "line": 110,
-          "kind": "text",
-          "context": "<h1 className=\"mb-2 text-xl font-semibold text-rose-50\">无法获取监控数据",
-          "covered": false
-        },
-        {
-          "text": "服务器监控",
-          "line": 127,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader eyebrow=\"Monitoring\" title=\"服务器监控\" description=\"实时系统资源监控\" className=",
-          "covered": true,
-          "key": "nav.monitoring"
-        },
-        {
-          "text": "上次刷新失败：",
-          "line": 130,
-          "kind": "text",
-          "context": "<div data-tone=\"amber\" className=\"mb-4 rounded-xl border border-amber-500/20 px-",
-          "covered": false
-        },
-        {
-          "text": "🖥️ 系统信息",
-          "line": 155,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"🖥️ 系统信息\">",
-          "covered": false
-        },
-        {
-          "text": "💾 内存",
-          "line": 157,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"💾 内存\">",
-          "covered": false
-        },
-        {
-          "text": "使用率",
-          "line": 157,
-          "kind": "text",
-          "context": "<span>使用率",
-          "covered": false
-        },
-        {
-          "text": "💿 磁盘",
-          "line": 162,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"💿 磁盘\">",
-          "covered": false
-        },
-        {
-          "text": "🌐 网络",
-          "line": 166,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"🌐 网络\">",
-          "covered": false
-        },
-        {
-          "text": "🔗 TCP 连接",
-          "line": 175,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"🔗 TCP 连接\">",
-          "covered": false
-        },
-        {
-          "text": "📊 Top 进程 (按内存)",
-          "line": 180,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"📊 Top 进程 (按内存)\">",
-          "covered": false
-        },
-        {
-          "text": "命令",
-          "line": 188,
-          "kind": "text",
-          "context": "<th className=\"py-2 pl-4 text-left\">命令",
-          "covered": false
-        },
-        {
-          "text": "最后更新:",
-          "line": 205,
-          "kind": "text",
-          "context": "<p className=\"mt-4 text-[10px] text-slate-600\">最后更新: {stats.timestamp}",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/monitoring/page.tsx": {
       "path": "src/app/monitoring/page.tsx",
@@ -5995,7 +4931,7 @@
           "kind": "text",
           "context": "<p className=\"text-sm text-slate-500\">加载中…",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "该任务暂无事件记录",
@@ -6017,7 +4953,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => void load(false",
           "covered": true,
-          "key": "common.refresh"
+          "key": "aiPage.refresh"
         },
         {
           "text": "加载更早事件",
@@ -6038,8 +4974,8 @@
     "src/app/operation-tasks/operation-task-list-client.tsx": {
       "path": "src/app/operation-tasks/operation-task-list-client.tsx",
       "total": 20,
-      "covered": 5,
-      "missing": 15,
+      "covered": 6,
+      "missing": 14,
       "candidates": [
         {
           "text": "共   条",
@@ -6053,7 +4989,8 @@
           "line": 90,
           "kind": "text",
           "context": "<span className=\"text-xs text-slate-500\">总计 {item.total}",
-          "covered": false
+          "covered": true,
+          "key": "monitoringPage.field.total"
         },
         {
           "text": "需处理",
@@ -6069,7 +5006,7 @@
           "kind": "text",
           "context": "<span>失败 {item.failed}",
           "covered": true,
-          "key": "operationTasks.filter.failed"
+          "key": "alertRulesPage.delivery.failed"
         },
         {
           "text": "运行中",
@@ -6077,7 +5014,7 @@
           "kind": "text",
           "context": "<span>运行中 {item.running}",
           "covered": true,
-          "key": "operationTasks.filter.running"
+          "key": "dashboard.running"
         },
         {
           "text": "待处理",
@@ -6321,180 +5258,17 @@
     },
     "src/app/qa-reports/page.tsx": {
       "path": "src/app/qa-reports/page.tsx",
-      "total": 1,
+      "total": 0,
       "covered": 0,
-      "missing": 1,
-      "candidates": [
-        {
-          "text": "站内 QA 报告",
-          "line": 34,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader\n\t\t\t\teyebrow=\"QA Reports\"\n\t\t\t\ttitle=\"站内 QA 报告\"\n\t\t\t\tdescription=\"汇总维护环",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/qa-reports/qa-reports-list-client.tsx": {
       "path": "src/app/qa-reports/qa-reports-list-client.tsx",
-      "total": 21,
-      "covered": 1,
-      "missing": 20,
-      "candidates": [
-        {
-          "text": "维护环趋势",
-          "line": 94,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<section aria-label=\"维护环趋势\" data-card className=\"p-4\">",
-          "covered": false
-        },
-        {
-          "text": "维护环趋势",
-          "line": 96,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">维护环趋势",
-          "covered": false
-        },
-        {
-          "text": "数据来源 .hermes/autonomous-maintenance-state.json#completed_runs[]。总 tick、成功率、模块覆盖、最近失败摘要。",
-          "line": 97,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\"> 数据来源 .hermes/autonomous-maintenance-",
-          "covered": false
-        },
-        {
-          "text": "当前 .hermes/autonomous-maintenance-state.json 不可用或暂无 completed_runs 历史。",
-          "line": 105,
-          "kind": "text",
-          "context": "<p className=\"mt-4 text-xs text-slate-500\"> 当前 .hermes/autonomous-maintenan",
-          "covered": false
-        },
-        {
-          "text": "近 7 日 tick 数（绿=成功 / 琥珀=失败）",
-          "line": 125,
-          "kind": "text",
-          "context": "<span>近 7 日 tick 数（绿=成功 / 琥珀=失败）",
-          "covered": false
-        },
-        {
-          "text": "峰值",
-          "line": 126,
-          "kind": "text",
-          "context": "<span>峰值 {dailyMax}",
-          "covered": false
-        },
-        {
-          "text": "近 7 日 tick 柱状图",
-          "line": 128,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<div className=\"flex items-end gap-2\" role=\"img\" aria-label=\"近 7 日 tick 柱状图\">",
-          "covered": false
-        },
-        {
-          "text": "模块覆盖（按访问次数排序，截前 6）",
-          "line": 161,
-          "kind": "text",
-          "context": "<div className=\"mb-2 text-xs text-slate-500\">模块覆盖（按访问次数排序，截前 6）",
-          "covered": false
-        },
-        {
-          "text": "最近   次 tick",
-          "line": 179,
-          "kind": "text",
-          "context": "<div className=\"mb-2 text-xs text-slate-500\">最近 {recentRuns.length} 次 tick",
-          "covered": false
-        },
-        {
-          "text": "QA 报告聚合",
-          "line": 263,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<section aria-label=\"QA 报告聚合\" data-card className=\"p-4\">",
-          "covered": false
-        },
-        {
-          "text": "来源概览",
-          "line": 266,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">来源概览",
-          "covered": false
-        },
-        {
-          "text": "数据来自应用根目录 .hermes/remediation-state.json 与 .hermes/qa-loop-state.json；只读，不写回磁盘。",
-          "line": 267,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\"> 数据来自应用根目录 .hermes/remediation",
-          "covered": false
-        },
-        {
-          "text": "最近更新：",
-          "line": 272,
-          "kind": "text",
-          "context": "<div>最近更新：{updatedAt ? formatTime(updatedAt) : \"—\"}",
-          "covered": false
-        },
-        {
-          "text": "{[\n\t\t\t\t\t\t[\"总报告数\", totals.total],\n\t\t\t\t\t\t[\"闭环 slice\", totals.slices],\n\t\t\t\t\t\t[\"已解除 blocker\", totals.blockers],\n\t\t\t\t\t\t[\"QA loop\", totals.qaRuns],\n\t\t\t\t\t].map(([label, value]) => (",
-          "line": 283,
-          "kind": "text",
-          "context": "<div className=\"mt-4 grid gap-3 sm:grid-cols-4\"> {[ [\"总报告数\", totals.t",
-          "covered": false
-        },
-        {
-          "text": "QA 报告列表",
-          "line": 298,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<section aria-label=\"QA 报告列表\" data-card>",
-          "covered": false
-        },
-        {
-          "text": "报告列表",
-          "line": 301,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">报告列表",
-          "covered": false
-        },
-        {
-          "text": "点击行查看证据/change-contract 详情。",
-          "line": 302,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">点击行查看证据/change-contract 详情。",
-          "covered": false
-        },
-        {
-          "text": "报告类型筛选",
-          "line": 304,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<div className=\"flex flex-wrap items-center gap-2\" role=\"group\" aria-label=\"报告类型",
-          "covered": false
-        },
-        {
-          "text": "] ?? kindFilter}」下没有报告。`\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tvariant=\"boxed\"\n\t\t\t\t\t\t/>",
-          "line": 323,
-          "kind": "text",
-          "context": "<KindFilter, \"all\">] ?? kindFilter}」下没有报告。` } variant=\"boxed\" ",
-          "covered": false
-        },
-        {
-          "text": "证据   条",
-          "line": 345,
-          "kind": "text",
-          "context": "<span className=\"rounded-md border border-white/[0.08] px-2 py-1 text-xs text-sl",
-          "covered": false
-        },
-        {
-          "text": "查看详情 →",
-          "line": 365,
-          "kind": "text",
-          "context": "<Link href={`/qa-reports/${encodeURIComponent(report.id)}`} ",
-          "covered": true,
-          "key": "notificationsPage.action.view"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/quick-services/config-preview-dialog.tsx": {
       "path": "src/app/quick-services/config-preview-dialog.tsx",
@@ -6565,7 +5339,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={onCancel} className=\"min-h-11 r",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -6578,103 +5352,10 @@
     },
     "src/app/quick-services/install-dialog.tsx": {
       "path": "src/app/quick-services/install-dialog.tsx",
-      "total": 13,
-      "covered": 1,
-      "missing": 12,
-      "candidates": [
-        {
-          "text": "安装",
-          "line": 144,
-          "kind": "text",
-          "context": "<h3 className=\"text-lg font-semibold text-white mb-1\">安装 {open.name}",
-          "covered": false
-        },
-        {
-          "text": "选择服务监听的端口，安装后可通过该端口访问服务。",
-          "line": 145,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500 mb-4\">选择服务监听的端口，安装后可通过该端口访问服务。",
-          "covered": false
-        },
-        {
-          "text": "端口号",
-          "line": 149,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-slate-400 mb-1 block\">端口号",
-          "covered": false
-        },
-        {
-          "text": "端口被占用：",
-          "line": 184,
-          "kind": "text",
-          "context": "<div className=\"text-xs text-rose-300/80 bg-rose-500/[0.06] rounded-lg px-3 py-2",
-          "covered": false
-        },
-        {
-          "text": "安装前配置预览",
-          "line": 190,
-          "kind": "text",
-          "context": "<div className=\"font-semibold\">安装前配置预览",
-          "covered": false
-        },
-        {
-          "text": "镜像：",
-          "line": 192,
-          "kind": "text",
-          "context": "<span>镜像：{open.image ?? \"待刷新\"}",
-          "covered": false
-        },
-        {
-          "text": "容器端口：  → 宿主端口",
-          "line": 193,
-          "kind": "text",
-          "context": "<span> 容器端口：{containerPort ?? \"-\"} → 宿主端口 {customPort || open.defaultPor",
-          "covered": false
-        },
-        {
-          "text": "环境变量：  个键（不展示密钥值）",
-          "line": 196,
-          "kind": "text",
-          "context": "<span>环境变量：{envCount} 个键（不展示密钥值）",
-          "covered": false
-        },
-        {
-          "text": "宿主机挂载：  条",
-          "line": 197,
-          "kind": "text",
-          "context": "<span>宿主机挂载：{volumeCount} 条",
-          "covered": false
-        },
-        {
-          "text": "推荐端口:",
-          "line": 202,
-          "kind": "text",
-          "context": "<span>推荐端口: {open.defaultPort}",
-          "covered": false
-        },
-        {
-          "text": "自动分配",
-          "line": 207,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={handleAutoAllocate} classNam",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 218,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={onClose} className=\"rounded-lg ",
-          "covered": true,
-          "key": "common.cancel"
-        },
-        {
-          "text": "确认安装",
-          "line": 226,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={handleAdvance} disabled={advanc",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/quick-services/loading.tsx": {
       "path": "src/app/quick-services/loading.tsx",
@@ -6685,207 +5366,41 @@
     },
     "src/app/quick-services/page.tsx": {
       "path": "src/app/quick-services/page.tsx",
-      "total": 4,
-      "covered": 3,
-      "missing": 1,
+      "total": 1,
+      "covered": 1,
+      "missing": 0,
       "candidates": [
         {
           "text": "快捷服务",
-          "line": 15,
+          "line": 17,
           "kind": "title",
           "attr": "title",
           "context": "<PageHeader eyebrow=\"Quick Services\" title=\"快捷服务\" description=\"一键安装常用自托管服务，自动 Do",
           "covered": true,
           "key": "nav.quickservice"
-        },
-        {
-          "text": "部署面板",
-          "line": 17,
-          "kind": "text",
-          "context": "<Link href=\"/deployments\" className=\"rounded-full border border-[var(--border)] ",
-          "covered": false
-        },
-        {
-          "text": "Docker 容器",
-          "line": 18,
-          "kind": "text",
-          "context": "<Link href=\"/docker\" className=\"rounded-full border border-[var(--border)] bg-wh",
-          "covered": true,
-          "key": "nav.docker"
-        },
-        {
-          "text": "文件管理",
-          "line": 19,
-          "kind": "text",
-          "context": "<Link href=\"/files\" className=\"rounded-full border border-[var(--border)] bg-whi",
-          "covered": true,
-          "key": "nav.storage"
         }
       ]
     },
     "src/app/quick-services/pending-source-delete-dialog.tsx": {
       "path": "src/app/quick-services/pending-source-delete-dialog.tsx",
-      "total": 5,
-      "covered": 2,
-      "missing": 3,
-      "candidates": [
-        {
-          "text": "确认删除应用源",
-          "line": 27,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<div\n\t\t\t\trole=\"dialog\"\n\t\t\t\taria-modal=\"true\"\n\t\t\t\taria-label=\"确认删除应用源\"\n\t\t\t\tclassN",
-          "covered": false
-        },
-        {
-          "text": "确认删除应用源",
-          "line": 34,
-          "kind": "text",
-          "context": "<h3 className=\"text-lg font-semibold text-white mb-2\">确认删除应用源",
-          "covered": false
-        },
-        {
-          "text": "将删除",
-          "line": 35,
-          "kind": "text",
-          "context": "<p className=\"text-sm leading-6 text-slate-300\"> 将删除 ",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 43,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={onCancel} className=\"min-h-11 r",
-          "covered": true,
-          "key": "common.cancel"
-        },
-        {
-          "text": "确认删除",
-          "line": 50,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={onConfirm} className=\"min-h-11 ",
-          "covered": true,
-          "key": "common.confirmDelete"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/quick-services/pending-uninstall-dialog.tsx": {
       "path": "src/app/quick-services/pending-uninstall-dialog.tsx",
-      "total": 7,
-      "covered": 1,
-      "missing": 6,
-      "candidates": [
-        {
-          "text": "确认卸载快捷服务",
-          "line": 29,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<div\n\t\t\t\trole=\"dialog\"\n\t\t\t\taria-modal=\"true\"\n\t\t\t\taria-label=\"确认卸载快捷服务\"\n\t\t\t\tclass",
-          "covered": false
-        },
-        {
-          "text": "确认卸载快捷服务",
-          "line": 36,
-          "kind": "text",
-          "context": "<h3 className=\"text-lg font-semibold text-white mb-2\">确认卸载快捷服务",
-          "covered": false
-        },
-        {
-          "text": "将卸载",
-          "line": 37,
-          "kind": "text",
-          "context": "<p className=\"text-sm leading-6 text-slate-300\"> 将卸载 ",
-          "covered": false
-        },
-        {
-          "text": "同时删除数据目录",
-          "line": 51,
-          "kind": "text",
-          "context": "<span className=\"block font-medium\">同时删除数据目录",
-          "covered": false
-        },
-        {
-          "text": "仅删除该服务模板记录的 `/opt/` 或 `/srv/` 下挂载目录；不会删除 Docker socket、时区文件或根目录。",
-          "line": 52,
-          "kind": "text",
-          "context": "<span className=\"mt-1 block text-xs leading-5 text-rose-100/75\"> 仅删除该服务模板",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 62,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={onCancel} className=\"min-h-11 r",
-          "covered": true,
-          "key": "common.cancel"
-        },
-        {
-          "text": "确认卸载",
-          "line": 69,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={onConfirm} className=\"min-h-11 ",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/quick-services/quick-service-card.tsx": {
       "path": "src/app/quick-services/quick-service-card.tsx",
-      "total": 7,
-      "covered": 2,
-      "missing": 5,
-      "candidates": [
-        {
-          "text": "端口",
-          "line": 114,
-          "kind": "text",
-          "context": "<span>端口 {displayPort}",
-          "covered": true,
-          "key": "common.port"
-        },
-        {
-          "text": "路径",
-          "line": 115,
-          "kind": "text",
-          "context": "<span>路径 {item.path}",
-          "covered": true,
-          "key": "common.path"
-        },
-        {
-          "text": "📈  k 拉取",
-          "line": 116,
-          "kind": "text",
-          "context": "<span>📈 {(item.monthlyPulls / 1000).toFixed(0)}k 拉取",
-          "covered": false
-        },
-        {
-          "text": "访问",
-          "line": 135,
-          "kind": "text",
-          "context": "<a href={access.url} target=\"_blank\" rel=\"noreferrer\" aria-label={`访问 ${item.nam",
-          "covered": false
-        },
-        {
-          "text": "正在拉取镜像…",
-          "line": 150,
-          "kind": "text",
-          "context": "<span className=\"text-xs text-amber-400 animate-pulse\">正在拉取镜像…",
-          "covered": false
-        },
-        {
-          "text": "刷新状态",
-          "line": 153,
-          "kind": "text",
-          "context": "<button onClick={onSync} disabled={busy} className=\"rounded-lg border border-whi",
-          "covered": false
-        },
-        {
-          "text": "卸载",
-          "line": 162,
-          "kind": "text",
-          "context": "<button onClick={onUninstall} disabled={busy} className=\"ml-auto rounded-lg bord",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/quick-services/quick-services-client.tsx": {
       "path": "src/app/quick-services/quick-services-client.tsx",
@@ -6899,7 +5414,7 @@
           "kind": "text",
           "context": "<div className=\"text-sm text-slate-500 py-12 text-center\">加载中…",
           "covered": true,
-          "key": "common.loading"
+          "key": "aiPage.loading"
         },
         {
           "text": "当前角色无快捷服务管理权限",
@@ -7177,7 +5692,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => onRequestDeleteSource(src)} ",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         }
       ]
     },
@@ -7332,7 +5847,7 @@
           "attr": "title",
           "context": "<InfoSection title=\"目标节点\">",
           "covered": true,
-          "key": "common.targetNode"
+          "key": "alertRulesPage.createForm.targetNodes"
         },
         {
           "text": "最新审批",
@@ -7430,7 +5945,7 @@
           "attr": "title",
           "context": "<PageHeader\n\t\t\t\t\teyebrow=\"Automation\"\n\t\t\t\t\ttitle=\"定时任务\"\n\t\t\t\t\tdescription=\"配置 Cro",
           "covered": true,
-          "key": "nav.scheduled-tasks"
+          "key": "dashboard.quick.scheduled"
         }
       ]
     },
@@ -7510,7 +6025,7 @@
           "kind": "text",
           "context": "<button onClick={() => setTaskPendingDelete(task)} data-to",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "确认删除定时任务",
@@ -7532,7 +6047,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => setTaskPendingDelete(null)} className=\"min-",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "确认删除",
@@ -7540,7 +6055,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => deleteTask(taskPendingDelete)} className=\"m",
           "covered": true,
-          "key": "common.confirmDelete"
+          "key": "aiPage.confirmDelete"
         },
         {
           "text": "创建定时任务",
@@ -7593,7 +6108,7 @@
           "kind": "text",
           "context": "<div id=\"scheduled-task-target-nodes-label\" className={fieldLabelClass}>目标节点",
           "covered": true,
-          "key": "common.targetNode"
+          "key": "alertRulesPage.createForm.targetNodes"
         },
         {
           "text": "取消",
@@ -7601,7 +6116,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={onClose} className=\"min-h-11 rounded-2xl border b",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -7680,7 +6195,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => setDisableConfirming(false)} className=\"rou",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "批量启用所选节点",
@@ -7756,7 +6271,7 @@
           "kind": "text",
           "context": "<label className=\"text-xs font-medium text-white/50 tracking-wide\">目标节点",
           "covered": true,
-          "key": "common.targetNode"
+          "key": "alertRulesPage.createForm.targetNodes"
         },
         {
           "text": "暂无可用节点。",
@@ -7961,7 +6476,7 @@
           "kind": "text",
           "context": "<SubmitButton pendingLabel=\"删除中...\" data",
           "covered": true,
-          "key": "common.confirmDelete"
+          "key": "aiPage.confirmDelete"
         },
         {
           "text": "取消",
@@ -7969,7 +6484,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => rou",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "删除节点",
@@ -8406,7 +6921,7 @@
           "kind": "text",
           "context": "<label className=\"text-xs font-medium text-white/50 tracking-wide\" htmlFor=\"sshK",
           "covered": true,
-          "key": "common.name"
+          "key": "aiPage.nameLabel"
         },
         {
           "text": "例如 prod-key",
@@ -8736,7 +7251,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={onCancel} disabled={busy} ",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -8750,8 +7265,8 @@
     "src/app/share/[token]/page.tsx": {
       "path": "src/app/share/[token]/page.tsx",
       "total": 12,
-      "covered": 5,
-      "missing": 7,
+      "covered": 6,
+      "missing": 6,
       "candidates": [
         {
           "text": "存储节点",
@@ -8767,7 +7282,7 @@
           "kind": "text",
           "context": "<dt>类型",
           "covered": true,
-          "key": "common.type"
+          "key": "aiPage.typeLabel"
         },
         {
           "text": "路径",
@@ -8840,7 +7355,8 @@
           "line": 130,
           "kind": "text",
           "context": "<a href={`/api/share/${encodeURIComponent(token)}`} ",
-          "covered": false
+          "covered": true,
+          "key": "officePreview.download"
         }
       ]
     },
@@ -8984,100 +7500,16 @@
           "kind": "text",
           "context": "<span className=\"text-xs text-slate-500\">已撤销",
           "covered": true,
-          "key": "shares.status.revoked"
+          "key": "apiTokensPage.status.revoked"
         }
       ]
     },
     "src/app/snippets/create-snippet-modal.tsx": {
       "path": "src/app/snippets/create-snippet-modal.tsx",
-      "total": 11,
-      "covered": 3,
-      "missing": 8,
-      "candidates": [
-        {
-          "text": "新建代码片段",
-          "line": 69,
-          "kind": "text",
-          "context": "<h3 id=\"create-snippet-title\" className=\"text-lg font-semibold text-white\">新建代码片",
-          "covered": false
-        },
-        {
-          "text": "标题",
-          "line": 73,
-          "kind": "text",
-          "context": "<label htmlFor=\"create-snippet-title-input\" className=\"block text-xs text-slate-",
-          "covered": true,
-          "key": "common.title"
-        },
-        {
-          "text": "语言",
-          "line": 84,
-          "kind": "text",
-          "context": "<label htmlFor=\"create-snippet-language-input\" className=\"block text-xs text-sla",
-          "covered": false
-        },
-        {
-          "text": "例如 javascript、python（留空默认 text）",
-          "line": 85,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n              id=\"create-snippet-language-input\"\n              value={lan",
-          "covered": false
-        },
-        {
-          "text": "描述（可选）",
-          "line": 95,
-          "kind": "text",
-          "context": "<label htmlFor=\"create-snippet-description-input\" className=\"block text-xs text-",
-          "covered": false
-        },
-        {
-          "text": "简要说明此片段的用途",
-          "line": 96,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n              id=\"create-snippet-description-input\"\n              value={",
-          "covered": false
-        },
-        {
-          "text": "标签（用逗号分隔）",
-          "line": 106,
-          "kind": "text",
-          "context": "<label htmlFor=\"create-snippet-tags-input\" className=\"block text-xs text-slate-4",
-          "covered": false
-        },
-        {
-          "text": "例如 备份, nginx",
-          "line": 107,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n              id=\"create-snippet-tags-input\"\n              value={tagsInp",
-          "covered": false
-        },
-        {
-          "text": "内容",
-          "line": 117,
-          "kind": "text",
-          "context": "<label htmlFor=\"create-snippet-content-input\" className=\"block text-xs text-slat",
-          "covered": true,
-          "key": "common.content"
-        },
-        {
-          "text": "仅自己可见",
-          "line": 133,
-          "kind": "text",
-          "context": "<input type=\"checkbox\" checked={isPrivate} ",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 144,
-          "kind": "text",
-          "context": "<button onClick={onClose} className=\"min-h-11 rounded-lg",
-          "covered": true,
-          "key": "common.cancel"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/snippets/error.tsx": {
       "path": "src/app/snippets/error.tsx",
@@ -9111,179 +7543,17 @@
     },
     "src/app/snippets/snippet-edit-modal.tsx": {
       "path": "src/app/snippets/snippet-edit-modal.tsx",
-      "total": 10,
-      "covered": 3,
-      "missing": 7,
-      "candidates": [
-        {
-          "text": "编辑代码片段",
-          "line": 64,
-          "kind": "text",
-          "context": "<h3 id=\"edit-snippet-title\" className=\"text-lg font-semibold text-white\">编辑代码片段",
-          "covered": false
-        },
-        {
-          "text": "标题",
-          "line": 68,
-          "kind": "text",
-          "context": "<label htmlFor=\"edit-snippet-title-input\" className=\"block text-xs text-slate-40",
-          "covered": true,
-          "key": "common.title"
-        },
-        {
-          "text": "语言",
-          "line": 78,
-          "kind": "text",
-          "context": "<label htmlFor=\"edit-snippet-language-input\" className=\"block text-xs text-slate",
-          "covered": false
-        },
-        {
-          "text": "描述（可选）",
-          "line": 88,
-          "kind": "text",
-          "context": "<label htmlFor=\"edit-snippet-description-input\" className=\"block text-xs text-sl",
-          "covered": false
-        },
-        {
-          "text": "简要说明此片段的用途",
-          "line": 89,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n              id=\"edit-snippet-description-input\"\n              value={de",
-          "covered": false
-        },
-        {
-          "text": "标签（用逗号分隔）",
-          "line": 99,
-          "kind": "text",
-          "context": "<label htmlFor=\"edit-snippet-tags-input\" className=\"block text-xs text-slate-400",
-          "covered": false
-        },
-        {
-          "text": "例如 备份, nginx",
-          "line": 100,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n              id=\"edit-snippet-tags-input\"\n              value={tagsInput",
-          "covered": false
-        },
-        {
-          "text": "内容",
-          "line": 110,
-          "kind": "text",
-          "context": "<label htmlFor=\"edit-snippet-content-input\" className=\"block text-xs text-slate-",
-          "covered": true,
-          "key": "common.content"
-        },
-        {
-          "text": "仅自己可见",
-          "line": 126,
-          "kind": "text",
-          "context": "<input type=\"checkbox\" checked={isPrivate} ",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 137,
-          "kind": "text",
-          "context": "<button onClick={onClose} className=\"min-h-11 rounded-lg",
-          "covered": true,
-          "key": "common.cancel"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/snippets/snippet-list-client.tsx": {
       "path": "src/app/snippets/snippet-list-client.tsx",
-      "total": 11,
-      "covered": 3,
-      "missing": 8,
-      "candidates": [
-        {
-          "text": "搜索代码片段",
-          "line": 86,
-          "kind": "text",
-          "context": "<label htmlFor=\"snippets-search\" className=\"mb-1 block t",
-          "covered": false
-        },
-        {
-          "text": "标题、内容、标签…",
-          "line": 90,
-          "kind": "placeholder",
-          "attr": "placeholder",
-          "context": "<input\n            id=\"snippets-search\"\n            type=\"search\"\n            va",
-          "covered": false
-        },
-        {
-          "text": "按语言过滤",
-          "line": 99,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<select\n          value={langFilter}\n          onChange={(e) => setLangFilter(e.",
-          "covered": false
-        },
-        {
-          "text": "新建片段",
-          "line": 114,
-          "kind": "text",
-          "context": "<Plus size={14} /> 新建片段 ",
-          "covered": false
-        },
-        {
-          "text": "🔒 私有",
-          "line": 125,
-          "kind": "text",
-          "context": "<span className=\"text-[10px] text-amber-400\">🔒 私有",
-          "covered": false
-        },
-        {
-          "text": "复制",
-          "line": 135,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button onClick={() => handleCopy(s.content, s.id)} title=\"复制\" className=\"min-h-",
-          "covered": false
-        },
-        {
-          "text": "编辑",
-          "line": 138,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button onClick={() => setEditing(s)} title=\"编辑\" className=\"min-h-11 min-w-11 ro",
-          "covered": true,
-          "key": "common.edit"
-        },
-        {
-          "text": "删除",
-          "line": 141,
-          "kind": "title",
-          "attr": "title",
-          "context": "<button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title=\"删除",
-          "covered": true,
-          "key": "common.delete"
-        },
-        {
-          "text": "删除代码片段",
-          "line": 178,
-          "kind": "text",
-          "context": "<h3 id=\"delete-snippet-title\" className=\"text-base font-semibold text-white\">删除代",
-          "covered": false
-        },
-        {
-          "text": "确认删除代码片段",
-          "line": 179,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-sm leading-6 text-slate-400\">确认删除代码片段 ",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 182,
-          "kind": "text",
-          "context": "<button type=\"button\" disabled={deleteBusy} onClick={() => { setPendingDelete(nu",
-          "covered": true,
-          "key": "common.cancel"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/status/error.tsx": {
       "path": "src/app/status/error.tsx",
@@ -9476,7 +7746,7 @@
           "kind": "text",
           "context": "<SubmitButton pendingLabel=\"创建中...\">创建节点",
           "covered": true,
-          "key": "audit.create-node"
+          "key": "audit.action.server.create"
         }
       ]
     },
@@ -9493,7 +7763,7 @@
           "attr": "title",
           "context": "<button\n\t\t\t\ttype=\"button\"\n\t\t\t\tonClick={() => setConfirming(true)}\n\t\t\t\ttitle=\"删除\"",
           "covered": true,
-          "key": "common.delete"
+          "key": "aiPage.deleteAction"
         },
         {
           "text": "确认删除「 」？",
@@ -9516,7 +7786,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={handleCancel} className=\"rounded-full",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     },
@@ -9865,7 +8135,7 @@
           "kind": "text",
           "context": "<button type=\"button\" onClick={onClose} className=\"rounded-",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "保存新密码",
@@ -10246,7 +8516,7 @@
           "kind": "text",
           "context": "<button onClick={() => { setStep(\"idle\"); setCode(\"\"); setError(\"\"); }} ",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         },
         {
           "text": "输入验证器 App 中的当前验证码以关闭两步验证：",
@@ -10268,7 +8538,7 @@
           "kind": "text",
           "context": "<button onClick={() => { setStep(\"idle\"); setCode(\"\"); setError(\"\"); }} ",
           "covered": true,
-          "key": "common.cancel"
+          "key": "aiPage.cancel"
         }
       ]
     }
