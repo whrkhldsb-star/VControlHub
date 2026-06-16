@@ -560,7 +560,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 按"复选框语义与代码事实是否吻合"重新分类：
 - **真已完成** TR-001 / TR-002 / TR-004 / TR-005 / TR-006 / TR-008 / TR-010 / TR-012 / TR-013 / TR-014 / TR-015 / TR-019 / TR-021 / TR-022 / TR-025 / TR-029 / TR-034 / TR-035 / TR-036 / TR-037 / TR-038 / TR-039 / TR-040 / TR-041 / TR-042 / TR-047 / TR-048 / TR-049 / TR-050 / TR-051 / TR-052 / TR-053 / TR-054
-- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-007 / TR-011 / TR-020 / TR-023 / TR-031 / TR-032 / TR-033
+- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-007 / TR-011 / TR-023 / TR-031 / TR-032 / TR-033
 - **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：静态分析覆盖,剩余需人工 review。
 - **真未启动**：TR-009 / TR-016 / TR-017 / TR-018 / TR-024 / TR-026 / TR-027 / TR-028 / TR-030
 
@@ -692,7 +692,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-017 | P2 | 可维护性热点拆分（file-list / storage / AI / QuickService） | ✅ 完成 |
 | TR-018 | P2 | API 回归测试基线（AI / status / QuickService slug / 2FA） | ✅ 完成 |
 | TR-019 | P2 | 领域模块边界治理（files / storage / quick-service / command / ai / backup DTO） | 主体已落地 |
-| TR-020 | P3 | 仪表盘自定义（拖拽 / 指标 / 时间范围） | 队列中 |
+| TR-020 | P3 | 仪表盘自定义（拖拽 / 指标 / 时间范围） | ✅ 完成 (`ec5f791`+`fc65edf`+`d9e6089`：4 列 grid + HTML5 dnd 拖拽 + click 弹窗详情,16 vitest) |
 | TR-021 | P2 | 可访问性收口（巡检 placeholder-only / 低可见度控件） | ✅ 主体完成 |
 | TR-022 | P2 | 移动端适配（高频入口 / 复杂面板响应式） | ✅ 主体 9 轮完成 |
 | TR-023 | P3 | 自动化工作流 Playbook（条件触发 / 告警联动 / 步骤编排） | 队列中 |
@@ -749,7 +749,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [x] **在线文件编辑器剩余增强**（TR-012）— **SFTP 编辑**（T17a 落地, `localEditable` 扩到 SFTP 节点 + `TextPreviewClient` 接 `driver/nodeId/relativePath` + `handleSave` 走 `/api/storage/sftp-ops action=write` + 响应 `byteSize` 字段返回 + 2 个新测覆盖 routing + 错误显示）+ **保存后重载服务**（T17b 落地, `POST /api/servers/[id]/reload` 走 `execRemoteCommand`，白名单约束 `unit:^[A-Za-z0-9._@-]{1,128}$` 防 shell 注入，`kind:"systemd"` 拼 `systemctl reload <unit>` (失败回退 `restart`)，`kind:"compose"` 拼 `cd <dir> && docker compose up -d [service]`，`RELOADABLE_CONFIG_MAP` 限定 nginx.conf/redis.conf/sshd_config/httpd.conf/my.cnf/docker-compose.yml 等候选配置，`TextPreviewClient` 串联 "保存 → 重载" 流程，状态机扩 `reloading/reloaded` + `reloadMessage`，amber 配色 "保存并重载 `<unit>`" 按钮在 editMode + SFTP + serverId + reloadUnit 同时满足时显示，6 个 reload route 测 + 3 个 frontend 测 = 9 新测覆盖 routing/错误/状态机)。
 - [x] **设置页高风险设置**（TR-014）— M01：↺ 恢复默认按钮 + Save diff 角标 + high 风险 confirm modal。
 - [x] **备份策略管理**（TR-015）— **任务化执行**（T13a/T13b jobs 表迁移已落地） + **保留策略自动清理**（T16 落地, `pruneOldBackupRecords` planner + `BACKUP_RETENTION_JOB_TYPE` durable job + `/api/backups/retention` API + `/backups` RetentionButton UI + 11 测试）。**待续做**: 异地备份、恢复验证演练。
-- [ ] **仪表盘自定义**（TR-020）— 拖拽卡片、指标选择、时间范围筛选。
+- [x] **仪表盘自定义**（TR-020）— `ec5f791`+`fc65edf`+`d9e6089`：4 列 grid（`grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`）+ HTML5 native dnd 拖拽排序（`order: N` CSS 注入, 0 依赖）+ click widget 弹 dialog 详情（深拷贝 live widget DOM, ESC/backdrop 关闭）+ 9 i18n key + 16 vitest 覆盖 customize 流程/拖拽状态/详情弹窗。
 - [x] **环境变量集中读取层**（TR-035）— 扩 `lib/config/env.ts`，23 文件已迁移。
 - [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。R5 扫了 2 路由 (operation-tasks + traffic/summary) + 修了 `parseSearchParams` 抛 plain Error 走 500 的 bug（应抛 `ValidationError` 走 400），剩 22 路由待 R6+。
 - [x] **领域 DTO 边界续做**（TR-039）— 5 域全域 DTO 闭环。
