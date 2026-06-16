@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
   calculateTrafficRate,
   formatBytes,
@@ -12,6 +14,23 @@ import {
   type NetworkDeviceStats,
 } from "@/lib/monitoring/traffic";
 import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
+
+/**
+ * TR-037 R5+: the route used to inline `req.nextUrl.searchParams.get(...)`
+ * twice and call `.split(",")` ad hoc. Move both reads behind a
+ * `parseSearchParams(...)` zod call so:
+ *   - `?iface=` empty string is rejected (we don't want to call
+ *     `find(item => item.iface === "")` against the parsed list)
+ *   - `?include=remote,junk,remote` doesn't crash on a `,` with no value
+ *   - oversized inputs are bounded
+ *
+ * `include=remote` is the only meaningful value; unknown tokens are still
+ * silently dropped inside the handler (no contract break for the SPA).
+ */
+const trafficSummaryQuerySchema = z.object({
+  iface: z.string().trim().min(1).max(64).optional(),
+  include: z.string().trim().max(64).optional(),
+});
 
 export const dynamic = "force-dynamic";
 
@@ -95,12 +114,15 @@ export async function GET(req: NextRequest) {
     req,
     { permission: "server:read", errorMessage: "获取流量摘要失败" },
     async () => {
-      const selectedIface = req.nextUrl.searchParams.get("iface")?.trim() || "";
+      const q = parseSearchParams(req, trafficSummaryQuerySchema);
+      const selectedIface = q.iface ?? "";
       // include=remote opts in to the SSH sampling step. The default response
       // skips it so the page can render the local network card immediately
       // (~50 ms) while remote VPS samples (1-15 s) load asynchronously.
+      // Unknown tokens (e.g. `include=garbage`) are silently dropped so
+      // dashboards with stale UI state still work.
       const includeRemote =
-        req.nextUrl.searchParams.get("include")?.split(",").includes("remote") ?? false;
+        (q.include ?? "").split(",").map((token) => token.trim()).includes("remote");
 
       const interfaces = parseNetworkDeviceStats(readProcNetDev());
       const primary = selectedIface

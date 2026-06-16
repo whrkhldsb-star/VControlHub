@@ -72,8 +72,12 @@ import { GET } from "../route";
 
 describe("traffic summary route", () => {
   it("returns current server traffic and storage node sources", async () => {
+    const nextUrl = new URL("http://localhost/api/traffic/summary");
+    // parseSearchParams reads `request.url` (Request / NextRequest contract);
+    // mirror it here so the route hits the real path under test.
     const req = {
-      nextUrl: new URL("http://localhost/api/traffic/summary"),
+      url: nextUrl.toString(),
+      nextUrl,
     } as Parameters<typeof GET>[0];
 
     const response = await GET(req);

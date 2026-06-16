@@ -27,6 +27,8 @@
 
 import { z } from "zod";
 
+import { ValidationError } from "@/lib/errors";
+
 /**
  * Materialise a `URLSearchParams` into a plain object suitable for
  * `zod.safeParse`. Mirrors the conversion `withApiRoute` uses for the
@@ -83,11 +85,12 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
       : issues.length === 1
         ? `${issues[0]!.path ? issues[0]!.path + ": " : ""}${issues[0]!.message}`
         : `${issues.length} 个查询参数校验失败：${issues.slice(0, 3).map((i) => i.path || "?").join(", ")}${issues.length > 3 ? "…" : ""}`;
-    const err = new Error(summary);
-    (err as Error & { code?: string; status?: number; details?: unknown }).code = "VALIDATION_FAILED";
-    (err as Error & { code?: string; status?: number; details?: unknown }).status = 400;
-    (err as Error & { code?: string; status?: number; details?: unknown }).details = { field: "query", issues };
-    throw err;
+    // Throw a real `ValidationError` (AppError subclass) rather than a
+    // bare `Error` with `.code/.status` props attached. `apiCatch` only
+    // recognises the `AppError` shape, so a plain `Error` would fall
+    // through to the 500-INTERNAL_ERROR branch and the caller would
+    // never see the 400 we want.
+    throw new ValidationError(summary, { field: "query", issues });
   }
   return parsed.data;
 }

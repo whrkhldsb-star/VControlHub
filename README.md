@@ -560,7 +560,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 按"复选框语义与代码事实是否吻合"重新分类：
 - **真已完成** TR-008 / TR-012 / TR-013 / TR-014 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-025 / TR-029
-- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-005 / TR-006 / TR-007 / TR-019 / TR-020 / TR-037 / TR-040 / TR-049 / TR-051 / TR-053
+- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-005 / TR-006 / TR-007 / TR-019 / TR-020 / TR-040 / TR-049 / TR-051 / TR-053
 - **文档化已落、代码主体已闭环**（TR-004）：`docs/file-preview-sharing.md` 12 节覆盖全部边界范围。
 - **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：Phase 2 静态分析已覆盖 32 个 icon-only button 候选，3 个已修，剩余需人工 review。
 - **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
@@ -712,7 +712,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | ✅ 完成 (R1 union + R2 219 处 codemod + R3 client envelope) |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
 | TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ T36b + T36c 完成 (file-list-client 1600→1245 / ai-client 1071→987, 共抽 5 子组件 + 4 lazy wrapper); quick-services-client 1002 行剩余待续 |
-| TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ⏳ R4 扫 3 路由 (app-sources + docker/containers GET + media GET; R1-R4 累计 15 路由, 剩 24 路由待 R5+) |
+| TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ✅ R5 扫 2 路由 (operation-tasks + traffic/summary) + 修 helper bug。R1-R5 累计 17 路由, 剩 22 路由待 R6+ |
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | ✅ 完成 (1/1 leak 修 + 4 域 0 leak 审计; commit 见 git log) |
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⏳ R1 部分完成 (R1.1 syncSource 全并行 + R1.2 syncLocalShareDirectory batch; R1.3 rollback statuses 跳过 — 已是 Promise.all 并行 + runs 数量小) |
@@ -753,7 +753,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [x] **备份策略管理**（TR-015）— **任务化执行**（T13a/T13b jobs 表迁移已落地） + **保留策略自动清理**（T16 落地, `pruneOldBackupRecords` planner + `BACKUP_RETENTION_JOB_TYPE` durable job + `/api/backups/retention` API + `/backups` RetentionButton UI + 11 测试）。**待续做**: 异地备份、恢复验证演练。
 - [ ] **仪表盘自定义**（TR-020）— 拖拽卡片、指标选择、时间范围筛选。
 - [x] **环境变量集中读取层**（TR-035）— 扩 `lib/config/env.ts`，23 文件已迁移。
-- [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。
+- [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。R5 扫了 2 路由 (operation-tasks + traffic/summary) + 修了 `parseSearchParams` 抛 plain Error 走 500 的 bug（应抛 `ValidationError` 走 400），剩 22 路由待 R6+。
 - [x] **领域 DTO 边界续做**（TR-039）— 5 域全域 DTO 闭环。
 - [ ] **N+1 查询修复**（TR-040）— 3 个候选文件。
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
