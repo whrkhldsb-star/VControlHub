@@ -1,21 +1,14 @@
 {
-  "generatedAt": "2026-06-16T19:10:10.978Z",
+  "generatedAt": "2026-06-16T20:35:18.316Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 80,
-    "totalStrings": 769,
+    "filesWithStrings": 79,
+    "totalStrings": 765,
     "coveredStrings": 184,
-    "missingStrings": 585,
-    "coveragePercent": 23.9
+    "missingStrings": 581,
+    "coveragePercent": 24.1
   },
   "perModule": [
-    {
-      "module": "src/app/health",
-      "total": 4,
-      "covered": 0,
-      "missing": 4,
-      "coveragePercent": 0
-    },
     {
       "module": "src/app/snippets",
       "total": 1,
@@ -4117,40 +4110,10 @@
     },
     "src/app/health/page.tsx": {
       "path": "src/app/health/page.tsx",
-      "total": 4,
+      "total": 0,
       "covered": 0,
-      "missing": 4,
-      "candidates": [
-        {
-          "text": "缺少健康监控权限",
-          "line": 14,
-          "kind": "text",
-          "context": "<p className=\"text-base font-semibold text-amber-50\">缺少健康监控权限",
-          "covered": false
-        },
-        {
-          "text": "需要 health:read 权限后才能查看节点健康详情和历史指标。",
-          "line": 15,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-amber-100/80\">需要 health:read 权限后才能查看节点健康详情和历史指标。",
-          "covered": false
-        },
-        {
-          "text": "节点健康",
-          "line": 27,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader eyebrow=\"Health Center\" title=\"节点健康\" description=\"实时采集 SSH 指标、保存历史趋势",
-          "covered": false
-        },
-        {
-          "text": "纳管节点   台",
-          "line": 28,
-          "kind": "text",
-          "context": "<div className=\"rounded-full border border-[var(--border)] bg-white/[0.03] px-4 ",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/health/sparkline-chart-lazy.tsx": {
       "path": "src/app/health/sparkline-chart-lazy.tsx",

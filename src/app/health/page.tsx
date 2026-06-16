@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listServerProfiles } from "@/lib/server/service";
 import { PageHeader } from "@/components/page-shell";
+import { t } from "@/lib/i18n/translations";
 import { HealthDashboardClient } from "./health-dashboard-client";
 
 export default async function HealthPage() {
@@ -11,8 +12,8 @@ export default async function HealthPage() {
 		return (
 			<main className="p-6">
 				<section data-tone="amber" className="rounded-xl border border-amber-500/20 p-6 text-sm text-amber-100">
-					<p className="text-base font-semibold text-amber-50">缺少健康监控权限</p>
-					<p className="mt-2 text-amber-100/80">需要 health:read 权限后才能查看节点健康详情和历史指标。</p>
+					<p className="text-base font-semibold text-amber-50">{t("healthPage.noPermission")}</p>
+					<p className="mt-2 text-amber-100/80">{t("healthPage.noPermissionHint")}</p>
 				</section>
 			</main>
 		);
@@ -24,9 +25,9 @@ export default async function HealthPage() {
 
 	return (
 		<main className="p-6">
-			<PageHeader eyebrow="Health Center" title="节点健康" description="实时采集 SSH 指标、保存历史趋势，并与告警规则联动。" className="mb-6">
+			<PageHeader eyebrow="Health Center" title={t("healthPage.title")} description={t("healthPage.description")} className="mb-6">
 				<div className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)]">
-					纳管节点 {servers.length} 台
+					{t("healthPage.serverCount").replace("{count}", String(servers.length))}
 				</div>
 			</PageHeader>
 			<HealthDashboardClient serverCount={servers.length} initialSystemHealth={null} />

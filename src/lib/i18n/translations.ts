@@ -27,6 +27,7 @@ import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
 import { zh as dockerZh, en as dockerEn } from "./dictionaries/docker";
 import { zh as dockerpageZh, en as dockerpageEn } from "./dictionaries/docker-page";
 import { zh as errorZh, en as errorEn } from "./dictionaries/error";
+import { zh as healthpageZh, en as healthpageEn } from "./dictionaries/health-page";
 import { zh as imagebedZh, en as imagebedEn } from "./dictionaries/image-bed";
 import { zh as imagebedpageZh, en as imagebedpageEn } from "./dictionaries/image-bed-page";
 import { zh as loginZh, en as loginEn } from "./dictionaries/login";
@@ -80,6 +81,7 @@ const zh: Record<string, string> = {
 	...dockerZh,
 	...dockerpageZh,
 	...errorZh,
+	...healthpageZh,
 	...imagebedZh,
 	...imagebedpageZh,
 	...loginZh,
@@ -134,6 +136,7 @@ const en: Record<string, string> = {
 	...dockerEn,
 	...dockerpageEn,
 	...errorEn,
+	...healthpageEn,
 	...imagebedEn,
 	...imagebedpageEn,
 	...loginEn,
