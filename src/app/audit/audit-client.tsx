@@ -113,8 +113,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSearchQuery(e.target.value);
               setPage(1);
             }}
-            placeholder="搜索动作、用户名或显示名"
-            aria-label="搜索动作、用户名或显示名"
+            placeholder={t("audit.search-placeholder")}
+            aria-label={t("audit.search-placeholder")}
             className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
           />
           <button
@@ -160,12 +160,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             aria-label="按动作类型过滤"
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
-            <option value="">全部类型</option>
+            <option value="">{t("audit.all-types")}</option>
             <option value="auth.login">登录</option>
             <option value="auth.login_failed">登录失败</option>
             <option value="auth.password_change">修改密码</option>
             <option value="storage.file_delete">删除文件</option>
-            <option value="server.create">创建节点</option>
+            <option value="server.create">{t("audit.create-node")}</option>
             <option value="command.execute">执行命令</option>
             <option value="download.create">创建下载</option>
           </select>
@@ -211,14 +211,14 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             <div>级别</div>
             <div>类型</div>
             <div>操作者</div>
-            <div>详情</div>
-            <div>来源</div>
+            <div>{t("audit.details")}</div>
+            <div>{t("audit.source")}</div>
           </div>
           <div className="divide-y divide-white/5 bg-slate-950/40">
             {loading ? (
               <EmptyState>加载中…</EmptyState>
             ) : error && !data ? (
-              <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
+              <div className="px-4 py-10 text-sm text-rose-200">{t("audit.load-error")}</div>
             ) : !data || data.logs.length === 0 ? (
               <EmptyState>暂无审计日志。</EmptyState>
             ) : (
@@ -250,8 +250,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         <div className="md:hidden divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
             <EmptyState>加载中…</EmptyState>
-          ) : error && !data ? (
-            <div className="px-4 py-10 text-sm text-rose-200">审计日志加载失败，请稍后重试。</div>
+          ) : error ? (
+            <div className="px-4 py-10 text-sm text-rose-200">{t("audit.load-error")}</div>
           ) : !data || data.logs.length === 0 ? (
             <EmptyState>暂无审计日志。</EmptyState>
           ) : (

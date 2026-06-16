@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
 import { Pencil, Trash2, Search } from "lucide-react";
 
@@ -35,6 +36,7 @@ export function AnnouncementList({
   items: Announcement[];
   canManage: boolean;
 }) {
+  const { t } = useI18n();
   const { addToast } = useToast();
   const [items, setItems] = useState(initial);
   const [editing, setEditing] = useState<Announcement | null>(null);
@@ -128,7 +130,7 @@ export function AnnouncementList({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    {a.pinned && <span className="text-xs text-amber-400">📌 置顶</span>}
+                    {a.pinned && <span className="text-xs text-amber-400">{t("common.pinned")}</span>}
                     <span className="text-xs text-slate-500">{levelLabels[a.level] ?? a.level}</span>
                   </div>
                   <h2 className="mt-1 text-base font-semibold text-white">{a.title}</h2>
@@ -149,7 +151,7 @@ export function AnnouncementList({
               </div>
               <p className="mt-3 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{a.body}</p>
               {a.expiresAt && (
-                <p className="mt-3 text-xs text-slate-500">有效期至 {new Date(a.expiresAt).toLocaleString("zh-CN")}</p>
+                <p className="mt-3 text-xs text-slate-500">{t("common.validUntil")} {new Date(a.expiresAt).toLocaleString("zh-CN")}</p>
               )}
             </div>
           ))

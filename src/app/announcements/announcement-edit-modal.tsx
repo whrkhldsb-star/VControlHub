@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface Announcement {
   id: string;
@@ -22,6 +23,7 @@ export function AnnouncementEditModal({
   onClose: () => void;
   onSaved: (updated: Announcement) => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState(announcement.title);
   const [content, setContent] = useState(announcement.body);
   const [level, setLevel] = useState(announcement.level);
@@ -64,7 +66,7 @@ export function AnnouncementEditModal({
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementLevel">级别</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementLevel">{t("common.level")}</label>
             <select
               id="announcementLevel"
               value={level}
@@ -74,7 +76,7 @@ export function AnnouncementEditModal({
             >
               <option value="info">ℹ️ 信息</option>
               <option value="warning">⚠️ 警告</option>
-              <option value="urgent">🔴 紧急</option>
+              <option value="urgent">{t("common.urgent")}</option>
             </select>
           </div>
           <div>
@@ -95,7 +97,7 @@ export function AnnouncementEditModal({
               onChange={(e) => setPinned(e.target.checked)}
               className="rounded border-white/20"
             />
-            📌 置顶
+            {t("common.pinned")}
           </label>
         </div>
 

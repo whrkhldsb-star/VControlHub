@@ -3,8 +3,10 @@
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 export function CreateAnnouncementForm() {
+	const { t } = useI18n();
 	const router = useRouter();
 	const titleId = useId();
 	const typeId = useId();
@@ -56,7 +58,7 @@ export function CreateAnnouncementForm() {
 					<select id={typeId} name="type" defaultValue="info" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
 						<option value="info">信息</option>
 						<option value="warning">警告</option>
-						<option value="urgent">🔴 紧急</option>
+						<option value="urgent">{t("common.urgent")}</option>
 					</select>
 					<p className="text-[11px] text-slate-500">紧急公告会使用更醒目的状态样式。</p>
 				</div>
@@ -73,7 +75,7 @@ export function CreateAnnouncementForm() {
 					<p id={`${startsAtId}-hint`} className="text-[11px] text-slate-500">留空表示立即生效。</p>
 				</div>
 				<div className="grid gap-1.5">
-					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">过期时间</label>
+					<label htmlFor={expiresAtId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.expiration")}</label>
 					<input id={expiresAtId} type="datetime-local" name="expiresAt" aria-describedby={`${expiresAtId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100" />
 					<p id={`${expiresAtId}-hint`} className="text-[11px] text-slate-500">留空表示永不过期。</p>
 				</div>
