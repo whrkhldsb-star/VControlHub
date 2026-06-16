@@ -24,13 +24,18 @@ sudo -u "$APP_USER" npm run build
 echo "==> [2.5/6] 应用 prisma migration (P-001-N: deploy.sh 此前缺此步, 部署后 30 秒 worker 报列不存在)"
 sudo -u "$APP_USER" npx prisma migrate deploy 2>&1 | tail -20
 
-echo "==> [2.6/7] TR-002: 检测 + patch /etc/caddy/Caddyfile 的 /direct 反代"
+echo "==> [2.6/7] TR-002 + R2: 检测 + patch /etc/caddy/Caddyfile 的 /direct 反代 (validate-before-reload + 多版本 backup 轮转)"
 CADDY_FILE="/etc/caddy/Caddyfile"
 if [ -f "$CADDY_FILE" ]; then
 	if ! grep -q 'reverse_proxy /direct' "$CADDY_FILE"; then
-		# 在最后一行 reverse_proxy 127.0.0.1:3000 之前注入 /direct 反代段
+		# R2: 多版本 backup 轮转 (保留最近 5 个 .bak.TS, 删旧的)
+		# 命名格式: Caddyfile.bak.YYYYMMDDHHMMSS (跟旧 deploy.sh 兼容)
 		BACKUP="${CADDY_FILE}.bak.$(date +%Y%m%d%H%M%S)"
 		cp "$CADDY_FILE" "$BACKUP"
+		# 轮转: 只留最近 5 个 .bak.* 备份
+		ls -1t "${CADDY_FILE}".bak.* 2>/dev/null | tail -n +6 | xargs -r rm -f
+		# R2: 先注入到 .new 文件, validate 通过才覆盖 (避免写一半的 Caddyfile 残留)
+		NEW_FILE="${CADDY_FILE}.new.$$"
 		awk '
 			/reverse_proxy 127\.0\.0\.1:3000/ && !done {
 				print "\n	# TR-002: Direct Gateway 反代 (本机 SFTP node 用)"
@@ -40,20 +45,34 @@ if [ -f "$CADDY_FILE" ]; then
 				done=1
 			}
 			{ print }
-		' "$BACKUP" > "$CADDY_FILE"
-		echo "  注入 /direct 反代段 (备份: $BACKUP)"
+		' "$BACKUP" > "$NEW_FILE"
+		# R2: validate-before-replace: 失败时 .new 不覆盖, 立即回滚到 backup
+		if caddy validate --config "$NEW_FILE" --adapter caddyfile >/dev/null 2>&1; then
+			mv "$NEW_FILE" "$CADDY_FILE"
+			echo "  注入 /direct 反代段 (backup: $BACKUP, 验证通过后原子替换)"
+		else
+			validate_exit=$?
+			echo "  FAIL: caddy validate 退出码 $validate_exit, 保留 backup: $BACKUP"
+			echo "  详细: caddy validate --config $NEW_FILE --adapter caddyfile"
+			caddy validate --config "$NEW_FILE" --adapter caddyfile 2>&1 | head -20
+			rm -f "$NEW_FILE"
+			exit 1
+		fi
 	else
 		echo "  /direct 反代已存在, 跳过"
 	fi
-	# caddy 自动 reload Caddyfile, 验证语法 (Caddyfile 需显式 --adapter caddyfile)
-	caddy validate --config "$CADDY_FILE" --adapter caddyfile >/dev/null 2>&1
-	validate_exit=$?
-	if [ "$validate_exit" -eq 0 ]; then
+	# reload 前最终 validate (防止 deploy 期间 Caddyfile 被改)
+	if caddy validate --config "$CADDY_FILE" --adapter caddyfile >/dev/null 2>&1; then
 		systemctl reload caddy || true
 		echo "  caddy validate OK + reload"
 	else
-		echo "  FAIL: caddy validate 退出码 $validate_exit, 恢复备份"
-		cp "$BACKUP" "$CADDY_FILE"
+		validate_exit=$?
+		echo "  FAIL: caddy validate 退出码 $validate_exit, 恢复最新 backup"
+		latest_backup=$(ls -1t "${CADDY_FILE}".bak.* 2>/dev/null | head -1)
+		if [ -n "$latest_backup" ]; then
+			cp "$latest_backup" "$CADDY_FILE"
+			echo "  已恢复 $latest_backup"
+		fi
 		exit 1
 	fi
 else
