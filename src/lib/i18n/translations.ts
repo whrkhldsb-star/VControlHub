@@ -101,6 +101,17 @@ const translations: Record<Locale, Record<string, string>> = {
 		"error.digest-label": "错误标识:",
 		"error.back-home": "返回首页",
 
+		// Dashboard customize (TR-020)
+		"dashboard.customize": "自定义仪表盘",
+		"dashboard.customize-edit": "编辑布局",
+		"dashboard.customize-done": "完成",
+		"dashboard.customize-reset": "恢复默认",
+		"dashboard.customize-hide": "隐藏",
+		"dashboard.customize-show": "显示",
+		"dashboard.customize-drag-tip": "拖动卡片调整顺序,点击查看详情",
+		"dashboard.customize-saved": "布局已保存",
+		"dashboard.widget-detail-close": "关闭详情",
+
 		// Dashboard
 		"dashboard.title": "仪表盘",
 		"dashboard.welcome": "欢迎回来",
@@ -309,6 +320,17 @@ const translations: Record<Locale, Record<string, string>> = {
 		"error.unknown": "An unknown error occurred",
 		"error.digest-label": "Error ID:",
 		"error.back-home": "Back to home",
+
+		// Dashboard customize (TR-020)
+		"dashboard.customize": "Customize dashboard",
+		"dashboard.customize-edit": "Edit layout",
+		"dashboard.customize-done": "Done",
+		"dashboard.customize-reset": "Reset to default",
+		"dashboard.customize-hide": "Hide",
+		"dashboard.customize-show": "Show",
+		"dashboard.customize-drag-tip": "Drag cards to reorder, click for details",
+		"dashboard.customize-saved": "Layout saved",
+		"dashboard.widget-detail-close": "Close details",
 
 		// Dashboard
 		"dashboard.title": "Dashboard",

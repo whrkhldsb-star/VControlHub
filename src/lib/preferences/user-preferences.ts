@@ -17,6 +17,19 @@ export type UserPreferences = {
 export const DASHBOARD_WIDGET_IDS = ["server-status", "quick-links", "analytics", "audit-log"] as const;
 export const DEFAULT_PAGE_OPTIONS = ["/", "/servers", "/files", "/docker", "/monitoring", "/downloads", "/ai"] as const;
 
+/**
+ * Widget display labels (zh) — used by the customize toolbar.
+ * Keep in sync with `DASHBOARD_WIDGET_IDS`. These are intentionally
+ * a Record (not a type) so a missing label surfaces a TS error if a
+ * new widget is added without one.
+ */
+export const DASHBOARD_WIDGET_LABELS: Record<DashboardWidgetId, string> = {
+	"server-status": "VPS 状态",
+	"quick-links": "快捷入口",
+	analytics: "数据趋势",
+	"audit-log": "最近操作日志",
+};
+
 export const defaultUserPreferences: UserPreferences = {
   defaultPage: "/",
   dashboardWidgets: [...DASHBOARD_WIDGET_IDS],
