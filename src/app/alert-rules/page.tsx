@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listAlertRules } from "@/lib/alert/service";
 import { listServerProfiles } from "@/lib/server/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 import { AlertRuleListClient } from "./alert-rule-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AlertRulesPage() {
 	const session = await requireSession("/alert-rules");
 	const canManage = sessionHasPermission(session, "notification:manage");
+	const locale = await getServerLocale();
 
 	const [rules, servers] = await Promise.all([
 		canManage ? listAlertRules() : Promise.resolve([]),
@@ -31,12 +33,12 @@ export default async function AlertRulesPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<PageHeader
-					eyebrow="Automation"
-					title="智能告警"
-					description="配置自动告警规则，异常指标自动触发通知与 Webhook"
-				/>
-				<AlertRuleListClient rules={serialized} servers={serverOptions} canManage={canManage} />
+			<PageHeader
+				eyebrow={t("alertRulesPage.eyebrow", locale)}
+				title={t("alertRulesPage.title", locale)}
+				description={t("alertRulesPage.desc", locale)}
+			/>
+			<AlertRuleListClient rules={serialized} servers={serverOptions} canManage={canManage} />
 		</PageShell>
 	);
 }

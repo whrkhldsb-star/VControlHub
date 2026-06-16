@@ -34,12 +34,24 @@ vi.mock("@/lib/alert/service", () => ({
 vi.mock("@/lib/server/service", () => ({
 	listServerProfiles: vi.fn(async () => []),
 }));
+vi.mock("@/lib/i18n/translations", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/lib/i18n/translations")>();
+	return {
+		...actual,
+		getServerLocale: vi.fn(async () => "zh" as const),
+	};
+});
 
 import AlertRulesPage from "../page";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 function wrap(ui: React.ReactElement) {
-	return <ToastProvider>{ui}</ToastProvider>;
+	return (
+		<I18nProvider initialLocale="zh">
+			<ToastProvider>{ui}</ToastProvider>
+		</I18nProvider>
+	);
 }
 
 describe("alert rules client", () => {

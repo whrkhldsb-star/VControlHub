@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type AlertRule = {
 	id: string; name: string; metric: string; operator: string;
@@ -28,18 +29,30 @@ type Props = {
 	canManage: boolean;
 };
 
-const metricLabels: Record<string, string> = {
-	cpu_usage: "CPU 使用率",
-	mem_usage: "内存使用率",
-	disk_usage: "磁盘使用率",
-	server_offline: "服务器离线",
-};
+function metricLabel(t: (key: string) => string, metric: string): string {
+	const key = `alertRulesPage.metric.${metric}`;
+	const value = t(key);
+	return value === key ? metric : value;
+}
 
-const operatorLabels: Record<string, string> = {
-	gt: "大于", gte: "大于等于", lt: "小于", lte: "小于等于", eq: "等于",
-};
+function operatorLabel(t: (key: string) => string, op: string): string {
+	const key = `alertRulesPage.operator.${op}`;
+	const value = t(key);
+	return value === key ? op : value;
+}
+
+function channelLabel(t: (key: string) => string, ch: string): string {
+	const key = `alertRulesPage.channel.${ch}`;
+	const value = t(key);
+	return value === key ? ch : value;
+}
+
+function deliveryStatusLabel(t: (key: string) => string, status: TestDelivery["status"]): string {
+	return t(`alertRulesPage.delivery.${status}`);
+}
 
 export function AlertRuleListClient({ rules: initialRules, servers, canManage }: Props) {
+	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [rules, setRules] = useState(initialRules);
 	const [showCreate, setShowCreate] = useState(false);
@@ -48,7 +61,8 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
 
-	const getErrorMessage = (error: unknown, fallback: string) => error instanceof Error ? error.message : fallback;
+	const getErrorMessage = (error: unknown, fallbackKey: string) =>
+		error instanceof Error ? error.message : t(fallbackKey);
 
 	const refresh = useCallback(async () => {
 		const data = await csrfFetch("/api/alert-rules");
@@ -67,7 +81,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			});
 			await refresh();
 		} catch (error) {
-			setActionError(getErrorMessage(error, "更新告警规则失败"));
+			setActionError(getErrorMessage(error, "alertRulesPage.error.toggle"));
 		} finally {
 			setBusyAction(null);
 		}
@@ -82,7 +96,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			setRulePendingDelete(null);
 			await refresh();
 		} catch (error) {
-			setActionError(getErrorMessage(error, "删除告警规则失败"));
+			setActionError(getErrorMessage(error, "alertRulesPage.error.delete"));
 		} finally {
 			setBusyAction(null);
 		}
@@ -94,14 +108,14 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 		setBusyAction("trigger");
 		try {
 			await csrfFetch("/api/alert-rules", { method: "PUT" });
-			addToast("success", "告警检测已触发");
+			addToast("success", t("alertRulesPage.toast.triggered"));
 			await refresh();
 		} catch (error) {
-			setActionError(getErrorMessage(error, "告警检测启动失败"));
+			setActionError(getErrorMessage(error, "alertRulesPage.error.trigger"));
 		} finally {
 			setBusyAction(null);
 		}
-	}, [addToast, refresh]);
+	}, [addToast, refresh, t]);
 
 	const testRule = useCallback(async (rule: AlertRule) => {
 		setActionError(null);
@@ -113,31 +127,36 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ testId: rule.id }),
 			});
-			const deliveries = Array.isArray(data?.deliveries) ? data.deliveries : [];
+			const deliveries = Array.isArray(data?.deliveries) ? data?.deliveries : [];
 			setTestResult({ ruleName: rule.name, deliveries });
 			const failed = deliveries.filter((delivery: TestDelivery) => delivery.status === "failed").length;
-			addToast(failed > 0 ? "warning" : "success", failed > 0 ? "测试发送完成，部分渠道失败" : "测试发送完成");
+			addToast(
+				failed > 0 ? "warning" : "success",
+				failed > 0 ? t("alertRulesPage.toast.testPartial") : t("alertRulesPage.toast.testSucceeded"),
+			);
 		} catch (error) {
-			setActionError(getErrorMessage(error, "测试发送失败"));
+			setActionError(getErrorMessage(error, "alertRulesPage.error.test"));
 		} finally {
 			setBusyAction(null);
 		}
-	}, [addToast]);
+	}, [addToast, t]);
 
 	return (
 		<div className="space-y-6">
 			{rulePendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-alert-rule-title">
 					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-white">删除告警规则</h3>
-						<p className="mt-2 text-sm text-slate-400">确认删除告警规则 <span className="font-medium text-slate-100">{rulePendingDelete.name}</span>？此操作不可恢复。</p>
+						<h3 id="delete-alert-rule-title" className="text-base font-semibold text-white">{t("alertRulesPage.delete.title")}</h3>
+						<p className="mt-2 text-sm text-slate-400">
+							{t("alertRulesPage.delete.confirm").replace("{name}", rulePendingDelete.name)}
+						</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button
 								type="button"
 								onClick={() => setRulePendingDelete(null)}
 								data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
 							>
-								取消
+								{t("alertRulesPage.delete.cancel")}
 							</button>
 							<button
 								type="button"
@@ -145,7 +164,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 								disabled={busyAction === `delete:${rulePendingDelete.id}`}
 								data-tone="rose" className="rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-60"
 							>
-								{busyAction === `delete:${rulePendingDelete.id}` ? "删除中…" : "确认删除"}
+								{busyAction === `delete:${rulePendingDelete.id}` ? t("alertRulesPage.delete.deleting") : t("alertRulesPage.delete.confirmBtn")}
 							</button>
 						</div>
 					</div>
@@ -154,7 +173,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			<div className="flex items-center gap-3 flex-wrap">
 				{canManage && !showCreate && (
 					<button onClick={() => setShowCreate(true)} data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 hover:bg-cyan-400/20 transition">
-						+ 创建告警规则
+						{t("alertRulesPage.create")}
 					</button>
 				)}
 				{canManage && (
@@ -164,7 +183,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 						disabled={busyAction === "trigger"}
 						className="rounded-2xl border border-white/[0.06] bg-white/[0.03] px-5 py-2.5 text-sm text-slate-300 hover:bg-white/[0.06] transition disabled:cursor-not-allowed disabled:opacity-60"
 					>
-						{busyAction === "trigger" ? "正在检测…" : "🔍 立即检测"}
+						{busyAction === "trigger" ? t("alertRulesPage.triggering") : t("alertRulesPage.triggerNow")}
 					</button>
 				)}
 			</div>
@@ -177,12 +196,12 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 			{testResult && (
 				<div role="status" data-tone="cyan" className="rounded-xl border border-cyan-400/20 px-4 py-3 text-sm text-cyan-100">
-					<p className="font-medium">测试发送结果：{testResult.ruleName}</p>
+					<p className="font-medium">{t("alertRulesPage.testResult").replace("{ruleName}", testResult.ruleName)}</p>
 					<ul className="mt-2 space-y-1">
 						{testResult.deliveries.map((delivery, index) => (
 							<li key={`${delivery.channel}-${index}`} className="flex flex-wrap gap-2 text-xs">
 								<span className="font-mono uppercase">{delivery.channel}</span>
-								<span>{delivery.status === "sent" ? "已发送" : delivery.status === "failed" ? "失败" : "跳过"}</span>
+								<span>{deliveryStatusLabel(t, delivery.status)}</span>
 								<span className="text-cyan-100/70/70">{delivery.message}</span>
 							</li>
 						))}
@@ -196,7 +215,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 
 			{rules.length === 0 ? (
 				<EmptyState icon="🔔" variant="boxed">
-					暂无告警规则
+					{t("alertRulesPage.empty")}
 				</EmptyState>
 			) : (
 				<div className="space-y-3">
@@ -206,38 +225,38 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 								<div>
 									<h2 className="text-lg font-semibold text-white">{rule.name}</h2>
 									<p className="mt-1 text-xs text-slate-500">
-										当 <span className="text-cyan-300/80">{metricLabels[rule.metric] ?? rule.metric}</span>{" "}
+										{t("alertRulesPage.condition.when")} <span className="text-cyan-300/80">{metricLabel(t, rule.metric)}</span>{" "}
 										{rule.metric !== "server_offline" && <>
-										<span className="text-white/70">{operatorLabels[rule.operator] ?? rule.operator}</span>{" "}
-										<span className="text-amber-300 font-mono">{rule.threshold}%</span>
+											<span className="text-white/70">{operatorLabel(t, rule.operator)}</span>{" "}
+											<span className="text-amber-300 font-mono">{rule.threshold}%</span>
 										</>}
-										{rule.durationSeconds > 0 && <span className="text-slate-500"> 持续 {rule.durationSeconds}s</span>}
-										{rule.serverIds.length === 0 ? " (全部节点)" : ` (${rule.serverIds.length} 节点)`}
+										{rule.durationSeconds > 0 && <span className="text-slate-500">{t("alertRulesPage.condition.duration").replace("{seconds}", String(rule.durationSeconds))}</span>}
+										{rule.serverIds.length === 0 ? t("alertRulesPage.condition.allNodes") : t("alertRulesPage.condition.nodeCount").replace("{count}", String(rule.serverIds.length))}
 									</p>
 									<div className="mt-2 flex flex-wrap gap-1.5">
 										{rule.notifyChannels.map((ch) => (
 											<span key={ch} className="rounded-md border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
-												{ch === "in_app" ? "站内通知" : ch === "email" ? "邮件" : ch === "webhook" ? "Webhook" : ch}
+												{channelLabel(t, ch)}
 											</span>
 										))}
 						{rule.webhookConfigured && (
 							<span data-tone="emerald" className="rounded-md border border-emerald-400/20 px-1.5 py-0.5 text-[10px] text-emerald-200">
-								Webhook 已配置
+								{t("alertRulesPage.badge.webhookConfigured")}
 							</span>
 						)}
 						{rule.cooldownMinutes > 0 && (
 							<span className="rounded-md border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
-								冷却 {rule.cooldownMinutes}min
+								{t("alertRulesPage.badge.cooldown").replace("{minutes}", String(rule.cooldownMinutes))}
 							</span>
 						)}
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
 							<span className="rounded-md border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200">
-								静默 {rule.silenceWindows?.join("、")}
+								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join("、") ?? "")}
 							</span>
 						)}
-								</div>
+									</div>
 									{rule.lastTriggeredAt && (
-										<p className="mt-1 text-[11px] text-slate-600">上次触发：{new Date(rule.lastTriggeredAt).toLocaleString("zh-CN")}</p>
+										<p className="mt-1 text-[11px] text-slate-600">{t("alertRulesPage.lastTriggered").replace("{date}", new Date(rule.lastTriggeredAt).toLocaleString("zh-CN"))}</p>
 									)}
 								</div>
 								{canManage && (
@@ -251,21 +270,21 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 									: "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/20"
 							}`}
 						>
-							{busyAction === `toggle:${rule.id}` ? "处理中…" : rule.enabled ? "暂停" : "启用"}
+							{busyAction === `toggle:${rule.id}` ? t("alertRulesPage.action.processing") : rule.enabled ? t("alertRulesPage.action.pause") : t("alertRulesPage.action.enable")}
 						</button>
 						<button
 							onClick={() => testRule(rule)}
 							disabled={busyAction === `test:${rule.id}`}
 							data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-4 py-2 text-xs font-medium text-cyan-100 hover:bg-cyan-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
-							{busyAction === `test:${rule.id}` ? "发送中…" : "测试发送"}
+							{busyAction === `test:${rule.id}` ? t("alertRulesPage.action.sending") : t("alertRulesPage.action.testSend")}
 						</button>
 						<button
 							onClick={() => setRulePendingDelete(rule)}
 							disabled={busyAction === `delete:${rule.id}`}
 							data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-2 text-xs font-medium text-rose-100 hover:bg-rose-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
 						>
-							{busyAction === `delete:${rule.id}` ? "删除中…" : "删除"}
+							{busyAction === `delete:${rule.id}` ? t("alertRulesPage.action.deleting") : t("alertRulesPage.action.delete")}
 						</button>
 									</div>
 								)}
@@ -281,6 +300,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 /* ── Create form ──────────────────────────────────────────── */
 
 function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose: () => void }) {
+	const { t } = useI18n();
 	const [name, setName] = useState("");
 	const [metric, setMetric] = useState("cpu_usage");
 	const [operator, setOperator] = useState("gte");
@@ -326,7 +346,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			});
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "创建失败");
+			setError(err instanceof Error ? err.message : t("alertRulesPage.createForm.error"));
 		} finally {
 			setSubmitting(false);
 		}
@@ -334,56 +354,56 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 	return (
 		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white">创建告警规则</h3>
+			<h3 className="text-lg font-semibold text-white">{t("alertRulesPage.createForm.title")}</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleName">规则名称</label>
-				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：CPU 过载告警" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleName">{t("alertRulesPage.createForm.name")}</label>
+				<input id="alertRuleName" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("alertRulesPage.createForm.namePlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleMetric">监控指标</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleMetric">{t("alertRulesPage.createForm.metric")}</label>
 					<select id="alertRuleMetric" value={metric} onChange={(e) => setMetric(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
-						<option value="cpu_usage">CPU 使用率</option>
-						<option value="mem_usage">内存使用率</option>
-						<option value="disk_usage">磁盘使用率</option>
-						<option value="server_offline">服务器离线</option>
+							<option value="cpu_usage">{t("alertRulesPage.createForm.metric.cpu_usage")}</option>
+							<option value="mem_usage">{t("alertRulesPage.createForm.metric.mem_usage")}</option>
+							<option value="disk_usage">{t("alertRulesPage.createForm.metric.disk_usage")}</option>
+							<option value="server_offline">{t("alertRulesPage.createForm.metric.server_offline")}</option>
 					</select>
 				</div>
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleOperator">比较方式</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleOperator">{t("alertRulesPage.createForm.operator")}</label>
 					<select id="alertRuleOperator" value={operator} onChange={(e) => setOperator(e.target.value)} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none">
-						<option value="gt">大于</option>
-						<option value="gte">大于等于</option>
-						<option value="lt">小于</option>
-						<option value="lte">小于等于</option>
+							<option value="gt">{t("alertRulesPage.createForm.operator.gt")}</option>
+							<option value="gte">{t("alertRulesPage.createForm.operator.gte")}</option>
+							<option value="lt">{t("alertRulesPage.createForm.operator.lt")}</option>
+							<option value="lte">{t("alertRulesPage.createForm.operator.lte")}</option>
 					</select>
 				</div>}
 				{metric !== "server_offline" && <div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertThreshold">阈值</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertThreshold">{t("alertRulesPage.createForm.threshold")}</label>
 					<input id="alertThreshold" type="number" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} min={0} max={100} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
 				</div>}
 			</div>
 
 			<div className="grid gap-3 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertDurationSeconds">持续时间（秒）</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertDurationSeconds">{t("alertRulesPage.createForm.duration")}</label>
 					<input id="alertDurationSeconds" type="number" value={durationSeconds} onChange={(e) => setDurationSeconds(Number(e.target.value))} min={0} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30" />
-					<p className="text-xs text-slate-500">0 表示命中即触发。</p>
+					<p className="text-xs text-slate-500">{t("alertRulesPage.createForm.durationHint")}</p>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide">目标节点</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide">{t("alertRulesPage.createForm.targetNodes")}</label>
 					<div className="flex flex-wrap gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] p-2">
 						{servers.length === 0 ? (
-							<span className="text-xs text-slate-500">暂无节点，默认匹配全部节点</span>
+							<span className="text-xs text-slate-500">{t("alertRulesPage.createForm.noNodes")}</span>
 						) : (
 							<>
-								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500"}`}>全部节点</button>
+								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500"}`}>{t("alertRulesPage.createForm.allNodes")}</button>
 								{servers.map((server) => (
 									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]"}`}>
-										{server.name}
+											{server.name}
 									</button>
 								))}
 							</>
@@ -393,13 +413,17 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide">通知渠道</label>
+				<label className="text-xs font-medium text-white/50 tracking-wide">{t("alertRulesPage.createForm.channels")}</label>
 				<div className="flex flex-wrap gap-2">
-					{[{ key: "in_app", label: "站内通知" }, { key: "email", label: "邮件" }, { key: "webhook", label: "Webhook" }].map(({ key, label }) => (
+					{[
+						{ key: "in_app", i18nKey: "alertRulesPage.createForm.channel.in_app" },
+						{ key: "email", i18nKey: "alertRulesPage.createForm.channel.email" },
+						{ key: "webhook", i18nKey: "alertRulesPage.createForm.channel.webhook" },
+					].map(({ key, i18nKey }) => (
 						<button key={key} type="button" onClick={() => toggleChannel(key)}
 							className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${channels.includes(key) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]"}`}
 						>
-							{label}
+								{t(i18nKey)}
 						</button>
 					))}
 				</div>
@@ -407,28 +431,28 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 
 			{channels.includes("webhook") && (
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleWebhookUrl">Webhook URL</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleWebhookUrl">{t("alertRulesPage.createForm.webhookUrl")}</label>
 					<input id="alertRuleWebhookUrl" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.example.com/..." className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 				</div>
 			)}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleCooldown">冷却时间（分钟）</label>
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertRuleCooldown">{t("alertRulesPage.createForm.cooldown")}</label>
 				<input id="alertRuleCooldown" type="number" value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))} min={1} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 w-32" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertSilenceWindows">静默期</label>
-				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder="22:00-08:00，可用换行或逗号添加多个" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
-				<p className="text-xs text-slate-500">命中静默期时只记录匹配状态，不发送站内通知或 Webhook。</p>
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="alertSilenceWindows">{t("alertRulesPage.createForm.silenceWindows")}</label>
+				<textarea id="alertSilenceWindows" value={silenceWindowsText} onChange={(e) => setSilenceWindowsText(e.target.value)} rows={2} placeholder={t("alertRulesPage.createForm.silenceWindowsPlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<p className="text-xs text-slate-500">{t("alertRulesPage.createForm.silenceWindowsHint")}</p>
 			</div>
 
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
-					{submitting ? "创建中…" : "创建规则"}
+					{submitting ? t("alertRulesPage.createForm.submitting") : t("alertRulesPage.createForm.submit")}
 				</button>
 				<button type="button" onClick={onClose} className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
-					取消
+					{t("alertRulesPage.createForm.cancel")}
 				</button>
 			</div>
 		</form>

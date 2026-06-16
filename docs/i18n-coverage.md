@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T08:50:12.752Z | Files: 260 | Strings: 1107 | Coverage: **22.8%** (252/1107)
+> Generated: 2026-06-16T10:29:59.586Z | Files: 260 | Strings: 1066 | Coverage: **23.3%** (248/1066)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -20,7 +20,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/app/account` | 12 | 1 | 11 | 8.3% |
 | `src/app/backups` | 46 | 4 | 42 | 8.7% |
 | `src/app/preferences` | 11 | 1 | 10 | 9.1% |
-| `src/app/alert-rules` | 41 | 4 | 37 | 9.8% |
 | `src/app/downloads` | 38 | 4 | 34 | 10.5% |
 | `src/app/api-docs` | 9 | 1 | 8 | 11.1% |
 | `src/app/requests` | 24 | 3 | 21 | 12.5% |
@@ -82,18 +81,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 | 当前运行值： | 2 | `src/app/settings/settings-client.tsx:795` (text), `src/app/settings/settings-client.tsx:881` (text) |
 
 ## Files with missing translations (most gaps first)
-
-### `src/app/alert-rules/alert-rule-list-client.tsx` — 37/40 missing (7.5%)
-
-- L132 text "删除告警规则"
-- L133 text "确认删除告警规则"
-- L147 text "` ? "删除中…" : "确认删除"}"
-- L156 text "+ 创建告警规则"
-- L180 text "测试发送结果："
-- L198 text "暂无告警规则"
-- L214 text "持续  s"
-- L224 text "Webhook 已配置"
-- _…and 29 more_
 
 ### `src/app/backups/page.tsx` — 30/30 missing (0%)
 
@@ -327,4 +314,16 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L135 text "个失败"
 - L142 text "目标路径："
 - L145 aria-label aria-label= "批量移动目标路径"
+- _…and 6 more_
+
+### `src/app/files/file-list-client.tsx` — 14/23 missing (39.1%)
+
+- L394 title title= "下载目录归档"
+- L615 text "目录"
+- L759 aria-label aria-label= "全选文件"
+- L781 text "修改时间"
+- L799 aria-label aria-label= "选择文件夹（暂未启用）"
+- L966 text "打开"
+- L1086 aria-label aria-label= "关闭提醒"
+- L1104 text "· 已选   个"
 - _…and 6 more_
