@@ -282,9 +282,10 @@ describe("quick service docker lifecycle", () => {
 	});
 
 	it("clears stale lifecycle errors after a successful start or stop", async () => {
-		prismaMock.quickService.findUnique
-			.mockResolvedValueOnce({ id: "svc-6", slug: "demo" })
-			.mockResolvedValueOnce({ id: "svc-6", slug: "demo" });
+		// TR-011: startService/stopService now call captureQuickServiceSnapshot
+		// (extra findUnique) before the existing lifecycle mutation, so the
+		// fixture has to be available for every read inside the operation.
+		prismaMock.quickService.findUnique.mockResolvedValue({ id: "svc-6", slug: "demo", status: "stopped", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" });
 		prismaMock.quickService.update.mockResolvedValue({});
 
 		await startService("demo");
@@ -340,10 +341,16 @@ describe("quick service docker lifecycle", () => {
 		});
 		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-lock", slug: "demo", port: 12345 });
 		prismaMock.quickService.update.mockResolvedValue({});
+		// TR-011: install now calls captureQuickServiceSnapshot (extra
+		// findUnique) before the upsert, so the pre-install lock guard
+		// still has to acquire the snapshot for a real existing row.
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-lock", slug: "demo", status: "installing", port: 12345, containerId: null, image: "example/demo:latest" });
 
 		const installing = installService({ template, userId: "user-1", customPort: 12345 });
 		await expect(startService("demo")).rejects.toThrow("正在执行其它操作");
-		expect(prismaMock.quickService.findUnique).not.toHaveBeenCalled();
+		// startService must not have read the row because the lock was
+		// already held by the install in flight.
+		expect(prismaMock.quickService.findUnique).toHaveBeenCalledTimes(1);
 
 		releaseInstall();
 		await installing;
@@ -427,7 +434,10 @@ describe("quick service docker lifecycle", () => {
 	});
 
 	it("rejects lifecycle operations while a service is still installing", async () => {
-		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-installing", slug: "demo", status: "installing" });
+		// TR-011: uninstallService now calls captureQuickServiceSnapshot
+		// (extra findUnique) before the assertServiceNotBusy guard, so the
+		// installing-state row must be readable from the fixture.
+		prismaMock.quickService.findUnique.mockResolvedValue({ id: "svc-installing", slug: "demo", status: "installing", port: 12345, containerId: null, image: "example/demo:latest" });
 
 		await expect(uninstallService("demo")).rejects.toThrow("正在安装中");
 		expect(execFileSyncMock).not.toHaveBeenCalledWith("docker", expect.arrayContaining(["rm", "-f", "qs-demo"]), expect.anything());
@@ -484,6 +494,172 @@ describe("quick service docker lifecycle", () => {
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.sync.succeeded",
 			detail: expect.objectContaining({ slug: "demo", status: "stopped", missingContainer: true }),
+		}));
+	});
+
+	// -- TR-011: lifecycle audit diff records -------------------------------
+
+	it("records a before/after diff on successful install so operators can see the new state", async () => {
+		// TR-011: pre-existing failed install row → re-installing it should
+		// snapshot the previous "error" row and the audit "started" entry
+		// must carry that as the diff.before.
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-diff", slug: "demo", status: "error", port: 12345, containerId: null, image: "example/demo:latest", error: "image pull denied" });
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-diff", slug: "demo", port: 12345 });
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await installService({ template, userId: "user-1", customPort: 12345 });
+
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.install.started",
+			detail: expect.objectContaining({
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ status: "error", port: 12345, error: "image pull denied" }),
+				}),
+			}),
+		}));
+	});
+
+	it("records a real before/after diff on successful install and includes the new container id", async () => {
+		// New install path (no pre-existing row) → diff.before is null and
+		// the "succeeded" audit carries the running state.
+		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
+		prismaMock.quickService.upsert.mockResolvedValueOnce({ id: "svc-fresh", slug: "demo", port: 12345 });
+		prismaMock.quickService.update.mockResolvedValueOnce({});
+
+		await installService({ template, userId: "user-1", customPort: 12345 });
+		await vi.waitFor(() => {
+			expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+				action: "quick_service.install.succeeded",
+				detail: expect.objectContaining({
+					diff: expect.objectContaining({
+						after: expect.objectContaining({ status: "running", port: 12345, containerId: "abcdef123456" }),
+					}),
+				}),
+			}));
+		});
+	});
+
+	it("records the before/after diff on uninstall so the deleted intent is auditable", async () => {
+		prismaMock.quickService.findUnique
+			.mockResolvedValueOnce({ id: "svc-uninst", slug: "demo", status: "running", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" })
+			.mockResolvedValueOnce({ id: "svc-uninst", slug: "demo", status: "running", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" });
+		prismaMock.quickService.delete.mockResolvedValueOnce({});
+
+		await uninstallService("demo");
+
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.uninstall.started",
+			detail: expect.objectContaining({
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ status: "running", port: 18080, containerId: "abcdef123456" }),
+				}),
+			}),
+		}));
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.uninstall.succeeded",
+			detail: expect.objectContaining({
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ status: "running", port: 18080 }),
+					after: expect.objectContaining({ status: "deleted" }),
+				}),
+			}),
+		}));
+	});
+
+	it("rolls back a partial uninstall when the DB delete fails and audits the rollback", async () => {
+		// The container is already removed but the DB row deletion fails
+		// (e.g. transient connection drop) → the row must be kept with
+		// status=stopped and the diff must capture the rollback intent.
+		prismaMock.quickService.findUnique
+			.mockResolvedValueOnce({ id: "svc-uninst-partial", slug: "demo", status: "running", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" })
+			.mockResolvedValueOnce({ id: "svc-uninst-partial", slug: "demo", status: "running", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" });
+		prismaMock.quickService.delete.mockRejectedValueOnce(Object.assign(new Error("db connection lost"), { code: "P1001" }));
+		prismaMock.quickService.update.mockResolvedValue({});
+
+		await expect(uninstallService("demo")).rejects.toThrow("卸载回滚");
+
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { slug: "demo" },
+				data: expect.objectContaining({ status: "stopped" }),
+			}),
+		);
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.uninstall.failed",
+			detail: expect.objectContaining({
+				phase: "db-delete",
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ status: "running" }),
+					after: expect.objectContaining({ status: "stopped" }),
+				}),
+			}),
+		}));
+	});
+
+	it("records a failed-install audit when the prisma upsert itself throws", async () => {
+		// TR-011: install's pre-container mutation (prisma.upsert) used to
+		// leave a dangling "started" audit with no "failed" sibling. The
+		// refactor wraps the upsert in try/catch and records the diff so
+		// operators can see the attempted state transition.
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-upsert-fail", slug: "demo", status: "error", port: 12345, containerId: null, image: "example/demo:latest", error: "stale row" });
+		prismaMock.quickService.upsert.mockRejectedValueOnce(new Error("connection refused"));
+
+		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败: connection refused");
+
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.install.failed",
+			severity: "WARNING",
+			detail: expect.objectContaining({
+				phase: "upsert",
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ status: "error", error: "stale row" }),
+					after: expect.objectContaining({ status: "error", port: 12345, error: "connection refused" }),
+				}),
+			}),
+		}));
+	});
+
+	it("records the before/after diff on stop and update", async () => {
+		// stop: stopped-from-running should round-trip both sides in the diff.
+		prismaMock.quickService.findUnique
+			.mockResolvedValueOnce({ id: "svc-stop", slug: "demo", status: "running", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" })
+			.mockResolvedValueOnce({ id: "svc-stop", slug: "demo", status: "running", port: 18080, containerId: "abcdef123456", image: "example/demo:latest" });
+		prismaMock.quickService.update.mockResolvedValue({});
+		await stopService("demo");
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.stop.succeeded",
+			detail: expect.objectContaining({
+				diff: expect.objectContaining({
+					before: expect.objectContaining({ status: "running", port: 18080 }),
+					after: expect.objectContaining({ status: "stopped" }),
+				}),
+			}),
+		}));
+
+		// update: a successful image pull should diff the new image in after.
+		vi.clearAllMocks();
+		execFileSyncMock.mockReturnValue("");
+		execFileMock.mockImplementation((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
+			cb(null, { stdout: "newcontainer12\n", stderr: "" });
+			return {};
+		});
+		writeAuditLogMock.mockResolvedValue(undefined);
+		prismaMock.quickService.findUnique.mockResolvedValueOnce({ id: "svc-upd", slug: "demo", name: "Demo", category: "other", icon: "pkg", description: "Demo", image: "example/demo:new", port: 18080, path: "/demo/", envJson: "{}", volumesJson: "[]", internalPort: null, extraPortsJson: "[]", command: null, status: "running" });
+		prismaMock.quickService.update.mockResolvedValue({});
+		execFileSyncMock.mockImplementation((file: string, args: string[]) => {
+			if (file === "docker" && args[0] === "inspect") return "healthy\n";
+			if (file === "docker" && args[0] === "logs") return "ready\n";
+			return "";
+		});
+
+		await updateService("demo");
+		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
+			action: "quick_service.update.succeeded",
+			detail: expect.objectContaining({
+				diff: expect.objectContaining({
+					after: expect.objectContaining({ status: "running", image: "example/demo:new", health: "healthy" }),
+				}),
+			}),
 		}));
 	});
 });

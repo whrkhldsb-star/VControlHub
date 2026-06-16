@@ -14,6 +14,7 @@ import { execFileSync } from "child_process";
 import { mkdirSync, rmSync } from "node:fs";
 
 import { writeAuditLog } from "@/lib/audit/service";
+import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import type { ServiceTemplate } from "./types";
 
@@ -199,28 +200,65 @@ export const __internals = {
 
 /* -- Audit writer ------------------------------------------------------- */
 
+export type QuickServiceDiff = {
+	before?: Record<string, unknown> | null;
+	after?: Record<string, unknown> | null;
+};
+
 export async function writeQuickServiceAudit(input: {
 	userId?: string | null;
 	action: "install" | "start" | "stop" | "sync" | "update" | "uninstall";
 	slug: string;
 	status: "started" | "succeeded" | "failed";
 	detail?: Record<string, string | number | boolean | null>;
+	diff?: QuickServiceDiff | null;
 }) {
 	try {
+		type PrismaJsonValue = string | number | boolean | null | { [key: string]: PrismaJsonValue } | PrismaJsonValue[];
+		const detail: Record<string, PrismaJsonValue> = {
+			slug: input.slug,
+			...input.detail,
+		};
+		if (input.diff && (input.diff.before || input.diff.after)) {
+			detail.diff = input.diff as unknown as PrismaJsonValue;
+		}
 		await writeAuditLog({
 			actorType: input.userId ? "USER" : "SYSTEM",
 			actorId: input.userId ?? undefined,
 			action: `quick_service.${input.action}.${input.status}`,
 			severity: input.status === "failed" ? "WARNING" : "INFO",
-			detail: {
-				slug: input.slug,
-				...input.detail,
-			},
+			detail,
 		});
 	} catch {
 		// Audit log failures must not flip an otherwise successful operation
 		// into a perceived failure. The lifecycle module's primary return
 		// value (the prisma row or thrown error) is the source of truth.
+	}
+}
+
+/**
+ * Snapshot the lifecycle-relevant columns of a quick service row so the
+ * audit log can render a real "before/after" diff. Returns null for new
+ * slugs that have never been installed.
+ */
+export async function captureQuickServiceSnapshot(slug: string): Promise<Record<string, unknown> | null> {
+	try {
+		const row = await prisma.quickService.findUnique({
+			where: { slug },
+			select: { status: true, port: true, containerId: true, image: true, error: true },
+		});
+		if (!row) return null;
+		return {
+			status: row.status,
+			port: row.port,
+			containerId: row.containerId,
+			image: row.image,
+			...(row.error ? { error: row.error } : {}),
+		};
+	} catch {
+		// Snapshot failures must not block the operation itself; an empty
+		// diff is preferable to dropping the audit entry.
+		return null;
 	}
 }
 
