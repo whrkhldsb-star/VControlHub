@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type RoleInfo = { key: string; name: string };
 type UserInfo = {
@@ -16,25 +17,20 @@ type UserInfo = {
   roles: RoleInfo[];
 };
 
-const ROLE_OPTIONS: { key: string; name: string; color: string }[] = [
-  { key: "admin", name: "管理员", color: "rose" },
-  { key: "operator", name: "运维", color: "amber" },
-  { key: "storage_manager", name: "存储管理员", color: "emerald" },
-  { key: "viewer", name: "观察者", color: "cyan" },
-];
+const ROLE_KEYS = ["admin", "operator", "storage_manager", "viewer"] as const;
+type RoleKey = (typeof ROLE_KEYS)[number];
 
 type Tone = "accent" | "success" | "warning" | "danger" | "neutral";
 
+const ROLE_COLORS: Record<RoleKey, "danger" | "warning" | "success" | "accent"> = {
+  admin: "danger",
+  operator: "warning",
+  storage_manager: "success",
+  viewer: "accent",
+};
+
 function roleBadgeTone(key: string): Tone {
-  const found = ROLE_OPTIONS.find((r) => r.key === key);
-  if (!found) return "neutral";
-  const tones: Record<string, Tone> = {
-    rose: "danger",
-    amber: "warning",
-    emerald: "success",
-    cyan: "accent",
-  };
-  return tones[found.color] ?? "accent";
+  return (ROLE_COLORS as Record<string, Tone>)[key] ?? "accent";
 }
 
 function statusTone(status: string): Tone {
@@ -43,14 +39,15 @@ function statusTone(status: string): Tone {
   return "warning";
 }
 
-function statusLabel(status: string) {
-  if (status === "ACTIVE") return "正常";
-  if (status === "DISABLED") return "已禁用";
-  if (status === "PENDING_PASSWORD_RESET") return "待改密";
+function statusLabel(status: string, t: (k: string) => string) {
+  if (status === "ACTIVE") return t("usersPage.status.active");
+  if (status === "DISABLED") return t("usersPage.status.disabled");
+  if (status === "PENDING_PASSWORD_RESET") return t("usersPage.status.pending");
   return status;
 }
 
 export function UserManagementClient({ canManage = false }: { canManage?: boolean }) {
+  const { t, locale } = useI18n();
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -70,10 +67,10 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 		} catch (err) {
 			setUsers([]);
 			setLoadFailed(true);
-			setMessage({ type: "error", text: messageFromError(err, "用户列表加载失败") });
+			setMessage({ type: "error", text: messageFromError(err, t("usersPage.error.loadFailed")) });
 		}
 		finally { setLoading(false); }
-	}, []);
+	}, [t]);
 
 	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
@@ -91,12 +88,12 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(createForm),
 			});
-			setMessage({ type: "success", text: `用户 ${createForm.username} 创建成功` });
+			setMessage({ type: "success", text: t("usersPage.success.created").replace("{name}", createForm.username) });
 			setCreateForm({ username: "", displayName: "", password: "", roleKeys: ["viewer"] });
 			setShowCreateForm(false);
 			fetchUsers();
 		} catch (err) {
-			setMessage({ type: "error", text: err instanceof Error ? err.message : "创建失败" });
+			setMessage({ type: "error", text: err instanceof Error ? err.message : t("usersPage.error.createFailed") });
 		} finally {
 			setCreating(false);
 		}
@@ -111,12 +108,14 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, action }),
       });
-      setMessage({ type: "success", text: `已${action === "enable" ? "启用" : "禁用"} ${username}` });
+      const successKey = action === "enable" ? "usersPage.success.enabled" : "usersPage.success.disabled";
+      setMessage({ type: "success", text: t(successKey).replace("{name}", username) });
       await fetchUsers();
     } catch (err) {
+      const errKey = action === "enable" ? "usersPage.error.enableFailed" : "usersPage.error.disableFailed";
       setMessage({
         type: "error",
-        text: messageFromError(err, `${action === "enable" ? "启用" : "禁用"} ${username} 失败`),
+        text: messageFromError(err, t(errKey).replace("{name}", username)),
       });
     }
   };
@@ -148,7 +147,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
 
       {/* Create button */}
       <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-lg font-medium text-white">用户列表</h2>
+        <h2 className="text-lg font-medium text-white">{t("usersPage.title2")}</h2>
         {canManage ? (
           <button
             type="button"
@@ -156,7 +155,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             data-tone="accent"
             className="rounded-full border px-4 py-2 text-sm transition"
           >
-            {showCreateForm ? "取消" : "+ 创建用户"}
+            {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
           </button>
         ) : null}
       </div>
@@ -166,55 +165,55 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
         <div className="mb-6 rounded-2xl border border-[var(--border)] bg-slate-900/60 p-6 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserUsername">用户名 *</label>
+              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserUsername">{t("usersPage.form.username")}</label>
               <input
                 id="createUserUsername"
                 type="text"
                 value={createForm.username}
                 onChange={(e) => setCreateForm((p) => ({ ...p, username: e.target.value }))}
                 className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-                placeholder="用户名"
+                placeholder={t("usersPage.form.usernamePlaceholder")}
               />
             </div>
             <div>
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserDisplayName">显示名称</label>
+              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserDisplayName">{t("usersPage.form.displayName")}</label>
               <input
                 id="createUserDisplayName"
                 type="text"
                 value={createForm.displayName}
                 onChange={(e) => setCreateForm((p) => ({ ...p, displayName: e.target.value }))}
                 className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-                placeholder="可选"
+                placeholder={t("usersPage.form.displayNamePlaceholder")}
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserPassword">密码 *</label>
+              <label className="block text-sm text-slate-400 mb-1" htmlFor="createUserPassword">{t("usersPage.form.password")}</label>
               <input
                 id="createUserPassword"
                 type="password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm((p) => ({ ...p, password: e.target.value }))}
                 className="w-full rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
-                placeholder="至少6位"
+                placeholder={t("usersPage.form.passwordPlaceholder")}
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm text-slate-400 mb-2">角色分配</label>
+            <label className="block text-sm text-slate-400 mb-2">{t("usersPage.form.roles")}</label>
             <div className="flex flex-wrap gap-2">
-              {ROLE_OPTIONS.map((role) => (
+              {ROLE_KEYS.map((key) => (
                 <button
-                  key={role.key}
+                  key={key}
                   type="button"
-                  onClick={() => toggleRole(role.key)}
+                  onClick={() => toggleRole(key)}
                   className={`rounded-full border px-3 py-1.5 text-xs transition ${
-                    createForm.roleKeys.includes(role.key)
+                    createForm.roleKeys.includes(key)
                       ? ""
                       : "border-white/10 bg-white/5 text-slate-500"
                   }`}
-                  data-tone={createForm.roleKeys.includes(role.key) ? roleBadgeTone(role.key) : undefined}
+                  data-tone={createForm.roleKeys.includes(key) ? roleBadgeTone(key) : undefined}
                 >
-                  {role.name}
+                  {t(`usersPage.role.${key}`)}
                 </button>
               ))}
             </div>
@@ -226,7 +225,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
             data-tone="accent"
             className="rounded-full border px-6 py-2 text-sm font-medium transition disabled:opacity-50"
           >
-            {creating ? "创建中..." : "确认创建"}
+            {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
           </button>
         </div>
       )}
@@ -235,11 +234,11 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
       <div className="overflow-hidden rounded-2xl border border-[var(--border)]">
         <div className="divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
-            <EmptyState>加载中…</EmptyState>
+            <EmptyState>{t("usersPage.loading")}</EmptyState>
           ) : loadFailed ? (
-            <div className="px-4 py-10 text-sm text-slate-400">用户列表加载失败，请稍后重试。</div>
+            <div className="px-4 py-10 text-sm text-slate-400">{t("usersPage.loadFailedHint")}</div>
           ) : users.length === 0 ? (
-            <EmptyState>暂无用户。</EmptyState>
+            <EmptyState>{t("usersPage.empty")}</EmptyState>
           ) : (
             users.map((user) => (
               <div key={user.id} className="px-4 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -247,18 +246,18 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                   <div className="flex items-center gap-3">
                     <span className="text-white font-medium">{user.displayName ?? user.username}</span>
                     <span data-tone={statusTone(user.status)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
-                      {statusLabel(user.status)}
+                      {statusLabel(user.status, t)}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                     <span>@{user.username}</span>
                     <span>·</span>
-                    <span>{new Date(user.createdAt).toLocaleDateString("zh-CN")}</span>
+                    <span>{new Date(user.createdAt).toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US")}</span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {user.roles.map((role) => (
                       <span key={role.key} data-tone={roleBadgeTone(role.key)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
-                        {role.name}
+                        {t(`usersPage.role.${role.key}`)}
                       </span>
                     ))}
                   </div>
@@ -272,7 +271,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                         data-tone="accent"
                         className="rounded-full border px-3 py-1.5 text-xs transition"
                       >
-                        权限配置
+                        {t("usersPage.action.permissions")}
                       </button>
                       {user.status !== "DISABLED" ? (
                         <button
@@ -281,7 +280,7 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                           data-tone="danger"
                           className="rounded-full border px-3 py-1.5 text-xs transition"
                         >
-                          禁用
+                          {t("usersPage.action.disable")}
                         </button>
                       ) : (
                         <button
@@ -290,12 +289,12 @@ export function UserManagementClient({ canManage = false }: { canManage?: boolea
                           data-tone="success"
                           className="rounded-full border px-3 py-1.5 text-xs transition"
                         >
-                          启用
+                          {t("usersPage.action.enable")}
                         </button>
                       )}
                     </>
                   ) : (
-                    <span className="text-xs text-slate-500">只读</span>
+                    <span className="text-xs text-slate-500">{t("usersPage.action.readonly")}</span>
                   )}
                 </div>
               </div>
