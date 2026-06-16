@@ -159,6 +159,12 @@ const translations: Record<Locale, Record<string, string>> = {
 		"imageBed.toast.markdownCopied": "✅ Markdown 已复制",
 		"imageBed.toast.htmlCopied": "✅ HTML 已复制",
 
+		// Users (page-level)
+		"users.noPermission": "你没有查看用户的权限。",
+		"users.title": "用户管理",
+		"users.desc.manage": "创建用户、分配角色与权限管理",
+		"users.desc.readonly": "查看用户、角色与权限（只读）",
+
 		// Audit (filter / error)
 		"audit.loadFailed": "审计日志加载失败",
 		"audit.filterBySeverity": "按严重级别过滤",
@@ -496,6 +502,12 @@ const translations: Record<Locale, Record<string, string>> = {
 		"imageBed.toast.copyFailed": "Copy failed",
 		"imageBed.toast.markdownCopied": "✅ Markdown copied",
 		"imageBed.toast.htmlCopied": "✅ HTML copied",
+
+		// Users (page-level)
+		"users.noPermission": "You don't have permission to view users.",
+		"users.title": "User management",
+		"users.desc.manage": "Create users, assign roles, and manage permissions",
+		"users.desc.readonly": "View users, roles, and permissions (read-only)",
 
 		// Audit (filter / error)
 		"audit.loadFailed": "Failed to load audit log",
