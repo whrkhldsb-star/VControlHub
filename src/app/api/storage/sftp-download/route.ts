@@ -2,7 +2,6 @@ import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -15,6 +14,7 @@ import {
   normalizeRemoteRelativePath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
+import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { parseStorageRange, storageStreamResponse, type StorageByteRange } from "@/lib/storage/streaming";
 
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -101,14 +101,7 @@ export async function GET(request: Request) {
       const url = new URL(request.url);
       const { nodeId, path: remotePath, download } = parseSearchParams(
         request,
-        z.object({
-          nodeId: z.string().trim().min(1).optional(),
-          path: z.string().trim().min(1).optional(),
-          download: z
-            .string()
-            .optional()
-            .transform((value) => value === "1"),
-        }),
+        contentDownloadQuerySchema,
       );
 
       if (!nodeId) {

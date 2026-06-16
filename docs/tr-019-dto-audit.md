@@ -1,6 +1,6 @@
 # TR-019 DTO 边界覆盖审计
 
-Generated: 2026-06-16T06:57:34.109Z
+Generated: 2026-06-16T07:29:59.871Z
 
 本报告扫描 5 个 TR-019 closure 域的 API route 看其 DTO/schema 边界覆盖率。
 
@@ -10,16 +10,16 @@ Generated: 2026-06-16T06:57:34.109Z
 
 - 模块审计数: **5**
 - API route 总数: **28**
-- 仍 inline zod 的 route: **20**
-- 已 import boundary 的 route: **3**
-- 总体覆盖率: **13.0%**
+- 仍 inline zod 的 route: **12**
+- 已 import boundary 的 route: **11**
+- 总体覆盖率: **47.8%**
 
 ## 各模块
 
 | 模块 | boundary 文件 | 存在 | route 总数 | inline-zod | 已 import boundary | 无 schema | 覆盖率 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `files` | `src/lib/files/dto.ts` | ✅ | 4 | 3 | 0 | 1 | **0.0%** |
-| `storage` | `src/lib/storage/schema.ts` | ✅ | 9 | 8 | 0 | 1 | **0.0%** |
+| `storage` | `src/lib/storage/schema.ts` | ✅ | 9 | 0 | 8 | 1 | **100.0%** |
 | `command` | `src/lib/command/schema.ts` | ✅ | 1 | 1 | 0 | 0 | **0.0%** |
 | `ai` | `src/lib/ai/dto.ts` | ✅ | 9 | 7 | 0 | 2 | **0.0%** |
 | `backup` | `src/lib/backup/schema.ts` | ✅ | 5 | 1 | 3 | 1 | **75.0%** |
@@ -37,28 +37,9 @@ Generated: 2026-06-16T06:57:34.109Z
   - L47: `z.object({`
   - L50: `scope: z.enum(["all", "current"]).default("current"),`
 
-### storage (8 gap routes)
+### storage
 
-- `src/app/api/storage/archive-download/route.ts` — 1 个 inline zod 站点
-  - L101: `z.object({`
-- `src/app/api/storage/direct-access/route.ts` — 2 个 inline zod 站点
-  - L23: `const directAccessSchema = z.object({`
-  - L230: `z.object({`
-- `src/app/api/storage/local/route.ts` — 1 个 inline zod 站点
-  - L93: `z.object({`
-- `src/app/api/storage/sftp/route.ts` — 1 个 inline zod 站点
-  - L27: `z.object({`
-- `src/app/api/storage/sftp-download/route.ts` — 1 个 inline zod 站点
-  - L104: `z.object({`
-- `src/app/api/storage/sftp-ops/route.ts` — 2 个 inline zod 站点
-  - L136: `const postSchema = z.object({`
-  - L138: `action: z.enum(["delete", "rename", "read", "write"]),`
-- `src/app/api/storage/sftp-stale-inventory/route.ts` — 2 个 inline zod 站点
-  - L31: `const staleInventorySchema = z.object({`
-  - L51: `z.object({`
-- `src/app/api/storage/sftp-sync/route.ts` — 2 个 inline zod 站点
-  - L23: `const sftpSyncSchema = z.object({`
-  - L90: `z.object({`
+✅ 无 inline zod gap
 
 ### command (1 gap routes)
 

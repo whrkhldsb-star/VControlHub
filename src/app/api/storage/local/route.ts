@@ -3,7 +3,6 @@ import { access, mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -24,6 +23,7 @@ import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { MAX_STORAGE_UPLOAD_BYTES } from "@/lib/storage/mime-constants";
 import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
 
@@ -90,14 +90,7 @@ function guessContentType(fileName: string, mimeType: string | null) {
 async function handleGet(request: Request, session: SessionPayload) {
   const { path: relativePath, nodeId: storageNodeId, download } = parseSearchParams(
     request,
-    z.object({
-      path: z.string().trim().min(1).optional(),
-      nodeId: z.string().trim().min(1).optional(),
-      download: z
-        .string()
-        .optional()
-        .transform((value) => value === "1"),
-    }),
+    contentDownloadQuerySchema,
   );
 
   if (!relativePath) {

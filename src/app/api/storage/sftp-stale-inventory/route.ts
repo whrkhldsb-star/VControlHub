@@ -16,7 +16,6 @@
  * 权限: storage:manage-node (跟节点管理一致, 给管理员触发)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -25,15 +24,20 @@ import { enqueueJob } from "@/lib/job/service";
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 import { listSftpNodesForStaleInventory, detectAndPruneSftpStaleInventory } from "@/lib/storage/sftp-stale-inventory";
 import { SFTP_STALE_INVENTORY_JOB_TYPE } from "@/lib/storage/sftp-stale-inventory-job";
+import {
+  sftpStaleInventoryBodySchema,
+  sftpWaitQuerySchema,
+  type SftpStaleInventoryBody as SharedSftpStaleInventoryBody,
+} from "@/lib/storage/schema";
 
 export const dynamic = "force-dynamic";
 
-const staleInventorySchema = z.object({
-  nodeId: z.string().min(1).optional(),
-  maxDepth: z.number().int().min(0).max(10).optional(),
-  dryRun: z.boolean().optional(),
-  reason: z.string().trim().min(1).max(120).optional(),
-});
+// `staleInventorySchema` and the inline `wait` query schema have been
+// migrated to the shared boundary in `src/lib/storage/schema.ts`.
+// Behaviour is identical to the previous inline version (the `reason`
+// field stayed in the shared body schema).
+const staleInventorySchema = sftpStaleInventoryBodySchema;
+type StaleInventoryInput = SharedSftpStaleInventoryBody;
 
 export async function POST(request: NextRequest) {
   return withApiRoute(
@@ -41,20 +45,12 @@ export async function POST(request: NextRequest) {
     { permission: "storage:manage-node", rateLimit: GENERAL_WRITE_LIMIT },
     async ({ session, body }) => {
       if (!session) throw new AuthError("未认证");
-      const input = (body ?? {}) as z.infer<typeof staleInventorySchema>;
+      const input = (body ?? {}) as StaleInventoryInput;
       const parsed = staleInventorySchema.safeParse(input);
       if (!parsed.success) throw new ValidationError("输入参数无效");
       const data = parsed.data;
 
-      const { wait } = parseSearchParams(
-        request,
-        z.object({
-          wait: z
-            .string()
-            .optional()
-            .transform((value) => value === "1"),
-        }),
-      );
+      const { wait } = parseSearchParams(request, sftpWaitQuerySchema);
 
       if (data.nodeId) {
         const nodes = await listSftpNodesForStaleInventory();
@@ -104,7 +100,7 @@ export async function POST(request: NextRequest) {
   );
 }
 
-async function scanOneNode(input: z.infer<typeof staleInventorySchema>) {
+async function scanOneNode(input: StaleInventoryInput) {
   const nodes = await listSftpNodesForStaleInventory();
   const node = nodes.find((n) => n.id === input.nodeId);
   if (!node) throw new NotFoundError("存储节点不存在");
@@ -115,7 +111,7 @@ async function scanOneNode(input: z.infer<typeof staleInventorySchema>) {
   });
 }
 
-async function scanAllNodes(input: z.infer<typeof staleInventorySchema>) {
+async function scanAllNodes(input: StaleInventoryInput) {
   const nodes = await listSftpNodesForStaleInventory();
   if (nodes.length === 0) {
     return {

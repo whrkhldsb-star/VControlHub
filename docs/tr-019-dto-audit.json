@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-16T06:57:34.109Z",
+  "generatedAt": "2026-06-16T07:29:59.871Z",
   "summary": {
     "modulesAudited": 5,
     "totalRoutes": 28,
-    "inlineZodRoutes": 20,
-    "boundaryConsumerRoutes": 3,
-    "overallCoveragePercent": 13
+    "inlineZodRoutes": 12,
+    "boundaryConsumerRoutes": 11,
+    "overallCoveragePercent": 47.8
   },
   "modules": [
     {
@@ -86,56 +86,37 @@
       "boundaryKind": "schema",
       "boundaryExists": true,
       "totalRoutes": 9,
-      "inlineZodRoutes": 8,
-      "boundaryConsumerRoutes": 0,
+      "inlineZodRoutes": 0,
+      "boundaryConsumerRoutes": 8,
       "cleanRoutes": 1,
-      "coveragePercent": 0,
+      "coveragePercent": 100,
       "routes": [
         {
           "path": "/opt/VControlHub/src/app/api/storage/archive-download/route.ts",
           "relPath": "src/app/api/storage/archive-download/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 101,
-              "text": "z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 23
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/direct-access/route.ts",
           "relPath": "src/app/api/storage/direct-access/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 23,
-              "text": "const directAccessSchema = z.object({"
-            },
-            {
-              "line": 230,
-              "text": "z.object({"
-            }
-          ],
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
           "firstBoundaryImportLine": null
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/local/route.ts",
           "relPath": "src/app/api/storage/local/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 93,
-              "text": "z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 26
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/nodes/route.ts",
@@ -149,83 +130,46 @@
         {
           "path": "/opt/VControlHub/src/app/api/storage/sftp/route.ts",
           "relPath": "src/app/api/storage/sftp/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 27,
-              "text": "z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 16
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/sftp-download/route.ts",
           "relPath": "src/app/api/storage/sftp-download/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 104,
-              "text": "z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 17
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/sftp-ops/route.ts",
           "relPath": "src/app/api/storage/sftp-ops/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 136,
-              "text": "const postSchema = z.object({"
-            },
-            {
-              "line": 138,
-              "text": "action: z.enum([\"delete\", \"rename\", \"read\", \"write\"]),"
-            }
-          ],
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
           "firstBoundaryImportLine": null
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/sftp-stale-inventory/route.ts",
           "relPath": "src/app/api/storage/sftp-stale-inventory/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 31,
-              "text": "const staleInventorySchema = z.object({"
-            },
-            {
-              "line": 51,
-              "text": "z.object({"
-            }
-          ],
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
           "firstBoundaryImportLine": null
         },
         {
           "path": "/opt/VControlHub/src/app/api/storage/sftp-sync/route.ts",
           "relPath": "src/app/api/storage/sftp-sync/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 23,
-              "text": "const sftpSyncSchema = z.object({"
-            },
-            {
-              "line": 90,
-              "text": "z.object({"
-            }
-          ],
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
           "firstBoundaryImportLine": null
         }
       ]

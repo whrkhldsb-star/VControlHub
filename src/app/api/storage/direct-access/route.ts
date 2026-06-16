@@ -2,7 +2,6 @@ import crypto from "node:crypto";
 import posixPath from "node:path/posix";
 
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { config } from "@/lib/config/env";
@@ -17,13 +16,18 @@ import {
   normalizeRemoteTargetPath,
   normalizeRemoteRelativePath,
 } from "@/lib/storage/remote-path";
+import {
+  directAccessDownloadQuerySchema,
+  directAccessInputSchema,
+} from "@/lib/storage/schema";
 
 export const dynamic = "force-dynamic";
 
-const directAccessSchema = z.object({
-  nodeId: z.string().min(1),
-  relativePath: z.string().min(1),
-});
+// `directAccessSchema` is now a re-export of the shared boundary schema in
+// `src/lib/storage/schema.ts`. Both `parseDirectAccessJson` (POST body) and
+// `parseDirectAccessQuery` (GET, when the route builds a synthetic object
+// from `URLSearchParams`) validate against the same shape.
+const directAccessSchema = directAccessInputSchema;
 
 type DirectAccessPayload =
   | { mode: "managed-download"; fallbackUrl: string }
@@ -227,12 +231,7 @@ export async function GET(request: Request) {
 
       const shouldForceDownload = parseSearchParams(
         request,
-        z.object({
-          download: z
-            .string()
-            .optional()
-            .transform((value) => value === "1"),
-        }),
+        directAccessDownloadQuerySchema,
       ).download;
       const redirectUrl = payload.mode === "direct-url"
         ? shouldForceDownload

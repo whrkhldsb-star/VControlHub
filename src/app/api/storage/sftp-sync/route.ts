@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -17,15 +16,17 @@ import {
   normalizeRemotePath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
+import {
+  sftpSyncBodySchema,
+  sftpWaitQuerySchema,
+} from "@/lib/storage/schema";
 
 export const dynamic = "force-dynamic";
 
-const sftpSyncSchema = z.object({
-  nodeId: z.string().min(1),
-  remotePath: z.string().optional(),
-  recursive: z.boolean().optional(),
-  maxDepth: z.number().int().min(1).max(10).optional(),
-});
+// `sftpSyncSchema` and the inline `wait` query schema have been migrated
+// to the shared boundary in `src/lib/storage/schema.ts`. Behaviour is
+// identical to the previous inline version.
+const sftpSyncSchema = sftpSyncBodySchema;
 
 export async function POST(request: Request) {
   return withApiRoute(
@@ -85,15 +86,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const { wait } = parseSearchParams(
-        request,
-        z.object({
-          wait: z
-            .string()
-            .optional()
-            .transform((value) => value === "1"),
-        }),
-      );
+      const { wait } = parseSearchParams(request, sftpWaitQuerySchema);
       const waitForCompletion = wait;
       if (waitForCompletion) {
         try {

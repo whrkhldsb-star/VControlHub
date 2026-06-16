@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -23,6 +22,10 @@ import { createLogger } from "@/lib/logging";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
+import {
+  sftpOpsBodySchema,
+  type SftpOpsBody,
+} from "@/lib/storage/schema";
 
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 const logger = createLogger("api:storage:sftp-ops");
@@ -133,16 +136,12 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
 
 export const dynamic = "force-dynamic";
 
-const postSchema = z.object({
-  nodeId: z.string().min(1),
-  action: z.enum(["delete", "rename", "read", "write"]),
-  path: z.string().min(1),
-  newPath: z.string().optional(),
-  content: z.string().optional(),
-  isDirectory: z.boolean().optional(),
-});
-
-type SftpOpsBody = z.infer<typeof postSchema>;
+// `postSchema` is a local alias of the shared boundary schema in
+// `src/lib/storage/schema.ts`. Behaviour is identical to the inline version
+// (`nodeId` + `action` enum + `path`, with optional `newPath`/`content`/
+// `isDirectory`). The exported `SftpOpsBody` type comes from the same module
+// and is re-imported above for downstream call-sites.
+const postSchema = sftpOpsBodySchema;
 
 async function handlePost(request: Request, session: SessionPayload) {
   let rawBody: unknown;

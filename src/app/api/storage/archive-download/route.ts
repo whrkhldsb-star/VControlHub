@@ -3,7 +3,6 @@ import path from "node:path";
 
 import { NextResponse } from "next/server";
 import type { Client } from "ssh2";
-import { z } from "zod";
 
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -21,6 +20,7 @@ import {
 import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { storageFileQuerySchema } from "@/lib/storage/schema";
 
 import { AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
@@ -98,10 +98,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const { nodeId, path: requestedPath } = parseSearchParams(
       request,
-      z.object({
-        nodeId: z.string().trim().min(1).optional(),
-        path: z.string().trim().min(1).optional(),
-      }),
+      storageFileQuerySchema,
     );
 
     if (!nodeId) {

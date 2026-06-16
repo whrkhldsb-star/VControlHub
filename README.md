@@ -592,7 +592,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 #### TR-037 P2 — API 入参 zod 校验补齐
 
-79 route 中 40 用 `z.object()` (50%)。剩 39 分两类：纯 GET 无参（合理）；用 `searchParams.get()` + 手工 parse（无 schema、无 errorMap、错误响应不统一）。建议 `lib/http/parse-search-params.ts` (zod-form-data 风格)，所有 GET 走 zod；route-catalog 守卫脚本（TR-028 已完成）扩一条 lint 规则强制 schema 存在。
+R1-R5 累计 17 路由, R6 (T38b) 走 storage 域 8 路由 (archive-download / direct-access / local / sftp / sftp-download / sftp-ops / sftp-stale-inventory / sftp-sync) 共用 `src/lib/storage/schema.ts` (10 个新共享 schema + 5 type export, 17 新 schema 单测), storage 域覆盖率 0% → 100%, 总体 13% → 47.8% (11/23 routes)。剩 12 路由待 R7+ (ai 域 7 / files 域 3 / command 域 1 / 其它 1)。
 
 #### TR-038 P2 — God-object service 继续拆分
 
@@ -709,7 +709,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | ✅ 完成 (R1 union + R2 219 处 codemod + R3 client envelope) |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
 | TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ✅ 完成 (T36b + T36c + T37; file-list-client 1600→1245 / ai-client 1071→987 / quick-services-client 1002→574, 共抽 6 子组件 + 5 lazy wrapper) |
-| TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ✅ R5 扫 2 路由 (operation-tasks + traffic/summary) + 修 helper bug。R1-R5 累计 17 路由, 剩 22 路由待 R6+ |
+| TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ✅ R5 扫 2 路由 (operation-tasks + traffic/summary) + 修 helper bug。R1-R5 累计 17 路由, R6 (T38b) 走 storage 域 8 路由 (共用 `src/lib/storage/schema.ts` + 17 schema 单测) → storage 域 100%, 总体 11/23 routes (47.8%), 剩 12 路由待 R7+ (ai/files/command 域) |
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | ✅ 完成 (1/1 leak 修 + 4 域 0 leak 审计; commit 见 git log) |
 | TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⏳ R1 部分完成 (R1.1 syncSource 全并行 + R1.2 syncLocalShareDirectory batch; R1.3 rollback statuses 跳过 — 已是 Promise.all 并行 + runs 数量小) |
@@ -751,7 +751,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [x] **备份策略管理**（TR-015）— **任务化执行**（T13a/T13b jobs 表迁移已落地） + **保留策略自动清理**（T16 落地, `pruneOldBackupRecords` planner + `BACKUP_RETENTION_JOB_TYPE` durable job + `/api/backups/retention` API + `/backups` RetentionButton UI + 11 测试）。**待续做**: 异地备份、恢复验证演练。
 - [x] **仪表盘自定义**（TR-020）— `ec5f791`+`fc65edf`+`d9e6089`：4 列 grid（`grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`）+ HTML5 native dnd 拖拽排序（`order: N` CSS 注入, 0 依赖）+ click widget 弹 dialog 详情（深拷贝 live widget DOM, ESC/backdrop 关闭）+ 9 i18n key + 16 vitest 覆盖 customize 流程/拖拽状态/详情弹窗。
 - [x] **环境变量集中读取层**（TR-035）— 扩 `lib/config/env.ts`，23 文件已迁移。
-- [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。R5 扫了 2 路由 (operation-tasks + traffic/summary) + 修了 `parseSearchParams` 抛 plain Error 走 500 的 bug（应抛 `ValidationError` 走 400），剩 22 路由待 R6+。
+- [ ] **API 入参 zod 校验补齐**（TR-037）— 39 ad-hoc route 走 schema。R1-R5 累计 17 路由, R6 (T38b) 走 storage 域 8 路由 (共用 `src/lib/storage/schema.ts` 10 个共享 schema + 17 schema 单测 + 0→100% storage 域 + 修 sftp-ops 残 tsc `z.infer` namespace 错), 总体 11/23 routes (47.8%)。**待续做**: ai 域 7 路由 (T38c) / files 域 3 路由 (T38d) / command 域 1 路由 (T38e), 3 个 sub-tick 推到 ~95% 覆盖率。
 - [x] **领域 DTO 边界续做**（TR-039）— 5 域全域 DTO 闭环。
 - [ ] **N+1 查询修复**（TR-040）— 3 个候选文件。
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
