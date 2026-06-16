@@ -79,6 +79,11 @@ const translations: Record<Locale, Record<string, string>> = {
 		"common.retry": "重试",
 		"common.optional": "可选",
 		"common.clear": "清除",
+		"ai.defaultModel": "默认模型",
+		"common.title": "标题",
+		"common.close": "关闭",
+		"common.port": "端口",
+		"common.description": "描述",
 
 		// Error boundary
 		"error.title": "页面加载出错",
@@ -273,6 +278,11 @@ const translations: Record<Locale, Record<string, string>> = {
 		"common.retry": "Retry",
 		"common.optional": "Optional",
 		"common.clear": "Clear",
+		"ai.defaultModel": "Default model",
+		"common.title": "Title",
+		"common.close": "Close",
+		"common.port": "Port",
+		"common.description": "Description",
 
 		// Error boundary
 		"error.title": "Page failed to load",
