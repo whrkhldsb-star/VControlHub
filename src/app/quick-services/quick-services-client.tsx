@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState } from "@/components/page-shell";
@@ -12,7 +12,11 @@ import {
 import {
 	PendingSourceDeleteDialogLazy,
 	PendingUninstallDialogLazy,
+	ConfigPreviewDialogLazy,
 } from "./quick-services-dialogs-lazy";
+import { ServiceCard } from "./quick-service-card";
+import { InstallDialog } from "./install-dialog";
+import { SourcesPanel } from "./quick-services-sources-panel";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -73,25 +77,32 @@ const CATEGORY_LABELS: Record<string, string> = {
 const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blog", "other"];
 const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
 
-const SOURCE_PRESETS = [
-	{ key: "linuxserver", label: "LinuxServer.io", type: "linuxserver", url: "", description: "媒体、下载、监控类服务。", badge: "LSIO" },
-	{ key: "github", label: "GitHub Raw JSON", type: "github", url: "", description: "社区维护的公开 JSON 目录。", badge: "GitHub" },
-	{ key: "json", label: "通用 JSON", type: "json", url: "", description: "你自己整理的任意 JSON 目录。", badge: "JSON" },
-] as const;
-
 const QUICK_SERVICE_PUBLIC_HOST = process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ?? "";
 
 type Tab = "store" | "community" | "installed" | "sources";
 
-function getEnvCount(item: CatalogItem): number {
+/**
+ * Helper functions accept any item that has the meta fields they need
+ * (envKeyCount / volumesJson / internalPort / defaultPort), so they can
+ * be passed to the dialog sub-components (InstallDialog / ConfigPreview)
+ * which work with narrower shapes.
+ */
+type ItemWithMeta = {
+	envKeyCount?: number | null;
+	volumesJson?: Array<{ host: string; container: string }> | null;
+	internalPort?: number | null;
+	defaultPort: number;
+};
+
+function getEnvCount(item: ItemWithMeta): number {
 	return item.envKeyCount ?? 0;
 }
 
-function getVolumeMounts(item: CatalogItem): Array<{ host: string; container: string }> {
+function getVolumeMounts(item: ItemWithMeta): Array<{ host: string; container: string }> {
 	return item.volumesJson ?? [];
 }
 
-function getPrimaryContainerPort(item: CatalogItem): number {
+function getPrimaryContainerPort(item: ItemWithMeta): number {
 	return item.internalPort ?? item.defaultPort;
 }
 
@@ -124,25 +135,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("community");
-	const [newSourceName, setNewSourceName] = useState("");
-	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
-	const [newSourceUrl, setNewSourceUrl] = useState("");
-	const [newSourceType, setNewSourceType] = useState<"json" | "github" | "linuxserver">("json");
-	const [sourcePreset, setSourcePreset] = useState<(typeof SOURCE_PRESETS)[number]["key"] | null>(null);
-	// Install dialog state
-	const [installDialog, setInstallDialog] = useState<{ slug: string; name: string; defaultPort: number } | null>(null);
+	// Install dialog state (the dialog body ships in <InstallDialog />)
+	const [installDialog, setInstallDialog] = useState<CatalogItem | null>(null);
 	const [configPreview, setConfigPreview] = useState<ConfigPreview<CatalogItem> | null>(null);
 	const [pendingUninstall, setPendingUninstall] = useState<{ slug: string; name: string; deleteVolumes: boolean } | null>(null);
 	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
-	const [customPort, setCustomPort] = useState<string>("");
-	const [portCheck, setPortCheck] = useState<{ available: boolean; usedBy: string | null; checking: boolean } | null>(null);
 	// Sync state is owned by useQuickServiceActions (see use-quick-service-actions.ts)
 	// Search
 	const [search, setSearch] = useState("");
 	const [hostName, setHostName] = useState("");
 	const [quickServicePublicHost, setQuickServicePublicHost] = useState(QUICK_SERVICE_PUBLIC_HOST);
-
-	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const fetchCatalog = useCallback(async () => {
 		try {
@@ -188,65 +190,25 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		return () => clearTimeout(t);
 	}, [catalog, remoteCatalog, fetchCatalog]);
 
-	// Debounced port availability check
-	const checkPortAvailability = useCallback(async (port: number) => {
-		setPortCheck({ available: false, usedBy: null, checking: true });
-		try {
-			const data = await csrfFetch<{ available: boolean; usedBy?: string | null }>(`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}`);
-			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
-		} catch (err) {
-			setPortCheck({ available: false, usedBy: err instanceof Error ? err.message : "检查失败", checking: false });
-		}
-	}, []);
-
-	const handlePortInput = useCallback((value: string) => {
-		setCustomPort(value);
-		if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
-		const port = Number(value);
-		if (!value || isNaN(port) || port < 1 || port > 65535) {
-			setPortCheck(null);
-			return;
-		}
-		portCheckTimer.current = setTimeout(() => {
-			checkPortAvailability(port);
-		}, 400);
-	}, [checkPortAvailability]);
-
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
 			actions.showMessage({ type: "err", text: dockerStatus.installHint ? `${dockerStatus.message}：${dockerStatus.installHint}` : (dockerStatus.message ?? "Docker 不可用") });
 			return;
 		}
-		setInstallDialog({ slug: item.slug, name: item.name, defaultPort: item.defaultPort });
-		setCustomPort(String(item.defaultPort));
-		setPortCheck({ available: false, usedBy: null, checking: true });
-		checkPortAvailability(item.defaultPort);
+		setInstallDialog(item);
 	};
 
 	const closeInstallDialog = () => {
 		setInstallDialog(null);
-		setCustomPort("");
-		setPortCheck(null);
-		if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
 	};
 
-	const requestInstall = () => {
-		if (!installDialog) return;
-		const port = Number(customPort);
-		if (isNaN(port) || port < 1 || port > 65535) {
-			actions.showMessage({ type: "err", text: "端口号无效，请输入 1-65535 之间的数字" });
-			return;
-		}
-		if (portCheck && !portCheck.available) {
-			actions.showMessage({ type: "err", text: `端口 ${port} 已被占用（${portCheck.usedBy}），请更换端口` });
-			return;
-		}
-		const item = [...catalog, ...remoteCatalog].find((candidate) => candidate.slug === installDialog.slug);
+	const advanceInstall = (input: { slug: string; name: string; port: number }) => {
+		const item = [...catalog, ...remoteCatalog].find((candidate) => candidate.slug === input.slug);
 		if (!item) {
 			actions.showMessage({ type: "err", text: "未找到待安装服务配置，请刷新后重试" });
 			return;
 		}
-		setConfigPreview({ action: "install", item, port });
+		setConfigPreview({ action: "install", item, port: input.port });
 	};
 
 	const requestUpdate = (item: CatalogItem) => {
@@ -290,29 +252,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		const id = pendingSourceDelete.id;
 		setPendingSourceDelete(null);
 		await actions.doDeleteSource(id);
-	};
-
-	const applySourcePreset = (key: (typeof SOURCE_PRESETS)[number]["key"]) => {
-		const preset = SOURCE_PRESETS.find((item) => item.key === key);
-		if (!preset) return;
-		setSourcePreset(key);
-		setNewSourceType(preset.type);
-		setNewSourceDisplayName(preset.label);
-		setNewSourceName(preset.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""));
-		setNewSourceUrl(preset.url);
-	};
-
-	const doAddSource = async () => {
-		await actions.doAddSource({
-			name: newSourceName,
-			displayName: newSourceDisplayName,
-			url: newSourceUrl,
-			type: newSourceType,
-		});
-		setNewSourceName("");
-		setNewSourceDisplayName("");
-		setNewSourceUrl("");
-		setSourcePreset(null);
 	};
 
 	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">加载中…</div>;
@@ -381,10 +320,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		protocol: typeof window !== "undefined" ? window.location.protocol : null,
 		path: item.path,
 	});
-	const installPreviewItem = installDialog ? allItems.find((item) => item.slug === installDialog.slug) : null;
-	const installPreviewContainerPort = installPreviewItem ? getPrimaryContainerPort(installPreviewItem) : installDialog?.defaultPort;
-	const installPreviewEnvCount = installPreviewItem ? getEnvCount(installPreviewItem) : 0;
-	const installPreviewVolumeCount = installPreviewItem ? getVolumeMounts(installPreviewItem).length : 0;
 	const accessHostLabel = quickServicePublicHost || hostName || "当前主机";
 	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");
 	const lastSyncedSource = sources
@@ -539,131 +474,18 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					⚙️ 应用源 ({sources.length})
 				</button>
 			</div>
-
-			{/* Sources management tab */}
+			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}
 			{tab === "sources" && (
-				<div className="space-y-4">
-					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
-						<div className="flex items-center justify-between gap-3">
-							<div>
-								<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
-								<p className="mt-1 text-sm text-slate-400">先选一个预设，再按你的实际源地址微调。</p>
-							</div>
-							<span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-slate-500">点卡片填充</span>
-						</div>
-						<div className="grid gap-3 sm:grid-cols-3">
-							{SOURCE_PRESETS.map((preset) => {
-								const active = sourcePreset === preset.key;
-								return (
-									<button key={preset.key} type="button" onClick={() => applySourcePreset(preset.key)} className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:hover:bg-white"}`}>
-										<div className="flex items-center justify-between gap-2">
-											<span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{preset.badge}</span>
-											<span className={`rounded-full border px-2 py-0.5 text-[10px] ${active ? "border-cyan-400/30 text-cyan-100" : "border-white/[0.08] text-slate-500"}`}>{preset.type}</span>
-										</div>
-										<h4 className="mt-2 text-sm font-semibold text-white">{preset.label}</h4>
-										<p className="mt-1 text-xs leading-5 text-slate-400">{preset.description}</p>
-									</button>
-								);
-							})}
-						</div>
-						<div className="grid gap-3 md:grid-cols-2">
-							<label className="space-y-1">
-								<span className="text-xs text-slate-400">源名称</span>
-								<input value={newSourceName} onChange={(e) => setNewSourceName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="linuxserver" />
-							</label>
-							<label className="space-y-1">
-								<span className="text-xs text-slate-400">显示名称</span>
-								<input value={newSourceDisplayName} onChange={(e) => setNewSourceDisplayName(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="LinuxServer.io" />
-							</label>
-							<label className="space-y-1 md:col-span-2">
-								<span className="text-xs text-slate-400">源地址</span>
-								<input value={newSourceUrl} onChange={(e) => setNewSourceUrl(e.target.value)} className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40" placeholder="https://..." />
-							</label>
-						</div>
-						<div className="flex flex-wrap items-center justify-between gap-3">
-							<div className="flex gap-2">
-								{(["linuxserver", "github", "json"] as const).map((type) => (
-									<button key={type} type="button" onClick={() => setNewSourceType(type)} className={`rounded-lg border px-3 py-1.5 text-xs transition ${newSourceType === type ? "border-violet-400/30 bg-violet-400/10 text-violet-100" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
-										{type}
-									</button>
-								))}
-							</div>
-							<button type="button" onClick={doAddSource} className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition">
-								添加源
-							</button>
-						</div>
-					</div>
-					<div className="flex items-center justify-between">
-						<p className="text-xs text-slate-500">管理第三方应用源，同步后可在「社区推荐」中一键安装</p>
-						<button
-							type="button"
-							onClick={() => actions.doSync()}
-							disabled={actions.syncing !== null}
-							className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40"
-						>
-							{actions.syncing === "all" ? "同步中…" : "🔄 同步所有源"}
-						</button>
-					</div>
-					{sources.length === 0 && (
-						<EmptyState icon="🔗" variant="boxed">
-							还没有配置任何第三方源
-						</EmptyState>
-					)}
-					{sources.map((src) => (
-						<div key={src.id} data-card className=" p-4 space-y-3">
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-3">
-									<span className="text-lg">{src.type === "linuxserver" ? "🐧" : src.type === "github" ? "🐙" : "📡"}</span>
-									<div>
-										<h3 className="text-sm font-semibold text-white">{src.displayName}</h3>
-										<p className="text-xs text-slate-500 mt-0.5">{src.url}</p>
-									</div>
-								</div>
-								<div className="flex items-center gap-2">
-									<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-400" : "border-white/[0.06] text-slate-500"}`}>
-										{src.enabled ? "已启用" : "已禁用"}
-									</span>
-									{src.lastSyncStatus && (
-										<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus === "success" ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-400" : "border-rose-400/20 bg-rose-500/[0.06] text-rose-400"}`}>
-											{src.lastSyncStatus === "success" ? "同步成功" : "同步失败"}
-										</span>
-									)}
-								</div>
-							</div>
-							<div className="flex items-center gap-3 text-[10px] text-slate-500">
-								<span>类型: {src.type}</span>
-								<span>同步次数: {src.syncCount}</span>
-								{src.lastSyncAt && <span>上次同步: {new Date(src.lastSyncAt).toLocaleString()}</span>}
-							</div>
-							{src.lastSyncError && (
-								<div className="text-[10px] text-rose-300 bg-rose-500/[0.06] rounded px-2 py-1">{src.lastSyncError}</div>
-							)}
-							<div className="flex items-center gap-2 pt-1">
-								<button
-									type="button"
-									onClick={() => actions.doSync(src.id)}
-									disabled={actions.syncing !== null}
-									className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50"
-								>
-									{actions.syncing === src.id ? "同步中…" : "立即同步"}
-								</button>
-								<button
-									type="button"
-									onClick={() => actions.doToggleSource(src.id, !src.enabled)}
-									className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ? "border-amber-400/20 text-amber-300 hover:bg-amber-500/[0.08]" : "border-emerald-400/20 text-emerald-300 hover:bg-emerald-500/[0.08]"}`}
-								>
-									{src.enabled ? "禁用" : "启用"}
-								</button>
-								<button
-									onClick={() => requestDeleteSource(src)}
-									className="ml-auto rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/[0.08] transition"
-								>
-									删除
-								</button>
-							</div>
-						</div>
-					))}
-				</div>
+				<SourcesPanel
+					sources={sources}
+					actions={{
+						doSync: actions.doSync,
+						doToggleSource: actions.doToggleSource,
+						doAddSource: actions.doAddSource,
+						syncing: actions.syncing,
+					}}
+					onRequestDeleteSource={requestDeleteSource}
+				/>
 			)}
 
 			{/* Store / Community / Installed content */}
@@ -710,136 +532,25 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				</EmptyState>
 			)}
 
-			{/* Install Dialog (port picker) */}
-			{installDialog && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={closeInstallDialog}>
-					<div className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0c0f1a] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-						<h3 className="text-lg font-semibold text-white mb-1">安装 {installDialog.name}</h3>
-						<p className="text-xs text-slate-500 mb-4">选择服务监听的端口，安装后可通过该端口访问服务。</p>
+			{/* Install Dialog (port picker) — extracted to <InstallDialog /> in TR-036 T37 */}
+			<InstallDialog
+				open={installDialog}
+				onClose={closeInstallDialog}
+				onAdvance={advanceInstall}
+				getEnvCount={getEnvCount}
+				getVolumeMounts={getVolumeMounts}
+				getPrimaryContainerPort={getPrimaryContainerPort}
+			/>
 
-						<div className="space-y-3">
-							<label className="block">
-								<span className="text-xs text-slate-400 mb-1 block">端口号</span>
-								<div className="relative">
-									<input
-										type="number"
-										min={1}
-										max={65535}
-										value={customPort}
-										onChange={(e) => handlePortInput(e.target.value)}
-										className={`w-full rounded-lg border bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder-slate-600 outline-none transition ${
-											portCheck
-												? portCheck.available
-													? "border-emerald-400/40 focus:border-emerald-400"
-													: "border-rose-400/40 focus:border-rose-400"
-												: "border-white/[0.08] focus:border-cyan-400"
-										}`}
-										placeholder="1-65535"
-									/>
-									{portCheck?.checking && (
-										<div className="absolute right-3 top-1/2 -translate-y-1/2">
-											<div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" />
-										</div>
-									)}
-									{portCheck && !portCheck.checking && (
-										<div className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium ${portCheck.available ? "text-emerald-400" : "text-rose-400"}`}>
-											{portCheck.available ? "✓ 可用" : "✗ 占用"}
-										</div>
-									)}
-								</div>
-							</label>
-
-							{portCheck && !portCheck.available && portCheck.usedBy && (
-								<div className="text-xs text-rose-300/80 bg-rose-500/[0.06] rounded-lg px-3 py-2 border border-rose-400/10">
-									端口被占用：{portCheck.usedBy}
-								</div>
-							)}
-
-							<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-cyan-100">
-								<div className="font-semibold">安装前配置预览</div>
-								<div className="mt-2 grid gap-1.5 text-cyan-100/80/75">
-									<span>镜像：{installPreviewItem?.image ?? "待刷新"}</span>
-									<span>容器端口：{installPreviewContainerPort ?? "-"} → 宿主端口 {customPort || installDialog.defaultPort}</span>
-									<span>环境变量：{installPreviewEnvCount} 个键（不展示密钥值）</span>
-									<span>宿主机挂载：{installPreviewVolumeCount} 条</span>
-								</div>
-							</div>
-
-							<div className="flex items-center gap-2 text-[10px] text-slate-500">
-								<span>推荐端口: {installDialog.defaultPort}</span>
-								<button
-									type="button"
-									onClick={async () => {
-										try {
-											const data = await csrfFetch<{ port?: number }>(`/api/quick-services/check-port?action=allocate&preferred=${installDialog.defaultPort}`);
-											if (data.port) {
-												handlePortInput(String(data.port));
-											}
-										} catch { /* ignore */ }
-									}}
-									className="text-cyan-400/70 hover:text-cyan-300 underline underline-offset-2"
-								>
-									自动分配
-								</button>
-							</div>
-						</div>
-
-						<div className="flex items-center justify-end gap-3 mt-6">
-							<button onClick={closeInstallDialog} className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
-								取消
-							</button>
-							<button
-								onClick={requestInstall}
-								disabled={portCheck?.checking || (portCheck ? !portCheck.available : false)}
-								className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
-							>
-								确认安装
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-
-			{configPreview && (
-				<div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setConfigPreview(null)}>
-					<div
-						role="dialog"
-						aria-modal="true"
-						aria-label={configPreview.action === "install" ? "确认安装配置" : "确认更新配置"}
-						className="mx-0 w-full max-w-lg rounded-t-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<h3 className="text-lg font-semibold text-white mb-2">
-							{configPreview.action === "install" ? "确认安装配置" : "确认更新配置"}
-						</h3>
-						<p className="text-sm leading-6 text-slate-300">
-							{configPreview.action === "install" ? "安装会拉取镜像并创建 qs-* 容器。" : "更新会拉取当前镜像并重建 qs-* 容器。"}请确认端口、挂载和公开访问边界后继续。
-						</p>
-						<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300">
-							<div><span className="text-slate-500">服务：</span>{configPreview.item.name} ({configPreview.item.slug})</div>
-							<div><span className="text-slate-500">镜像：</span>{configPreview.item.image}</div>
-							<div><span className="text-slate-500">端口：</span>容器 {getPrimaryContainerPort(configPreview.item)} → 宿主机 {configPreview.port}</div>
-							<div><span className="text-slate-500">额外端口：</span>{(configPreview.item.extraPorts ?? []).length > 0 ? configPreview.item.extraPorts!.map((port) => `${port.container}→${port.host}`).join("、") : "无"}</div>
-							<div><span className="text-slate-500">环境变量：</span>{getEnvCount(configPreview.item)} 个键（不展示密钥值）</div>
-							<div>
-								<span className="text-slate-500">宿主机挂载：</span>
-								{getVolumeMounts(configPreview.item).length > 0 ? getVolumeMounts(configPreview.item).map((volume) => `${volume.host} → ${volume.container}`).join("；") : "无"}
-							</div>
-						</div>
-						<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-3 text-xs leading-5 text-amber-100">
-							公开端口不会经过 VControlHub 登录鉴权；若服务暴露到公网，请确认防火墙、VPN、反代或应用自身账号已配置。
-						</div>
-						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-							<button type="button" onClick={() => setConfigPreview(null)} className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition">
-								取消
-							</button>
-							<button type="button" onClick={confirmConfigPreview} className="min-h-11 rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition">
-								{configPreview.action === "install" ? "确认安装" : "确认更新"}
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
+			{/* Install / update config preview — lazy chunk via ConfigPreviewDialogLazy */}
+			<ConfigPreviewDialogLazy
+				configPreview={configPreview}
+				getEnvCount={getEnvCount}
+				getVolumeMounts={getVolumeMounts}
+				getPrimaryContainerPort={getPrimaryContainerPort}
+				onCancel={() => setConfigPreview(null)}
+				onConfirm={confirmConfigPreview}
+			/>
 
 			<PendingUninstallDialogLazy
 				pending={pendingUninstall}
@@ -859,8 +570,6 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	);
 }
 
-/* ── Service Card ────────────────────────────────────────────────── */
-
 function SummaryPill({ label, value, tone }: { label: string; value: number; tone: "emerald" | "amber" | "rose" | "cyan" }) {
 	const toneClass = {
 		emerald: "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-200",
@@ -873,130 +582,6 @@ function SummaryPill({ label, value, tone }: { label: string; value: number; ton
 		<div className={`rounded-xl border p-4 ${toneClass}`}>
 			<div className="text-[11px] uppercase tracking-wider text-current/70">{label}</div>
 			<div className="mt-1 text-2xl font-semibold text-white">{value}</div>
-		</div>
-	);
-}
-
-function ServiceCard({ item, tab, busy, onInstall, onStart, onStop, onUpdate, onSync, onUninstall, publicHost }: {
-	item: CatalogItem;
-	tab: string;
-	busy: boolean;
-	onInstall: () => void;
-	onStart: () => void;
-	onStop: () => void;
-	onUpdate: () => void;
-	onSync: () => void;
-	onUninstall: () => void;
-	publicHost: string;
-}) {
-	const statusColor: Record<string, string> = {
-		available: "text-slate-500",
-		installing: "text-amber-400",
-		running: "text-emerald-400",
-		stopped: "text-slate-400",
-		error: "text-rose-400",
-	};
-	const statusLabel: Record<string, string> = {
-		available: "未安装",
-		installing: "安装中…",
-		running: "运行中",
-		stopped: "已停止",
-		error: "异常",
-	};
-
-	const displayPort = item.port ?? item.defaultPort;
-	const access = buildQuickServiceAccessDescriptor({
-		port: item.port,
-		defaultPort: item.defaultPort,
-		browserHost: typeof window !== "undefined" ? window.location.hostname : null,
-		configuredHost: publicHost,
-		protocol: typeof window !== "undefined" ? window.location.protocol : null,
-		path: item.path,
-	});
-	const isRemote = item.source !== "local";
-
-	return (
-		<div data-card className=" p-4 flex flex-col gap-3 hover:border-white/[0.12] transition light:hover:border-slate-300">
-			{/* Header */}
-			<div className="flex items-start justify-between">
-				<div className="flex items-center gap-2.5">
-					<span className="text-2xl">{item.icon}</span>
-					<div>
-						<h3 className="text-sm font-semibold text-white leading-tight">{item.name}</h3>
-						<p className="text-xs text-slate-500 mt-0.5">{item.image}</p>
-					</div>
-				</div>
-				<div className="flex items-center gap-1.5">
-					{isRemote && (
-						<span className="text-[10px] px-1.5 py-0.5 rounded-full border border-violet-400/20 bg-violet-500/[0.06] text-violet-400">
-							{item.source}
-						</span>
-					)}
-					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-slate-500"} ${item.status === "running" ? "border-emerald-400/20 bg-emerald-500/[0.06]" : item.status === "error" ? "border-rose-400/20 bg-rose-500/[0.06]" : "border-white/[0.06]"}`}>
-						{statusLabel[item.status] ?? item.status}
-					</span>
-				</div>
-			</div>
-
-			{/* Description */}
-			<p className="text-xs text-slate-400 leading-relaxed line-clamp-2">{item.description}</p>
-
-			{/* Meta */}
-			<div className="flex items-center gap-3 text-[10px] text-slate-500">
-				<span>端口 {displayPort}</span>
-				{item.path && <span>路径 {item.path}</span>}
-				{item.monthlyPulls != null && <span>📈 {(item.monthlyPulls / 1000).toFixed(0)}k 拉取</span>}
-				{item.stars != null && <span>⭐ {item.stars}</span>}
-			</div>
-
-			{/* Error message */}
-			{item.error && (
-				<div className="text-[10px] text-rose-300 bg-rose-500/[0.06] rounded px-2 py-1 line-clamp-2">{item.error}</div>
-			)}
-
-			{/* Actions */}
-			<div className="flex items-center gap-2 mt-auto pt-1">
-				{tab !== "installed" && item.status === "available" && (
-					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-cyan-500 hover:bg-cyan-400"}`}>
-						{busy ? "安装中…" : "一键安装"}
-					</button>
-				)}
-				{tab === "installed" && (
-					<>
-						{item.status === "running" && access && (
-							<a href={access.url} target="_blank" rel="noreferrer" aria-label={`访问 ${item.name}（${access.label}）`} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition">
-								访问
-							</a>
-						)}
-						{item.status === "running" && (
-							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
-								{busy ? "…" : "停止"}
-							</button>
-						)}
-						{item.status === "stopped" && (
-							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition disabled:opacity-50">
-								{busy ? "…" : "启动"}
-							</button>
-						)}
-						{item.status === "installing" && (
-							<span className="text-xs text-amber-400 animate-pulse">正在拉取镜像…</span>
-						)}
-						{item.status === "error" && (
-							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
-								刷新状态
-							</button>
-						)}
-						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
-							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/[0.08] transition disabled:opacity-50">
-								{busy ? "…" : "更新"}
-							</button>
-						)}
-						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/[0.08] transition disabled:opacity-50">
-							卸载
-						</button>
-					</>
-				)}
-			</div>
 		</div>
 	);
 }

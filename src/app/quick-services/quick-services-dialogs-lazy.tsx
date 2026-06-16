@@ -68,3 +68,21 @@ export const PendingUninstallDialogLazy: ComponentType<PendingUninstallDialogPro
 		},
 	);
 export type { PendingUninstallDialogProps };
+
+/* ── Install / update config preview confirmation (TR-036 T37) ─── */
+
+type ConfigPreviewDialogProps = ComponentProps<
+	typeof import("./config-preview-dialog").ConfigPreviewDialog
+>;
+export const ConfigPreviewDialogLazy: ComponentType<ConfigPreviewDialogProps> =
+	dynamic(
+		() =>
+			import("./config-preview-dialog").then(
+				(m) => m.ConfigPreviewDialog,
+			),
+		{
+			ssr: false,
+			loading: () => <DialogStub label="config-preview" />,
+		},
+	);
+export type { ConfigPreviewDialogProps };
