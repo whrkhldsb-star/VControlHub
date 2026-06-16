@@ -108,6 +108,24 @@ describe("DashboardPreferenceClient", () => {
     });
   });
 
+  it("clicking a widget in view mode opens the detail dialog", async () => {
+    csrfFetchMock.mockResolvedValue({
+      defaultPage: "/",
+      dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+      notificationsEnabled: true,
+      notificationSound: true,
+      autoRefreshInterval: 30,
+    });
+
+    renderDashboardPreferenceClient();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+
+    // In view mode, clicking the server-status widget should open the dialog.
+    fireEvent.click(screen.getByText("服务器状态"));
+    expect(screen.getByTestId("dashboard-widget-detail-dialog")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("VPS 状态");
+  });
+
   it("reset restores the default widget order in edit mode", async () => {
     csrfFetchMock.mockResolvedValue({
       defaultPage: "/",

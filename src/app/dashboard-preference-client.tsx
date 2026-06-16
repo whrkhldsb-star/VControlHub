@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/preferences/user-preferences";
 
 import { DashboardCustomizeToolbar } from "./dashboard-customize-toolbar";
+import { DashboardWidgetDetailDialog } from "./dashboard-widget-detail-dialog";
 
 export type DashboardPreferences = Pick<UserPreferences, "dashboardWidgets">;
 
@@ -42,6 +43,8 @@ export function DashboardPreferenceClient({ children }: { children: React.ReactN
 	const [draftOrder, setDraftOrder] = useState<DashboardWidgetId[] | null>(null);
 	const [draftHidden, setDraftHidden] = useState<Set<DashboardWidgetId> | null>(null);
 	const [dragId, setDragId] = useState<DashboardWidgetId | null>(null);
+	const [openDetailId, setOpenDetailId] = useState<DashboardWidgetId | null>(null);
+	const gridRef = useRef<HTMLDivElement | null>(null);
 
 	// Load preferences from localStorage and /api/preferences on mount.
 	useEffect(() => {
@@ -243,12 +246,25 @@ export function DashboardPreferenceClient({ children }: { children: React.ReactN
 				onToggleVisibility={handleToggleVisibility}
 			/>
 			<div
+				ref={gridRef}
 				className={
 					isEditing
 						? "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
 						: "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
 				}
 				data-dashboard-edit={isEditing ? "true" : "false"}
+				onClick={(e) => {
+					// Only when NOT editing, and only when the click landed on
+					// (or inside) a known widget. We use closest() to capture
+					// child clicks too.
+					if (isEditing) return;
+					const target = e.target as HTMLElement | null;
+					const widgetEl = target?.closest<HTMLElement>("[data-dashboard-widget]");
+					if (!widgetEl) return;
+					const id = widgetEl.getAttribute("data-dashboard-widget") as DashboardWidgetId | null;
+					if (!id || !DASHBOARD_WIDGET_IDS.includes(id)) return;
+					setOpenDetailId(id);
+				}}
 				{...(isEditing
 					? {
 							onDragOver: handleDragOver,
@@ -304,6 +320,11 @@ export function DashboardPreferenceClient({ children }: { children: React.ReactN
 					{t("dashboard.customize-drag-tip")}
 				</p>
 			) : null}
+			<DashboardWidgetDetailDialog
+				openId={openDetailId}
+				onClose={() => setOpenDetailId(null)}
+				widgetRef={gridRef}
+			/>
 		</>
 	);
 }
