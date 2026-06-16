@@ -7,12 +7,14 @@ import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function RequestsPage() {
 	const session = await requireSession("/requests");
 	const canApprove = sessionHasPermission(session, "command:approve");
+	const locale = await getServerLocale();
 	const [requests, aiActions] = await Promise.all([
 		listCommandRequests(),
 		getPendingActions(session.userId),
@@ -26,35 +28,35 @@ export default async function RequestsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
-				eyebrow="Workflow"
-				title="审批中心"
-				description="AI 助手授权与用户命令审批"
-			>
+			eyebrow={t("requestsPage.eyebrow", locale)}
+			title={t("requestsPage.title", locale)}
+			description={t("requestsPage.desc", locale)}
+		>
 				<div data-card className="px-4 py-3 text-xs text-[var(--text-secondary)]">
-					<div className="font-medium text-slate-200">当前支持两条审批链路</div>
-					<div className="mt-1">AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。</div>
+					<div className="font-medium text-slate-200">{t("requestsPage.workflowNote.title", locale)}</div>
+					<div className="mt-1">{t("requestsPage.workflowNote.desc", locale)}</div>
 				</div>
 			</PageHeader>
 
 			<section className="grid gap-3 sm:grid-cols-5 mb-8">
-				<StatCard label="AI 待授权" value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
-				<StatCard label="命令待审批" value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
-				<StatCard label="助手命令" value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
-				<StatCard label="用户命令" value={String(userCommands)} />
-				<StatCard label="已完成" value={String(completed)} />
+				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
+				<StatCard label={t("requestsPage.stat.cmdPending", locale)} value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
+				<StatCard label={t("requestsPage.stat.assistant", locale)} value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
+				<StatCard label={t("requestsPage.stat.user", locale)} value={String(userCommands)} />
+				<StatCard label={t("requestsPage.stat.completed", locale)} value={String(completed)} />
 			</section>
 
 			<div className="space-y-8">
 				<section aria-labelledby="ai-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="ai-approval-heading" className="text-xl font-semibold text-white">AI 助手授权</h2>
-							<p className="mt-1 text-sm text-slate-500">用于确认 AI 托管模式下的高风险工具调用，例如重启服务、修改配置、执行命令。</p>
+							<h2 id="ai-approval-heading" className="text-xl font-semibold text-white">{t("requestsPage.ai.title", locale)}</h2>
+							<p className="mt-1 text-sm text-slate-500">{t("requestsPage.ai.desc", locale)}</p>
 						</div>
-						<span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-cyan-200">只显示当前账号待处理授权</span>
+						<span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-3 py-1 text-xs text-cyan-200">{t("requestsPage.ai.scopeBadge", locale)}</span>
 					</div>
 					{aiActions.length === 0 ? (
-						<EmptyState text="暂无 AI 助手待授权操作。AI 对话中触发高风险操作时会出现在这里。" variant="boxed" />
+						<EmptyState text={t("requestsPage.ai.empty", locale)} variant="boxed" />
 					) : (
 						<div className="space-y-3">
 							{aiActions.map((action) => <AiHostedApprovalCard key={action.id} action={action} />)}
@@ -65,14 +67,14 @@ export default async function RequestsPage() {
 				<section aria-labelledby="command-approval-heading" className="space-y-3">
 					<div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 						<div>
-							<h2 id="command-approval-heading" className="text-xl font-semibold text-white">用户命令审批</h2>
-							<p className="mt-1 text-sm text-slate-500">用于审批用户、运维成员或命令模板提交的 VPS 命令请求；也保留 AI 以命令请求形式发起的记录。</p>
+							<h2 id="command-approval-heading" className="text-xl font-semibold text-white">{t("requestsPage.cmd.title", locale)}</h2>
+							<p className="mt-1 text-sm text-slate-500">{t("requestsPage.cmd.desc", locale)}</p>
 						</div>
-						<span data-tone="amber" className="rounded-full border border-amber-400/20 px-3 py-1 text-xs text-amber-200">批准后进入真实 SSH 执行流</span>
+						<span data-tone="amber" className="rounded-full border border-amber-400/20 px-3 py-1 text-xs text-amber-200">{t("requestsPage.cmd.scopeBadge", locale)}</span>
 					</div>
 
 					{requests.length === 0 ? (
-						<EmptyState text="暂无命令请求记录。" variant="boxed" />
+						<EmptyState text={t("requestsPage.cmd.empty", locale)} variant="boxed" />
 					) : (
 						requests.map((request) => (
 							<article key={request.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
