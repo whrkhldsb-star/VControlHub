@@ -1,6 +1,8 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 import { FileUploadDropzone } from "../file-upload-dropzone";
 

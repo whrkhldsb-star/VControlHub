@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T21:13:21.341Z | Files: 261 | Strings: 764 | Coverage: **24.1%** (184/764)
+> Generated: 2026-06-16T21:40:26.285Z | Files: 261 | Strings: 758 | Coverage: **24.3%** (184/758)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -10,7 +10,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 
 | Module | Strings | Covered | Missing | Coverage |
 |---|---|---|---|---|
-| `src/components/storage` | 6 | 0 | 6 | 0% |
 | `src/app/deployments` | 44 | 2 | 42 | 4.5% |
 | `src/components/ssh-terminal-modal.tsx` | 14 | 1 | 13 | 7.1% |
 | `src/app/account` | 12 | 1 | 11 | 8.3% |

@@ -1,21 +1,14 @@
 {
-  "generatedAt": "2026-06-16T21:13:21.341Z",
+  "generatedAt": "2026-06-16T21:40:26.285Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 78,
-    "totalStrings": 764,
+    "filesWithStrings": 77,
+    "totalStrings": 758,
     "coveredStrings": 184,
-    "missingStrings": 580,
-    "coveragePercent": 24.1
+    "missingStrings": 574,
+    "coveragePercent": 24.3
   },
   "perModule": [
-    {
-      "module": "src/components/storage",
-      "total": 6,
-      "covered": 0,
-      "missing": 6,
-      "coveragePercent": 0
-    },
     {
       "module": "src/app/deployments",
       "total": 44,
@@ -745,22 +738,6 @@
       ]
     },
     {
-      "text": "上传到节点",
-      "count": 2,
-      "files": [
-        {
-          "path": "src/components/storage/file-upload-dropzone.tsx",
-          "line": 211,
-          "kind": "text"
-        },
-        {
-          "path": "src/components/storage/file-upload-dropzone.tsx",
-          "line": 212,
-          "kind": "aria-label"
-        }
-      ]
-    },
-    {
       "text": "输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。",
       "count": 1,
       "files": [
@@ -921,6 +898,17 @@
         {
           "path": "src/app/audit/audit-client.tsx",
           "line": 213,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "← 上一页",
+      "count": 1,
+      "files": [
+        {
+          "path": "src/app/audit/audit-client.tsx",
+          "line": 286,
           "kind": "text"
         }
       ]
@@ -8278,55 +8266,10 @@
     },
     "src/components/storage/file-upload-dropzone.tsx": {
       "path": "src/components/storage/file-upload-dropzone.tsx",
-      "total": 6,
+      "total": 0,
       "covered": 0,
-      "missing": 6,
-      "candidates": [
-        {
-          "text": "上传到节点",
-          "line": 211,
-          "kind": "text",
-          "context": "<span>上传到节点",
-          "covered": false
-        },
-        {
-          "text": "上传到节点",
-          "line": 212,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<select\n              aria-label=\"上传到节点\"\n              value={selectedNodeId}\n  ",
-          "covered": false
-        },
-        {
-          "text": "请选择存储节点",
-          "line": 218,
-          "kind": "text",
-          "context": "<option value=\"\">请选择存储节点",
-          "covered": false
-        },
-        {
-          "text": "选择整个文件夹",
-          "line": 242,
-          "kind": "aria-label",
-          "attr": "aria-label",
-          "context": "<input\n        ref={directoryInputRef}\n        type=\"file\"\n        multiple\n    ",
-          "covered": false
-        },
-        {
-          "text": "选择文件夹",
-          "line": 288,
-          "kind": "text",
-          "context": "<button type=\"button\" onClick={() => directoryInputRef.curre",
-          "covered": false
-        },
-        {
-          "text": "主按钮可多选文件；文件夹模式会保留浏览器提供的子目录结构。",
-          "line": 291,
-          "kind": "text",
-          "context": "<span>主按钮可多选文件；文件夹模式会保留浏览器提供的子目录结构。",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/components/submit-button.tsx": {
       "path": "src/components/submit-button.tsx",

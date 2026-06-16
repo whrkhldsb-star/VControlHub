@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type StorageUploadNode = { id: string; name: string; driver: string };
 
@@ -87,6 +88,7 @@ export function FileUploadDropzone({
   onUploadComplete?: (payload: { relativePath?: string; size?: number }) => void;
 }) {
   const router = useRouter();
+  const { t: tr } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const directoryInputRef = useRef<HTMLInputElement | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState(initialNodeId ?? nodes.find((node) => node.driver === "LOCAL")?.id ?? DEFAULT_NODE);
@@ -208,14 +210,14 @@ export function FileUploadDropzone({
       <div className={`mt-5 grid gap-4 ${allowNodeSelection ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "md:grid-cols-1"}`}>
         {allowNodeSelection ? (
           <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-            <span>上传到节点</span>
+            <span>{tr("fileUploadDropzone.uploadToNode")}</span>
             <select
-              aria-label="上传到节点"
+              aria-label={tr("fileUploadDropzone.uploadToNode")}
               value={selectedNodeId}
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
               className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"
             >
-              <option value="">请选择存储节点</option>
+              <option value="">{tr("fileUploadDropzone.selectStorageNode")}</option>
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
                   {node.name} · {node.driver}
@@ -244,7 +246,7 @@ export function FileUploadDropzone({
         type="file"
         multiple
         className="hidden"
-        aria-label="选择整个文件夹"
+        aria-label={tr("fileUploadDropzone.selectFolderAriaLabel")}
         {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
         onChange={handleInputChange}
       />
@@ -286,9 +288,9 @@ export function FileUploadDropzone({
           disabled={!uploadEnabled || submitting}
           data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          选择文件夹
+          {tr("fileUploadDropzone.selectFolder")}
         </button>
-        <span>主按钮可多选文件；文件夹模式会保留浏览器提供的子目录结构。</span>
+        <span>{tr("fileUploadDropzone.folderHelpText")}</span>
       </div>
 
       {message ? (
