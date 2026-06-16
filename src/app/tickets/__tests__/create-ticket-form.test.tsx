@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,6 +14,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { CreateTicketForm } from "../create-ticket-form";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 describe("CreateTicketForm", () => {
   beforeEach(() => {

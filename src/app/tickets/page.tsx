@@ -4,15 +4,9 @@ import { listTickets } from "@/lib/ticket/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateTicketForm } from "./create-ticket-form";
 import Link from "next/link";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
-
-const priorityLabels: Record<string, string> = {
-	LOW: "低",
-	NORMAL: "普通",
-	HIGH: "高",
-	URGENT: "紧急",
-};
 
 const statusTone: Record<string, string> = {
 	OPEN: "border-cyan-400/30 bg-cyan-400/10 text-cyan-100",
@@ -21,40 +15,42 @@ const statusTone: Record<string, string> = {
 	CLOSED: "border-slate-400/30 bg-slate-400/10 text-slate-300",
 };
 
-const statusLabels: Record<string, string> = {
-	OPEN: "待处理",
-	IN_PROGRESS: "处理中",
-	RESOLVED: "已解决",
-	CLOSED: "已关闭",
-};
+function priorityLabel(locale: Locale, key: string): string {
+	return t(`ticketsPage.priority.${key}`, locale) !== `ticketsPage.priority.${key}` ? t(`ticketsPage.priority.${key}`, locale) : key;
+}
+
+function statusLabel(locale: Locale, key: string): string {
+	return t(`ticketsPage.status.${key}`, locale) !== `ticketsPage.status.${key}` ? t(`ticketsPage.status.${key}`, locale) : key;
+}
 
 export default async function Page() {
 	const session = await requireSession("/tickets");
 	const canManage = sessionHasPermission(session, "ticket:manage");
 	const canCreate = sessionHasPermission(session, "ticket:create");
+	const locale = await getServerLocale();
 	const tickets = await listTickets(canManage ? undefined : session.userId);
 	return (
 		<PageShell maxW="max-w-4xl">
-			<PageHeader eyebrow="Support" title="工单与请求" description="提交资源申请、问题反馈和运维请求，支持状态流转与评论。" className="mb-6" />
+			<PageHeader eyebrow={t("ticketsPage.eyebrow", locale)} title={t("ticketsPage.title", locale)} description={t("ticketsPage.desc", locale)} className="mb-6" />
 
-			{canCreate && <div className="mb-6"><CreateTicketForm /></div>}
+			{canCreate && <div className="mb-6"><CreateTicketForm locale={locale} /></div>}
 
 			<section data-card className="">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">工单列表 ({tickets.length})</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">{t("ticketsPage.listHeader", locale).replace("{count}", String(tickets.length))}</div>
 				<div className="divide-y divide-white/[0.06]">
-					{tickets.length === 0 ? <EmptyState text="暂无工单" /> : tickets.map((t) => (
-						<Link key={t.id} href={`/tickets/${t.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]"> <div className="flex items-center justify-between gap-3"> <h3 className="text-sm font-medium text-white">{t.title}</h3> <div className="flex items-center gap-2"> <span className="text-xs text-slate-500">{priorityLabels[t.priority] ?? t.priority}</span> <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone[t.status] ?? "border-white/[0.08] text-slate-400"}`}>
-										{statusLabels[t.status] ?? t.status}
-									</span>
-								</div>
-							</div>
-							<p className="mt-1.5 text-xs text-slate-400 line-clamp-2">{t.description}</p>
-							<div className="mt-2 flex flex-wrap gap-x-3 text-xs text-slate-500">
-								{t.creator && <span>提交人: {t.creator.displayName || t.creator.username}</span>}
-								{t.assignee && <span>处理人: {t.assignee.displayName || t.assignee.username}</span>}
-								<span>创建: {new Date(t.createdAt).toLocaleString("zh-CN")}</span>
-							</div>
-						</Link>
+					{tickets.length === 0 ? <EmptyState text={t("ticketsPage.empty", locale)} /> : tickets.map((ticket) => (
+						<Link key={ticket.id} href={`/tickets/${ticket.id}`} className="block px-5 py-4 transition hover:bg-white/[0.02]"> <div className="flex items-center justify-between gap-3"> <h3 className="text-sm font-medium text-white">{ticket.title}</h3> <div className="flex items-center gap-2"> <span className="text-xs text-slate-500">{priorityLabel(locale, ticket.priority)}</span> <span className={`rounded-full border px-2.5 py-1 text-xs ${statusTone[ticket.status] ?? "border-white/[0.08] text-slate-400"}`}>
+											{statusLabel(locale, ticket.status)}
+										</span>
+									</div>
+									</div>
+									<p className="mt-1.5 text-xs text-slate-400 line-clamp-2">{ticket.description}</p>
+									<div className="mt-2 flex flex-wrap gap-x-3 text-xs text-slate-500">
+										{ticket.creator && <span>{t("ticketsPage.creator", locale).replace("{name}", ticket.creator.displayName || ticket.creator.username)}</span>}
+										{ticket.assignee && <span>{t("ticketsPage.assignee", locale).replace("{name}", ticket.assignee.displayName || ticket.assignee.username)}</span>}
+										<span>{t("ticketsPage.createdAt", locale).replace("{time}", new Date(ticket.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))}</span>
+									</div>
+								</Link>
 					))}
 				</div>
 			</section>
