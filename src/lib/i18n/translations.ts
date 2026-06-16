@@ -39,6 +39,7 @@ import { zh as notificationspageZh, en as notificationspageEn } from "./dictiona
 import { zh as operationtasksZh, en as operationtasksEn } from "./dictionaries/operation-tasks";
 import { zh as preferencespageZh, en as preferencespageEn } from "./dictionaries/preferences-page";
 import { zh as qareportspageZh, en as qareportspageEn } from "./dictionaries/qa-reports-page";
+import { zh as recyclebinsectionZh, en as recyclebinsectionEn } from "./dictionaries/recycle-bin-section";
 import { zh as requestspageZh, en as requestspageEn } from "./dictionaries/requests-page";
 import { zh as scheduledtasksZh, en as scheduledtasksEn } from "./dictionaries/scheduled-tasks";
 import { zh as searchZh, en as searchEn } from "./dictionaries/search";
@@ -84,6 +85,7 @@ const zh: Record<string, string> = {
 	...operationtasksZh,
 	...preferencespageZh,
 	...qareportspageZh,
+	...recyclebinsectionZh,
 	...requestspageZh,
 	...scheduledtasksZh,
 	...searchZh,
@@ -130,6 +132,7 @@ const en: Record<string, string> = {
 	...operationtasksEn,
 	...preferencespageEn,
 	...qareportspageEn,
+	...recyclebinsectionEn,
 	...requestspageEn,
 	...scheduledtasksEn,
 	...searchEn,
