@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type OpenApiOperation = {
 	tags?: string[];
@@ -32,7 +33,7 @@ const methodStyles: Record<string, string> = {
 	delete: "border-rose-400/25 bg-rose-400/10 text-rose-200",
 };
 
-function groupEntries(spec: OpenApiSpec | null) {
+function groupEntries(spec: OpenApiSpec | null, untaggedLabel: string) {
 	const entries: ApiEntry[] = [];
 	for (const [apiPath, methods] of Object.entries(spec?.paths ?? {})) {
 		for (const [method, operation] of Object.entries(methods)) {
@@ -40,7 +41,7 @@ function groupEntries(spec: OpenApiSpec | null) {
 			entries.push({
 				path: apiPath,
 				method,
-				tag: operation.tags?.[0] ?? "其他",
+				tag: operation.tags?.[0] ?? untaggedLabel,
 				operation,
 			});
 		}
@@ -49,6 +50,7 @@ function groupEntries(spec: OpenApiSpec | null) {
 }
 
 export default function ApiDocsPage() {
+	const { t } = useI18n();
 	const [spec, setSpec] = useState<OpenApiSpec | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [query, setQuery] = useState("");
@@ -57,21 +59,21 @@ export default function ApiDocsPage() {
 		let cancelled = false;
 		fetch("/api/docs/openapi.json", { credentials: "same-origin" })
 			.then(async (response) => {
-				if (!response.ok) throw new Error(`OpenAPI 加载失败 (${response.status})`);
+				if (!response.ok) throw new Error(`${t("apiDocsPage.loadFailed")} (${response.status})`);
 				return response.json() as Promise<OpenApiSpec>;
 			})
 			.then((data) => {
 				if (!cancelled) setSpec(data);
 			})
 			.catch((err: unknown) => {
-				if (!cancelled) setError(err instanceof Error ? err.message : "OpenAPI 加载失败");
+				if (!cancelled) setError(err instanceof Error ? err.message : t("apiDocsPage.loadFailed"));
 			});
 		return () => {
 			cancelled = true;
 		};
-	}, []);
+	}, [t]);
 
-	const entries = useMemo(() => groupEntries(spec), [spec]);
+	const entries = useMemo(() => groupEntries(spec, t("apiDocsPage.tag.untagged")), [spec, t]);
 	const filtered = useMemo(() => {
 		const needle = query.trim().toLowerCase();
 		if (!needle) return entries;
@@ -100,9 +102,9 @@ export default function ApiDocsPage() {
 				<header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 					<div>
 						<p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">OpenAPI</p>
-						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">API 文档</h1>
+						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("apiDocsPage.title")}</h1>
 						<p className="mt-1.5 max-w-2xl text-sm text-[var(--text-muted)]">
-							{spec?.info?.description ?? "VControlHub RESTful API 参考文档。"}
+							{spec?.info?.description ?? t("apiDocsPage.description")}
 						</p>
 					</div>
 					<a
@@ -118,16 +120,16 @@ export default function ApiDocsPage() {
 				<section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-lg">
 					<div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
 						<label className="block">
-							<span className="sr-only">搜索接口</span>
+							<span className="sr-only">{t("apiDocsPage.searchAria")}</span>
 							<input
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
-								placeholder="搜索路径、方法、模块或说明"
+								placeholder={t("apiDocsPage.searchPlaceholder")}
 								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 px-3 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
 							/>
 						</label>
 						<div className="text-sm text-slate-400">
-							{spec ? `${filtered.length}/${entries.length} 个接口` : "正在加载接口定义..."}
+							{spec ? `${filtered.length}/${entries.length} 个接口` : t("apiDocsPage.loadingInline")}
 						</div>
 					</div>
 				</section>
@@ -139,7 +141,7 @@ export default function ApiDocsPage() {
 				) : null}
 
 				{!spec && !error ? (
-					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-sm text-slate-400">正在加载 API 文档...</div>
+					<div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 text-sm text-slate-400">{t("apiDocsPage.loading")}</div>
 				) : null}
 
 				{grouped.map(([tag, tagEntries]) => (
@@ -164,13 +166,13 @@ export default function ApiDocsPage() {
 												</span>
 												<code className="break-all rounded-md bg-slate-950/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
 											</div>
-											<h3 className="mt-3 text-sm font-medium text-white">{entry.operation.summary ?? "未命名接口"}</h3>
+											<h3 className="mt-3 text-sm font-medium text-white">{entry.operation.summary ?? t("apiDocsPage.tag.untagged")}</h3>
 											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400">{entry.operation.description}</p> : null}
 										</div>
 										<div className="flex flex-wrap gap-2 text-xs text-slate-500 lg:justify-end">
 											{entry.operation.parameters?.length ? <span className="rounded-full bg-white/[0.04] px-2 py-1">参数 {entry.operation.parameters.length}</span> : null}
-											{entry.operation.requestBody ? <span className="rounded-full bg-white/[0.04] px-2 py-1">请求体</span> : null}
-											{entry.operation.responses ? <span className="rounded-full bg-white/[0.04] px-2 py-1">响应 {Object.keys(entry.operation.responses).join("/")}</span> : null}
+											{entry.operation.requestBody ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.label.requestBody")}</span> : null}
+											{entry.operation.responses ? <span className="rounded-full bg-white/[0.04] px-2 py-1">{t("apiDocsPage.label.responses")} {Object.keys(entry.operation.responses).join("/")}</span> : null}
 										</div>
 									</div>
 								</article>

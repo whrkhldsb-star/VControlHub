@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ApiDocsPageClient from "../api-docs-page-client";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 const spec = {
 	info: { description: "本地 API 说明" },

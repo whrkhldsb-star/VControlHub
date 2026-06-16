@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type ArchiveEntry = {
 	name: string;
@@ -21,6 +22,7 @@ export function ArchivePreviewClient({
 	relativePath: string;
 	driver: string;
 }) {
+	const { t } = useI18n();
 	const [entries, setEntries] = useState<ArchiveEntry[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -40,7 +42,7 @@ export function ArchivePreviewClient({
 			const data = await csrfFetch(`/api/files/archive-list?${params.toString()}`);
 			setEntries(data.entries ?? []);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "未知错误");
+			setError(err instanceof Error ? err.message : t("archivePreview.unknownError"));
 		} finally {
 			setLoading(false);
 		}
@@ -56,10 +58,10 @@ export function ArchivePreviewClient({
 					body: JSON.stringify({ nodeId, relativePath, driver, name }),
 				});
 				if (data.error) throw new Error(data.error);
-				setExtractResult(data.message || "解压完成");
-			} catch (err) {
-				setExtractResult(err instanceof Error ? err.message : "解压失败");
-			}
+				setExtractResult(data.message || t("archivePreview.extractDone"));
+				} catch (err) {
+				setExtractResult(err instanceof Error ? err.message : t("archivePreview.extractFailed"));
+				}
 		});
 	}
 
@@ -81,7 +83,7 @@ export function ArchivePreviewClient({
 					disabled={loading}
 					data-tone="cyan" className="rounded-xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
 				>
-					{loading ? "加载中…" : entries ? "刷新列表" : "查看压缩包内容"}
+					{loading ? t("archivePreview.loading") : entries ? t("archivePreview.refreshList") : t("archivePreview.title")}
 				</button>
 				{entries && entries.length > 0 && driver === "LOCAL" ? (
 					<button
@@ -90,7 +92,7 @@ export function ArchivePreviewClient({
 						disabled={extracting}
 						data-tone="emerald" className="rounded-xl border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:opacity-50 disabled:cursor-not-allowed"
 					>
-						{extracting ? "解压中…" : "在线解压"}
+						{extracting ? t("archivePreview.extracting") : t("archivePreview.extract")}
 					</button>
 				) : null}
 			</div>
@@ -111,8 +113,8 @@ export function ArchivePreviewClient({
 				<div className="rounded-2xl border border-[var(--border)] bg-slate-950/50 overflow-hidden">
 					<div className="grid grid-cols-[auto_minmax(0,2fr)_100px] gap-4 bg-white/5 px-4 py-2.5 text-xs uppercase tracking-wider text-[var(--text-secondary)] font-medium">
 						<div />
-						<div>名称</div>
-						<div className="text-right">大小</div>
+						<div>{t("archivePreview.table.name")}</div>
+						<div className="text-right">{t("archivePreview.table.size")}</div>
 					</div>
 					<div className="divide-y divide-white/[0.04] max-h-[50vh] overflow-y-auto">
 						{entries.map((entry, i) => (
@@ -128,7 +130,7 @@ export function ArchivePreviewClient({
 									)}
 								</div>
 								<div className="truncate text-white">{entry.name}</div>
-								<div className="text-right text-[var(--text-secondary)] text-xs">{entry.isDirectory ? "目录" : formatSize(entry.size)}</div>
+								<div className="text-right text-[var(--text-secondary)] text-xs">{entry.isDirectory ? t("archivePreview.entryType.directory") : formatSize(entry.size)}</div>
 							</div>
 						))}
 					</div>
@@ -137,7 +139,7 @@ export function ArchivePreviewClient({
 					</div>
 				</div>
 			) : entries && entries.length === 0 ? (
-				<div className="text-sm text-[var(--text-secondary)]">压缩包为空</div>
+				<div className="text-sm text-[var(--text-secondary)]">{t("archivePreview.empty")}</div>
 			) : null}
 		</div>
 	);

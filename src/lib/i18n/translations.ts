@@ -15,6 +15,8 @@ export type Locale = "zh" | "en";
 
 import { zh as aiZh, en as aiEn } from "./dictionaries/ai";
 import { zh as alertrulespageZh, en as alertrulespageEn } from "./dictionaries/alert-rules-page";
+import { zh as apidocspageZh, en as apidocspageEn } from "./dictionaries/api-docs-page";
+import { zh as archivepreviewZh, en as archivepreviewEn } from "./dictionaries/archive-preview";
 import { zh as announcementspageZh, en as announcementspageEn } from "./dictionaries/announcements-page";
 import { zh as apitokenspageZh, en as apitokenspageEn } from "./dictionaries/api-tokens-page";
 import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
@@ -61,6 +63,8 @@ import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm"
 const zh: Record<string, string> = {
 	...aiZh,
 	...alertrulespageZh,
+	...apidocspageZh,
+	...archivepreviewZh,
 	...announcementspageZh,
 	...apitokenspageZh,
 	...auditZh,
@@ -108,6 +112,8 @@ const zh: Record<string, string> = {
 const en: Record<string, string> = {
 	...aiEn,
 	...alertrulespageEn,
+	...apidocspageEn,
+	...archivepreviewEn,
 	...announcementspageEn,
 	...apitokenspageEn,
 	...auditEn,
