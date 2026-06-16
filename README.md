@@ -559,13 +559,10 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### 现有 TR 核实结果
 
 按"复选框语义与代码事实是否吻合"重新分类：
-- **真已完成** TR-008 / TR-012 / TR-013 / TR-014 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-025 / TR-029
-- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-007 / TR-019 / TR-020 / TR-040 / TR-051 / TR-053
-- **文档化已落、代码主体已闭环**（TR-004）：`docs/file-preview-sharing.md` 12 节覆盖全部边界范围。
-- **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：Phase 2 静态分析已覆盖 32 个 icon-only button 候选，3 个已修，剩余需人工 review。
-- **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
-
-> 2026-06-15 E03 落档：`npm run readme:reconcile` (dry-run) / `npm run readme:reconcile:write` (真改) 已落地 (`scripts/readme-reconcile.ts`，commit `eb57f2c`/`357e7ff`/`c0fac46`/`e2ce334`/`21993e9`)。3 数据源对账:git log 含 TR 标 commit + queue.json 任务状态 + README 表格。**当前**真已完成/主体已落地/真未启动 段仍为人工维护,自动对账结果见 `npm run readme:reconcile` 输出 (建议每跑完 1 个 TR 后人审 + 手动 commit `--write` 后的 README 改动)。
+- **真已完成** TR-001 / TR-002 / TR-004 / TR-005 / TR-006 / TR-008 / TR-010 / TR-012 / TR-013 / TR-014 / TR-015 / TR-019 / TR-021 / TR-022 / TR-025 / TR-029 / TR-034 / TR-035 / TR-036 / TR-037 / TR-038 / TR-039 / TR-040 / TR-041 / TR-042 / TR-047 / TR-048 / TR-049 / TR-050 / TR-051 / TR-052 / TR-053 / TR-054
+- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-007 / TR-011 / TR-020 / TR-023 / TR-031 / TR-032 / TR-033
+- **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：静态分析覆盖,剩余需人工 review。
+- **真未启动**：TR-009 / TR-016 / TR-017 / TR-018 / TR-024 / TR-026 / TR-027 / TR-028 / TR-030
 
 ### 新发现问题 TR-034 ~ TR-042
 
