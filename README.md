@@ -429,7 +429,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - **后台任务业务迁移与并发控制（TR-001, P1）** — Durable Job 底座已承接 SFTP 同步、备份创建/恢复、告警评估、QuickService 生命周期、命令执行、定时任务调度（`scheduled-task.tick` durable job + claim/heartbeat/complete 路径，与 `alert.evaluate` 同范式），并补齐下载 direct/relay 路径（`download.execute` job）。并发控制已加全局/按用户/按节点三道软上限（`JOB_MAX_CONCURRENT_GLOBAL` / `_PER_USER` / `_PER_NODE`，默认 0=不限制），`Job.targetStorageNodeId` 列 + `@@index([targetStorageNodeId, status])` 索引承载按节点计数。剩余：可观测日志流（`JobEvent` 表 + 5 个 worker 钩子已落，详情见 commit `4e6a0ed`）；生产级 worker 部署策略（vcontrolhub-worker systemd 拆分）。
 - **前端 a11y / 移动端 / 浏览器导航系统化收口（TR-003, P2）** — 主体已完成（统一 dialog 语义、focus 管理、SPA pushState/popstate、SSH 终端 mobile、跨入口可见 label/语义分组）；TR-021 第一阶段 (231 form field label 关联) 已 100% 覆盖；**TR-003 续作 (Phase 2 icon-only button detection) 已落地**（scripts/accessibility-audit.ts 新增 `scanIconOnlyButtons` 范式，254 文件扫出 32 个 icon-only `<button>` 缺 `aria-label`/`title`，已修 3 个最关键 (AI 聊天页发送按钮 + 侧边栏 mobile 切换)，剩余 29 个为 advisory 巡检项需逐文件人工 review 是否真为 icon-only（许多实际含 `{variable}` 引用文本但静态分析保守标记）。Phase 2 测试 12 条覆盖 `aria-label` / `aria-labelledby` / `title` / 变量引用 / 三元 literal / multi-line 行号等 6 类边界。
 - **文件预览 / 分享边界文档化（TR-004, P1/P2）** — 公开目录 tar.gz、统一 Range/206/416、Office+压缩包入口边界已落地；**TR-004 文档化收口**：`docs/file-preview-sharing.md`（约 335 行）覆盖 12 节：接口清单 / Range 200/206/416 三态语义 / 公开分享 token / 归档下载 / 压缩包查看 / 在线解压（zip/tar 拒绝 + .gz 唯一支持 + 原子性回滚）/ Office 预览（不接 Office Online 的安全决策）/ Media 预览 / 已知限制 / 故障排查 / 代码位置索引 / 变更历史。范围：8 个 route + 6 个 client + 2 个 service + 1 个 streaming helper。剩余：扩展压缩包受控解压到更细的格式/权限/配额策略。
-- **文件状态一致性 / 远端索引刷新 / 存储列表性能（TR-005, P2）** — 删除/恢复主路径已避免高风险不一致；剩余：远端 SFTP 文件在 Hub 外被删除时仍会保持 active（媒体流安全返回 No such file 但需专项刷新/校验任务清理 stale inventory）；存储概览和文件列表仍有未分页 `findMany` + 内存聚合，大文件索引性能风险。
+- **文件状态一致性 / 远端索引刷新 / 存储列表性能（TR-005, P2）** — 删除/恢复主路径已避免高风险不一致；**远端 SFTP 索引定期校验（TR-005 T34a）已落地**：`storage.sftp-stale-inventory` durable job (30min interval) + 全树 SFTP 列表 + DB diff + soft-delete + POST `/api/storage/sftp-stale-inventory` 接口 (队列 202 + `?wait=1` 同步);WorkerId `sftp-stale-inventory` 加入 `lib/workers/registry.ts` 第 9 个 worker + 5min lease preset + `/api/admin/workers` 健康检查可见。剩余：T34b 存储分页 + 内存聚合改造。
 - **任务中心跨来源归档 / 长期保留（TR-006, P2）** — 已完成同类高频折叠、状态/类型筛选、聚合计数、失败归类、需处理排序、最近日志摘要、CSV 导出、`alert.evaluate` 历史保留策略；剩余：跨来源统一长期保留策略（避免命令/下载/备份/部署历史在大型实例继续增长）。
 - **备份运维（TR-007, P2）** — 作废入口、durable job 重试、status/alert 反馈、失败原因归类+修复建议已落地；剩余：异地备份 / 自动恢复演练 / 保留策略自动清理。
 - **设置页高风险设置（TR-014, P2）** — 当前值/配置来源/生效位置/重启边界、最近修改人+时间已展示；M01 完成：字段级 ↺ 恢复默认按钮（高/中风险 badge）+ Save 角标 "X 项已修改"（含 diff 表）+ high 风险提交时弹确认 modal；M02 完成：高风险字段失焦且已变时 inline 警告条 ⚠ 提示保存前请确认影响（rose 色 + `role="alert"` 同步屏幕阅读器 + `aria-describedby` 关联 + 继续改值/保存后自动清除）。**2026-06-15 M01 决策落档**（用户拍板）：Q1 高风险文案 = 现状通用不吓用户 / Q2 二次确认 = 仅 high 弹模态 / Q3 未标 high 字段（SMTP 凭据 / AI provider 切换 / OCI 凭据 / SSH 密钥）= 暂缓 / Q4 high 字段保存后通知 = 不通知任何人。17 个字段风险等级在 `src/app/settings/field-schema.ts`（password 强保活 + 命令超时/卡死判定 + SMTP/2FA 开关 = high；密码规则 + runtime 调参 + 列表上限 = medium；其余 = low 不显示 badge）。
@@ -560,7 +560,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 按"复选框语义与代码事实是否吻合"重新分类：
 - **真已完成** TR-008 / TR-012 / TR-013 / TR-014 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-025 / TR-029
-- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-005 / TR-006 / TR-007 / TR-019 / TR-020 / TR-040 / TR-051 / TR-053
+- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-006 / TR-007 / TR-019 / TR-020 / TR-040 / TR-051 / TR-053
 - **文档化已落、代码主体已闭环**（TR-004）：`docs/file-preview-sharing.md` 12 节覆盖全部边界范围。
 - **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：Phase 2 静态分析已覆盖 32 个 icon-only button 候选，3 个已修，剩余需人工 review。
 - **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
@@ -680,7 +680,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-002 | P1 | Docker / QuickService / Direct Gateway 部署边界加固（失败回滚 / Direct Gateway TLS） | 主体已落地 |
 | TR-003 | P2 | 前端可访问性 / 移动端 / 浏览器导航系统化收口 | 巡检 1st pass (3/35 已修) |
 | TR-004 | P1/P2 | 文件预览 / 分享 Office+压缩包边界加固与文档化 | 文档化已落（docs/file-preview-sharing.md） |
-| TR-005 | P2 | 文件状态一致性、远端索引刷新、存储列表分页与内存聚合 | 主体已落地 |
+| TR-005 | P2 | 文件状态一致性、远端索引刷新、存储列表分页与内存聚合 | 远端索引 T34a 已落地 (durable job + 周期任务), T34b 存储分页待续做 |
 | TR-006 | P2 | 任务中心跨来源统一归档 / 长期保留策略 | 主体已落地 |
 | TR-007 | P2 | 备份记录运维解释 — 异地 / 自动恢复演练 / 保留清理 | 主体已落地 |
 | TR-008 | P2 | README 任务层级与追踪方式（轻量治理） | ✅ 完成 |

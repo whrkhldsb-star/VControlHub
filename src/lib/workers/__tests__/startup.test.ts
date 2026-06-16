@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * workers in the current process and registers a SIGTERM/SIGINT
  * handler for graceful shutdown. These tests cover:
  *   - skip when VITEST=true / NODE_ENV=test / VCONTROLHUB_WORKERS_DISABLED=true
- *   - register all 8 workers in prod
+ *   - register all 9 workers in prod
  *   - idempotent: second call is a no-op
  *   - SIGTERM triggers stopAllWorkers
  *   - failed workers are surfaced in the return value

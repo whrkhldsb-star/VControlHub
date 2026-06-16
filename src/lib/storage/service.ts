@@ -46,6 +46,12 @@ export {
 } from "./service-entries";
 
 export {
+  detectAndPruneSftpStaleInventory,
+  listSftpNodesForStaleInventory,
+  type SftpStaleInventoryResult,
+} from "./sftp-stale-inventory";
+
+export {
   getStorageOverview,
   type DirectorySummary,
 } from "./service-overview";

@@ -25,6 +25,7 @@ import { startDownloadJobWorker, stopDownloadJobWorkerForTests } from "@/lib/dow
 import { startQuickServiceJobWorker, stopQuickServiceJobWorkerForTests } from "@/lib/quick-service/job-worker";
 import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib/scheduled-task/worker";
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
+import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
 
 export type WorkerId =
   | "alert-evaluation"
@@ -34,7 +35,8 @@ export type WorkerId =
   | "download-execution"
   | "quick-service"
   | "scheduled-task"
-  | "sftp-sync";
+  | "sftp-sync"
+  | "sftp-stale-inventory";
 
 export type WorkerStatus = {
   id: WorkerId;
@@ -76,6 +78,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "quick-service": { started: false },
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
+      "sftp-stale-inventory": { started: false },
     };
   }
   return g.__vcontrolhubWorkerRegistry;
@@ -167,6 +170,16 @@ const SFTP_SYNC: WorkerSpec = {
   stop: () => stopSftpSyncJobWorkerForTests(),
 };
 
+const SFTP_STALE_INVENTORY: WorkerSpec = {
+  id: "sftp-stale-inventory",
+  label: "SFTP 远端索引定期校验",
+  jobType: "storage.sftp-stale-inventory",
+  start: async () => {
+    await startSftpStaleInventoryWorker();
+  },
+  stop: () => stopSftpStaleInventoryWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   ALERT_EVALUATION,
   BACKUP,
@@ -176,6 +189,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   QUICK_SERVICE,
   SCHEDULED_TASK,
   SFTP_SYNC,
+  SFTP_STALE_INVENTORY,
 ]);
 
 /**

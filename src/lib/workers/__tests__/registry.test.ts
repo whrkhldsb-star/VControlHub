@@ -24,6 +24,8 @@ const {
   stopScheduledTaskWorkerForTestsMock,
   startSftpSyncJobWorkerMock,
   stopSftpSyncJobWorkerForTestsMock,
+  startSftpStaleInventoryWorkerMock,
+  stopSftpStaleInventoryWorkerForTestsMock,
 } = vi.hoisted(() => ({
   startAlertEvaluationWorkerMock: vi.fn(async () => undefined),
   stopAlertEvaluationWorkerForTestsMock: vi.fn(),
@@ -41,6 +43,8 @@ const {
   stopScheduledTaskWorkerForTestsMock: vi.fn(),
   startSftpSyncJobWorkerMock: vi.fn(async () => undefined),
   stopSftpSyncJobWorkerForTestsMock: vi.fn(),
+  startSftpStaleInventoryWorkerMock: vi.fn(async () => undefined),
+  stopSftpStaleInventoryWorkerForTestsMock: vi.fn(),
 }));
 
 vi.mock("@/lib/health/alert-worker", () => ({
@@ -75,6 +79,10 @@ vi.mock("@/lib/storage/sftp-sync-job", () => ({
   startSftpSyncJobWorker: startSftpSyncJobWorkerMock,
   stopSftpSyncJobWorkerForTests: stopSftpSyncJobWorkerForTestsMock,
 }));
+vi.mock("@/lib/storage/sftp-stale-inventory-job", () => ({
+  startSftpStaleInventoryWorker: startSftpStaleInventoryWorkerMock,
+  stopSftpStaleInventoryWorkerForTests: stopSftpStaleInventoryWorkerForTestsMock,
+}));
 
 import {
   WORKER_REGISTRY,
@@ -97,6 +105,7 @@ function resetAllMocks() {
     startQuickServiceJobWorkerMock,
     startScheduledTaskWorkerMock,
     startSftpSyncJobWorkerMock,
+    startSftpStaleInventoryWorkerMock,
   ]) {
     m.mockReset();
     m.mockResolvedValue(undefined);
@@ -110,6 +119,7 @@ function resetAllMocks() {
     stopQuickServiceJobWorkerForTestsMock,
     stopScheduledTaskWorkerForTestsMock,
     stopSftpSyncJobWorkerForTestsMock,
+    stopSftpStaleInventoryWorkerForTestsMock,
   ]) {
     m.mockReset();
   }
@@ -124,6 +134,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "quick-service",
   "scheduled-task",
   "sftp-sync",
+  "sftp-stale-inventory",
 ];
 
 describe("worker registry", () => {
@@ -136,7 +147,7 @@ describe("worker registry", () => {
     _resetWorkerRegistryForTests();
   });
 
-  it("describes all 8 workers in the canonical order", () => {
+  it("describes all 9 workers in the canonical order", () => {
     expect(WORKER_REGISTRY.map((w) => w.id)).toEqual(EXPECTED_WORKER_IDS);
     for (const w of WORKER_REGISTRY) {
       expect(w.label).toBeTruthy();
@@ -148,7 +159,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(8);
+    expect(statuses).toHaveLength(9);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -178,12 +189,13 @@ describe("worker registry", () => {
         "quick-service",
         "scheduled-task",
         "sftp-sync",
+        "sftp-stale-inventory",
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 7/8 should be reported started.
+    // 8/9 should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(7);
+    expect(startedCount).toBe(8);
   });
 
   it("startAllWorkers starts every worker once", async () => {

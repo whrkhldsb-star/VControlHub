@@ -41,6 +41,7 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	"command-execution": 5 * 60 * 1000,
 	"scheduled-task": 5 * 60 * 1000,
 	"sftp-sync": 5 * 60 * 1000,
+	"sftp-stale-inventory": 5 * 60 * 1000,
 	"quick-service": 10 * 60 * 1000,
 	"download-execution": 150 * 60 * 1000,
 };
