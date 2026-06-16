@@ -61,13 +61,6 @@ const SKIP_DIR_NAMES = new Set([
 const REPORT_JSON_PATH = join(ROOT, "docs", "i18n-coverage.json");
 const REPORT_MD_PATH = join(ROOT, "docs", "i18n-coverage.md");
 const DICTIONARIES_DIR = join(ROOT, "src", "lib", "i18n", "dictionaries");
-const TRANSLATIONS_PATH = join(
-  ROOT,
-  "src",
-  "lib",
-  "i18n",
-  "translations.ts",
-);
 const PREVIEW_PER_FILE = 8;
 const MIN_CHINESE_CHARS = 2;
 
@@ -142,57 +135,13 @@ const ATTRIBUTES_TO_EXTRACT: Array<{ name: string; kind: StringKind }> = [
 // ---------------------------------------------------------------------------
 
 /**
- * Load translations.ts and extract the `zh` (and `en`) value maps.
- *
- * We don't use the React hook — we just regex-extract the static map
- * from the source text. This avoids needing a TypeScript compiler or
- * a JSX runtime for the audit script.
- */
-function loadTranslationValues(
-  text: string,
-): { zh: Record<string, string>; en: Record<string, string> } {
-  const result = { zh: {} as Record<string, string>, en: {} as Record<string, string> };
-  // Match the literal "zh: {" and "en: {" blocks within the
-  // `translations: Record<Locale, Record<string, string>> = { ... }`
-  // declaration. We capture the block, then walk it line by line.
-  const localeRe = /(\bzh|\ben)\s*:\s*\{/g;
-  let m: RegExpExecArray | null;
-  while ((m = localeRe.exec(text)) !== null) {
-    const locale = m[1] as "zh" | "en";
-    const start = m.index + m[0].length;
-    // Find matching closing `}` at the same brace depth.
-    let depth = 1;
-    let i = start;
-    while (i < text.length && depth > 0) {
-      const ch = text[i];
-      if (ch === "{") depth++;
-      else if (ch === "}") depth--;
-      i++;
-      if (depth === 0) break;
-    }
-    if (depth !== 0) continue;
-    const block = text.slice(start, i - 1);
-    // Each line is `"key": "value",` (or `"key": "value"`).
-    const lineRe = /"([^"\\]*(?:\\.[^"\\]*)*)"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*,?/g;
-    let lm: RegExpExecArray | null;
-    while ((lm = lineRe.exec(block)) !== null) {
-      const key = lm[1]!;
-      const value = lm[2]!;
-      result[locale][key] = value;
-    }
-  }
-  return result;
-}
-
-/**
  * Load translation values from the per-domain dictionary files
  * under `src/lib/i18n/dictionaries/*.ts`. Each file is expected
  * to export `zh: Record<string, string>` and `en: Record<string, string>`
  * blocks (mirroring the spread aggregation in `translations.ts`).
  *
- * The function uses the same brace-depth walker as `loadTranslationValues`
- * to extract the contents of each block, then concatenates into a single
- * zh / en map.
+ * The function uses a brace-depth walker to extract the contents of each
+ * block, then concatenates into a single zh / en map.
  */
 export function loadTranslationValuesFromDictionaries(
   dictionariesDir: string,
