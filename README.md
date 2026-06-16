@@ -578,10 +578,10 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 | client 文件 | 行数 |
 | --- | --- |
-| `app/files/file-list-client.tsx` | 1644 |
-| `app/quick-services/quick-services-client.tsx` | 1184 |
-| `app/ai/ai-client.tsx` | 1085 |
+| `app/files/file-list-client.tsx` | 1245 (T36b 后, 1604→1245) |
+| `app/ai/ai-client.tsx` | 1011 (T36c 后, 1085→987) |
 | `app/files/files-browser-spa.tsx` | 967 |
+| `app/quick-services/quick-services-client.tsx` | 587 (T37 后, 1002→574) |
 | `app/health/health-dashboard-client.tsx` | 745 |
 | `app/image-bed/image-bed-page-client.tsx` | 695 |
 | `app/files/preview/text-preview-client.tsx` | 619 |
@@ -708,7 +708,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-033 | P3 | PWA 离线支持和集成市场 | 队列中 |
 | TR-034 | P1 | API 错误响应 shape 统一（`code` + `message` + `details`） | ✅ 完成 (R1 union + R2 219 处 codemod + R3 client envelope) |
 | TR-035 | P2 | 环境变量集中读取层（29 文件直读 `process.env`） | ✅ 已落地 (R32, commit ca38b89) |
-| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ⏳ T36b + T36c 完成 (file-list-client 1600→1245 / ai-client 1071→987, 共抽 5 子组件 + 4 lazy wrapper); quick-services-client 1002 行剩余待续 |
+| TR-036 | P1 | 大客户端 bundle 拆分（9 个 client tsx ≥500 行） | ✅ 完成 (T36b + T36c + T37; file-list-client 1600→1245 / ai-client 1071→987 / quick-services-client 1002→574, 共抽 6 子组件 + 5 lazy wrapper) |
 | TR-037 | P2 | API 入参 zod 校验补齐（39 个 route ad-hoc 解析） | ✅ R5 扫 2 路由 (operation-tasks + traffic/summary) + 修 helper bug。R1-R5 累计 17 路由, 剩 22 路由待 R6+ |
 | TR-038 | P2 | God-object service 继续拆分（5 个 ≥500 行 service） | ✅ 主体已落地（R18-R22 + R28.D） |
 | TR-039 | P2 | 领域 DTO 边界续做（operation-task / runtime-settings / files / ai / deployment） | ✅ 完成 (1/1 leak 修 + 4 域 0 leak 审计; commit 见 git log) |
@@ -733,7 +733,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### P1 — 阻塞性
 
 - [ ] **API 错误响应统一 shape**（TR-034）— `apiError("CODE", message, details, status)` codemod。
-- [x] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。T36b 完成 file-list-client 1600→1245 (-355)；T36c 拆 ai-client input area 子组件 1071→987 (-84, +1 lazy wrapper + 6 test, 既有 32 test 0 业务改)。
+- [x] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。T36b 完成 file-list-client 1600→1245 (-355)；T36c 拆 ai-client input area 子组件 1071→987 (-84, +1 lazy wrapper + 6 test, 既有 32 test 0 业务改)；T37 续拆 quick-services-client 1002→574 (-428, +4 子组件 ServiceCard/InstallDialog/ConfigPreview(lazy)/SourcesPanel + 1 lazy wrapper, 既有 27 test 0 业务改)。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
 - [x] **下载入队失败被吞**（New-A）— `src/app/api/downloads/route.ts` route 端 `await enqueueDownloadExecutionJob` 后再返 201，失败回滚 `downloadTask.status = FAILED` + 5xx + `code: DOWNLOAD_DISPATCH_FAILED` + `auditUserAction("download.dispatch_failed")`。durable worker 入口配合 New-C idempotency guard 防 FAILED 后重试 side effects。3 个新测：单任务回滚 / batch 部分失败回滚 / happy path。
@@ -756,7 +756,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [ ] **N+1 查询修复**（TR-040）— 3 个候选文件。
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
 - [ ] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E）— 立 TR-043 跟进，deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。
-- [x] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1245 ✅ T36b (1600→1245) / `ai-client` 1071 / `quick-services-client` 1002，T36c 续做。
+- [x] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1245 ✅ T36b (1600→1245) / `ai-client` 1071 ✅ T36c (1071→987) / `quick-services-client` 1002 ✅ T37 (1002→574, +4 子组件 + 1 lazy wrapper)。
 - [x] **存储节点实时健康探测**（TR-049）— `/api/status` 触发 lazy probe（`scheduleStorageNodeHealthProbe`），fire-and-forget + setImmediate 推到下个 tick，5min stale 阈值 + 50 上限。详见 TR-049 行。
 - [x] **VPS 健康检查实时 TCP ping**（TR-050）— `servers` check known-good 显示 healthy 误导用户。加轻量 TCP ping，failures 标 warning。✅ `connectivity.ts` + `service-collect.ts` 接入，详见 TR-050 行。
 - [ ] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。
