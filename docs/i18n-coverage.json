@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-16T21:40:26.285Z",
+  "generatedAt": "2026-06-16T22:33:55.003Z",
   "summary": {
     "files": 261,
-    "filesWithStrings": 77,
-    "totalStrings": 758,
+    "filesWithStrings": 76,
+    "totalStrings": 728,
     "coveredStrings": 184,
-    "missingStrings": 574,
-    "coveragePercent": 24.3
+    "missingStrings": 544,
+    "coveragePercent": 25.3
   },
   "perModule": [
     {
@@ -29,13 +29,6 @@
       "covered": 1,
       "missing": 11,
       "coveragePercent": 8.3
-    },
-    {
-      "module": "src/app/backups",
-      "total": 46,
-      "covered": 4,
-      "missing": 42,
-      "coveragePercent": 8.7
     },
     {
       "module": "src/app/qa-reports",
@@ -92,6 +85,13 @@
       "covered": 26,
       "missing": 79,
       "coveragePercent": 24.8
+    },
+    {
+      "module": "src/app/backups",
+      "total": 16,
+      "covered": 4,
+      "missing": 12,
+      "coveragePercent": 25
     },
     {
       "module": "src/components/route-error.tsx",
@@ -1586,222 +1586,10 @@
     },
     "src/app/backups/page.tsx": {
       "path": "src/app/backups/page.tsx",
-      "total": 30,
+      "total": 0,
       "covered": 0,
-      "missing": 30,
-      "candidates": [
-        {
-          "text": "备份与迁移",
-          "line": 34,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader eyebrow=\"Portable\" title=\"备份与迁移\" description=\"记录数据库/文件/完整备份，配合 deplo",
-          "covered": false
-        },
-        {
-          "text": "完成备份",
-          "line": 38,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">完成备份",
-          "covered": false
-        },
-        {
-          "text": "共   条记录",
-          "line": 40,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">共 {summary.totalRecords} 条记录",
-          "covered": false
-        },
-        {
-          "text": "已用备份空间",
-          "line": 43,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">已用备份空间",
-          "covered": false
-        },
-        {
-          "text": "最大：  · $ ` : \"暂无\"}",
-          "line": 45,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">最大：{summary.largestCompleted ? `${sum",
-          "covered": false
-        },
-        {
-          "text": "保留策略提示",
-          "line": 48,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">保留策略提示",
-          "covered": false
-        },
-        {
-          "text": "条完成备份超过 30 天，建议复核清理",
-          "line": 50,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">条完成备份超过 30 天，建议复核清理",
-          "covered": false
-        },
-        {
-          "text": "异常/执行中",
-          "line": 53,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">异常/执行中",
-          "covered": false
-        },
-        {
-          "text": "失败 / PENDING+RUNNING",
-          "line": 55,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">失败 / PENDING+RUNNING",
-          "covered": false
-        },
-        {
-          "text": "备份策略概览",
-          "line": 62,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">备份策略概览",
-          "covered": false
-        },
-        {
-          "text": "按备份类型汇总数量和容量，辅助规划定时备份、异地备份与保留策略。",
-          "line": 63,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">按备份类型汇总数量和容量，辅助规划定时备份、异地备份与保留策略。",
-          "covered": false
-        },
-        {
-          "text": "最近完成：",
-          "line": 65,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">最近完成：{formatZhDateTime(summary.latestCompl",
-          "covered": false
-        },
-        {
-          "text": "备份失败原因聚合",
-          "line": 80,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">备份失败原因聚合",
-          "covered": false
-        },
-        {
-          "text": "按最近 200 条备份记录中的 FAILED 错误文本归类，优先定位路径、权限、超时、存储空间或脚本执行问题。",
-          "line": 81,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">按最近 200 条备份记录中的 FAILED 错误文本归类，优先定位路径、",
-          "covered": false
-        },
-        {
-          "text": "失败记录：",
-          "line": 83,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">失败记录：{summary.failedRecords}",
-          "covered": false
-        },
-        {
-          "text": "暂无失败备份记录。",
-          "line": 86,
-          "kind": "text",
-          "context": "<p data-tone=\"emerald\" className=\"mt-4 rounded-lg border border-emerald-400/20 p",
-          "covered": false
-        },
-        {
-          "text": "最新记录：",
-          "line": 95,
-          "kind": "text",
-          "context": "<p className=\"mt-2 text-xs text-slate-500\">最新记录：{item.latestRecordPath}",
-          "covered": false
-        },
-        {
-          "text": "建议：",
-          "line": 96,
-          "kind": "text",
-          "context": "<p className=\"mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5",
-          "covered": false
-        },
-        {
-          "text": "保留策略自动清理",
-          "line": 108,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">保留策略自动清理",
-          "covered": false
-        },
-        {
-          "text": "按保留天数和每类型保留最新 N 个参数，清理过期的 COMPLETED 备份记录和文件。可在任务中心追踪",
-          "line": 109,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">按保留天数和每类型保留最新 N 个参数，清理过期的 COMPLETED 备",
-          "covered": false
-        },
-        {
-          "text": "创建并执行备份",
-          "line": 120,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">创建并执行备份",
-          "covered": false
-        },
-        {
-          "text": "提交后会创建可审计备份记录并排入 Durable Job 后台队列；页面可刷新查看 PENDING/RUNNING/COMPLETED 或 FAILED 状态。",
-          "line": 121,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">提交后会创建可审计备份记录并排入 Durable Job 后台队列；页面可",
-          "covered": false
-        },
-        {
-          "text": "创建定时备份",
-          "line": 128,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">创建定时备份",
-          "covered": false
-        },
-        {
-          "text": "选择备份类型、Cron 与执行节点后，会创建一条可审计的定时任务；后续执行日志可在“定时任务”页面追踪。",
-          "line": 129,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">选择备份类型、Cron 与执行节点后，会创建一条可审计的定时任务；后续执行",
-          "covered": false
-        },
-        {
-          "text": "备份记录",
-          "line": 136,
-          "kind": "text",
-          "context": "<h2 className=\"text-sm font-semibold text-white\">备份记录",
-          "covered": false
-        },
-        {
-          "text": "大小：",
-          "line": 150,
-          "kind": "text",
-          "context": "<span>大小：{formatBackupSize(b.fileSize)}",
-          "covered": false
-        },
-        {
-          "text": "完成：",
-          "line": 151,
-          "kind": "text",
-          "context": "<span>完成：{b.completedAt ? formatZhDateTime(b.completedAt) : \"未完成\"}",
-          "covered": false
-        },
-        {
-          "text": "错误：",
-          "line": 152,
-          "kind": "text",
-          "context": "<span className=\"text-rose-300\">错误：{b.errorMessage}",
-          "covered": false
-        },
-        {
-          "text": "只有 COMPLETED 状态的备份可以执行恢复。",
-          "line": 160,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-slate-500\">只有 COMPLETED 状态的备份可以执行恢复。",
-          "covered": false
-        },
-        {
-          "text": "对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。",
-          "line": 167,
-          "kind": "text",
-          "context": "<p className=\"mt-1 text-xs text-slate-500\">对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/backups/restore-backup-button.tsx": {
       "path": "src/app/backups/restore-backup-button.tsx",

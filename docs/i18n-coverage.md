@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T21:40:26.285Z | Files: 261 | Strings: 758 | Coverage: **24.3%** (184/758)
+> Generated: 2026-06-16T22:33:55.003Z | Files: 261 | Strings: 728 | Coverage: **25.3%** (184/728)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -13,7 +13,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/app/deployments` | 44 | 2 | 42 | 4.5% |
 | `src/components/ssh-terminal-modal.tsx` | 14 | 1 | 13 | 7.1% |
 | `src/app/account` | 12 | 1 | 11 | 8.3% |
-| `src/app/backups` | 46 | 4 | 42 | 8.7% |
 | `src/app/qa-reports` | 10 | 1 | 9 | 10% |
 | `src/app/downloads` | 38 | 4 | 34 | 10.5% |
 | `src/app/requests` | 24 | 3 | 21 | 12.5% |
@@ -22,6 +21,7 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/app/media` | 38 | 6 | 32 | 15.8% |
 | `src/app/settings` | 31 | 5 | 26 | 16.1% |
 | `src/app/servers` | 105 | 26 | 79 | 24.8% |
+| `src/app/backups` | 16 | 4 | 12 | 25% |
 | `src/components/route-error.tsx` | 4 | 1 | 3 | 25% |
 | `src/components/two-factor-settings.tsx` | 12 | 3 | 9 | 25% |
 | `src/app/storage` | 46 | 13 | 33 | 28.3% |
@@ -70,18 +70,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 | 不绑定 | 2 | `src/app/storage/storage-node-create-form.tsx:54` (text), `src/app/storage/storage-node-edit-form.tsx:70` (text) |
 
 ## Files with missing translations (most gaps first)
-
-### `src/app/backups/page.tsx` — 30/30 missing (0%)
-
-- L34 title title= "备份与迁移"
-- L38 text "完成备份"
-- L40 text "共   条记录"
-- L43 text "已用备份空间"
-- L45 text "最大：  · $ ` : "暂无"}"
-- L48 text "保留策略提示"
-- L50 text "条完成备份超过 30 天，建议复核清理"
-- L53 text "异常/执行中"
-- _…and 22 more_
 
 ### `src/app/settings/settings-client.tsx` — 26/30 missing (13.3%)
 
@@ -315,3 +303,15 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L397 text "添加常用 SSH 命令"
 - L400 placeholder placeholder= "添加常用命令…"
 - _…and 5 more_
+
+### `src/app/deployments/deployment-launch-form.tsx` — 12/13 missing (7.7%)
+
+- L45 text "请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。"
+- L54 text "暂无可用 VPS，不能发起部署。"
+- L55 text "请先到服务器管理页面添加或启用 VPS，部署模板会在这里选择目标节点后进入审批链路。"
+- L56 text "去添加 VPS"
+- L100 text "部署模板"
+- L111 text "部署原因"
+- L113 placeholder placeholder= "例如：上线新版本 / 修复服务异常"
+- L122 text "模板变量"
+- _…and 4 more_

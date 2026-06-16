@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, buildScheduledBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
 import { config } from "@/lib/config/env";
+import { t } from "@/lib/i18n/translations";
 import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { CreateBackupForm } from "./create-backup-form";
@@ -18,7 +19,7 @@ const projectRoot = config.app.appDir || process.cwd();
 
 export default async function BackupsPage() {
 	const session = await requireSession("/backups");
-	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text="你没有备份管理查看权限。" /></PageShell>;
+	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
 	const [backups, servers] = await Promise.all([listBackupRecords(), listServerProfiles()]);
@@ -31,44 +32,44 @@ export default async function BackupsPage() {
 	};
 	return (
 		<PageShell>
-			<PageHeader eyebrow="Portable" title="备份与迁移" description="记录数据库/文件/完整备份，配合 deploy/backup.sh 与 restore-db.sh 支持迁移到其他系统。恢复命令只展示，不会绕过审批直接执行。" />
+			<PageHeader eyebrow={t("backupsPage.eyebrow")} title={t("backupsPage.title")} description={t("backupsPage.description")} />
 
 			<section className="mb-6 grid gap-3 md:grid-cols-4">
 				<div data-card className="p-4">
-					<p className="text-xs text-slate-500">完成备份</p>
+					<p className="text-xs text-slate-500">{t("backupsPage.summary.completed")}</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{summary.completedRecords}</p>
-					<p className="mt-1 text-xs text-slate-500">共 {summary.totalRecords} 条记录</p>
+					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.summary.totalRecords").replace("{count}", String(summary.totalRecords))}</p>
 				</div>
 				<div data-card className="p-4">
-					<p className="text-xs text-slate-500">已用备份空间</p>
+					<p className="text-xs text-slate-500">{t("backupsPage.summary.usedSpace")}</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{formatBackupSize(summary.totalCompletedSizeBytes)}</p>
-					<p className="mt-1 text-xs text-slate-500">最大：{summary.largestCompleted ? `${summary.largestCompleted.type} · ${formatBackupSize(summary.largestCompleted.sizeBytes)}` : "暂无"}</p>
+					<p className="mt-1 text-xs text-slate-500">{summary.largestCompleted ? t("backupsPage.summary.largestRecord").replace("{type}", summary.largestCompleted.type).replace("{size}", formatBackupSize(summary.largestCompleted.sizeBytes)) : t("backupsPage.summary.largestNone")}</p>
 				</div>
 				<div data-card className="p-4">
-					<p className="text-xs text-slate-500">保留策略提示</p>
+					<p className="text-xs text-slate-500">{t("backupsPage.summary.retentionNote")}</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{summary.recordsOlderThan30Days}</p>
-					<p className="mt-1 text-xs text-slate-500">条完成备份超过 30 天，建议复核清理</p>
+					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.summary.retentionHint")}</p>
 				</div>
 				<div data-card className="p-4">
-					<p className="text-xs text-slate-500">异常/执行中</p>
+					<p className="text-xs text-slate-500">{t("backupsPage.summary.exceptions")}</p>
 					<p className="mt-1 text-2xl font-semibold text-white">{summary.failedRecords} / {summary.runningRecords}</p>
-					<p className="mt-1 text-xs text-slate-500">失败 / PENDING+RUNNING</p>
+					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.summary.exceptionsHint")}</p>
 				</div>
 			</section>
 
 			<section data-card className="mb-6 p-5">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
-						<h2 className="text-sm font-semibold text-white">备份策略概览</h2>
-						<p className="mt-1 text-xs text-slate-500">按备份类型汇总数量和容量，辅助规划定时备份、异地备份与保留策略。</p>
+						<h2 className="text-sm font-semibold text-white">{t("backupsPage.overview.title")}</h2>
+						<p className="mt-1 text-xs text-slate-500">{t("backupsPage.overview.description")}</p>
 					</div>
-					<p className="text-xs text-slate-500">最近完成：{formatZhDateTime(summary.latestCompletedAt, "暂无")}</p>
+					<p className="text-xs text-slate-500">{t("backupsPage.overview.latestCompleted").replace("{date}", formatZhDateTime(summary.latestCompletedAt, t("backupsPage.overview.latestNone")))}</p>
 				</div>
 				<div className="mt-4 grid gap-3 md:grid-cols-3">
 					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
 						<div key={type} className="rounded-lg border border-white/[0.06] bg-black/10 p-3 light:bg-white/50">
 							<p className="text-xs font-semibold text-cyan-200">{type}</p>
-							<p className="mt-1 text-sm text-white">{summary.byType[type].count} 个 · {formatBackupSize(summary.byType[type].sizeBytes)}</p>
+							<p className="mt-1 text-sm text-white">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
 						</div>
 					))}
 				</div>
@@ -77,23 +78,23 @@ export default async function BackupsPage() {
 			<section data-card className="mb-6 p-5">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
-						<h2 className="text-sm font-semibold text-white">备份失败原因聚合</h2>
-						<p className="mt-1 text-xs text-slate-500">按最近 200 条备份记录中的 FAILED 错误文本归类，优先定位路径、权限、超时、存储空间或脚本执行问题。</p>
+						<h2 className="text-sm font-semibold text-white">{t("backupsPage.failures.title")}</h2>
+						<p className="mt-1 text-xs text-slate-500">{t("backupsPage.failures.description")}</p>
 					</div>
-					<p className="text-xs text-slate-500">失败记录：{summary.failedRecords}</p>
+					<p className="text-xs text-slate-500">{t("backupsPage.failures.count").replace("{count}", String(summary.failedRecords))}</p>
 				</div>
 				{summary.failureSummary.length === 0 ? (
-					<p data-tone="emerald" className="mt-4 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-200">暂无失败备份记录。</p>
+					<p data-tone="emerald" className="mt-4 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-200">{t("backupsPage.failures.empty")}</p>
 				) : (
 					<div className="mt-4 grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
 							<div key={item.category} data-tone="rose" className="rounded-lg border border-rose-400/20 p-3 light:bg-rose-50">
 								<div className="flex items-center justify-between gap-3">
 									<p className="text-xs font-semibold text-rose-200">{item.label}</p>
-									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{item.count} 条</span>
+									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
-								{item.latestRecordPath && <p className="mt-2 text-xs text-slate-500">最新记录：{item.latestRecordPath}</p>}
-								<p className="mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300 light:bg-white/60">建议：{item.remediation}</p>
+								{item.latestRecordPath && <p className="mt-2 text-xs text-slate-500">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
+								<p className="mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300 light:bg-white/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{item.latestMessage}</p>}
 							</div>
 						))}
@@ -105,8 +106,8 @@ export default async function BackupsPage() {
 				<section data-card className="mb-6 p-5">
 					<div className="flex flex-wrap items-start justify-between gap-4">
 						<div>
-							<h2 className="text-sm font-semibold text-white">保留策略自动清理</h2>
-							<p className="mt-1 text-xs text-slate-500">按保留天数和每类型保留最新 N 个参数，清理过期的 COMPLETED 备份记录和文件。可在任务中心追踪 <code>backup.retention</code> 任务的完成情况。</p>
+							<h2 className="text-sm font-semibold text-white">{t("backupsPage.retention.title")}</h2>
+							<p className="mt-1 text-xs text-slate-500">{t("backupsPage.retention.description")}</p>
 						</div>
 					</div>
 					<div className="mt-4">
@@ -117,39 +118,39 @@ export default async function BackupsPage() {
 
 			{canCreate && (
 				<section data-card className="mb-6 p-5">
-					<h2 className="text-sm font-semibold text-white">创建并执行备份</h2>
-					<p className="mt-1 text-xs text-slate-500">提交后会创建可审计备份记录并排入 Durable Job 后台队列；页面可刷新查看 PENDING/RUNNING/COMPLETED 或 FAILED 状态。</p>
+					<h2 className="text-sm font-semibold text-white">{t("backupsPage.create.title")}</h2>
+					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.create.description")}</p>
 					<CreateBackupForm />
 				</section>
 			)}
 
 			{canCreate && (
 				<section data-card className="mb-6 p-5">
-					<h2 className="text-sm font-semibold text-white">创建定时备份</h2>
-					<p className="mt-1 text-xs text-slate-500">选择备份类型、Cron 与执行节点后，会创建一条可审计的定时任务；后续执行日志可在“定时任务”页面追踪。</p>
+					<h2 className="text-sm font-semibold text-white">{t("backupsPage.schedule.title")}</h2>
+					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.schedule.description")}</p>
 					<ScheduleBackupForm servers={serverOptions} commandByType={scheduledCommandByType} />
 				</section>
 			)}
 
 			<section data-card className="">
 				<div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
-					<h2 className="text-sm font-semibold text-white">备份记录</h2>
-					<span className="text-xs text-slate-500">{backups.length} 条</span>
+					<h2 className="text-sm font-semibold text-white">{t("backupsPage.records.title")}</h2>
+					<span className="text-xs text-slate-500">{t("backupsPage.records.count").replace("{count}", String(backups.length))}</span>
 				</div>
 				<div className="divide-y divide-white/[0.06]">
-					{backups.length === 0 ? <EmptyState text="暂无备份记录" /> : backups.map((b) => (
+					{backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : backups.map((b) => (
 						<div key={b.id} className="px-5 py-4">
 							<div className="flex items-center justify-between gap-3">
 								<div>
-									<h3 className="text-sm font-medium text-white">{b.type} · {b.status}</h3>
-									<p className="mt-1 text-xs text-slate-500">{b.filePath} · {formatZhDateTime(b.createdAt)}</p>
+									<h3 className="text-sm font-medium text-white">{t("backupsPage.records.typeStatus").replace("{type}", b.type).replace("{status}", b.status)}</h3>
+									<p className="mt-1 text-xs text-slate-500">{t("backupsPage.records.pathTime").replace("{path}", b.filePath).replace("{time}", formatZhDateTime(b.createdAt))}</p>
 								</div>
-								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{b.creator?.displayName || b.creator?.username || "system"}</span>
+								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
-								<span>大小：{formatBackupSize(b.fileSize)}</span>
-								<span>完成：{b.completedAt ? formatZhDateTime(b.completedAt) : "未完成"}</span>
-								{b.errorMessage && <span className="text-rose-300">错误：{b.errorMessage}</span>}
+								<span>{t("backupsPage.records.size").replace("{size}", formatBackupSize(b.fileSize))}</span>
+								<span>{b.completedAt ? t("backupsPage.records.completedAt").replace("{time}", formatZhDateTime(b.completedAt)) : t("backupsPage.records.notCompleted")}</span>
+								{b.errorMessage && <span className="text-rose-300">{t("backupsPage.records.error").replace("{message}", b.errorMessage)}</span>}
 							</div>
 							{b.note && <p className="mt-2 text-xs text-slate-400">{b.note}</p>}
 							{canRestore && (
@@ -157,14 +158,14 @@ export default async function BackupsPage() {
 									<code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{buildPortableBackupCommand({ projectRoot, outputPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{buildBackupRestoreCommand({ projectRoot, backupPath: b.filePath, type: isBackupType(b.type) ? b.type : undefined })}</code>
 									<RestoreBackupButton backupId={b.id} backupType={b.type} disabled={b.status !== "COMPLETED"} />
-									{b.status !== "COMPLETED" && <p className="text-xs text-slate-500">只有 COMPLETED 状态的备份可以执行恢复。</p>}
+									{b.status !== "COMPLETED" && <p className="text-xs text-slate-500">{t("backupsPage.records.restoreHint")}</p>}
 								</div>
 							)}
 							{canCreate && b.status !== "COMPLETED" && (
 								<div className="mt-3 flex flex-wrap items-start gap-3">
 									{b.status === "FAILED" && <RetryBackupRecordButton backupId={b.id} status={b.status} />}
 									<VoidBackupRecordButton backupId={b.id} status={b.status} />
-									<p className="mt-1 text-xs text-slate-500">对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。</p>
+									<p className="mt-1 text-xs text-slate-500">{t("backupsPage.records.voidHint")}</p>
 								</div>
 							)}
 						</div>

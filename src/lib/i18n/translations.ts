@@ -21,6 +21,7 @@ import { zh as announcementspageZh, en as announcementspageEn } from "./dictiona
 import { zh as apitokenspageZh, en as apitokenspageEn } from "./dictionaries/api-tokens-page";
 import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
 import { zh as authZh, en as authEn } from "./dictionaries/auth";
+import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
 import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
 import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
@@ -76,6 +77,7 @@ const zh: Record<string, string> = {
 	...apitokenspageZh,
 	...auditZh,
 	...authZh,
+	...backupspageZh,
 	...commonZh,
 	...csvpreviewZh,
 	...dashboardZh,
@@ -132,6 +134,7 @@ const en: Record<string, string> = {
 	...apitokenspageEn,
 	...auditEn,
 	...authEn,
+	...backupspageEn,
 	...commonEn,
 	...csvpreviewEn,
 	...dashboardEn,
