@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type ScanResult = {
   scanned: number;
@@ -11,6 +12,7 @@ type ScanResult = {
 };
 
 export function MediaScanButton() {
+  const { t } = useI18n();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isScanning, setIsScanning] = useState(false);
@@ -27,15 +29,18 @@ export function MediaScanButton() {
         method: "POST",
       });
       const removedText = result.removed
-        ? `，清理 ${result.removed} 条失效索引`
+        ? t("mediaScanButton.removed").replace("{removed}", String(result.removed))
         : "";
       setMessage(
-        `扫描完成：发现 ${result.scanned} 个媒体文件，更新 ${result.upserted} 条索引${removedText}`,
+        t("mediaScanButton.summary")
+          .replace("{scanned}", String(result.scanned))
+          .replace("{upserted}", String(result.upserted))
+          .replace("{removedText}", removedText),
       );
       startTransition(() => router.refresh());
     } catch (scanError) {
       setError(
-        scanError instanceof Error ? scanError.message : "扫描媒体索引失败",
+        scanError instanceof Error ? scanError.message : t("mediaScanButton.error"),
       );
     } finally {
       setIsScanning(false);
@@ -50,7 +55,7 @@ export function MediaScanButton() {
         disabled={disabled}
         className="rounded-xl border border-cyan-400/50 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isScanning ? "正在扫描..." : "扫描媒体索引"}
+        {isScanning ? t("mediaScanButton.scanning") : t("mediaScanButton.idle")}
       </button>
       {message && (
         <p
