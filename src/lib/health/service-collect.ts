@@ -8,12 +8,17 @@
  */
 import { prisma } from "@/lib/db";
 import { collectServerMetrics, type ServerMetrics } from "@/lib/server/monitor";
+import { tcpProbe } from "@/lib/server/connectivity";
 import type { HealthOverview, ServerHealth } from "./service-types";
 import { evaluateHealth } from "./service-types";
 
+/** Default TCP probe deadline; tight enough to keep the health rollup snappy
+ *  even when dozens of servers are probed in parallel. */
+const TCP_PROBE_TIMEOUT_MS = 2_000;
+
 export async function collectAllHealth(): Promise<HealthOverview> {
 	const servers = await prisma.server.findMany({
-		select: { id: true, name: true, host: true, enabled: true },
+		select: { id: true, name: true, host: true, port: true, enabled: true },
 		orderBy: { name: "asc" },
 		take: 200,
 	});
@@ -30,17 +35,40 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 				lastCheck: new Date().toISOString(),
 			};
 		}
+
+		// TR-050: lightweight TCP probe before the heavy SSH pull. A failed
+		// probe means the host is unreachable on the network — mark offline
+		// with a clear "网络不可达" reason instead of the generic SSH error.
+		const probe = await tcpProbe(server.host, server.port, TCP_PROBE_TIMEOUT_MS);
+		if (!probe.ok) {
+			return {
+				serverId: server.id,
+				serverName: server.name,
+				host: server.host,
+				enabled: true,
+				status: "offline" as const,
+				lastCheck: new Date().toISOString(),
+				error: `网络不可达: ${probe.error ?? "未知原因"}`,
+			};
+		}
+
 		try {
 			const result = await collectServerMetrics(server.id);
 			if ("error" in result) {
+				// TCP succeeded but SSH failed — host is up, but the daemon
+				// is hung / misconfigured / refusing our key. Mark warning
+				// (not offline) so dashboards show a yellow chip rather than
+				// the red "host down" chip.
+				const rtt = probe.latencyMs;
 				return {
 					serverId: server.id,
 					serverName: server.name,
 					host: server.host,
 					enabled: true,
-					status: "offline" as const,
+					status: "warning" as const,
 					lastCheck: new Date().toISOString(),
-					error: result.error,
+					latencyMs: rtt,
+					error: `SSH 不可达 (主机在线, RTT ${rtt ?? "?"}ms): ${result.error}`,
 				};
 			}
 			const metrics = result as ServerMetrics;
@@ -57,17 +85,23 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 				diskMax,
 				uptime: metrics.uptime,
 				lastCheck: metrics.timestamp,
+				latencyMs: probe.latencyMs,
 				metrics,
 			};
 		} catch (err) {
+			// The TCP probe succeeded but collectServerMetrics threw before
+			// returning — treat that as a host-up-but-collect-failed warning
+			// (same shape as the "error" branch above).
+			const rtt = probe.latencyMs;
 			return {
 				serverId: server.id,
 				serverName: server.name,
 				host: server.host,
 				enabled: true,
-				status: "offline" as const,
+				status: "warning" as const,
 				lastCheck: new Date().toISOString(),
-				error: err instanceof Error ? err.message : "Unknown error",
+				latencyMs: rtt,
+				error: `采集失败 (主机在线, RTT ${rtt ?? "?"}ms): ${err instanceof Error ? err.message : String(err)}`,
 			};
 		}
 	});

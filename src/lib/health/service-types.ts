@@ -24,6 +24,11 @@ export type ServerHealth = {
 	mem?: number;
 	diskMax?: number;
 	uptime?: string;
+	/** RTT of the lightweight TCP probe that ran before the SSH pull.
+	 *  Present whenever the probe succeeded (status !== "offline" due to
+	 *  network error). Absent for disabled servers and for the "host up
+	 *  but never reached by probe" historical records. */
+	latencyMs?: number;
 	lastCheck: string;
 	metrics?: ServerMetrics;
 	error?: string;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, collectServerMetricsMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock } = vi.hoisted(() => ({
+const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock } = vi.hoisted(() => ({
 	prismaMock: {
 		server: {
 			findMany: vi.fn(),
@@ -18,6 +18,7 @@ const { prismaMock, collectServerMetricsMock, createNotificationMock, fetchWebho
 		},
 	},
 	collectServerMetricsMock: vi.fn(),
+	tcpProbeMock: vi.fn(),
 	createNotificationMock: vi.fn(),
 	fetchWebhookSafelyMock: vi.fn(),
 	sendAlertEmailMock: vi.fn(),
@@ -25,6 +26,9 @@ const { prismaMock, collectServerMetricsMock, createNotificationMock, fetchWebho
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/server/monitor", () => ({ collectServerMetrics: collectServerMetricsMock }));
+// Stub the network probe so alert tests don't open real sockets (TR-050
+// integration lives in service-collect.test.ts).
+vi.mock("@/lib/server/connectivity", () => ({ tcpProbe: tcpProbeMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
@@ -45,7 +49,11 @@ describe("evaluateAlerts", () => {
 	beforeEach(() => {
 		vi.useRealTimers();
 		vi.clearAllMocks();
-		prismaMock.server.findMany.mockResolvedValue([{ id: "srv1", name: "Prod", host: "10.0.0.1", enabled: true }]);
+		// TR-050: default to "host is up" so the existing alert tests continue
+		// to drive collectServerMetrics. The service-collect.test.ts file
+		// exercises the failure / warning paths explicitly.
+		tcpProbeMock.mockResolvedValue({ ok: true, latencyMs: 5 });
+		prismaMock.server.findMany.mockResolvedValue([{ id: "srv1", name: "Prod", host: "10.0.0.1", port: 22, enabled: true }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
 		prismaMock.alertRule.update.mockResolvedValue({});
 		createNotificationMock.mockResolvedValue({});
