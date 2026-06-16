@@ -4,6 +4,7 @@ import { canViewTicket, getTicketById } from "@/lib/ticket/service";
 import { PageShell, EmptyState, PageHeader } from "@/components/page-shell";
 import { TicketDetailClient, type Ticket } from "./ticket-detail-client";
 import { notFound } from "next/navigation";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +12,9 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const session = await requireSession("/tickets");
   const { id } = await params;
   const canManage = sessionHasPermission(session, "ticket:manage");
+  const locale = await getServerLocale();
   if (!canManage && !(await canViewTicket(id, session.userId))) {
-    return <PageShell><EmptyState text="你只能查看自己提交或分配给你的工单。" /></PageShell>;
+    return <PageShell><EmptyState text={t("ticketsDetail.permissionDenied", locale)} /></PageShell>;
   }
   const ticket = await getTicketById(id);
   if (!ticket) notFound();
@@ -28,8 +30,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   return (
     <PageShell maxW="max-w-4xl">
-      <PageHeader eyebrow="Ticket Detail" title="工单详情" className="mb-6" />
-      <TicketDetailClient initial={serialized} canManage={canManage} />
+      <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} className="mb-6" />
+      <TicketDetailClient initial={serialized} canManage={canManage} locale={locale} />
     </PageShell>
   );
 }
