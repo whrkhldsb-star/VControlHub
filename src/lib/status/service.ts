@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { summarizeSystemHealth, type SystemHealthCheck, type SystemHealthStatus } from "@/lib/system-health/service";
 import { getAppSlug } from "@/lib/branding";
+import { scheduleStorageNodeHealthProbe } from "@/lib/storage/health";
 
 type StorageHealthAggregate = {
   total: number;
@@ -72,6 +73,13 @@ export async function getPublicStatus() {
 		},
 		{ total: 0, healthy: 0, unhealthy: 0, unknown: 0, checked: 0 },
 	);
+	// TR-049: kick off a lazy background probe when any node is stale or
+	// never probed. The probe is fire-and-forget — the response is built
+	// from whatever's in the DB right now, and a subsequent poll (1-5 s
+	// later) sees the updated healthStatus. The schedule is intentionally
+	// unconditional: `probeAllStaleStorageNodes` short-circuits to a
+	// no-op when no candidates are due, so we pay nothing for the check.
+	scheduleStorageNodeHealthProbe();
 	checks.push(buildStorageStatus(storageAggregate));
 	return { generatedAt: new Date().toISOString(), service: getAppSlug(), summary: summarizeSystemHealth(checks), checks: checks.map(({ id, label, status, message }) => ({ id, label, status, message })) };
 }

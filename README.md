@@ -560,7 +560,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 
 按"复选框语义与代码事实是否吻合"重新分类：
 - **真已完成** TR-008 / TR-012 / TR-013 / TR-014 / TR-027 / TR-028 / TR-017 / TR-018 / TR-021 / TR-022 / TR-025 / TR-029
-- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-005 / TR-006 / TR-007 / TR-019 / TR-020 / TR-040 / TR-049 / TR-051 / TR-053
+- **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-001 / TR-002 / TR-005 / TR-006 / TR-007 / TR-019 / TR-020 / TR-040 / TR-051 / TR-053
 - **文档化已落、代码主体已闭环**（TR-004）：`docs/file-preview-sharing.md` 12 节覆盖全部边界范围。
 - **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：Phase 2 静态分析已覆盖 32 个 icon-only button 候选，3 个已修，剩余需人工 review。
 - **真未启动**：TR-009 / TR-010 / TR-011 / TR-015 / TR-016 / TR-020 / TR-023 / TR-024 / TR-026 / TR-030 / TR-031 / TR-032 / TR-033
@@ -720,7 +720,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-042 | P3 | i18n 文案覆盖度审计（`translations.ts` keys 与 app/**/*.tsx 对账） | ✅ 完成 (T42a+T42b, commit 7242ea1) |
 | TR-047 | P2 | RBAC 静态审计扫描器精度提升（catalog 字典化 + audit 4 种 enforcement form + 多行 + 白名单） | ✅ 已落地（drift 41 → 0），`scripts/build-route-catalog.ts` `declaredPerms` 改用 `RBAC.PERMISSIONS` 字典；`scripts/rbac-audit.ts` 加 `sessionHasPermission` / `verifyBearerToken` 识别、3 段 perm 正则、多行 sessionHasPermission fallback、`intentionallyPublic` 白名单 16 项（login/signout/2FA/share/openapi/status/dashboard 等公开路由）、`dynamicPermRoutes` 白名单 2 项（`storage/sftp-ops` / `files/list` 三元/动态变量 enforcement）。22 单测全过。|
 | TR-048 | P2 | `app-sources` 路由测试覆盖（GET/POST/PATCH/DELETE 全分支） | ✅ 已落地，`src/app/api/app-sources/__tests__/route.test.ts` 12 单测：本地 catalog 与 installed services 合并、`includeApps=false` 跳过 remote、POST 验权 + 校验 name/url、PATCH sync/toggle 双分支、DELETE by id query。 |
-| TR-049 | P2 | 存储节点实时健康探测（SFTP / Direct Gateway）— `/api/status` storage check 显示 6 节点 0 健康 0 异常 6 待探测；探测从未跑过，UI 看不到节点状态。 | ⏳ 建议：起一次性后台 probe job 或在 `/api/status` 触发 lazy probe。 |
+| TR-049 | P2 | 存储节点实时健康探测（SFTP / Direct Gateway）— `/api/status` storage check 显示 6 节点 0 健康 0 异常 6 待探测；探测从未跑过，UI 看不到节点状态。 | ✅ 已落地（`/api/status` 触发 lazy probe）：`src/lib/storage/health.ts` 新增 `scheduleStorageNodeHealthProbe`（fire-and-forget + `setImmediate` 推到下个 tick，避免阻塞状态响应）+ `probeAllStaleStorageNodes`（查询 lastHealthCheckAt > 5min 或 null 或 UNKNOWN 的节点，`Promise.allSettled` 并行调 `checkStorageNodeHealth` 写回 DB，per-node `.catch` 吞错，`take: 50` 防爆量）；`getPublicStatus` 在 storage 聚合后无条件 schedule（probe 函数内部短路，0 stale 时无开销）。`checkStorageNodeHealth` 早就存在 (R28.D-1, 已有 5 个 vitest) — 现在终于被自动触发。5 个 scheduler 单测 + 1 个 trigger 测 + 1911 全量测试 0 regression。 |
 | TR-050 | P2 | VPS 健康检查实时 TCP ping — `/api/status` servers check 注释 "已启用 5 台 VPS，未做实时 SSH/网络探测"；known-good 显示 healthy 误导用户。 | ✅ 已落地（health rollup 接入轻量 TCP ping 前置）：`src/lib/server/connectivity.ts` `tcpProbe(host, port, 2s)` net.Socket 三次握手 + errno 友好化；`service-collect.ts` 在 collectServerMetrics 前先 tcpProbe，**TCP 失败 = offline + "网络不可达: <errno>"**（跳过 SSH），**TCP ok + SSH 失败 = warning + "SSH 不可达 (主机在线, RTT <X>ms): <err>"**（区分"网络断"与"主机活 SSH 挂"），`ServerHealth.latencyMs` 暴露 RTT 供监控面板展示。7 个 service-collect 集成测 + 5 个 connectivity 单测覆盖：disabled 跳过 / TCP fail→offline / TCP ok+SSH fail→warning / TCP ok+采集 throw→warning / 全 healthy / 高负载→critical / 5 server rollup 计数。 |
 | TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — `.env.local` 密码登录返 invalid，DB hash 不匹配（memory 记录的 quirk，生产化后是阻塞门）。 | ⏳ 建议：boot 时若 DB hash 与 env 不一致，自动 reseed admin（开发环境）或显式报错（生产）。 |
 | TR-052 | P3 | 落地页 `/` 307→login 后无 dashboard — 默认页 redirect 而非真 dashboard。 | ⏳ 建议：首屏直接看概览，做一个 `/dashboard` 路由专属页面。 |
@@ -759,7 +759,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 - [x] **自定义错误类**（TR-041）— `AppError` 子类配合 TR-034。
 - [ ] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E）— 立 TR-043 跟进，deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。
 - [x] **继续拆 3 个超大 client**（New-F）— `file-list-client` 1245 ✅ T36b (1600→1245) / `ai-client` 1071 / `quick-services-client` 1002，T36c 续做。
-- [ ] **存储节点实时健康探测**（TR-049）— `/api/status` storage check 6 节点 0 健康，UI 看不到节点状态。起一次性后台 probe job 或 `/api/status` 触发 lazy probe。
+- [x] **存储节点实时健康探测**（TR-049）— `/api/status` 触发 lazy probe（`scheduleStorageNodeHealthProbe`），fire-and-forget + setImmediate 推到下个 tick，5min stale 阈值 + 50 上限。详见 TR-049 行。
 - [x] **VPS 健康检查实时 TCP ping**（TR-050）— `servers` check known-good 显示 healthy 误导用户。加轻量 TCP ping，failures 标 warning。✅ `connectivity.ts` + `service-collect.ts` 接入，详见 TR-050 行。
 - [ ] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。
 - [ ] **落地页真 dashboard**（TR-052）— `/` 307→login 后无 dashboard，首屏直接看概览，做一个 `/dashboard` 路由专属页面。
