@@ -111,9 +111,9 @@ export function DashboardWidgetDetailDialog({
 						// `display:none` style injected by the parent grid to
 						// make sure hidden widgets can still be inspected.
 						<WidgetClone host={widgetEl} />
-					) : (
-						<p className="text-slate-400">无可用内容</p>
-					)}
+						) : (
+						<p className="text-slate-400">{t("common.noContent")}</p>
+						)}
 				</div>
 			</div>
 		</div>

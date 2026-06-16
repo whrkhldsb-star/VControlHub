@@ -1,14 +1,21 @@
 {
-  "generatedAt": "2026-06-16T03:26:22.082Z",
+  "generatedAt": "2026-06-16T04:33:17.489Z",
   "summary": {
-    "files": 254,
-    "filesWithStrings": 130,
-    "totalStrings": 1422,
+    "files": 256,
+    "filesWithStrings": 131,
+    "totalStrings": 1423,
     "coveredStrings": 260,
-    "missingStrings": 1162,
+    "missingStrings": 1163,
     "coveragePercent": 18.3
   },
   "perModule": [
+    {
+      "module": "src/app/dashboard-widget-detail-dialog.tsx",
+      "total": 1,
+      "covered": 0,
+      "missing": 1,
+      "coveragePercent": 0
+    },
     {
       "module": "src/app/health",
       "total": 4,
@@ -3706,6 +3713,13 @@
       "missing": 0,
       "candidates": []
     },
+    "src/app/dashboard-customize-toolbar.tsx": {
+      "path": "src/app/dashboard-customize-toolbar.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
     "src/app/dashboard-localized-sections.tsx": {
       "path": "src/app/dashboard-localized-sections.tsx",
       "total": 0,
@@ -3719,6 +3733,21 @@
       "covered": 0,
       "missing": 0,
       "candidates": []
+    },
+    "src/app/dashboard-widget-detail-dialog.tsx": {
+      "path": "src/app/dashboard-widget-detail-dialog.tsx",
+      "total": 1,
+      "covered": 0,
+      "missing": 1,
+      "candidates": [
+        {
+          "text": "无可用内容",
+          "line": 115,
+          "kind": "text",
+          "context": "<p className=\"text-slate-400\">无可用内容",
+          "covered": false
+        }
+      ]
     },
     "src/app/deployments/deployment-export-panel.tsx": {
       "path": "src/app/deployments/deployment-export-panel.tsx",
