@@ -87,8 +87,22 @@ export default async function Home() {
 
   return (
     <PageShell maxW="max-w-7xl">
+      <DashboardLocalizedHeader username={session.username} />
+      <DashboardStatsSection
+        storage={{
+          serverTotal: servers.length,
+          serverEnabled: enabledServers.length,
+          totalNodes: storage.stats.totalNodes,
+          totalEntries: storage.stats.totalEntries,
+        }}
+        queue={{
+          pendingApprovals: pendingCount,
+          downloads: { running: dlRunning, completed: dlCompleted, failed: dlFailed },
+          unreadNotifications: unreadNotif,
+          activeScheduledTasks: activeScheduled,
+        }}
+      />
       <DashboardPreferenceClient>
-        <DashboardLocalizedHeader username={session.username} />
         <DashboardServerHero
           summary={{
             total: servers.length,
@@ -96,20 +110,6 @@ export default async function Home() {
             disabled: disabledServers.length,
             sshKey: sshKeyServers.length,
             directGateway: directGatewayCount,
-          }}
-        />
-        <DashboardStatsSection
-          storage={{
-            serverTotal: servers.length,
-            serverEnabled: enabledServers.length,
-            totalNodes: storage.stats.totalNodes,
-            totalEntries: storage.stats.totalEntries,
-          }}
-          queue={{
-            pendingApprovals: pendingCount,
-            downloads: { running: dlRunning, completed: dlCompleted, failed: dlFailed },
-            unreadNotifications: unreadNotif,
-            activeScheduledTasks: activeScheduled,
           }}
         />
         <DashboardQuickLinks

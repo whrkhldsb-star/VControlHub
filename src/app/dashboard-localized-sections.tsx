@@ -100,7 +100,7 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const downloadDetail = queue.downloads.running > 0 ? `${queue.downloads.running} ${running} / ${queue.downloads.completed} ${completed} / ${queue.downloads.failed} ${failed}` : undefined;
 
   return (
-    <section data-dashboard-widget="server-status" className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
       <div data-card className="p-4">
         <h2 className="text-sm font-medium text-white">{coreTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2">

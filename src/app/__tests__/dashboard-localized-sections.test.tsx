@@ -96,4 +96,38 @@ describe("localized dashboard sections", () => {
     const auditTime = within(screen.getByText("LOGIN").closest("div") as HTMLElement).getByText("2026/05/31 08:00:00");
     expect(auditTime).toHaveAttribute("dateTime", "2026-05-31T00:00:00.000Z");
   });
+
+  // Invariant guards: only ONE element may claim a given data-dashboard-widget id
+  // (the customize grid uses the attribute as a CSS selector — duplicates would
+  // reorder / hide multiple widgets together). Header and StatsSection are
+  // intentionally outside the customizable grid; they must NOT advertise an id.
+  it("exposes exactly one customizable widget per id from the dashboard sections", () => {
+    const { container } = renderWithLocale(
+      <>
+        <DashboardLocalizedHeader username="alice" />
+        <DashboardServerHero summary={{ total: 3, enabled: 2, disabled: 1, sshKey: 2, directGateway: 1 }} />
+        <DashboardStatsSection
+          storage={{ serverTotal: 3, serverEnabled: 2, totalNodes: 4, totalEntries: 99 }}
+          queue={{
+            pendingApprovals: 5,
+            downloads: { running: 1, completed: 7, failed: 2 },
+            unreadNotifications: 6,
+            activeScheduledTasks: 4,
+          }}
+        />
+        <DashboardQuickLinks
+          pendingApprovals={5}
+          downloads={{ running: 1, completed: 7, failed: 2 }}
+          unreadNotifications={6}
+          activeScheduledTasks={4}
+        />
+      </>,
+    );
+
+    const header = container.querySelector("header");
+    expect(header?.hasAttribute("data-dashboard-widget")).toBe(false);
+
+    const stats = container.querySelectorAll("[data-dashboard-widget='server-status']");
+    expect(stats).toHaveLength(1);
+  });
 });
