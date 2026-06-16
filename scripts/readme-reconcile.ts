@@ -59,8 +59,7 @@ function loadQueue(): QueueShape {
 function gitTrCommits(): Map<string, string[]> {
   // TR-001 ~ TR-050 范围
   // 严格匹配: TR-XXX 前后是"独立 token" (空格/冒号/逗号/括号/字符串边界)
-  // 列表中后项的过滤在 match loop 里 (跳过 "TR-XXX/" 后面紧跟 / 的)
-  const trStandalone = /(?<=[\s:,(/])(TR-\d{3})(?=[\s:/),.]|$)/g;
+  // 列表中后项的过滤在 match loop 里 (跳过 "TR-XXX/..." 紧接 / 的)
   const map = new Map<string, string[]>();
   try {
     // 1) 先 grep 出含 TR-XXX 的 commit 行 (省时间)
@@ -70,12 +69,12 @@ function gitTrCommits(): Map<string, string[]> {
       stdio: ["ignore", "pipe", "ignore"],
     });
     for (const line of out.split("\n")) {
-      const matches = [...line.matchAll(trStandalone)];
+      // (?<=[\s:,(/]) TR-XXX (?=[\s:/),.]|$) — TR-XXX 是独立 token
+      const matches = [...line.matchAll(/(?<=[\s:,(/])(TR-\d{3})(?=[\s:/),.]|$)/g)];
       for (const m of matches) {
         const tr = m[1];
         if (!tr) continue;
-        // 过滤: TR-XXX 后面紧跟 / 的是列表中后项 (例如 "TR-008/017" 中 017),
-        //       只保留第一个 (其 lookbehind 是空格/冒号等, lookbehind 是 / 的跳过)
+        // 过滤: TR-XXX 前面是 / 的跳过 (列表中后项, 例如 "TR-008/017" 中 017)
         const idx = m.index ?? 0;
         const before = idx > 0 ? line[idx - 1] : "";
         if (before === "/") continue;
