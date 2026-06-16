@@ -559,10 +559,10 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 ### 现有 TR 核实结果
 
 按"复选框语义与代码事实是否吻合"重新分类：
-- **真已完成** TR-001 / TR-002 / TR-004 / TR-005 / TR-006 / TR-008 / TR-010 / TR-011 / TR-012 / TR-013 / TR-014 / TR-015 / TR-019 / TR-020 / TR-021 / TR-022 / TR-025 / TR-029 / TR-034 / TR-035 / TR-036 / TR-037 / TR-038 / TR-039 / TR-040 / TR-041 / TR-042 / TR-047 / TR-048 / TR-049 / TR-050 / TR-051 / TR-052 / TR-053 / TR-054
+- **真已完成** TR-001 / TR-002 / TR-004 / TR-005 / TR-006 / TR-008 / TR-010 / TR-011 / TR-012 / TR-013 / TR-014 / TR-015 / TR-016 / TR-017 / TR-018 / TR-019 / TR-020 / TR-021 / TR-022 / TR-024 / TR-025 / TR-026 / TR-027 / TR-028 / TR-029 / TR-034 / TR-035 / TR-036 / TR-037 / TR-038 / TR-039 / TR-040 / TR-041 / TR-042 / TR-047 / TR-048 / TR-049 / TR-050 / TR-051 / TR-052 / TR-053 / TR-054
 - **主体已落地、复选框未收口**（描述写"已完成主体/继续补"，状态符号仍 [ ]）：TR-007 / TR-023 / TR-031 / TR-032 / TR-033
 - **巡检工具已落地、剩余为 advisory 巡检项**（TR-003）：静态分析覆盖,剩余需人工 review。
-- **真未启动**：TR-009 / TR-016 / TR-017 / TR-018 / TR-024 / TR-026 / TR-027 / TR-028 / TR-030
+- **真未启动**（未做，队列 pending）：TR-009 / TR-030
 
 ### 新发现问题 TR-034 ~ TR-042
 
@@ -761,7 +761,7 @@ R1-R7 累计 33 路由。R8 (T38d, commit `d15beca`) 走 files 域 3 路由 (arc
 
 ### P1 — 阻塞性
 
-- [ ] **API 错误响应统一 shape**（TR-034）— `apiError("CODE", message, details, status)` codemod。
+- [x] **API 错误响应统一 shape**（TR-034）— `apiError("CODE", message, details, status)` codemod。R1 union + R2 219 处 codemod + R3 client envelope。详见 TR-034 行。
 - [x] **大客户端 bundle 拆分**（TR-036）— 每个 ≥500 行 client 拆子模块 + `next/dynamic` 懒加载。T36b 完成 file-list-client 1600→1245 (-355)；T36c 拆 ai-client input area 子组件 1071→987 (-84, +1 lazy wrapper + 6 test, 既有 32 test 0 业务改)；T37 续拆 quick-services-client 1002→574 (-428, +4 子组件 ServiceCard/InstallDialog/ConfigPreview(lazy)/SourcesPanel + 1 lazy wrapper, 既有 27 test 0 业务改)。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
