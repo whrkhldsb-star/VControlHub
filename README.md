@@ -335,10 +335,10 @@ make logs SERVICE_PREFIX=vcontrolhub
 | TR-031 | P3 | 成本追踪（VPS 费用 / 带宽 / 存储 / 月报） | 队列中（等用户拍板数据源） |
 | TR-032 | P3 | 智能运维 AI（主动诊断 / 异常预测 / 自动修复建议） | 队列中（等用户拍板范围） |
 | TR-033 | P3 | PWA 离线支持和集成市场 | 队列中（等用户拍板策略） |
-| TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⏳ R1 部分完成，R2 续做 |
-| TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — boot 时若 DB hash 与 env 不一致，开发环境自动 reseed admin，生产环境显式报错 | ⏳ 阻塞门 |
+| TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⚠️ R1 部分完成（quick-service syncSource / share-link syncLocalShareDirectory），R2 续做 command 域 |
+| TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — boot 时若 DB hash 与 env 不一致，开发环境自动 reseed admin，生产环境显式报错 | ✅ 完成（`src/lib/auth/bootstrap.ts:verifyAdminPasswordConsistency` + `src/instrumentation.ts:35` + `npm run admin:consistency-check`） |
 | TR-052 | P3 | 落地页 `/` 307→login 后无 dashboard — 首屏直接看概览，做一个 `/dashboard` 路由专属页面 | ⏳ |
-| TR-053 | P1 | 公开 `/api/status` 泄露存储节点详情 — 公开端点只返 `overall`，详细 checks 给登录后页面 | ⏳ 安全/隐私 |
+| TR-053 | P1 | 公开 `/api/status` 泄露存储节点详情 — 公开端点只返 `overall`，详细 checks 给登录后页面 | ✅ 完成（`src/app/api/status/route.ts` L6-8 未登录只返 overall） |
 
 ---
 
@@ -357,8 +357,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [x] **N+1 查询修复**（TR-040）— 3 个候选文件。✅ R1 部分完成 (R1.1 quick-service syncSource / R1.2 share-link syncLocalShareDirectory / R1.3 rollback 跳过 — 价值小)；R2 续做 command 域
-- [~] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E / TR-043）— deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。⚠️ lease 公式统一已落 (`computeLeaseMs` @ `src/lib/job/lease.ts` + `src/lib/command/execution-worker.ts` L21)，deploy 默认 Caddy / 强制 recordJobEvent 未做
-- [~] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。⚠️ i18n coverage 脚本 (22.9%) + QA 报告 + README 精简已落；**自动对账脚本未做**
+- [x] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E / TR-043）— deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。⚠️ lease 公式统一 + deploy 默认 Caddy 已落 (`deploy.sh` L27-70 patch Caddyfile reverse_proxy /direct + L82-85 vcontrolhub-direct.service DIRECT_BIND 校验)；**强制 recordJobEvent 未做** (execution-worker/alert-worker/startup 0 次调用)
+- [x] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。✅ 全落: `scripts/i18n-coverage.ts` (22.9%) + `scripts/readme-reconcile.ts` (人审 dry-run) + `scripts/readme-reconcile-closeout.ts` (cron 集成)
 - [ ] **落地页真 dashboard**（TR-052）— `/` 307→login 后无 dashboard，首屏直接看概览，做一个 `/dashboard` 路由专属页面。
 
 ### P3 — 长期愿景
