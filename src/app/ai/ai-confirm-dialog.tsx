@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface AiConfirmDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ export function AiConfirmDialog({
   onCancel,
   onConfirm,
 }: AiConfirmDialogProps) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -49,7 +51,7 @@ export function AiConfirmDialog({
             disabled={busy}
             className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-white/5 disabled:opacity-50"
           >
-            取消
+            {t("aiPage.cancel")}
           </button>
           <button
             type="button"
@@ -61,7 +63,7 @@ export function AiConfirmDialog({
  :"bg-cyan-500/20 text-cyan-200 hover:bg-cyan-500/30"
  }`}
           >
-            {busy ? "处理中..." : confirmLabel}
+            {busy ? t("aiPage.processing") : confirmLabel}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ModelInfo } from "./ai-types";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface SettingsFormState {
  model: string;
@@ -43,6 +44,7 @@ export function AiSettingsPanel({
   onSaveSettings,
   onRefreshModels,
 }: SettingsPanelProps) {
+  const { t } = useI18n();
   if (!show) return null;
 
   const filteredModels = modelList.filter((m) =>
@@ -55,8 +57,8 @@ export function AiSettingsPanel({
         {/* Model selector */}
         <div className="col-span-2 md:col-span-2 relative">
           <label className="text-[10px] text-slate-500 uppercase tracking-wider">
-            模型
-            {modelsLoading && <span className="ml-2 text-cyan-400 animate-pulse">加载中...</span>}
+            {t("aiPage.model")}
+            {modelsLoading && <span className="ml-2 text-cyan-400 animate-pulse">{t("aiPage.loading")}</span>}
           </label>
           <div className="relative mt-1">
             <button
@@ -69,23 +71,23 @@ export function AiSettingsPanel({
                   <span className="text-[9px] text-cyan-400 bg-cyan-400/10 px-1 py-0.5 rounded">👁</span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder="搜索模型..." aria-label="搜索模型" className="w-full bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> 无可用模型 <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > 刷新 </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
+              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
                         settingsForm.model === m.id ? "text-cyan-300 bg-cyan-400/[0.06]" : "text-white"
                       }`}
                     >
                       <span className="truncate flex-1">{m.id}</span>
                       <span className="flex items-center gap-0.5 flex-shrink-0">
                         {(m.capabilities?.vision || m.vision) && (
-                          <span className="text-[9px] text-cyan-400/60" title="支持图片">👁</span>
+                          <span className="text-[9px] text-cyan-400/60" title={t("aiPage.visionCap")}>👁</span>
                         )}
                         {m.capabilities?.video && (
-                          <span className="text-[9px] text-blue-400/60" title="支持视频">🎬</span>
+                          <span className="text-[9px] text-blue-400/60" title={t("aiPage.videoCapSetting")}>🎬</span>
                         )}
                         {m.capabilities?.audio && (
-                          <span className="text-[9px] text-purple-400/60" title="支持音频">🎵</span>
+                          <span className="text-[9px] text-purple-400/60" title={t("aiPage.audioCapSetting")}>🎵</span>
                         )}
                         {m.capabilities?.document && (
-                          <span className="text-[9px] text-green-400/60" title="支持文档">📑</span>
+                          <span className="text-[9px] text-green-400/60" title={t("aiPage.documentCapSetting")}>📑</span>
                         )}
                       </span>
                       {m.context_length && (
@@ -114,8 +116,8 @@ export function AiSettingsPanel({
                           setModelSearch("");
                         }
                       }}
-                      placeholder="手动输入模型 ID..."
-                      aria-label="手动输入模型 ID"
+                      placeholder={t("aiPage.manualModelIdPlaceholder")}
+                      aria-label={t("aiPage.manualModelIdAria")}
                       className="flex-1 bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
                     />
                     <button
@@ -128,7 +130,7 @@ export function AiSettingsPanel({
                       }}
                       className="px-2 py-1 text-[10px] bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30"
                     >
-                      应用
+                      {t("aiPage.apply")}
                     </button>
                   </div>
                 </div>
@@ -195,7 +197,7 @@ export function AiSettingsPanel({
         {/* Frequency Penalty slider */}
         <div>
           <label htmlFor="ai-setting-freq-pen" className="text-[10px] text-slate-500 uppercase tracking-wider">
-            频率惩罚 <span className="text-cyan-400/70">{settingsForm.frequencyPenalty.toFixed(2)}</span>
+            {t("aiPage.frequencyPenalty")} <span className="text-cyan-400/70">{settingsForm.frequencyPenalty.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -214,7 +216,7 @@ export function AiSettingsPanel({
         {/* Presence Penalty slider */}
         <div>
           <label htmlFor="ai-setting-pres-pen" className="text-[10px] text-slate-500 uppercase tracking-wider">
-            存在惩罚 <span className="text-cyan-400/70">{settingsForm.presencePenalty.toFixed(2)}</span>
+            {t("aiPage.presencePenalty")} <span className="text-cyan-400/70">{settingsForm.presencePenalty.toFixed(2)}</span>
           </label>
           <div className="mt-1 flex items-center gap-2">
             <input
@@ -240,9 +242,9 @@ export function AiSettingsPanel({
               className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
             />
             <span className="text-xs text-[var(--text-secondary)]">
-              👁 多模态 (视觉)
+              {t("aiPage.visionToggle")}
               {currentModelSupportsVision && (
-                <span className="text-[9px] text-cyan-400/60 ml-1">推荐</span>
+                <span className="text-[9px] text-cyan-400/60 ml-1">{t("aiPage.recommended")}</span>
               )}
             </span>
  </label>
@@ -258,8 +260,8 @@ export function AiSettingsPanel({
  className="rounded border-white/20 bg-black/30 text-amber-400 focus:ring-amber-400/30"
  />
  <span className="text-xs text-[var(--text-secondary)]">
- 🤖 AI托管模式
- <span className="text-[9px] text-amber-400/60 ml-1">AI可操作VPS</span>
+ {t("aiPage.hostedMode")}
+ <span className="text-[9px] text-amber-400/60 ml-1">{t("aiPage.hostedHint")}</span>
  </span>
  </label>
  </div>
@@ -270,20 +272,20 @@ export function AiSettingsPanel({
             onClick={onSaveSettings}
             className="h-7 px-3 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition"
           >
-            保存设置
+            {t("aiPage.saveSettings")}
           </button>
         </div>
       </div>
 
       {/* System prompt */}
       <div className="mt-3">
-        <label className="text-[10px] text-slate-500 uppercase tracking-wider" htmlFor="ai-setting-system-prompt">系统提示词 (System Prompt)</label>
+        <label className="text-[10px] text-slate-500 uppercase tracking-wider" htmlFor="ai-setting-system-prompt">{t("aiPage.systemPromptLabel")}</label>
         <textarea
           id="ai-setting-system-prompt"
           value={settingsForm.systemPrompt}
           onChange={(e) => setSettingsForm((f) => ({ ...f, systemPrompt: e.target.value }))}
           rows={2}
-          placeholder="设定 AI 的角色和行为方式..."
+          placeholder={t("aiPage.systemPromptPlaceholder")}
           className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-slate-600 resize-none focus:outline-none focus:border-cyan-400/30"
         />
       </div>

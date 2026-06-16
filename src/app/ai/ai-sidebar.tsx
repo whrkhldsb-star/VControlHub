@@ -2,6 +2,7 @@
 
 import type { ConvItem } from "./ai-types";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface SidebarProps {
   showSidebar: boolean;
@@ -24,8 +25,9 @@ export function AiSidebar({
   onToggleSidebar,
   onToggleProviders,
 }: SidebarProps) {
-  return (
-    <>
+	const { t } = useI18n();
+	return (
+		<>
       {/* Mobile sidebar backdrop */}
       {showSidebar && (
         <div
@@ -37,19 +39,19 @@ export function AiSidebar({
         <div className="w-64 flex-shrink-0 border-r border-white/[0.06] bg-slate-950/50 flex flex-col max-md:absolute max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-72">
           {/* Header */}
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">AI 助手</h2>
+            <h2 className="text-sm font-semibold text-white">{t("aiPage.sidebarTitle")}</h2>
             <button
               onClick={onNewConv}
               className="h-7 px-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs font-medium hover:bg-cyan-500/30 transition"
             >
-              + 新对话
+              {t("aiPage.newConversation")}
             </button>
           </div>
 
           {/* Conversation list */}
           <div className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
             {conversations.length === 0 && (
-              <EmptyState>暂无对话，点击新建开始</EmptyState>
+              <EmptyState>{t("aiPage.emptyConversations")}</EmptyState>
             )}
             {conversations.map((conv) => (
               <div
@@ -70,7 +72,7 @@ export function AiSidebar({
                     e.stopPropagation();
                     onDeleteConv(conv.id);
                   }}
-                  aria-label={`删除对话 ${conv.title}`}
+                  aria-label={t("aiPage.deleteConversationAria").replace("{title}", conv.title)}
                   className="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 transition"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,7 +92,7 @@ export function AiSidebar({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.857L8 16H6v2H4v2H2v-2.586l7.44-7.44A6 6 0 0121 9z" />
               </svg>
-              提供商管理
+              {t("aiPage.providerManagement")}
             </button>
             <button
               onClick={() => onToggleSidebar(false)}
@@ -99,7 +101,7 @@ export function AiSidebar({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
               </svg>
-              收起侧栏
+              {t("aiPage.collapseSidebar")}
             </button>
           </div>
         </div>
@@ -109,7 +111,7 @@ export function AiSidebar({
         <button
           onClick={() => onToggleSidebar(true)}
           className="absolute top-4 left-4 z-50 lg:hidden rounded-xl border border-[var(--border)] bg-slate-950/90 p-2.5 text-slate-200 backdrop-blur hover:bg-white/10 transition"
-          aria-label="打开侧边栏"
+          aria-label={t("aiPage.openSidebar")}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />

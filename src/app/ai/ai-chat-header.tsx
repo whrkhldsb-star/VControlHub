@@ -41,11 +41,11 @@ export function AiChatHeader({
       <div className="flex-1 min-w-0">
         <h3 className="text-sm font-medium text-white truncate">{activeConv.title}</h3>
         <p className="text-[10px] text-slate-500">
-          {activeProvider?.name || "未知"} · {activeConv.model}
-          {activeConv.enableVision && " · 👁 多模态"}
-          {currentModelCaps.video && " · 🎬 视频"}
-          {currentModelCaps.audio && " · 🎵 音频"}
-          {currentModelCaps.document && " · 📑 文档"}
+          {t("aiPage.modelCaps").replace("{provider}", activeProvider?.name || t("aiPage.unknown")).replace("{model}", activeConv.model)}
+          {activeConv.enableVision && t("aiPage.vision")}
+          {currentModelCaps.video && t("aiPage.videoCap")}
+          {currentModelCaps.audio && t("aiPage.audioCap")}
+          {currentModelCaps.document && t("aiPage.documentCap")}
         </p>
       </div>
       <div className="flex items-center gap-1.5">
@@ -53,27 +53,27 @@ export function AiChatHeader({
           onClick={onToggleSettings}
           className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
         >
-          ⚙ 设置
+          {t("aiPage.settings")}
         </button>
         <button
           onClick={onClearMessages}
           className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400 transition"
-          title="清空对话消息"
+          title={t("aiPage.clearMessagesTitle")}
         >
-          🗑 清空
+          {t("aiPage.clear")}
         </button>
         <button
           onClick={onRenameConv}
           className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
         >
-          ✏ 重命名
+          {t("aiPage.rename")}
         </button>
         <button
           onClick={onExportConv}
           className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-white/[0.04] hover:text-slate-200 light:hover:text-slate-800 transition"
-          title="导出对话为 Markdown"
+          title={t("aiPage.exportTitle")}
         >
-          📥 导出
+          {t("aiPage.export")}
         </button>
       </div>
     </div>

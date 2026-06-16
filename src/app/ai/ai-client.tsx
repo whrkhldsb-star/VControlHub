@@ -17,6 +17,7 @@ import { useModelCapabilities } from "./hooks/use-model-capabilities";
 import { useConversations } from "./hooks/use-conversations";
 import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 /* ── Main Component ─────────────────────────────────────────── */
 export function AiClient({
@@ -27,6 +28,7 @@ export function AiClient({
 	initialProviders: Provider[];
 	initialConversations: ConvItem[];
 }) {
+ const { t } = useI18n();
  const { addToast } = useToast();
  const [providers, setProviders] = useState(initialProviders);
   // Conversation + active id + messages now live in useConversations
@@ -166,7 +168,7 @@ export function AiClient({
     if (!activeConvId || streaming) return;
     // Require either text input or file attachments
     if (!input.trim() && fileAttachments.length === 0) return;
-    const userMsg = input.trim() || "(附件)";
+    const userMsg = input.trim() || t("aiPage.attachmentHint");
     const userImages = [...imageUrls];
     const userImageBase64 = fileAttachments
       .filter((f) => f.type === "image" && f.base64Data)
@@ -227,8 +229,8 @@ export function AiClient({
 });
 
  if (!response.ok) {
- const err = await response.json().catch(() => ({ error: "请求失败" }));
- setStreamContent(`❌ ${err.error || "请求失败"}`);
+ const err = await response.json().catch(() => ({ error: t("aiPage.requestFailed") }));
+ setStreamContent(`❌ ${err.error || t("aiPage.requestFailed")}`);
  setStreaming(false);
  return;
  }
@@ -266,7 +268,7 @@ export function AiClient({
                 id: `stream-${crypto.randomUUID()}`,
                 conversationId: activeConvId,
                 role: "assistant",
-                content: finalContent || "(无响应)",
+                content: finalContent || t("aiPage.noResponse"),
                 reasoningContent: finalReasoning || null,
                 imageUrls: "[]",
                 model: activeConv?.model || null,
@@ -282,24 +284,24 @@ export function AiClient({
   // AI 发起了工具调用
   const tc = parsed.toolCall as ToolCallEvent;
   if (tc.autoApproved) {
-   setStreamContent((prev) => prev + `\n\n⚡ 执行: ${tc.actionName}...`);
+   setStreamContent((prev) => prev + t("aiPage.toolCallStart").replace("{name}", tc.actionName));
   } else {
-   setStreamContent((prev) => prev + `\n\n🔒 需要审批: ${tc.actionName}`);
+   setStreamContent((prev) => prev + t("aiPage.toolCallApproval").replace("{name}", tc.actionName));
   }
- } else if (parsed.type === "tool_result") {
+  } else if (parsed.type === "tool_result") {
   // 工具执行结果
   const success = parsed.success as boolean;
-	if (success) {
-   setStreamContent((prev) => prev + `\n✅ 操作执行成功`);
+  if (success) {
+   setStreamContent((prev) => prev + t("aiPage.toolCallSuccess"));
   } else {
-   setStreamContent((prev) => prev + `\n❌ 操作执行失败: ${JSON.stringify(parsed.data).slice(0, 200)}`);
+   setStreamContent((prev) => prev + t("aiPage.toolCallFailed").replace("{detail}", JSON.stringify(parsed.data).slice(0, 200)));
   }
- } else if (parsed.type === "tool_approval_needed") {
+  } else if (parsed.type === "tool_approval_needed") {
   // 需要审批的操作
   const approval = parsed as ToolApprovalNeeded;
   setPendingApprovals((prev) => [...prev, approval]);
-  setStreamContent((prev) => prev + `\n⏳ 等待审批: ${approval.actionName} (风险: ${approval.riskLevel})`);
- }
+  setStreamContent((prev) => prev + t("aiPage.waitingApproval").replace("{name}", approval.actionName).replace("{risk}", approval.riskLevel));
+  }
           } catch {
             // Skip
           }
@@ -309,7 +311,7 @@ export function AiClient({
     if (err instanceof DOMException && err.name === "AbortError") {
       // User stopped generation — don't show error
     } else {
-      setStreamContent("❌ 网络错误");
+      setStreamContent(t("aiPage.networkError"));
     }
   } finally {
     setStreaming(false);
@@ -332,7 +334,7 @@ export function AiClient({
   const handleNewConv = async () => {
     const defaultProvider = providers.find((p) => p.isDefault && p.enabled) || providers.find((p) => p.enabled);
     if (!defaultProvider) {
-      addToast("error", "请先添加一个 AI 提供商");
+      addToast("error", t("aiPage.noProviderToast"));
       setShowProviders(true);
       return;
     }
@@ -350,7 +352,7 @@ if (data.conversation) {
         setActiveConvId(data.conversation.id);
       }
     } catch {
-      addToast("error", "创建对话失败");
+      addToast("error", t("aiPage.createConvFailed"));
     }
   };
 
@@ -360,7 +362,7 @@ if (data.conversation) {
   const handleDeleteConv = (id: string) => {
     const target = conversations.find((conv) => conv.id === id);
     setConfirmError(null);
-    setConfirmAction({ type: "delete-conversation", id, title: target?.title ?? "该对话" });
+    setConfirmAction({ type: "delete-conversation", id, title: target?.title ?? t("aiPage.fallbackConvName") });
   };
 
   /* ── Provider Form State ────────────────────────────────────── */
@@ -368,7 +370,7 @@ if (data.conversation) {
 
   const handleCreateProvider = async () => {
     if (!provForm.name.trim() || !provForm.apiKey.trim()) {
-      addToast("error", "名称和 API Key 不能为空");
+      addToast("error", t("aiPage.nameAndKeyRequired"));
       return;
     }
     const baseUrl = provForm.baseUrl.trim();
@@ -398,44 +400,44 @@ if (data.conversation) {
         isDefault: true,
       });
     } catch {
-      addToast("error", "添加失败");
+      addToast("error", t("aiPage.addProviderFailed"));
     }
   };
 
   const handleDeleteProvider = (id: string) => {
     const target = providers.find((provider) => provider.id === id);
     setConfirmError(null);
-    setConfirmAction({ type: "delete-provider", id, name: target?.name ?? "该提供商" });
+    setConfirmAction({ type: "delete-provider", id, name: target?.name ?? t("aiPage.fallbackProviderName") });
   };
 
   const confirmDialogCopy = (() => {
     if (!confirmAction) return null;
     if (confirmAction.type === "delete-conversation") {
       return {
-        title: "删除对话",
-        confirmLabel: "确认删除",
+        title: t("aiPage.deleteConvTitle"),
+        confirmLabel: t("aiPage.confirmDelete"),
         description: (
           <>
-            确定删除对话 <span className="font-medium text-white">{confirmAction.title}</span> 吗？此操作不可恢复。
+            {t("aiPage.deleteConvBody").replace("{title}", confirmAction.title)}
           </>
         ),
       };
     }
     if (confirmAction.type === "delete-provider") {
       return {
-        title: "删除提供商",
-        confirmLabel: "确认删除",
+        title: t("aiPage.deleteProviderTitle"),
+        confirmLabel: t("aiPage.confirmDelete"),
         description: (
           <>
-            确定删除提供商 <span className="font-medium text-white">{confirmAction.name}</span> 吗？关联的对话也会被删除。
+            {t("aiPage.deleteProviderBody").replace("{name}", confirmAction.name)}
           </>
         ),
       };
     }
     return {
-      title: "清空对话消息",
-      confirmLabel: "确认清空",
-      description: "确定清空此对话的所有消息吗？此操作不可恢复。",
+      title: t("aiPage.clearMessagesTitle2"),
+      confirmLabel: t("aiPage.confirmClear"),
+      description: t("aiPage.clearMessagesBody"),
     };
   })();
 
@@ -469,7 +471,7 @@ if (data.conversation) {
       }
       setConfirmAction(null);
     } catch (e: unknown) {
-      const fallback = confirmAction.type === "clear-messages" ? "清空失败" : "删除失败";
+      const fallback = confirmAction.type === "clear-messages" ? t("aiPage.clearFailedFallback") : t("aiPage.deleteFailedFallback");
       setConfirmError(e instanceof Error ? e.message : fallback);
     } finally {
       setConfirmBusy(false);
@@ -507,7 +509,7 @@ if (data.conversation) {
       await refreshConversations();
       setShowSettings(false);
     } catch {
-      addToast("error", "保存失败");
+      addToast("error", t("aiPage.saveFailed"));
     }
   };
 
@@ -522,7 +524,7 @@ if (data.conversation) {
     if (!activeConvId) return;
     const nextTitle = renameTitle.trim();
     if (!nextTitle) {
-      setRenameError("请输入新的对话标题。");
+      setRenameError(t("aiPage.saveTitlePrompt"));
       return;
     }
     setRenameBusy(true);
@@ -535,9 +537,9 @@ if (data.conversation) {
       });
       await refreshConversations();
       setRenameDialogOpen(false);
-      addToast("success", "对话标题已更新");
+      addToast("success", t("aiPage.titleUpdated"));
     } catch (error) {
-      setRenameError(error instanceof Error ? error.message : "重命名失败");
+      setRenameError(error instanceof Error ? error.message : t("aiPage.renameFailed"));
     } finally {
       setRenameBusy(false);
     }
@@ -565,16 +567,16 @@ if (data.conversation) {
             aria-labelledby="rename-conversation-title"
             className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-slate-950 p-5 shadow-2xl"
           >
-            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">修改对话标题</h3>
+            <h3 id="rename-conversation-title" className="text-sm font-semibold text-white">{t("aiPage.renameTitle")}</h3>
             <label htmlFor="rename-conversation-title-input" className="mt-4 grid gap-1 text-sm text-[var(--text-secondary)]">
-              新标题
+              {t("aiPage.newTitleLabel")}
               <input
                 id="rename-conversation-title-input"
                 value={renameTitle}
                 onChange={(event) => setRenameTitle(event.target.value)}
                 autoFocus
                 className="rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-300/60"
-                placeholder="输入新的对话标题"
+                placeholder={t("aiPage.newTitlePlaceholder")}
               />
             </label>
             {renameError && <p role="alert" className="mt-3 text-xs text-rose-300">{renameError}</p>}
@@ -585,7 +587,7 @@ if (data.conversation) {
                 onClick={() => { setRenameDialogOpen(false); setRenameError(null); }}
                 className="rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-white/5 disabled:opacity-50"
               >
-                取消
+                {t("aiPage.cancel")}
               </button>
               <button
                 type="button"
@@ -593,7 +595,7 @@ if (data.conversation) {
                 onClick={handleRenameConversation}
                 className="rounded-xl bg-cyan-500/20 px-3 py-2 text-xs font-medium text-cyan-200 transition hover:bg-cyan-500/30 disabled:opacity-50"
               >
-                {renameBusy ? "保存中..." : "保存标题"}
+                {renameBusy ? t("aiPage.savingLabel") : t("aiPage.saveTitleLabel")}
               </button>
             </div>
           </div>
@@ -632,11 +634,11 @@ const conv = data.conversation;
               if (!conv) return;
               const exportText = [
                 `# ${conv.title}`,
-                `模型: ${conv.model} | 提供商: ${activeProvider?.name || "未知"}`,
-                `创建: ${conv.createdAt}`,
+                t("aiPage.modelMeta").replace("{model}", conv.model).replace("{provider}", activeProvider?.name || t("aiPage.modelUnknown")),
+                t("aiPage.createdMeta").replace("{date}", conv.createdAt),
                 "",
                 ...conv.messages.map((m: Message) => {
-                  const role = m.role === "user" ? "👤 用户" : m.role === "assistant" ? "🤖 助手" : "系统";
+                  const role = m.role === "user" ? t("aiPage.roleUser") : m.role === "assistant" ? t("aiPage.roleAssistant") : t("aiPage.roleSystem");
                   return `---\n${role}:\n\n${m.content}\n`;
                 }),
               ].join("\n");
@@ -676,9 +678,9 @@ const conv = data.conversation;
                   <svg className="w-12 h-12 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <p className="text-sm">发送消息开始对话</p>
+                  <p className="text-sm">{t("aiPage.placeholder")}</p>
                   <p className="text-xs mt-1 text-slate-700">
-                    支持: {formatAllowedTypes(currentModelCaps)} · 拖拽/粘贴上传
+                    {t("aiPage.dragPasteHint").replace("{types}", formatAllowedTypes(currentModelCaps))}
                   </p>
                 </div>
               )}
@@ -703,7 +705,7 @@ const conv = data.conversation;
                     {msg.reasoningContent && (
                       <details className="mb-2">
                         <summary className="text-[10px] text-slate-500 cursor-pointer hover:text-slate-400">
-                          💭 思考过程
+                          {t("aiPage.thinkingProcess")}
                         </summary>
                         <div className="mt-1 p-2 bg-black/20 rounded-lg text-xs text-slate-500 whitespace-pre-wrap">
                           {msg.reasoningContent}
@@ -723,7 +725,7 @@ return (
 								<Image
 									key={i}
 									src={url}
-									alt={`附件 ${i + 1}`}
+									alt={t("aiPage.attachment").replace("{index}", String(i + 1))}
 									width={200}
 									height={200}
 									unoptimized
@@ -762,7 +764,7 @@ return (
     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
     </svg>
-    {copyFeedback === msg.id ? "已复制" : "复制"}
+    {copyFeedback === msg.id ? t("aiPage.copyOrCopied") : t("aiPage.copy")}
   </button>
                   </div>
                   {msg.role === "user" && (
@@ -784,7 +786,7 @@ return (
                   <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-200 text-sm leading-relaxed">
                     {streamReasoning && (
                       <details open className="mb-2">
-                        <summary className="text-[10px] text-cyan-400/60 cursor-pointer">💭 正在思考...</summary>
+                        <summary className="text-[10px] text-cyan-400/60 cursor-pointer">{t("aiPage.thinking")}</summary>
                         <div className="mt-1 p-2 bg-black/20 rounded-lg text-xs text-slate-500 whitespace-pre-wrap">
                           {streamReasoning}
                         </div>
@@ -804,7 +806,7 @@ return (
                     </div>
                   </div>
                   <div className="rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-500 text-sm">
-                    正在思考...
+                    {t("aiPage.thinkingDetail")}
                   </div>
                 </div>
               )}
@@ -812,19 +814,19 @@ return (
  {/* AI托管审批面板 */}
  {pendingApprovals.length > 0 && (
   <div className="px-4 py-2 border-t border-amber-500/20 bg-amber-950/30">
-   <div className="text-xs text-amber-400 font-medium mb-2">🔒 待审批操作 ({pendingApprovals.length})</div>
+   <div className="text-xs text-amber-400 font-medium mb-2">{t("aiPage.pendingApprovalsTitle").replace("{count}", String(pendingApprovals.length))}</div>
    <div className="space-y-2">
     {pendingApprovals.map((approval) => (
      <div key={approval.actionId} className="flex items-center justify-between bg-black/30 rounded-lg p-2.5">
       <div className="flex-1 min-w-0">
        <div className="text-sm text-white font-medium">{approval.actionName}</div>
        <div className="text-xs text-[var(--text-secondary)] truncate">
- 风险: <span className={
+ {t("aiPage.riskLabel")}<span className={
  approval.riskLevel === "critical" ? "text-red-400" :
  approval.riskLevel === "high" ? "text-orange-400" :
  approval.riskLevel === "medium" ? "text-yellow-400" : "text-green-400"
- }>{approval.riskLevel}</span>
- {typeof approval.params.serverId === "string" && <span className="ml-2">服务器: {approval.params.serverId}</span>}
+}>{approval.riskLevel}</span>
+{typeof approval.params.serverId === "string" && <span className="ml-2">{t("aiPage.serverLabel").replace("{id}", approval.params.serverId)}</span>}
        </div>
       </div>
       <div className="flex gap-2 ml-3">
@@ -835,13 +837,13 @@ return (
           await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
            method: "PATCH",
            headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ action: "reject", reason: "用户拒绝" }),
+           body: JSON.stringify({ action: "reject", reason: t("aiPage.userDenied") }),
           });
           setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
-          addToast("success", "已拒绝操作");
-         } catch { addToast("error", "操作失败"); }
+          addToast("success", t("aiPage.rejected"));
+         } catch { addToast("error", t("aiPage.opFailed")); }
         }}
-       >拒绝</button>
+       >{t("aiPage.reject")}</button>
        <button
         className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
         onClick={async () => {
@@ -852,10 +854,10 @@ return (
            body: JSON.stringify({ action: "approve" }),
           });
           setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
-          addToast("success", "已批准并执行操作");
-         } catch { addToast("error", "操作失败"); }
+          addToast("success", t("aiPage.approved"));
+         } catch { addToast("error", t("aiPage.opFailed")); }
         }}
-       >批准</button>
+       >{t("aiPage.approve")}</button>
       </div>
      </div>
     ))}
@@ -888,11 +890,11 @@ return (
                     ) : (
                       <div className="w-12 h-12 rounded border border-[var(--border)] bg-black/30 flex flex-col items-center justify-center">
                         {file.mimeType.startsWith("video/") ? (
-                          <span className="text-base" title="视频文件">🎬</span>
+                          <span className="text-base" title={t("aiPage.videoFileTitle")}>🎬</span>
                         ) : file.mimeType.startsWith("audio/") ? (
-                          <span className="text-base" title="音频文件">🎵</span>
+                          <span className="text-base" title={t("aiPage.audioFileTitle")}>🎵</span>
                         ) : file.mimeType === "application/pdf" || file.mimeType.includes("officedocument") ? (
-                          <span className="text-base" title="文档文件">📑</span>
+                          <span className="text-base" title={t("aiPage.documentFileTitle")}>📑</span>
                         ) : (
                           <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -920,8 +922,8 @@ return (
                   <input
                     value={imageUrlInput}
                     onChange={(e) => setImageUrlInput(e.target.value)}
-                    placeholder="输入图片 URL（回车添加）"
-                    aria-label="图片 URL"
+                    placeholder={t("aiPage.imageUrlPlaceholder")}
+                    aria-label={t("aiPage.imageUrlAria")}
                     className="flex-1 bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && imageUrlInput.trim()) {
@@ -966,27 +968,27 @@ return (
             </svg>
             {providers.length === 0 ? (
               <>
-                <p className="text-sm font-medium text-slate-300">还没有可用的 AI 提供商</p>
+                <p className="text-sm font-medium text-slate-300">{t("aiPage.emptyNoProvider")}</p>
                 <p className="mt-2 max-w-md text-xs leading-5 text-slate-500">
-                  先添加一个 OpenAI 兼容或其它提供商并填写 API Key、Base URL 和默认模型；配置完成后即可创建新对话。
+                  {t("aiPage.emptyNoProviderHint")}
                 </p>
                 <button
                   type="button"
                   onClick={() => setShowProviders(true)}
                   className="mt-5 h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30"
                 >
-                  配置 AI 提供商
+                  {t("aiPage.configProviders")}
                 </button>
               </>
             ) : (
               <>
-                <p className="text-sm mb-3">选择一个对话或创建新对话</p>
+                <p className="text-sm mb-3">{t("aiPage.emptySelectConv")}</p>
                 <button
                   type="button"
                   onClick={handleNewConv}
                   className="h-9 rounded-xl bg-cyan-500/20 px-4 text-sm font-medium text-cyan-300 transition hover:bg-cyan-500/30"
                 >
-                  + 新对话
+                  {t("aiPage.newConversation")}
                 </button>
               </>
             )}

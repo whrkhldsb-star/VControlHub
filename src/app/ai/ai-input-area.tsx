@@ -17,6 +17,7 @@ import type { RefObject } from "react";
 import type { ConvItem, ModelCapabilities } from "./ai-types";
 import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
 import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 export interface AiInputAreaProps {
   input: string;
@@ -43,6 +44,7 @@ export function AiInputArea({
   handleSend,
   handleStopGeneration,
 }: AiInputAreaProps) {
+  const { t } = useI18n();
   const {
     fileAttachments,
     fileRejectionMsg,
@@ -70,7 +72,7 @@ export function AiInputArea({
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
           className="h-10 w-10 rounded-xl bg-white/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-white/[0.08] hover:text-slate-200 light:hover:text-slate-800 transition disabled:opacity-30"
-          title={`上传文件 (支持: ${formatAllowedTypes(currentModelCaps)})`}
+          title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 5.636a9 9 0 11-12.728 0M12 3v12" />
@@ -91,7 +93,7 @@ export function AiInputArea({
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          aria-label="消息输入"
+          aria-label={t("aiPage.inputAria")}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -101,8 +103,8 @@ export function AiInputArea({
           onPaste={handlePaste}
           placeholder={
             enableVision
-              ? `输入消息... (Shift+Enter 换行，支持: ${formatAllowedTypes(currentModelCaps)})`
-              : `输入消息... (Shift+Enter 换行，📎 可上传 ${formatAllowedTypes(currentModelCaps)})`
+              ? t("aiPage.inputPlaceholderVision").replace("{types}", formatAllowedTypes(currentModelCaps))
+              : t("aiPage.inputPlaceholder").replace("{types}", formatAllowedTypes(currentModelCaps))
           }
           rows={1}
           disabled={streaming}
@@ -118,7 +120,7 @@ export function AiInputArea({
           onClick={handleSend}
           disabled={streaming || (!input.trim() && fileAttachments.length === 0)}
           className="h-10 w-10 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="发送消息"
+          aria-label={t("aiPage.sendAria")}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
@@ -128,7 +130,7 @@ export function AiInputArea({
           <button
             onClick={handleStopGeneration}
             className="h-10 w-10 rounded-xl bg-red-500/20 text-red-300 flex items-center justify-center hover:bg-red-500/30 transition"
-            title="停止生成"
+            title={t("aiPage.stopGenTitle")}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
