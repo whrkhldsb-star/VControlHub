@@ -890,7 +890,56 @@ export function runAudit(): CoverageReport {
   return report;
 }
 
+function parseArgs(argv: string[]): { top: number; diff: boolean } {
+  let top = 10;
+  let diff = false;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === undefined) continue;
+    if (a === "--top" && i + 1 < argv.length) {
+      const n = parseInt(argv[i + 1]!, 10);
+      if (Number.isFinite(n) && n > 0) top = n;
+      i++;
+    } else if (a.startsWith("--top=")) {
+      const n = parseInt(a.slice("--top=".length), 10);
+      if (Number.isFinite(n) && n > 0) top = n;
+    } else if (a === "--diff") {
+      diff = true;
+    }
+  }
+  return { top, diff };
+}
+
+function loadPreviousReport(): CoverageReport | null {
+  if (!existsSync(REPORT_JSON_PATH)) return null;
+  try {
+    return JSON.parse(readFileSync(REPORT_JSON_PATH, "utf8")) as CoverageReport;
+  } catch {
+    return null;
+  }
+}
+
+function diffMissingByString(
+  prev: CoverageReport | null,
+  curr: CoverageReport,
+): { newlyCovered: string[]; newlyMissing: string[] } {
+  if (!prev) return { newlyCovered: [], newlyMissing: [] };
+  const prevMissing = new Set(prev.missingByString.map((m) => m.text));
+  const currMissing = new Set(curr.missingByString.map((m) => m.text));
+  const newlyCovered: string[] = [];
+  for (const t of prevMissing) {
+    if (!currMissing.has(t)) newlyCovered.push(t);
+  }
+  const newlyMissing: string[] = [];
+  for (const t of currMissing) {
+    if (!prevMissing.has(t)) newlyMissing.push(t);
+  }
+  return { newlyCovered, newlyMissing };
+}
+
 function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const prev = loadPreviousReport();
   const report = runAudit();
   const { summary } = report;
   console.log(
@@ -911,13 +960,41 @@ function main() {
   // Print top missing strings for human reading
   if (summary.missingStrings > 0) {
     console.log(
-      `\ntop ${Math.min(10, report.missingByString.length)} missing strings:`,
+      `\ntop ${Math.min(args.top, report.missingByString.length)} missing strings:`,
     );
-    for (const m of report.missingByString.slice(0, 10)) {
+    for (const m of report.missingByString.slice(0, args.top)) {
       const firstLoc = m.files[0]!;
       console.log(
         `  ${m.count}x  "${m.text}"  (first: ${firstLoc.path}:${firstLoc.line})`,
       );
+    }
+  }
+
+  // Trend diff against the previous run (if --diff and a previous report exists).
+  if (args.diff) {
+    const { newlyCovered, newlyMissing } = diffMissingByString(prev, report);
+    console.log(`\n─── diff vs previous run (--diff) ───`);
+    if (!prev) {
+      console.log(`  (no previous report found at ${REPORT_JSON_PATH})`);
+    } else {
+      console.log(
+        `  coverage: ${prev.summary.coveragePercent}% → ${summary.coveragePercent}% (${summary.coveragePercent - prev.summary.coveragePercent >= 0 ? "+" : ""}${summary.coveragePercent - prev.summary.coveragePercent}pp)`,
+      );
+      console.log(`  missing:  ${prev.summary.missingStrings} → ${summary.missingStrings} (${summary.missingStrings - prev.summary.missingStrings >= 0 ? "+" : ""}${summary.missingStrings - prev.summary.missingStrings})`);
+      console.log(`  newly covered (${newlyCovered.length}):`);
+      for (const t of newlyCovered.slice(0, args.top)) {
+        console.log(`    ✅ "${t}"`);
+      }
+      if (newlyCovered.length > args.top) {
+        console.log(`    …and ${newlyCovered.length - args.top} more`);
+      }
+      console.log(`  newly missing (${newlyMissing.length}):`);
+      for (const t of newlyMissing.slice(0, args.top)) {
+        console.log(`    🆕 "${t}"`);
+      }
+      if (newlyMissing.length > args.top) {
+        console.log(`    …and ${newlyMissing.length - args.top} more`);
+      }
     }
   }
 

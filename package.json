@@ -23,6 +23,7 @@
     "route:verify": "tsx scripts/verify-route-catalog.ts",
     "a11y:audit": "tsx scripts/accessibility-audit.ts",
     "i18n:coverage": "tsx scripts/i18n-coverage.ts",
+    "i18n:coverage:diff": "tsx scripts/i18n-coverage.ts --diff",
     "rbac:audit": "tsx scripts/rbac-audit.ts",
     "admin:consistency-check": "tsx scripts/admin-consistency-check.ts",
     "readme:reconcile": "tsx scripts/readme-reconcile.ts",
