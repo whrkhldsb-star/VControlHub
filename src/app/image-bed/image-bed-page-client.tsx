@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useRef, useCallback } from "react";
 import { PageShell, Card, EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { useImageBedList } from "./use-image-bed-list";
 import type { ImageItem, ImageStats, PendingDelete, UploadProgress } from "./image-bed-types";
@@ -27,6 +28,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		setSearch,
 		setShowAll,
 	} = useImageBedList({ canWrite });
+	const { t } = useI18n();
 	const [uploading, setUploading] = useState(false);
 	const [dragOver, setDragOver] = useState(false);
 	const [toast, setToast] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		try {
 			await fetchImages(p);
 		} catch {
-			showToast("获取图片列表失败");
+			showToast(t("imageBed.toast.fetchListFailed"));
 		}
 	}, [fetchImages]);
 	// Suppress unused warning — the variable keeps the call site stable while
@@ -72,7 +74,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			setStats(data);
 			setShowStats(true);
 		} catch {
-			showToast("获取统计信息失败");
+			showToast(t("imageBed.toast.fetchStatsFailed"));
 		}
 	};
 
@@ -80,10 +82,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		try {
 			const data = await csrfFetch("/api/storage/nodes");
 			const nodes = (data.nodes || data || []).map((n: { id: string; name: string; driver?: string; serverName?: string | null }) => ({ id: n.id, name: n.serverName ? `${n.name} · ${n.serverName}` : n.name }));
-			setStorageNodes(nodes);
-			if (nodes.length === 0) showToast("暂无可发布的存储节点");
+			if (nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"));
+			else setStorageNodes(nodes);
 		} catch (err) {
-			showToast(err instanceof Error ? err.message : "获取存储节点失败");
+			showToast(err instanceof Error ? err.message : t("imageBed.toast.fetchNodesFailed"));
 		}
 	};
 
@@ -184,10 +186,10 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		if (target.type === "single") {
 			try {
 				await csrfFetch(`/api/images/${target.id}`, { method: "DELETE" });
-				showToast("✅ 已删除");
+				showToast(t("imageBed.toast.deleted"));
 				setPreviewImage(null);
 				fetchImages(page);
-			} catch { showToast("删除出错"); }
+			} catch { showToast(t("imageBed.toast.deleteError")); }
 			finally { setDeleting(false); }
 			return;
 		}
@@ -196,7 +198,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	};
 
 	const runBatchAction = async (action: "delete" | "moveAlbum" | "togglePublic") => {
-		if (selectedIds.size === 0) { showToast("请先选择图片"); return; }
+		if (selectedIds.size === 0) { showToast(t("imageBed.toast.selectFirst")); return; }
 		try {
 			const body: Record<string, unknown> = { action, ids: Array.from(selectedIds) };
 			if (action === "moveAlbum") body.album = batchAlbum;
@@ -209,7 +211,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			setSelectedIds(new Set());
 			setBatchMode(false);
 			fetchImages(page);
-		} catch { showToast("批量操作出错"); }
+		} catch { showToast(t("imageBed.toast.batchError")); }
 	};
 
 	const handlePublishFromStorage = async () => {
@@ -219,12 +221,12 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify(publishForm),
 			});
-			showToast("✅ 从云盘发布成功");
+			showToast(t("imageBed.toast.published"));
 			setShowPublishModal(false);
 			setPublishForm({ storageNodeId: "", relativePath: "", filename: "", album: "" });
 			fetchImages(1);
 		} catch (err) {
-			showToast(err instanceof Error ? err.message : "发布出错");
+			showToast(err instanceof Error ? err.message : t("imageBed.toast.publishError"));
 		}
 	};
 
@@ -244,17 +246,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 	const copyLink = (url: string) => {
 		const fullUrl = `${window.location.origin}${url}`;
-		navigator.clipboard.writeText(fullUrl).then(() => showToast("✅ 外链已复制"), () => showToast("复制失败"));
+		navigator.clipboard.writeText(fullUrl).then(() => showToast(t("imageBed.toast.urlCopied")), () => showToast(t("imageBed.toast.copyFailed")));
 	};
 
 	const copyMarkdown = (img: ImageItem) => {
 		const fullUrl = `${window.location.origin}${img.publicUrl}`;
-		navigator.clipboard.writeText(`![${img.filename}](${fullUrl})`).then(() => showToast("✅ Markdown 已复制"), () => showToast("复制失败"));
+		navigator.clipboard.writeText(`![${img.filename}](${fullUrl})`).then(() => showToast(t("imageBed.toast.markdownCopied")), () => showToast(t("imageBed.toast.copyFailed")));
 	};
 
 	const copyHTML = (img: ImageItem) => {
 		const fullUrl = `${window.location.origin}${img.publicUrl}`;
-		navigator.clipboard.writeText(`<img src="${fullUrl}" alt="${img.filename}" />`).then(() => showToast("✅ HTML 已复制"), () => showToast("复制失败"));
+		navigator.clipboard.writeText(`<img src="${fullUrl}" alt="${img.filename}" />`).then(() => showToast(t("imageBed.toast.htmlCopied")), () => showToast(t("imageBed.toast.copyFailed")));
 	};
 
 	const formatSize = (bytes: number) => {

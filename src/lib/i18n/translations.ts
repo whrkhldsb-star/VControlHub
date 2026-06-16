@@ -143,6 +143,22 @@ const translations: Record<Locale, Record<string, string>> = {
 		"dashboard.customize-saved": "布局已保存",
 		"dashboard.widget-detail-close": "关闭详情",
 
+		// Image bed
+		"imageBed.toast.fetchListFailed": "获取图片列表失败",
+		"imageBed.toast.fetchStatsFailed": "获取统计信息失败",
+		"imageBed.toast.noPublishNodes": "暂无可发布的存储节点",
+		"imageBed.toast.fetchNodesFailed": "获取存储节点失败",
+		"imageBed.toast.selectFirst": "请先选择图片",
+		"imageBed.toast.deleted": "✅ 已删除",
+		"imageBed.toast.deleteError": "删除出错",
+		"imageBed.toast.batchError": "批量操作出错",
+		"imageBed.toast.published": "✅ 从云盘发布成功",
+		"imageBed.toast.publishError": "发布出错",
+		"imageBed.toast.urlCopied": "✅ 外链已复制",
+		"imageBed.toast.copyFailed": "复制失败",
+		"imageBed.toast.markdownCopied": "✅ Markdown 已复制",
+		"imageBed.toast.htmlCopied": "✅ HTML 已复制",
+
 		// Dashboard
 		"dashboard.title": "仪表盘",
 		"dashboard.welcome": "欢迎回来",
@@ -400,6 +416,22 @@ const translations: Record<Locale, Record<string, string>> = {
 		"dashboard.customize-drag-tip": "Drag cards to reorder, click for details",
 		"dashboard.customize-saved": "Layout saved",
 		"dashboard.widget-detail-close": "Close details",
+
+		// Image bed
+		"imageBed.toast.fetchListFailed": "Failed to load image list",
+		"imageBed.toast.fetchStatsFailed": "Failed to load statistics",
+		"imageBed.toast.noPublishNodes": "No storage nodes available for publishing",
+		"imageBed.toast.fetchNodesFailed": "Failed to load storage nodes",
+		"imageBed.toast.selectFirst": "Please select images first",
+		"imageBed.toast.deleted": "✅ Deleted",
+		"imageBed.toast.deleteError": "Delete failed",
+		"imageBed.toast.batchError": "Batch operation failed",
+		"imageBed.toast.published": "✅ Published from cloud",
+		"imageBed.toast.publishError": "Publish failed",
+		"imageBed.toast.urlCopied": "✅ URL copied",
+		"imageBed.toast.copyFailed": "Copy failed",
+		"imageBed.toast.markdownCopied": "✅ Markdown copied",
+		"imageBed.toast.htmlCopied": "✅ HTML copied",
 
 		// Dashboard
 		"dashboard.title": "Dashboard",
