@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T15:56:42.542Z",
+  "generatedAt": "2026-06-16T17:08:47.711Z",
   "queuePath": "/root/.hermes/state/vcontrolhub-task-queue.json",
   "summary": {
     "total": 63,
@@ -130,6 +130,22 @@
     }
   },
   "recentCommits": [
+    {
+      "hash": "fe9d09d",
+      "subject": "chore(i18n): remove unused coverage parser"
+    },
+    {
+      "hash": "ab17df7",
+      "subject": "fix(scripts): i18n-coverage 读 dictionaries 替代 translations.ts (R10E spread 后续 bug fix)"
+    },
+    {
+      "hash": "8f76f14",
+      "subject": "fix(i18n): wire quick services translations"
+    },
+    {
+      "hash": "92e4b7b",
+      "subject": "docs(queue-audit): E0X closeout — done_count 49→50 (跟 actual done tasks 同步)"
+    },
     {
       "hash": "aca87cd",
       "subject": "test(i18n): wrap AI/office-preview/quick-services 测试 with I18nProvider (drive-by, 阻 verify)"
@@ -313,22 +329,6 @@
     {
       "hash": "f186c8e",
       "subject": "i18n R10E.11 (TR-054): 接 image-bed 80 key (hero/stat/publish/manage/toggle/batch/stats/legacy/queue/progress/summary/copy/source) — 收尾 R10A 剩的硬编码"
-    },
-    {
-      "hash": "63edc60",
-      "subject": "i18n R10E.10 (TR-054): 接 templates/page+client 41 key (header/toast/delete/filter/badge/variable/action/create) + DeployButton+CreateTemplateForm 独立 useI18n"
-    },
-    {
-      "hash": "d484e4d",
-      "subject": "i18n R10E.9 (TR-054): 接 tickets/page+create-form 24 key (eyebrow/title/desc/list/empty/priority/status/form/label) + priorityLabel/statusLabel 改 fn"
-    },
-    {
-      "hash": "b68885a",
-      "subject": "i18n R10E.8 (TR-054): 接 notifications/page+client 17 key (header/error/empty/action/time) + getServerLocale+useI18n 联动"
-    },
-    {
-      "hash": "b2f935a",
-      "subject": "i18n R10E.7 (TR-054): 接 login/page+login-form 21 key (error/branding/feature/form) + getServerLocale() helper"
     }
   ]
 }

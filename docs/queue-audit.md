@@ -1,6 +1,6 @@
 # VControlHub Cron Queue Audit
 
-Generated: 2026-06-16T15:56:42.542Z
+Generated: 2026-06-16T17:08:47.711Z
 Source: `/root/.hermes/state/vcontrolhub-task-queue.json`
 
 ## Summary
@@ -57,16 +57,16 @@ Source: `/root/.hermes/state/vcontrolhub-task-queue.json`
 
 | hash | subject |
 | --- | --- |
+| `fe9d09d` | chore(i18n): remove unused coverage parser |
+| `ab17df7` | fix(scripts): i18n-coverage 读 dictionaries 替代 translations.ts (R10E spread 后续 bug fix) |
+| `8f76f14` | fix(i18n): wire quick services translations |
+| `92e4b7b` | docs(queue-audit): E0X closeout — done_count 49→50 (跟 actual done tasks 同步) |
 | `aca87cd` | test(i18n): wrap AI/office-preview/quick-services 测试 with I18nProvider (drive-by, 阻 verify) |
 | `5a4e8a0` | i18n R10G.13 (TR-054): 接 quick-services 5 文件 52 hardcode 改 t() + quick-services 字典 50 key (card / install-dialog / pending-uninstall / pending-source-delete / page) (35/35 测过) |
 | `985f83d` | i18n R10G.11+12 (TR-054): 接 ai 6 客户端 137+ hardcode 改 t() + ai 字典 120 key (sidebar / chat-header / input-area / confirm-dialog / client / settings-panel / provider-panel) (46/46 i18n+ai 测过) |
 | `297025c` | feat(dashboard): /dashboard 路由专属页 (TR-052) + 2 pre-existing lint 修复 |
 | `6b28ff2` | i18n R10G.7+8+9+10 (TR-054): 接 office-preview 4 key + media-preview 3 key + markdown-preview 4 key + csv-preview 10 key + 4 客户端 19+ hardcode 改 t() (10/10 preview 测过,8/8 i18n 测过) |
 | `c6e46ab` | i18n R10G.5+6 (TR-054): 接 archive-preview 12 key + api-docs 11 key + 23 hardcode 改 t() (11/11 测过) |
-| `a7632cd` | i18n R10G.4 (TR-054): 接 recycle-bin-section 11 key + 14 hardcode 改 t() (15/15 file-browser-spa 测过) |
-| `17463a9` | i18n R10G.3 (TR-054): 接 snippets 38 key (list + 2 modal 共享 snippetsPage.* 命名空间) + 3 文件 47 hardcode 改 t() |
-| `e4bb138` | i18n R10G.2 (TR-054): 接 monitoring 35 key + monitoring-page-client 30+ hardcode 改 t() + test wrap I18nProvider |
-| `3d2d2fe` | feat(scripts): i18n-backlog.py 报告生成 + 模板 — 扫未 i18n 页面输出密度表,加速 R10G.N 选页 |
 
 ## Notes
 
