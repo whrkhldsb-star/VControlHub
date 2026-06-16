@@ -3,11 +3,13 @@ import { listUserNotifications, getUnreadCount } from "@/lib/notification/servic
 
 import { NotificationListClient } from "./notification-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
 	const session = await requireSession();
+	const locale = await getServerLocale();
 	const [notifications, unreadCount] = await Promise.all([
 		listUserNotifications(session.userId, { limit: 100 }),
 		getUnreadCount(session.userId),
@@ -26,11 +28,11 @@ export default async function NotificationsPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Inbox"
-					title="通知中心"
-					description={unreadCount > 0 ? `${unreadCount} 条未读通知` : "所有通知已读"}
+				eyebrow={t("notificationsPage.eyebrow", locale)}
+				title={t("notificationsPage.title", locale)}
+				description={unreadCount > 0 ? t("notificationsPage.unread", locale).replace("{count}", String(unreadCount)) : t("notificationsPage.allRead", locale)}
 				/>
-				<NotificationListClient initialNotifications={serialized} initialUnreadCount={unreadCount} />
+				<NotificationListClient initialNotifications={serialized} initialUnreadCount={unreadCount} locale={locale} />
 		</PageShell>
 	);
 }

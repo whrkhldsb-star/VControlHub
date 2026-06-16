@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NotificationListClient } from "../notification-list-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
