@@ -5,6 +5,7 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
 	defaultUserPreferences,
 	normalizeUserPreferences,
@@ -32,22 +33,30 @@ function readStoredPreferences(): Preferences | null {
 	}
 }
 
-const pageOptions = [
-	{ label: "仪表盘", value: "/" },
-	{ label: "服务器管理", value: "/servers" },
-	{ label: "文件管理", value: "/files" },
-	{ label: "Docker 容器", value: "/docker" },
-	{ label: "服务器监控", value: "/monitoring" },
-	{ label: "下载站", value: "/downloads" },
-	{ label: "AI 助手", value: "/ai" },
-] satisfies Array<{ label: string; value: DefaultPageOption }>;
+const PAGE_KEYS: Record<DefaultPageOption, string> = {
+	"/": "preferencesPage.page.dashboard",
+	"/servers": "preferencesPage.page.servers",
+	"/files": "preferencesPage.page.files",
+	"/docker": "preferencesPage.page.docker",
+	"/monitoring": "preferencesPage.page.monitoring",
+	"/downloads": "preferencesPage.page.downloads",
+	"/ai": "preferencesPage.page.ai",
+};
 
-const widgetOptions = [
-	{ label: "服务器状态", value: "server-status" },
-	{ label: "快捷入口", value: "quick-links" },
-	{ label: "数据图表", value: "analytics" },
-	{ label: "审计日志", value: "audit-log" },
-] satisfies Array<{ label: string; value: DashboardWidgetId }>;
+const WIDGET_KEYS: Record<DashboardWidgetId, string> = {
+	"server-status": "preferencesPage.widget.serverStatus",
+	"quick-links": "preferencesPage.widget.quickLinks",
+	analytics: "preferencesPage.widget.analytics",
+	"audit-log": "preferencesPage.widget.auditLog",
+};
+
+function pageLabel(t: (key: string) => string, value: DefaultPageOption): string {
+	return t(PAGE_KEYS[value] ?? "preferencesPage.page.dashboard");
+}
+
+function widgetLabel(t: (key: string) => string, value: DashboardWidgetId): string {
+	return t(WIDGET_KEYS[value] ?? "preferencesPage.widget.serverStatus");
+}
 
 /** Section card — extracted to module top to avoid re-creation on every render */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -93,6 +102,7 @@ function hashLabel(label: string): string {
 }
 
 export default function PreferencesPage() {
+	const { t } = useI18n();
 	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
 	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(() => defaultPrefs);
 	const [saved, setSaved] = useState(false);
@@ -127,14 +137,14 @@ export default function PreferencesPage() {
 						localStorage.setItem("vps-preferences", JSON.stringify(nextPrefs));
 						setError("");
 					} else {
-						setError(typeof data.error === "string" ? data.error : "偏好设置加载失败");
+						setError(typeof data.error === "string" ? data.error : t("preferencesPage.error.load"));
 					}
 				})
 				.catch((err) => {
 					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
 						return;
 					}
-					setError(messageFromError(err, "偏好设置加载失败"));
+					setError(messageFromError(err, t("preferencesPage.error.load")));
 				})
 				.finally(() => {
 					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
@@ -147,7 +157,7 @@ export default function PreferencesPage() {
 			activeLoadRequestIdRef.current += 1;
 			window.clearTimeout(timer);
 		};
-	}, []);
+	}, [t]);
 
 	const save = async (newPrefs: Preferences) => {
 		const normalizedPrefs = normalizeUserPreferences(newPrefs);
@@ -173,7 +183,7 @@ export default function PreferencesPage() {
 		} catch (err) {
 			setPrefs(lastSavedPrefs);
 			localStorage.setItem("vps-preferences", JSON.stringify(lastSavedPrefs));
-			setError(messageFromError(err, "偏好设置保存失败"));
+			setError(messageFromError(err, t("preferencesPage.error.save")));
 		}
 	};
 
@@ -185,57 +195,57 @@ export default function PreferencesPage() {
 		save({ ...prefs, dashboardWidgets: next });
 	};
 
-	if (loading) return <PageShell><div className="text-sm text-slate-500">加载中...</div></PageShell>;
+	if (loading) return <PageShell><div className="text-sm text-slate-500">{t("preferencesPage.loading")}</div></PageShell>;
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow="Preferences" title="个性化设置" />
-			<p className="text-[var(--text-secondary)] mb-6">自定义你的工作环境</p>
+			<PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} />
+			<p className="text-[var(--text-secondary)] mb-6">{t("preferencesPage.desc")}</p>
 			{saved && (
-				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">✓ 设置已保存</div>
+				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">{t("preferencesPage.status.saved")}</div>
 			)}
 			{error && (
 				<div role="alert" className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>
 			)}
 
 			<div className="space-y-4 max-w-2xl">
-				<Section title="🏠 默认页面">
+				<Section title={t("preferencesPage.section.defaultPage")}>
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-						{pageOptions.map((opt) => (
+						{(Object.keys(PAGE_KEYS) as DefaultPageOption[]).map((value) => (
 							<button
-								key={opt.value}
-								onClick={() => save({ ...prefs, defaultPage: opt.value })}
+								key={value}
+								onClick={() => save({ ...prefs, defaultPage: value })}
 								className={`px-3 py-2 text-xs rounded-lg border transition ${
-									prefs.defaultPage === opt.value
+									prefs.defaultPage === value
 										? "border-cyan-500/50 bg-cyan-500/10 text-cyan-400"
 										: "border-white/[0.06] bg-white/[0.02] text-slate-400 hover:bg-white/[0.04]"
 								}`}
 							>
-								{opt.label}
+								{pageLabel(t, value)}
 							</button>
 						))}
 					</div>
 				</Section>
 
-				<Section title="📊 仪表盘组件">
+				<Section title={t("preferencesPage.section.dashboardWidgets")}>
 					<div className="space-y-2">
-						{widgetOptions.map((opt) => (
+						{(Object.keys(WIDGET_KEYS) as DashboardWidgetId[]).map((value) => (
 							<Toggle
-								key={opt.value}
-								label={opt.label}
-								checked={prefs.dashboardWidgets.includes(opt.value)}
-								onChange={() => toggleWidget(opt.value)}
+								key={value}
+								label={widgetLabel(t, value)}
+								checked={prefs.dashboardWidgets.includes(value)}
+								onChange={() => toggleWidget(value)}
 							/>
 						))}
 					</div>
 				</Section>
 
-				<Section title="🔔 通知">
-					<Toggle label="启用通知" checked={prefs.notificationsEnabled} onChange={(v) => save({ ...prefs, notificationsEnabled: v })} />
-					<Toggle label="通知声音" checked={prefs.notificationSound} onChange={(v) => save({ ...prefs, notificationSound: v })} />
+				<Section title={t("preferencesPage.section.notifications")}>
+					<Toggle label={t("preferencesPage.toggle.notifications")} checked={prefs.notificationsEnabled} onChange={(v) => save({ ...prefs, notificationsEnabled: v })} />
+					<Toggle label={t("preferencesPage.toggle.notificationSound")} checked={prefs.notificationSound} onChange={(v) => save({ ...prefs, notificationSound: v })} />
 				</Section>
 
-				<Section title="⏱️ 自动刷新">
+				<Section title={t("preferencesPage.section.autoRefresh")}>
 					<div className="flex flex-wrap gap-2">
 						{REFRESH_INTERVAL_OPTIONS.map((opt) => (
 							<button
@@ -251,12 +261,12 @@ export default function PreferencesPage() {
 							</button>
 						))}
 					</div>
-					<p className="text-[11px] text-slate-500">控制服务器卡片、系统监控、流量中心和 Docker 统计的查询频率；调大间隔或关闭自动刷新可以明显减少请求和远程采样流量。</p>
+					<p className="text-[11px] text-slate-500">{t("preferencesPage.hint.autoRefresh")}</p>
 				</Section>
 
-				<Section title="🛰️ VPS 自动探测">
+				<Section title={t("preferencesPage.section.autoProbe")}>
 					<Toggle
-						label="进入 /servers 页面时自动调用 /api/servers/monitor"
+						label={t("preferencesPage.toggle.autoProbe")}
 						checked={prefs.autoProbeEnabled}
 						onChange={(v) => save({ ...prefs, autoProbeEnabled: v })}
 					/>
@@ -277,7 +287,7 @@ export default function PreferencesPage() {
 						))}
 					</div>
 					<p className="text-[11px] text-slate-500">
-						周期性 SSH 只读采样，仅在节点启用且「自动探测」打开时生效。调短间隔可以更快发现异常，调长则减轻 VPS 负载。
+						{t("preferencesPage.hint.autoProbe")}
 					</p>
 				</Section>
 				</div>

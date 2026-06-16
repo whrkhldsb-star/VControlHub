@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PreferencesPageClient from "../preferences-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 vi.mock("@/components/page-shell", () => ({
 	PageShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -19,6 +20,10 @@ vi.mock("@/components/page-shell", () => ({
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
+
+function wrap(ui: React.ReactElement) {
+	return <I18nProvider initialLocale="zh">{ui}</I18nProvider>;
+}
 
 const serverPrefs = {
 	defaultPage: "/",
@@ -40,7 +45,7 @@ describe("PreferencesPage", () => {
 	it("surfaces preference load failures instead of silently showing defaults", async () => {
 		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("偏好接口不可用"));
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("偏好接口不可用");
 		expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
@@ -59,7 +64,7 @@ describe("PreferencesPage", () => {
 			}),
 		);
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-cyan-500/50");
 		expect(screen.getByRole("switch", { name: "服务器状态" })).toHaveAttribute("aria-checked", "true");
@@ -67,14 +72,14 @@ describe("PreferencesPage", () => {
 	});
 
 	it("renders dashboard widget toggles as accessible switches", async () => {
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(await screen.findByRole("switch", { name: "服务器状态" })).toHaveAttribute("aria-checked", "false");
 		expect(screen.getByRole("switch", { name: "快捷入口" })).toHaveAttribute("aria-checked", "true");
 	});
 
 	it("does not render preference switches that are not consumed by the app", async () => {
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(await screen.findByRole("button", { name: "仪表盘" })).toBeInTheDocument();
 		expect(screen.queryByText("紧凑模式")).not.toBeInTheDocument();
@@ -88,7 +93,7 @@ describe("PreferencesPage", () => {
 			.mockResolvedValueOnce(serverPrefs)
 			.mockRejectedValueOnce(new Error("偏好设置保存失败"));
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "服务器管理" }));
@@ -120,7 +125,7 @@ describe("PreferencesPage", () => {
 		);
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ ...serverPrefs, defaultPage: "/servers" });
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(screen.getByRole("button", { name: "文件管理" })).toHaveClass("border-cyan-500/50");
 		await user.click(screen.getByRole("button", { name: "服务器管理" }));
@@ -142,7 +147,7 @@ describe("PreferencesPage", () => {
 			.mockResolvedValueOnce(serverPrefs)
 			.mockResolvedValueOnce({ ...serverPrefs, defaultPage: "/servers" });
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		expect(await screen.findByRole("button", { name: "服务器管理" })).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "服务器管理" }));
@@ -159,7 +164,7 @@ describe("PreferencesPage", () => {
 			autoProbeIntervalSec: 60,
 		});
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		// 等 /api/preferences 加载 + 切到 enabled=true
 		expect(await screen.findByRole("heading", { name: /VPS 自动探测/ })).toBeInTheDocument();
@@ -175,7 +180,7 @@ describe("PreferencesPage", () => {
 			autoProbeIntervalSec: 60,
 		});
 
-		render(<PreferencesPageClient />);
+		render(wrap(<PreferencesPageClient />));
 
 		const toggle = await screen.findByRole("switch", { name: "进入 /servers 页面时自动调用 /api/servers/monitor" });
 		expect(toggle).toHaveAttribute("aria-checked", "false");
