@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 import createDOMPurify from "dompurify";
 import type { Config } from "dompurify";
 
@@ -267,6 +268,7 @@ function parseTableAligns(line: string): string[] {
 }
 
 export function MarkdownPreviewClient({ href }: { href: string }) {
+	const { t } = useI18n();
 	const [state, setState] = useState<PreviewState>({ loading: true });
 
 	useEffect(() => {
@@ -274,7 +276,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 
 		fetch(href)
 			.then(async (res) => {
-				if (!res.ok) throw new Error(`加载失败: ${res.status}`);
+				if (!res.ok) throw new Error(t("markdownPreview.loadFailedWithStatus").replace("{status}", String(res.status)));
 				const text = await res.text();
 				if (!cancelled) {
 					setState({ loading: false, content: text, error: null });
@@ -285,7 +287,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 					setState({
 						loading: false,
 						content: null,
-						error: err instanceof Error ? err.message : "加载失败",
+						error: err instanceof Error ? err.message : t("markdownPreview.loadFailed"),
 					});
 				}
 			});
@@ -293,14 +295,14 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 		return () => {
 			cancelled = true;
 		};
-	}, [href]);
+	}, [href, t]);
 
 	const html = useMemo(() => sanitizeHtml(renderMarkdown((state as { content?: string }).content ?? "")), [state]);
 
 	if (state.loading) {
 		return (
 			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-				<span className="animate-pulse text-sm">正在加载…</span>
+				<span className="animate-pulse text-sm">{t("markdownPreview.loading")}</span>
 			</div>
 		);
 	}
@@ -319,7 +321,7 @@ export function MarkdownPreviewClient({ href }: { href: string }) {
 			{/* Label */}
 			<div className="mb-3 flex items-center gap-2">
 				<span data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1 text-xs text-cyan-300">
-					Markdown 预览
+					{t("markdownPreview.title")}
 				</span>
 			</div>
 

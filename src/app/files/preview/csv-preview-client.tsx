@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type CsvState = { loading: true } | { loading: false; rows: string[][] | null; error: string | null; raw: string | null };
 
@@ -65,30 +66,31 @@ function parseCsv(text: string): string[][] {
 }
 
 export function CsvPreviewClient({ href }: { href: string }) {
+	const { t } = useI18n();
 	const [state, setState] = useState<CsvState>({ loading: true });
 
 	useEffect(() => {
 		let cancelled = false;
 		fetch(href)
 			.then(async (res) => {
-				if (!res.ok) throw new Error(`加载失败: ${res.status}`);
+				if (!res.ok) throw new Error(t("csvPreview.loadFailedWithStatus").replace("{status}", String(res.status)));
 				const text = await res.text();
 				if (!cancelled) {
 					try {
 						const rows = parseCsv(text);
 						setState({ loading: false, rows, error: null, raw: text });
 					} catch (err) {
-						setState({ loading: false, rows: null, error: err instanceof Error ? err.message : "CSV 解析失败", raw: null });
+						setState({ loading: false, rows: null, error: err instanceof Error ? err.message : t("csvPreview.parseFailed"), raw: null });
 					}
 				}
 			})
 			.catch((err) => {
 				if (!cancelled) {
-					setState({ loading: false, rows: null, error: err instanceof Error ? err.message : "加载失败", raw: null });
+					setState({ loading: false, rows: null, error: err instanceof Error ? err.message : t("csvPreview.loadFailed"), raw: null });
 				}
 			});
 		return () => { cancelled = true; };
-	}, [href]);
+	}, [href, t]);
 
 	const maxRows = 500;
 	const header = state.loading ? [] : (state.rows?.[0] ?? []);
@@ -100,7 +102,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	if (state.loading) {
 		return (
 			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-				<span className="animate-pulse text-sm">正在加载…</span>
+				<span className="animate-pulse text-sm">{t("csvPreview.loading")}</span>
 			</div>
 		);
 	}
@@ -118,7 +120,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-16 text-[var(--text-secondary)]">
 				<span className="text-3xl">📊</span>
-				<p className="text-sm">CSV 文件为空</p>
+				<p className="text-sm">{t("csvPreview.empty")}</p>
 			</div>
 		);
 	}
@@ -126,8 +128,8 @@ export function CsvPreviewClient({ href }: { href: string }) {
 	return (
 		<div className="space-y-4">
 			<div className="flex items-center gap-3">
-				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 border border-emerald-400/30">CSV 表格预览</span>
-				<span className="text-xs text-[var(--text-secondary)]">{dataRows.length} 行 × {colCount} 列</span>
+				<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-300 border border-emerald-400/30">{t("csvPreview.tableBadge")}</span>
+				<span className="text-xs text-[var(--text-secondary)]">{t("csvPreview.rowCol").replace("{rows}", String(dataRows.length)).replace("{cols}", String(colCount))}</span>
 			</div>
 			<div className="overflow-auto rounded-2xl border border-[var(--border)]">
 				<table className="w-full text-sm">
@@ -135,7 +137,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 						<tr className="bg-slate-800/80 light:bg-slate-100/80">
 							<th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)] border-b border-slate-700 w-12">#</th>
 							{header.map((col, i) => (
-								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-cyan-300 border-b border-slate-700 whitespace-nowrap">{col || `列${i + 1}`}</th>
+								<th key={i} className="px-3 py-2 text-left text-xs font-medium text-cyan-300 border-b border-slate-700 whitespace-nowrap">{col || t("csvPreview.colIndex").replace("{index}", String(i + 1))}</th>
 							))}
 						</tr>
 					</thead>
@@ -153,7 +155,7 @@ export function CsvPreviewClient({ href }: { href: string }) {
 			</div>
 			{truncated ? (
 				<div data-tone="amber" className="rounded-2xl border border-amber-400/30 px-4 py-3 text-sm text-amber-200">
-					⚠ 数据量较大，仅显示前 {maxRows} 行（共 {dataRows.length} 行）。建议下载后使用专业工具查看。
+					{t("csvPreview.largeWarning").replace("{max}", String(maxRows)).replace("{total}", String(dataRows.length))}
 				</div>
 			) : null}
 		</div>

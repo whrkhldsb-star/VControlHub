@@ -22,6 +22,7 @@ import { zh as apitokenspageZh, en as apitokenspageEn } from "./dictionaries/api
 import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
 import { zh as authZh, en as authEn } from "./dictionaries/auth";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
+import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
 import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
 import { zh as dockerZh, en as dockerEn } from "./dictionaries/docker";
 import { zh as dockerpageZh, en as dockerpageEn } from "./dictionaries/docker-page";
@@ -29,8 +30,10 @@ import { zh as errorZh, en as errorEn } from "./dictionaries/error";
 import { zh as imagebedZh, en as imagebedEn } from "./dictionaries/image-bed";
 import { zh as imagebedpageZh, en as imagebedpageEn } from "./dictionaries/image-bed-page";
 import { zh as loginZh, en as loginEn } from "./dictionaries/login";
+import { zh as markdownpreviewZh, en as markdownpreviewEn } from "./dictionaries/markdown-preview";
 import { zh as mediaitemcardZh, en as mediaitemcardEn } from "./dictionaries/media-item-card";
 import { zh as mediapageZh, en as mediapageEn } from "./dictionaries/media-page";
+import { zh as mediapreviewZh, en as mediapreviewEn } from "./dictionaries/media-preview";
 import { zh as mediascanbuttonZh, en as mediascanbuttonEn } from "./dictionaries/media-scan-button";
 import { zh as mediauploadpanelZh, en as mediauploadpanelEn } from "./dictionaries/media-upload-panel";
 import { zh as monitoringZh, en as monitoringEn } from "./dictionaries/monitoring";
@@ -38,6 +41,7 @@ import { zh as monitoringPageZh, en as monitoringPageEn } from "./dictionaries/m
 import { zh as navZh, en as navEn } from "./dictionaries/nav";
 import { zh as notfoundZh, en as notfoundEn } from "./dictionaries/not-found";
 import { zh as notificationspageZh, en as notificationspageEn } from "./dictionaries/notifications-page";
+import { zh as officepreviewZh, en as officepreviewEn } from "./dictionaries/office-preview";
 import { zh as operationtasksZh, en as operationtasksEn } from "./dictionaries/operation-tasks";
 import { zh as preferencespageZh, en as preferencespageEn } from "./dictionaries/preferences-page";
 import { zh as qareportspageZh, en as qareportspageEn } from "./dictionaries/qa-reports-page";
@@ -70,6 +74,7 @@ const zh: Record<string, string> = {
 	...auditZh,
 	...authZh,
 	...commonZh,
+	...csvpreviewZh,
 	...dashboardZh,
 	...dockerZh,
 	...dockerpageZh,
@@ -77,8 +82,10 @@ const zh: Record<string, string> = {
 	...imagebedZh,
 	...imagebedpageZh,
 	...loginZh,
+	...markdownpreviewZh,
 	...mediaitemcardZh,
 	...mediapageZh,
+	...mediapreviewZh,
 	...mediascanbuttonZh,
 	...mediauploadpanelZh,
 	...monitoringZh,
@@ -86,6 +93,7 @@ const zh: Record<string, string> = {
 	...navZh,
 	...notfoundZh,
 	...notificationspageZh,
+	...officepreviewZh,
 	...operationtasksZh,
 	...preferencespageZh,
 	...qareportspageZh,
@@ -119,6 +127,7 @@ const en: Record<string, string> = {
 	...auditEn,
 	...authEn,
 	...commonEn,
+	...csvpreviewEn,
 	...dashboardEn,
 	...dockerEn,
 	...dockerpageEn,
@@ -126,8 +135,10 @@ const en: Record<string, string> = {
 	...imagebedEn,
 	...imagebedpageEn,
 	...loginEn,
+	...markdownpreviewEn,
 	...mediaitemcardEn,
 	...mediapageEn,
+	...mediapreviewEn,
 	...mediascanbuttonEn,
 	...mediauploadpanelEn,
 	...monitoringEn,
@@ -135,6 +146,7 @@ const en: Record<string, string> = {
 	...navEn,
 	...notfoundEn,
 	...notificationspageEn,
+	...officepreviewEn,
 	...operationtasksEn,
 	...preferencespageEn,
 	...qareportspageEn,

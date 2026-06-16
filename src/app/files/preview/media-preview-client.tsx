@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+
 export function MediaPreviewClient({
 	href,
 	name,
@@ -13,6 +15,7 @@ export function MediaPreviewClient({
 	nodeId: string;
 	relativePath: string;
 }) {
+	const { t } = useI18n();
 	const isVideo = mimeType.startsWith("video/");
 	const isAudio = mimeType.startsWith("audio/");
 
@@ -26,22 +29,20 @@ export function MediaPreviewClient({
 					className="max-h-[80vh] max-w-full rounded-2xl"
 				>
 					<track kind="captions" />
-					您的浏览器不支持视频播放。
+					{t("mediaPreview.videoUnsupported")}
 				</video>
 			) : isAudio ? (
 				<div className="flex flex-col items-center gap-4 py-8">
 					<span className="text-6xl">🎵</span>
 					<span className="text-lg text-[var(--text-secondary)]">{name}</span>
 					<audio src={href} controls className="w-full max-w-lg" autoPlay>
-						您的浏览器不支持音频播放。
+						{t("mediaPreview.audioUnsupported")}
 					</audio>
 				</div>
 			) : null}
 
 			{driver === "SFTP" ? (
-				<span className="text-xs text-slate-500">
-					在线预览固定使用网站受控流，避免目标服务器直连被浏览器策略或跨域阻拦；下载按钮仍按节点设置使用唯一的有效路径。
-				</span>
+				<span className="text-xs text-slate-500">{t("mediaPreview.sftpNote")}</span>
 			) : null}
 		</div>
 	);
