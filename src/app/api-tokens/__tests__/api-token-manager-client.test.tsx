@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiTokenManagerClient } from "../api-token-manager-client";
@@ -59,7 +60,7 @@ describe("ApiTokenManagerClient", () => {
 
 		const dialog = await screen.findByRole("dialog", { name: "确认撤销 API Token" });
 		expect(confirmSpy).not.toHaveBeenCalled();
-		expect(within(dialog).getByText("CLI")).toBeInTheDocument();
+		expect(within(dialog).getByText((_, el) => el !== null && el.tagName === "P" && (el.textContent ?? "").includes("CLI"))).toBeInTheDocument();
 		expect(fetchMock).not.toHaveBeenCalled();
 
 		fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
