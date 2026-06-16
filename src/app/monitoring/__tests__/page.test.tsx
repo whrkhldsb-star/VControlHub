@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import MonitoringPageClient from "../monitoring-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 vi.mock("@/components/page-shell", () => ({
   PageShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,

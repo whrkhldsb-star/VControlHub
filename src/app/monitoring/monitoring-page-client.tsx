@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface Stats {
   hostname: string;
@@ -17,12 +18,6 @@ interface Stats {
   topProcesses: { pid: string; cpu: string; mem: string; cmd: string }[];
   tcpConnections: string;
   timestamp: string;
-}
-
-function getMonitoringErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim()) return error.message;
-  if (typeof error === "string" && error.trim()) return error;
-  return "监控接口暂时没有返回可用数据，请稍后重试。";
 }
 
 /** Card wrapper — extracted to module top to avoid re-creation on every render */
@@ -46,6 +41,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function MonitoringPage({ canManage: _canManage }: { canManage: boolean }) {
+  const { t } = useI18n();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,12 +51,18 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
     typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
   );
 
+  const getMonitoringErrorMessage = useCallback((error: unknown): string => {
+    if (error instanceof Error && error.message.trim()) return error.message;
+    if (typeof error === "string" && error.trim()) return error;
+    return t("monitoringPage.errorUnavailable");
+  }, [t]);
+
   const fetchStats = useCallback(async () => {
     setRefreshing(true);
     try {
       const data = await csrfFetch("/api/monitoring/stats") as Stats & { error?: string; message?: string };
       if (data.error) {
-        setErrorMessage(data.error || data.message || "监控接口返回了错误。请稍后重试。");
+        setErrorMessage(data.error || data.message || t("monitoringPage.errorReturned"));
         return;
       }
       setStats(data);
@@ -71,7 +73,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [getMonitoringErrorMessage]);
 
   useEffect(() => {
     const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));
@@ -98,7 +100,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   if (loading) {
     return (
       <PageShell>
-        <div className="text-sm text-slate-500">加载中...</div>
+        <div className="text-sm text-slate-500">{t("monitoringPage.loading")}</div>
       </PageShell>
     );
   }
@@ -107,28 +109,40 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
     return (
       <PageShell>
         <div data-tone="rose" className="rounded-2xl border border-rose-500/20 p-5 text-sm text-rose-100">
-          <h1 className="mb-2 text-xl font-semibold text-rose-50">无法获取监控数据</h1>
-          <p className="text-rose-100/80/80">{errorMessage ?? "监控接口暂时没有返回可用数据，请稍后重试。"}</p>
+          <h1 className="mb-2 text-xl font-semibold text-rose-50">{t("monitoringPage.errorTitle")}</h1>
+          <p className="text-rose-100/80/80">{errorMessage ?? t("monitoringPage.errorUnavailable")}</p>
           <button
             type="button"
             onClick={fetchStats}
             disabled={refreshing}
             className="mt-4 rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {refreshing ? "重试中..." : "重试"}
+            {refreshing ? t("monitoringPage.retrying") : t("monitoringPage.retry")}
           </button>
         </div>
       </PageShell>
     );
   }
 
+  const intervalLabel = getRefreshIntervalLabel(refreshIntervalSeconds);
+  const autoRefreshLabel = autoRefresh
+    ? t("monitoringPage.autoRefreshActive").replace("{interval}", intervalLabel)
+    : refreshIntervalSeconds <= 0
+      ? t("monitoringPage.autoRefreshOff")
+      : t("monitoringPage.autoRefreshIdle").replace("{interval}", intervalLabel);
+
   return (
     <PageShell>
-      <PageHeader eyebrow="Monitoring" title="服务器监控" description="实时系统资源监控" className="mb-6" />
+      <PageHeader
+        eyebrow="Monitoring"
+        title={t("monitoringPage.title")}
+        description={t("monitoringPage.desc")}
+        className="mb-6"
+      />
 
       {errorMessage ? (
         <div data-tone="amber" className="mb-4 rounded-xl border border-amber-500/20 px-4 py-3 text-xs text-amber-100">
-          上次刷新失败：{errorMessage}
+          {t("monitoringPage.lastRefreshFailed").replace("{message}", errorMessage)}
         </div>
       ) : null}
 
@@ -139,7 +153,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           disabled={refreshing}
           className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-400 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {refreshing ? "刷新中..." : "刷新"}
+          {refreshing ? t("monitoringPage.refreshing") : t("monitoringPage.refresh")}
         </button>
         <button
           type="button"
@@ -147,37 +161,61 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
           disabled={refreshIntervalSeconds <= 0}
           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${autoRefresh ?"bg-emerald-500/10 text-emerald-400" :"bg-slate-700/50 light:bg-slate-200/50 text-slate-400"}`}
         >
-          {autoRefresh ? `● 自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})` : refreshIntervalSeconds <= 0 ? "自动刷新已关闭" : `自动刷新 (${getRefreshIntervalLabel(refreshIntervalSeconds)})`}
+          {autoRefreshLabel}
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card title="🖥️ 系统信息">
-          <Row label="主机名" value={stats.hostname} />
-          <Row label="平台" value={`${stats.platform} ${stats.arch}`} /> <Row label="运行时间" value={stats.uptime} /> </Card> <Card title="⚡ CPU"> <Row label="型号" value={stats.cpu.model.split("").slice(0, 3).join("")} /> <Row label="核心数" value={String(stats.cpu.cores)} /> <Row label="使用率" value={stats.cpu.usage} /> <Row label="负载 (1/5/15m)" value={stats.cpu.loadAvg.join(" /")} /> </Card> <Card title="💾 内存"> <Row label="总计" value={stats.memory.total} /> <Row label="已用" value={stats.memory.used} /> <Row label="可用" value={stats.memory.free} /> <div className="mt-2"> <div className="mb-1 flex justify-between text-[10px] text-slate-500"> <span>使用率</span><span>{stats.memory.usagePercent}%</span> </div> <div className="h-1.5 overflow-hidden rounded-full bg-slate-800"> <div className="h-full rounded-full bg-cyan-500 transition-all" style={{ width:`${stats.memory.usagePercent}%` }} />
+        <Card title={t("monitoringPage.card.system")}>
+          <Row label={t("monitoringPage.field.hostname")} value={stats.hostname} />
+          <Row label={t("monitoringPage.field.platform")} value={`${stats.platform} ${stats.arch}`} />
+          <Row label={t("monitoringPage.field.uptime")} value={stats.uptime} />
+        </Card>
+
+        <Card title={t("monitoringPage.card.cpu")}>
+          <Row label={t("monitoringPage.field.model")} value={stats.cpu.model.split("").slice(0, 3).join("")} />
+          <Row label={t("monitoringPage.field.cores")} value={String(stats.cpu.cores)} />
+          <Row label={t("monitoringPage.field.usage")} value={stats.cpu.usage} />
+          <Row label={t("monitoringPage.field.load")} value={stats.cpu.loadAvg.join(" /")} />
+        </Card>
+
+        <Card title={t("monitoringPage.card.memory")}>
+          <Row label={t("monitoringPage.field.total")} value={stats.memory.total} />
+          <Row label={t("monitoringPage.field.used")} value={stats.memory.used} />
+          <Row label={t("monitoringPage.field.free")} value={stats.memory.free} />
+          <div className="mt-2">
+            <div className="mb-1 flex justify-between text-[10px] text-slate-500">
+              <span>{t("monitoringPage.field.usage")}</span>
+              <span>{stats.memory.usagePercent}%</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-cyan-500 transition-all"
+                style={{ width: `${stats.memory.usagePercent}%` }}
+              />
             </div>
           </div>
         </Card>
 
-        <Card title="💿 磁盘">
-          <Row label="使用量" value={stats.disk} />
+        <Card title={t("monitoringPage.card.disk")}>
+          <Row label={t("monitoringPage.field.diskUsage")} value={stats.disk} />
         </Card>
 
-        <Card title="🌐 网络">
+        <Card title={t("monitoringPage.card.network")}>
           {stats.network.length > 0 ? stats.network.map((n) => (
             <div key={n.iface} className="py-1.5">
               <div className="font-mono text-xs text-white">{n.iface}</div>
               <div className="text-[10px] text-slate-500">↓ {n.rx} ↑ {n.tx}</div>
             </div>
-          )) : <Row label="无数据" value="-" />}
+          )) : <Row label={t("monitoringPage.field.noData")} value="-" />}
         </Card>
 
-        <Card title="🔗 TCP 连接">
-          <Row label="活跃连接" value={stats.tcpConnections} />
+        <Card title={t("monitoringPage.card.tcp")}>
+          <Row label={t("monitoringPage.field.activeConnections")} value={stats.tcpConnections} />
         </Card>
       </div>
 
-      <Card title="📊 Top 进程 (按内存)">
+      <Card title={t("monitoringPage.card.topProcesses")}>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -185,7 +223,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
                 <th className="py-2 text-left">PID</th>
                 <th className="py-2 text-right">CPU%</th>
                 <th className="py-2 text-right">MEM%</th>
-                <th className="py-2 pl-4 text-left">命令</th>
+                <th className="py-2 pl-4 text-left">{t("monitoringPage.table.command")}</th>
               </tr>
             </thead>
             <tbody>
@@ -202,7 +240,9 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         </div>
       </Card>
 
-      <p className="mt-4 text-[10px] text-slate-600">最后更新: {stats.timestamp}</p>
+      <p className="mt-4 text-[10px] text-slate-600">
+        {t("monitoringPage.lastUpdated").replace("{timestamp}", stats.timestamp)}
+      </p>
     </PageShell>
   );
 }

@@ -32,6 +32,7 @@ import { zh as mediapageZh, en as mediapageEn } from "./dictionaries/media-page"
 import { zh as mediascanbuttonZh, en as mediascanbuttonEn } from "./dictionaries/media-scan-button";
 import { zh as mediauploadpanelZh, en as mediauploadpanelEn } from "./dictionaries/media-upload-panel";
 import { zh as monitoringZh, en as monitoringEn } from "./dictionaries/monitoring";
+import { zh as monitoringPageZh, en as monitoringPageEn } from "./dictionaries/monitoring-page";
 import { zh as navZh, en as navEn } from "./dictionaries/nav";
 import { zh as notfoundZh, en as notfoundEn } from "./dictionaries/not-found";
 import { zh as notificationspageZh, en as notificationspageEn } from "./dictionaries/notifications-page";
@@ -75,6 +76,7 @@ const zh: Record<string, string> = {
 	...mediascanbuttonZh,
 	...mediauploadpanelZh,
 	...monitoringZh,
+	...monitoringPageZh,
 	...navZh,
 	...notfoundZh,
 	...notificationspageZh,
@@ -119,6 +121,7 @@ const en: Record<string, string> = {
 	...mediascanbuttonEn,
 	...mediauploadpanelEn,
 	...monitoringEn,
+	...monitoringPageEn,
 	...navEn,
 	...notfoundEn,
 	...notificationspageEn,
