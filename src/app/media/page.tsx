@@ -7,15 +7,30 @@ import { MediaScanButton } from "./media-scan-button";
 import { MediaImageUploadPanel } from "./media-image-upload-panel";
 import { MediaItemCard } from "./media-item-card";
 import { FilterLink, mediaHref, toggleFavoriteHref, toggleTagHref, toggleTypeHref, type MediaFilterState } from "./media-filter-links";
+import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 type MediaSearchParams = { type?: string; q?: string; favorite?: string; tag?: string };
 
+function modeTitle(locale: Locale, type: "image" | "video" | "audio" | undefined): string {
+	if (type === "image") return t("mediaPage.workspace.image", locale);
+	if (type === "video") return t("mediaPage.workspace.video", locale);
+	if (type === "audio") return t("mediaPage.workspace.audio", locale);
+	return t("mediaPage.workspace.all", locale);
+}
+function modeDescription(locale: Locale, type: "image" | "video" | "audio" | undefined): string {
+	if (type === "image") return t("mediaPage.workspace.imageDesc", locale);
+	if (type === "video") return t("mediaPage.workspace.videoDesc", locale);
+	if (type === "audio") return t("mediaPage.workspace.audioDesc", locale);
+	return t("mediaPage.workspace.allDesc", locale);
+}
+
 export default async function Page({ searchParams }: { searchParams?: Promise<MediaSearchParams> }) {
   const session = await requireSession("/media");
   if (!sessionHasPermission(session, "storage:read")) return <PermissionDenied />;
   const canManageMedia = sessionHasPermission(session, "media:manage");
+  const locale = await getServerLocale();
   const params = await searchParams;
   const mediaType = params?.type === "image" || params?.type === "video" || params?.type === "audio"
     ? (params.type as "image" | "video" | "audio")
@@ -32,7 +47,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
 
   const grouped = new Map<string, typeof media>();
   for (const m of media) {
-    const groupKey = m.storageNode?.server?.name ?? m.storageNode?.name ?? "未分配存储";
+    const groupKey = m.storageNode?.server?.name ?? m.storageNode?.name ?? t("mediaPage.group.unassigned", locale);
     if (!grouped.has(groupKey)) grouped.set(groupKey, []);
     grouped.get(groupKey)!.push(m);
   }
@@ -42,28 +57,22 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
   const audioCount = typeCounts.audio;
   const totalCount = imageCount + videoCount + audioCount;
   const favCount = media.filter((m) => m.favorite).length;
-  const modeTitle = mediaType === "image" ? "图片工作区" : mediaType === "video" ? "视频库" : mediaType === "audio" ? "音频库" : "全部媒体";
-  const modeDescription = mediaType === "image"
-    ? "上传、扫描、整理图片，并把已入库图片发布成可复制的外链。"
-    : mediaType === "video"
-      ? "集中浏览视频文件，支持预览播放、下载和跳回源文件位置。"
-      : mediaType === "audio"
-        ? "集中浏览音频文件，支持播放、下载和按标签收藏整理。"
-        : "从这里统一进入图片、视频、音频三个媒体工作流。";
+  const modeTitleText = modeTitle(locale, mediaType);
+  const modeDescriptionText = modeDescription(locale, mediaType);
 
   return (
     <PageShell>
       <header className="mb-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.18),transparent_36%),linear-gradient(135deg,rgba(15,23,42,0.95),rgba(2,6,23,0.88))] p-6 shadow-2xl shadow-cyan-950/20 light:bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_34%),linear-gradient(135deg,#ffffff,#f8fafc)] light:shadow-slate-200/60">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">Media Workspace</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">媒体库</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。</p>
+            <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">{t("mediaPage.eyebrow", locale)}</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--text-primary)]">{t("mediaPage.title", locale)}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{t("mediaPage.desc", locale)}</p>
           </div>
           <div className="grid min-w-[260px] grid-cols-3 gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-2 text-center">
-            <div className="rounded-xl bg-blue-400/10 px-3 py-2"><div className="text-lg font-semibold text-blue-100">{imageCount}</div><div className="text-[10px] text-blue-200/70">图片</div></div>
-            <div className="rounded-xl bg-purple-400/10 px-3 py-2"><div className="text-lg font-semibold text-purple-100 light:text-purple-900">{videoCount}</div><div className="text-[10px] text-purple-200/70 light:text-purple-700">视频</div></div>
-            <div className="rounded-xl bg-emerald-400/10 px-3 py-2"><div className="text-lg font-semibold text-emerald-100">{audioCount}</div><div className="text-[10px] text-emerald-200/70">音频</div></div>
+            <div className="rounded-xl bg-blue-400/10 px-3 py-2"><div className="text-lg font-semibold text-blue-100">{imageCount}</div><div className="text-[10px] text-blue-200/70">{t("mediaPage.stat.image", locale)}</div></div>
+            <div className="rounded-xl bg-purple-400/10 px-3 py-2"><div className="text-lg font-semibold text-purple-100 light:text-purple-900">{videoCount}</div><div className="text-[10px] text-purple-200/70 light:text-purple-700">{t("mediaPage.stat.video", locale)}</div></div>
+            <div className="rounded-xl bg-emerald-400/10 px-3 py-2"><div className="text-lg font-semibold text-emerald-100">{audioCount}</div><div className="text-[10px] text-emerald-200/70">{t("mediaPage.stat.audio", locale)}</div></div>
           </div>
         </div>
       </header>
@@ -72,9 +81,9 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/70">Current Workspace</p>
-              <h2 className="mt-1 text-xl font-semibold text-white">{modeTitle}</h2>
-              <p className="mt-1 text-sm text-slate-400">{modeDescription}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/70">{t("mediaPage.workspace.label", locale)}</p>
+              <h2 className="mt-1 text-xl font-semibold text-white">{modeTitleText}</h2>
+              <p className="mt-1 text-sm text-slate-400">{modeDescriptionText}</p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               {mediaType === "image" ? (
