@@ -1,4 +1,5 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 

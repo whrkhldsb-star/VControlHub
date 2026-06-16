@@ -4,6 +4,7 @@ import { useActionState, useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { changePasswordAction, type AccountPasswordActionState } from "./actions";
 
@@ -11,6 +12,7 @@ const initialState: AccountPasswordActionState = {};
 const POST_SUCCESS_REDIRECT_DELAY_MS = 1500;
 
 export function ChangePasswordForm() {
+	const { t } = useI18n();
 	const [state, formAction] = useActionState(changePasswordAction, initialState);
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -40,7 +42,7 @@ export function ChangePasswordForm() {
 		<form action={formAction} className="grid gap-4 rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6">
 			<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
 			<div>
-				<h2 className="text-xl font-semibold text-white">修改登录密码</h2>
+				<h2 className="text-xl font-semibold text-white">{t("common.editPassword")}</h2>
 				<p className="mt-2 text-sm text-[var(--text-secondary)]">
 					输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。
 				</p>
@@ -93,7 +95,7 @@ export function ChangePasswordForm() {
 						立即跳到仪表盘
 					</button>
 				) : null}
-				<SubmitButton pendingLabel="保存中...">保存新密码</SubmitButton>
+				<SubmitButton pendingLabel="保存中...">{t("common.saveNewPassword")}</SubmitButton>
 			</div>
 		</form>
 	);
