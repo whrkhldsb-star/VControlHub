@@ -1,6 +1,5 @@
 import {
   fireEvent,
-  render,
   screen,
   waitFor,
   within,
@@ -10,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import ImageBedPageClient from "../image-bed-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 
 vi.mock("next/image", () => ({
   default: ({
