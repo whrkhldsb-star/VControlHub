@@ -691,7 +691,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-016 | P3 | 操作回滚（关键文件 / 配置 / 部署 undo） | ✅ 部署回滚已落地 |
 | TR-017 | P2 | 可维护性热点拆分（file-list / storage / AI / QuickService） | ✅ 完成 |
 | TR-018 | P2 | API 回归测试基线（AI / status / QuickService slug / 2FA） | ✅ 完成 |
-| TR-019 | P2 | 领域模块边界治理（files / storage / quick-service / command / ai / backup DTO） | 主体已落地 |
+| TR-019 | P2 | 领域模块边界治理（files / storage / quick-service / command / ai / backup DTO） | ✅ R10-R22 + R28.D 主体已落地 (commit `7dbf642`+`b0c229a`+`28bdcc5`+`727fcda` god-file barrel 拆 5 域 + R15 backup schema 模块); T42 加 `scripts/tr-019-dto-audit.ts` DTO 边界巡检 (5 域 23 路由当前 13% 覆盖率, 20 gap routes 列出) |
 | TR-020 | P3 | 仪表盘自定义（拖拽 / 指标 / 时间范围） | ✅ 完成 (`ec5f791`+`fc65edf`+`d9e6089`：4 列 grid + HTML5 dnd 拖拽 + click 弹窗详情,16 vitest) |
 | TR-021 | P2 | 可访问性收口（巡检 placeholder-only / 低可见度控件） | ✅ 主体完成 |
 | TR-022 | P2 | 移动端适配（高频入口 / 复杂面板响应式） | ✅ 主体 9 轮完成 |
