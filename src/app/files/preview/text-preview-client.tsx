@@ -5,6 +5,7 @@ import createDOMPurify from "dompurify";
 import type { Config } from "dompurify";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { FindBarLazy } from "./find-bar-lazy";
 
 const HIGHLIGHT_SANITIZE_CONFIG: Config = {
@@ -243,8 +244,12 @@ const LANG_LABELS: Record<string, string> = {
 	yaml: "YAML", toml: "TOML/INI", shell: "Shell", html: "HTML", xml: "XML",
 	css: "CSS", sql: "SQL", go: "Go", rust: "Rust", ruby: "Ruby", php: "PHP",
 	c: "C", cpp: "C++", java: "Java", kotlin: "Kotlin", lua: "Lua",
-	dockerfile: "Dockerfile", makefile: "Makefile", env: "Env", text: "文本", log: "日志",
 };
+
+function langLabel(t: (k: string) => string, lang: string): string {
+	const translated = t(`textPreview.type.${lang}`);
+	return translated === `textPreview.type.${lang}` ? (LANG_LABELS[lang] ?? lang) : translated;
+}
 
 type EditableDraft = {
 	content: string;
@@ -286,6 +291,7 @@ export function TextPreviewClient({
 	reloadUnit?: string;
 	reloadKind?: "systemd" | "compose";
 }) {
+	const { t } = useI18n();
 	const [state, setState] = useState<PreviewState>({ loading: true });
 	const [loadVersion, resetForLoad] = useReducer((value: number) => value + 1, 0);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -347,7 +353,7 @@ export function TextPreviewClient({
 					};
 				} else {
 					const res = await fetch(href);
-					if (!res.ok) throw new Error(`加载失败: ${res.status}`);
+					if (!res.ok) throw new Error(t("textPreview.error.loadFailedStatus").replace("{status}", String(res.status)));
 					content = await res.text();
 				}
 				if (!cancelled) {
@@ -360,7 +366,7 @@ export function TextPreviewClient({
 					setState({
 						loading: false,
 						content: null,
-						error: err instanceof Error ? err.message : "加载失败",
+						error: err instanceof Error ? err.message : t("textPreview.error.loadFailed"),
 					});
 				}
 			}
@@ -416,10 +422,10 @@ export function TextPreviewClient({
 				setEditMode(false);
 				setShowDiffReview(false);
 				setSaveStatus("saved");
-				setSaveMessage(`已保存 ${response.byteSize} B`);
+				setSaveMessage(t("textPreview.saved.success").replace("{bytes}", String(response.byteSize)));
 				return response.byteSize;
-			}
-			const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
+				}
+				const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
 				method: "PUT",
 				body: JSON.stringify({
 					content: draft,
@@ -435,11 +441,11 @@ export function TextPreviewClient({
 			setEditMode(false);
 			setShowDiffReview(false);
 			setSaveStatus("saved");
-			setSaveMessage(`已保存 ${response.file.byteSize} B`);
+			setSaveMessage(t("textPreview.saved.success").replace("{bytes}", String(response.file.byteSize)));
 			return response.file.byteSize;
 		} catch (err) {
 			setSaveStatus("error");
-			setSaveMessage(err instanceof Error ? err.message : "保存失败");
+			setSaveMessage(err instanceof Error ? err.message : t("textPreview.error.saveFailed"));
 			return null;
 		}
 	}, [driver, nodeId, relativePath, draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setReloadMessage, setSaveMessage, setSaveStatus, setShowDiffReview]);
@@ -478,26 +484,26 @@ export function TextPreviewClient({
 			});
 			if (response.success) {
 				setSaveStatus("reloaded");
-				setSaveMessage(`已保存 ${bytes} B · 服务已重载`);
-				setReloadMessage("重载成功，无需 SSH 重连");
-			} else {
+				setSaveMessage(t("textPreview.saved.reloaded").replace("{bytes}", String(bytes)));
+				setReloadMessage(t("textPreview.reloaded.message"));
+				} else {
 				setSaveStatus("error");
-				setSaveMessage(`已保存 ${bytes} B · 服务重载失败`);
+				setSaveMessage(t("textPreview.saved.reloadedFailed").replace("{bytes}", String(bytes)));
 				setReloadMessage(
 					`exit=${response.exitCode ?? "?"}${response.stderr ? ` · ${response.stderr.split("\n")[0]?.slice(0, 200) ?? ""}` : ""}`,
 				);
-			}
-		} catch (err) {
-			setSaveStatus("error");
-			setSaveMessage(`已保存 ${bytes} B · 重载请求失败`);
-			setReloadMessage(err instanceof Error ? err.message : "重载请求失败");
-		}
+				}
+				} catch (err) {
+				setSaveStatus("error");
+				setSaveMessage(t("textPreview.saved.reloadFailed").replace("{bytes}", String(bytes)));
+				setReloadMessage(err instanceof Error ? err.message : t("textPreview.error.reloadFailed"));
+				}
 	}, [performSave, serverId, reloadUnit, reloadKind, relativePath, setSaveMessage, setSaveStatus, setReloadMessage]);
 
 	if (state.loading) {
 		return (
 			<div className="flex items-center justify-center py-16 text-[var(--text-secondary)]">
-				<span className="animate-pulse text-sm">正在加载文件内容…</span>
+				<span className="animate-pulse text-sm">{t("textPreview.loading")}</span>
 			</div>
 		);
 	}
@@ -529,12 +535,12 @@ export function TextPreviewClient({
 		<div className="space-y-3">
 			<div className="flex flex-wrap items-center gap-2">
 				<span className="rounded-full bg-blue-400/10 px-3 py-1 text-xs font-medium text-blue-300 border border-blue-400/30">
-					{LANG_LABELS[lang] ?? lang.toUpperCase()}
+					{langLabel(t, lang)}
 				</span>
-				<span className="text-xs text-slate-500">{totalLines} 行</span>
+				<span className="text-xs text-slate-500">{t("textPreview.linesCount").replace("{count}", String(totalLines))}</span>
 				{canEdit ? (
 					<span data-tone="emerald" className="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-200">
-						可在线编辑 · 保存会校验并发修改
+						{t("textPreview.editHint")}
 					</span>
 				) : null}
 				{saveMessage ? (
@@ -559,7 +565,7 @@ export function TextPreviewClient({
 									disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
 									data-tone="emerald" className="rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/20 disabled:opacity-50"
 								>
-									{saveStatus === "saving" ? "保存中…" : "预览并保存"}
+									{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.previewSave")}
 								</button>
 								{canReloadAfterSave ? (
 									<button
@@ -568,15 +574,15 @@ export function TextPreviewClient({
 										disabled={saveStatus === "saving" || saveStatus === "reloading" || !hasUnsavedChanges}
 										data-tone="amber" className="rounded-lg border border-amber-400/30 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/20 disabled:opacity-50"
 										title={reloadKind === "systemd"
-											? `保存后执行 systemctl reload ${reloadUnit} (失败时回退到 restart)`
-											: `保存后执行 docker compose up -d (service=${reloadUnit})`}
-									>
+											? t("textPreview.reloadHint.systemd").replace("{unit}", reloadUnit ?? "")
+											: t("textPreview.reloadHint.docker").replace("{unit}", reloadUnit ?? "")}
+										>
 										{saveStatus === "saving"
-											? "保存中…"
+											? t("textPreview.button.saving")
 											: saveStatus === "reloading"
-												? "重载中…"
-												: `保存并重载 ${reloadUnit}`}
-									</button>
+												? t("textPreview.button.reloading")
+												: t("textPreview.button.saveAndReload").replace("{unit}", reloadUnit ?? "")}
+										</button>
 								) : null}
 								<button
 									type="button"
@@ -591,7 +597,7 @@ export function TextPreviewClient({
 									disabled={saveStatus === "saving" || saveStatus === "reloading"}
 									className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200 disabled:opacity-50"
 								>
-									取消
+									{t("textPreview.button.cancel")}
 								</button>
 							</>
 						) : (
@@ -600,7 +606,7 @@ export function TextPreviewClient({
 								onClick={() => setEditMode(true)}
 								data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/20"
 							>
-								编辑
+								{t("textPreview.button.edit")}
 							</button>
 						)}
 					</div>
@@ -617,15 +623,15 @@ export function TextPreviewClient({
 			</div>
 
 			{editMode && showDiffReview ? (
-				<div role="dialog" aria-modal="true" aria-label="保存前差异预览" data-tone="amber" className="rounded-2xl border border-amber-400/20 p-4 shadow-2xl shadow-black/20">
+				<div role="dialog" aria-modal="true" aria-label={t("textPreview.diffDialog.title")} data-tone="amber" className="rounded-2xl border border-amber-400/20 p-4 shadow-2xl shadow-black/20">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<h3 className="text-sm font-semibold text-amber-100">保存前差异预览</h3>
+							<h3 className="text-sm font-semibold text-amber-100">{t("textPreview.diffDialog.title")}</h3>
 							<p className="mt-1 text-xs text-amber-100/80">
-								请确认变更后再写入文件：新增 {diffSummary.added} 行，删除 {diffSummary.removed} 行，修改 {diffSummary.changed} 行。
+								{t("textPreview.diffDialog.summary").replace("{added}", String(diffSummary.added)).replace("{removed}", String(diffSummary.removed)).replace("{changed}", String(diffSummary.changed))}
 							</p>
 							<p className="mt-1 text-xs text-amber-100/70">
-								保存时会校验打开草稿后的文件时间戳；如果文件已被其它窗口或磁盘操作修改，将拒绝覆盖并提示重新加载。
+								{t("textPreview.diffDialog.note")}
 							</p>
 						</div>
 						<div className="flex gap-2">
@@ -635,7 +641,7 @@ export function TextPreviewClient({
 								disabled={saveStatus === "saving" || saveStatus === "reloading"}
 								className="rounded-lg border border-slate-600/60 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 disabled:opacity-50"
 							>
-								返回编辑
+								{t("textPreview.button.backToEdit")}
 							</button>
 							<button
 								type="button"
@@ -643,7 +649,7 @@ export function TextPreviewClient({
 								disabled={saveStatus === "saving" || saveStatus === "reloading" || diffRows.length === 0}
 								data-tone="emerald" className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-xs font-medium text-emerald-100 disabled:opacity-50"
 							>
-								{saveStatus === "saving" ? "保存中…" : "确认保存"}
+								{saveStatus === "saving" ? t("textPreview.button.saving") : t("textPreview.button.confirmSave")}
 							</button>
 							{canReloadAfterSave ? (
 								<button
@@ -652,31 +658,31 @@ export function TextPreviewClient({
 									disabled={saveStatus === "saving" || saveStatus === "reloading" || diffRows.length === 0}
 									data-tone="amber" className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-medium text-amber-100 disabled:opacity-50"
 									title={reloadKind === "systemd"
-										? `保存后 systemctl reload ${reloadUnit} (失败时回退到 restart)`
-										: `保存后 docker compose up -d (service=${reloadUnit})`}
+										? t("textPreview.reloadHint.systemdConfirm").replace("{unit}", reloadUnit ?? "")
+										: t("textPreview.reloadHint.dockerConfirm").replace("{unit}", reloadUnit ?? "")}
 								>
 									{saveStatus === "saving"
-										? "保存中…"
+										? t("textPreview.button.saving")
 										: saveStatus === "reloading"
-											? "重载中…"
-											: `保存并重载 ${reloadUnit}`}
+											? t("textPreview.button.reloading")
+											: t("textPreview.button.saveAndReload").replace("{unit}", reloadUnit ?? "")}
 								</button>
 							) : null}
 						</div>
 					</div>
 					<div className="mt-3 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-slate-950/80">
 						{diffRows.length === 0 ? (
-							<p className="px-3 py-2 text-xs text-slate-400">没有检测到内容差异。</p>
-						) : (
+							<p className="px-3 py-2 text-xs text-slate-400">{t("textPreview.diffEmpty")}</p>
+							) : (
 							<ul className="divide-y divide-white/[0.06]">
 								{diffRows.slice(0, 80).map((row) => (
 									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
-										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? "新增" : row.kind === "removed" ? "删除" : "修改"}</span>
+										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>
 										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-rose-500/10 px-2 py-1 text-rose-200">- {row.before}</code>
 										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">+ {row.after}</code>
 									</li>
 								))}
-								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-slate-500">还有 {diffRows.length - 80} 行差异未展示，仍会一起保存。</li> : null}
+								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-slate-500">{t("textPreview.diffMore").replace("{count}", String(diffRows.length - 80))}</li> : null}
 							</ul>
 						)}
 					</div>
@@ -685,7 +691,7 @@ export function TextPreviewClient({
 
 			{editMode ? (
 				<textarea
-					aria-label="在线编辑文件内容"
+					aria-label={t("textPreview.editAria")}
 					value={draft}
 					onChange={(event) => {
 						setDraft(event.currentTarget.value);
