@@ -466,6 +466,27 @@ const translations: Record<Locale, Record<string, string>> = {
 		"audit.action.command.reject": "拒绝命令",
 		"audit.action.download.create": "创建下载任务",
 		"audit.action.download.cancel": "取消下载",
+		"login.error.invalid": "用户名或密码错误",
+		"login.error.system": "登录服务暂时不可用，请稍后再试",
+		"login.error.rateLimited": "登录尝试过于频繁，请稍后再试",
+		"login.error.locked": "账户已锁定，请 {min} 后再试",
+		"login.error.lockedDefault": "15 分钟",
+		"login.branding.tagline": "，一站掌控。",
+		"login.branding.signInTag": "Secure Sign In",
+		"login.branding.welcome": "欢迎回来",
+		"login.branding.subtitle": "使用管理员账号进入控制台。",
+		"login.feature.vps.title": "VPS 管理",
+		"login.feature.vps.desc": "SSH 密钥认证",
+		"login.feature.approval.title": "安全审批",
+		"login.feature.approval.desc": "命令执行管控",
+		"login.feature.cloud.title": "分布式云盘",
+		"login.feature.cloud.desc": "多节点存储",
+		"login.form.username": "用户名",
+		"login.form.usernamePlaceholder": "输入用户名",
+		"login.form.password": "密码",
+		"login.form.passwordPlaceholder": "输入密码",
+		"login.form.remember": "记住登录 30 天，减少频繁跳转登录页",
+		"login.form.submit": "登录后台",
 	},
 	en: {
 		// Navigation
@@ -930,6 +951,27 @@ const translations: Record<Locale, Record<string, string>> = {
 		"audit.action.command.reject": "Reject command",
 		"audit.action.download.create": "Create download",
 		"audit.action.download.cancel": "Cancel download",
+		"login.error.invalid": "Invalid username or password",
+		"login.error.system": "Login service is temporarily unavailable. Please retry.",
+		"login.error.rateLimited": "Too many login attempts. Please retry.",
+		"login.error.locked": "Account locked. Please retry in {min}.",
+		"login.error.lockedDefault": "15 minutes",
+		"login.branding.tagline": ", one console to rule them all.",
+		"login.branding.signInTag": "Secure Sign In",
+		"login.branding.welcome": "Welcome back",
+		"login.branding.subtitle": "Sign in with your admin account to enter the console.",
+		"login.feature.vps.title": "VPS Management",
+		"login.feature.vps.desc": "SSH key authentication",
+		"login.feature.approval.title": "Safe Approval",
+		"login.feature.approval.desc": "Command execution control",
+		"login.feature.cloud.title": "Distributed Cloud",
+		"login.feature.cloud.desc": "Multi-node storage",
+		"login.form.username": "Username",
+		"login.form.usernamePlaceholder": "Enter username",
+		"login.form.password": "Password",
+		"login.form.passwordPlaceholder": "Enter password",
+		"login.form.remember": "Remember me for 30 days to skip repeated logins",
+		"login.form.submit": "Sign in",
 	},
 };
 
@@ -939,4 +981,19 @@ export function t(key: string, locale: Locale = "zh"): string {
 
 export function getAllTranslations(locale: Locale): Record<string, string> {
 	return translations[locale] || translations.zh;
+}
+
+/**
+ * Server-side locale resolution: reads the `vps-locale` cookie set by the
+ * client-side i18n switcher. Returns "zh" when absent or invalid.
+ *
+ * Use in server components and route handlers that need to render translated
+ * text. Layout already wires the same value into I18nProvider for hydration,
+ * so a single call here keeps server output consistent with the client tree.
+ */
+export async function getServerLocale(): Promise<Locale> {
+	const { cookies } = await import("next/headers");
+	const store = await cookies();
+	const value = store.get("vps-locale")?.value;
+	return value === "en" ? "en" : "zh";
 }

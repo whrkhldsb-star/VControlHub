@@ -1,6 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("next/headers", () => ({
+	cookies: vi.fn(async () => ({
+		get: () => undefined,
+	})),
+}));
+
 import LoginPage from "@/app/login/page";
 
 describe("LoginPage", () => {
