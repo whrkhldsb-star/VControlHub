@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { describe, expect, it } from "vitest";
 
 import { OfficePreviewClient } from "../preview/office-preview-client";

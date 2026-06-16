@@ -1,8 +1,13 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { type ReactElement } from "react";
+import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QuickServicesClient } from "../quick-services-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
+
+// wrap I18nProvider so `useI18n()` t() returns localized Chinese strings
+const render = (ui: ReactElement) => renderWithI18n(ui, { locale: "zh" });
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
