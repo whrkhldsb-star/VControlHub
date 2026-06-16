@@ -45,8 +45,6 @@ interface QueueShape {
   tasks: QueueTask[];
 }
 
-const trStandalone = /(?<=[\s:,(/])(TR-\d{3})(?=[\s:/),.])/g;
-
 function loadQueue(): QueueShape {
   try {
     return JSON.parse(readFileSync(QUEUE, "utf8")) as QueueShape;
