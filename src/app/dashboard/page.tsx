@@ -1,11 +1,3 @@
-/**
- * Compatibility wrapper for the legacy `/` route.
- *
- * The actual dashboard lives at `src/app/dashboard/page.tsx` (TR-052: dedicated
- * route so the user can bookmark the dashboard directly). This thin server
- * component re-renders the same dashboard data under `/` so existing deep links
- * and crawlers that still hit `/` keep working.
- */
 import { requireSession } from "@/lib/auth/require-session";
 import { listServerProfiles } from "@/lib/server/service";
 import { getStorageOverview } from "@/lib/storage/service";
@@ -13,15 +5,15 @@ import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
 import { PageShell } from "@/components/page-shell";
-import { DashboardAnalyticsPanel } from "./dashboard-analytics-panel";
-import { DashboardPreferenceClient } from "./dashboard-preference-client";
+import { DashboardAnalyticsPanel } from "../dashboard-analytics-panel";
+import { DashboardPreferenceClient } from "../dashboard-preference-client";
 import {
   DashboardLocalizedHeader,
   DashboardQuickLinks,
   DashboardRecentActivity,
   DashboardServerHero,
   DashboardStatsSection,
-} from "./dashboard-localized-sections";
+} from "../dashboard-localized-sections";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +34,8 @@ function formatDashboardAuditDate(value: Date | string | number) {
   return dashboardAuditDateFormatter.format(date);
 }
 
-export default async function Home() {
-  const session = await requireSession("/");
+export default async function DashboardPage() {
+  const session = await requireSession("/dashboard");
   const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotif, activeScheduled] = await Promise.all([
     listServerProfiles(),
     getStorageOverview(),

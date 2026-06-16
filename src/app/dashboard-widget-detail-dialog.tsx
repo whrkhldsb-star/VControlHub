@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
@@ -44,6 +44,7 @@ export function DashboardWidgetDetailDialog({
 	const { t } = useI18n();
 	const dialogRef = useRef<HTMLDivElement | null>(null);
 	const closeRef = useRef<HTMLButtonElement | null>(null);
+	const [widgetEl, setWidgetEl] = useState<HTMLElement | null>(null);
 
 	// Close on ESC.
 	useEffect(() => {
@@ -62,11 +63,20 @@ export function DashboardWidgetDetailDialog({
 		}
 	}, [openId]);
 
-	if (!openId) return null;
+	// Resolve the widget DOM node in a layout effect (not during render)
+	// so we don't violate the React hooks rules about ref access.
+	useLayoutEffect(() => {
+		if (!openId || !widgetRef.current) {
+			setWidgetEl(null);
+			return;
+		}
+		const el = widgetRef.current.querySelector(
+			`[data-dashboard-widget="${openId}"]`,
+		) as HTMLElement | null;
+		setWidgetEl(el);
+	}, [openId, widgetRef]);
 
-	const widgetEl = widgetRef.current?.querySelector(
-		`[data-dashboard-widget="${openId}"]`,
-	) as HTMLElement | null;
+	if (!openId) return null;
 
 	// Allow only known widget ids.
 	if (!DASHBOARD_WIDGET_IDS.includes(openId)) return null;

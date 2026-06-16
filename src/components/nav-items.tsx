@@ -36,7 +36,7 @@ export const IconImage = () => <svg className="w-[18px] h-[18px]" fill="none" st
 export const IconStore = () => <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v0A2.25 2.25 0 018.25 8.25H6A2.25 2.25 0 013.75 6v0zM13.5 6a2.25 2.25 0 012.25-2.25h2.25A2.25 2.25 0 0120.25 6v0a2.25 2.25 0 01-2.25 2.25h-2.25A2.25 2.25 0 0113.5 6v0zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25v0a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v0z" /></svg>;
 
 export const mainNavItems: AppNavItem[] = [
-	{ href: "/", labelKey: "nav.dashboard", fallbackLabel: "仪表盘", icon: <IconDashboard /> },
+	{ href: "/dashboard", labelKey: "nav.dashboard", fallbackLabel: "仪表盘", icon: <IconDashboard /> },
 	{ href: "/servers", labelKey: "nav.servers", fallbackLabel: "VPS 管理", icon: <IconServer /> },
 	{ href: "/health", labelKey: "nav.health", fallbackLabel: "健康看板", icon: <IconHeart /> },
 	{ href: "/traffic", labelKey: "nav.traffic", fallbackLabel: "流量中心", icon: <IconTraffic /> },
@@ -68,7 +68,7 @@ export const systemNavItems: AppNavItem[] = [
 	{ href: "/qa-reports", labelKey: "nav.qa-reports", fallbackLabel: "QA 报告", icon: <IconCheck /> },
 ];
 
-const mobileNavHrefs = ["/", "/servers", "/traffic", "/files", "/settings"] as const;
+const mobileNavHrefs = ["/dashboard", "/servers", "/traffic", "/files", "/settings"] as const;
 
 export const mobileNavItems: AppNavItem[] = mobileNavHrefs.map((href) => {
 	const item = mainNavItems.find((navItem) => navItem.href === href);

@@ -21,7 +21,7 @@ describe("MobileNav", () => {
 	it("does not expose stale routes in mobile bottom navigation", () => {
 		const hrefs = getMobileNavTabs().map((tab) => tab.href);
 
-		expect(hrefs).toEqual(["/", "/servers", "/traffic", "/files", "/settings"]);
+		expect(hrefs).toEqual(["/dashboard", "/servers", "/traffic", "/files", "/settings"]);
 		expect(hrefs).not.toContain("/more");
 		expect(hrefs).toContain("/settings");
 	});

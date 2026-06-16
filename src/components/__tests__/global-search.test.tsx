@@ -105,7 +105,7 @@ describe("GlobalSearch", () => {
 	it("covers every sidebar navigation item in the global search catalog", () => {
 		const hrefs = new Set(getSearchItems().map((item) => item.href));
 		const expectedMainAndSystemHrefs = [
-			"/",
+			"/dashboard",
 			"/servers",
 			"/health",
 			"/traffic",

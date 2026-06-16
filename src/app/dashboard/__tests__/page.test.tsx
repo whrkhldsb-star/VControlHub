@@ -1,0 +1,151 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/auth/csrf-client", () => ({
+  csrfFetch: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/require-session", () => ({
+  requireSession: vi.fn().mockResolvedValue({
+    userId: "u_1",
+    username: "admin",
+    roles: ["admin"],
+    mustChangePassword: false,
+  }),
+}));
+
+vi.mock("@/lib/server/service", () => ({
+  listServerProfiles: vi.fn().mockResolvedValue([
+    {
+      id: "srv_1",
+      name: "hk-prod-1",
+      host: "203.0.113.10",
+      port: 22,
+      username: "root",
+      connectionSummary: "root@203.0.113.10:22，使用 SSH 密钥 prod-root-key 连接",
+      tags: ["prod"],
+      enabled: true,
+      sshKey: { id: "key_1", name: "prod-root-key", fingerprint: "SHA256:abc" },
+    },
+  ]),
+}));
+
+vi.mock("@/lib/storage/service", () => ({
+  getStorageOverview: vi.fn().mockResolvedValue({
+    nodes: [
+      {
+        id: "node_1",
+        name: "主控本机",
+        driver: "LOCAL",
+        isDefault: true,
+        connectionSummary: "本机存储：/srv/whrkhldsb/storage",
+        directAccess: { mode: "managed-download", description: "本机文件由管理端直接提供受控下载与预览。" },
+        fileCount: 3,
+      },
+      {
+        id: "node_2",
+        name: "香港媒体库",
+        driver: "SFTP",
+        isDefault: false,
+        connectionSummary: "SFTP 存储：root@203.0.113.11:22（绑定节点 hk-media-1），根目录 /data/media",
+        directAccess: { mode: "managed-download", description: "远端文件经管理端 SFTP 代理中转下载（来自 203.0.113.11:22）。", href: "/api/storage/sftp-download?nodeId=node_2&path=" },
+        fileCount: 8,
+      },
+    ],
+    entries: [
+      {
+        id: "file_1",
+        name: "demo.mp4",
+        mimeType: "video/mp4",
+        relativePath: "videos/demo.mp4",
+        sizeLabel: "1024 B",
+        previewable: true,
+        directAccess: { mode: "managed-download", description: "远端文件经管理端 SFTP 代理中转下载（来自 203.0.113.11:22）。", href: "/api/storage/sftp-download?nodeId=node_2&path=" },
+        storageNode: { name: "香港媒体库" },
+      },
+    ],
+    stats: {
+      totalNodes: 2,
+      defaultNodeName: "主控本机",
+      localNodeCount: 1,
+      sftpNodeCount: 1,
+      totalEntries: 1,
+      previewableEntries: 1,
+    },
+  }),
+}));
+
+vi.mock("@/lib/command/service", () => ({
+  listCommandRequests: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/lib/notification/service", () => ({
+  getUnreadCount: vi.fn().mockResolvedValue(0),
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    auditLog: {
+      findMany: vi.fn().mockResolvedValue([
+        {
+          id: "audit_1",
+          action: "server.updated",
+          severity: "INFO",
+          actorType: "USER",
+          createdAt: new Date("2026-05-27T08:30:00.000Z"),
+          actor: { username: "admin", displayName: "Admin" },
+        },
+      ]),
+    },
+    downloadTask: {
+      groupBy: vi.fn().mockResolvedValue([{ status: "COMPLETED", _count: 1 }]),
+    },
+    scheduledTask: {
+      count: vi.fn().mockResolvedValue(1),
+    },
+  },
+}));
+
+import { csrfFetch } from "@/lib/auth/csrf-client";
+import Dashboard from "../page";
+
+const csrfFetchMock = vi.mocked(csrfFetch);
+
+describe("Dashboard", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    csrfFetchMock.mockReset();
+    csrfFetchMock.mockImplementation(async (url) => {
+      if (String(url) === "/api/preferences") {
+        return {
+          dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+        };
+      }
+      return { servers: [], downloads: [], audit: [], imageBed: [] };
+    });
+  });
+
+  it("renders dashboard sections for servers and storage overview", async () => {
+    render(await Dashboard());
+
+    expect(screen.getByText("仪表盘")).toBeInTheDocument();
+    expect(screen.getByText("VPS 状态总览")).toBeInTheDocument();
+    expect(screen.getByText("在线 VPS")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /管理 VPS 与密钥/ })).toHaveAttribute("href", "/servers");
+    expect(screen.getByText("VPS 节点")).toBeInTheDocument();
+    expect(screen.getByText("核心资源")).toBeInTheDocument();
+    expect(screen.getByText("运维队列")).toBeInTheDocument();
+    expect(screen.queryByText("未读通知")).not.toBeInTheDocument();
+    expect(screen.queryByText("活跃定时任务")).not.toBeInTheDocument();
+    expect(screen.getByText("文件管理")).toBeInTheDocument();
+    expect(screen.getByText("远程下载")).toBeInTheDocument();
+    expect(screen.getByText("审批中心")).toBeInTheDocument();
+    expect(screen.getByText("最近审批活动")).toBeInTheDocument();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+    expect(screen.getByText("最近操作日志")).toBeInTheDocument();
+    expect(screen.getByText("server.updated")).toBeInTheDocument();
+    expect(screen.getByText("2026/05/27 16:30:00")).toBeInTheDocument();
+    expect(screen.getAllByText("1").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /查看全部/ })).toHaveAttribute("href", "/audit");
+  });
+});

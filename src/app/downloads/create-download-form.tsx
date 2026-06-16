@@ -79,9 +79,9 @@ export function CreateDownloadForm({
 	onServerChange,
 	onSubmit,
 }: CreateDownloadFormProps) {
+	const { t } = useI18n();
 	if (!open) return null;
 
-	const { t } = useI18n();
 	const selectedServer = servers.find((s) => s.id === selectedServerId);
 
 	return (
