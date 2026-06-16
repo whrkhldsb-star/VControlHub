@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 import type { BackupType } from "@/lib/backup/service";
 
 type ServerOption = { id: string; name: string; enabled: boolean };
@@ -34,6 +35,7 @@ function describeCronPreview(expr: string) {
 }
 
 export function ScheduleBackupForm({ servers, commandByType }: Props) {
+  const { t } = useI18n();
   const [type, setType] = useState<BackupType>("DATABASE");
   const [cronExpression, setCronExpression] = useState("0 3 * * *");
   const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(new Set());
@@ -82,19 +84,19 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
     <form onSubmit={createSchedule} data-tone="cyan" className="mt-4 space-y-4 rounded-xl border border-cyan-400/10 p-4">
       <div className="grid gap-3 md:grid-cols-[180px_1fr]">
         <div className="space-y-1.5">
-          <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-[var(--text-secondary)]">备份类型</label>
+          <label htmlFor={scheduleBackupTypeSelectId} className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.backupType")}</label>
           <select id={scheduleBackupTypeSelectId} value={type} onChange={(event) => setType(event.target.value as BackupType)} className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
-            <option value="DATABASE">数据库备份</option>
-            <option value="FILES">文件备份</option>
-            <option value="FULL">完整备份</option>
+            <option value="DATABASE">{t("common.databaseBackup")}</option>
+            <option value="FILES">{t("common.fileBackup")}</option>
+            <option value="FULL">{t("common.fullBackup")}</option>
           </select>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-[var(--text-secondary)]">Cron 表达式</label>
+          <label htmlFor={scheduleCronInputId} className="block text-xs font-medium text-[var(--text-secondary)]">{t("common.cronExpression")}</label>
           <input id={scheduleCronInputId} value={cronExpression} onChange={(event) => setCronExpression(event.target.value)} required placeholder="0 3 * * *" className="block w-full rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm font-mono text-slate-100" />
         </div>
       </div>
-      <p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-cyan-100">预览：{cronPreview}</p>
+      <p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-cyan-100">{t("common.preview")}{cronPreview}</p>
       <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{command}</code>
       <div className="space-y-2">
         <p className="text-xs font-medium text-[var(--text-secondary)]">执行节点</p>

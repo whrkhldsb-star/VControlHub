@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/auth/require-session", () => ({
@@ -133,7 +134,7 @@ describe("BackupsPage", () => {
     expect(screen.getByText(/restore-db\.sh 'backups\/database\.sql\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/files\.tar\.gz'/)).toBeInTheDocument();
     expect(screen.getByText(/tar -xzf 'backups\/full\.tar\.gz'/)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "执行恢复" })).toHaveLength(5);
+    expect(screen.getAllByRole("button", { name: "恢复" })).toHaveLength(5);
     expect(screen.getAllByRole("button", { name: "标记作废" })).toHaveLength(2);
     expect(screen.getByRole("button", { name: "重试备份" })).toBeInTheDocument();
     expect(screen.getAllByText("对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。")).toHaveLength(2);

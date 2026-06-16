@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type Props = {
   backupId: string;
@@ -14,6 +15,7 @@ type Props = {
 const CONFIRM_TEXT = "RESTORE";
 
 export function RestoreBackupButton({ backupId, backupType, disabled = false }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -62,7 +64,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         onClick={openConfirm}
         className="w-fit rounded-lg border border-rose-300/40 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {pending ? "正在恢复..." : "执行恢复"}
+        {pending ? "正在恢复..." : t("common.restore")}
       </button>
       {message && <p className="text-xs text-emerald-300">{message}</p>}
       {error && <p className="text-xs text-rose-300">{error}</p>}

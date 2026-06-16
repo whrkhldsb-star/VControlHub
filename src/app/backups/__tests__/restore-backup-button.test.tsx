@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,7 +25,7 @@ describe("RestoreBackupButton", () => {
   it("requires an explicit visible restore confirmation label before calling the API", async () => {
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "执行恢复" }));
+    await userEvent.click(screen.getByRole("button", { name: "恢复" }));
 
     expect(screen.getByRole("dialog", { name: "确认恢复备份" })).toBeInTheDocument();
     expect(screen.getByLabelText("输入 RESTORE 确认恢复")).toHaveAttribute("placeholder", "RESTORE");
@@ -39,7 +40,7 @@ describe("RestoreBackupButton", () => {
   it("keeps restore blocked for the wrong confirmation", async () => {
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "执行恢复" }));
+    await userEvent.click(screen.getByRole("button", { name: "恢复" }));
     await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTOR");
 
     expect(screen.getByRole("button", { name: "确认恢复" })).toBeDisabled();
@@ -49,7 +50,7 @@ describe("RestoreBackupButton", () => {
   it("posts to the restore API through csrfFetch and refreshes server-rendered records", async () => {
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
-    await userEvent.click(screen.getByRole("button", { name: "执行恢复" }));
+    await userEvent.click(screen.getByRole("button", { name: "恢复" }));
     await userEvent.type(screen.getByLabelText("输入 RESTORE 确认恢复"), "RESTORE");
     await userEvent.click(screen.getByRole("button", { name: "确认恢复" }));
 
@@ -63,7 +64,7 @@ describe("RestoreBackupButton", () => {
     const user = userEvent.setup();
     render(<RestoreBackupButton backupId="bak1" backupType="DATABASE" />);
 
-    await user.click(screen.getByRole("button", { name: "执行恢复" }));
+    await user.click(screen.getByRole("button", { name: "恢复" }));
     const dialog = await screen.findByRole("dialog", { name: "确认恢复备份" });
     const backdrop = dialog.parentElement as HTMLElement;
     // Backdrop must switch between items-end (mobile sheet) and sm:items-center (centered)
