@@ -159,6 +159,11 @@ const translations: Record<Locale, Record<string, string>> = {
 		"imageBed.toast.markdownCopied": "✅ Markdown 已复制",
 		"imageBed.toast.htmlCopied": "✅ HTML 已复制",
 
+		// Audit (filter / error)
+		"audit.loadFailed": "审计日志加载失败",
+		"audit.filterBySeverity": "按严重级别过滤",
+		"audit.filterByAction": "按动作类型过滤",
+
 		// Dashboard
 		"dashboard.title": "仪表盘",
 		"dashboard.welcome": "欢迎回来",
@@ -432,6 +437,11 @@ const translations: Record<Locale, Record<string, string>> = {
 		"imageBed.toast.copyFailed": "Copy failed",
 		"imageBed.toast.markdownCopied": "✅ Markdown copied",
 		"imageBed.toast.htmlCopied": "✅ HTML copied",
+
+		// Audit (filter / error)
+		"audit.loadFailed": "Failed to load audit log",
+		"audit.filterBySeverity": "Filter by severity",
+		"audit.filterByAction": "Filter by action",
 
 		// Dashboard
 		"dashboard.title": "Dashboard",

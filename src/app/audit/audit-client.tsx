@@ -88,7 +88,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
       setData(json as AuditListResponse);
       setError(null);
     } catch (error) {
-      setError(getErrorMessage(error, "审计日志加载失败"));
+      setError(getErrorMessage(error, t("audit.loadFailed")));
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSeverityFilter(e.target.value);
               setPage(1);
             }}
-            aria-label="按严重级别过滤"
+            aria-label={t("audit.filterBySeverity")}
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">全部级别</option>
@@ -157,7 +157,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setActionFilter(e.target.value);
               setPage(1);
             }}
-            aria-label="按动作类型过滤"
+            aria-label={t("audit.filterByAction")}
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">{t("audit.all-types")}</option>
