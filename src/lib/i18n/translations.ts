@@ -257,6 +257,11 @@ const translations: Record<Locale, Record<string, string>> = {
 		"search.shortcut-select": "↑↓ 选择",
 		"search.shortcut-confirm": "↵ 确认",
 		"search.shortcut-close": "ESC 关闭",
+
+		// 404
+		"notFound.title": "404",
+		"notFound.description": "页面不存在或已被移除",
+		"notFound.returnHome": "← 返回首页",
 	},
 	en: {
 		// Navigation
@@ -510,6 +515,11 @@ const translations: Record<Locale, Record<string, string>> = {
 		"search.shortcut-select": "↑↓ Select",
 		"search.shortcut-confirm": "↵ Confirm",
 		"search.shortcut-close": "ESC Close",
+
+		// 404
+		"notFound.title": "404",
+		"notFound.description": "Page not found or has been removed",
+		"notFound.returnHome": "← Return Home",
 	},
 };
 
