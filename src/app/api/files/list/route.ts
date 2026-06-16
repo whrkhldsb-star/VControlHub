@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -10,6 +9,7 @@ import {
 } from "@/lib/storage/access-control";
 import { getStorageOverview } from "@/lib/storage/service";
 import { AuthError } from "@/lib/errors";
+import { listFilesQuerySchema } from "@/lib/files/schema";
 import {
   getSftpSyncNode,
   syncSftpDirectoryEntries,
@@ -44,12 +44,7 @@ export async function GET(request: NextRequest) {
 
       const { path: currentPathRaw, q, scope, nodeId: nodeIdFilter } = parseSearchParams(
         request,
-        z.object({
-          path: z.string().trim().min(1).optional(),
-          q: z.string().trim().optional(),
-          scope: z.enum(["all", "current"]).default("current"),
-          nodeId: z.string().trim().optional(),
-        }),
+        listFilesQuerySchema,
       );
       const currentPath = normalizeFilePath(currentPathRaw);
       const searchQuery = (q ?? "").trim();

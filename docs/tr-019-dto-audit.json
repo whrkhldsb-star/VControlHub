@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-16T08:35:39.002Z",
+  "generatedAt": "2026-06-16T09:10:54.042Z",
   "summary": {
     "modulesAudited": 5,
     "totalRoutes": 28,
-    "inlineZodRoutes": 5,
-    "boundaryConsumerRoutes": 19,
-    "overallCoveragePercent": 79.2
+    "inlineZodRoutes": 2,
+    "boundaryConsumerRoutes": 22,
+    "overallCoveragePercent": 91.7
   },
   "modules": [
     {
@@ -14,42 +14,28 @@
       "boundaryKind": "dto",
       "boundaryExists": true,
       "totalRoutes": 4,
-      "inlineZodRoutes": 3,
-      "boundaryConsumerRoutes": 0,
+      "inlineZodRoutes": 0,
+      "boundaryConsumerRoutes": 3,
       "cleanRoutes": 1,
-      "coveragePercent": 0,
+      "coveragePercent": 100,
       "routes": [
         {
           "path": "/opt/VControlHub/src/app/api/files/archive-list/route.ts",
           "relPath": "src/app/api/files/archive-list/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 36,
-              "text": "z.object({"
-            },
-            {
-              "line": 39,
-              "text": "driver: z.enum([\"LOCAL\", \"SFTP\"]).default(\"LOCAL\"),"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 13
         },
         {
           "path": "/opt/VControlHub/src/app/api/files/editable/[id]/route.ts",
           "relPath": "src/app/api/files/editable/[id]/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 14,
-              "text": "const saveSchema = z.object({"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 6
         },
         {
           "path": "/opt/VControlHub/src/app/api/files/extract/route.ts",
@@ -63,20 +49,11 @@
         {
           "path": "/opt/VControlHub/src/app/api/files/list/route.ts",
           "relPath": "src/app/api/files/list/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 47,
-              "text": "z.object({"
-            },
-            {
-              "line": 50,
-              "text": "scope: z.enum([\"all\", \"current\"]).default(\"current\"),"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 12
         }
       ]
     },

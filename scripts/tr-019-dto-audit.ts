@@ -52,6 +52,10 @@ const MODULES: ReadonlyArray<{
     apiDir: "src/app/api/files",
     boundaryFile: "dto.ts",
     boundaryKind: "dto",
+    // TR-037 R7 (T38d) introduced `schema.ts` for zod request schemas.
+    // Routes may import either the DTO types (TR-039) or the zod schemas
+    // (TR-037) to satisfy the boundary audit.
+    extraBoundaryFiles: ["schema.ts"],
   },
   {
     name: "storage",

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
-import { z } from "zod";
 import {
   resolveStoragePathWithinBase,
   sanitizeArchiveEntries,
@@ -11,6 +10,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { prisma } from "@/lib/db";
+import { archiveListQuerySchema } from "@/lib/files/schema";
 
 import { AppError, AuthError, NotFoundError, ValidationError } from "@/lib/errors";
 const execFileAsync = promisify(execFile);
@@ -33,12 +33,7 @@ export async function GET(request: NextRequest) {
         throw new AuthError("未授权");
       const { nodeId, relativePath, driver, name } = parseSearchParams(
         request,
-        z.object({
-          nodeId: z.string().trim().optional(),
-          relativePath: z.string().trim().optional(),
-          driver: z.enum(["LOCAL", "SFTP"]).default("LOCAL"),
-          name: z.string().trim().min(1).default("archive"),
-        }),
+        archiveListQuerySchema,
       );
       const cleanedRelativePath = (relativePath ?? "").replace(/^\/+/, "");
 
