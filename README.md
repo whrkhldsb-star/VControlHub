@@ -725,6 +725,7 @@ R27 验证：254 / 1413 测过，verify 4:30，smoke 25/25；commit `6fac482`；
 | TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — `.env.local` 密码登录返 invalid，DB hash 不匹配（memory 记录的 quirk，生产化后是阻塞门）。 | ⏳ 建议：boot 时若 DB hash 与 env 不一致，自动 reseed admin（开发环境）或显式报错（生产）。 |
 | TR-052 | P3 | 落地页 `/` 307→login 后无 dashboard — 默认页 redirect 而非真 dashboard。 | ⏳ 建议：首屏直接看概览，做一个 `/dashboard` 路由专属页面。 |
 | TR-053 | P1 | 公开 `/api/status` 泄露存储节点详情 — 未登录可见 `"6 个存储节点, 0 健康, 0 异常, 6 待探测"`。 | ⏳ 建议：公开端点只返回 `overall: warning`，详细 checks 给登录后页面。 |
+| TR-054 | P2 | i18n 1246 缺键工程化补齐 — TR-042 报告显示 1246 个 hardcode 字符串未走 t() 调用,覆盖率 11.6%,工程化批量补齐(top-N 字符串 + 各模块调用点)。 | ⏳ 启动中 (R1 ✅,165→202 covered,11.6%→14.2%,`scripts/i18n-coverage.ts` 加 ellipsis 归一化,`translations.ts` +5 common + 4 error.* zh+en,`error.tsx` + `audit-client.tsx` 共 5 处 hardcode 改 t() 调用)。R2-R5 续做剩余 1220 缺键。 |
 
 ---
 
