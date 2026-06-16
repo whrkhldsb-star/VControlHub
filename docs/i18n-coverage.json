@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-16T03:14:42.783Z",
+  "generatedAt": "2026-06-16T03:26:22.082Z",
   "summary": {
     "files": 254,
     "filesWithStrings": 130,
     "totalStrings": 1422,
-    "coveredStrings": 227,
-    "missingStrings": 1195,
-    "coveragePercent": 16
+    "coveredStrings": 260,
+    "missingStrings": 1162,
+    "coveragePercent": 18.3
   },
   "perModule": [
     {
@@ -52,13 +52,6 @@
       "coveragePercent": 0
     },
     {
-      "module": "src/app/deployments",
-      "total": 44,
-      "covered": 1,
-      "missing": 43,
-      "coveragePercent": 2.3
-    },
-    {
       "module": "src/app/qa-reports",
       "total": 32,
       "covered": 1,
@@ -73,11 +66,11 @@
       "coveragePercent": 4.5
     },
     {
-      "module": "src/app/downloads",
-      "total": 39,
+      "module": "src/app/deployments",
+      "total": 44,
       "covered": 2,
-      "missing": 37,
-      "coveragePercent": 5.1
+      "missing": 42,
+      "coveragePercent": 4.5
     },
     {
       "module": "src/app/shares",
@@ -92,20 +85,6 @@
       "covered": 3,
       "missing": 53,
       "coveragePercent": 5.4
-    },
-    {
-      "module": "src/app/requests",
-      "total": 33,
-      "covered": 2,
-      "missing": 31,
-      "coveragePercent": 6.1
-    },
-    {
-      "module": "src/app/settings",
-      "total": 31,
-      "covered": 2,
-      "missing": 29,
-      "coveragePercent": 6.5
     },
     {
       "module": "src/app/tickets",
@@ -129,10 +108,24 @@
       "coveragePercent": 7.1
     },
     {
+      "module": "src/app/downloads",
+      "total": 39,
+      "covered": 3,
+      "missing": 36,
+      "coveragePercent": 7.7
+    },
+    {
       "module": "src/app/preferences",
       "total": 11,
       "covered": 1,
       "missing": 10,
+      "coveragePercent": 9.1
+    },
+    {
+      "module": "src/app/requests",
+      "total": 33,
+      "covered": 3,
+      "missing": 30,
       "coveragePercent": 9.1
     },
     {
@@ -143,25 +136,25 @@
       "coveragePercent": 9.8
     },
     {
-      "module": "src/app/media",
-      "total": 61,
-      "covered": 6,
-      "missing": 55,
-      "coveragePercent": 9.8
-    },
-    {
-      "module": "src/app/image-bed",
-      "total": 76,
-      "covered": 8,
-      "missing": 68,
-      "coveragePercent": 10.5
-    },
-    {
       "module": "src/app/api-docs",
       "total": 9,
       "covered": 1,
       "missing": 8,
       "coveragePercent": 11.1
+    },
+    {
+      "module": "src/app/settings",
+      "total": 31,
+      "covered": 4,
+      "missing": 27,
+      "coveragePercent": 12.9
+    },
+    {
+      "module": "src/app/media",
+      "total": 61,
+      "covered": 8,
+      "missing": 53,
+      "coveragePercent": 13.1
     },
     {
       "module": "src/app/traffic",
@@ -171,18 +164,11 @@
       "coveragePercent": 13.3
     },
     {
-      "module": "src/app/quick-services",
-      "total": 83,
-      "covered": 12,
-      "missing": 71,
+      "module": "src/app/image-bed",
+      "total": 76,
+      "covered": 11,
+      "missing": 65,
       "coveragePercent": 14.5
-    },
-    {
-      "module": "src/app/storage",
-      "total": 46,
-      "covered": 7,
-      "missing": 39,
-      "coveragePercent": 15.2
     },
     {
       "module": "src/app/monitoring",
@@ -199,18 +185,18 @@
       "coveragePercent": 16.2
     },
     {
+      "module": "src/app/quick-services",
+      "total": 83,
+      "covered": 14,
+      "missing": 69,
+      "coveragePercent": 16.9
+    },
+    {
       "module": "src/app/ai",
       "total": 88,
       "covered": 16,
       "missing": 72,
       "coveragePercent": 18.2
-    },
-    {
-      "module": "src/app/servers",
-      "total": 112,
-      "covered": 22,
-      "missing": 90,
-      "coveragePercent": 19.6
     },
     {
       "module": "src/components/change-password-modal.tsx",
@@ -220,27 +206,6 @@
       "coveragePercent": 20
     },
     {
-      "module": "src/app/snippets",
-      "total": 33,
-      "covered": 7,
-      "missing": 26,
-      "coveragePercent": 21.2
-    },
-    {
-      "module": "src/app/files",
-      "total": 182,
-      "covered": 40,
-      "missing": 142,
-      "coveragePercent": 22
-    },
-    {
-      "module": "src/app/announcements",
-      "total": 34,
-      "covered": 8,
-      "missing": 26,
-      "coveragePercent": 23.5
-    },
-    {
       "module": "src/app/users",
       "total": 38,
       "covered": 9,
@@ -248,11 +213,25 @@
       "coveragePercent": 23.7
     },
     {
-      "module": "src/app/share",
-      "total": 12,
-      "covered": 3,
-      "missing": 9,
-      "coveragePercent": 25
+      "module": "src/app/storage",
+      "total": 46,
+      "covered": 11,
+      "missing": 35,
+      "coveragePercent": 23.9
+    },
+    {
+      "module": "src/app/servers",
+      "total": 112,
+      "covered": 27,
+      "missing": 85,
+      "coveragePercent": 24.1
+    },
+    {
+      "module": "src/app/files",
+      "total": 182,
+      "covered": 45,
+      "missing": 137,
+      "coveragePercent": 24.7
     },
     {
       "module": "src/components/route-error.tsx",
@@ -276,18 +255,25 @@
       "coveragePercent": 26.3
     },
     {
-      "module": "src/app/templates",
-      "total": 25,
-      "covered": 7,
-      "missing": 18,
-      "coveragePercent": 28
+      "module": "src/app/snippets",
+      "total": 33,
+      "covered": 9,
+      "missing": 24,
+      "coveragePercent": 27.3
     },
     {
-      "module": "src/app/scheduled-tasks",
-      "total": 26,
+      "module": "src/app/announcements",
+      "total": 34,
+      "covered": 10,
+      "missing": 24,
+      "coveragePercent": 29.4
+    },
+    {
+      "module": "src/app/templates",
+      "total": 25,
       "covered": 8,
-      "missing": 18,
-      "coveragePercent": 30.8
+      "missing": 17,
+      "coveragePercent": 32
     },
     {
       "module": "src/app/login",
@@ -295,6 +281,20 @@
       "covered": 5,
       "missing": 10,
       "coveragePercent": 33.3
+    },
+    {
+      "module": "src/app/share",
+      "total": 12,
+      "covered": 4,
+      "missing": 8,
+      "coveragePercent": 33.3
+    },
+    {
+      "module": "src/app/scheduled-tasks",
+      "total": 26,
+      "covered": 9,
+      "missing": 17,
+      "coveragePercent": 34.6
     },
     {
       "module": "src/app/notifications",
@@ -319,231 +319,6 @@
     }
   ],
   "missingByString": [
-    {
-      "text": "内容",
-      "count": 4,
-      "files": [
-        {
-          "path": "src/app/announcements/announcement-edit-modal.tsx",
-          "line": 81,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/announcements/create-announcement-form.tsx",
-          "line": 65,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/snippets/create-snippet-modal.tsx",
-          "line": 117,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/snippets/snippet-edit-modal.tsx",
-          "line": 110,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "路径",
-      "count": 4,
-      "files": [
-        {
-          "path": "src/app/files/recycle-bin-section-client.tsx",
-          "line": 61,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/media/[id]/page.tsx",
-          "line": 273,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/quick-services/quick-services-client.tsx",
-          "line": 947,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/share/[token]/page.tsx",
-          "line": 70,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "节点名称",
-      "count": 4,
-      "files": [
-        {
-          "path": "src/app/servers/server-card-actions.tsx",
-          "line": 205,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/servers/server-create-form.tsx",
-          "line": 186,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/storage/storage-node-create-form.tsx",
-          "line": 30,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/storage/storage-node-edit-form.tsx",
-          "line": 46,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "目标 VPS",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/deployments/deployment-launch-form.tsx",
-          "line": 140,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/downloads/create-download-form.tsx",
-          "line": 147,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/requests/ai-hosted-approval-card.tsx",
-          "line": 73,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "驱动",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/files/file-detail-panel.tsx",
-          "line": 101,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/storage/storage-node-create-form.tsx",
-          "line": 34,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/storage/storage-node-edit-form.tsx",
-          "line": 50,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "全部文件",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/files/files-browser-spa.tsx",
-          "line": 404,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/files/files-browser-spa.tsx",
-          "line": 568,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/files/search-scope-toggle.tsx",
-          "line": 53,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "复制外链",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/image-bed/image-bed-page-client.tsx",
-          "line": 533,
-          "kind": "title"
-        },
-        {
-          "path": "src/app/image-bed/image-bed-page-client.tsx",
-          "line": 533,
-          "kind": "aria-label"
-        },
-        {
-          "path": "src/app/image-bed/image-preview-modal.tsx",
-          "line": 76,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "标签",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/media/[id]/page.tsx",
-          "line": 285,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/servers/server-card-actions.tsx",
-          "line": 290,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/servers/server-create-form.tsx",
-          "line": 298,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "环境变量：",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/quick-services/quick-services-client.tsx",
-          "line": 823,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/settings/settings-client.tsx",
-          "line": 799,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/settings/settings-client.tsx",
-          "line": 885,
-          "kind": "text"
-        }
-      ]
-    },
-    {
-      "text": "命令内容",
-      "count": 3,
-      "files": [
-        {
-          "path": "src/app/scheduled-tasks/scheduled-task-list-client.tsx",
-          "line": 323,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/servers/command-create-form.tsx",
-          "line": 55,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/templates/template-list-client.tsx",
-          "line": 326,
-          "kind": "text"
-        }
-      ]
-    },
     {
       "text": "修改登录密码",
       "count": 2,
@@ -1181,6 +956,166 @@
           "path": "src/app/files/search-scope-toggle.tsx",
           "line": 42,
           "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "回收站",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/page.tsx",
+          "line": 270,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/files/page.tsx",
+          "line": 304,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "正在加载…",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/preview/csv-preview-client.tsx",
+          "line": 103,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/files/preview/markdown-preview-client.tsx",
+          "line": 303,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "⬇ 下载文件",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/preview/office-preview-client.tsx",
+          "line": 25,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/share/[token]/page.tsx",
+          "line": 130,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "保存前差异预览",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/preview/text-preview-client.tsx",
+          "line": 620,
+          "kind": "aria-label"
+        },
+        {
+          "path": "src/app/files/preview/text-preview-client.tsx",
+          "line": 623,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "🗑️ 回收站",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/recycle-bin-section-client.tsx",
+          "line": 36,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/files/recycle-bin-section-client.tsx",
+          "line": 46,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "无权限",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/recycle-bin-section-client.tsx",
+          "line": 84,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/files/recycle-bin-section-client.tsx",
+          "line": 110,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "重命名",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/files/rename-inline-form.tsx",
+          "line": 70,
+          "kind": "title"
+        },
+        {
+          "path": "src/app/files/rename-inline-form.tsx",
+          "line": 94,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "/$  张` : `已完成 $ /$  张`}",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/image-bed/image-bed-page-client.tsx",
+          "line": 462,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/media/media-image-upload-panel.tsx",
+          "line": 165,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "成功   · 失败",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/image-bed/image-bed-page-client.tsx",
+          "line": 463,
+          "kind": "text"
+        },
+        {
+          "path": "src/app/media/media-image-upload-panel.tsx",
+          "line": 166,
+          "kind": "text"
+        }
+      ]
+    },
+    {
+      "text": "复制 Markdown",
+      "count": 2,
+      "files": [
+        {
+          "path": "src/app/image-bed/image-bed-page-client.tsx",
+          "line": 534,
+          "kind": "title"
+        },
+        {
+          "path": "src/app/image-bed/image-bed-page-client.tsx",
+          "line": 534,
+          "kind": "aria-label"
         }
       ]
     }
@@ -2410,8 +2345,8 @@
     "src/app/announcements/announcement-edit-modal.tsx": {
       "path": "src/app/announcements/announcement-edit-modal.tsx",
       "total": 9,
-      "covered": 2,
-      "missing": 7,
+      "covered": 3,
+      "missing": 6,
       "candidates": [
         {
           "text": "编辑公告",
@@ -2461,7 +2396,8 @@
           "line": 81,
           "kind": "text",
           "context": "<label className=\"block text-xs text-slate-400\" htmlFor=\"announcementContent\">内容",
-          "covered": false
+          "covered": true,
+          "key": "common.content"
         },
         {
           "text": "📌 置顶",
@@ -2568,8 +2504,8 @@
     "src/app/announcements/create-announcement-form.tsx": {
       "path": "src/app/announcements/create-announcement-form.tsx",
       "total": 14,
-      "covered": 2,
-      "missing": 12,
+      "covered": 3,
+      "missing": 11,
       "candidates": [
         {
           "text": "发布公告",
@@ -2634,7 +2570,8 @@
           "line": 65,
           "kind": "text",
           "context": "<label htmlFor={contentId} className=\"text-xs font-medium text-[var(--text-secon",
-          "covered": false
+          "covered": true,
+          "key": "common.content"
         },
         {
           "text": "写清影响范围、时间窗口和用户需要执行的操作。",
@@ -3836,8 +3773,8 @@
     "src/app/deployments/deployment-launch-form.tsx": {
       "path": "src/app/deployments/deployment-launch-form.tsx",
       "total": 13,
-      "covered": 0,
-      "missing": 13,
+      "covered": 1,
+      "missing": 12,
       "candidates": [
         {
           "text": "请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。",
@@ -3915,7 +3852,8 @@
           "line": 140,
           "kind": "text",
           "context": "<h3 className=\"text-sm font-semibold text-white\">目标 VPS",
-          "covered": false
+          "covered": true,
+          "key": "common.targetVps"
         },
         {
           "text": "至少选择 1 台。",
@@ -4404,8 +4342,8 @@
     "src/app/downloads/create-download-form.tsx": {
       "path": "src/app/downloads/create-download-form.tsx",
       "total": 16,
-      "covered": 0,
-      "missing": 16,
+      "covered": 1,
+      "missing": 15,
       "candidates": [
         {
           "text": "新建下载任务",
@@ -4454,7 +4392,8 @@
           "line": 147,
           "kind": "text",
           "context": "<label className=\"text-xs font-medium text-white/50 tracking-wide\" htmlFor=\"down",
-          "covered": false
+          "covered": true,
+          "key": "common.targetVps"
         },
         {
           "text": "保存路径",
@@ -4990,8 +4929,8 @@
     "src/app/files/file-detail-panel.tsx": {
       "path": "src/app/files/file-detail-panel.tsx",
       "total": 12,
-      "covered": 3,
-      "missing": 9,
+      "covered": 4,
+      "missing": 8,
       "candidates": [
         {
           "text": "资料详情",
@@ -5021,7 +4960,8 @@
           "line": 101,
           "kind": "text",
           "context": "<p className=\"text-xs text-slate-500\">驱动",
-          "covered": false
+          "covered": true,
+          "key": "common.driver"
         },
         {
           "text": "大小",
@@ -5323,8 +5263,8 @@
     "src/app/files/files-browser-spa.tsx": {
       "path": "src/app/files/files-browser-spa.tsx",
       "total": 27,
-      "covered": 4,
-      "missing": 23,
+      "covered": 6,
+      "missing": 21,
       "candidates": [
         {
           "text": "当前：",
@@ -5390,7 +5330,8 @@
           "line": 404,
           "kind": "text",
           "context": "<button type=\"button\" onClick={() => onNavigate(\"\")} cla",
-          "covered": false
+          "covered": true,
+          "key": "common.allFiles"
         },
         {
           "text": "目录树",
@@ -5426,7 +5367,8 @@
           "line": 568,
           "kind": "text",
           "context": "<span>全部文件",
-          "covered": false
+          "covered": true,
+          "key": "common.allFiles"
         },
         {
           "text": "切换存储节点",
@@ -6120,8 +6062,8 @@
     "src/app/files/recycle-bin-section-client.tsx": {
       "path": "src/app/files/recycle-bin-section-client.tsx",
       "total": 11,
-      "covered": 4,
-      "missing": 7,
+      "covered": 5,
+      "missing": 6,
       "candidates": [
         {
           "text": "🗑️ 回收站",
@@ -6180,7 +6122,8 @@
           "line": 61,
           "kind": "text",
           "context": "<div>路径",
-          "covered": false
+          "covered": true,
+          "key": "common.path"
         },
         {
           "text": "操作",
@@ -6285,8 +6228,8 @@
     "src/app/files/search-scope-toggle.tsx": {
       "path": "src/app/files/search-scope-toggle.tsx",
       "total": 2,
-      "covered": 0,
-      "missing": 2,
+      "covered": 1,
+      "missing": 1,
       "candidates": [
         {
           "text": "当前目录",
@@ -6300,7 +6243,8 @@
           "line": 53,
           "kind": "text",
           "context": "<button type=\"button\" onClick={(e) => handleClick(\"all\", e)} classNa",
-          "covered": false
+          "covered": true,
+          "key": "common.allFiles"
         }
       ]
     },
@@ -6476,8 +6420,8 @@
     "src/app/image-bed/image-bed-page-client.tsx": {
       "path": "src/app/image-bed/image-bed-page-client.tsx",
       "total": 73,
-      "covered": 7,
-      "missing": 66,
+      "covered": 9,
+      "missing": 64,
       "candidates": [
         {
           "text": "图片外链中心",
@@ -6844,7 +6788,8 @@
           "kind": "title",
           "attr": "title",
           "context": "<button onClick={() => copyLink(img.publicUrl)} className=\"min-h-11 min-w-11 rou",
-          "covered": false
+          "covered": true,
+          "key": "common.copyLink"
         },
         {
           "text": "复制外链",
@@ -6852,7 +6797,8 @@
           "kind": "aria-label",
           "attr": "aria-label",
           "context": "<button onClick={() => copyLink(img.publicUrl)} className=\"min-h-11 min-w-11 rou",
-          "covered": false
+          "covered": true,
+          "key": "common.copyLink"
         },
         {
           "text": "复制 Markdown",
@@ -7025,15 +6971,16 @@
     "src/app/image-bed/image-preview-modal.tsx": {
       "path": "src/app/image-bed/image-preview-modal.tsx",
       "total": 3,
-      "covered": 1,
-      "missing": 2,
+      "covered": 2,
+      "missing": 1,
       "candidates": [
         {
           "text": "复制外链",
           "line": 76,
           "kind": "text",
           "context": "<button onClick={() => onCopyLink(image.publicUrl)} className=\"min",
-          "covered": false
+          "covered": true,
+          "key": "common.copyLink"
         },
         {
           "text": "删除",
@@ -7244,8 +7191,8 @@
     "src/app/media/[id]/page.tsx": {
       "path": "src/app/media/[id]/page.tsx",
       "total": 13,
-      "covered": 2,
-      "missing": 11,
+      "covered": 4,
+      "missing": 9,
       "candidates": [
         {
           "text": "← 返回媒体库",
@@ -7332,14 +7279,16 @@
           "line": 273,
           "kind": "text",
           "context": "<dt className=\"text-xs uppercase tracking-wide text-slate-500\"> ",
-          "covered": false
+          "covered": true,
+          "key": "common.path"
         },
         {
           "text": "标签",
           "line": 285,
           "kind": "text",
           "context": "<Tag size={12} /> 标签 ",
-          "covered": false
+          "covered": true,
+          "key": "common.tag"
         }
       ]
     },
@@ -8822,8 +8771,8 @@
     "src/app/quick-services/quick-services-client.tsx": {
       "path": "src/app/quick-services/quick-services-client.tsx",
       "total": 67,
-      "covered": 6,
-      "missing": 61,
+      "covered": 8,
+      "missing": 59,
       "candidates": [
         {
           "text": "加载中…",
@@ -9227,7 +9176,8 @@
           "line": 823,
           "kind": "text",
           "context": "<span className=\"text-slate-500\">环境变量：",
-          "covered": false
+          "covered": true,
+          "key": "common.envVarsLabel"
         },
         {
           "text": "宿主机挂载：",
@@ -9264,7 +9214,8 @@
           "line": 947,
           "kind": "text",
           "context": "<span>路径 {item.path}",
-          "covered": false
+          "covered": true,
+          "key": "common.path"
         },
         {
           "text": "📈  k 拉取",
@@ -9313,8 +9264,8 @@
     "src/app/requests/ai-hosted-approval-card.tsx": {
       "path": "src/app/requests/ai-hosted-approval-card.tsx",
       "total": 5,
-      "covered": 0,
-      "missing": 5,
+      "covered": 1,
+      "missing": 4,
       "candidates": [
         {
           "text": "AI 助手授权",
@@ -9342,7 +9293,8 @@
           "line": 73,
           "kind": "text",
           "context": "<div className=\"text-[10px] uppercase tracking-wider text-slate-600\">目标 VPS",
-          "covered": false
+          "covered": true,
+          "key": "common.targetVps"
         },
         {
           "text": "· $ ` : \"未指定\"}",
@@ -9629,8 +9581,8 @@
     "src/app/scheduled-tasks/scheduled-task-list-client.tsx": {
       "path": "src/app/scheduled-tasks/scheduled-task-list-client.tsx",
       "total": 25,
-      "covered": 7,
-      "missing": 18,
+      "covered": 8,
+      "missing": 17,
       "candidates": [
         {
           "text": "搜索定时任务 / 执行日志",
@@ -9783,7 +9735,8 @@
           "line": 323,
           "kind": "text",
           "context": "<label htmlFor=\"scheduled-task-command\" className={fieldLabelClass}>命令内容",
-          "covered": false
+          "covered": true,
+          "key": "common.commandContent"
         },
         {
           "text": "原因 / 备注",
@@ -9908,8 +9861,8 @@
     "src/app/servers/command-create-form.tsx": {
       "path": "src/app/servers/command-create-form.tsx",
       "total": 10,
-      "covered": 2,
-      "missing": 8,
+      "covered": 3,
+      "missing": 7,
       "candidates": [
         {
           "text": "下发命令",
@@ -9945,7 +9898,8 @@
           "line": 55,
           "kind": "text",
           "context": "<label className=\"text-xs font-medium text-white/50 tracking-wide\" htmlFor=\"cmdC",
-          "covered": false
+          "covered": true,
+          "key": "common.commandContent"
         },
         {
           "text": "原因 / 备注",
@@ -10065,8 +10019,8 @@
     "src/app/servers/server-card-actions.tsx": {
       "path": "src/app/servers/server-card-actions.tsx",
       "total": 24,
-      "covered": 5,
-      "missing": 19,
+      "covered": 7,
+      "missing": 17,
       "candidates": [
         {
           "text": "SSH 终端",
@@ -10139,7 +10093,8 @@
           "line": 205,
           "kind": "text",
           "context": "<label className=\"block text-xs text-slate-400\" html",
-          "covered": false
+          "covered": true,
+          "key": "common.nodeName"
         },
         {
           "text": "IP / 域名",
@@ -10183,7 +10138,8 @@
           "line": 290,
           "kind": "text",
           "context": "<label className=\"block text-xs text-slate-400\" html",
-          "covered": false
+          "covered": true,
+          "key": "common.tag"
         },
         {
           "text": "保存并校验连接",
@@ -10248,8 +10204,8 @@
     "src/app/servers/server-create-form.tsx": {
       "path": "src/app/servers/server-create-form.tsx",
       "total": 24,
-      "covered": 6,
-      "missing": 18,
+      "covered": 8,
+      "missing": 16,
       "candidates": [
         {
           "text": "连接方式",
@@ -10330,7 +10286,8 @@
           "line": 186,
           "kind": "text",
           "context": "<label className=\"text-xs font-medium text-white/50 tracking-wide\" ",
-          "covered": false
+          "covered": true,
+          "key": "common.nodeName"
         },
         {
           "text": "例如 prod-1",
@@ -10412,7 +10369,8 @@
           "line": 298,
           "kind": "text",
           "context": "<label className=\"text-xs font-medium text-white/50 tracking-wide\" ",
-          "covered": false
+          "covered": true,
+          "key": "common.tag"
         },
         {
           "text": "逗号分隔，例如 prod,web",
@@ -10781,8 +10739,8 @@
     "src/app/settings/settings-client.tsx": {
       "path": "src/app/settings/settings-client.tsx",
       "total": 30,
-      "covered": 1,
-      "missing": 29,
+      "covered": 3,
+      "missing": 27,
       "candidates": [
         {
           "text": "当前角色无系统设置权限",
@@ -10881,7 +10839,8 @@
           "line": 799,
           "kind": "text",
           "context": "<p> 环境变量：",
-          "covered": false
+          "covered": true,
+          "key": "common.envVarsLabel"
         },
         {
           "text": "保存后需重启对应服务才会改变已启动进程。",
@@ -10909,7 +10868,8 @@
           "line": 885,
           "kind": "text",
           "context": "<p> 环境变量：",
-          "covered": false
+          "covered": true,
+          "key": "common.envVarsLabel"
         },
         {
           "text": "保存后需重启对应服务才会改变已启动进程。",
@@ -11009,8 +10969,8 @@
     "src/app/share/[token]/page.tsx": {
       "path": "src/app/share/[token]/page.tsx",
       "total": 12,
-      "covered": 3,
-      "missing": 9,
+      "covered": 4,
+      "missing": 8,
       "candidates": [
         {
           "text": "存储节点",
@@ -11033,7 +10993,8 @@
           "line": 70,
           "kind": "text",
           "context": "<dt>路径",
-          "covered": false
+          "covered": true,
+          "key": "common.path"
         },
         {
           "text": "有效期至",
@@ -11284,8 +11245,8 @@
     "src/app/snippets/create-snippet-modal.tsx": {
       "path": "src/app/snippets/create-snippet-modal.tsx",
       "total": 11,
-      "covered": 2,
-      "missing": 9,
+      "covered": 3,
+      "missing": 8,
       "candidates": [
         {
           "text": "新建代码片段",
@@ -11352,7 +11313,8 @@
           "line": 117,
           "kind": "text",
           "context": "<label htmlFor=\"create-snippet-content-input\" className=\"block text-xs text-slat",
-          "covered": false
+          "covered": true,
+          "key": "common.content"
         },
         {
           "text": "仅自己可见",
@@ -11404,8 +11366,8 @@
     "src/app/snippets/snippet-edit-modal.tsx": {
       "path": "src/app/snippets/snippet-edit-modal.tsx",
       "total": 10,
-      "covered": 2,
-      "missing": 8,
+      "covered": 3,
+      "missing": 7,
       "candidates": [
         {
           "text": "编辑代码片段",
@@ -11464,7 +11426,8 @@
           "line": 110,
           "kind": "text",
           "context": "<label htmlFor=\"edit-snippet-content-input\" className=\"block text-xs text-slate-",
-          "covered": false
+          "covered": true,
+          "key": "common.content"
         },
         {
           "text": "仅自己可见",
@@ -11650,8 +11613,8 @@
     "src/app/storage/storage-node-create-form.tsx": {
       "path": "src/app/storage/storage-node-create-form.tsx",
       "total": 20,
-      "covered": 2,
-      "missing": 18,
+      "covered": 4,
+      "missing": 16,
       "candidates": [
         {
           "text": "新增存储节点",
@@ -11672,14 +11635,16 @@
           "line": 30,
           "kind": "text",
           "context": "<span>节点名称",
-          "covered": false
+          "covered": true,
+          "key": "common.nodeName"
         },
         {
           "text": "驱动",
           "line": 34,
           "kind": "text",
           "context": "<span>驱动",
-          "covered": false
+          "covered": true,
+          "key": "common.driver"
         },
         {
           "text": "根目录",
@@ -11840,8 +11805,8 @@
     "src/app/storage/storage-node-edit-form.tsx": {
       "path": "src/app/storage/storage-node-edit-form.tsx",
       "total": 19,
-      "covered": 2,
-      "missing": 17,
+      "covered": 4,
+      "missing": 15,
       "candidates": [
         {
           "text": "编辑存储节点",
@@ -11855,14 +11820,16 @@
           "line": 46,
           "kind": "text",
           "context": "<span>节点名称",
-          "covered": false
+          "covered": true,
+          "key": "common.nodeName"
         },
         {
           "text": "驱动",
           "line": 50,
           "kind": "text",
           "context": "<span>驱动",
-          "covered": false
+          "covered": true,
+          "key": "common.driver"
         },
         {
           "text": "根目录",
@@ -12043,8 +12010,8 @@
     "src/app/templates/template-list-client.tsx": {
       "path": "src/app/templates/template-list-client.tsx",
       "total": 24,
-      "covered": 6,
-      "missing": 18,
+      "covered": 7,
+      "missing": 17,
       "candidates": [
         {
           "text": "删除命令模板",
@@ -12184,7 +12151,8 @@
           "line": 326,
           "kind": "text",
           "context": "<label htmlFor={`${createFormId}-command`} className=\"text-xs font-medium text-w",
-          "covered": false
+          "covered": true,
+          "key": "common.commandContent"
         },
         {
           "text": "使用 ` }\"}` 作为占位符，下发时填入实际值",

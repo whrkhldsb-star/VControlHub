@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T03:14:42.783Z | Files: 254 | Strings: 1422 | Coverage: **16%** (227/1422)
+> Generated: 2026-06-16T03:26:22.082Z | Files: 254 | Strings: 1422 | Coverage: **18.3%** (260/1422)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -16,41 +16,41 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/components/app-sidebar.tsx` | 1 | 0 | 1 | 0% |
 | `src/components/page-shell.tsx` | 1 | 0 | 1 | 0% |
 | `src/components/storage` | 6 | 0 | 6 | 0% |
-| `src/app/deployments` | 44 | 1 | 43 | 2.3% |
 | `src/app/qa-reports` | 32 | 1 | 31 | 3.1% |
 | `src/app/api-tokens` | 22 | 1 | 21 | 4.5% |
-| `src/app/downloads` | 39 | 2 | 37 | 5.1% |
+| `src/app/deployments` | 44 | 2 | 42 | 4.5% |
 | `src/app/shares` | 19 | 1 | 18 | 5.3% |
 | `src/app/backups` | 56 | 3 | 53 | 5.4% |
-| `src/app/requests` | 33 | 2 | 31 | 6.1% |
-| `src/app/settings` | 31 | 2 | 29 | 6.5% |
 | `src/app/tickets` | 29 | 2 | 27 | 6.9% |
 | `src/app/account` | 14 | 1 | 13 | 7.1% |
 | `src/components/ssh-terminal-modal.tsx` | 14 | 1 | 13 | 7.1% |
+| `src/app/downloads` | 39 | 3 | 36 | 7.7% |
 | `src/app/preferences` | 11 | 1 | 10 | 9.1% |
+| `src/app/requests` | 33 | 3 | 30 | 9.1% |
 | `src/app/alert-rules` | 41 | 4 | 37 | 9.8% |
-| `src/app/media` | 61 | 6 | 55 | 9.8% |
-| `src/app/image-bed` | 76 | 8 | 68 | 10.5% |
 | `src/app/api-docs` | 9 | 1 | 8 | 11.1% |
+| `src/app/settings` | 31 | 4 | 27 | 12.9% |
+| `src/app/media` | 61 | 8 | 53 | 13.1% |
 | `src/app/traffic` | 30 | 4 | 26 | 13.3% |
-| `src/app/quick-services` | 83 | 12 | 71 | 14.5% |
-| `src/app/storage` | 46 | 7 | 39 | 15.2% |
+| `src/app/image-bed` | 76 | 11 | 65 | 14.5% |
 | `src/app/monitoring` | 13 | 2 | 11 | 15.4% |
 | `src/app/operation-tasks` | 37 | 6 | 31 | 16.2% |
+| `src/app/quick-services` | 83 | 14 | 69 | 16.9% |
 | `src/app/ai` | 88 | 16 | 72 | 18.2% |
-| `src/app/servers` | 112 | 22 | 90 | 19.6% |
 | `src/components/change-password-modal.tsx` | 5 | 1 | 4 | 20% |
-| `src/app/snippets` | 33 | 7 | 26 | 21.2% |
-| `src/app/files` | 182 | 40 | 142 | 22% |
-| `src/app/announcements` | 34 | 8 | 26 | 23.5% |
 | `src/app/users` | 38 | 9 | 29 | 23.7% |
-| `src/app/share` | 12 | 3 | 9 | 25% |
+| `src/app/storage` | 46 | 11 | 35 | 23.9% |
+| `src/app/servers` | 112 | 27 | 85 | 24.1% |
+| `src/app/files` | 182 | 45 | 137 | 24.7% |
 | `src/components/route-error.tsx` | 4 | 1 | 3 | 25% |
 | `src/components/two-factor-settings.tsx` | 12 | 3 | 9 | 25% |
 | `src/app/audit` | 38 | 10 | 28 | 26.3% |
-| `src/app/templates` | 25 | 7 | 18 | 28% |
-| `src/app/scheduled-tasks` | 26 | 8 | 18 | 30.8% |
+| `src/app/snippets` | 33 | 9 | 24 | 27.3% |
+| `src/app/announcements` | 34 | 10 | 24 | 29.4% |
+| `src/app/templates` | 25 | 8 | 17 | 32% |
 | `src/app/login` | 15 | 5 | 10 | 33.3% |
+| `src/app/share` | 12 | 4 | 8 | 33.3% |
+| `src/app/scheduled-tasks` | 26 | 9 | 17 | 34.6% |
 | `src/app/notifications` | 7 | 3 | 4 | 42.9% |
 | `src/app/docker` | 29 | 14 | 15 | 48.3% |
 | `src/app/global-error.tsx` | 4 | 2 | 2 | 50% |
@@ -61,16 +61,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 
 | String | Count | First 3 occurrences |
 |---|---|---|
-| 内容 | 4 | `src/app/announcements/announcement-edit-modal.tsx:81` (text), `src/app/announcements/create-announcement-form.tsx:65` (text), `src/app/snippets/create-snippet-modal.tsx:117` (text) |
-| 路径 | 4 | `src/app/files/recycle-bin-section-client.tsx:61` (text), `src/app/media/[id]/page.tsx:273` (text), `src/app/quick-services/quick-services-client.tsx:947` (text) |
-| 节点名称 | 4 | `src/app/servers/server-card-actions.tsx:205` (text), `src/app/servers/server-create-form.tsx:186` (text), `src/app/storage/storage-node-create-form.tsx:30` (text) |
-| 目标 VPS | 3 | `src/app/deployments/deployment-launch-form.tsx:140` (text), `src/app/downloads/create-download-form.tsx:147` (text), `src/app/requests/ai-hosted-approval-card.tsx:73` (text) |
-| 驱动 | 3 | `src/app/files/file-detail-panel.tsx:101` (text), `src/app/storage/storage-node-create-form.tsx:34` (text), `src/app/storage/storage-node-edit-form.tsx:50` (text) |
-| 全部文件 | 3 | `src/app/files/files-browser-spa.tsx:404` (text), `src/app/files/files-browser-spa.tsx:568` (text), `src/app/files/search-scope-toggle.tsx:53` (text) |
-| 复制外链 | 3 | `src/app/image-bed/image-bed-page-client.tsx:533` (title), `src/app/image-bed/image-bed-page-client.tsx:533` (aria-label), `src/app/image-bed/image-preview-modal.tsx:76` (text) |
-| 标签 | 3 | `src/app/media/[id]/page.tsx:285` (text), `src/app/servers/server-card-actions.tsx:290` (text), `src/app/servers/server-create-form.tsx:298` (text) |
-| 环境变量： | 3 | `src/app/quick-services/quick-services-client.tsx:823` (text), `src/app/settings/settings-client.tsx:799` (text), `src/app/settings/settings-client.tsx:885` (text) |
-| 命令内容 | 3 | `src/app/scheduled-tasks/scheduled-task-list-client.tsx:323` (text), `src/app/servers/command-create-form.tsx:55` (text), `src/app/templates/template-list-client.tsx:326` (text) |
 | 修改登录密码 | 2 | `src/app/account/password/change-password-form.tsx:43` (text), `src/components/change-password-modal.tsx:39` (text) |
 | 保存新密码 | 2 | `src/app/account/password/change-password-form.tsx:96` (text), `src/components/change-password-modal.tsx:92` (text) |
 | 打开侧边栏 | 2 | `src/app/ai/ai-chat-header.tsx:29` (aria-label), `src/app/ai/ai-sidebar.tsx:109` (aria-label) |
@@ -86,10 +76,20 @@ Each row is a Chinese string that appears in source but has no matching key in `
 | 缺少权限 | 2 | `src/app/api-tokens/page.tsx:15` (text), `src/components/page-shell.tsx:185` (text) |
 | 搜索动作、用户名或显示名 | 2 | `src/app/audit/audit-client.tsx:109` (placeholder), `src/app/audit/audit-client.tsx:109` (aria-label) |
 | 全部类型 | 2 | `src/app/audit/audit-client.tsx:163` (text), `src/app/operation-tasks/operation-task-list-client.tsx:124` (text) |
+| 创建节点 | 2 | `src/app/audit/audit-client.tsx:168` (text), `src/app/storage/storage-node-create-form.tsx:99` (text) |
+| 详情 | 2 | `src/app/audit/audit-client.tsx:214` (text), `src/app/files/file-list-client.tsx:351` (text) |
+| 来源 | 2 | `src/app/audit/audit-client.tsx:215` (text), `src/app/files/file-list-client.tsx:778` (text) |
+| 审计日志加载失败，请稍后重试。 | 2 | `src/app/audit/audit-client.tsx:221` (text), `src/app/audit/audit-client.tsx:254` (text) |
+| 备份类型 | 2 | `src/app/backups/create-backup-form.tsx:26` (text), `src/app/backups/schedule-backup-form.tsx:85` (text) |
+| 数据库备份 | 2 | `src/app/backups/create-backup-form.tsx:28` (text), `src/app/backups/schedule-backup-form.tsx:87` (text) |
+| 文件备份 | 2 | `src/app/backups/create-backup-form.tsx:29` (text), `src/app/backups/schedule-backup-form.tsx:88` (text) |
+| 完整备份 | 2 | `src/app/backups/create-backup-form.tsx:30` (text), `src/app/backups/schedule-backup-form.tsx:89` (text) |
+| 恢复 | 2 | `src/app/backups/restore-backup-button.tsx:79` (text), `src/app/files/restore-button.tsx:32` (text) |
+| Cron 表达式 | 2 | `src/app/backups/schedule-backup-form.tsx:93` (text), `src/app/scheduled-tasks/scheduled-task-list-client.tsx:304` (text) |
 
 ## Files with missing translations (most gaps first)
 
-### `src/app/image-bed/image-bed-page-client.tsx` — 66/73 missing (9.6%)
+### `src/app/image-bed/image-bed-page-client.tsx` — 64/73 missing (12.3%)
 
 - L282 text "图片外链中心"
 - L283 text "这里专注管理已发布图片外链：复制 URL / Markdown / HTML、查看来源、批量归档或删除。新增图片优先从媒体库图片工作区进入。"
@@ -99,9 +99,9 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L292 text "可追溯来源"
 - L293 text "当前页公开"
 - L299 text "发布路径"
-- _…and 58 more_
+- _…and 56 more_
 
-### `src/app/quick-services/quick-services-client.tsx` — 61/67 missing (9%)
+### `src/app/quick-services/quick-services-client.tsx` — 59/67 missing (11.9%)
 
 - L325 text "当前角色无快捷服务管理权限"
 - L403 text "Docker 环境未就绪，快捷服务安装已暂停"
@@ -111,7 +111,7 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L455 text "从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。"
 - L460 text "个监听端口"
 - L461 text "安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。"
-- _…and 53 more_
+- _…and 51 more_
 
 ### `src/app/alert-rules/alert-rule-list-client.tsx` — 37/40 missing (7.5%)
 
@@ -137,18 +137,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L53 text "异常/执行中"
 - _…and 22 more_
 
-### `src/app/settings/settings-client.tsx` — 29/30 missing (3.3%)
-
-- L242 text "当前角色无系统设置权限"
-- L253 text "✓ 设置已保存 ` : ""}"
-- L259 aria-label aria-label= "设置分类导航"
-- L262 text "⚙️ 设置分类"
-- L263 text "点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。"
-- L270 text "全部展开"
-- L277 text "全部折叠"
-- L572 text "最近修改"
-- _…and 21 more_
-
 ### `src/app/media/page.tsx` — 28/30 missing (6.7%)
 
 - L61 text "一个入口完成媒体浏览、筛选、扫描和图片外链发布；旧“图床”只作为已发布外链的管理与审计中心。"
@@ -160,6 +148,18 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L89 aria-label aria-label= "媒体类型"
 - L91 text "全部"
 - _…and 20 more_
+
+### `src/app/settings/settings-client.tsx` — 27/30 missing (10%)
+
+- L242 text "当前角色无系统设置权限"
+- L253 text "✓ 设置已保存 ` : ""}"
+- L259 aria-label aria-label= "设置分类导航"
+- L262 text "⚙️ 设置分类"
+- L263 text "点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。"
+- L270 text "全部展开"
+- L277 text "全部折叠"
+- L572 text "最近修改"
+- _…and 19 more_
 
 ### `src/app/operation-tasks/operation-task-list-client.tsx` — 26/28 missing (7.1%)
 
@@ -209,18 +209,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L806 text "正在思考..."
 - _…and 15 more_
 
-### `src/app/files/files-browser-spa.tsx` — 23/27 missing (14.8%)
-
-- L207 text "当前："
-- L222 text "搜索存储节点"
-- L225 placeholder placeholder= "节点名称、类型或 ID"
-- L235 text "选择存储节点"
-- L244 text "🌐 全部节点"
-- L253 text "没有匹配的节点"
-- L396 aria-label aria-label= "面包屑"
-- L404 text "全部文件"
-- _…and 15 more_
-
 ### `src/app/audit/audit-client.tsx` — 21/30 missing (30%)
 
 - L109 placeholder placeholder= "搜索动作、用户名或显示名"
@@ -243,6 +231,18 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L319 text "⬇   个下载中"
 - L320 text "⏳   个等待中"
 - L354 text "暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。"
+- _…and 13 more_
+
+### `src/app/files/files-browser-spa.tsx` — 21/27 missing (22.2%)
+
+- L207 text "当前："
+- L222 text "搜索存储节点"
+- L225 placeholder placeholder= "节点名称、类型或 ID"
+- L235 text "选择存储节点"
+- L244 text "🌐 全部节点"
+- L253 text "没有匹配的节点"
+- L396 aria-label aria-label= "面包屑"
+- L527 aria-label aria-label= "目录树"
 - _…and 13 more_
 
 ### `src/app/qa-reports/qa-reports-list-client.tsx` — 21/21 missing (0%)
@@ -270,7 +270,43 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L88 title title= "支持文档"
 - _…and 12 more_
 
-### `src/app/servers/server-card-actions.tsx` — 19/24 missing (20.8%)
+### `src/app/api-tokens/api-token-manager-client.tsx` — 17/18 missing (5.6%)
+
+- L118 text "一次性明文 Token"
+- L119 text "请立即复制，此明文 Token 离开页面后无法再次查看。"
+- L121 text "复制 Token"
+- L132 text "创建 API Token"
+- L133 text "Token 仅在创建成功后显示一次；后端只保存哈希和脱敏标识。"
+- L137 text "Token 名称"
+- L138 placeholder placeholder= "例如：移动端 CLI / 监控脚本"
+- L141 text "过期时间（可选）"
+- _…and 9 more_
+
+### `src/app/files/file-list-client.tsx` — 17/23 missing (26.1%)
+
+- L325 title title= "资料详情"
+- L351 text "详情"
+- L394 title title= "下载目录归档"
+- L615 text "目录"
+- L759 aria-label aria-label= "全选文件"
+- L778 text "来源"
+- L781 text "修改时间"
+- L799 aria-label aria-label= "选择文件夹（暂未启用）"
+- _…and 9 more_
+
+### `src/app/scheduled-tasks/scheduled-task-list-client.tsx` — 17/25 missing (32%)
+
+- L125 text "搜索定时任务 / 执行日志"
+- L126 placeholder placeholder= "按名称、命令、Cron、上次结果搜索"
+- L140 text "+ 创建定时任务"
+- L170 text "原因："
+- L172 text "目标节点：  台"
+- L173 text "已执行：  次"
+- L174 text "上次运行："
+- L175 text "下次运行："
+- _…and 9 more_
+
+### `src/app/servers/server-card-actions.tsx` — 17/24 missing (29.2%)
 
 - L109 aria-label aria-label= "目标服务器直连网关控制"
 - L121 text "直连状态："
@@ -281,45 +317,9 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L152 text "启用前检查：VPS 必须绑定 SFTP 存储节点且不是本机地址。"
 - L155 text "点击启用会通过 SSH 安装目标服务器 Direct Gateway；如果远端安装失败，页面会保留网站中转并显示错误，不会把直连标记成成功。"
 - L195 aria-label aria-label= "编辑 VPS 节点"
-- _…and 11 more_
+- _…and 9 more_
 
-### `src/app/scheduled-tasks/scheduled-task-list-client.tsx` — 18/25 missing (28%)
-
-- L125 text "搜索定时任务 / 执行日志"
-- L126 placeholder placeholder= "按名称、命令、Cron、上次结果搜索"
-- L140 text "+ 创建定时任务"
-- L170 text "原因："
-- L172 text "目标节点：  台"
-- L173 text "已执行：  次"
-- L174 text "上次运行："
-- L175 text "下次运行："
-- _…and 10 more_
-
-### `src/app/servers/server-create-form.tsx` — 18/24 missing (25%)
-
-- L37 text "连接方式"
-- L65 text "SSH 密钥"
-- L74 text "选择密钥"
-- L126 placeholder placeholder= "留空，不使用默认密码"
-- L136 text "密码不会预填；请手动输入目标 VPS 当前 SSH 密码。"
-- L164 text "添加 VPS 节点"
-- L165 text "录入 SSH 密钥、IP 与端口完成纳管"
-- L186 text "节点名称"
-- _…and 10 more_
-
-### `src/app/storage/storage-node-create-form.tsx` — 18/20 missing (10%)
-
-- L24 text "新增存储节点"
-- L25 text "支持本机存储与绑定 VPS 的 SFTP 存储节点。"
-- L30 text "节点名称"
-- L34 text "驱动"
-- L46 text "根目录"
-- L52 text "绑定 VPS"
-- L52 text "*（SFTP 必填绑定VPS或远端主机）"
-- L54 text "不绑定"
-- _…and 10 more_
-
-### `src/app/templates/template-list-client.tsx` — 18/24 missing (25%)
+### `src/app/templates/template-list-client.tsx` — 17/24 missing (29.2%)
 
 - L84 text "删除命令模板"
 - L85 text "确认删除模板"
@@ -329,4 +329,4 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L147 text "暂无命令模板"
 - L160 text "内置"
 - L229 text "一键下发"
-- _…and 10 more_
+- _…and 9 more_

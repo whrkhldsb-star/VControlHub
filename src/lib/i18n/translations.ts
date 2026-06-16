@@ -84,6 +84,16 @@ const translations: Record<Locale, Record<string, string>> = {
 		"common.close": "关闭",
 		"common.port": "端口",
 		"common.description": "描述",
+		"common.content": "内容",
+		"common.path": "路径",
+		"common.nodeName": "节点名称",
+		"common.targetVps": "目标 VPS",
+		"common.driver": "驱动",
+		"common.allFiles": "全部文件",
+		"common.copyLink": "复制外链",
+		"common.tag": "标签",
+		"common.envVarsLabel": "环境变量：",
+		"common.commandContent": "命令内容",
 
 		// Error boundary
 		"error.title": "页面加载出错",
@@ -283,6 +293,16 @@ const translations: Record<Locale, Record<string, string>> = {
 		"common.close": "Close",
 		"common.port": "Port",
 		"common.description": "Description",
+		"common.content": "Content",
+		"common.path": "Path",
+		"common.nodeName": "Node name",
+		"common.targetVps": "Target VPS",
+		"common.driver": "Driver",
+		"common.allFiles": "All files",
+		"common.copyLink": "Copy link",
+		"common.tag": "Tag",
+		"common.envVarsLabel": "Environment variables:",
+		"common.commandContent": "Command content",
 
 		// Error boundary
 		"error.title": "Page failed to load",
