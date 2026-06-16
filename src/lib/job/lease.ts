@@ -44,6 +44,8 @@ export const LEASE_PRESETS_MS: Record<string, number> = {
 	"sftp-stale-inventory": 5 * 60 * 1000,
 	"quick-service": 10 * 60 * 1000,
 	"download-execution": 150 * 60 * 1000,
+	// TR-006: 跨来源裁剪历史 5min lease 足够 (pruneOperationTaskHistory 大型实例 30s-1min)
+	"operation-task-retention": 5 * 60 * 1000,
 };
 
 /** Minimum safety floor: 任何 worker 的 lease 不少于 30s (太短会让长任务被误回收) */

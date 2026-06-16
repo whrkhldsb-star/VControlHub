@@ -26,6 +26,7 @@ import { startQuickServiceJobWorker, stopQuickServiceJobWorkerForTests } from "@
 import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib/scheduled-task/worker";
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
+import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForTests } from "@/lib/operation-task/retention-worker";
 
 export type WorkerId =
   | "alert-evaluation"
@@ -36,7 +37,8 @@ export type WorkerId =
   | "quick-service"
   | "scheduled-task"
   | "sftp-sync"
-  | "sftp-stale-inventory";
+  | "sftp-stale-inventory"
+  | "operation-task-retention";
 
 export type WorkerStatus = {
   id: WorkerId;
@@ -79,6 +81,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       "scheduled-task": { started: false },
       "sftp-sync": { started: false },
       "sftp-stale-inventory": { started: false },
+      "operation-task-retention": { started: false },
     };
   }
   return g.__vcontrolhubWorkerRegistry;
@@ -180,6 +183,17 @@ const SFTP_STALE_INVENTORY: WorkerSpec = {
   stop: () => stopSftpStaleInventoryWorkerForTests(),
 };
 
+const OPERATION_TASK_RETENTION: WorkerSpec = {
+  id: "operation-task-retention",
+  // TR-006: 跨来源统一长期保留策略, 6h tick, 跨 command/download/sync/backup/deployment 5 来源裁剪历史
+  label: "操作任务跨来源保留策略",
+  jobType: "operation-task.retention",
+  start: async () => {
+    await startOperationTaskRetentionWorker();
+  },
+  stop: () => stopOperationTaskRetentionWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   ALERT_EVALUATION,
   BACKUP,
@@ -190,6 +204,7 @@ export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   SCHEDULED_TASK,
   SFTP_SYNC,
   SFTP_STALE_INVENTORY,
+  OPERATION_TASK_RETENTION,
 ]);
 
 /**
