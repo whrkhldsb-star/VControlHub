@@ -4,12 +4,14 @@ import { listActiveAnnouncements, listAnnouncements } from "@/lib/announcement/s
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { CreateAnnouncementForm } from "./create-announcement-form";
 import { AnnouncementList } from "./announcement-list-client";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnnouncementsPage() {
 	const session = await requireSession("/announcements");
 	const canManage = sessionHasPermission(session, "announcement:manage");
+	const locale = await getServerLocale();
 	const items = canManage ? await listAnnouncements() : await listActiveAnnouncements();
 
 	const serialized = items.map((a) => ({
@@ -24,7 +26,7 @@ export default async function AnnouncementsPage() {
 
 	return (
 		<PageShell maxW="max-w-4xl">
-			<PageHeader eyebrow="Announcements" title="站内公告" description="展示当前有效、置顶优先的站内消息。" className="mb-6" />
+			<PageHeader eyebrow={t("announcementsPage.eyebrow", locale)} title={t("announcementsPage.title", locale)} description={t("announcementsPage.desc", locale)} className="mb-6" />
 
 			{canManage && <div className="mb-6"><CreateAnnouncementForm /></div>}
 

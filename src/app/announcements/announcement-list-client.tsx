@@ -23,11 +23,9 @@ const levelColors: Record<string, string> = {
   urgent: "border-rose-400/20 bg-rose-400/[0.04]",
 };
 
-const levelLabels: Record<string, string> = {
-  info: "ℹ️ 信息",
-  warning: "⚠️ 警告",
-  urgent: "🔴 紧急",
-};
+function levelLabel(t: (k: string) => string, key: string): string {
+  return t(`announcementsPage.level.${key}`) !== `announcementsPage.level.${key}` ? t(`announcementsPage.level.${key}`) : key;
+}
 
 export function AnnouncementList({
   items: initial,
@@ -73,9 +71,9 @@ export function AnnouncementList({
       await csrfFetch(`/api/announcements?id=${pendingDelete.id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((a) => a.id !== pendingDelete.id));
       setPendingDelete(null);
-      addToast("success", "公告已删除");
+      addToast("success", t("announcementsPage.toast.deleted"));
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : "删除公告失败");
+      setDeleteError(error instanceof Error ? error.message : t("announcementsPage.toast.deleteFailed"));
     } finally {
       setDeleteBusy(false);
     }
@@ -94,7 +92,7 @@ export function AnnouncementList({
             htmlFor="announcements-search"
             className="mb-1 block text-xs font-medium text-slate-400"
           >
-            搜索公告
+            {t("announcementsPage.search.label")}
           </label>
           <Search size={14} className="absolute left-3 top-[2.35rem] text-slate-500" />
           <input
@@ -102,27 +100,27 @@ export function AnnouncementList({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="标题、内容…"
+            placeholder={t("announcementsPage.search.placeholder")}
             className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
           />
         </div>
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
-          aria-label="按级别过滤"
+          aria-label={t("announcementsPage.filter.label")}
           className="rounded-lg border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none"
         >
           {levels.map((l) => (
-            <option key={l} value={l}>{l === "ALL" ? "全部级别" : levelLabels[l] ?? l}</option>
+            <option key={l} value={l}>{l === "ALL" ? t("announcementsPage.filter.all") : levelLabel(t, l)}</option>
           ))}
         </select>
-        <span className="text-xs text-slate-500">{filtered.length} 条</span>
+        <span className="text-xs text-slate-500">{t("announcementsPage.count").replace("{count}", String(filtered.length))}</span>
       </div>
 
       <div className="grid gap-4">
         {filtered.length === 0 ? (
           <div data-card className=" p-8 text-center text-sm text-slate-500">
-            {items.length === 0 ? "暂无公告" : "无匹配结果"}
+            {items.length === 0 ? t("announcementsPage.empty") : t("announcementsPage.emptyFiltered")}
           </div>
         ) : (
           filtered.map((a) => (
@@ -131,18 +129,18 @@ export function AnnouncementList({
                 <div>
                   <div className="flex items-center gap-2">
                     {a.pinned && <span className="text-xs text-amber-400">{t("common.pinned")}</span>}
-                    <span className="text-xs text-slate-500">{levelLabels[a.level] ?? a.level}</span>
+                    <span className="text-xs text-slate-500">{levelLabel(t, a.level)}</span>
                   </div>
                   <h2 className="mt-1 text-base font-semibold text-white">{a.title}</h2>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("zh-CN")}</span>
+                  <span className="text-xs text-slate-500 whitespace-nowrap">{new Date(a.startsAt).toLocaleDateString("en-US")}</span>
                   {canManage && (
                     <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                      <button onClick={() => setEditing(a)} title="编辑" className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400">
+                      <button onClick={() => setEditing(a)} title={t("announcementsPage.action.edit")} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400">
                         <Pencil size={14} />
                       </button>
-                      <button onClick={() => { setPendingDelete(a); setDeleteError(null); }} title="删除" aria-label={`删除公告 ${a.title}`} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400">
+                      <button onClick={() => { setPendingDelete(a); setDeleteError(null); }} title={t("announcementsPage.action.delete")} aria-label={t("announcementsPage.action.deleteAria").replace("{title}", a.title)} className="rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400">
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -151,7 +149,7 @@ export function AnnouncementList({
               </div>
               <p className="mt-3 text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{a.body}</p>
               {a.expiresAt && (
-                <p className="mt-3 text-xs text-slate-500">{t("common.validUntil")} {new Date(a.expiresAt).toLocaleString("zh-CN")}</p>
+                <p className="mt-3 text-xs text-slate-500">{t("common.validUntil")} {new Date(a.expiresAt).toLocaleString("en-US")}</p>
               )}
             </div>
           ))
@@ -169,15 +167,15 @@ export function AnnouncementList({
       {pendingDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="presentation">
           <div role="dialog" aria-modal="true" aria-labelledby="delete-announcement-title" className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-            <h3 id="delete-announcement-title" className="text-base font-semibold text-white">删除公告</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-400">确认删除公告 <span className="font-medium text-slate-100">{pendingDelete.title}</span>？此操作不可恢复。</p>
+            <h3 id="delete-announcement-title" className="text-base font-semibold text-white">{t("announcementsPage.delete.title")}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-400">{t("announcementsPage.delete.confirm").replace("{title}", pendingDelete.title)}</p>
             {deleteError && <p role="alert" className="mt-3 text-xs text-rose-300">{deleteError}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={deleteBusy} onClick={() => { setPendingDelete(null); setDeleteError(null); }} data-card className=" px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06] disabled:opacity-50">
-                取消
+                {t("announcementsPage.delete.cancel")}
               </button>
               <button type="button" disabled={deleteBusy} onClick={handleDelete} data-tone="rose" className="rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25 disabled:opacity-50">
-                {deleteBusy ? "正在删除..." : "确认删除"}
+                {deleteBusy ? t("announcementsPage.delete.deleting") : t("announcementsPage.delete.confirmBtn")}
               </button>
             </div>
           </div>
