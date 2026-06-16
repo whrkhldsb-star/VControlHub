@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { EmptyState, ToggleChip } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 import type {
 	QaReportTrendCard,
 	QaReportTrendRecentRun,
@@ -15,11 +16,11 @@ import type {
 
 type KindFilter = "all" | "slice" | "blocker" | "qa_run";
 
-const kindLabel: Record<Exclude<KindFilter, "all">, string> = {
-	slice: "闭环 slice",
-	blocker: "已解除 blocker",
-	qa_run: "QA loop",
-};
+function kindLabel(t: (key: string) => string, kind: Exclude<KindFilter, "all">): string {
+	if (kind === "qa_run") return t("qaReportsPage.kind.qaRun");
+	if (kind === "slice") return t("qaReportsPage.kind.slice");
+	return t("qaReportsPage.kind.blocker");
+}
 
 const toneToCardClass: Record<QaReportTrendCard["tone"], string> = {
 	success: "border-emerald-400/30 text-emerald-200",
@@ -79,6 +80,7 @@ type TrendSectionProps = {
 };
 
 function TrendSection({ trends }: TrendSectionProps) {
+	const { t } = useI18n();
 	const dailyMax = useMemo(() => {
 		let max = 0;
 		for (const bucket of trends.dailyBuckets) {
@@ -91,20 +93,16 @@ function TrendSection({ trends }: TrendSectionProps) {
 	const recentRuns = useMemo(() => trends.recentRuns.slice(0, MAX_RECENT_RUNS), [trends.recentRuns]);
 
 	return (
-		<section aria-label="维护环趋势" data-card className="p-4">
+		<section aria-label={t("qaReportsPage.maintenanceTrendAria")} data-card className="p-4">
 			<div className="flex flex-col gap-1">
-				<h2 className="text-sm font-semibold text-white">维护环趋势</h2>
-				<p className="text-xs text-slate-500">
-					数据来源 .hermes/autonomous-maintenance-state.json#completed_runs[]。总 tick、成功率、模块覆盖、最近失败摘要。
-				</p>
+				<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.maintenanceTrendTitle")}</h2>
+				<p className="text-xs text-slate-500">{t("qaReportsPage.maintenanceTrendDesc")}</p>
 			</div>
 			{trends.cards.length === 0 &&
 			trends.dailyBuckets.length === 0 &&
 			trends.moduleCoverage.length === 0 &&
 			trends.recentRuns.length === 0 ? (
-				<p className="mt-4 text-xs text-slate-500">
-					当前 .hermes/autonomous-maintenance-state.json 不可用或暂无 completed_runs 历史。
-				</p>
+				<p className="mt-4 text-xs text-slate-500">{t("qaReportsPage.maintenanceTrendEmpty")}</p>
 			) : null}
 			<div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{trends.cards.map((card) => (
@@ -122,10 +120,10 @@ function TrendSection({ trends }: TrendSectionProps) {
 			{trends.dailyBuckets.length > 0 ? (
 				<div className="mt-5">
 					<div className="mb-2 flex items-center justify-between text-xs text-slate-500">
-						<span>近 7 日 tick 数（绿=成功 / 琥珀=失败）</span>
-						<span>峰值 {dailyMax}</span>
+						<span>{t("qaReportsPage.dailyTickHeader")}</span>
+						<span>{t("qaReportsPage.dailyTickPeak").replace("{n}", String(dailyMax))}</span>
 					</div>
-					<div className="flex items-end gap-2" role="img" aria-label="近 7 日 tick 柱状图">
+					<div className="flex items-end gap-2" role="img" aria-label={t("qaReportsPage.tickChartAria")}>
 						{trends.dailyBuckets.map((bucket) => {
 							const totalHeight =
 								dailyMax === 0
@@ -140,7 +138,11 @@ function TrendSection({ trends }: TrendSectionProps) {
 									<div
 										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]"
 										style={{ height: `${MAX_DAILY_BAR_HEIGHT}px` }}
-										title={`${bucket.day} · ${bucket.total} 次 (成功 ${bucket.success} / 失败 ${bucket.failed})`}
+										title={t("qaReportsPage.dailyTickTitle")
+											.replace("{day}", bucket.day)
+											.replace("{n}", String(bucket.total))
+											.replace("{ok}", String(bucket.success))
+											.replace("{fail}", String(bucket.failed))}
 									>
 										<div className="w-full bg-emerald-400/70" style={{ height: `${successHeight}px` }} />
 										<div
@@ -158,7 +160,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 			) : null}
 			{topModules.length > 0 ? (
 				<div className="mt-5">
-					<div className="mb-2 text-xs text-slate-500">模块覆盖（按访问次数排序，截前 6）</div>
+					<div className="mb-2 text-xs text-slate-500">{t("qaReportsPage.moduleCoverageHeader")}</div>
 					<ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
 						{topModules.map((row) => (
 							<li
@@ -167,7 +169,12 @@ function TrendSection({ trends }: TrendSectionProps) {
 							>
 								<span className="truncate text-slate-200">{row.module}</span>
 								<span className="ml-2 shrink-0 text-slate-500">
-									{row.visitCount} 次 · {row.lastVisitedAt ? formatTime(row.lastVisitedAt) : "未巡检"}
+									{t("qaReportsPage.moduleCoverageItem")
+										.replace("{n}", String(row.visitCount))
+										.replace(
+											"{time}",
+											row.lastVisitedAt ? formatTime(row.lastVisitedAt) : t("qaReportsPage.uninspected"),
+										)}
 								</span>
 							</li>
 						))}
@@ -176,7 +183,9 @@ function TrendSection({ trends }: TrendSectionProps) {
 			) : null}
 			{recentRuns.length > 0 ? (
 				<div className="mt-5">
-					<div className="mb-2 text-xs text-slate-500">最近 {recentRuns.length} 次 tick</div>
+					<div className="mb-2 text-xs text-slate-500">
+						{t("qaReportsPage.recentRunsHeader").replace("{n}", String(recentRuns.length))}
+					</div>
 					<ul className="divide-y divide-white/[0.06] rounded-md border border-white/[0.06]">
 						{recentRuns.map((run, index) => (
 							<RecentRunRow key={`${run.timestamp}-${index}`} run={run} />
@@ -217,6 +226,7 @@ export function QaReportsListClient({
 	initialUpdatedAt: string | null;
 	initialTrends: QaReportTrends;
 }) {
+	const { t } = useI18n();
 	const [reports, setReports] = useState(initialReports);
 	const [totals, setTotals] = useState(initialTotals);
 	const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);
@@ -240,17 +250,17 @@ export function QaReportsListClient({
 			setUpdatedAt(data.lastUpdatedAt ?? null);
 			setTrends(data.trends ?? emptyTrends());
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "刷新 QA 报告失败");
+			setError(err instanceof Error ? err.message : t("qaReportsPage.refreshError"));
 		} finally {
 			setRefreshing(false);
 		}
 	};
 
 	const kindFilters: { label: string; value: KindFilter }[] = [
-		{ label: `全部 (${totals.total})`, value: "all" },
-		{ label: `闭环 slice (${totals.slices})`, value: "slice" },
-		{ label: `已解除 blocker (${totals.blockers})`, value: "blocker" },
-		{ label: `QA loop (${totals.qaRuns})`, value: "qa_run" },
+		{ label: t("qaReportsPage.filterAll").replace("{n}", String(totals.total)), value: "all" },
+		{ label: t("qaReportsPage.filterSlice").replace("{n}", String(totals.slices)), value: "slice" },
+		{ label: t("qaReportsPage.filterBlocker").replace("{n}", String(totals.blockers)), value: "blocker" },
+		{ label: t("qaReportsPage.filterQaRun").replace("{n}", String(totals.qaRuns)), value: "qa_run" },
 	];
 
 	return (
@@ -260,32 +270,34 @@ export function QaReportsListClient({
 					{error}
 				</div>
 			) : null}
-			<section aria-label="QA 报告聚合" data-card className="p-4">
+			<section aria-label={t("qaReportsPage.summaryAria")} data-card className="p-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
 					<div>
-						<h2 className="text-sm font-semibold text-white">来源概览</h2>
-						<p className="mt-1 text-xs text-slate-500">
-							数据来自应用根目录 .hermes/remediation-state.json 与 .hermes/qa-loop-state.json；只读，不写回磁盘。
-						</p>
+						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.summaryTitle")}</h2>
+						<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.summaryDesc")}</p>
 					</div>
 					<div className="flex flex-col items-end gap-1 text-xs text-slate-500">
-						<div>最近更新：{updatedAt ? formatTime(updatedAt) : "—"}</div>
+						<div>
+							{updatedAt
+								? t("qaReportsPage.summaryUpdatedAt").replace("{time}", formatTime(updatedAt))
+								: t("qaReportsPage.summaryUpdatedAtEmpty")}
+						</div>
 						<button
 							type="button"
 							onClick={refresh}
 							disabled={refreshing}
 							className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
 						>
-							{refreshing ? "刷新中…" : "重新读取 .hermes/"}
+							{refreshing ? t("qaReportsPage.refreshing") : t("qaReportsPage.refreshReadHermes")}
 						</button>
 					</div>
 				</div>
 				<div className="mt-4 grid gap-3 sm:grid-cols-4">
 					{[
-						["总报告数", totals.total],
-						["闭环 slice", totals.slices],
-						["已解除 blocker", totals.blockers],
-						["QA loop", totals.qaRuns],
+						[t("qaReportsPage.totalReports"), totals.total],
+						[t("qaReportsPage.closedSlices"), totals.slices],
+						[t("qaReportsPage.resolvedBlockers"), totals.blockers],
+						[t("qaReportsPage.qaLoop"), totals.qaRuns],
 					].map(([label, value]) => (
 						<div key={String(label)} data-card className="p-4">
 							<div className="text-xs text-slate-500">{String(label)}</div>
@@ -295,19 +307,23 @@ export function QaReportsListClient({
 				</div>
 			</section>
 			<TrendSection trends={trends} />
-			<section aria-label="QA 报告列表" data-card>
+			<section aria-label={t("qaReportsPage.listAria")} data-card>
 				<div className="flex flex-col gap-3 border-b border-white/[0.06] px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
 					<div>
-						<h2 className="text-sm font-semibold text-white">报告列表</h2>
-						<p className="mt-1 text-xs text-slate-500">点击行查看证据/change-contract 详情。</p>
+						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.listTitle")}</h2>
+						<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.listDesc")}</p>
 					</div>
-					<div className="flex flex-wrap items-center gap-2" role="group" aria-label="报告类型筛选">
+					<div
+						className="flex flex-wrap items-center gap-2"
+						role="group"
+						aria-label={t("qaReportsPage.filterAria")}
+					>
 						{kindFilters.map((filter) => (
 							<ToggleChip
 								key={filter.value}
 								active={kindFilter === filter.value}
 								onClick={() => setKindFilter(filter.value)}
-								ariaLabel={`筛选 ${filter.label}`}
+								ariaLabel={t("qaReportsPage.filterChipAria").replace("{label}", filter.label)}
 							>
 								{filter.label}
 							</ToggleChip>
@@ -319,8 +335,13 @@ export function QaReportsListClient({
 						<EmptyState
 							text={
 								reports.length === 0
-									? "当前 .hermes/ 下没有任何可展示的 QA 报告记录。"
-									: `当前筛选「${kindLabel[kindFilter as Exclude<KindFilter, "all">] ?? kindFilter}」下没有报告。`
+									? t("qaReportsPage.emptyAll")
+									: t("qaReportsPage.emptyFiltered").replace(
+											"{kind}",
+											kindFilter === "all"
+												? ""
+												: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter),
+										)
 							}
 							variant="boxed"
 						/>
@@ -332,8 +353,10 @@ export function QaReportsListClient({
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<span className={`rounded-md border px-2 py-1 text-xs font-medium ${kindAccent(report.kind)}`}>
-												{kindLabel[report.kind]}
+											<span
+												className={`rounded-md border px-2 py-1 text-xs font-medium ${kindAccent(report.kind)}`}
+											>
+												{kindLabel(t, report.kind)}
 											</span>
 											<span
 												data-tone="neutral"
@@ -343,7 +366,7 @@ export function QaReportsListClient({
 											</span>
 											{report.evidenceCount > 0 ? (
 												<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
-													证据 {report.evidenceCount} 条
+													{t("qaReportsPage.evidenceCount").replace("{n}", String(report.evidenceCount))}
 												</span>
 											) : null}
 										</div>
@@ -363,7 +386,7 @@ export function QaReportsListClient({
 											href={`/qa-reports/${encodeURIComponent(report.id)}`}
 											className="text-xs text-cyan-300 hover:text-cyan-200"
 										>
-											查看详情 →
+											{t("qaReportsPage.viewDetail")}
 										</Link>
 									</div>
 								</div>
