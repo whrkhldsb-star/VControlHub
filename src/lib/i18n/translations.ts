@@ -165,6 +165,22 @@ const translations: Record<Locale, Record<string, string>> = {
 		"users.desc.manage": "创建用户、分配角色与权限管理",
 		"users.desc.readonly": "查看用户、角色与权限（只读）",
 
+		// Servers (page-level)
+		"serversPage.title": "VPS 管理",
+		"serversPage.desc": "聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。",
+		"serversPage.link.request": "命令下发",
+		"serversPage.link.audit": "查看审计日志",
+		"serversPage.link.deploy": "去部署面板",
+		"serversPage.stat.total": "节点总数",
+		"serversPage.stat.enabled": "启用节点",
+		"serversPage.stat.storage": "已绑定存储",
+		"serversPage.statusPriority.title": "VPS 状态优先",
+		"serversPage.statusPriority.desc": "默认先展示各 VPS 的启用状态、连接方式、密钥绑定、直连模式和待审批命令；添加 VPS、添加密钥、批量操作已收入口到快捷操作区。",
+		"serversPage.overview.aria": "VPS 状态总览",
+		"serversPage.overview.empty": "暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。",
+		"serversPage.noManage": "当前角色无节点纳管权限。",
+		"serversPage.batchEmpty": "暂无可批量操作的 VPS。",
+
 		// Audit (filter / error)
 		"audit.loadFailed": "审计日志加载失败",
 		"audit.filterBySeverity": "按严重级别过滤",
@@ -508,6 +524,22 @@ const translations: Record<Locale, Record<string, string>> = {
 		"users.title": "User management",
 		"users.desc.manage": "Create users, assign roles, and manage permissions",
 		"users.desc.readonly": "View users, roles, and permissions (read-only)",
+
+		// Servers (page-level)
+		"serversPage.title": "VPS management",
+		"serversPage.desc": "Focus on VPS nodes, SSH keys, and direct gateway maintenance; command approvals and deliveries route through the approval center.",
+		"serversPage.link.request": "Send command",
+		"serversPage.link.audit": "View audit log",
+		"serversPage.link.deploy": "Open deployment panel",
+		"serversPage.stat.total": "Total nodes",
+		"serversPage.stat.enabled": "Enabled nodes",
+		"serversPage.stat.storage": "Storage bound",
+		"serversPage.statusPriority.title": "VPS status first",
+		"serversPage.statusPriority.desc": "Show each VPS's enabled state, connection, key binding, direct mode, and pending commands. Add VPS, add key, and batch actions are in the quick-action area.",
+		"serversPage.overview.aria": "VPS status overview",
+		"serversPage.overview.empty": "No managed VPS yet. Use \"Add VPS\" above to register SSH key, IP, and port.",
+		"serversPage.noManage": "Your role doesn't have node management permission.",
+		"serversPage.batchEmpty": "No VPS available for batch operations.",
 
 		// Audit (filter / error)
 		"audit.loadFailed": "Failed to load audit log",

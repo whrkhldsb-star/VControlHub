@@ -6,6 +6,7 @@ import { listServerProfiles } from "@/lib/server/service";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 import { getSessionCookieName } from "@/lib/auth/session";
 import { logError } from "@/lib/logging";
+import { t } from "@/lib/i18n/translations";
 
 import { getServerFormOptions } from "./actions";
 import { BatchServerActionPanel } from "./batch-server-action-panel";
@@ -42,39 +43,39 @@ export default async function ServersPage() {
 		<PageShell maxW="max-w-7xl">
 			<PageHeader
 				eyebrow="Infrastructure"
-				title="VPS 管理"
-				description="聚焦 VPS 节点、SSH 密钥与直连网关维护；命令审批与投递记录统一进入审批中心。"
+				title={t("serversPage.title")}
+				description={t("serversPage.desc")}
 			>
 				<div className="flex flex-wrap items-center gap-2">
 					<Link href="/requests" data-variant="primary" className="px-3.5 py-2 text-sm">
-						命令下发
+						{t("serversPage.link.request")}
 					</Link>
 					<Link href="/audit" data-variant="secondary" className="px-3.5 py-2 text-sm">
-						查看审计日志
+						{t("serversPage.link.audit")}
 					</Link>
 					<Link href="/deployments" data-variant="secondary" className="px-3.5 py-2 text-sm">
-						去部署面板
+						{t("serversPage.link.deploy")}
 					</Link>
 				</div>
 			</PageHeader>
 
 			<section className="grid gap-3 sm:grid-cols-3 mb-8">
-				<StatCard label="节点总数" value={String(servers.length)} />
-				<StatCard label="启用节点" value={String(enabledCount)} accent={enabledCount > 0} />
-				<StatCard label="已绑定存储" value={String(storageCount)} accent={storageCount > 0} />
+				<StatCard label={t("serversPage.stat.total")} value={String(servers.length)} />
+				<StatCard label={t("serversPage.stat.enabled")} value={String(enabledCount)} accent={enabledCount > 0} />
+				<StatCard label={t("serversPage.stat.storage")} value={String(storageCount)} accent={storageCount > 0} />
 			</section>
 			<section data-tone="cyan" className="mb-4 rounded-xl border border-cyan-400/15 p-4">
-				<h2 className="text-sm font-medium text-cyan-100">VPS 状态优先</h2>
-				<p className="mt-1 text-xs text-slate-400">默认先展示各 VPS 的启用状态、连接方式、密钥绑定、直连模式和待审批命令；添加 VPS、添加密钥、批量操作已收入口到快捷操作区。</p>
+				<h2 className="text-sm font-medium text-cyan-100">{t("serversPage.statusPriority.title")}</h2>
+				<p className="mt-1 text-xs text-slate-400">{t("serversPage.statusPriority.desc")}</p>
 			</section>
 
 			<AutoProbeProvider>
 			<ServerTabLayout
 				nodesPanel={
 					<div className="space-y-4">
-						<section aria-label="VPS 状态总览" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+						<section aria-label={t("serversPage.overview.aria")} className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 							{servers.length === 0 ? (
-								<EmptyState text="暂无已纳管 VPS。使用上方“添加 VPS”录入 SSH 密钥、IP 与端口完成纳管。" />
+								<EmptyState text={t("serversPage.overview.empty")} />
 							) : (
 								servers.map((server) => (
 									<ServerOverviewCard
@@ -90,18 +91,18 @@ export default async function ServersPage() {
 					</div>
 				}
 				createPanel={
-					canManageServers ? <ServerCreateForm sshKeys={formOptions.sshKeys} /> : <EmptyState text="当前角色无节点纳管权限。" />
+					canManageServers ? <ServerCreateForm sshKeys={formOptions.sshKeys} /> : <EmptyState text={t("serversPage.noManage")} />
 				}
 				sshKeysPanel={
 					<div>
-						{canManageServers ? <SshKeyCreateForm /> : <EmptyState text="当前角色无节点纳管权限。" />}
+						{canManageServers ? <SshKeyCreateForm /> : <EmptyState text={t("serversPage.noManage")} />}
 					</div>
 				}
 				batchPanel={
 					canManageServers && servers.length > 0 ? (
 						<BatchServerActionPanel servers={servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }))} enabledCount={enabledServers.length} />
 					) : (
-						<EmptyState text="暂无可批量操作的 VPS。" />
+						<EmptyState text={t("serversPage.batchEmpty")} />
 					)
 				}
 			/>
