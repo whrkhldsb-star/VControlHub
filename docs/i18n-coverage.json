@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-16T10:29:59.586Z",
+  "generatedAt": "2026-06-16T10:37:34.856Z",
   "summary": {
     "files": 260,
-    "filesWithStrings": 108,
-    "totalStrings": 1066,
-    "coveredStrings": 248,
-    "missingStrings": 818,
-    "coveragePercent": 23.3
+    "filesWithStrings": 107,
+    "totalStrings": 1036,
+    "coveredStrings": 244,
+    "missingStrings": 792,
+    "coveragePercent": 23.6
   },
   "perModule": [
     {
@@ -99,13 +99,6 @@
       "covered": 3,
       "missing": 21,
       "coveragePercent": 12.5
-    },
-    {
-      "module": "src/app/traffic",
-      "total": 30,
-      "covered": 4,
-      "missing": 26,
-      "coveragePercent": 13.3
     },
     {
       "module": "src/app/shares",
@@ -1039,33 +1032,28 @@
       ]
     },
     {
-      "text": "网卡",
+      "text": "上传到节点",
       "count": 2,
       "files": [
         {
-          "path": "src/app/traffic/traffic-page-client.tsx",
-          "line": 172,
+          "path": "src/components/storage/file-upload-dropzone.tsx",
+          "line": 211,
           "kind": "text"
         },
         {
-          "path": "src/app/traffic/traffic-page-client.tsx",
-          "line": 201,
-          "kind": "text"
+          "path": "src/components/storage/file-upload-dropzone.tsx",
+          "line": 212,
+          "kind": "aria-label"
         }
       ]
     },
     {
-      "text": "累计下载：",
-      "count": 2,
+      "text": "输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。",
+      "count": 1,
       "files": [
         {
-          "path": "src/app/traffic/traffic-page-client.tsx",
-          "line": 186,
-          "kind": "text"
-        },
-        {
-          "path": "src/app/traffic/traffic-page-client.tsx",
-          "line": 250,
+          "path": "src/app/account/password/change-password-form.tsx",
+          "line": 46,
           "kind": "text"
         }
       ]
@@ -10141,229 +10129,10 @@
     },
     "src/app/traffic/traffic-page-client.tsx": {
       "path": "src/app/traffic/traffic-page-client.tsx",
-      "total": 30,
-      "covered": 4,
-      "missing": 26,
-      "candidates": [
-        {
-          "text": "流量中心",
-          "line": 154,
-          "kind": "title",
-          "attr": "title",
-          "context": "<PageHeader eyebrow=\"Traffic\" title=\"流量中心\" />",
-          "covered": true,
-          "key": "nav.traffic"
-        },
-        {
-          "text": "查看当前服务器网卡流量，并关联存储服务器/远程节点流量来源。",
-          "line": 155,
-          "kind": "text",
-          "context": "<p className=\"text-sm text-[var(--text-secondary)]\">查看当前服务器网卡流量，并关联存储服务器/远程节点流量来",
-          "covered": false
-        },
-        {
-          "text": "刷新",
-          "line": 158,
-          "kind": "text",
-          "context": "<button onClick={() => fetchSummary()} className=\"rounded-lg bg-cyan-500/10 px-3",
-          "covered": true,
-          "key": "common.refresh"
-        },
-        {
-          "text": "自动刷新` : refreshIntervalSeconds",
-          "line": 159,
-          "kind": "text",
-          "context": "<button onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSecon",
-          "covered": false
-        },
-        {
-          "text": "当前服务器实时流量",
-          "line": 166,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"当前服务器实时流量\">",
-          "covered": false
-        },
-        {
-          "text": "加载中...",
-          "line": 168,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">加载中...",
-          "covered": true,
-          "key": "common.loading"
-        },
-        {
-          "text": "网卡",
-          "line": 172,
-          "kind": "text",
-          "context": "<label className=\"text-xs text-slate-500\" htmlFor=\"trafficIface\">网卡",
-          "covered": false
-        },
-        {
-          "text": "自动选择主网卡",
-          "line": 174,
-          "kind": "text",
-          "context": "<option value=\"\">自动选择主网卡",
-          "covered": false
-        },
-        {
-          "text": "最后更新：",
-          "line": 177,
-          "kind": "text",
-          "context": "<span className=\"text-[11px] text-slate-600\">最后更新：{new Date(summary.timestamp).t",
-          "covered": false
-        },
-        {
-          "text": "累计下载：",
-          "line": 186,
-          "kind": "text",
-          "context": "<div className=\"rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200\">累计",
-          "covered": false
-        },
-        {
-          "text": "累计上传：",
-          "line": 187,
-          "kind": "text",
-          "context": "<div className=\"rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200\">累计",
-          "covered": false
-        },
-        {
-          "text": "暂无网卡数据",
-          "line": 190,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">暂无网卡数据",
-          "covered": false
-        },
-        {
-          "text": "网卡明细",
-          "line": 195,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"网卡明细\">",
-          "covered": false
-        },
-        {
-          "text": "加载中...",
-          "line": 197,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">加载中...",
-          "covered": true,
-          "key": "common.loading"
-        },
-        {
-          "text": "网卡",
-          "line": 201,
-          "kind": "text",
-          "context": "<th className=\"py-2 text-left\">网卡",
-          "covered": false
-        },
-        {
-          "text": "下载速度",
-          "line": 201,
-          "kind": "text",
-          "context": "<th className=\"text-right\">下载速度",
-          "covered": false
-        },
-        {
-          "text": "上传速度",
-          "line": 201,
-          "kind": "text",
-          "context": "<th className=\"text-right\">上传速度",
-          "covered": false
-        },
-        {
-          "text": "累计下载",
-          "line": 201,
-          "kind": "text",
-          "context": "<th className=\"text-right\">累计下载",
-          "covered": false
-        },
-        {
-          "text": "累计上传",
-          "line": 201,
-          "kind": "text",
-          "context": "<th className=\"text-right\">累计上传",
-          "covered": false
-        },
-        {
-          "text": "VPS 节点流量",
-          "line": 210,
-          "kind": "title",
-          "attr": "title",
-          "context": "<Card title=\"VPS 节点流量\">",
-          "covered": false
-        },
-        {
-          "text": "正在通过 SSH 采样远程 VPS 节点流量，可能需要几秒...",
-          "line": 213,
-          "kind": "text",
-          "context": "<span className=\"h-2 w-2 animate-pulse rounded-full bg-cyan-400\" /> 正在通过 ",
-          "covered": false
-        },
-        {
-          "text": "暂无已启用的 VPS 节点（或尚未配置 SSH 凭据）",
-          "line": 217,
-          "kind": "text",
-          "context": "<div className=\"text-sm text-slate-500\">暂无已启用的 VPS 节点（或尚未配置 SSH 凭据）",
-          "covered": false
-        },
-        {
-          "text": "采样失败",
-          "line": 228,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-3",
-          "covered": false
-        },
-        {
-          "text": "在线 ·",
-          "line": 230,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-eme",
-          "covered": false
-        },
-        {
-          "text": "无网卡",
-          "line": 232,
-          "kind": "text",
-          "context": "<span className=\"rounded-full bg-slate-500/10 px-2 py-0.5 text-[10px] text-slate",
-          "covered": false
-        },
-        {
-          "text": "↓ 下载",
-          "line": 241,
-          "kind": "text",
-          "context": "<div className=\"text-[10px] opacity-70\">↓ 下载",
-          "covered": false
-        },
-        {
-          "text": "↑ 上传",
-          "line": 245,
-          "kind": "text",
-          "context": "<div className=\"text-[10px] opacity-70\">↑ 上传",
-          "covered": false
-        },
-        {
-          "text": "累计下载：",
-          "line": 250,
-          "kind": "text",
-          "context": "<div>累计下载：",
-          "covered": false
-        },
-        {
-          "text": "累计上传：",
-          "line": 251,
-          "kind": "text",
-          "context": "<div>累计上传：",
-          "covered": false
-        },
-        {
-          "text": "未识别到主网卡",
-          "line": 255,
-          "kind": "text",
-          "context": "<div className=\"mt-3 text-[11px] text-slate-500\">未识别到主网卡",
-          "covered": false
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     },
     "src/app/users/error.tsx": {
       "path": "src/app/users/error.tsx",

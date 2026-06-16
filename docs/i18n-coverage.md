@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T10:29:59.586Z | Files: 260 | Strings: 1066 | Coverage: **23.3%** (248/1066)
+> Generated: 2026-06-16T10:37:34.856Z | Files: 260 | Strings: 1036 | Coverage: **23.6%** (244/1036)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -23,7 +23,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/app/downloads` | 38 | 4 | 34 | 10.5% |
 | `src/app/api-docs` | 9 | 1 | 8 | 11.1% |
 | `src/app/requests` | 24 | 3 | 21 | 12.5% |
-| `src/app/traffic` | 30 | 4 | 26 | 13.3% |
 | `src/app/shares` | 14 | 2 | 12 | 14.3% |
 | `src/app/monitoring` | 13 | 2 | 11 | 15.4% |
 | `src/app/media` | 38 | 6 | 32 | 15.8% |
@@ -104,18 +103,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L270 text "全部展开"
 - L277 text "全部折叠"
 - L572 text "最近修改"
-- _…and 18 more_
-
-### `src/app/traffic/traffic-page-client.tsx` — 26/30 missing (13.3%)
-
-- L155 text "查看当前服务器网卡流量，并关联存储服务器/远程节点流量来源。"
-- L159 text "自动刷新` : refreshIntervalSeconds"
-- L166 title title= "当前服务器实时流量"
-- L172 text "网卡"
-- L174 text "自动选择主网卡"
-- L177 text "最后更新："
-- L186 text "累计下载："
-- L187 text "累计上传："
 - _…and 18 more_
 
 ### `src/app/deployments/page.tsx` — 24/25 missing (4%)
@@ -326,4 +313,16 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L966 text "打开"
 - L1086 aria-label aria-label= "关闭提醒"
 - L1104 text "· 已选   个"
+- _…and 6 more_
+
+### `src/app/storage/storage-node-edit-form.tsx` — 14/19 missing (26.3%)
+
+- L41 text "编辑存储节点"
+- L62 text "根目录"
+- L68 text "绑定 VPS"
+- L68 text "*（SFTP 必填绑定VPS或远端主机）"
+- L70 text "不绑定"
+- L77 text "远端主机"
+- L77 text "*（SFTP 必填远端主机或绑定VPS）"
+- L89 text "访问模式"
 - _…and 6 more_
