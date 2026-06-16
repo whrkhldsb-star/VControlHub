@@ -4,6 +4,8 @@ import { useState, useCallback, useId } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
+import type { Locale } from "@/lib/i18n/translations";
 
 type Template = {
 	id: string; name: string; description: string | null;
@@ -19,9 +21,11 @@ type Props = {
 	servers: ServerOption[];
 	canCreate: boolean;
 	canDeploy?: boolean;
+	locale?: Locale;
 };
 
-export function TemplateListClient({ templates: initialTemplates, servers, canCreate, canDeploy = false }: Props) {
+export function TemplateListClient({ templates: initialTemplates, servers, canCreate, canDeploy = false, locale: _locale }: Props) {
+	const { t } = useI18n();
 	const { addToast } = useToast();
 	const [templates, setTemplates] = useState(initialTemplates);
 	const [showCreate, setShowCreate] = useState(false);
@@ -45,16 +49,16 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 			await csrfFetch(`/api/command-templates?id=${id}`, { method: "DELETE" });
 			setTemplatePendingDelete(null);
 			await refresh();
-			addToast("success", "模板已删除");
+			addToast("success", t("templatesPage.toast.deleted"));
 		} catch (err) {
-			addToast("error", err instanceof Error ? err.message : "删除失败");
+			addToast("error", err instanceof Error ? err.message : t("templatesPage.toast.deleteFailed"));
 		}
-	}, [addToast, refresh]);
+	}, [addToast, refresh, t]);
 
 	const handleDeploy = useCallback(async (template: Template, serverIds: string[], vars: Record<string, string>) => {
 		const missingVariable = template.variables.find((name) => !vars[name]?.trim());
 		if (missingVariable) {
-			addToast("error", `请填写变量 ${missingVariable} 后再提交部署`);
+			addToast("error", t("templatesPage.toast.missingVar").replace("{name}", missingVariable));
 			return;
 		}
 		setDeploying(template.id);
@@ -69,34 +73,34 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 					reason: `从模板中心下发：${template.name}`,
 				}),
 			});
-			addToast("success", "部署已提交，可在部署记录中查看进度");
+			addToast("success", t("templatesPage.toast.submitted"));
 		} catch (err) {
-			addToast("error", err instanceof Error ? err.message : "提交失败");
+			addToast("error", err instanceof Error ? err.message : t("templatesPage.toast.submitFailed"));
 		}
 		setDeploying(null);
-	}, [addToast]);
+	}, [addToast, t]);
 
 	return (
 		<div className="space-y-6">
 			{templatePendingDelete && (
 				<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-template-title">
 					<div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-slate-950 p-5 shadow-2xl shadow-black/30">
-						<h3 id="delete-template-title" className="text-base font-semibold text-white">删除命令模板</h3>
-						<p className="mt-2 text-sm text-slate-400">确认删除模板 <span className="font-medium text-slate-100">{templatePendingDelete.name}</span>？此操作不可恢复。</p>
+						<h3 id="delete-template-title" className="text-base font-semibold text-white">{t("templatesPage.delete.title")}</h3>
+						<p className="mt-2 text-sm text-slate-400">{t("templatesPage.delete.confirm").replace("{name}", templatePendingDelete.name)}</p>
 						<div className="mt-5 flex justify-end gap-2">
 							<button
 								type="button"
 								onClick={() => setTemplatePendingDelete(null)}
 								data-card className="min-h-11 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/[0.06]"
 							>
-								取消
+								{t("templatesPage.delete.cancel")}
 							</button>
 							<button
 								type="button"
 								onClick={() => handleDelete(templatePendingDelete.id)}
 								data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-500/25"
 							>
-								确认删除
+								{t("templatesPage.delete.confirm2")}
 							</button>
 						</div>
 					</div>
@@ -107,13 +111,13 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 				{/* Tag filter */}
 				{allTags.length > 0 && (
 					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-xs text-slate-500">筛选</span>
+						<span className="text-xs text-slate-500">{t("templatesPage.filter.label")}</span>
 						<button
 							onClick={() => setFilterTag(null)}
 							data-tone={!filterTag ? "accent" : undefined}
 							className={`rounded-md border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
 						>
-							全部
+							{t("templatesPage.filter.all")}
 						</button>
 						{allTags.map((tag) => (
 							<button
@@ -133,7 +137,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 						data-tone="accent"
 						className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
 					>
-						+ 创建模板
+						{t("templatesPage.action.create")}
 					</button>
 				)}
 			</div>
@@ -145,7 +149,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 			{/* Template grid */}
 			{filtered.length === 0 ? (
 				<EmptyState icon="📝" variant="boxed">
-					暂无命令模板
+					{t("templatesPage.empty")}
 				</EmptyState>
 			) : (
 				<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,7 +161,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									{tmpl.description && <p className="mt-0.5 text-[11px] text-slate-500">{tmpl.description}</p>}
 								</div>
 								{tmpl.isBuiltin && (
-									<span data-tone="accent" className="rounded-md border px-1.5 py-0.5 text-[9px] font-medium shrink-0">内置</span>
+									<span data-tone="accent" className="rounded-md border px-1.5 py-0.5 text-[9px] font-medium shrink-0">{t("templatesPage.badge.builtin")}</span>
 								)}
 							</div>
 							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2">
@@ -196,8 +200,8 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									<button
 										onClick={() => setTemplatePendingDelete(tmpl)}
 										className="min-h-11 min-w-11 text-[11px] text-rose-400/60 hover:text-rose-300 transition"
-									>
-										删除
+										>
+										{t("templatesPage.delete.action")}
 									</button>
 								)}
 							</div>
@@ -216,6 +220,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 	onDeploy: (t: Template, s: string[], v: Record<string, string>) => void;
 	loading: boolean;
 }) {
+	const { t } = useI18n();
 	const deployFormId = useId();
 	const [open, setOpen] = useState(false);
 	const [vars, setVars] = useState<Record<string, string>>({});
@@ -227,7 +232,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 				onClick={() => setOpen(true)}
 				className="min-h-11 rounded-lg bg-cyan-500/80 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 transition"
 			>
-				一键下发
+				{t("templatesPage.action.deploy")}
 			</button>
 		);
 	}
@@ -238,19 +243,19 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 		<div className="w-full space-y-2.5">
 			{template.variables.map((v) => {
 				const variableInputId = `${deployFormId}-${v}`;
-				const variableLabel = `变量 ${v}`;
+				const variableLabel = t("templatesPage.variable").replace("{name}", v);
 				return (
-				<div key={v} className="flex items-center gap-2">
-					<label htmlFor={variableInputId} className="text-[11px] text-amber-200 font-mono w-24 shrink-0">{variableLabel}</label>
-					<input
-						id={variableInputId}
-						value={vars[v] ?? ""}
-					onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
-						placeholder={`{{${v}}}`}
-						className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30"
-					/>
-				</div>
-			);})}
+					<div key={v} className="flex items-center gap-2">
+						<label htmlFor={variableInputId} className="text-[11px] text-amber-200 font-mono w-24 shrink-0">{variableLabel}</label>
+						<input
+							id={variableInputId}
+							value={vars[v] ?? ""}
+							onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
+							placeholder={`{{${v}}}`}
+							className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30"
+						/>
+					</div>
+			)})}
 			<div className="flex flex-wrap gap-1">
 				{enabledServers.map((s) => (
 					<label key={s.id} className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-400"}`}>
@@ -267,10 +272,10 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 					disabled={loading || selectedIds.size === 0}
 					className="min-h-11 rounded-lg bg-cyan-500 px-3 py-1 text-[11px] font-medium text-slate-950 hover:bg-cyan-400 disabled:opacity-60 transition"
 				>
-					{loading ? "提交中…" : "提交部署"}
+					{loading ? t("templatesPage.action.submitting") : t("templatesPage.action.submit")}
 				</button>
 				<button onClick={() => setOpen(false)} className="min-h-11 rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition">
-					取消
+					{t("templatesPage.action.cancel")}
 				</button>
 			</div>
 		</div>
@@ -280,6 +285,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 /* ── Create template form ─────────────────────────────────── */
 
 function CreateTemplateForm({ onClose }: { onClose: () => void }) {
+	const { t } = useI18n();
 	const createFormId = useId();
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
@@ -299,12 +305,12 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					name, description: description || null, command, rollbackCommand: rollbackCommand.trim() || null,
-					tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+					tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
 				}),
 			});
 			onClose();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "创建失败");
+			setError(err instanceof Error ? err.message : t("templatesPage.error.createFailed"));
 		} finally {
 			setSubmitting(false);
 		}
@@ -312,36 +318,36 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 
 	return (
 		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white">创建命令模板</h3>
+			<h3 className="text-lg font-semibold text-white">{t("templatesPage.create.title")}</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-white/50 tracking-wide">模板名称</label>
-				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder="例如：Docker Compose 更新" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-name`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.nameLabel")}</label>
+				<input id={`${createFormId}-name`} value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("templatesPage.create.namePlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-description`} className="text-xs font-medium text-white/50 tracking-wide">描述</label>
-				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选说明" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-description`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.descLabel")}</label>
+				<input id={`${createFormId}-description`} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t("templatesPage.create.descPlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-white/50 tracking-wide">命令内容</label>
-				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder="cd {{project_dir}} && docker compose up -d" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
-				<p className="text-[11px] text-slate-600">使用 `{"{{变量名}}"}` 作为占位符，下发时填入实际值</p>
+				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.commandLabel")}</label>
+				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
+				<p className="text-[11px] text-slate-600">{t("templatesPage.create.commandHint")}</p>
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-white/50 tracking-wide">回滚命令（可选）</label>
-				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder="cd {{project_dir}} && docker compose up -d previous" data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
-				<p className="text-[11px] text-slate-600">部署运行会保存这份命令快照；之后“真实回滚”会执行快照里的回滚命令，而不是重发部署命令。</p>
+				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.rollbackLabel")}</label>
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
+				<p className="text-[11px] text-slate-600">{t("templatesPage.create.rollbackHint")}</p>
 			</div>
 			<div className="space-y-1.5">
-				<label htmlFor={`${createFormId}-tags`} className="text-xs font-medium text-white/50 tracking-wide">标签（逗号分隔）</label>
-				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder="docker, deploy" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
+				<label htmlFor={`${createFormId}-tags`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.tagsLabel")}</label>
+				<input id={`${createFormId}-tags`} value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("templatesPage.create.tagsPlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30" />
 			</div>
 			<div className="flex gap-3 pt-2">
 				<button type="submit" disabled={submitting} className="min-h-11 rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60">
-					{submitting ? "创建中…" : "创建模板"}
+					{submitting ? t("templatesPage.create.submitting") : t("templatesPage.create.submit")}
 				</button>
 				<button type="button" onClick={onClose} className="min-h-11 rounded-2xl border border-[var(--border)] px-5 py-2 text-sm text-slate-300 hover:bg-white/10 transition">
-					取消
+					{t("templatesPage.action.cancel")}
 				</button>
 			</div>
 		</form>

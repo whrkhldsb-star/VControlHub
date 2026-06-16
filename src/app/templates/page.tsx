@@ -5,6 +5,7 @@ import { listServerProfiles } from "@/lib/server/service";
 
 import { TemplateListClient } from "./template-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function CommandTemplatesPage() {
 	const session = await requireSession("/templates");
 	const canCreate = sessionHasPermission(session, "command:create");
 	const canDeploy = sessionHasPermission(session, "deploy:run");
+	const locale = await getServerLocale();
 
 	const [templates, servers] = await Promise.all([
 		listTemplates(),
@@ -31,11 +33,11 @@ export default async function CommandTemplatesPage() {
 	return (
 		<PageShell maxW="max-w-7xl">
 				<PageHeader
-					eyebrow="Operations"
-					title="命令模板"
-					description="预置与自定义运维命令模板，支持变量占位符一键下发"
+				eyebrow="Operations"
+				title={t("templatesPage.title", locale)}
+				description={t("templatesPage.desc", locale)}
 				/>
-				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} />
+				<TemplateListClient templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} locale={locale} />
 		</PageShell>
 	);
 }
