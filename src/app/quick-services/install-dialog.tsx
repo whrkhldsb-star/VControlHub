@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type InstallDialogItem = {
 	slug: string;
@@ -51,6 +52,7 @@ export function InstallDialog({
 	getVolumeMounts,
 	getPrimaryContainerPort,
 }: InstallDialogProps) {
+	const { t } = useI18n();
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<PortCheckState | null>(null);
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,11 +67,11 @@ export function InstallDialog({
 		} catch (err) {
 			setPortCheck({
 				available: false,
-				usedBy: err instanceof Error ? err.message : "检查失败",
+				usedBy: err instanceof Error ? err.message : t("qsPage.checkFailed"),
 				checking: false,
 			});
 		}
-	}, []);
+	}, [t]);
 
 	// Reset state every time the dialog opens — the cascading render is the
 	// desired behavior: open dialog → seed default port + immediate check.
@@ -141,12 +143,12 @@ export function InstallDialog({
 				className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0c0f1a] p-6 shadow-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
-				<h3 className="text-lg font-semibold text-white mb-1">安装 {open.name}</h3>
-				<p className="text-xs text-slate-500 mb-4">选择服务监听的端口，安装后可通过该端口访问服务。</p>
+				<h3 className="text-lg font-semibold text-white mb-1">{t("qsPage.installTitle").replace("{name}", open.name)}</h3>
+				<p className="text-xs text-slate-500 mb-4">{t("qsPage.installSubtitle")}</p>
 
 				<div className="space-y-3">
 					<label className="block">
-						<span className="text-xs text-slate-400 mb-1 block">端口号</span>
+						<span className="text-xs text-slate-400 mb-1 block">{t("qsPage.portNumberLabel")}</span>
 						<div className="relative">
 							<input
 								type="number"
@@ -174,7 +176,7 @@ export function InstallDialog({
 										portCheck.available ? "text-emerald-400" : "text-rose-400"
 									}`}
 								>
-									{portCheck.available ? "✓ 可用" : "✗ 占用"}
+									{portCheck.available ? t("qsPage.portAvailable") : t("qsPage.portInUse")}
 								</div>
 							)}
 						</div>
@@ -182,30 +184,30 @@ export function InstallDialog({
 
 					{portCheck && !portCheck.available && portCheck.usedBy && (
 						<div className="text-xs text-rose-300/80 bg-rose-500/[0.06] rounded-lg px-3 py-2 border border-rose-400/10">
-							端口被占用：{portCheck.usedBy}
+							{t("qsPage.portInUseDetail").replace("{usedBy}", portCheck.usedBy)}
 						</div>
 					)}
 
 					<div data-tone="cyan" className="rounded-xl border border-cyan-400/15 p-3 text-xs text-cyan-100">
-						<div className="font-semibold">安装前配置预览</div>
+						<div className="font-semibold">{t("qsPage.configPreviewTitle")}</div>
 						<div className="mt-2 grid gap-1.5 text-cyan-100/80/75">
-							<span>镜像：{open.image ?? "待刷新"}</span>
+							<span>{t("qsPage.imageLabel").replace("{image}", open.image ?? t("qsPage.imagePending"))}</span>
 							<span>
-								容器端口：{containerPort ?? "-"} → 宿主端口 {customPort || open.defaultPort}
+								{t("qsPage.containerPortLabel").replace("{container}", String(containerPort ?? t("qsPage.containerPortDash"))).replace("{host}", customPort || String(open.defaultPort))}
 							</span>
-							<span>环境变量：{envCount} 个键（不展示密钥值）</span>
-							<span>宿主机挂载：{volumeCount} 条</span>
+							<span>{t("qsPage.envVarsLabel").replace("{count}", String(envCount))}</span>
+							<span>{t("qsPage.volumesLabel").replace("{count}", String(volumeCount))}</span>
 						</div>
 					</div>
 
 					<div className="flex items-center gap-2 text-[10px] text-slate-500">
-						<span>推荐端口: {open.defaultPort}</span>
+						<span>{t("qsPage.recommendedPort").replace("{port}", String(open.defaultPort))}</span>
 						<button
 							type="button"
 							onClick={handleAutoAllocate}
 							className="text-cyan-400/70 hover:text-cyan-300 underline underline-offset-2"
 						>
-							自动分配
+							{t("qsPage.autoAssign")}
 						</button>
 					</div>
 				</div>
@@ -216,7 +218,7 @@ export function InstallDialog({
 						onClick={onClose}
 						className="rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition"
 					>
-						取消
+						{t("qsPage.cancel")}
 					</button>
 					<button
 						type="button"
@@ -224,7 +226,7 @@ export function InstallDialog({
 						disabled={advanceDisabled}
 						className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
 					>
-						确认安装
+						{t("qsPage.confirmInstall")}
 					</button>
 				</div>
 			</div>

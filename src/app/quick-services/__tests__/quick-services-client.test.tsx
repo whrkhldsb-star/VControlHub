@@ -1,5 +1,5 @@
 import { type ReactElement } from "react";
-import { render as rtlRender, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QuickServicesClient } from "../quick-services-client";

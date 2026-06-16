@@ -15,6 +15,7 @@
  */
 
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 const statusColor: Record<string, string> = {
 	available: "text-slate-500",
@@ -24,12 +25,12 @@ const statusColor: Record<string, string> = {
 	error: "text-rose-400",
 };
 
-const statusLabel: Record<string, string> = {
-	available: "未安装",
-	installing: "安装中…",
-	running: "运行中",
-	stopped: "已停止",
-	error: "异常",
+const statusLabelKeys: Record<string, string> = {
+	available: "qsPage.statusAvailable",
+	installing: "qsPage.statusInstalling",
+	running: "qsPage.statusRunning",
+	stopped: "qsPage.statusStopped",
+	error: "qsPage.statusError",
 };
 
 type CatalogItemLike = {
@@ -72,6 +73,7 @@ export function ServiceCard({
 	onUninstall: () => void;
 	publicHost: string;
 }) {
+	const { t } = useI18n();
 	const displayPort = item.port ?? item.defaultPort;
 	const access = buildQuickServiceAccessDescriptor({
 		port: item.port,
@@ -101,7 +103,7 @@ export function ServiceCard({
 						</span>
 					)}
 					<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${statusColor[item.status] ?? "text-slate-500"} ${item.status === "running" ? "border-emerald-400/20 bg-emerald-500/[0.06]" : item.status === "error" ? "border-rose-400/20 bg-rose-500/[0.06]" : "border-white/[0.06]"}`}>
-						{statusLabel[item.status] ?? item.status}
+						{(statusLabelKeys[item.status] && t(statusLabelKeys[item.status] as string)) || item.status}
 					</span>
 				</div>
 			</div>
@@ -111,9 +113,9 @@ export function ServiceCard({
 
 			{/* Meta */}
 			<div className="flex items-center gap-3 text-[10px] text-slate-500">
-				<span>端口 {displayPort}</span>
-				{item.path && <span>路径 {item.path}</span>}
-				{item.monthlyPulls != null && <span>📈 {(item.monthlyPulls / 1000).toFixed(0)}k 拉取</span>}
+				<span>{t("qsPage.portLabel").replace("{port}", String(displayPort))}</span>
+				{item.path && <span>{t("qsPage.pathLabel").replace("{path}", item.path)}</span>}
+				{item.monthlyPulls != null && <span>{t("qsPage.monthlyPulls").replace("{pulls}", (item.monthlyPulls / 1000).toFixed(0))}</span>}
 				{item.stars != null && <span>⭐ {item.stars}</span>}
 			</div>
 
@@ -126,41 +128,41 @@ export function ServiceCard({
 			<div className="flex items-center gap-2 mt-auto pt-1">
 				{tab !== "installed" && item.status === "available" && (
 					<button onClick={onInstall} disabled={busy} className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition disabled:opacity-50 ${isRemote ? "bg-violet-500 hover:bg-violet-400" : "bg-cyan-500 hover:bg-cyan-400"}`}>
-						{busy ? "安装中…" : "一键安装"}
+						{busy ? t("qsPage.installingLabel") : t("qsPage.installNow")}
 					</button>
 				)}
 				{tab === "installed" && (
 					<>
 						{item.status === "running" && access && (
-							<a href={access.url} target="_blank" rel="noreferrer" aria-label={`访问 ${item.name}（${access.label}）`} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition">
-								访问
+							<a href={access.url} target="_blank" rel="noreferrer" aria-label={t("qsPage.accessAria").replace("{name}", item.name).replace("{label}", access.label)} title={access.description} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition">
+								{t("qsPage.access")}
 							</a>
 						)}
 						{item.status === "running" && (
 							<button onClick={onStop} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
-								{busy ? "…" : "停止"}
+								{busy ? t("qsPage.busy") : t("qsPage.stop")}
 							</button>
 						)}
 						{item.status === "stopped" && (
 							<button onClick={onStart} disabled={busy} className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-400 transition disabled:opacity-50">
-								{busy ? "…" : "启动"}
+								{busy ? t("qsPage.busy") : t("qsPage.start")}
 							</button>
 						)}
 						{item.status === "installing" && (
-							<span className="text-xs text-amber-400 animate-pulse">正在拉取镜像…</span>
+							<span className="text-xs text-amber-400 animate-pulse">{t("qsPage.pullingImage")}</span>
 						)}
 						{item.status === "error" && (
 							<button onClick={onSync} disabled={busy} className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50">
-								刷新状态
+								{t("qsPage.refreshStatus")}
 							</button>
 						)}
 						{(item.status === "running" || item.status === "stopped" || item.status === "error") && (
 							<button onClick={onUpdate} disabled={busy} className="rounded-lg border border-cyan-400/25 px-3 py-1.5 text-xs text-cyan-200 hover:bg-cyan-500/[0.08] transition disabled:opacity-50">
-								{busy ? "…" : "更新"}
+								{busy ? t("qsPage.busy") : t("qsPage.update")}
 							</button>
 						)}
 						<button onClick={onUninstall} disabled={busy} className="ml-auto rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/[0.08] transition disabled:opacity-50">
-							卸载
+							{t("qsPage.uninstall")}
 						</button>
 					</>
 				)}
