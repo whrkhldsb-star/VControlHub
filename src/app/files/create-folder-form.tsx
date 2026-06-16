@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { createFolderAction, type StorageActionState } from "../storage/actions";
 
@@ -24,6 +25,7 @@ export function CreateFolderForm({
   initialNodeId?: string;
   onCreated?: () => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const defaultNodeId = initialNodeId && storageNodes.some((node) => node.id === initialNodeId)
     ? initialNodeId
@@ -74,7 +76,7 @@ export function CreateFolderForm({
         data-tone="accent"
         className="rounded-full border px-4 py-2 text-sm font-medium transition"
       >
-        新建文件夹
+        {t("common.newFolder")}
       </button>
     );
   }
@@ -119,7 +121,7 @@ export function CreateFolderForm({
         />
       </label>
       {folderName.trim() ? (
-        <span className="text-xs text-[var(--text-secondary)]">路径：/{fullPath}</span>
+        <span className="text-xs text-[var(--text-secondary)]">{t("common.pathPrefix")}{fullPath}</span>
       ) : null}
       <button
         type="submit"

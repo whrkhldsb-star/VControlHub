@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { ALLOWED_API_TOKEN_SCOPES, listApiTokens } from "@/lib/api-token/service";
+import { t } from "@/lib/i18n/translations";
 import { ApiTokenManagerClient } from "./api-token-manager-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
 
@@ -12,7 +13,7 @@ export default async function Page() {
 		return (
 			<PageShell>
 				<section data-tone="rose" className="rounded-2xl border border-rose-400/20 p-6">
-					<h1 className="text-xl font-semibold text-rose-100">缺少权限</h1>
+					<h1 className="text-xl font-semibold text-rose-100">{t("common.insufficientPermissions")}</h1>
 					<p className="mt-2 text-sm text-rose-100/70">需要 api-token:manage 权限才能管理个人 API Token。</p>
 				</section>
 			</PageShell>

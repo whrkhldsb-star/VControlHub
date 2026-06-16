@@ -16,6 +16,8 @@
  */
 "use client";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+
 export interface DownloadFormState {
 	url: string;
 	serverId: string;
@@ -79,6 +81,7 @@ export function CreateDownloadForm({
 }: CreateDownloadFormProps) {
 	if (!open) return null;
 
+	const { t } = useI18n();
 	const selectedServer = servers.find((s) => s.id === selectedServerId);
 
 	return (
@@ -184,7 +187,7 @@ export function CreateDownloadForm({
 
 			<div className="grid gap-4 sm:grid-cols-3">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadFileName">文件名（可选）</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadFileName">{t("common.filenameOptional")}</label>
 					<input
 						id="downloadFileName"
 						value={form.fileName}

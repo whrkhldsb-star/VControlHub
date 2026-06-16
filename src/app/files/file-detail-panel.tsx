@@ -12,6 +12,7 @@
  * `FileDetailPanelLazy` uses `next/dynamic` to defer the chunk.
  */
 import Link from "next/link";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
   DeleteConfirmButton,
@@ -53,6 +54,7 @@ export function FileDetailPanel({
   entryCanWrite,
   entryCanDelete,
 }: FileDetailPanelProps) {
+  const { t } = useI18n();
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 p-3 backdrop-blur-sm"
@@ -68,7 +70,7 @@ export function FileDetailPanel({
         <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300">
-              资料详情
+              {t("common.fileDetails")}
             </p>
             <h2
               id="file-detail-panel-title"
