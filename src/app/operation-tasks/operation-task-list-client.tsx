@@ -9,7 +9,17 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { JobEventsDialog } from "./job-events-dialog";
 
-const sourceLabels: Record<string, string> = { job: "后台", command: "命令", scheduled: "定时", download: "下载", sync: "同步", backup: "备份", deployment: "部署" };
+function getSourceLabels(t: (k: string) => string): Record<string, string> {
+  return {
+    job: t("operationTasksPage.source.job"),
+    command: t("operationTasksPage.source.command"),
+    scheduled: t("operationTasksPage.source.scheduled"),
+    download: t("operationTasksPage.source.download"),
+    sync: t("operationTasksPage.source.sync"),
+    backup: t("operationTasksPage.source.backup"),
+    deployment: t("operationTasksPage.source.deployment"),
+  };
+}
 const statusTone: Record<string, "accent" | "success" | "warning" | "danger" | "neutral"> = {
   pending: "warning",
   running: "accent",
@@ -83,12 +93,12 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
           <h2 className="text-sm font-semibold text-white">{t("operationTasks.summary.sourceGroup")}</h2>
           <p className="mt-1 text-xs text-slate-500">{t("operationTasks.summary.sourceGroupDesc")}</p>
         </div>
-        <div className="text-xs text-slate-500">共 {tasks.length} 条</div>
+        <div className="text-xs text-slate-500">{t("operationTasksPage.summary.totalCount").replace("{count}", String(tasks.length))}</div>
       </div>
       {sourceSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">{t("operationTasks.summary.noSources")}</p> : <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {sourceSummary.map((item) => <div key={item.source} className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-white">{sourceLabels[item.source] ?? item.source}</span><span className="text-xs text-slate-500">总计 {item.total}</span></div>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400"><span>需处理 {item.attention}</span><span>失败 {item.failed}</span><span>运行中 {item.running}</span><span>待处理 {item.pending}</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-sm font-medium text-white">{getSourceLabels(t)[item.source] ?? item.source}</span><span className="text-xs text-slate-500">{t("operationTasksPage.summary.grandTotal").replace("{count}", String(item.total))}</span></div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-400"><span>{t("operationTasksPage.summary.needProcess").replace("{count}", String(item.attention))}</span><span>{t("operationTasksPage.summary.failed").replace("{count}", String(item.failed))}</span><span>{t("operationTasksPage.summary.running").replace("{count}", String(item.running))}</span><span>{t("operationTasksPage.summary.pending").replace("{count}", String(item.pending))}</span></div>
         </div>)}
       </div>}
     </section>
@@ -96,57 +106,57 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-sm font-semibold text-white">{t("operationTasks.summary.failureGroup")}</h2>
-          <p className="mt-1 text-xs text-slate-500">按当前筛选结果归类失败任务，优先处理重复出现的失败模式。</p>
+          <p className="mt-1 text-xs text-slate-500">{t("operationTasksPage.failures.desc")}</p>
         </div>
-        <div className="text-xs text-slate-500">共 {failureSummary.reduce((total, item) => total + item.total, 0)} 条失败</div>
+        <div className="text-xs text-slate-500">{t("operationTasksPage.failures.totalCount").replace("{count}", String(failureSummary.reduce((total, item) => total + item.total, 0)))}</div>
       </div>
       {failureSummary.length === 0 ? <p className="mt-3 text-sm text-slate-500">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div key={item.reason} data-tone="rose" className="rounded-lg border border-rose-400/15 px-3 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-white">{item.reason}</span><span data-tone="danger" className="rounded-md border px-2 py-1 text-xs font-medium">{item.total} 条</span></div>
-          <p className="mt-2 text-xs text-slate-500">来源：{item.sources.map((source) => sourceLabels[source] ?? source).join("、")} · 最新：{item.latestTitle}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-white">{item.reason}</span><span data-tone="danger" className="rounded-md border px-2 py-1 text-xs font-medium">{t("operationTasksPage.failures.itemCount").replace("{count}", String(item.total))}</span></div>
+          <p className="mt-2 text-xs text-slate-500">{t("operationTasksPage.failures.sourceAndLatest").replace("{sources}", item.sources.map((source) => getSourceLabels(t)[source] ?? source).join("、")).replace("{title}", item.latestTitle)}</p>
         </div>)}
       </div>}
     </section>
     <div data-card className="">
       <div className="flex flex-col gap-4 border-b border-white/[0.06] px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-white">最近任务</h2>
-          <p className="mt-1 text-xs text-slate-500">可优先查看失败/运行中任务，并按 durable job 类型缩小排查范围。</p>
+          <h2 className="text-sm font-semibold text-white">{t("operationTasksPage.recentTasks")}</h2>
+          <p className="mt-1 text-xs text-slate-500">{t("operationTasksPage.recentTasksHint")}</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="text-xs font-medium text-slate-400">
-            <span className="mb-1 block">状态筛选</span>
+            <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="min-w-32 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
               {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-slate-400">
-            <span className="mb-1 block">任务类型</span>
+            <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
             <select value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className="min-w-44 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
-              <option value="all">全部类型</option>
+              <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
               {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{taskType}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-slate-400">
-            <span className="mb-1 block">排序偏好</span>
+            <span className="mb-1 block">{t("operationTasksPage.filter.sort")}</span>
             <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className="min-w-36 rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100">
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-tone="accent" className="rounded-lg border px-3 py-2 text-xs font-medium">导出当前结果 CSV</a>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-tone="accent" className="rounded-lg border px-3 py-2 text-xs font-medium">t("operationTasksPage.export.csv")</a>
         </div>
       </div>
       <div className="divide-y divide-white/[0.06]">
         {tasks.length === 0 ? <EmptyState text={t("operationTasks.tasks.empty")} /> : tasks.map((task) => <div key={task.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-white/[0.05] px-2 py-1 text-xs text-slate-400">{sourceLabels[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-md border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-md border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200">已折叠 {task.foldedCount} 次周期完成记录</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : "后台执行器已认领，暂无心跳时间"} data-tone="accent" className="rounded-md border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-white">{task.title}</h3><p className="mt-1 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-white/[0.06] bg-slate-950/60 px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">最近日志</div><ul className="mt-2 space-y-1 text-xs text-slate-300">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-md bg-white/[0.05] px-2 py-1 text-xs text-slate-400">{getSourceLabels(t)[task.source] ?? task.source}</span><span data-tone={statusTone[task.status] ?? "neutral"} className="rounded-md border px-2 py-1 text-xs font-medium">{task.status}</span>{task.taskType && <span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{task.taskType}</span>}{task.foldedCount && task.foldedCount > 1 && <span className="rounded-md border border-indigo-400/20 bg-indigo-400/10 px-2 py-1 text-xs text-indigo-200">{t("operationTasksPage.folded").replace("{count}", String(task.foldedCount))}</span>}{task.workerId && <span title={task.workerHeartbeatAt ? `最近心跳：${new Date(task.workerHeartbeatAt).toLocaleString("zh-CN")}` : t("operationTasksPage.worker.noHeartbeat")} data-tone="accent" className="rounded-md border px-2 py-1 text-xs font-medium">worker {task.workerId}</span>}</div><h3 className="mt-2 truncate text-sm font-medium text-white">{task.title}</h3><p className="mt-1 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString("zh-CN")} {task.actor ? ` · ${task.actor}` : ""} {task.progress ? ` · ${task.progress}` : ""}</p>{task.logPreview && task.logPreview.length > 0 && <div aria-label={`最近日志：${task.title}`} className="mt-3 rounded-lg border border-white/[0.06] bg-slate-950/60 px-3 py-2"><div className="text-[11px] font-medium uppercase tracking-[0.2em] text-slate-500">{t("operationTasksPage.logs.recent")}</div><ul className="mt-2 space-y-1 text-xs text-slate-300">{task.logPreview.map((line, index) => <li key={`${task.id}-log-${index}`} className="break-words font-mono">{line}</li>)}</ul></div>}</div>
           <div className="flex flex-col items-end gap-2">
             {task.source === "job" && task.eventCount && task.eventCount > 0 ? (
               <button type="button" onClick={() => setEventsJobId(task.sourceId)} className="text-xs text-cyan-300 hover:text-cyan-200">
-                查看事件流（{task.eventCount}）
+                {t("operationTasksPage.task.viewEvents").replace("{count}", String(task.eventCount))}
               </button>
             ) : null}
-            {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-cyan-200">查看来源 →</Link>}
+            {task.href && <Link href={task.href} className="text-xs text-cyan-300 hover:text-cyan-200">{t("operationTasksPage.task.viewSource")}</Link>}
           </div>
         </div>)}
       </div>
