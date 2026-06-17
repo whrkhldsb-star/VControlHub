@@ -1,0 +1,53 @@
+/**
+ * i18n dictionary: `scheduledTasksPage.*` (23 keys).
+ */
+
+export const zh: Record<string, string> = {
+	"scheduledTasksPage.title": "定时任务",
+	"scheduledTasksPage.loading": "加载中…",
+	"scheduledTasksPage.empty": "暂无定时任务。",
+	"scheduledTasksPage.create": "+ 新建定时任务",
+	"scheduledTasksPage.createDialogTitle": "新建定时任务",
+	"scheduledTasksPage.name": "任务名称",
+	"scheduledTasksPage.cron": "Cron 表达式",
+	"scheduledTasksPage.command": "执行命令",
+	"scheduledTasksPage.servers": "执行节点",
+	"scheduledTasksPage.reason": "执行原因",
+	"scheduledTasksPage.status.active": "启用",
+	"scheduledTasksPage.status.paused": "已暂停",
+	"scheduledTasksPage.lastRun": "上次执行",
+	"scheduledTasksPage.nextRun": "下次执行",
+	"scheduledTasksPage.actions": "操作",
+	"scheduledTasksPage.actions.run": "立即执行",
+	"scheduledTasksPage.actions.pause": "暂停",
+	"scheduledTasksPage.actions.resume": "恢复",
+	"scheduledTasksPage.actions.edit": "编辑",
+	"scheduledTasksPage.actions.delete": "删除",
+	"scheduledTasksPage.confirm.delete": "确认删除该定时任务?",
+	"scheduledTasksPage.error.load": "定时任务列表加载失败",
+};
+
+export const en: Record<string, string> = {
+	"scheduledTasksPage.title": "Scheduled Tasks",
+	"scheduledTasksPage.loading": "Loading…",
+	"scheduledTasksPage.empty": "No scheduled tasks yet.",
+	"scheduledTasksPage.create": "+ New scheduled task",
+	"scheduledTasksPage.createDialogTitle": "New scheduled task",
+	"scheduledTasksPage.name": "Task name",
+	"scheduledTasksPage.cron": "Cron expression",
+	"scheduledTasksPage.command": "Command",
+	"scheduledTasksPage.servers": "Target servers",
+	"scheduledTasksPage.reason": "Reason",
+	"scheduledTasksPage.status.active": "Active",
+	"scheduledTasksPage.status.paused": "Paused",
+	"scheduledTasksPage.lastRun": "Last run",
+	"scheduledTasksPage.nextRun": "Next run",
+	"scheduledTasksPage.actions": "Actions",
+	"scheduledTasksPage.actions.run": "Run now",
+	"scheduledTasksPage.actions.pause": "Pause",
+	"scheduledTasksPage.actions.resume": "Resume",
+	"scheduledTasksPage.actions.edit": "Edit",
+	"scheduledTasksPage.actions.delete": "Delete",
+	"scheduledTasksPage.confirm.delete": "Delete this scheduled task?",
+	"scheduledTasksPage.error.load": "Failed to load scheduled tasks",
+};
