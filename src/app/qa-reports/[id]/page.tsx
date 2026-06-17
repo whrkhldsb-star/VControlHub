@@ -12,6 +12,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getQaReportDetail } from "@/lib/qa-reports/service";
+import { t } from "@/lib/i18n/translations";
 import { PageShell, PageHeader, EmptyState } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
@@ -23,11 +24,18 @@ function formatTime(iso: string | undefined): string {
 	return new Date(ts).toLocaleString("zh-CN", { hour12: false });
 }
 
-const kindLabel: Record<string, string> = {
-	slice: "闭环 slice",
-	blocker: "已解除 blocker",
-	qa_run: "QA loop",
-};
+function kindLabel(kind: string): string {
+	switch (kind) {
+		case "slice":
+			return t("qaReportsPage.kind.slice");
+		case "blocker":
+			return t("qaReportsPage.kind.blocker");
+		case "qa_run":
+			return t("qaReportsPage.kind.qaRun");
+		default:
+			return kind;
+	}
+}
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -36,7 +44,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 	if (!sessionHasPermission(session, "task:read")) {
 		return (
 			<PageShell>
-				<EmptyState text="你没有 QA 报告查看权限。" variant="boxed" />
+				<EmptyState text={t("qaReportsPage.noPermission")} variant="boxed" />
 			</PageShell>
 		);
 	}
@@ -47,47 +55,49 @@ export default async function QaReportDetailPage({ params }: Params) {
 			<PageShell maxW="max-w-4xl">
 				<PageHeader
 					eyebrow="QA Reports"
-					title="未找到报告"
-					description={`未在 .hermes/ 下找到 id 为 ${id} 的报告。`}
+					title={t("qaReportsPage.detail.notFound")}
+					description={t("qaReportsPage.detail.notFoundDesc").replace("{id}", id)}
 				>
 					<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-cyan-200">
-						← 返回报告列表
+						{t("qaReportsPage.detail.backToList")}
 					</Link>
 				</PageHeader>
-				<EmptyState text="该 id 已不存在或来源文件被清理。" variant="boxed" />
+				<EmptyState text={t("qaReportsPage.detail.emptyIdMissing")} variant="boxed" />
 			</PageShell>
 		);
 	}
 	return (
 		<PageShell maxW="max-w-5xl">
 			<PageHeader
-				eyebrow={kindLabel[detail.kind] ?? detail.kind}
+				eyebrow={kindLabel(detail.kind)}
 				title={detail.title}
-				description={`来源 id：${detail.sourceId} · 状态：${detail.status}`}
+				description={t("qaReportsPage.detail.sourceIdAndStatus")
+					.replace("{sourceId}", detail.sourceId)
+					.replace("{status}", detail.status)}
 			>
 				<Link href="/qa-reports" className="text-xs text-cyan-300 hover:text-cyan-200">
-					← 返回报告列表
+					{t("qaReportsPage.detail.backToList")}
 				</Link>
 			</PageHeader>
 			<div className="space-y-5">
 				<section data-card className="p-5">
 					<dl className="grid gap-3 text-xs text-slate-400 sm:grid-cols-2">
 						<div>
-							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">完成时间</dt>
+							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.finishedAt")}</dt>
 							<dd className="mt-1 text-sm text-white">{formatTime(detail.finishedAt)}</dd>
 						</div>
 						{detail.startedAt ? (
 							<div>
-								<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">起始时间</dt>
+								<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.startedAt")}</dt>
 								<dd className="mt-1 text-sm text-white">{formatTime(detail.startedAt)}</dd>
 							</div>
 						) : null}
 						<div>
-							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">状态</dt>
+							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.status")}</dt>
 							<dd className="mt-1 text-sm text-white">{detail.status}</dd>
 						</div>
 						<div>
-							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">证据条数</dt>
+							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.evidenceCount")}</dt>
 							<dd className="mt-1 text-sm text-white">{detail.evidence.length}</dd>
 						</div>
 					</dl>
@@ -96,17 +106,17 @@ export default async function QaReportDetailPage({ params }: Params) {
 				{detail.evidence.length > 0 ? (
 					<section data-card>
 						<div className="border-b border-white/[0.06] px-5 py-4">
-							<h2 className="text-sm font-semibold text-white">证据明细</h2>
-							<p className="mt-1 text-xs text-slate-500">从 .hermes/ 状态文件原样读出，未做二次加工。</p>
+							<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.evidenceTitle")}</h2>
+							<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.detail.evidenceDesc")}</p>
 						</div>
 						<ul className="divide-y divide-white/[0.06]">
 							{detail.evidence.map((row, index) => (
 								<li key={`${detail.id}-evidence-${index}`} className="px-5 py-4">
 									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
-										{row.command || "(无 command)"}
+										{row.command || t("qaReportsPage.detail.noCommand")}
 									</div>
 									<pre className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-300 font-mono">
-										{row.result || "(无 result)"}
+										{row.result || t("qaReportsPage.detail.noResult")}
 									</pre>
 								</li>
 							))}
@@ -116,20 +126,20 @@ export default async function QaReportDetailPage({ params }: Params) {
 				{detail.changeContract ? (
 					<section data-card>
 						<div className="border-b border-white/[0.06] px-5 py-4">
-							<h2 className="text-sm font-semibold text-white">Change Contract</h2>
-							<p className="mt-1 text-xs text-slate-500">本次闭环影响的文件 / 提交，便于审计追溯。</p>
+							<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.changeContract")}</h2>
+							<p className="mt-1 text-xs text-slate-500">{t("qaReportsPage.detail.changeContractDesc")}</p>
 						</div>
 						<div className="space-y-3 px-5 py-4 text-sm text-slate-300">
 							{detail.changeContract.commit ? (
 								<div>
-									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Commit</div>
+									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.commit")}</div>
 									<div className="mt-1 font-mono text-xs text-cyan-200">{detail.changeContract.commit}</div>
 								</div>
 							) : null}
 							{detail.changeContract.files && detail.changeContract.files.length > 0 ? (
 								<div>
 									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-										Files ({detail.changeContract.files.length})
+										{t("qaReportsPage.detail.filesCount").replace("{n}", String(detail.changeContract.files.length))}
 									</div>
 									<ul className="mt-1 space-y-1 font-mono text-xs text-slate-300">
 										{detail.changeContract.files.map((file) => (
@@ -140,7 +150,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 							) : null}
 							{detail.changeContract.notes ? (
 								<div>
-									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Notes</div>
+									<div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.notes")}</div>
 									<p className="mt-1 text-xs text-slate-300">{detail.changeContract.notes}</p>
 								</div>
 							) : null}
@@ -149,7 +159,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 				) : null}
 				{detail.next ? (
 					<section data-card className="p-5">
-						<h2 className="text-sm font-semibold text-white">Next</h2>
+						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.next")}</h2>
 						<p className="mt-2 text-sm text-slate-300">{detail.next}</p>
 					</section>
 				) : null}
