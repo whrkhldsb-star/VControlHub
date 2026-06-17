@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2026-06-15T11:03:31.410Z",
+  "generatedAt": "2026-06-17T00:20:40.472Z",
   "summary": {
     "sidebarMain": 22,
     "sidebarSystem": 5,
-    "sidebarMobile": 4,
-    "pages": 41,
-    "apiRoutes": 86,
+    "sidebarMobile": 5,
+    "pages": 42,
+    "apiRoutes": 88,
     "permissionsDefined": 41
   },
   "sidebar": {
     "main": [
       {
-        "href": "/",
+        "href": "/dashboard",
         "fallbackLabel": "仪表盘"
       },
       {
@@ -122,6 +122,7 @@
       }
     ],
     "mobileHrefs": [
+      "/dashboard",
       "/servers",
       "/traffic",
       "/files",
@@ -196,6 +197,13 @@
         "backup:read",
         "backup:restore"
       ]
+    },
+    {
+      "path": "/dashboard",
+      "file": "src/app/dashboard/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
     },
     {
       "path": "/deployments",
@@ -329,7 +337,7 @@
     {
       "path": "/",
       "file": "src/app/page.tsx",
-      "inSidebarMain": true,
+      "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": []
     },
@@ -818,6 +826,16 @@
         "GET"
       ],
       "declaredPermissions": []
+    },
+    {
+      "path": "/src/app/api/deploy-export/[id]/zip",
+      "file": "src/app/api/deploy-export/[id]/zip/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "deploy:export"
+      ]
     },
     {
       "path": "/src/app/api/deploy-export",
@@ -1322,6 +1340,16 @@
         "storage:delete",
         "storage:read",
         "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/storage/sftp-stale-inventory",
+      "file": "src/app/api/storage/sftp-stale-inventory/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:manage-node"
       ]
     },
     {

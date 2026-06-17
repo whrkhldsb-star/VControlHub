@@ -54,23 +54,26 @@ import DeploymentsPage from "../page";
 const csrfFetchMock = vi.mocked(csrfFetch);
 const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
-describe("DeploymentsPage", () => {
+const sampleExport = {
+  export: {
+    id: "exp-uuid-1",
+    name: "vcontrolhub-portable",
+    manifest: { appName: "vcontrolhub", domain: "console.example.test" },
+    files: {
+      "env.production.example": 'DATABASE_URL="REPLACE_WITH_DATABASE_URL"\n',
+      "deploy.sh": "npm run build\n",
+      "Caddyfile.example": "example.com { reverse_proxy 127.0.0.1:3000 }\n",
+    },
+  },
+};
+
+describe("DeploymentsPage deploy-export panel", () => {
   beforeEach(() => {
     csrfFetchMock.mockReset();
-    csrfFetchMock.mockResolvedValue({
-      export: {
-        id: "exp1",
-        name: "vcontrolhub-portable",
-        manifest: { appName: "vcontrolhub", domain: "console.example.test" },
-        files: {
-          "env.production.example": "DATABASE_URL=REPLACE_WITH_DATABASE_URL",
-          "deploy.sh": "npm run build",
-        },
-      },
-    });
+    csrfFetchMock.mockResolvedValue(sampleExport);
   });
 
-  it("mounts the deployment export UI and creates a portable export through csrfFetch", async () => {
+  it("renders the panel, generates a portable export, and shows the ZIP download + tree preview", async () => {
     const user = userEvent.setup();
     render(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
@@ -87,8 +90,25 @@ describe("DeploymentsPage", () => {
       }),
     ));
     expect(await screen.findByText("vcontrolhub-portable")).toBeInTheDocument();
-    expect(screen.getByText("env.production.example")).toBeInTheDocument();
-    expect(screen.getByText("deploy.sh")).toBeInTheDocument();
+
+    // The new UI: ZIP download button is present, JSON download button is gone.
+    expect(screen.getByTestId("deploy-export-zip")).toHaveTextContent("一键导出 ZIP");
+    expect(screen.queryByRole("button", { name: "下载 JSON" })).toBeNull();
+
+    // The tree view exposes the three generated files.
+    expect(screen.getByTestId("deploy-export-tree")).toBeInTheDocument();
+    expect(screen.getByTestId("deploy-export-file-env.production.example")).toBeInTheDocument();
+    expect(screen.getByTestId("deploy-export-file-deploy.sh")).toBeInTheDocument();
+    expect(screen.getByTestId("deploy-export-file-Caddyfile.example")).toBeInTheDocument();
+
+    // The preview pane shows a per-file rollback select plus the active file content.
+    // The panel picks the first alphabetical file by default — `Caddyfile.example`.
+    expect(screen.getByTestId("deploy-export-file-select")).toBeInTheDocument();
+    expect(screen.getByTestId("deploy-export-rollback")).toBeInTheDocument();
+    expect(screen.getByTestId("deploy-export-download-active")).toBeInTheDocument();
+    expect(screen.getByTestId("deploy-export-preview")).toHaveTextContent(
+      /reverse_proxy 127\.0\.0\.1:3000/,
+    );
   });
 
   it("bounds enabled target server hydration for the deployment form", async () => {

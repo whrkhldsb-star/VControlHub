@@ -1,7 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+
+type DeploymentExportManifest = {
+  appName?: string;
+  domain?: string;
+  generatedAt?: string;
+  dangerousEnvFlags?: string[];
+};
 
 type DeploymentExportFileMap = Record<string, string>;
 
@@ -9,14 +16,16 @@ type DeploymentExportResponse = {
   export?: {
     id?: string;
     name?: string;
-    manifest?: {
-      appName?: string;
-      domain?: string;
-      generatedAt?: string;
-      dangerousEnvFlags?: string[];
-    };
+    manifest?: DeploymentExportManifest;
     files?: DeploymentExportFileMap;
   };
+};
+
+type TreeNode = {
+  name: string;
+  fullPath: string;
+  isFile: boolean;
+  children: TreeNode[];
 };
 
 function normalizeDomain(value: string) {
@@ -27,8 +36,68 @@ function normalizeAppName(value: string) {
   return value.trim().toLowerCase();
 }
 
-function downloadJsonFile(filename: string, data: unknown) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+function buildFileTree(files: DeploymentExportFileMap): TreeNode[] {
+  const root: TreeNode = { name: "", fullPath: "", isFile: false, children: [] };
+  const sorted = Object.entries(files).sort(([a], [b]) => a.localeCompare(b));
+  for (const [rawName] of sorted) {
+    const segments = rawName.replace(/^\/+/, "").split("/").filter(Boolean);
+    if (segments.length === 0) continue;
+    let cursor = root;
+    let running = "";
+    segments.forEach((segment, index) => {
+      running = running ? `${running}/${segment}` : segment;
+      const isFile = index === segments.length - 1;
+      let next = cursor.children.find((child) => child.name === segment);
+      if (!next) {
+        next = { name: segment, fullPath: running, isFile, children: [] };
+        cursor.children.push(next);
+      } else if (isFile) {
+        next.isFile = true;
+      }
+      cursor = next;
+    });
+  }
+  const sortNodes = (nodes: TreeNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.isFile !== b.isFile) return a.isFile ? 1 : -1; // directories first
+      return a.name.localeCompare(b.name);
+    });
+    nodes.forEach((node) => sortNodes(node.children));
+  };
+  sortNodes(root.children);
+  return root.children;
+}
+
+async function copyTextToClipboard(value: string): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // fall through to the legacy path
+    }
+  }
+  if (typeof document === "undefined") return false;
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  textarea.remove();
+  return ok;
+}
+
+function downloadTextFile(filename: string, content: string) {
+  if (typeof window === "undefined") return;
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -45,22 +114,53 @@ export function DeploymentExportPanel() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DeploymentExportResponse["export"] | null>(null);
+  const [activePath, setActivePath] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<{ path: string; at: number } | null>(null);
+  const [zipPending, setZipPending] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
 
-  const files = useMemo(() => Object.entries(result?.files ?? {}), [result]);
+  const files = result?.files ?? {};
+  const tree = useMemo(() => buildFileTree(files), [files]);
+  const fileNames = useMemo(() => Object.keys(files).sort((a, b) => a.localeCompare(b)), [files]);
+  const fileCount = fileNames.length;
+  const totalSize = useMemo(
+    () => Object.values(files).reduce((acc, content) => acc + new Blob([content]).size, 0),
+    [files],
+  );
+
+  // Reset the active file whenever the export result changes; default to the
+  // first file (alphabetical) so the preview panel never opens empty.
+  useEffect(() => {
+    if (fileNames.length === 0) {
+      setActivePath(null);
+      return;
+    }
+    if (!activePath || !(activePath in files)) {
+      setActivePath(fileNames[0] ?? null);
+    }
+  }, [fileNames, files, activePath]);
+
+  // Auto-clear the per-file "copied" indicator after a short delay.
+  useEffect(() => {
+    if (!copyState) return;
+    const timer = setTimeout(() => setCopyState(null), 1800);
+    return () => clearTimeout(timer);
+  }, [copyState]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
     setError(null);
+    setZipError(null);
     try {
       const payload = {
         domain: normalizeDomain(domain) || undefined,
         appName: normalizeAppName(appName) || undefined,
       };
-      const response = await csrfFetch("/api/deploy-export", {
+      const response = (await csrfFetch("/api/deploy-export", {
         method: "POST",
         body: JSON.stringify(payload),
-      }) as DeploymentExportResponse;
+      })) as DeploymentExportResponse;
       setResult(response.export ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "生成部署导出包失败");
@@ -69,10 +169,45 @@ export function DeploymentExportPanel() {
     }
   }
 
-  function handleDownload() {
-    if (!result) return;
-    const slug = result.manifest?.appName || result.name || "deployment-export";
-    downloadJsonFile(`${slug}-portable-deploy.json`, result);
+  async function handleZipDownload() {
+    if (!result?.id) return;
+    setZipPending(true);
+    setZipError(null);
+    try {
+      const response = await fetch(`/api/deploy-export/${encodeURIComponent(result.id)}/zip`, {
+        method: "GET",
+      });
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new Error(text || `下载失败 (HTTP ${response.status})`);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const match = disposition.match(/filename="?([^";]+)"?/);
+      link.download = match?.[1] || `${result.name || "deployment-export"}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setZipError(err instanceof Error ? err.message : "下载 ZIP 失败");
+    } finally {
+      setZipPending(false);
+    }
+  }
+
+  async function handleCopy(content: string, fullPath: string) {
+    const ok = await copyTextToClipboard(content);
+    if (ok) {
+      setCopyState({ path: fullPath, at: Date.now() });
+    }
+  }
+
+  function handleDownloadFile(fullPath: string, content: string) {
+    downloadTextFile(fullPath.split("/").pop() || fullPath, content);
   }
 
   return (
@@ -87,7 +222,10 @@ export function DeploymentExportPanel() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+      <form
+        onSubmit={handleSubmit}
+        className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
+      >
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
           目标域名
           <input
@@ -106,12 +244,19 @@ export function DeploymentExportPanel() {
             className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-[var(--text-secondary)]"
           />
         </label>
-        <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">
+        <button
+          disabled={pending}
+          className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+        >
           {pending ? "生成中..." : "生成导出包"}
         </button>
       </form>
 
-      {error && <p role="alert" className="mt-3 text-xs text-rose-300">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-rose-300">
+          {error}
+        </p>
+      )}
 
       {result && (
         <div data-tone="cyan" className="mt-4 rounded-xl border border-cyan-400/20 p-4 light:bg-cyan-50">
@@ -119,23 +264,208 @@ export function DeploymentExportPanel() {
             <div>
               <h3 className="text-sm font-semibold text-white">{result.name ?? "portable deployment"}</h3>
               <p className="mt-1 text-xs text-slate-500">
-                {result.manifest?.domain ?? "example.com"} · {files.length} 个文件 · 危险演示开关默认关闭
+                {result.manifest?.domain ?? "example.com"} · {fileCount} 个文件 · {(totalSize / 1024).toFixed(1)} KB · 危险演示开关默认关闭
               </p>
             </div>
-            <button type="button" onClick={handleDownload} className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10">
-              下载 JSON
+            <button
+              type="button"
+              onClick={handleZipDownload}
+              disabled={zipPending || !result.id}
+              data-testid="deploy-export-zip"
+              className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {zipPending ? "打包中..." : "一键导出 ZIP"}
             </button>
           </div>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
-            {files.map(([name, content]) => (
-              <details key={name} className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                <summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{name}</summary>
-                <code className="mt-2 block max-h-48 overflow-auto whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{content}</code>
-              </details>
-            ))}
+
+          {zipError && (
+            <p role="alert" className="mt-2 text-xs text-rose-300">
+              {zipError}
+            </p>
+          )}
+
+          <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+            <DeploymentExportTree
+              tree={tree}
+              activePath={activePath}
+              onSelect={setActivePath}
+            />
+            <DeploymentFilePreview
+              fileNames={fileNames}
+              activePath={activePath}
+              content={activePath ? files[activePath] ?? "" : ""}
+              onCopy={handleCopy}
+              onDownload={handleDownloadFile}
+              onSelect={setActivePath}
+              copyState={copyState}
+            />
           </div>
         </div>
       )}
     </section>
+  );
+}
+
+type TreeProps = {
+  tree: TreeNode[];
+  activePath: string | null;
+  onSelect: (path: string) => void;
+};
+
+function nodeKey(node: TreeNode) {
+  return node.fullPath || node.name;
+}
+
+function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) {
+  return (
+    <div
+      data-testid="deploy-export-tree"
+      className="rounded-lg border border-white/[0.06] bg-black/30 p-3 font-mono text-xs text-[var(--text-secondary)]"
+    >
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">目录树</p>
+      {tree.length === 0 ? (
+        <p className="text-xs text-slate-500">暂无文件</p>
+      ) : (
+        <ul className="space-y-1">
+          {tree.map((node) => (
+            <TreeRow
+              key={nodeKey(node)}
+              node={node}
+              depth={0}
+              activePath={activePath}
+              onSelect={onSelect}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TreeRow({
+  node,
+  depth,
+  activePath,
+  onSelect,
+}: {
+  node: TreeNode;
+  depth: number;
+  activePath: string | null;
+  onSelect: (path: string) => void;
+}) {
+  if (!node.isFile) {
+    return (
+      <li>
+        <div className="flex items-center gap-1" style={{ paddingLeft: depth * 12 }}>
+          <span aria-hidden>📁</span>
+          <span className="font-semibold text-slate-200">{node.name || "/"}</span>
+        </div>
+        {node.children.length > 0 && (
+          <ul className="mt-1 space-y-1">
+            {node.children.map((child) => (
+              <TreeRow
+                key={nodeKey(child)}
+                node={child}
+                depth={depth + 1}
+                activePath={activePath}
+                onSelect={onSelect}
+              />
+            ))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+  const isActive = activePath === node.fullPath;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onSelect(node.fullPath)}
+        data-testid={`deploy-export-file-${node.fullPath}`}
+        className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left transition ${
+          isActive
+            ? "bg-cyan-300/20 text-cyan-100"
+            : "hover:bg-white/[0.04] text-[var(--text-secondary)]"
+        }`}
+        style={{ paddingLeft: depth * 12 }}
+      >
+        <span aria-hidden>📄</span>
+        <span className="truncate">{node.name}</span>
+        {isActive ? <span className="ml-auto text-[10px] text-cyan-200">查看中</span> : null}
+      </button>
+    </li>
+  );
+}
+
+type PreviewProps = {
+  fileNames: string[];
+  activePath: string | null;
+  content: string;
+  onCopy: (content: string, path: string) => void;
+  onDownload: (path: string, content: string) => void;
+  onSelect: (path: string) => void;
+  copyState: { path: string; at: number } | null;
+};
+
+function DeploymentFilePreview({
+  fileNames,
+  activePath,
+  content,
+  onCopy,
+  onDownload,
+  onSelect,
+  copyState,
+}: PreviewProps) {
+  if (fileNames.length === 0 || !activePath) {
+    return (
+      <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-slate-500">
+        导出包不包含任何文件。
+      </div>
+    );
+  }
+  const justCopied = copyState?.path === activePath;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
+          单文件回滚
+        </label>
+        <select
+          data-testid="deploy-export-file-select"
+          value={activePath}
+          onChange={(event) => onSelect(event.target.value)}
+          className="flex-1 rounded border border-white/[0.08] bg-slate-950 px-2 py-1 text-xs text-slate-100"
+        >
+          {fileNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          data-testid="deploy-export-rollback"
+          onClick={() => onCopy(content, activePath)}
+          className="rounded border border-cyan-300/40 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10"
+        >
+          {justCopied ? "已复制" : "复制内容回滚"}
+        </button>
+        <button
+          type="button"
+          data-testid="deploy-export-download-active"
+          onClick={() => onDownload(activePath, content)}
+          className="rounded border border-white/[0.08] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
+        >
+          下载此文件
+        </button>
+      </div>
+      <pre
+        data-testid="deploy-export-preview"
+        className="max-h-72 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 text-xs text-slate-200"
+      >
+        <code>{content}</code>
+      </pre>
+    </div>
   );
 }
