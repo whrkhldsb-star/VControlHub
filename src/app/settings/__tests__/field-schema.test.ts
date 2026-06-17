@@ -79,7 +79,7 @@ describe("getSectionSaveKeys", () => {
 describe("buildTocItems", () => {
 	it("emits one TOC entry per schema section in declaration order", () => {
 		const items = buildTocItems();
-		expect(items.map((i) => i.id)).toEqual(["2fa", "platform", "password", "runtime", "smtp", "dashboard", "offsite"]);
+		expect(items.map((i) => i.id)).toEqual(["2fa", "platform", "password", "runtime", "smtp", "dashboard", "offsite", "aiOps"]);
 	});
 
 	it("strips the parenthetical suffix from the SMTP title for the TOC chip", () => {
@@ -184,8 +184,9 @@ describe("Schema declaration order", () => {
 		// TR-020 M02: 仪表盘拖拽重排总开关放在 SETTINGS_SCHEMA 末尾, 不影响 platform/password/runtime/smtp
 		// 的保存按钮索引, 但 saveable 列表新增 dashboard 末位
 		// TR-007 M03: 异地备份放在 SETTINGS_SCHEMA 末尾 (dashboard 之后), saveable 列表新增 offsite 末位
+		// TR-032 E02: AI 智能运维 mode/provider 放在 SETTINGS_SCHEMA 末尾 (offsite 之后), saveable 列表新增 aiOps 末位
 		const saveable = SETTINGS_SCHEMA.filter((s) => !s.custom);
-		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp", "dashboard", "offsite"]);
+		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp", "dashboard", "offsite", "aiOps"]);
 	});
 });
 

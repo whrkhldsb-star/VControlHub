@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * assert registry bookkeeping in isolation.
  */
 const {
+  startAiOpsScanWorkerMock,
+  stopAiOpsScanWorkerForTestsMock,
   startAlertEvaluationWorkerMock,
   stopAlertEvaluationWorkerForTestsMock,
   startBackupJobWorkerMock,
@@ -27,6 +29,8 @@ const {
   startSftpStaleInventoryWorkerMock,
   stopSftpStaleInventoryWorkerForTestsMock,
 } = vi.hoisted(() => ({
+  startAiOpsScanWorkerMock: vi.fn(() => undefined),
+  stopAiOpsScanWorkerForTestsMock: vi.fn(),
   startAlertEvaluationWorkerMock: vi.fn(async () => undefined),
   stopAlertEvaluationWorkerForTestsMock: vi.fn(),
   startBackupJobWorkerMock: vi.fn(() => undefined),
@@ -47,6 +51,10 @@ const {
   stopSftpStaleInventoryWorkerForTestsMock: vi.fn(),
 }));
 
+vi.mock("@/lib/ai/ops/scan-worker", () => ({
+  startAiOpsScanWorker: startAiOpsScanWorkerMock,
+  stopAiOpsScanWorkerForTests: stopAiOpsScanWorkerForTestsMock,
+}));
 vi.mock("@/lib/health/alert-worker", () => ({
   startAlertEvaluationWorker: startAlertEvaluationWorkerMock,
   stopAlertEvaluationWorkerForTests: stopAlertEvaluationWorkerForTestsMock,
@@ -97,6 +105,7 @@ import {
 
 function resetAllMocks() {
   for (const m of [
+    startAiOpsScanWorkerMock,
     startAlertEvaluationWorkerMock,
     startBackupJobWorkerMock,
     startCommandExecutionWorkerMock,
@@ -111,6 +120,7 @@ function resetAllMocks() {
     m.mockResolvedValue(undefined);
   }
   for (const m of [
+    stopAiOpsScanWorkerForTestsMock,
     stopAlertEvaluationWorkerForTestsMock,
     stopBackupJobWorkerForTestsMock,
     stopCommandExecutionWorkerForTestsMock,
@@ -126,6 +136,7 @@ function resetAllMocks() {
 }
 
 const EXPECTED_WORKER_IDS: WorkerId[] = [
+  "ai-ops-scan",
   "alert-evaluation",
   "backup",
   "command-execution",
@@ -149,7 +160,7 @@ describe("worker registry", () => {
     _resetWorkerRegistryForTests();
   });
 
-  it("describes all 11 workers in the canonical order", () => {
+  it("describes all 12 workers in the canonical order", () => {
     expect(WORKER_REGISTRY.map((w) => w.id)).toEqual(EXPECTED_WORKER_IDS);
     for (const w of WORKER_REGISTRY) {
       expect(w.label).toBeTruthy();
@@ -161,7 +172,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(11);
+    expect(statuses).toHaveLength(12);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -184,6 +195,7 @@ describe("worker registry", () => {
     expect(result.failed.map((f) => f.id)).toEqual(["backup"]);
     expect(result.started).toEqual(
       expect.arrayContaining([
+        "ai-ops-scan",
         "alert-evaluation",
         "command-execution",
         "command-maintenance",
@@ -196,9 +208,9 @@ describe("worker registry", () => {
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 10/11 should be reported started.
+    // 11/12 should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(10);
+    expect(startedCount).toBe(11);
   });
 
   it("startAllWorkers starts every worker once", async () => {

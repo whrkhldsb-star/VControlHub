@@ -163,6 +163,8 @@ describe("SETTINGS_SCHEMA risk classification (TR-014 schema audit)", () => {
 			// TR-007 M03: 异地备份的 accessKeyId / secretAccessKey 改错会导致推送失败
 			"offsite.accessKeyId",
 			"offsite.secretAccessKey",
+			// TR-032 E02: ai.ops.mode 切到 autonomous 后 AI 会自动执行白名单内的安全动作, 风险高
+			"ai.ops.mode",
 		]);
 		const allHigh: string[] = [];
 		for (const section of SETTINGS_SCHEMA) {

@@ -5,6 +5,10 @@ export const PERMISSIONS = [
 	"ai:chat",
 	"ai:manage",
 	"ai:action:approve",
+	// TR-032 E02: 智能 AI 运维 (ai:ops:read 看 /ai-ops 日志, ai:ops:manage 配 mode / 跑 scan, ai:ops:autonomous 高风险自主执行)
+	"ai:ops:read",
+	"ai:ops:manage",
+	"ai:ops:autonomous",
 	"backup:create",
 	"backup:read",
 	"backup:restore",
@@ -67,6 +71,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 		"audit:read",
 		"ai:chat",
 		"ai:manage",
+		"ai:ops:read",
 		"backup:create",
 		"backup:read",
 		"command:create",
@@ -100,6 +105,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
 	],
 	viewer: [
 		"ai:chat",
+		"ai:ops:read",
 		"audit:read",
 		"backup:read",
 		"command:read",

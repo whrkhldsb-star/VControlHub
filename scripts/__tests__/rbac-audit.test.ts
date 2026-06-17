@@ -83,13 +83,16 @@ function makeReport(overrides?: Partial<AuditReport>): AuditReport {
 const RBAC_FIXTURE = join(process.cwd(), "src/lib/auth/rbac.ts");
 
 describe("loadRbac — real rbac.ts fixture", () => {
-  it("extracts all 46 permissions from the PERMISSIONS tuple", () => {
+  it("extracts all 49 permissions from the PERMISSIONS tuple", () => {
     if (!existsSync(RBAC_FIXTURE)) return; // skip if fixture missing
     const { permissions } = loadRbac();
-    expect(permissions.length).toBe(46);
+    expect(permissions.length).toBe(49);
     expect(permissions).toContain("ai:chat");
     expect(permissions).toContain("command:execute");
     expect(permissions).toContain("storage:write");
+    expect(permissions).toContain("ai:ops:read");
+    expect(permissions).toContain("ai:ops:manage");
+    expect(permissions).toContain("ai:ops:autonomous");
     expect(permissions).toContain("playbook:manage");
     expect(permissions).toContain("cost:read");
     expect(permissions).toContain("cost:manage");
@@ -98,9 +101,12 @@ describe("loadRbac — real rbac.ts fixture", () => {
   it("returns the admin role with all permissions via ALL_PERMISSIONS reference", () => {
     if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
-    expect(roleMap.admin.length).toBe(46);
+    expect(roleMap.admin.length).toBe(49);
     expect(roleMap.admin).toContain("ai:chat");
     expect(roleMap.admin).toContain("server:write");
+    expect(roleMap.admin).toContain("ai:ops:read");
+    expect(roleMap.admin).toContain("ai:ops:manage");
+    expect(roleMap.admin).toContain("ai:ops:autonomous");
     expect(roleMap.admin).toContain("playbook:read");
     expect(roleMap.admin).toContain("cost:read");
     expect(roleMap.admin).toContain("cost:manage");

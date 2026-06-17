@@ -46,6 +46,9 @@ const DEFAULTS: Record<string, string> = {
 	"offsite.dailyWindowHour": "3",
 	"offsite.retentionDays": "30",
 	"offsite.failureAlertRecipient": "",
+	// TR-032 E02: 智能 AI 运维 (默认 recommendation 模式, provider 留空 = 走内置信号 surface)
+	"ai.ops.mode": "recommendation",
+	"ai.ops.provider": "",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),

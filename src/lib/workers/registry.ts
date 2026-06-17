@@ -18,6 +18,7 @@
  * to a follow-up TR per the README New-D note).
  */
 import { startAlertEvaluationWorker, stopAlertEvaluationWorkerForTests } from "@/lib/health/alert-worker";
+import { startAiOpsScanWorker, stopAiOpsScanWorkerForTests } from "@/lib/ai/ops/scan-worker";
 import { startBackupJobWorker, stopBackupJobWorkerForTests } from "@/lib/backup/job-worker";
 import { startCommandExecutionWorker, stopCommandExecutionWorkerForTests } from "@/lib/command/execution-worker";
 import { startCommandMaintenanceWorker, stopCommandMaintenanceWorkerForTests } from "@/lib/command/worker";
@@ -30,6 +31,7 @@ import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForT
 import { startCostSnapshotWorker, stopCostSnapshotWorkerForTests } from "@/lib/cost/snapshot-worker";
 
 export type WorkerId =
+  | "ai-ops-scan"
   | "alert-evaluation"
   | "backup"
   | "command-execution"
@@ -74,6 +76,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
   const g = globalThis as WorkerRegistryGlobal;
   if (!g.__vcontrolhubWorkerRegistry) {
     g.__vcontrolhubWorkerRegistry = {
+      "ai-ops-scan": { started: false },
       "alert-evaluation": { started: false },
       backup: { started: false },
       "command-execution": { started: false },
@@ -209,7 +212,20 @@ const COST_SNAPSHOT: WorkerSpec = {
   stop: () => stopCostSnapshotWorkerForTests(),
 };
 
+const AI_OPS_SCAN: WorkerSpec = {
+  id: "ai-ops-scan",
+  // TR-032 E02: 每日 02:00 跑 ai_ops_logs → 系统健康信号 surface
+  label: "AI 运维每日扫描",
+  jobType: "ai.ops.scan",
+  start: () => {
+    startAiOpsScanWorker();
+    return Promise.resolve();
+  },
+  stop: () => stopAiOpsScanWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
+  AI_OPS_SCAN,
   ALERT_EVALUATION,
   BACKUP,
   COMMAND_EXECUTION,

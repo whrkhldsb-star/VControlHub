@@ -107,6 +107,7 @@ model User {
  aiHostedRequests AiHostedAction[] @relation("AiHostedRequester")
  aiHostedApprovals AiHostedAction[] @relation("AiHostedApprover")
  costEntries CostEntry[] @relation("CostEntryCreatedBy")
+ aiOpsLogs AiOpsLog[] @relation("AiOpsLogTriggeredBy")
  twoFactorEnabled Boolean @default(false)
  twoFactorSecret String?
  preferences Json?
@@ -1133,6 +1134,44 @@ model CostSnapshot {
 
   @@index([snapshotDate])
   @@map("cost_snapshots")
+}
+
+// TR-032 E02: Smart AI ops (recommendation + autonomous modes).
+//
+// AiOpsLog records the outcome of every scan / recommendation / autonomous
+// action. Source of truth for the /ai-ops UI page and the audit trail.
+// Recommendations are stored inline as JSON to avoid an extra table for
+// v1; the schema is permissive enough to evolve.
+model AiOpsLog {
+  id              String   @id @default(cuid())
+  triggerType     String   // "scheduled" | "manual" | "recommendation_followup"
+  mode            String   // "recommendation" | "autonomous"
+  status          String   // "ok" | "warning" | "error" | "skipped" | "running"
+  // Findings produced by the AI scan. Shape: [{ id, severity, title, body, source, resourceRef }].
+  findings        Json     @default("[]")
+  // For mode=recommendation: [{ id, action, risk, requiresApproval }].
+  // For mode=autonomous: [{ id, action, executed, executedAt, result, errorMessage }].
+  actions         Json     @default("[]")
+  // Free-form notes / reasoning written by the AI provider.
+  notes           String?
+  errorMessage    String?
+  // AI provider id used (from AiProvider table), null if the configured provider is missing.
+  providerId      String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  durationMs      Int?
+  // User that triggered (for manual). Null for scheduled scans.
+  triggeredById   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  triggeredBy User? @relation("AiOpsLogTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([mode, createdAt])
+  @@index([triggeredById, createdAt])
+  @@map("ai_ops_logs")
 }
 
 model AppSource {

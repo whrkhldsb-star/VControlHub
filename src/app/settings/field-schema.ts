@@ -484,6 +484,42 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 			},
 		],
 	},
+	{
+		// TR-032 E02: 智能 AI 运维 mode / provider
+		// 放在 SETTINGS_SCHEMA 末尾, 不影响既有 platform/password/runtime/smtp/dashboard/offsite 的索引断言
+		id: "aiOps",
+		icon: "🤖",
+		title: "AI 智能运维",
+		description: (s) => (s["ai.ops.mode"] === "autonomous"
+			? "AI 自主模式：白名单内的安全动作（告警评估、低风险 Playbook 等）会自动执行。"
+			: "AI 建议模式：所有动作都需要管理员审批（推荐模式）。autonomous 模式需要 ai:ops:autonomous 权限。"),
+		badge: (s) => (s["ai.ops.mode"] === "autonomous" ? "自主模式" : "建议模式"),
+		badgeTone: (s) => (s["ai.ops.mode"] === "autonomous" ? "amber" : "cyan"),
+		defaultOpen: false,
+		saveMessage: "AI 运维设置已保存；新的 mode 在下次扫描生效。",
+		fields: [
+			{
+				key: "ai.ops.mode",
+				label: "运行模式",
+				type: "select",
+				defaultValue: "recommendation",
+				options: [
+					{ value: "recommendation", label: "建议模式（需人工审批）" },
+					{ value: "autonomous", label: "自主模式（白名单内自动执行）" },
+				],
+				helperText: "切换到 autonomous 前请确认已开启 ai:ops:autonomous 权限，并理解 AI 会按 AI_OPS_SAFE_AUTONOMOUS_ACTIONS 白名单自动执行。",
+				riskLevel: "high",
+			},
+			{
+				key: "ai.ops.provider",
+				label: "AI 提供方 ID",
+				type: "text",
+				defaultValue: "",
+				placeholder: "留空 = 内置系统健康信号 surface",
+				helperText: "可选。对接真实 AI provider 的预留字段（v2），目前仅用于标识与审计；仅允许字母、数字、点、下划线、冒号、连字符，最长 64 个字符。",
+			},
+		],
+	},
 ];
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -505,6 +541,7 @@ export function buildTocItems(): { id: string; icon: string; title: string; subt
 		runtime: "命令 / SSH / 列表上限",
 		dashboard: "拖拽重排 / 编辑入口",
 		offsite: "S3 / 推送窗口 / 保留",
+		aiOps: "运行模式 / provider",
 	};
 	return SETTINGS_SCHEMA.map((s) => ({
 		id: s.id,
