@@ -44,6 +44,7 @@ export const zh: Record<string, string> = {
 	"templatesPage.toast.submitFailed": "提交失败",
 	"templatesPage.toast.submitted": "部署已提交，可在部署记录中查看进度",
 	"templatesPage.variable": "变量 {name}",
+	"templatesPage.deployReason": "从模板中心下发：{name}",
 };
 
 export const en: Record<string, string> = {
@@ -85,4 +86,5 @@ export const en: Record<string, string> = {
 	"templatesPage.toast.submitFailed": "Submit failed",
 	"templatesPage.toast.submitted": "Deployment submitted — see progress in deployment history",
 	"templatesPage.variable": "Variable {name}",
+	"templatesPage.deployReason": "Launched from template center: {name}",
 };

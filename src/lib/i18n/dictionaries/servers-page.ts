@@ -20,6 +20,54 @@ export const zh: Record<string, string> = {
 	"serversPage.statusPriority.desc": "默认先展示各 VPS 的启用状态、连接方式、密钥绑定、直连模式和待审批命令；添加 VPS、添加密钥、批量操作已收入口到快捷操作区。",
 	"serversPage.statusPriority.title": "VPS 状态优先",
 	"serversPage.title": "VPS 管理",
+	"serversPage.command.title": "创建命令请求",
+
+	"serversPage.command.titleLabel": "命令标题",
+
+	"serversPage.command.titlePlaceholder": "例如：Restart nginx",
+
+	"serversPage.command.bodyLabel": "命令内容",
+
+	"serversPage.command.desc": "选择要执行命令的目标节点并填入命令内容。提交后进入命令审批流程。",
+
+	"serversPage.command.selectAllEnabled": "全选启用节点",
+
+	"serversPage.command.deselectAll": "取消全选",
+
+	"serversPage.command.noAvailableNodes": "暂无可用启用节点；请先在 VPS 管理中启用至少一台服务器。",
+
+	"serversPage.command.targetNodes": "目标节点",
+
+	"serversPage.command.reasonLabel": "执行原因",
+
+	"serversPage.create.title": "添加 VPS 节点",
+
+	"serversPage.create.sshKey": "SSH 密钥",
+
+	"serversPage.create.password": "密码",
+
+	"serversPage.create.selectKey": "请选择已有密钥",
+
+	"serversPage.create.passwordPlaceholder": "留空则使用密钥认证",
+
+	"serversPage.create.namePlaceholder": "例如：慈云香港 VPS",
+
+	"serversPage.create.descriptionPlaceholder": "可选说明",
+
+	"serversPage.create.tagsPlaceholder": "ops, prod",
+
+	"serversPage.create.storagePathDefault": "/root/drive",
+
+	"serversPage.create.storagePathDesc": "VPS 上的默认存储目录",
+
+	"serversPage.create.submit": "保存并校验连接",
+
+	"serversPage.create.submitting": "校验中…",
+
+	"serversPage.create.directGateway.title": "启用目标服务器直连",
+
+	"serversPage.create.directGateway.note": "启用后对上传、下载、在线浏览/播放全局生效；之后也可在服务器管理面板切回中转并删除服务。",
+
 };
 
 export const en: Record<string, string> = {
@@ -37,4 +85,52 @@ export const en: Record<string, string> = {
 	"serversPage.statusPriority.desc": "Show each VPS's enabled state, connection, key binding, direct mode, and pending commands. Add VPS, add key, and batch actions are in the quick-action area.",
 	"serversPage.statusPriority.title": "VPS status first",
 	"serversPage.title": "VPS management",
+	"serversPage.command.title": "Create command request",
+
+	"serversPage.command.titleLabel": "Command title",
+
+	"serversPage.command.titlePlaceholder": "e.g. Restart nginx",
+
+	"serversPage.command.bodyLabel": "Command body",
+
+	"serversPage.command.desc": "Pick target VPS nodes and provide the command body. Submission enters the command approval flow.",
+
+	"serversPage.command.selectAllEnabled": "Select all enabled",
+
+	"serversPage.command.deselectAll": "Deselect all",
+
+	"serversPage.command.noAvailableNodes": "No enabled VPS nodes; please enable at least one in VPS management first.",
+
+	"serversPage.command.targetNodes": "Target nodes",
+
+	"serversPage.command.reasonLabel": "Reason for execution",
+
+	"serversPage.create.title": "Add VPS node",
+
+	"serversPage.create.sshKey": "SSH key",
+
+	"serversPage.create.password": "Password",
+
+	"serversPage.create.selectKey": "Select an existing key",
+
+	"serversPage.create.passwordPlaceholder": "Leave blank to use SSH key auth",
+
+	"serversPage.create.namePlaceholder": "e.g. Hong Kong VPS",
+
+	"serversPage.create.descriptionPlaceholder": "Optional notes",
+
+	"serversPage.create.tagsPlaceholder": "ops, prod",
+
+	"serversPage.create.storagePathDefault": "/root/drive",
+
+	"serversPage.create.storagePathDesc": "Default storage directory on the VPS",
+
+	"serversPage.create.submit": "Save and verify connection",
+
+	"serversPage.create.submitting": "Verifying…",
+
+	"serversPage.create.directGateway.title": "Enable target server direct access",
+
+	"serversPage.create.directGateway.note": "Once enabled, upload, download and online viewing/streaming will use direct access globally. You can switch back to relay later from the server management panel.",
+
 };

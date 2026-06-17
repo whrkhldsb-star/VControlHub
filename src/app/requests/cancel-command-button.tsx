@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -37,7 +39,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       setReason("");
       router.refresh();
     } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : "取消命令失败");
+      setError(cancelError instanceof Error ? cancelError.message : t("requestsPage.cancel.errorFallback"));
     } finally {
       setPending(false);
     }
@@ -49,9 +51,9 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         data-tone="rose" className="rounded-lg border border-rose-400/30 px-3 py-1.5 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20"
-        aria-label={`取消命令：${commandTitle}`}
+        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}
       >
-        取消命令
+        {t("requestsPage.cancel.title")}
       </button>
       {message && <p role="status" className="text-xs text-emerald-300">{message}</p>}
       {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
@@ -59,7 +61,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
       {open && (
         <div role="dialog" aria-modal="true" aria-labelledby={`cancel-command-${commandRequestId}-title`} className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-6">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl">
-            <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-white">确认取消命令</h3>
+            <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-white">{t("requestsPage.cancel.confirmTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               将取消“{commandTitle}”。若 SSH 子进程仍在当前执行器内运行，系统会发送终止信号；否则会把仍处于待审批/已批准/运行中的目标标记为 CANCELLED。
             </p>
@@ -91,7 +93,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                 onClick={submit}
                 className="rounded-xl bg-rose-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-400 disabled:opacity-50"
               >
-                {pending ? "取消中…" : "确认取消"}
+                {pending ? t("requestsPage.cancel.pending") : t("requestsPage.cancel.confirm")}
               </button>
             </div>
           </div>

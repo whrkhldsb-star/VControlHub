@@ -72,6 +72,18 @@ export const zh: Record<string, string> = {
 	"common.type": "类型",
 	"common.urgent": "🔴 紧急",
 	"common.validUntil": "有效期至",
+	"common.backupNote": "备份备注",
+
+	"common.backupNotePlaceholder": "例如：升级前备份",
+
+	"common.createAndExecute": "创建并执行",
+
+	"common.executing": "执行中…",
+
+	"common.folderName": "文件夹名称",
+
+	"common.folderNamePlaceholder": "例如：reports",
+
 };
 
 export const en: Record<string, string> = {
@@ -141,4 +153,16 @@ export const en: Record<string, string> = {
 	"common.type": "Type",
 	"common.urgent": "🔴 Urgent",
 	"common.validUntil": "Valid until",
+	"common.backupNote": "Backup notes",
+
+	"common.backupNotePlaceholder": "e.g. Before upgrade backup",
+
+	"common.createAndExecute": "Create and execute",
+
+	"common.executing": "Executing…",
+
+	"common.folderName": "Folder name",
+
+	"common.folderNamePlaceholder": "e.g. reports",
+
 };

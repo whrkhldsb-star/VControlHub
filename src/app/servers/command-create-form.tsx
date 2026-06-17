@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { SubmitButton } from "@/components/submit-button";
 
@@ -15,6 +16,7 @@ export function CommandCreateForm({
 }: {
 	servers: ServerOption[];
 }) {
+	const { t } = useI18n();
 	const [state, formAction] = useActionState(createCommandRequestAction, initialState);
 	const enabledServerIds = useMemo(() => servers.filter((server) => server.enabled).map((server) => server.id), [servers]);
 	const [selectedServerIds, setSelectedServerIds] = useState<Set<string>>(() => new Set());
@@ -39,37 +41,37 @@ export function CommandCreateForm({
 	return (
 		<form action={formAction} data-card className="grid gap-4  p-5">
 			<div>
-				<h2 className="text-lg font-semibold text-white">下发命令</h2>
-				<p className="mt-1 text-xs text-slate-500">向选中的 VPS 节点发送待审批命令</p>
+				<h2 className="text-lg font-semibold text-white">{t("serversPage.command.title")}</h2>
+				<p className="mt-1 text-xs text-slate-500">{t("serversPage.command.desc")}</p>
 			</div>
 
 			{state.error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{state.error}</div>}
 			{state.success && <div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-3.5 py-2.5 text-sm text-emerald-200">{state.success}</div>}
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdTitle">命令标题</label>
-				<input id="cmdTitle" name="title" type="text" required placeholder="例如 检查磁盘空间" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdTitle">{t("serversPage.command.titleLabel")}</label>
+				<input id="cmdTitle" name="title" type="text" required placeholder={t("serversPage.command.titlePlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdCommand">命令内容</label>
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdCommand">{t("serversPage.command.bodyLabel")}</label>
 				<textarea id="cmdCommand" name="command" rows={4} required placeholder="df -h" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-1.5">
-				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdReason">原因 / 备注</label>
+				<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="cmdReason">{t("serversPage.command.reasonLabel")}</label>
 				<textarea id="cmdReason" name="reason" rows={2} placeholder="可选" className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06] resize-y" />
 			</div>
 
 			<div className="space-y-2">
 				<div className="flex items-center justify-between">
-					<label className="text-xs font-medium text-white/50 tracking-wide">目标节点</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide">{t("serversPage.command.targetNodes")}</label>
 					<button type="button" onClick={selectAll} className="text-xs text-cyan-400/70 hover:text-cyan-300 light:hover:text-cyan-700 transition">
-						{selectedServerIds.size === enabledServerIds.length ? "取消全选" : "全选启用节点"}
+						{selectedServerIds.size === enabledServerIds.length ? t("serversPage.command.deselectAll") : t("serversPage.command.selectAllEnabled")}
 					</button>
 				</div>
 				{servers.length === 0 ? (
-					<p className="text-xs text-slate-500">暂无可用节点。</p>
+					<p className="text-xs text-slate-500">{t("serversPage.command.noAvailableNodes")}</p>
 				) : (
 					<div className="grid gap-1.5 sm:grid-cols-2">
 						{servers.map((server) => (

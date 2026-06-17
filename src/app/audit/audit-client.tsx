@@ -68,7 +68,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [data, setData] = useState<AuditListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -287,7 +287,10 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             ← 上一页
           </button>
           <span className="text-sm text-slate-400">
-            {t("audit.pagination.info", { page: data.page, totalPages: data.totalPages, total: data.total })}
+            {t("audit.pagination.info")
+              .replace("{page}", String(data.page))
+              .replace("{totalPages}", String(data.totalPages))
+              .replace("{total}", String(data.total))}
           </span>
           <button
             type="button"

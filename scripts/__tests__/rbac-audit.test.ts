@@ -83,21 +83,23 @@ function makeReport(overrides?: Partial<AuditReport>): AuditReport {
 const RBAC_FIXTURE = join(process.cwd(), "src/lib/auth/rbac.ts");
 
 describe("loadRbac — real rbac.ts fixture", () => {
-  it("extracts all 41 permissions from the PERMISSIONS tuple", () => {
+  it("extracts all 44 permissions from the PERMISSIONS tuple", () => {
     if (!existsSync(RBAC_FIXTURE)) return; // skip if fixture missing
     const { permissions } = loadRbac();
-    expect(permissions.length).toBe(41);
+    expect(permissions.length).toBe(44);
     expect(permissions).toContain("ai:chat");
     expect(permissions).toContain("command:execute");
     expect(permissions).toContain("storage:write");
+    expect(permissions).toContain("playbook:manage");
   });
 
   it("returns the admin role with all permissions via ALL_PERMISSIONS reference", () => {
     if (!existsSync(RBAC_FIXTURE)) return;
     const { roleMap } = loadRbac();
-    expect(roleMap.admin.length).toBe(41);
+    expect(roleMap.admin.length).toBe(44);
     expect(roleMap.admin).toContain("ai:chat");
     expect(roleMap.admin).toContain("server:write");
+    expect(roleMap.admin).toContain("playbook:read");
   });
 
   it("returns a non-empty operator role map", () => {

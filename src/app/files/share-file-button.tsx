@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { StorageEntry } from "./file-entry-utils";
 
@@ -17,6 +18,7 @@ export function ShareFileButton({
   variant = "button",
   onNotify,
 }: ShareFileButtonProps) {
+  const { t } = useI18n();
   const [saving, setSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [copied, setCopied] = useState(false);
@@ -24,7 +26,7 @@ export function ShareFileButton({
 
   const canShare = entry.entryType === "FILE";
   const label = useMemo(
-    () => (compact ? "分享" : `分享 ${entry.name}`),
+    () => (compact ? t("sharesPage.button.compact") : `${t("sharesPage.button.compact")} ${entry.name}`),
     [compact, entry.name],
   );
 
@@ -51,9 +53,9 @@ export function ShareFileButton({
       const url = `${window.location.origin}/share/${data.token}`;
       setShareUrl(url);
       await copy(url);
-      onNotify?.("success", "分享链接已生成并复制到剪贴板");
+      onNotify?.("success", t("sharesPage.button.copiedNotify"));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "创建分享链接失败";
+      const message = err instanceof Error ? err.message : t("sharesPage.button.errorFallback");
       setError(message);
       onNotify?.("error", message);
     } finally {
@@ -69,7 +71,7 @@ export function ShareFileButton({
         type="button"
         onClick={handleShare}
         disabled={saving}
-        title={shareUrl ? "点击重新生成分享链接" : "分享文件"}
+        title={shareUrl ? t("sharesPage.button.regenerate") : t("sharesPage.button.title")}
         aria-label={label}
         className={
           variant === "menu"
@@ -81,7 +83,7 @@ export function ShareFileButton({
       >
         <span aria-hidden="true">🔗</span>
         {variant === "menu" || !compact ? (
-          <span>{saving ? "分享中…" : copied ? "已复制" : "分享"}</span>
+          <span>{saving ? t("sharesPage.button.submitting") : copied ? t("sharesPage.button.copied") : t("sharesPage.button.compact")}</span>
         ) : null}
       </button>
       {shareUrl || error ? (

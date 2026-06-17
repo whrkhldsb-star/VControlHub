@@ -71,7 +71,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           onClick={() => setOpen(true)}
           className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
-          t("sharesPage.create.title")
+          {t("sharesPage.create.title")}
         </button>
       ) : (
         <div data-card className=" p-5">
@@ -115,7 +115,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           {result && (
             <div data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-3">
-              <p className="text-xs text-emerald-300 font-medium">t("sharesPage.create.success")</p>
+              <p className="text-xs text-emerald-300 font-medium">{t("sharesPage.create.success")}</p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="block flex-1 break-all text-xs text-emerald-200">{shareUrl || `/share/${result.token}`}</code>
                 <button
@@ -126,7 +126,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
                   {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </button>
               </div>
-              <p className="mt-1 text-[10px] text-slate-500">t("sharesPage.create.tokenWarning")，数据库仅存储哈希，无法再次查看。</p>
+              <p className="mt-1 text-[10px] text-slate-500">{t("sharesPage.create.tokenWarning")}，数据库仅存储哈希，无法再次查看。</p>
             </div>
           )}
 

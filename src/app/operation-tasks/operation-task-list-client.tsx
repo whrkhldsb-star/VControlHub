@@ -144,7 +144,7 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
             </select>
           </label>
           <button onClick={refresh} disabled={refreshing} className="rounded-lg border border-white/[0.08] px-3 py-2 text-xs text-slate-300 hover:bg-white/[0.05] disabled:opacity-50">{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.applyFilter")}</button>
-          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-tone="accent" className="rounded-lg border px-3 py-2 text-xs font-medium">t("operationTasksPage.export.csv")</a>
+          <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-tone="accent" className="rounded-lg border px-3 py-2 text-xs font-medium">{t("operationTasksPage.export.csv")}</a>
         </div>
       </div>
       <div className="divide-y divide-white/[0.06]">

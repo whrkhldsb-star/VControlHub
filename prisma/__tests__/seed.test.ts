@@ -109,6 +109,9 @@ beforeEach(() => {
     { id: "perm_storage:write", key: "storage:write" },
     { id: "perm_user:manage", key: "user:manage" },
     { id: "perm_user:read", key: "user:read" },
+    { id: "perm_playbook:manage", key: "playbook:manage" },
+    { id: "perm_playbook:read", key: "playbook:read" },
+    { id: "perm_playbook:run", key: "playbook:run" },
   ]);
   mockPrisma.role.upsert.mockImplementation(async ({ where }: any) => ({ id: `role_${where.key}` }));
   mockPrisma.role.findUniqueOrThrow.mockResolvedValue({ id: "role_admin" });

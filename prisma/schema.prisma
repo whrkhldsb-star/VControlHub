@@ -84,6 +84,8 @@ model User {
   sshKeys            SshKey[]            @relation("SshKeyCreator")
   notifications      Notification[]
   scheduledTasks     ScheduledTask[]
+  playbooks          Playbook[]
+  playbookRuns       PlaybookRun[]
   commandTemplates   CommandTemplate[]
   downloadTasks      DownloadTask[]
   syncJobs           SyncJob[]
@@ -443,6 +445,69 @@ model ScheduledTask {
 
   @@index([status, nextRunAt])
   @@map("scheduled_tasks")
+}
+
+// TR-023 M04: Playbook = durable chain of steps (run_command | send_notification
+// | call_webhook) triggered by a scheduler. The trigger config, step chain, and
+// runtime state are stored in dedicated fields rather than in the generic
+// `scheduled_tasks` table so we can model multi-step runbooks with retries
+// per-step, per-step timeouts, and a `dryRun` mode that walks the chain
+// without side effects.
+model Playbook {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  // "cron" | "metric" — initial version. Webhook trigger ships later.
+  triggerType String
+  // Cron expression when triggerType="cron" (5-field standard cron), or
+  // { metric: "cpu_usage" | "mem_usage" | "disk_usage", operator, threshold }
+  // when triggerType="metric".
+  triggerConfig Json
+  // Ordered list of PlaybookStep records: { id, type, config, retry, timeoutSec }.
+  // Stored as JSON to avoid an extra join table; max 32 steps enforced at the
+  // zod service layer.
+  steps       Json
+  // Chain-wide retry budget (re-queue the whole chain on any step failure);
+  // default 0 (no chain retry) so failed runs surface immediately.
+  chainRetry  Int      @default(0)
+  enabled     Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  runs    PlaybookRun[]
+
+  @@index([enabled, createdAt])
+  @@map("playbooks")
+}
+
+model PlaybookRun {
+  id             String    @id @default(cuid())
+  playbookId     String
+  // "queued" | "running" | "completed" | "failed" | "cancelled"
+  status         String    @default("queued")
+  // True when the run was triggered via /api/playbooks/[id]/dry-run and the
+  // executor skipped real side effects. Persisted so the UI can distinguish
+  // "I want to see what would happen" from real runs.
+  dryRun         Boolean   @default(false)
+  // Free-form trigger context: cron tick id, metric reading, manual button
+  // click. The executor writes a step result list back to `stepResults`.
+  triggerContext Json?
+  stepResults    Json?
+  errorMessage   String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  creator User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([playbookId, createdAt])
+  @@index([status, createdAt])
+  @@map("playbook_runs")
 }
 
 model MetricSnapshot {

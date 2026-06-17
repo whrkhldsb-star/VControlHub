@@ -55,6 +55,7 @@ export const mainNavItems: AppNavItem[] = [
 	{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "工单请求", icon: <IconTicket /> },
 	{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "审批中心", icon: <IconCheck /> },
 	{ href: "/scheduled-tasks", labelKey: "nav.scheduled-tasks", fallbackLabel: "定时任务", icon: <IconClock /> },
+	{ href: "/playbooks", labelKey: "nav.playbooks", fallbackLabel: "Playbook 自动化", icon: <IconAlert /> },
 	{ href: "/alert-rules", labelKey: "nav.alert-rules", fallbackLabel: "智能告警", icon: <IconAlert /> },
 	{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "通知中心", icon: <IconBell /> },
 	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "系统设置", icon: <IconSettings /> },

@@ -76,6 +76,7 @@ import { zh as trafficpageZh, en as trafficpageEn } from "./dictionaries/traffic
 import { zh as usersZh, en as usersEn } from "./dictionaries/users";
 import { zh as userspageZh, en as userspageEn } from "./dictionaries/users-page";
 import { zh as userspermZh, en as userspermEn } from "./dictionaries/users-perm";
+import { zh as storagepageZh, en as storagepageEn } from "./dictionaries/storage-page";
 
 const zh: Record<string, string> = {
 	...accountpasswordpageZh,
@@ -91,10 +92,13 @@ const zh: Record<string, string> = {
 	...commonZh,
 	...csvpreviewZh,
 	...dashboardZh,
+	...deploymentspageZh,
 	...dockerZh,
 	...dockerpageZh,
+	...downloadspageZh,
 	...errorZh,
 	...fileUploadDropzoneZh,
+	...filedetailpanelZh,
 	...healthpageZh,
 	...imagebedZh,
 	...imagebedpageZh,
@@ -112,6 +116,7 @@ const zh: Record<string, string> = {
 	...notificationspageZh,
 	...officepreviewZh,
 	...operationtasksZh,
+	...operationtaskspageZh,
 	...preferencespageZh,
 	...playbookspageZh,
 	...qareportspageZh,
@@ -119,10 +124,12 @@ const zh: Record<string, string> = {
 	...recyclebinsectionZh,
 	...requestspageZh,
 	...scheduledtasksZh,
+	...scheduledtaskspageZh,
 	...searchZh,
 	...serversZh,
 	...serverspageZh,
 	...sharesZh,
+	...sharespageZh,
 	...snippetsPageZh,
 	...sshterminalmodalZh,
 	...statuspageZh,
@@ -135,6 +142,7 @@ const zh: Record<string, string> = {
 	...usersZh,
 	...userspageZh,
 	...userspermZh,
+	...storagepageZh,
 };
 
 const en: Record<string, string> = {
@@ -151,10 +159,13 @@ const en: Record<string, string> = {
 	...commonEn,
 	...csvpreviewEn,
 	...dashboardEn,
+	...deploymentspageEn,
 	...dockerEn,
 	...dockerpageEn,
+	...downloadspageEn,
 	...errorEn,
 	...fileUploadDropzoneEn,
+	...filedetailpanelEn,
 	...healthpageEn,
 	...imagebedEn,
 	...imagebedpageEn,
@@ -172,6 +183,7 @@ const en: Record<string, string> = {
 	...notificationspageEn,
 	...officepreviewEn,
 	...operationtasksEn,
+	...operationtaskspageEn,
 	...preferencespageEn,
 	...playbookspageEn,
 	...qareportspageEn,
@@ -179,10 +191,12 @@ const en: Record<string, string> = {
 	...recyclebinsectionEn,
 	...requestspageEn,
 	...scheduledtasksEn,
+	...scheduledtaskspageEn,
 	...searchEn,
 	...serversEn,
 	...serverspageEn,
 	...sharesEn,
+	...sharespageEn,
 	...snippetsPageEn,
 	...sshterminalmodalEn,
 	...statuspageEn,
@@ -195,6 +209,7 @@ const en: Record<string, string> = {
 	...usersEn,
 	...userspageEn,
 	...userspermEn,
+	...storagepageEn,
 };
 
 export const translations: Record<Locale, Record<string, string>> = {

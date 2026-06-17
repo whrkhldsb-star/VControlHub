@@ -19,6 +19,7 @@ type HealthCopy = {
 	summaryCards: { total: string; online: string; warning: string; critical: string; offline: string };
 	ui: {
 		selfCheck: string;
+		collectingMetrics: string;
 		repairSuggestions: string;
 		checksSummary: (summary: SystemHealthSummary) => string;
 		auditLog: string;

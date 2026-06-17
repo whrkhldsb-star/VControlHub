@@ -142,8 +142,8 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						data-tone="accent"
 						className="min-h-11 rounded-2xl border px-5 py-2.5 text-sm font-medium transition"
 					>
-						t("scheduledTasksPage.create")
-					</button>
+						{t("scheduledTasksPage.create")}
+						</button>
 				)}
 			</div>
 

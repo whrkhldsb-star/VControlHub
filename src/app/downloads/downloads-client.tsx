@@ -316,7 +316,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
-						)) : <span className="text-xs text-slate-600">t("downloadsPage.stats.needPermission")</span>}
+						)) : <span className="text-xs text-slate-600">{t("downloadsPage.stats.needPermission")}</span>}
 					</div>
 				</div>
 			)}
@@ -360,7 +360,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					</button>
 				) : canManage ? (
 					<div data-tone="amber" className="rounded-2xl border border-amber-400/20 px-4 py-2 text-xs text-amber-100">
-						t("downloadsPage.form.noTarget")
+						{t("downloadsPage.form.noTarget")}
 					</div>
 				) : null}
 			</div>
@@ -442,7 +442,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										<button type="button" onClick={() => handleAction(task.id, "pause")}
 											data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/10 transition"
 										>
-											t("downloadsPage.action.pause")
+											{t("downloadsPage.action.pause")}
 										</button>
 									)}
 									{task.status === "RUNNING" && task.aria2Gid && canManage && (
@@ -459,21 +459,21 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										<button type="button" onClick={() => handleAction(task.id, "resume")}
 											data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
 										>
-											t("downloadsPage.action.resume")
+											{t("downloadsPage.action.resume")}
 										</button>
 									)}
 									{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "cancel")}
 											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
-											t("downloadsPage.action.cancel")
+											{t("downloadsPage.action.cancel")}
 										</button>
 									)}
 									{canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "refresh")}
 											className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 hover:bg-white/[0.05] transition"
 										>
-											t("downloadsPage.action.refresh")
+											{t("downloadsPage.action.refresh")}
 										</button>
 									)}
 									{task.downloadAccess && (
@@ -497,7 +497,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
 											title={t("downloadsPage.action.openFolderTitle")}
 										>
-											t("downloadsPage.action.openFolder")
+											{t("downloadsPage.action.openFolder")}
 										</a>
 									);
 								})()}
@@ -506,14 +506,14 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/10 transition"
 										title={t("downloadsPage.action.retryTitle")}
 									>
-										t("downloadsPage.action.retry")
+										{t("downloadsPage.action.retry")}
 									</button>
 								)}
 								{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "purge")}
 											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
-											t("downloadsPage.action.delete")
+											{t("downloadsPage.action.delete")}
 										</button>
 									)}
 								</div>

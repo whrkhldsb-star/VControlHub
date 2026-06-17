@@ -73,6 +73,12 @@ export const zh: Record<string, string> = {
 	"downloadsPage.action.delete": "🗑 删除记录",
 	"downloadsPage.action.limit": "限速",
 
+	"downloadsPage.action.openFolderTitle": "打开文件夹",
+	"downloadsPage.action.retryTitle": "重试",
+	"downloadsPage.error.magnetBatchNotice": "批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。",
+	"downloadsPage.error.taskCreate": "创建下载任务失败",
+	"downloadsPage.form.cancelLabel": "✕ 取消",
+	"downloadsPage.form.createLabel": "+ 新建下载",
 };
 
 export const en: Record<string, string> = {
@@ -146,4 +152,10 @@ export const en: Record<string, string> = {
 	"downloadsPage.action.delete": "🗑 Delete record",
 	"downloadsPage.action.limit": "Speed limit",
 
+	"downloadsPage.action.openFolderTitle": "Open folder",
+	"downloadsPage.action.retryTitle": "Retry",
+	"downloadsPage.error.magnetBatchNotice": "Batch mode is for multiple HTTP/HTTPS links only; magnet/BT links need separate tasks and cannot be mixed with regular links.",
+	"downloadsPage.error.taskCreate": "Failed to create download task",
+	"downloadsPage.form.cancelLabel": "✕ Cancel",
+	"downloadsPage.form.createLabel": "+ New download",
 };

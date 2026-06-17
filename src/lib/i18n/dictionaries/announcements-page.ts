@@ -45,6 +45,12 @@ export const zh: Record<string, string> = {
 	"announcementsPage.title": "站内公告",
 	"announcementsPage.toast.deleteFailed": "删除公告失败",
 	"announcementsPage.toast.deleted": "公告已删除",
+	"announcementsPage.edit.content": "内容",
+	"announcementsPage.edit.failFallback": "保存失败",
+	"announcementsPage.edit.saving": "保存中…",
+	"announcementsPage.edit.severity.info": "信息",
+	"announcementsPage.edit.severity.warning": "警告",
+	"announcementsPage.edit.submit": "保存",
 };
 
 export const en: Record<string, string> = {
@@ -87,4 +93,10 @@ export const en: Record<string, string> = {
 	"announcementsPage.title": "Announcements",
 	"announcementsPage.toast.deleteFailed": "Failed to delete announcement",
 	"announcementsPage.toast.deleted": "Announcement deleted",
+	"announcementsPage.edit.content": "Content",
+	"announcementsPage.edit.failFallback": "Save failed",
+	"announcementsPage.edit.saving": "Saving…",
+	"announcementsPage.edit.severity.info": "Info",
+	"announcementsPage.edit.severity.warning": "Warning",
+	"announcementsPage.edit.submit": "Save",
 };

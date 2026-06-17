@@ -24,6 +24,18 @@ export const zh: Record<string, string> = {
 	"requestsPage.title": "审批中心",
 	"requestsPage.workflowNote.desc": "AI 助手托管操作先授权再执行；用户/运维提交的命令请求走命令审批流。",
 	"requestsPage.workflowNote.title": "当前支持两条审批链路",
+	"requestsPage.cancel.title": "取消命令",
+
+	"requestsPage.cancel.ariaLabel": "取消命令",
+
+	"requestsPage.cancel.confirmTitle": "确认取消命令",
+
+	"requestsPage.cancel.confirm": "确认取消",
+
+	"requestsPage.cancel.pending": "取消中…",
+
+	"requestsPage.cancel.errorFallback": "取消失败",
+
 };
 
 export const en: Record<string, string> = {
@@ -45,4 +57,16 @@ export const en: Record<string, string> = {
 	"requestsPage.title": "Approvals",
 	"requestsPage.workflowNote.desc": "AI-hosted actions require authorization first; user/ops command requests go through the command approval flow.",
 	"requestsPage.workflowNote.title": "Two approval flows are supported",
+	"requestsPage.cancel.title": "Cancel command",
+
+	"requestsPage.cancel.ariaLabel": "Cancel command",
+
+	"requestsPage.cancel.confirmTitle": "Confirm cancellation",
+
+	"requestsPage.cancel.confirm": "Confirm cancel",
+
+	"requestsPage.cancel.pending": "Cancelling…",
+
+	"requestsPage.cancel.errorFallback": "Cancellation failed",
+
 };

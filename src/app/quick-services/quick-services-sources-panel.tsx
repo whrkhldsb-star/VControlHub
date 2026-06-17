@@ -188,7 +188,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				</div>
 			</div>
 			<div className="flex items-center justify-between">
-				<p className="text-xs text-slate-500">t("quickServicesPage.sources.manageDesc")，同步后可在「社区推荐」中一键安装</p>
+				<p className="text-xs text-slate-500">{t("quickServicesPage.sources.manageDesc")}，同步后可在「社区推荐」中一键安装</p>
 				<button
 					type="button"
 					onClick={() => actions.doSync()}
@@ -200,7 +200,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 			</div>
 			{sources.length === 0 && (
 				<EmptyState icon="🔗" variant="boxed">
-					t("quickServicesPage.sources.empty")
+					{t("quickServicesPage.sources.empty")}
 				</EmptyState>
 			)}
 			{sources.map((src) => (
