@@ -51,16 +51,18 @@ export const initMediaUploadSchema = z.object({
 		.optional(),
 });
 
-/** Per-chunk metadata (sent in query or body, depending on route shape). */
+/** Per-chunk metadata (sent in query or body, depending on route shape).
+ *  `z.coerce.number()` because the route parses query params as strings
+ *  (`withApiRoute`'s querySchema paths route through URLSearchParams). */
 export const appendMediaChunkSchema = z.object({
 	/** Zero-based index of the chunk within the file. */
-	index: z
+	index: z.coerce
 		.number()
 		.int("chunk.index 必须为整数")
 		.min(0, "chunk.index 不能为负"),
 	/** Total size of THIS chunk in bytes. Used to verify the upload
 	 *  matches the expected chunk size. */
-	size: z
+	size: z.coerce
 		.number()
 		.int("chunk.size 必须为整数")
 		.min(1, "chunk.size 必须 > 0")
