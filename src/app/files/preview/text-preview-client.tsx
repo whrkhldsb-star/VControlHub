@@ -48,6 +48,31 @@ const INITIAL_PREVIEW_META: PreviewMetaState = {
 
 type DiffRow = { line: number; before: string; after: string; kind: "added" | "removed" | "changed" };
 
+type EditorFindState = {
+	open: boolean;
+	query: string;
+	total: number;
+	current: number;
+};
+
+const INITIAL_EDITOR_FIND: EditorFindState = {
+	open: false,
+	query: "",
+	total: 0,
+	current: 0,
+};
+
+function countMatches(text: string, query: string): number {
+	if (!query) return 0;
+	let count = 0;
+	let idx = text.indexOf(query);
+	while (idx !== -1) {
+		count += 1;
+		idx = text.indexOf(query, idx + query.length);
+	}
+	return count;
+}
+
 const LANG_MAP: Record<string, string> = {
 	js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
 	mjs: "javascript", cjs: "javascript",
@@ -66,6 +91,8 @@ const LANG_MAP: Record<string, string> = {
 	env: "env", gitignore: "env",
 	log: "log",
 };
+
+const TAB_INDENT = "	";
 
 function getLangFromName(name?: string): string {
 	if (!name) return "text";
@@ -317,7 +344,11 @@ export function TextPreviewClient({
 	}, []);
 	const lineRef = useRef<Map<number, HTMLDivElement>>(new Map());
 	const containerRef = useRef<HTMLDivElement>(null);
+	const editorRef = useRef<HTMLTextAreaElement>(null);
+	const gutterRef = useRef<HTMLDivElement>(null);
+	const editorFindInputRef = useRef<HTMLInputElement>(null);
 	const didMountRef = useRef(false);
+	const [editorFind, setEditorFind] = useState<EditorFindState>(INITIAL_EDITOR_FIND);
 
 	const lang = useMemo(() => getLangFromName(name), [name]);
 	const canEdit = editable && Boolean(fileEntryId);
@@ -388,6 +419,140 @@ export function TextPreviewClient({
 			setTimeout(() => el.classList.remove("bg-amber-400/10"), 2000);
 		}
 	}, [jumpLine]);
+
+	const handleEditorScroll = useCallback(() => {
+		if (gutterRef.current && editorRef.current) {
+			gutterRef.current.scrollTop = editorRef.current.scrollTop;
+		}
+	}, []);
+
+	const applyTabIndent = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		const textarea = event.currentTarget;
+		const { selectionStart, selectionEnd, value } = textarea;
+		event.preventDefault();
+		if (event.shiftKey) {
+			// Unindent: strip one leading TAB_INDENT from each selected line
+			const before = value.slice(0, selectionStart);
+			const lineStart = before.lastIndexOf("\n") + 1;
+			const endLineEnd = (() => {
+				if (selectionStart === selectionEnd) return value.length;
+				const idx = value.indexOf("\n", selectionEnd);
+				return idx === -1 ? value.length : idx;
+			})();
+			const block = value.slice(lineStart, endLineEnd);
+			const lines = block.split("\n");
+			let removed = 0;
+			const updated = lines.map((line) => {
+				if (line.startsWith(TAB_INDENT)) {
+					removed += TAB_INDENT.length;
+					return line.slice(TAB_INDENT.length);
+				}
+				return line;
+			});
+			const newBlock = updated.join("\n");
+			const newValue = value.slice(0, lineStart) + newBlock + value.slice(lineStart + block.length);
+			const newSelectionStart = Math.max(lineStart, selectionStart - TAB_INDENT.length);
+			const newSelectionEnd = Math.max(selectionStart, selectionEnd - removed);
+			setDraft(newValue);
+			requestAnimationFrame(() => {
+				textarea.setSelectionRange(newSelectionStart, newSelectionEnd);
+			});
+		} else {
+			// Indent: insert TAB_INDENT at selection start, or at start of each selected line
+			if (selectionStart === selectionEnd) {
+				const newValue = value.slice(0, selectionStart) + TAB_INDENT + value.slice(selectionStart);
+				setDraft(newValue);
+				requestAnimationFrame(() => {
+					textarea.setSelectionRange(selectionStart + TAB_INDENT.length, selectionStart + TAB_INDENT.length);
+				});
+			} else {
+				const before = value.slice(0, selectionStart);
+				const lineStart = before.lastIndexOf("\n") + 1;
+				const endLineEnd = (() => {
+					const idx = value.indexOf("\n", selectionEnd);
+					return idx === -1 ? value.length : idx;
+				})();
+				const block = value.slice(lineStart, endLineEnd);
+				const updated = block.split("\n").map((line) => TAB_INDENT + line).join("\n");
+				const newValue = value.slice(0, lineStart) + updated + value.slice(endLineEnd);
+				const newSelectionStart = selectionStart + TAB_INDENT.length;
+				const newSelectionEnd = selectionEnd + (updated.length - block.length);
+				setDraft(newValue);
+				requestAnimationFrame(() => {
+					textarea.setSelectionRange(newSelectionStart, newSelectionEnd);
+				});
+			}
+		}
+	}, []);
+
+	const handleEditorKeyDown = useCallback((event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (event.key === "Tab") {
+			applyTabIndent(event);
+			return;
+		}
+		if (event.key === "Escape" && editorFind.open) {
+			event.preventDefault();
+			setEditorFind(INITIAL_EDITOR_FIND);
+			return;
+		}
+		if ((event.ctrlKey || event.metaKey) && (event.key === "f" || event.key === "F")) {
+			event.preventDefault();
+			setEditorFind((current) => {
+				if (current.open) {
+					editorFindInputRef.current?.focus();
+					editorFindInputRef.current?.select();
+					return current;
+				}
+				return { ...current, open: true };
+			});
+			requestAnimationFrame(() => {
+				editorFindInputRef.current?.focus();
+				editorFindInputRef.current?.select();
+			});
+			return;
+		}
+	}, [applyTabIndent, editorFind.open]);
+
+	const updateEditorFindQuery = useCallback((query: string) => {
+		setEditorFind((current) => {
+			const total = countMatches(draft, query);
+			// Reset current to 0 so the first "next" click lands on occurrence #1.
+			return { ...current, query, total, current: 0 };
+		});
+	}, [draft]);
+
+	const moveEditorFind = useCallback((direction: 1 | -1) => {
+		setEditorFind((current) => {
+			if (current.total === 0) return current;
+			// When no match is currently selected (current=0), the first navigation
+			// lands on occurrence #1 (or #total for prev). After that, advance with wrap.
+			const next = current.current === 0
+				? (direction === 1 ? 1 : current.total)
+				: ((current.current - 1 + direction + current.total) % current.total) + 1;
+			const textarea = editorRef.current;
+			if (textarea) {
+				let scan = 0;
+				let foundIdx = -1;
+				let occurrence = 0;
+				while (occurrence < next) {
+					foundIdx = draft.indexOf(current.query, scan);
+					if (foundIdx === -1) break;
+					occurrence += 1;
+					scan = foundIdx + current.query.length;
+				}
+				if (foundIdx >= 0) {
+					textarea.focus();
+					textarea.setSelectionRange(foundIdx, foundIdx + current.query.length);
+				}
+			}
+			return { ...current, current: next };
+		});
+	}, [draft]);
+
+	const closeEditorFind = useCallback(() => {
+		setEditorFind(INITIAL_EDITOR_FIND);
+		editorRef.current?.focus();
+	}, []);
 
 	/**
 	 * Persist the current draft to its backend (LOCAL fs or SFTP node).
@@ -599,7 +764,16 @@ export function TextPreviewClient({
 								>
 									{t("textPreview.button.cancel")}
 								</button>
-							</>
+								<button
+									type="button"
+									onClick={() => setEditorFind({ open: true, query: "", total: 0, current: 0 })}
+									aria-label={t("textPreview.editor.findToggle")}
+									title={t("textPreview.editor.findToggle")}
+									className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-slate-700 light:hover:bg-slate-200"
+								>
+									🔍
+								</button>
+								</>
 						) : (
 							<button
 								type="button"
@@ -690,18 +864,102 @@ export function TextPreviewClient({
 			) : null}
 
 			{editMode ? (
-				<textarea
-					aria-label={t("textPreview.editAria")}
-					value={draft}
-					onChange={(event) => {
-						setDraft(event.currentTarget.value);
-						setSaveStatus("idle");
-						setSaveMessage("");
-					}}
-					onClick={() => showDiffReview && setShowDiffReview(false)}
-					className="min-h-[70vh] w-full rounded-2xl border border-cyan-400/30 bg-slate-950 p-4 font-mono text-sm leading-relaxed text-slate-100 outline-none focus:border-cyan-300"
-					spellCheck={false}
-				/>
+				<div className="space-y-2">
+					{editorFind.open ? (
+						<div
+							role="search"
+							aria-label={t("textPreview.editor.findToggle")}
+							data-testid="editor-find-bar"
+							className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/30 bg-slate-900/60 px-3 py-2"
+						>
+							<input
+								ref={editorFindInputRef}
+								type="text"
+								value={editorFind.query}
+								onChange={(event) => updateEditorFindQuery(event.currentTarget.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") {
+										event.preventDefault();
+										moveEditorFind(event.shiftKey ? -1 : 1);
+									}
+								}}
+								placeholder={t("textPreview.editor.findPlaceholder")}
+								aria-label={t("textPreview.editor.findPlaceholder")}
+								className="w-48 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 focus:border-amber-300 focus:outline-none"
+							/>
+							<span className="text-xs text-slate-400" data-testid="editor-find-count">
+								{editorFind.query === ""
+									? ""
+									: editorFind.total === 0
+										? t("textPreview.editor.findNoMatch")
+										: t("textPreview.editor.findMatchCount")
+											.replace("{current}", String(editorFind.current))
+											.replace("{total}", String(editorFind.total))}
+							</span>
+							<div className="flex-1" />
+							<button
+								type="button"
+								onClick={() => moveEditorFind(-1)}
+								disabled={editorFind.total === 0}
+								aria-label={t("textPreview.editor.findPrev")}
+								title={t("textPreview.editor.findPrev")}
+								className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+							>
+								↑
+							</button>
+							<button
+								type="button"
+								onClick={() => moveEditorFind(1)}
+								disabled={editorFind.total === 0}
+								aria-label={t("textPreview.editor.findNext")}
+								title={t("textPreview.editor.findNext")}
+								className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+							>
+								↓
+							</button>
+							<button
+								type="button"
+								onClick={closeEditorFind}
+								aria-label={t("textPreview.editor.findClose")}
+								title={t("textPreview.editor.findClose")}
+								className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700"
+							>
+								✕
+							</button>
+						</div>
+					) : null}
+					<div
+						title={t("textPreview.editor.indentHint")}
+						className="flex min-h-[70vh] overflow-hidden rounded-2xl border border-cyan-400/30 bg-slate-950 font-mono text-sm leading-relaxed text-slate-100 focus-within:border-cyan-300"
+					>
+						<div
+							ref={gutterRef}
+							aria-hidden
+							data-testid="editor-line-gutter"
+							className="select-none overflow-hidden border-r border-white/[0.06] bg-slate-900/60 px-2 py-4 text-right text-slate-500"
+							style={{ minWidth: "3rem" }}
+						>
+							{Array.from({ length: draft.split("\n").length }, (_, i) => (
+								<div key={i} className="leading-relaxed">{i + 1}</div>
+							))}
+						</div>
+						<textarea
+							ref={editorRef}
+							aria-label={t("textPreview.editAria")}
+							value={draft}
+							onChange={(event) => {
+								setDraft(event.currentTarget.value);
+								setSaveStatus("idle");
+								setSaveMessage("");
+							}}
+							onClick={() => showDiffReview && setShowDiffReview(false)}
+							onScroll={handleEditorScroll}
+							onKeyDown={handleEditorKeyDown}
+							className="min-h-[70vh] w-full resize-none bg-slate-950 p-4 font-mono text-sm leading-relaxed text-slate-100 outline-none"
+							spellCheck={false}
+						/>
+					</div>
+				</div>
 			) : (
 				<div ref={containerRef} className="overflow-auto rounded-2xl bg-slate-950 p-4 text-sm leading-relaxed max-h-[75vh]">
 					<pre className="font-mono text-[var(--text-secondary)]">

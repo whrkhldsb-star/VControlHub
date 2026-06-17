@@ -345,4 +345,126 @@ describe("TextPreviewClient editable mode", () => {
     expect(alert).toHaveTextContent("exit=1");
     expect(alert).toHaveTextContent("bad config");
   });
+
+  it("renders a synchronized line number gutter while the editor is open", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({
+      draft: {
+        content: "alpha\nbeta\ngamma\n",
+        byteSize: 17,
+        updatedAt: "2026-06-08T01:02:03.000Z",
+        lastModifiedMs: 1780880523000,
+      },
+    });
+
+    render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable />);
+
+    await actor.click(await screen.findByRole("button", { name: "编辑" }));
+    const gutter = await screen.findByTestId("editor-line-gutter");
+    expect(gutter).toHaveTextContent("1");
+    expect(gutter).toHaveTextContent("2");
+    expect(gutter).toHaveTextContent("3");
+  });
+
+  it("opens the in-editor find bar, counts matches, and lets users cycle through them", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({
+      draft: {
+        content: "alpha\nbeta alpha\nbeta\n",
+        byteSize: 22,
+        updatedAt: "2026-06-08T01:02:03.000Z",
+        lastModifiedMs: 1780880523000,
+      },
+    });
+
+    render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable />);
+
+    await actor.click(await screen.findByRole("button", { name: "编辑" }));
+    await actor.click(screen.getByRole("button", { name: "编辑器内搜索" }));
+
+    const findInput = await screen.findByPlaceholderText("在编辑器内搜索");
+    await actor.type(findInput, "alpha");
+
+    // No match is auto-selected until the user navigates
+    expect(await screen.findByTestId("editor-find-count")).toHaveTextContent("0 / 2");
+
+    const editor = screen.getByRole("textbox", { name: "在线编辑文件内容" }) as HTMLTextAreaElement;
+    // Place cursor at the start of the file
+    editor.focus();
+    editor.setSelectionRange(0, 0);
+
+    // "next match" focuses the editor and selects the first occurrence
+    await actor.click(screen.getByRole("button", { name: "下一个匹配" }));
+    expect(editor).toHaveFocus();
+    expect(editor.selectionStart).toBe(0);
+    expect(editor.selectionEnd).toBe(5);
+    expect(screen.getByTestId("editor-find-count")).toHaveTextContent("1 / 2");
+
+    // "next" again moves to the second occurrence
+    await actor.click(screen.getByRole("button", { name: "下一个匹配" }));
+    expect(editor.selectionStart).toBe(11);
+    expect(editor.selectionEnd).toBe(16);
+    expect(screen.getByTestId("editor-find-count")).toHaveTextContent("2 / 2");
+
+    // "previous" wraps back to the first occurrence
+    await actor.click(screen.getByRole("button", { name: "上一个匹配" }));
+    expect(editor.selectionStart).toBe(0);
+    expect(editor.selectionEnd).toBe(5);
+    expect(screen.getByTestId("editor-find-count")).toHaveTextContent("1 / 2");
+  });
+
+  it("closes the find bar and reports no match for an unknown query", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({
+      draft: {
+        content: "alpha\nbeta\n",
+        byteSize: 11,
+        updatedAt: "2026-06-08T01:02:03.000Z",
+        lastModifiedMs: 1780880523000,
+      },
+    });
+
+    render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable />);
+
+    await actor.click(await screen.findByRole("button", { name: "编辑" }));
+    await actor.click(screen.getByRole("button", { name: "编辑器内搜索" }));
+
+    const findInput = await screen.findByPlaceholderText("在编辑器内搜索");
+    await actor.type(findInput, "zzz");
+
+    expect(await screen.findByTestId("editor-find-count")).toHaveTextContent("无匹配");
+
+    await actor.click(screen.getByRole("button", { name: "关闭搜索" }));
+    expect(screen.queryByPlaceholderText("在编辑器内搜索")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "在线编辑文件内容" })).toHaveFocus();
+  });
+
+  it("indents the current line when Tab is pressed and unindents with Shift+Tab", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({
+      draft: {
+        content: "alpha\nbeta\n",
+        byteSize: 11,
+        updatedAt: "2026-06-08T01:02:03.000Z",
+        lastModifiedMs: 1780880523000,
+      },
+    });
+
+    render(<TextPreviewClient href="/download/readme.txt" name="readme.txt" fileEntryId="file_1" editable />);
+
+    await actor.click(await screen.findByRole("button", { name: "编辑" }));
+    const editor = await screen.findByRole("textbox", { name: "在线编辑文件内容" }) as HTMLTextAreaElement;
+    editor.focus();
+    editor.setSelectionRange(0, 0);
+
+    fireEvent.keyDown(editor, { key: "Tab" });
+    await waitFor(() => expect(editor).toHaveValue("\talpha\nbeta\n"));
+
+    // Place cursor at end of line 1 (after the inserted tab) so Shift+Tab unindents line 1
+    await new Promise((r) => requestAnimationFrame(r));
+    editor.setSelectionRange(1, 1);
+
+    fireEvent.keyDown(editor, { key: "Tab", shiftKey: true });
+    await waitFor(() => expect(editor).toHaveValue("alpha\nbeta\n"));
+  });
 });
