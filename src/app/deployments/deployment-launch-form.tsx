@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type DeploymentTemplateOption = {
 	id: string;
@@ -27,12 +28,13 @@ function uniqueVariables(template?: DeploymentTemplateOption) {
 	return Array.from(new Set([...explicit, ...fromCommand])).filter(Boolean);
 }
 
-function previewCommand(template: DeploymentTemplateOption | undefined, variables: string[]) {
-	if (!template) return "请选择部署模板";
+function previewCommand(template: DeploymentTemplateOption | undefined, variables: string[], t: (k: string) => string) {
+	if (!template) return t("deploymentsPage.launch.noTemplate");
 	return variables.reduce((command, name) => command.replaceAll(`{{${name}}}`, `<${name}>`), template.command);
 }
 
 export function DeploymentLaunchForm({ templates, servers }: { templates: DeploymentTemplateOption[]; servers: DeploymentServerOption[] }) {
+	const { t } = useI18n();
 	const router = useRouter();
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
 	const [pending, setPending] = useState(false);
@@ -43,7 +45,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	if (templates.length === 0) {
 		return (
 			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
-				请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。
+				t("deploymentsPage.launch.noTemplateHint")
 			</div>
 		);
 	}
@@ -51,9 +53,9 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	if (servers.length === 0) {
 		return (
 			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
-				<p className="font-medium">暂无可用 VPS，不能发起部署。</p>
-				<p className="mt-1 text-xs text-amber-100/80">请先到服务器管理页面添加或启用 VPS，部署模板会在这里选择目标节点后进入审批链路。</p>
-				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10">去添加 VPS</Link>
+				<p className="font-medium">{t("deploymentsPage.launch.noVpsTitle")}</p>
+				<p className="mt-1 text-xs text-amber-100/80">{t("deploymentsPage.launch.noVpsDesc")}，部署模板会在这里选择目标节点后进入审批链路。</p>
+				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10">{t("deploymentsPage.launch.addVps")}</Link>
 			</div>
 		);
 	}
@@ -72,7 +74,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			}
 			const serverIds = fd.getAll("serverIds").map(String).filter(Boolean);
 			if (serverIds.length === 0) {
-				setError("请至少选择一台目标 VPS");
+				setError(t("deploymentsPage.launch.noServerSelected"));
 				setPending(false);
 				return;
 			}
@@ -88,7 +90,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			});
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "提交失败");
+			setError(err instanceof Error ? err.message : t("deploymentsPage.launch.errorFallback"));
 		} finally {
 			setPending(false);
 		}
@@ -110,7 +112,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					部署原因
-					<input name="reason" maxLength={500} placeholder="例如：上线新版本 / 修复服务异常" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+					<input name="reason" maxLength={500} placeholder={t("deploymentsPage.launch.reasonPlaceholder")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
 				</label>
 			</div>
 
@@ -119,8 +121,8 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			{variables.length > 0 ? (
 				<div data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 light:border-cyan-200 light:bg-cyan-50">
 					<div className="mb-3 flex items-center justify-between gap-3">
-						<h3 className="text-sm font-semibold text-white">模板变量</h3>
-						<span className="text-xs text-slate-500">全部必填，提交前会在后端再次校验。</span>
+						<h3 className="text-sm font-semibold text-white">{t("deploymentsPage.launch.variablesTitle")}</h3>
+						<span className="text-xs text-slate-500">{t("deploymentsPage.launch.variablesHint")}</span>
 					</div>
 					<div className="grid gap-3 md:grid-cols-2">
 						{variables.map((name) => (
@@ -132,13 +134,13 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400">该模板没有变量，可直接选择目标 VPS 提交。</p>
+				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400">t("deploymentsPage.launch.noVariables")</p>
 			)}
 
 			<div>
 				<div className="mb-2 flex items-center justify-between gap-3">
-					<h3 className="text-sm font-semibold text-white">目标 VPS</h3>
-					<span className="text-xs text-slate-500">至少选择 1 台。</span>
+					<h3 className="text-sm font-semibold text-white">{t("deploymentsPage.launch.targetVpsTitle")}</h3>
+					<span className="text-xs text-slate-500">{t("deploymentsPage.launch.targetVpsHint")}</span>
 				</div>
 				<div className="grid gap-2 md:grid-cols-2">
 					{servers.map((server) => (
@@ -151,12 +153,12 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			</div>
 
 			<details className="rounded-xl border border-white/[0.06] bg-slate-950/60 p-3">
-				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">预览命令</summary>
-				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{previewCommand(selectedTemplate, variables)}</code>
+				<summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)]">{t("deploymentsPage.launch.previewCommand")}</summary>
+				<code className="mt-3 block max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{previewCommand(selectedTemplate, variables, t)}</code>
 			</details>
 
 			{error && <p className="text-xs text-rose-300">{error}</p>}
-			<button disabled={pending} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">{pending ? "提交中..." : "提交部署审批"}</button>
+			<button disabled={pending} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</button>
 		</form>
 	);
 }

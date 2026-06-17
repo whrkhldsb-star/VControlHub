@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type Props = {
   /** 当前已超过 30 天的记录数。0 时按钮 disabled。 */
@@ -17,6 +18,7 @@ const MIN_OLDER_THAN_DAYS = 30;
 const DEFAULT_KEEP_LATEST_PER_TYPE = 3;
 
 export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [taskId, setTaskId] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       setTaskId(result?.taskId ?? null);
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "清理旧备份失败");
+      setError(submitError instanceof Error ? submitError.message : t("backupsPage.retention.errorFallback"));
     } finally {
       setPending(false);
     }
@@ -54,7 +56,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
     <form onSubmit={handleSubmit} className="grid gap-2">
       <div className="flex flex-wrap items-end gap-2">
         <label className="grid gap-1 text-xs text-slate-500">
-          <span>保留天数阈值（超过此天数的备份将被评估）</span>
+          <span>{t("backupsPage.retention.daysLabel")}</span>
           <input
             type="number"
             min={1}
@@ -66,7 +68,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
           />
         </label>
         <label className="grid gap-1 text-xs text-slate-500">
-          <span>每类型保留最新 N 个（0 = 全清）</span>
+          <span>{t("backupsPage.retention.keepLatestLabel")}</span>
           <input
             type="number"
             min={0}
@@ -82,11 +84,11 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
           disabled={disabled}
           className="rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/10 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {pending ? "正在排队清理..." : "清理旧备份"}
+          {pending ? t("backupsPage.retention.pending") : t("backupsPage.retention.submit")}
         </button>
       </div>
       <p className="text-xs text-slate-500">
-        匹配 {totalRecords} 条备份记录，当前 {olderThan30Days} 条超过 30 天。系统会删除「保留窗口外且超过保留天数」以及「保留窗口内但超过保留天数」两类记录，并在任务中心产生一条 <code>backup.retention</code> 任务记录。
+        {t("backupsPage.retention.matchInfo").replace("{total}", String(totalRecords)).replace("{older}", String(olderThan30Days))}系统会删除「保留窗口外且超过保留天数」以及「保留窗口内但超过保留天数」两类记录，并在任务中心产生一条 <code>backup.retention</code> 任务记录。
       </p>
       {taskId && (
         <p role="status" className="text-xs text-emerald-300">
@@ -94,7 +96,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
         </p>
       )}
       {error && (
-        <p role="alert" className="text-xs text-rose-300">清理失败：{error}</p>
+        <p role="alert" className="text-xs text-rose-300">{t("backupsPage.retention.error")}：{error}</p>
       )}
     </form>
   );

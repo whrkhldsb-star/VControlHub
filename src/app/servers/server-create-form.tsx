@@ -6,6 +6,7 @@ import { useActionState } from "react";
 import { SubmitButton } from "@/components/submit-button";
 
 import { createServerAction, type ServerActionState } from "./actions";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 const initialState: ServerActionState = {
   error: undefined,
@@ -27,6 +28,7 @@ function ConnectionTypeFields({
     description: string | null;
   }>;
 }) {
+  const { t } = useI18n();
   const [connectionType, setConnectionType] = useState<"SSH_KEY" | "PASSWORD">(
     "SSH_KEY",
   );
@@ -49,7 +51,7 @@ function ConnectionTypeFields({
  :"border-white/[0.06] bg-white/[0.03] text-[var(--text-secondary)] hover:bg-white/[0.05]"
  }`}
             >
-              {type === "SSH_KEY" ? "SSH 密钥" : "密码"}
+              {type === "SSH_KEY" ? t("serversPage.create.sshKey") : t("serversPage.create.password")}
             </button>
           ))}
         </div>
@@ -71,7 +73,7 @@ function ConnectionTypeFields({
               required
               className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition focus:border-cyan-400/30 focus:bg-white/[0.06]"
             >
-              <option value="">选择密钥</option>
+              <option value="">{t("serversPage.create.selectKey")}</option>
               {sshKeys.map((key) => (
                 <option key={key.id} value={key.id}>
                   {key.name}
@@ -130,7 +132,7 @@ function ConnectionTypeFields({
               type="password"
               defaultValue=""
               autoComplete="new-password"
-              placeholder="留空，不使用默认密码"
+              placeholder={t("serversPage.create.passwordPlaceholder")}
               className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
             />
             <p className="text-[11px] text-slate-500">
@@ -153,6 +155,7 @@ export function ServerCreateForm({
     description: string | null;
   }>;
 }) {
+  const { t } = useI18n();
   const [state, formAction] = useActionState(createServerAction, initialState);
 
   return (
@@ -161,7 +164,7 @@ export function ServerCreateForm({
       data-card className="grid gap-4  p-5"
     >
       <div>
-        <h2 className="text-lg font-semibold text-white">添加 VPS 节点</h2>
+        <h2 className="text-lg font-semibold text-white">{t("serversPage.create.title")}</h2>
         <p className="mt-1 text-xs text-slate-500">
           录入 SSH 密钥、IP 与端口完成纳管
         </p>
@@ -191,7 +194,7 @@ export function ServerCreateForm({
             name="name"
             type="text"
             required
-            placeholder="例如 prod-1"
+            placeholder={t("serversPage.create.namePlaceholder")}
             className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
@@ -206,7 +209,7 @@ export function ServerCreateForm({
             id="serverDesc"
             name="description"
             type="text"
-            placeholder="可选"
+            placeholder={t("serversPage.create.descriptionPlaceholder")}
             className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
           />
         </div>
@@ -261,13 +264,12 @@ export function ServerCreateForm({
           id="serverStoragePath"
           name="storagePath"
           type="text"
-          defaultValue="/root/drive"
+          defaultValue={t("serversPage.create.storagePathDefault")}
           placeholder="/root/drive"
           className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
         />
         <p className="mt-1 text-xs text-slate-500">
-          VPS 上的文件存储目录，用于云盘和媒体库。默认{" "}
-          <code className="text-cyan-300">/root/drive</code>，可按需修改。
+          {t("serversPage.create.storagePathDesc")} <code className="text-cyan-300">/root/drive</code>，可按需修改。
         </p>
       </div>
 
@@ -279,13 +281,13 @@ export function ServerCreateForm({
             className="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950"
           />
           <div>
-            <div className="font-medium text-cyan-100">启用目标服务器直连</div>
+            <div className="font-medium text-cyan-100">{t("serversPage.create.directGateway.title")}</div>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct
               Gateway 微服务。
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              启用后对上传、下载、在线浏览/播放全局生效；之后也可在服务器管理面板切回中转并删除服务。
+              t("serversPage.create.directGateway.note")
             </p>
           </div>
         </div>
@@ -302,12 +304,12 @@ export function ServerCreateForm({
           id="serverTags"
           name="tags"
           type="text"
-          placeholder="逗号分隔，例如 prod,web"
+          placeholder={t("serversPage.create.tagsPlaceholder")}
           className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 focus:bg-white/[0.06]"
         />
       </div>
 
-      <SubmitButton pendingLabel="添加中…">添加节点</SubmitButton>
+      <SubmitButton pendingLabel={t("serversPage.create.submitting")}>{t("serversPage.create.submit")}</SubmitButton>
     </form>
   );
 }
