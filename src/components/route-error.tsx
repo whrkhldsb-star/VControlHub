@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+
 type RouteErrorProps = {
 	error: Error & { digest?: string };
 	reset: () => void;
@@ -12,9 +14,12 @@ type RouteErrorProps = {
 export function RouteError({
 	error,
 	reset,
-	title = "页面加载出错",
-	description = "当前页面遇到了异常，已保留现场信息。你可以重试，或稍后从系统自检/日志中继续排查。",
+	title,
+	description,
 }: RouteErrorProps) {
+	const { t } = useI18n();
+	const resolvedTitle = title ?? t("error.title");
+	const resolvedDescription = description ?? t("error.routeDescription");
 	useEffect(() => {
 		console.error("[Route Error]", error);
 	}, [error]);
@@ -27,11 +32,11 @@ export function RouteError({
 				</svg>
 			</div>
 			<div className="space-y-2">
-				<h2 className="text-lg font-semibold text-white">{title}</h2>
-				<p className="max-w-lg text-sm leading-6 text-[var(--text-secondary)]">{error.message || description}</p>
+				<h2 className="text-lg font-semibold text-white">{resolvedTitle}</h2>
+				<p className="max-w-lg text-sm leading-6 text-[var(--text-secondary)]">{error.message || resolvedDescription}</p>
 				{error.digest ? (
 					<p className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1 text-xs text-slate-500">
-						错误编号：{error.digest}
+						{t("error.digest-label")} {error.digest}
 					</p>
 				) : null}
 			</div>
@@ -40,7 +45,7 @@ export function RouteError({
 					onClick={reset}
 					className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-500 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
 				>
-					重试
+					{t("common.retry")}
 				</button>
 				<button
 					onClick={() => {
@@ -50,13 +55,13 @@ export function RouteError({
 					}}
 					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
 				>
-					硬刷新
+					{t("error.hard-refresh")}
 				</button>
 				<a
 					href="/health"
 					className="rounded-lg border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
 				>
-					系统自检
+					{t("error.health-check")}
 				</a>
 			</div>
 		</div>
