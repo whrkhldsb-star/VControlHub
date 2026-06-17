@@ -36,6 +36,11 @@ export const zh: Record<string, string> = {
 	"mediaUploadPanel.targetPathLabel": "上传到存储目录（可改）",
 	"mediaUploadPanel.targetPathPlaceholder": "例如 image-bed/2026",
 	"mediaUploadPanel.uploading": "上传中...",
+	"mediaUploadPanel.chunkedBadge": "分片",
+	"mediaUploadPanel.chunkedProgress": "分片 {current}/{total}（{pct}%）",
+	"mediaUploadPanel.chunkedResumeNotice": "检测到未完成的上传会话，已跳过 {skipped} 个已上传分片",
+	"mediaUploadPanel.chunkedSizeHint": "≥ 5 MB 文件自动启用分片 + 断点续传",
+	"mediaUploadPanel.chunkedError": "分片上传失败：{message}",
 };
 
 export const en: Record<string, string> = {
@@ -69,4 +74,9 @@ export const en: Record<string, string> = {
 	"mediaUploadPanel.targetPathLabel": "Upload to directory (editable)",
 	"mediaUploadPanel.targetPathPlaceholder": "e.g. image-bed/2026",
 	"mediaUploadPanel.uploading": "Uploading...",
+	"mediaUploadPanel.chunkedBadge": "Chunked",
+	"mediaUploadPanel.chunkedProgress": "Chunk {current}/{total} ({pct}%)",
+	"mediaUploadPanel.chunkedResumeNotice": "Found an unfinished upload session; skipped {skipped} already-uploaded chunks",
+	"mediaUploadPanel.chunkedSizeHint": "Files ≥ 5 MB automatically use chunked upload with resume",
+	"mediaUploadPanel.chunkedError": "Chunked upload failed: {message}",
 };

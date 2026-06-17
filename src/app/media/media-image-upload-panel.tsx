@@ -5,6 +5,12 @@ import { useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 
+import {
+	CHUNKED_THRESHOLD_BYTES,
+	useChunkedMediaUpload,
+	type ChunkedUploadProgress,
+} from "@/components/media/chunked-uploader";
+
 type StorageNodeOption = {
 	id: string;
 	name: string;
@@ -13,10 +19,19 @@ type StorageNodeOption = {
 	serverName?: string | null;
 };
 
+type QueueItemMode = "single" | "chunked";
+
+type ChunkedState = {
+	progress: ChunkedUploadProgress | null;
+};
+
 type UploadQueueItem = {
 	name: string;
+	size: number;
+	mode: QueueItemMode;
 	status: "pending" | "uploading" | "success" | "error" | "skipped";
 	message: string;
+	chunked?: ChunkedState;
 };
 
 type UploadProgress = {
@@ -38,6 +53,10 @@ function statusBadgeLabel(t: (k: string) => string, status: UploadQueueItem["sta
 	return t("mediaUploadPanel.statusPending");
 }
 
+function isImageMime(type: string): boolean {
+	return type.startsWith("image/");
+}
+
 export function MediaImageUploadPanel() {
 	const { t } = useI18n();
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +69,25 @@ export function MediaImageUploadPanel() {
 	const [progress, setProgress] = useState<UploadProgress>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+
+	const chunked = useChunkedMediaUpload({
+		...(storageNodeId ? { storageNodeId } : {}),
+		...(targetPath.trim() ? { relativePath: targetPath.trim() } : {}),
+		onProgress: (next) => {
+			setProgress((prev) =>
+				prev
+					? {
+							...prev,
+							queue: prev.queue.map((item) =>
+								item.mode === "chunked" && item.chunked
+									? { ...item, chunked: { progress: next } }
+									: item,
+							),
+						}
+					: prev,
+			);
+		},
+	});
 
 	async function loadNodes() {
 		setLoadingNodes(true);
@@ -68,6 +106,30 @@ export function MediaImageUploadPanel() {
 		}
 	}
 
+	async function uploadChunked(file: File, queueIndex: number): Promise<void> {
+		await chunked.upload(file);
+		// Mirror server result into queue state. The onProgress handler keeps
+		// the per-file progress fresh; here we flip the row's status to
+		// "success" once the complete call resolves.
+		setProgress((prev) =>
+			prev
+				? {
+						...prev,
+						success: prev.success + 1,
+						queue: prev.queue.map((item, i) =>
+							i === queueIndex
+								? {
+										...item,
+										status: "success",
+										message: t("mediaUploadPanel.itemSuccess"),
+									}
+								: item,
+						),
+					}
+				: prev,
+		);
+	}
+
 	async function uploadFiles(files: FileList | File[]) {
 		const uploadItems = Array.from(files);
 		if (uploadItems.length === 0 || uploading) return;
@@ -79,7 +141,16 @@ export function MediaImageUploadPanel() {
 			current: 0,
 			success: 0,
 			failure: 0,
-			queue: uploadItems.map((file) => ({ name: file.name, status: "pending", message: t("mediaUploadPanel.itemPending") })),
+			queue: uploadItems.map((file) => {
+				const mode: QueueItemMode = file.size >= CHUNKED_THRESHOLD_BYTES ? "chunked" : "single";
+				return {
+					name: file.name,
+					size: file.size,
+					mode,
+					status: "pending",
+					message: t("mediaUploadPanel.itemPending"),
+				};
+			}),
 		});
 
 		let success = 0;
@@ -93,13 +164,35 @@ export function MediaImageUploadPanel() {
 				queue: prev.queue.map((item, i) => i === index ? { ...item, status: "uploading", message: itemUploadingMsg } : item),
 			} : prev);
 
-			if (!file.type.startsWith("image/")) {
+			if (!isImageMime(file.type)) {
 				failure++;
 				setProgress((prev) => prev ? {
 					...prev,
 					failure,
 					queue: prev.queue.map((item, i) => i === index ? { ...item, status: "skipped", message: t("mediaUploadPanel.itemSkipped") } : item),
 				} : prev);
+				continue;
+			}
+
+			if (file.size >= CHUNKED_THRESHOLD_BYTES) {
+				// Mark the queue row as chunked so the progress UI shows the badge.
+				setProgress((prev) => prev ? {
+					...prev,
+					queue: prev.queue.map((item, i) => i === index ? { ...item, mode: "chunked", chunked: { progress: null } } : item),
+				} : prev);
+				try {
+					await uploadChunked(file, index);
+					success++;
+				} catch (uploadError) {
+					failure++;
+					const uploadMessage = getErrorMessage(uploadError, t("mediaUploadPanel.chunkedError"));
+					const itemErrorMsg = t("mediaUploadPanel.itemError").replace("{message}", uploadMessage);
+					setProgress((prev) => prev ? {
+						...prev,
+						failure,
+						queue: prev.queue.map((item, i) => i === index ? { ...item, status: "error", message: itemErrorMsg } : item),
+					} : prev);
+				}
 				continue;
 			}
 
@@ -169,6 +262,8 @@ export function MediaImageUploadPanel() {
 				</div>
 			</div>
 
+			<p className="mt-2 text-[11px] text-emerald-100/60">{t("mediaUploadPanel.chunkedSizeHint")}</p>
+
 			<input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => e.target.files && void uploadFiles(e.target.files)} />
 
 			{progress ? (
@@ -181,8 +276,28 @@ export function MediaImageUploadPanel() {
 						<span>{t("mediaUploadPanel.progressStats").replace("{success}", String(progress.success)).replace("{failure}", String(progress.failure))}</span>
 					</div>
 					<div className="mt-2 space-y-1">
-						{progress.queue.map((item, index) => <div key={`${item.name}-${index}`} className="flex justify-between gap-3"><span className="truncate">{item.name} · {item.message}</span><span>{statusBadgeLabel(t, item.status)}</span></div>)}
+						{progress.queue.map((item, index) => {
+							const isChunked = item.mode === "chunked";
+							const chunkedProgress = isChunked ? item.chunked?.progress : null;
+							const showChunkedDetail = isChunked && chunkedProgress && (item.status === "uploading" || item.status === "pending");
+							return (
+								<div key={`${item.name}-${index}`} className="flex flex-wrap items-center justify-between gap-2">
+									<span className="truncate">{item.name} · {showChunkedDetail
+										? t("mediaUploadPanel.chunkedProgress")
+											.replace("{current}", String(chunkedProgress.receivedChunks.length))
+											.replace("{total}", String(chunkedProgress.totalChunks))
+											.replace("{pct}", String(chunkedProgress.percent))
+										: item.message}
+										{isChunked ? <span className="ml-2 inline-block rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] text-emerald-100">{t("mediaUploadPanel.chunkedBadge")}</span> : null}
+									</span>
+									<span>{statusBadgeLabel(t, item.status)}</span>
+								</div>
+							);
+						})}
 					</div>
+					{chunked.progress && chunked.progress.resumed && chunked.progress.skipped > 0 ? (
+						<p className="mt-2 text-[11px] text-emerald-200/80">{t("mediaUploadPanel.chunkedResumeNotice").replace("{skipped}", String(chunked.progress.skipped))}</p>
+					) : null}
 				</div>
 			) : null}
 			{message ? <p role="status" className="mt-2 text-xs text-emerald-100">{message}</p> : null}
