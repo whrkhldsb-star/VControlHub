@@ -108,6 +108,7 @@ model User {
   aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
   costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
   aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
+  mediaUploadSessions    MediaUploadSession[]
   twoFactorEnabled       Boolean                 @default(false)
   twoFactorSecret        String?
   preferences            Json?
@@ -259,30 +260,31 @@ model ExecutionLog {
 }
 
 model StorageNode {
-  id                         String              @id @default(cuid())
+  id                         String               @id @default(cuid())
   name                       String
   driver                     StorageDriver
-  isDefault                  Boolean             @default(false)
+  isDefault                  Boolean              @default(false)
   basePath                   String
-  directAccessMode           StorageAccessMode   @default(PROXY)
+  directAccessMode           StorageAccessMode    @default(PROXY)
   publicBaseUrl              String?
-  directAccessExpiresSeconds Int                 @default(300)
+  directAccessExpiresSeconds Int                  @default(300)
   host                       String?
   port                       Int?
   username                   String?
-  serverId                   String?             @unique
-  healthStatus               String              @default("UNKNOWN")
+  serverId                   String?              @unique
+  healthStatus               String               @default("UNKNOWN")
   lastHealthCheckAt          DateTime?
   lastHealthError            String?
   lastHealthLatencyMs        Int?
-  createdAt                  DateTime            @default(now())
-  updatedAt                  DateTime            @updatedAt
-  server                     Server?             @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
+  server                     Server?              @relation(fields: [serverId], references: [id], onDelete: SetNull)
   fileEntries                FileEntry[]
   accessGrants               UserStorageAccess[]
   shareLinks                 ShareLink[]
   imageUploads               ImageUpload[]
   mediaItems                 MediaItem[]
+  mediaUploadSessions        MediaUploadSession[]
 }
 
 model UserStorageAccess {
@@ -1045,8 +1047,9 @@ model ImageUpload {
   userId        String
   createdAt     DateTime @default(now())
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storageNode StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageNode    StorageNode?         @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
+  uploadSessions MediaUploadSession[]
 
   @@index([userId, createdAt])
   @@index([album])
@@ -1240,4 +1243,57 @@ model AppSourceApp {
   @@index([sourceId, category])
   @@index([category])
   @@map("app_source_apps")
+}
+
+// ── 55c (TR-009): Media resumable upload sessions ────────────────
+//
+// Tracks a chunked / resumable upload to /api/images/upload. The client
+// initialises a session, uploads chunks one at a time, then asks the server
+// to assemble + process (thumbnail / webp / avif) + create the final
+// ImageUpload row.
+//
+// Lifecycle:
+//   PENDING → UPLOADING (first chunk arrives) → COMPLETED (assemble ok)
+//   any state → CANCELLED (client cancels, or server TTL expired)
+//   any state → FAILED (assembly error)
+//
+// Chunk storage lives in /tmp under UPLOAD_TMP_DIR/<sessionId>/chunk-N.
+// On COMPLETED, chunks are concatenated into the final image buffer and
+// handed off to the existing image pipeline; on CANCELLED/expired, the temp
+// dir is removed.
+model MediaUploadSession {
+  id             String                   @id @default(cuid())
+  userId         String
+  filename       String
+  mimeType       String
+  totalSize      BigInt
+  chunkSize      Int
+  totalChunks    Int
+  receivedChunks Int[]                    @default([])
+  storageNodeId  String?
+  relativePath   String?
+  status         MediaUploadSessionStatus @default(PENDING)
+  resultImageId  String? // populated when status = COMPLETED
+  checksum       String? // sha256 of assembled file
+  errorMessage   String?
+  expiresAt      DateTime
+  completedAt    DateTime? // populated when status = COMPLETED
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageNode StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
+  resultImage ImageUpload? @relation(fields: [resultImageId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+  @@map("media_upload_sessions")
+}
+
+enum MediaUploadSessionStatus {
+  PENDING
+  UPLOADING
+  COMPLETED
+  CANCELLED
+  FAILED
 }
