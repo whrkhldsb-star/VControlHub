@@ -43,7 +43,7 @@ export function AnnouncementEditModal({
       onSaved(data.announcement);
       onClose();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "保存失败");
+      setError(e instanceof Error ? e.message : t("announcementsPage.edit.failFallback"));
     } finally {
       setSaving(false);
     }
@@ -56,7 +56,7 @@ export function AnnouncementEditModal({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementTitle">标题</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementTitle">{t("announcementsPage.edit.title")}</label>
             <input
               id="announcementTitle"
               value={title}
@@ -74,13 +74,13 @@ export function AnnouncementEditModal({
               data-input
               className="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none"
             >
-              <option value="info">ℹ️ 信息</option>
-              <option value="warning">⚠️ 警告</option>
+              <option value="info">{t("announcementsPage.edit.severity.info")}</option>
+              <option value="warning">{t("announcementsPage.edit.severity.warning")}</option>
               <option value="urgent">{t("common.urgent")}</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementContent">内容</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementContent">{t("announcementsPage.edit.content")}</label>
             <textarea
               id="announcementContent"
               value={content}
@@ -115,7 +115,7 @@ export function AnnouncementEditModal({
             disabled={saving || !title.trim() || !content.trim()}
             className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
-            {saving ? "保存中…" : "保存"}
+            {saving ? t("announcementsPage.edit.saving") : t("announcementsPage.edit.submit")}
           </button>
         </div>
       </div>

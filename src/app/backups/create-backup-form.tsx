@@ -33,11 +33,11 @@ export function CreateBackupForm() {
         </select>
       </div>
       <div className="grid gap-1.5">
-        <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">备份备注</label>
-        <input id={backupNoteInputId} name="note" maxLength={500} placeholder="例如：升级前备份" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
+        <label htmlFor={backupNoteInputId} className="text-xs font-medium text-[var(--text-secondary)]">{t("common.backupNote")}</label>
+        <input id={backupNoteInputId} name="note" maxLength={500} placeholder={t("common.backupNotePlaceholder")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
       </div>
       <button disabled={pending} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
-        {pending ? "执行中" : "创建并执行"}
+        {pending ? t("common.executing") : t("common.createAndExecute")}
       </button>
       {state.error && <p className="md:col-span-3 text-xs text-rose-300">{state.error}</p>}
     </form>

@@ -536,19 +536,19 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
 										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
 										{canDelete && (
-											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30" title="删除" aria-label="删除">🗑</button>
+											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
 										)}
 									</div>
 								)}
 							</div>
 							<div className="text-xs text-slate-300 truncate" title={img.filename}>{img.filename}</div>
-							<div className="mt-1 truncate text-[10px] text-slate-500" title={formatPublishSource(img)}>来源：{formatPublishSource(img)}</div>
+							<div className="mt-1 truncate text-[10px] text-slate-500" title={formatPublishSource(img)}>{t("imageBedPage.image.source") + formatPublishSource(img)}</div>
 							<div className="flex items-center justify-between mt-1">
 								<span className="text-[10px] text-slate-500">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">
 									{img.album && <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">{img.album}</span>}
 									<span className={`text-[9px] px-1 py-0.5 rounded ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-slate-700 text-slate-500"}`}>
-										{img.isPublic ? "公开" : "私有"}
+										{img.isPublic ? t("imageBedPage.image.public") : t("imageBedPage.image.private")}
 									</span>
 								</div>
 							</div>
@@ -560,9 +560,9 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{/* Pagination */}
 			{totalPages > 1 && (
 				<div className="mt-6 flex items-center justify-center gap-2">
-					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-slate-800 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">上一页</button>
+					<button onClick={() => fetchImages(page - 1)} disabled={page <= 1} className="px-3 py-1.5 text-sm bg-slate-800 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.prev")}</button>
 					<span className="text-sm text-slate-400">{page} / {totalPages}</span>
-					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-slate-800 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">下一页</button>
+					<button onClick={() => fetchImages(page + 1)} disabled={page >= totalPages} className="px-3 py-1.5 text-sm bg-slate-800 text-slate-300 rounded-lg disabled:opacity-30 hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("imageBedPage.pagination.next")}</button>
 				</div>
 			)}
 
@@ -582,31 +582,31 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 			{showPublishModal && (
 				<div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setShowPublishModal(false)}>
 					<div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-						<h3 className="text-lg font-semibold text-white mb-4">☁️ 从云盘发布到图床</h3>
+						<h3 className="text-lg font-semibold text-white mb-4">{t("imageBedPage.publishFromStorage.title")}</h3>
 						<div className="space-y-3">
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishNode">存储节点（本地或 SFTP）</label>
+								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishNode">{t("imageBedPage.publishFromStorage.node")}</label>
 								<select id="imageBedPublishNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400/50">
-									<option value="">选择存储节点</option>
+									<option value="">{t("imageBedPage.publishFromStorage.nodePlaceholder")}</option>
 									{storageNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
 								</select>
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishPath">文件相对路径</label>
+								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishPath">{t("imageBedPage.publishFromStorage.path")}</label>
 								<input id="imageBedPublishPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishFilename">文件名（可选）</label>
-								<input id="imageBedPublishFilename" type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder="默认使用路径中的文件名" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishFilename">{t("imageBedPage.publishFromStorage.filename")}</label>
+								<input id="imageBedPublishFilename" type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder={t("imageBedPage.publishFromStorage.filenamePlaceholder")} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
-								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishAlbum">相册（可选）</label>
-								<input id="imageBedPublishAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder="归类到相册" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
+								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishAlbum">{t("imageBedPage.publishFromStorage.album")}</label>
+								<input id="imageBedPublishAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder={t("imageBedPage.publishFromStorage.albumPlaceholder")} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 						</div>
 						<div className="mt-5 flex items-center justify-end gap-2">
-							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
-							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">发布</button>
+							<button onClick={() => setShowPublishModal(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">{t("imageBedPage.publishFromStorage.cancel")}</button>
+							<button onClick={handlePublishFromStorage} disabled={!publishForm.storageNodeId || !publishForm.relativePath} className="px-4 py-2 text-sm bg-cyan-600 text-white rounded-lg hover:bg-cyan-500 transition disabled:opacity-30">{t("imageBedPage.publishFromStorage.submit")}</button>
 						</div>
 					</div>
 				</div>
@@ -617,20 +617,20 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					<div
 						role="dialog"
 						aria-modal="true"
-						aria-label={pendingDelete.type === "single" ? "确认删除图片" : "确认批量删除图片"}
+						aria-label={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
 						className="bg-slate-900 border border-red-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? "确认删除图片" : "确认批量删除图片"}</h3>
+						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
 						<p className="text-sm leading-6 text-slate-300">
 							{pendingDelete.type === "single" ? (
-								<>将删除 <span className="font-semibold text-white">{pendingDelete.filename}</span>，图片外链将失效。</>
+								<>{t("imageBedPage.delete.desc.single") + pendingDelete.filename + "，图片外链将失效。"}</>
 							) : (
-								<>将删除 <span className="font-semibold text-white">{pendingDelete.count} 张图片</span>，对应外链将失效。</>
+								<>{t("imageBedPage.delete.desc.batch") + pendingDelete.count + " 张图片，对应外链将失效。"}</>
 							)}
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
-							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">取消</button>
+							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">{t("imageBedPage.delete.cancel")}</button>
 							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
 						</div>
 					</div>
