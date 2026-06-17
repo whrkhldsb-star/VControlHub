@@ -24,6 +24,12 @@ const PUBLIC_PATHS_EXACT = new Set([
   "/api/auth/2fa/verify-login",
   "/status",
   "/api/status",
+  // TR-033 PWA: service worker + manifest + offline fallback must be reachable
+  // without an auth cookie. Browsers fetch them from <link rel="manifest"> /
+  // <link rel="icon"> tags and the service worker scope, never with cookies.
+  "/sw.js",
+  "/manifest.webmanifest",
+  "/offline",
 ]);
 
 const PUBLIC_PATH_PREFIXES = [
@@ -31,7 +37,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/public", // public API endpoints
   "/api/share/", // public share-token downloads (validated server-side)
   "/favicon.ico",
-  "/icon.png",
+  "/icon.png", // branding app icon (also reused as 512x512 PWA splash)
+  "/icon-192x192.png", // PWA home-screen icon (TR-033)
   "/apple-icon.png",
   "/share/", // share token pages (validated server-side)
 ];

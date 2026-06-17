@@ -39,4 +39,21 @@ describe("proxy auth and CSRF boundaries", () => {
 
     expect(response.status).toBe(200);
   });
+
+  it("treats PWA service worker / manifest / offline page as public (TR-033)", () => {
+    // The browser fetches /sw.js, /manifest.webmanifest, and /offline without
+    // cookies (via <link rel="manifest"> / <link rel="icon"> / service-worker
+    // scope). If these redirect to /login, the PWA fails to install.
+    for (const path of ["/sw.js", "/manifest.webmanifest", "/offline"]) {
+      const response = proxy(makeRequest(path));
+      // 200 means "passed through to Next.js route handler"; anything 3xx
+      // (especially 307 → /login) would mean PWA assets are gated by auth.
+      expect(response.status, path).toBe(200);
+    }
+  });
+
+  it("treats PWA home-screen icon as public (TR-033)", () => {
+    const response = proxy(makeRequest("/icon-192x192.png"));
+    expect(response.status).toBe(200);
+  });
 });

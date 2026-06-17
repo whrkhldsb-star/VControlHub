@@ -56,6 +56,7 @@ import { zh as officepreviewZh, en as officepreviewEn } from "./dictionaries/off
 import { zh as operationtasksZh, en as operationtasksEn } from "./dictionaries/operation-tasks";
 import { zh as preferencespageZh, en as preferencespageEn } from "./dictionaries/preferences-page";
 import { zh as playbookspageZh, en as playbookspageEn } from "./dictionaries/playbooks-page";
+import { zh as pwaZh, en as pwaEn } from "./dictionaries/pwa";
 import { zh as qareportspageZh, en as qareportspageEn } from "./dictionaries/qa-reports-page";
 import { zh as quickServicesZh, en as quickServicesEn } from "./dictionaries/quick-services";
 import { zh as recyclebinsectionZh, en as recyclebinsectionEn } from "./dictionaries/recycle-bin-section";
@@ -120,6 +121,7 @@ const zh: Record<string, string> = {
 	...operationtaskspageZh,
 	...preferencespageZh,
 	...playbookspageZh,
+	...pwaZh,
 	...qareportspageZh,
 	...quickServicesZh,
 	...recyclebinsectionZh,
@@ -188,6 +190,7 @@ const en: Record<string, string> = {
 	...operationtaskspageEn,
 	...preferencespageEn,
 	...playbookspageEn,
+	...pwaEn,
 	...qareportspageEn,
 	...quickServicesEn,
 	...recyclebinsectionEn,

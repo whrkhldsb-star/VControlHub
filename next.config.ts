@@ -38,6 +38,26 @@ const nextConfig: NextConfig = {
 					{ key: "Cache-Control", value: "private, max-age=10, stale-while-revalidate=20" },
 				],
 			},
+			{
+				// Service worker (TR-033 PWA) must be served with the correct
+				// Content-Type and Cache-Control so the browser can pick it up
+				// and the user always receives the latest version on next visit.
+				source: "/sw.js",
+				headers: [
+					{ key: "Content-Type", value: "application/javascript; charset=utf-8" },
+					{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+					{ key: "Service-Worker-Allowed", value: "/" },
+				],
+			},
+			{
+				// PWA web manifest (TR-033 PWA) — must be served as webmanifest
+				// so browsers can read it without a 404 or wrong-type fallback.
+				source: "/manifest.webmanifest",
+				headers: [
+					{ key: "Content-Type", value: "application/manifest+json; charset=utf-8" },
+					{ key: "Cache-Control", value: "public, max-age=3600" },
+				],
+			},
 		];
 	},
 };

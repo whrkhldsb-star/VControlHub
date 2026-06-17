@@ -6,6 +6,7 @@ import { SidebarLoader } from "@/components/sidebar-loader";
 import { ToastProvider } from "@/components/toast-provider";
 import { MobileNav } from "@/components/mobile-nav";
 import { GlobalSearch } from "@/components/global-search";
+import { PwaRegister } from "@/components/pwa-register";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { DomI18nBridge } from "@/lib/i18n/dom-bridge";
 import { ThemeProvider } from "@/lib/theme/provider";
@@ -60,6 +61,7 @@ export default async function RootLayout({
 						<DomI18nBridge />
 						<ToastProvider>
 							{shouldRenderAuthenticatedChrome && <SidebarLoader />}
+							<PwaRegister />
 							<main className="flex-1 min-w-0 min-h-screen overflow-x-clip pb-24 md:pb-0">
 								{children}
 							</main>

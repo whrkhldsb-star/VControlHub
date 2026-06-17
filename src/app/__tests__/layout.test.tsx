@@ -21,9 +21,14 @@ vi.mock("@/components/sidebar-loader", () => ({
 	SidebarLoader: () => <aside data-testid="sidebar-loader" />,
 }));
 
-vi.mock("@/components/toast-provider", () => ({
-	ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
+vi.mock("@/components/toast-provider", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/components/toast-provider")>();
+	return {
+		...actual,
+		ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+		useToast: () => ({ addToast: vi.fn() }),
+	};
+});
 
 vi.mock("@/components/mobile-nav", () => ({
 	MobileNav: () => <nav aria-label="移动端底部导航" />,
