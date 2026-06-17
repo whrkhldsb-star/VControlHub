@@ -174,7 +174,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 	};
 
 	const requestBatchDelete = () => {
-		if (selectedIds.size === 0) { showToast("请先选择图片"); return; }
+		if (selectedIds.size === 0) { showToast(t("imageBed.toast.selectFirst")); return; }
 		setPendingDelete({ type: "batch", count: selectedIds.size });
 	};
 
