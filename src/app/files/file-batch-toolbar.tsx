@@ -148,7 +148,7 @@ export function FileBatchToolbar({
                 onChange={(e) => setMoveTargetDir(e.currentTarget.value)}
                 placeholder={currentPath || "目标路径"}
                 aria-label="批量移动目标路径"
-                className="w-40 rounded-2xl border border-[var(--border)] bg-slate-950 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                className="w-40 rounded-2xl border border-[var(--border)] bg-slate-950 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
               />
               {moveProgress.total > 0 ? (
                 <span className="text-sm text-cyan-200">

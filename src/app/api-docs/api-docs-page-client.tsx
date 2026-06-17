@@ -125,7 +125,7 @@ export default function ApiDocsPage() {
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
 								placeholder={t("apiDocsPage.searchPlaceholder")}
-								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 px-3 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400"
+								className="h-10 w-full rounded-lg border border-white/[0.08] bg-slate-950/40 px-3 text-sm text-white placeholder:text-slate-500"
 							/>
 						</label>
 						<div className="text-sm text-slate-400">

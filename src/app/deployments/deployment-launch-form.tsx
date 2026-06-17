@@ -110,7 +110,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					部署原因
-					<input name="reason" maxLength={500} placeholder="例如：上线新版本 / 修复服务异常" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-400" />
+					<input name="reason" maxLength={500} placeholder="例如：上线新版本 / 修复服务异常" className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
 				</label>
 			</div>
 
@@ -126,7 +126,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 						{variables.map((name) => (
 							<label key={name} className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 								{name}
-								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-400" />
+								<input name={`variables.${name}`} required placeholder={`填写 ${name}`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
 							</label>
 						))}
 					</div>

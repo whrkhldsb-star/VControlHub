@@ -135,7 +135,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             name="q"
             defaultValue={q ?? ""}
             placeholder="文件名、路径、标签…"
-            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50 light:placeholder:text-slate-500"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
           />
         </div>
         <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500">搜索</button>

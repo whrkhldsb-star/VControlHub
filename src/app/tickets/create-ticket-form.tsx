@@ -36,7 +36,7 @@ export function CreateTicketForm(_props: Props = {}) {
 			<div className="grid gap-3 md:grid-cols-2">
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.title")}
-					<input name="subject" required placeholder={t("ticketsPage.form.subject")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500" />
+					<input name="subject" required placeholder={t("ticketsPage.form.subject")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
 				</label>
 				<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 					{t("ticketsPage.form.label.priority")}
@@ -50,7 +50,7 @@ export function CreateTicketForm(_props: Props = {}) {
 			</div>
 			<label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
 				{t("ticketsPage.form.label.description")}
-				<textarea name="description" required rows={4} placeholder={t("ticketsPage.form.description")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500 resize-y" />
+				<textarea name="description" required rows={4} placeholder={t("ticketsPage.form.description")} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 resize-y" />
 			</label>
 			<button disabled={pending} className="w-fit rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
 				{pending ? t("ticketsPage.form.submitting") : t("ticketsPage.form.submit")}

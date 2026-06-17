@@ -232,7 +232,7 @@ export function DeploymentExportPanel() {
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
             placeholder="console.example.com"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-[var(--text-secondary)]"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600"
           />
         </label>
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
@@ -241,7 +241,7 @@ export function DeploymentExportPanel() {
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
             placeholder="vcontrolhub"
-            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-[var(--text-secondary)]"
+            className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600"
           />
         </label>
         <button

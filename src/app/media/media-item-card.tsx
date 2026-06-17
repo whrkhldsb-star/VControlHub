@@ -318,7 +318,7 @@ export function MediaItemCard({ item, canManage }: { item: MediaItem; canManage:
 								else setShowTagInput(false);
 							}}
 							aria-label={t("mediaItemCard.newTagAriaLabel")}
-							className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
+							className="w-20 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] text-white outline-none placeholder:text-slate-600"
 							placeholder={t("mediaItemCard.newTagPlaceholder")}
 						/>
 					) : (

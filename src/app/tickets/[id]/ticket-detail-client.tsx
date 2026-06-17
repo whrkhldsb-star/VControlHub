@@ -187,7 +187,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
           <label htmlFor="ticketComment" className="sr-only">{t("ticketsDetail.commentAria")}</label>
           <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 resize-none" />
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 resize-none" />
           <button onClick={addComment} disabled={saving || !comment.trim()}
             className="mt-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40">
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}

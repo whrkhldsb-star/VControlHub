@@ -49,7 +49,7 @@ function matchesTask(task: Task, query: string) {
 }
 
 const fieldLabelClass = "text-xs font-medium text-slate-300 tracking-wide";
-const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 light:placeholder:text-slate-500 focus:border-cyan-400/30";
+const fieldInputClass = "w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30";
 const monoFieldInputClass = `${fieldInputClass} font-mono`;
 
 function describeCronPreview(expr: string, t: (key: string) => string) {
@@ -133,7 +133,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
-						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 light:placeholder:text-slate-400 focus:border-cyan-400/40"
+						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-400/40"
 					/>
 				</div>
 				{canCreate && !showCreate && (

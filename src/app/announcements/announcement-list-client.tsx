@@ -101,7 +101,7 @@ export function AnnouncementList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("announcementsPage.search.placeholder")}
-            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500"
+            className="w-full rounded-lg border border-[var(--border)] bg-white/[0.04] pl-9 pr-4 py-2 text-sm text-white outline-none placeholder:text-slate-600"
           />
         </div>
         <select

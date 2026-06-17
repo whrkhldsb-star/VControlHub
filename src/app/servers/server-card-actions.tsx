@@ -373,7 +373,7 @@ export function ServerCardActions({
                   name="confirmName"
                   type="text"
                   autoComplete="off"
-                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300"
+                  className="w-full rounded-lg border border-rose-400/30 bg-slate-950/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-300"
                 />
                 <div className="flex gap-2">
                   <SubmitButton

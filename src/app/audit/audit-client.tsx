@@ -115,7 +115,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}
             placeholder={t("audit.search-placeholder")}
             aria-label={t("audit.search-placeholder")}
-            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+            className="min-w-[240px] flex-1 rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
           />
           <button
             type="button"

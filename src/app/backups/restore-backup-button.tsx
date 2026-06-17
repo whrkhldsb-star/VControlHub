@@ -87,7 +87,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 value={confirmText}
                 onChange={(event) => setConfirmText(event.target.value)}
                 autoFocus
-                className="min-h-11 rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-rose-300/60"
+                className="min-h-11 rounded-xl border border-[var(--border)] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-rose-300/60"
                 placeholder={CONFIRM_TEXT}
               />
             </label>

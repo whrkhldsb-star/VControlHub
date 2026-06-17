@@ -73,7 +73,7 @@ export default async function BackupsPage() {
 				</div>
 				<div className="mt-4 grid gap-3 md:grid-cols-3">
 					{(["DATABASE", "FILES", "FULL"] as const).map((type) => (
-						<div key={type} className="rounded-lg border border-white/[0.06] bg-black/10 p-3 light:bg-white/50">
+						<div key={type} className="rounded-lg border border-white/[0.06] bg-black/10 p-3/50">
 							<p className="text-xs font-semibold text-cyan-200">{type}</p>
 							<p className="mt-1 text-sm text-white">{t("backupsPage.overview.typeSummary").replace("{count}", String(summary.byType[type].count)).replace("{size}", formatBackupSize(summary.byType[type].sizeBytes))}</p>
 						</div>
@@ -100,7 +100,7 @@ export default async function BackupsPage() {
 									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-slate-500">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
-								<p className="mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300 light:bg-white/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
+								<p className="mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{item.latestMessage}</p>}
 							</div>
 						))}

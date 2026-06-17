@@ -50,7 +50,7 @@ export function CreateAnnouncementForm() {
 			<div className="grid gap-3 md:grid-cols-2">
 				<div className="grid gap-1.5">
 					<label htmlFor={titleId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.titleLabel")}</label>
-					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500" />
+					<input id={titleId} name="title" required aria-describedby={`${titleId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600" />
 					<p id={`${titleId}-hint`} className="text-[11px] text-slate-500">{t("announcementsPage.create.titleHint")}</p>
 				</div>
 				<div className="grid gap-1.5">
@@ -65,7 +65,7 @@ export function CreateAnnouncementForm() {
 			</div>
 			<div className="grid gap-1.5">
 				<label htmlFor={contentId} className="text-xs font-medium text-[var(--text-secondary)]">{t("announcementsPage.create.contentLabel")}</label>
-				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 light:placeholder:text-slate-500 resize-y" />
+				<textarea id={contentId} name="content" required rows={3} aria-describedby={`${contentId}-hint`} className="rounded-lg border border-white/[0.08] bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 resize-y" />
 				<p id={`${contentId}-hint`} className="text-[11px] text-slate-500">{t("announcementsPage.create.contentHint")}</p>
 			</div>
 			<div className="grid gap-3 md:grid-cols-2">

@@ -252,7 +252,7 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 							value={vars[v] ?? ""}
 							onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 							placeholder={`{{${v}}}`}
-							className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30"
+							className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 						/>
 					</div>
 			)})}
@@ -330,12 +330,12 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-command`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.commandLabel")}</label>
-				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-cyan-400/30 resize-y" />
+				<textarea id={`${createFormId}-command`} value={command} onChange={(e) => setCommand(e.target.value)} required rows={3} placeholder={t("templatesPage.create.commandPlaceholder")} className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 resize-y" />
 				<p className="text-[11px] text-slate-600">{t("templatesPage.create.commandHint")}</p>
 			</div>
 			<div className="space-y-1.5">
 				<label htmlFor={`${createFormId}-rollback-command`} className="text-xs font-medium text-white/50 tracking-wide">{t("templatesPage.create.rollbackLabel")}</label>
-				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-white/20 light:placeholder:text-slate-400 focus:border-emerald-400/40 resize-y" />
+				<textarea id={`${createFormId}-rollback-command`} value={rollbackCommand} onChange={(e) => setRollbackCommand(e.target.value)} rows={3} placeholder={t("templatesPage.create.rollbackPlaceholder")} data-tone="emerald" className="w-full rounded-lg border border-emerald-400/20 px-3.5 py-2.5 text-sm text-white light:border-emerald-200 light:bg-emerald-50 font-mono outline-none transition placeholder:text-white/20 focus:border-emerald-400/40 resize-y" />
 				<p className="text-[11px] text-slate-600">{t("templatesPage.create.rollbackHint")}</p>
 			</div>
 			<div className="space-y-1.5">

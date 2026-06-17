@@ -46,7 +46,7 @@ export function FindBar({
 					value={searchQuery}
 					onChange={(e) => onSearchQueryChange(e.target.value)}
 					placeholder="输入关键词"
-					className="w-36 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+					className="w-36 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none"
 				/>
 			</div>
 			<div className="flex items-end gap-1">
@@ -65,7 +65,7 @@ export function FindBar({
 						onChange={(e) => onJumpLineChange(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && onJumpToLine()}
 						placeholder="如 42"
-						className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 light:placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none"
+						className="w-24 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none"
 					/>
 				</div>
 				<button

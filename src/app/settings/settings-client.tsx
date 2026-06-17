@@ -855,7 +855,7 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 				autoComplete={field.autoComplete}
 				disabled={disabled}
 				aria-describedby={describedBy}
-				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:placeholder:text-slate-400 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
+				className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-cyan-400/30 disabled:cursor-not-allowed disabled:border-white/[0.03] disabled:bg-slate-900/50 disabled:text-slate-500 disabled:placeholder:text-white/10 light:disabled:border-slate-200 light:disabled:bg-slate-100 light:disabled:text-slate-500 light:disabled:placeholder:text-slate-300"
 			/>
 			{showHighRiskWarning && (
 				<p
@@ -1060,7 +1060,7 @@ function SaveButtonWithDiff({
 									data-pending-risk={change.riskLevel}
 									className="border-t border-white/[0.04] align-top"
 								>
-									<td className="px-3 py-2 font-mono text-[11px] text-white light:text-slate-900">{change.label}</td>
+									<td className="px-3 py-2 font-mono text-[11px] text-white">{change.label}</td>
 									<td className="px-3 py-2 text-slate-400 line-through">
 										{renderDiffValue(change.oldValue)}
 									</td>
@@ -1114,7 +1114,7 @@ function HighRiskConfirmModal({
 			aria-labelledby="high-risk-confirm-title"
 			data-component="high-risk-confirm-modal"
 			data-testid="high-risk-confirm-modal"
-			className="rounded-2xl border border-white/[0.08] bg-slate-900/95 p-0 text-white shadow-2xl backdrop:bg-slate-950/70 light:bg-white light:text-slate-900 light:backdrop:bg-slate-900/60"
+			className="rounded-2xl border border-white/[0.08] bg-slate-900/95 p-0 text-white shadow-2xl backdrop:bg-slate-950/70 light:backdrop:bg-slate-900/60"
 		>
 			<div className="w-[min(560px,90vw)] p-5">
 				<h2 id="high-risk-confirm-title" className="text-base font-semibold text-rose-200 light:text-rose-700">
@@ -1130,7 +1130,7 @@ function HighRiskConfirmModal({
 							className="rounded-lg border border-rose-400/20 bg-rose-500/[0.06] p-3 text-xs light:border-rose-200 light:bg-rose-50"
 						>
 							<div className="flex items-center justify-between gap-2">
-								<span className="font-mono text-[11px] text-white light:text-slate-900">{change.label}</span>
+								<span className="font-mono text-[11px] text-white">{change.label}</span>
 								<FieldRiskBadge level={change.riskLevel} />
 							</div>
 							<div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
@@ -1152,7 +1152,7 @@ function HighRiskConfirmModal({
 						onClick={onCancel}
 						disabled={busy}
 						data-action="cancel"
-						className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 light:bg-white light:text-slate-700 light:hover:bg-slate-50"
+						className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
 					>
 						取消
 					</button>

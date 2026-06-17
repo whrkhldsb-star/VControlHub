@@ -228,7 +228,7 @@ function NodeFilterSelect({
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
           placeholder="节点名称、类型或 ID"
-          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none light:placeholder:text-slate-400"
+          className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
         />
       </div>
       <div className="space-y-1">
@@ -516,7 +516,7 @@ export function FilesBrowserSpa({
         onClick={() => setMobileSidebarOpen((value) => !value)}
         aria-expanded={mobileSidebarOpen}
         aria-controls="files-browser-sidebar"
-        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-slate-900/60 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800/60 light:bg-slate-100 light:text-slate-900 light:hover:bg-slate-200/60 xl:hidden"
+        className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-slate-900/60 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800/60 light:bg-slate-100 light:hover:bg-slate-200/60 xl:hidden"
       >
         <span>{mobileSidebarOpen ? "收起目录树" : "展开目录树"}</span>
         <span aria-hidden="true" className="text-xs">
@@ -652,7 +652,7 @@ export function FilesBrowserSpa({
                         ? "在全部文件中搜索…"
                         : "在当前目录搜索…"
                     }
-                    className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 light:placeholder:text-slate-400 focus:border-cyan-400/50 focus:outline-none"
+                    className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
                   />
                 </div>
                 <button
