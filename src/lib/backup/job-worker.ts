@@ -6,7 +6,6 @@ import {
   restoreBackupRecord,
   runExistingBackupRecord,
 } from "@/lib/backup/service";
-import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";

@@ -46,6 +46,8 @@ const DEFAULTS: Record<string, string> = {
 	"offsite.dailyWindowHour": "3",
 	"offsite.retentionDays": "30",
 	"offsite.failureAlertRecipient": "",
+	// TR-009 55a: offsite upload pipeline — 默认开 gzip 压缩 (用户可关)
+	"offsite.compress": "true",
 	// TR-032 E02: 智能 AI 运维 (默认 recommendation 模式, provider 留空 = 走内置信号 surface)
 	"ai.ops.mode": "recommendation",
 	"ai.ops.provider": "",

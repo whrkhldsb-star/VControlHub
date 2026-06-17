@@ -42,6 +42,8 @@ export const SettingKey = z.union([
 	z.literal("offsite.dailyWindowHour"),
 	z.literal("offsite.retentionDays"),
 	z.literal("offsite.failureAlertRecipient"),
+	// TR-009 55a: 上传前是否先 gzip 压缩 (默认 true, offsite upload pipeline)
+	z.literal("offsite.compress"),
 	// TR-032 E02: 智能 AI 运维 (ai.ops.mode 默认 recommendation, admin 可切 autonomous; ai.ops.provider 留口对接真实 AI 提供方)
 	z.literal("ai.ops.mode"),
 	z.literal("ai.ops.provider"),
@@ -90,6 +92,8 @@ export const VALID_SETTING_KEYS: string[] = [
 	"offsite.dailyWindowHour",
 	"offsite.retentionDays",
 	"offsite.failureAlertRecipient",
+	// TR-009 55a: offsite upload pipeline 开关
+	"offsite.compress",
 	// TR-032 E02: 智能 AI 运维
 	"ai.ops.mode",
 	"ai.ops.provider",

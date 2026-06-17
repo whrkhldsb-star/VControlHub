@@ -32,6 +32,9 @@ import {
 	updateBackupRecordStatus,
 } from "./service-crud";
 import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
+import { uploadBackupToOffsite } from "./offsite-uploader";
+
+const offsiteUploadLogger = createLogger("backup-offsite-uploader");
 
 export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; projectRoot?: string }) {
 	const record = await createBackupRecord(input);
@@ -61,7 +64,38 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
 		});
 		const fileInfo = await stat(outputPath);
-		return updateBackupRecordStatus(record.id, { status: "COMPLETED", fileSize: fileInfo.size, completedAt: new Date(), errorMessage: null });
+		const updated = await updateBackupRecordStatus(record.id, { status: "COMPLETED", fileSize: fileInfo.size, completedAt: new Date(), errorMessage: null });
+		// TR-009 55a: best-effort offsite 上传 — 失败不影响 backup COMPLETED
+		void uploadBackupToOffsite({ backupId: record.id, projectRoot })
+			.then((result) => {
+				if (result.ok === false) {
+					offsiteUploadLogger.warn("offsite upload did not succeed (non-fatal)", {
+						backupId: record.id,
+						code: result.code,
+						error: result.error,
+					});
+				} else if (result.skipped) {
+					offsiteUploadLogger.info("offsite upload skipped", {
+						backupId: record.id,
+						reason: result.reason,
+					});
+				} else {
+					offsiteUploadLogger.info("offsite upload completed", {
+						backupId: record.id,
+						key: result.key,
+						originalSize: result.originalSize,
+						compressedSize: result.compressedSize,
+						ratio: result.ratio,
+					});
+				}
+			})
+			.catch((err) => {
+				offsiteUploadLogger.error("offsite upload threw (non-fatal)", {
+					backupId: record.id,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			});
+		return updated;
 	} catch (error) {
 		return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: backupCommandErrorMessage(error).slice(0, 2000) });
 	}

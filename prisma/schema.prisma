@@ -51,66 +51,66 @@ enum FileEntryType {
 }
 
 enum AuditSeverity {
- INFO
- WARNING
- CRITICAL
+  INFO
+  WARNING
+  CRITICAL
 }
 
 enum AiHostedActionStatus {
- PENDING_APPROVAL
- APPROVED
- REJECTED
- EXECUTING
- COMPLETED
- FAILED
- CANCELLED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  EXECUTING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  username           String              @unique
-  displayName        String?
-  passwordHash       String
-  status             UserStatus          @default(PENDING_PASSWORD_RESET)
-  mustChangePassword Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  roles              UserRole[]
-  storageAccess      UserStorageAccess[]
-  commandRequests    CommandRequest[]    @relation("requester")
-  jobs               Job[]               @relation("jobCreator")
-  approvals          CommandApproval[]
-  auditLogs          AuditLog[]
-  sshKeys            SshKey[]            @relation("SshKeyCreator")
-  notifications      Notification[]
-  scheduledTasks     ScheduledTask[]
-  playbooks          Playbook[]
-  playbookRuns       PlaybookRun[]
-  commandTemplates   CommandTemplate[]
-  downloadTasks      DownloadTask[]
-  syncJobs           SyncJob[]
-  shareLinks         ShareLink[]
-  backupRecords      BackupRecord[]
-  deploymentRuns     DeploymentRun[]
+  id                     String                  @id @default(cuid())
+  username               String                  @unique
+  displayName            String?
+  passwordHash           String
+  status                 UserStatus              @default(PENDING_PASSWORD_RESET)
+  mustChangePassword     Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  roles                  UserRole[]
+  storageAccess          UserStorageAccess[]
+  commandRequests        CommandRequest[]        @relation("requester")
+  jobs                   Job[]                   @relation("jobCreator")
+  approvals              CommandApproval[]
+  auditLogs              AuditLog[]
+  sshKeys                SshKey[]                @relation("SshKeyCreator")
+  notifications          Notification[]
+  scheduledTasks         ScheduledTask[]
+  playbooks              Playbook[]
+  playbookRuns           PlaybookRun[]
+  commandTemplates       CommandTemplate[]
+  downloadTasks          DownloadTask[]
+  syncJobs               SyncJob[]
+  shareLinks             ShareLink[]
+  backupRecords          BackupRecord[]
+  deploymentRuns         DeploymentRun[]
   deploymentRollbackRuns DeploymentRollbackRun[]
-  snippets           Snippet[]
-  apiTokens          ApiToken[]
-  announcements      Announcement[]
-  mediaItems         MediaItem[]
- tickets Ticket[] @relation("TicketCreator")
- assignedTickets Ticket[] @relation("TicketAssignee")
- ticketComments TicketComment[]
- imageUploads ImageUpload[]
- deploymentExports DeploymentExport[]
- aiProviders AiProvider[]
- aiConversations AiConversation[]
- aiHostedRequests AiHostedAction[] @relation("AiHostedRequester")
- aiHostedApprovals AiHostedAction[] @relation("AiHostedApprover")
- costEntries CostEntry[] @relation("CostEntryCreatedBy")
- aiOpsLogs AiOpsLog[] @relation("AiOpsLogTriggeredBy")
- twoFactorEnabled Boolean @default(false)
- twoFactorSecret String?
- preferences Json?
+  snippets               Snippet[]
+  apiTokens              ApiToken[]
+  announcements          Announcement[]
+  mediaItems             MediaItem[]
+  tickets                Ticket[]                @relation("TicketCreator")
+  assignedTickets        Ticket[]                @relation("TicketAssignee")
+  ticketComments         TicketComment[]
+  imageUploads           ImageUpload[]
+  deploymentExports      DeploymentExport[]
+  aiProviders            AiProvider[]
+  aiConversations        AiConversation[]
+  aiHostedRequests       AiHostedAction[]        @relation("AiHostedRequester")
+  aiHostedApprovals      AiHostedAction[]        @relation("AiHostedApprover")
+  costEntries            CostEntry[]             @relation("CostEntryCreatedBy")
+  aiOpsLogs              AiOpsLog[]              @relation("AiOpsLogTriggeredBy")
+  twoFactorEnabled       Boolean                 @default(false)
+  twoFactorSecret        String?
+  preferences            Json?
 }
 
 model Role {
@@ -166,59 +166,59 @@ model SshKey {
 }
 
 model Server {
- id String @id @default(cuid())
- name String
- host String
- port Int @default(22)
- username String
- sshKeyId String?
- password String?
- description String?
- tags String[]
- enabled Boolean @default(true)
- connectionType ServerConnectionType @default(SSH_KEY)
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
- sshKey SshKey? @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
- storageNode StorageNode?
- commandTargets CommandTarget[]
- metricSnapshots MetricSnapshot[]
- downloadTasks DownloadTask[]
- sourceSyncs SyncJob[] @relation("SourceSyncs")
- targetSyncs SyncJob[] @relation("TargetSyncs")
- publicUrl String? // 目标服务器公网访问地址（直连模式）
- fileProxyPort Int @default(0) // 文件代理端口（0=未启用）
- hostedActions AiHostedAction[]
- fileProxies ServerFileProxy[]
+  id              String               @id @default(cuid())
+  name            String
+  host            String
+  port            Int                  @default(22)
+  username        String
+  sshKeyId        String?
+  password        String?
+  description     String?
+  tags            String[]
+  enabled         Boolean              @default(true)
+  connectionType  ServerConnectionType @default(SSH_KEY)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  sshKey          SshKey?              @relation(fields: [sshKeyId], references: [id], onDelete: SetNull)
+  storageNode     StorageNode?
+  commandTargets  CommandTarget[]
+  metricSnapshots MetricSnapshot[]
+  downloadTasks   DownloadTask[]
+  sourceSyncs     SyncJob[]            @relation("SourceSyncs")
+  targetSyncs     SyncJob[]            @relation("TargetSyncs")
+  publicUrl       String? // 目标服务器公网访问地址（直连模式）
+  fileProxyPort   Int                  @default(0) // 文件代理端口（0=未启用）
+  hostedActions   AiHostedAction[]
+  fileProxies     ServerFileProxy[]
 
- @@index([host, port])
- @@index([enabled])
- @@map("servers")
+  @@index([host, port])
+  @@index([enabled])
+  @@map("servers")
 }
 
 model CommandRequest {
-  id              String               @id @default(cuid())
-  title           String
-  command         String
-  reason          String?
-  status          CommandRequestStatus @default(PENDING_APPROVAL)
-  initiatedByType ActorType
-  requesterId     String
-  workerId        String?
-  workerHeartbeatAt DateTime?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
- requester User @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
- approvals CommandApproval[]
- targets CommandTarget[]
-  executionLogs ExecutionLog[]
-  deploymentRuns DeploymentRun[]
+  id                     String                  @id @default(cuid())
+  title                  String
+  command                String
+  reason                 String?
+  status                 CommandRequestStatus    @default(PENDING_APPROVAL)
+  initiatedByType        ActorType
+  requesterId            String
+  workerId               String?
+  workerHeartbeatAt      DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  requester              User                    @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  approvals              CommandApproval[]
+  targets                CommandTarget[]
+  executionLogs          ExecutionLog[]
+  deploymentRuns         DeploymentRun[]
   deploymentRollbackRuns DeploymentRollbackRun[]
 
- @@index([status, createdAt])
- @@index([requesterId, createdAt])
- @@index([status, workerHeartbeatAt])
- @@map("command_requests")
+  @@index([status, createdAt])
+  @@index([requesterId, createdAt])
+  @@index([status, workerHeartbeatAt])
+  @@map("command_requests")
 }
 
 model CommandApproval {
@@ -242,11 +242,11 @@ model CommandTarget {
   exitCode         Int?
   startedAt        DateTime?
   finishedAt       DateTime?
- commandRequest CommandRequest @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
- server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  commandRequest   CommandRequest       @relation(fields: [commandRequestId], references: [id], onDelete: Cascade)
+  server           Server               @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
- @@index([serverId, status])
- @@map("command_targets")
+  @@index([serverId, status])
+  @@map("command_targets")
 }
 
 model ExecutionLog {
@@ -259,30 +259,30 @@ model ExecutionLog {
 }
 
 model StorageNode {
-  id           String              @id @default(cuid())
-  name         String
-  driver       StorageDriver
-  isDefault    Boolean             @default(false)
-  basePath     String
-  directAccessMode StorageAccessMode @default(PROXY)
-  publicBaseUrl String?
-  directAccessExpiresSeconds Int @default(300)
-  host         String?
-  port         Int?
-  username     String?
-  serverId            String?             @unique
-  healthStatus        String              @default("UNKNOWN")
-  lastHealthCheckAt   DateTime?
-  lastHealthError     String?
-  lastHealthLatencyMs Int?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  server              Server?             @relation(fields: [serverId], references: [id], onDelete: SetNull)
- fileEntries FileEntry[]
- accessGrants UserStorageAccess[]
- shareLinks ShareLink[]
- imageUploads ImageUpload[]
- mediaItems MediaItem[]
+  id                         String              @id @default(cuid())
+  name                       String
+  driver                     StorageDriver
+  isDefault                  Boolean             @default(false)
+  basePath                   String
+  directAccessMode           StorageAccessMode   @default(PROXY)
+  publicBaseUrl              String?
+  directAccessExpiresSeconds Int                 @default(300)
+  host                       String?
+  port                       Int?
+  username                   String?
+  serverId                   String?             @unique
+  healthStatus               String              @default("UNKNOWN")
+  lastHealthCheckAt          DateTime?
+  lastHealthError            String?
+  lastHealthLatencyMs        Int?
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+  server                     Server?             @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  fileEntries                FileEntry[]
+  accessGrants               UserStorageAccess[]
+  shareLinks                 ShareLink[]
+  imageUploads               ImageUpload[]
+  mediaItems                 MediaItem[]
 }
 
 model UserStorageAccess {
@@ -326,19 +326,19 @@ model FileEntry {
 }
 
 model AuditLog {
- id String @id @default(cuid())
- actorType ActorType
- actorId String?
- action String
- severity AuditSeverity @default(INFO)
- detail Json
- createdAt DateTime @default(now())
- actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  id        String        @id @default(cuid())
+  actorType ActorType
+  actorId   String?
+  action    String
+  severity  AuditSeverity @default(INFO)
+  detail    Json
+  createdAt DateTime      @default(now())
+  actor     User?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
- @@index([createdAt])
- @@index([action, createdAt])
- @@index([actorId, createdAt])
- @@map("audit_logs")
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
 }
 
 enum SyncJobStatus {
@@ -371,30 +371,30 @@ enum JobStatus {
 }
 
 model Job {
-  id                String    @id @default(cuid())
-  type              String
-  title             String
-  payload           Json
-  status            JobStatus @default(PENDING)
-  priority          Int       @default(0)
-  maxAttempts       Int       @default(3)
-  attempts          Int       @default(0)
-  progress          String?
-  result            Json?
-  errorMessage      String?
-  createdBy         String?
+  id                  String    @id @default(cuid())
+  type                String
+  title               String
+  payload             Json
+  status              JobStatus @default(PENDING)
+  priority            Int       @default(0)
+  maxAttempts         Int       @default(3)
+  attempts            Int       @default(0)
+  progress            String?
+  result              Json?
+  errorMessage        String?
+  createdBy           String?
   targetStorageNodeId String?
-  availableAt       DateTime  @default(now())
-  startedAt         DateTime?
-  completedAt       DateTime?
-  cancelledAt       DateTime?
-  workerId          String?
-  workerHeartbeatAt DateTime?
-  leaseExpiresAt    DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  availableAt         DateTime  @default(now())
+  startedAt           DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  workerId            String?
+  workerHeartbeatAt   DateTime?
+  leaseExpiresAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  creator User? @relation("jobCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  creator User?      @relation("jobCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   events  JobEvent[]
 
   @@index([status, availableAt, priority, createdAt])
@@ -456,11 +456,11 @@ model ScheduledTask {
 // per-step, per-step timeouts, and a `dryRun` mode that walks the chain
 // without side effects.
 model Playbook {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
   // "cron" | "metric" — initial version. Webhook trigger ships later.
-  triggerType String
+  triggerType   String
   // Cron expression when triggerType="cron" (5-field standard cron), or
   // { metric: "cpu_usage" | "mem_usage" | "disk_usage", operator, threshold }
   // when triggerType="metric".
@@ -468,16 +468,16 @@ model Playbook {
   // Ordered list of PlaybookStep records: { id, type, config, retry, timeoutSec }.
   // Stored as JSON to avoid an extra join table; max 32 steps enforced at the
   // zod service layer.
-  steps       Json
+  steps         Json
   // Chain-wide retry budget (re-queue the whole chain on any step failure);
   // default 0 (no chain retry) so failed runs surface immediately.
-  chainRetry  Int      @default(0)
-  enabled     Boolean  @default(true)
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  chainRetry    Int      @default(0)
+  enabled       Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  creator User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  creator User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
   runs    PlaybookRun[]
 
   @@index([enabled, createdAt])
@@ -505,7 +505,7 @@ model PlaybookRun {
   updatedAt      DateTime  @updatedAt
 
   playbook Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
-  creator User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  creator  User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([playbookId, createdAt])
   @@index([status, createdAt])
@@ -549,17 +549,17 @@ model AlertRule {
 }
 
 model CommandTemplate {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  command     String
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  command         String
   rollbackCommand String?
-  variables   String[] // list of {{var}} placeholders
-  tags        String[]
-  isBuiltin   Boolean  @default(false)
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  variables       String[] // list of {{var}} placeholders
+  tags            String[]
+  isBuiltin       Boolean  @default(false)
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   creator        User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   deploymentRuns DeploymentRun[]
@@ -667,12 +667,12 @@ model DownloadTask {
   isBatch        Boolean @default(false)
   batchUrls      String?
 
- server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
- creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  server  Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  creator User?  @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
- @@index([serverId, status])
- @@index([status, createdAt])
- @@map("download_tasks")
+  @@index([serverId, status])
+  @@index([status, createdAt])
+  @@map("download_tasks")
 }
 
 model ShareLink {
@@ -698,21 +698,26 @@ model ShareLink {
 }
 
 model BackupRecord {
-  id           String    @id @default(cuid())
-  type         String
-  status       String    @default("PENDING")
-  filePath     String
-  fileSize     String?
-  note         String?
-  errorMessage String?
-  createdBy    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  completedAt  DateTime?
+  id                String    @id @default(cuid())
+  type              String
+  status            String    @default("PENDING")
+  filePath          String
+  fileSize          String?
+  note              String?
+  errorMessage      String?
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+  // TR-009 55a: 异地 S3 备份上传状态 (best-effort; null 表示未上传或已禁用)
+  offsiteKey        String?
+  offsiteUploadedAt DateTime?
+  offsiteSize       String?
 
   creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
+  @@index([offsiteUploadedAt])
   @@map("backup_records")
 }
 
@@ -732,12 +737,12 @@ model DeploymentRun {
   completedAt      DateTime?
   errorMessage     String?
 
-  template CommandTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  commandRequest CommandRequest? @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
-  creator  User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull)
-  snapshot DeploymentSnapshot? @relation("deploymentSnapshotSource", fields: [snapshotId], references: [id], onDelete: SetNull)
-  rollbackOf DeploymentRun? @relation("deploymentRollbackRuns", fields: [rollbackOfRunId], references: [id], onDelete: SetNull)
-  rollbackRuns DeploymentRun[] @relation("deploymentRollbackRuns")
+  template         CommandTemplate         @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  commandRequest   CommandRequest?         @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
+  creator          User?                   @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  snapshot         DeploymentSnapshot?     @relation("deploymentSnapshotSource", fields: [snapshotId], references: [id], onDelete: SetNull)
+  rollbackOf       DeploymentRun?          @relation("deploymentRollbackRuns", fields: [rollbackOfRunId], references: [id], onDelete: SetNull)
+  rollbackRuns     DeploymentRun[]         @relation("deploymentRollbackRuns")
   rollbackAttempts DeploymentRollbackRun[] @relation("deploymentRollbackSource")
 
   @@index([status, createdAt])
@@ -758,7 +763,7 @@ model DeploymentSnapshot {
   createdBy       String?
   createdAt       DateTime @default(now())
 
-  sourceRun DeploymentRun? @relation("deploymentSnapshotSource")
+  sourceRun    DeploymentRun?          @relation("deploymentSnapshotSource")
   rollbackRuns DeploymentRollbackRun[]
 
   @@index([templateId, createdAt])
@@ -781,10 +786,10 @@ model DeploymentRollbackRun {
   completedAt      DateTime?
   errorMessage     String?
 
-  sourceRun DeploymentRun @relation("deploymentRollbackSource", fields: [sourceRunId], references: [id], onDelete: Cascade)
-  snapshot DeploymentSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
-  commandRequest CommandRequest? @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
-  creator User? @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  sourceRun      DeploymentRun      @relation("deploymentRollbackSource", fields: [sourceRunId], references: [id], onDelete: Cascade)
+  snapshot       DeploymentSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  commandRequest CommandRequest?    @relation(fields: [commandRequestId], references: [id], onDelete: SetNull)
+  creator        User?              @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
   @@index([sourceRunId, createdAt])
   @@index([snapshotId, createdAt])
@@ -847,8 +852,8 @@ model Announcement {
 }
 
 model MediaItem {
-  id            String   @id @default(cuid())
-  fileEntryId   String?  @unique
+  id            String       @id @default(cuid())
+  fileEntryId   String?      @unique
   storageNodeId String
   name          String
   relativePath  String
@@ -856,11 +861,11 @@ model MediaItem {
   mediaType     String
   size          BigInt?
   tags          String[]
-  favorite      Boolean  @default(false)
+  favorite      Boolean      @default(false)
   createdBy     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  creator       User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  creator       User?        @relation(fields: [createdBy], references: [id], onDelete: SetNull)
   storageNode   StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: Restrict)
 
   @@index([storageNodeId, mediaType])
@@ -915,189 +920,189 @@ model DeploymentExport {
   createdAt DateTime @default(now())
   creator   User?    @relation(fields: [createdBy], references: [id], onDelete: SetNull)
 
- @@index([createdAt])
- @@map("deployment_exports")
+  @@index([createdAt])
+  @@map("deployment_exports")
 }
 
 enum AiProviderType {
- OPENAI
- OPENAI_COMPATIBLE
- ANTHROPIC
- GOOGLE
- CUSTOM
+  OPENAI
+  OPENAI_COMPATIBLE
+  ANTHROPIC
+  GOOGLE
+  CUSTOM
 }
 
 model AiProvider {
- id String @id @default(cuid())
- name String
- type AiProviderType @default(OPENAI_COMPATIBLE)
- apiKey String
- baseUrl String @default("https://api.openai.com/v1")
- defaultModel String @default("gpt-4o")
- availableModels String @default("[]")
- isDefault Boolean @default(false)
- enabled Boolean @default(true)
- settings Json @default("{}")
- createdBy String
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
- creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
- conversations AiConversation[]
+  id              String           @id @default(cuid())
+  name            String
+  type            AiProviderType   @default(OPENAI_COMPATIBLE)
+  apiKey          String
+  baseUrl         String           @default("https://api.openai.com/v1")
+  defaultModel    String           @default("gpt-4o")
+  availableModels String           @default("[]")
+  isDefault       Boolean          @default(false)
+  enabled         Boolean          @default(true)
+  settings        Json             @default("{}")
+  createdBy       String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  creator         User             @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  conversations   AiConversation[]
 
- @@unique([createdBy, name])
- @@index([enabled])
- @@map("ai_providers")
+  @@unique([createdBy, name])
+  @@index([enabled])
+  @@map("ai_providers")
 }
 
 model AiConversation {
- id String @id @default(cuid())
- title String @default("新对话")
- providerId String
- model String
- systemPrompt String?
- temperature Float @default(0.7)
- maxTokens Int @default(4096)
- topP Float @default(1.0)
- frequencyPenalty Float @default(0.0)
- presencePenalty Float @default(0.0)
- enableVision Boolean @default(false)
- hostingEnabled Boolean @default(false) // AI托管模式：允许AI操作VPS
- createdBy String
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
- provider AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
- creator User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
- messages AiMessage[]
- hostedActions AiHostedAction[]
+  id               String           @id @default(cuid())
+  title            String           @default("新对话")
+  providerId       String
+  model            String
+  systemPrompt     String?
+  temperature      Float            @default(0.7)
+  maxTokens        Int              @default(4096)
+  topP             Float            @default(1.0)
+  frequencyPenalty Float            @default(0.0)
+  presencePenalty  Float            @default(0.0)
+  enableVision     Boolean          @default(false)
+  hostingEnabled   Boolean          @default(false) // AI托管模式：允许AI操作VPS
+  createdBy        String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  provider         AiProvider       @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  creator          User             @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  messages         AiMessage[]
+  hostedActions    AiHostedAction[]
 
- @@index([createdBy, updatedAt])
- @@map("ai_conversations")
+  @@index([createdBy, updatedAt])
+  @@map("ai_conversations")
 }
 
 model AiMessage {
- id String @id @default(cuid())
- conversationId String
- role String // "user" | "assistant" | "system" | "tool"
- content String
- reasoningContent String?
- imageUrls String @default("[]")
- toolCalls String @default("[]") // JSON: [{id, type, function: {name, arguments}}]
- toolCallId String? // 用于 role=tool 时关联的 tool_call id
- model String?
- inputTokens Int?
- outputTokens Int?
- latencyMs Int?
- createdAt DateTime @default(now())
- conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
- hostedActions AiHostedAction[]
+  id               String           @id @default(cuid())
+  conversationId   String
+  role             String // "user" | "assistant" | "system" | "tool"
+  content          String
+  reasoningContent String?
+  imageUrls        String           @default("[]")
+  toolCalls        String           @default("[]") // JSON: [{id, type, function: {name, arguments}}]
+  toolCallId       String? // 用于 role=tool 时关联的 tool_call id
+  model            String?
+  inputTokens      Int?
+  outputTokens     Int?
+  latencyMs        Int?
+  createdAt        DateTime         @default(now())
+  conversation     AiConversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  hostedActions    AiHostedAction[]
 
- @@index([conversationId, createdAt])
- @@index([toolCallId])
- @@map("ai_messages")
+  @@index([conversationId, createdAt])
+  @@index([toolCallId])
+  @@map("ai_messages")
 }
 
 model QuickService {
-  id           String   @id @default(cuid())
-  slug         String   @unique // e.g. "alist", "emby", "jellyfin"
-  name         String   // display name e.g. "AList 云盘"
-  category     String   @default("other") // storage|media|devtools|network|other
-  icon         String   @default("☁️") // emoji icon for sidebar
-  description  String   @default("")
-  image        String   // docker image e.g. "xhofe/alist:latest"
-  port         Int      // host port to expose
-  path         String   @default("") // reverse proxy path e.g. "/files-proxy/"
-  internalPort Int?     // container port for the primary host port mapping
-  extraPortsJson String @default("[]") // JSON: [{host:9001, container:9001}]
-  command      String?  // optional command appended to docker run image
-  envJson      String   @default("{}") // JSON string of env vars
-  volumesJson  String   @default("[]") // JSON: [{host:"/opt/alist/data", container:"/opt/alist/data"}]
-  status       String   @default("available") // available|installing|running|stopped|error
-  containerId  String?  // docker container ID when running
-  error        String?
-  createdBy    String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String   @id @default(cuid())
+  slug           String   @unique // e.g. "alist", "emby", "jellyfin"
+  name           String // display name e.g. "AList 云盘"
+  category       String   @default("other") // storage|media|devtools|network|other
+  icon           String   @default("☁️") // emoji icon for sidebar
+  description    String   @default("")
+  image          String // docker image e.g. "xhofe/alist:latest"
+  port           Int // host port to expose
+  path           String   @default("") // reverse proxy path e.g. "/files-proxy/"
+  internalPort   Int? // container port for the primary host port mapping
+  extraPortsJson String   @default("[]") // JSON: [{host:9001, container:9001}]
+  command        String? // optional command appended to docker run image
+  envJson        String   @default("{}") // JSON string of env vars
+  volumesJson    String   @default("[]") // JSON: [{host:"/opt/alist/data", container:"/opt/alist/data"}]
+  status         String   @default("available") // available|installing|running|stopped|error
+  containerId    String? // docker container ID when running
+  error          String?
+  createdBy      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
- @@index([category, status])
- @@map("quick_services")
+  @@index([category, status])
+  @@map("quick_services")
 }
 
 // ── Image Hosting (图床) ──────────────────────────────────────────
 
 model ImageUpload {
- id          String   @id @default(cuid())
- filename    String   // original filename
- storageKey  String   // stored filename (uuid-based)
- mimeType    String
- sizeBytes   Int
- width       Int?
- height      Int?
- checksum    String?  // sha256
- album       String?  // optional album grouping
- isPublic    Boolean  @default(true)
- storageNodeId String? // optional: link to cloud storage node
- relativePath  String? // path within the storage node
- userId      String
- createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  filename      String // original filename
+  storageKey    String // stored filename (uuid-based)
+  mimeType      String
+  sizeBytes     Int
+  width         Int?
+  height        Int?
+  checksum      String? // sha256
+  album         String? // optional album grouping
+  isPublic      Boolean  @default(true)
+  storageNodeId String? // optional: link to cloud storage node
+  relativePath  String? // path within the storage node
+  userId        String
+  createdAt     DateTime @default(now())
 
- user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
- storageNode StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageNode StorageNode? @relation(fields: [storageNodeId], references: [id], onDelete: SetNull)
 
- @@index([userId, createdAt])
- @@index([album])
- @@index([isPublic, createdAt])
- @@map("image_uploads")
+  @@index([userId, createdAt])
+  @@index([album])
+  @@index([isPublic, createdAt])
+  @@map("image_uploads")
 }
 
 model AiHostedAction {
- id String @id @default(cuid())
- conversationId String
- messageId String
- serverId String?
- actionType String // get_status | read_logs | execute_command | restart_service | modify_config | deploy_docker
- actionName String // 人类可读的操作名称
- params String @default("{}") // JSON: 操作参数
- status AiHostedActionStatus @default(PENDING_APPROVAL)
- riskLevel String @default("medium") // low | medium | high | critical
- autoApproved Boolean @default(false) // 是否自动批准（安全操作）
- result String? // JSON: 执行结果
- errorMessage String?
- requesterId String // AI发起时为system user id
- approverId String?
- createdAt DateTime @default(now())
- approvedAt DateTime?
- executedAt DateTime?
- completedAt DateTime?
+  id             String               @id @default(cuid())
+  conversationId String
+  messageId      String
+  serverId       String?
+  actionType     String // get_status | read_logs | execute_command | restart_service | modify_config | deploy_docker
+  actionName     String // 人类可读的操作名称
+  params         String               @default("{}") // JSON: 操作参数
+  status         AiHostedActionStatus @default(PENDING_APPROVAL)
+  riskLevel      String               @default("medium") // low | medium | high | critical
+  autoApproved   Boolean              @default(false) // 是否自动批准（安全操作）
+  result         String? // JSON: 执行结果
+  errorMessage   String?
+  requesterId    String // AI发起时为system user id
+  approverId     String?
+  createdAt      DateTime             @default(now())
+  approvedAt     DateTime?
+  executedAt     DateTime?
+  completedAt    DateTime?
 
- conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
- message AiMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
- server Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
- requester User @relation("AiHostedRequester", fields: [requesterId], references: [id], onDelete: Cascade)
- approver User? @relation("AiHostedApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message      AiMessage      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  server       Server?        @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  requester    User           @relation("AiHostedRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  approver     User?          @relation("AiHostedApprover", fields: [approverId], references: [id], onDelete: SetNull)
 
- @@index([status, createdAt])
- @@index([conversationId, createdAt])
- @@index([serverId, status])
- @@map("ai_hosted_actions")
+  @@index([status, createdAt])
+  @@index([conversationId, createdAt])
+  @@index([serverId, status])
+  @@map("ai_hosted_actions")
 }
 
 model ServerFileProxy {
- id String @id @default(cuid())
- serverId String
- proxyType String @default("python_http") // python_http | node_agent | nginx
- port Int
- status String @default("starting") // starting | running | stopped | error
- pid Int? // 进程ID
- accessToken String? // 一次性访问令牌
- expiresAt DateTime?
- createdAt DateTime @default(now())
- updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  serverId    String
+  proxyType   String    @default("python_http") // python_http | node_agent | nginx
+  port        Int
+  status      String    @default("starting") // starting | running | stopped | error
+  pid         Int? // 进程ID
+  accessToken String? // 一次性访问令牌
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
- server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
- @@unique([serverId, proxyType])
- @@index([serverId, status])
- @@map("server_file_proxies")
+  @@unique([serverId, proxyType])
+  @@index([serverId, status])
+  @@map("server_file_proxies")
 }
 
 // ── App Store: External Catalog Sources ──────────────────────────────
@@ -1106,8 +1111,8 @@ model ServerFileProxy {
 
 model CostEntry {
   id            String   @id @default(cuid())
-  category      String   // vps | bandwidth | storage | other
-  provider      String   // e.g. "阿里云", "腾讯云", "BandwagonHost"
+  category      String // vps | bandwidth | storage | other
+  provider      String // e.g. "阿里云", "腾讯云", "BandwagonHost"
   amount        Decimal  @db.Decimal(12, 2)
   currency      String   @default("CNY")
   effectiveDate DateTime @db.Date
@@ -1128,7 +1133,7 @@ model CostSnapshot {
   id           String   @id @default(cuid())
   snapshotDate DateTime @unique @db.Date
   totalAmount  Decimal  @db.Decimal(14, 2)
-  byCategory   Json     // { vps: "10.00", bandwidth: "5.00", ... }
+  byCategory   Json // { vps: "10.00", bandwidth: "5.00", ... }
   entryCount   Int
   createdAt    DateTime @default(now())
 
@@ -1143,27 +1148,27 @@ model CostSnapshot {
 // Recommendations are stored inline as JSON to avoid an extra table for
 // v1; the schema is permissive enough to evolve.
 model AiOpsLog {
-  id              String   @id @default(cuid())
-  triggerType     String   // "scheduled" | "manual" | "recommendation_followup"
-  mode            String   // "recommendation" | "autonomous"
-  status          String   // "ok" | "warning" | "error" | "skipped" | "running"
+  id            String    @id @default(cuid())
+  triggerType   String // "scheduled" | "manual" | "recommendation_followup"
+  mode          String // "recommendation" | "autonomous"
+  status        String // "ok" | "warning" | "error" | "skipped" | "running"
   // Findings produced by the AI scan. Shape: [{ id, severity, title, body, source, resourceRef }].
-  findings        Json     @default("[]")
+  findings      Json      @default("[]")
   // For mode=recommendation: [{ id, action, risk, requiresApproval }].
   // For mode=autonomous: [{ id, action, executed, executedAt, result, errorMessage }].
-  actions         Json     @default("[]")
+  actions       Json      @default("[]")
   // Free-form notes / reasoning written by the AI provider.
-  notes           String?
-  errorMessage    String?
+  notes         String?
+  errorMessage  String?
   // AI provider id used (from AiProvider table), null if the configured provider is missing.
-  providerId      String?
-  startedAt       DateTime?
-  completedAt     DateTime?
-  durationMs      Int?
+  providerId    String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  durationMs    Int?
   // User that triggered (for manual). Null for scheduled scans.
-  triggeredById   String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  triggeredById String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   triggeredBy User? @relation("AiOpsLogTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
 
@@ -1175,55 +1180,64 @@ model AiOpsLog {
 }
 
 model AppSource {
-	id String @id @default(cuid())
-	name String @unique // e.g. "linuxserver", "coolify", "caprover"
-	displayName String @map("display_name") // e.g. "LinuxServer.io"
-	url String // source API endpoint or repo URL
-	type String @default("json") // json | github | custom
-	enabled Boolean @default(true)
-	/** Cron-style sync interval, e.g. "daily", "hourly", or ISO duration */
-	syncInterval String @default("daily") @map("sync_interval")
-	lastSyncAt DateTime? @map("last_sync_at")
-	lastSyncStatus String? @map("last_sync_status") // success | error
-	lastSyncError String? @map("last_sync_error")
-	syncCount Int @default(0) @map("sync_count")
-	/** JSON: source-specific config (e.g. GitHub repo, branch, path) */
-	configJson String @default("{}") @map("config_json")
-	createdAt DateTime @default(now()) @map("created_at")
-	updatedAt DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(cuid())
+  name           String    @unique // e.g. "linuxserver", "coolify", "caprover"
+  displayName    String    @map("display_name") // e.g. "LinuxServer.io"
+  url            String // source API endpoint or repo URL
+  type           String    @default("json") // json | github | custom
+  enabled        Boolean   @default(true)
+  /**
+   * Cron-style sync interval, e.g. "daily", "hourly", or ISO duration
+   */
+  syncInterval   String    @default("daily") @map("sync_interval")
+  lastSyncAt     DateTime? @map("last_sync_at")
+  lastSyncStatus String?   @map("last_sync_status") // success | error
+  lastSyncError  String?   @map("last_sync_error")
+  syncCount      Int       @default(0) @map("sync_count")
+  /**
+   * JSON: source-specific config (e.g. GitHub repo, branch, path)
+   */
+  configJson     String    @default("{}") @map("config_json")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-	apps AppSourceApp[]
+  apps AppSourceApp[]
 
-	@@map("app_sources")
+  @@map("app_sources")
 }
 
 model AppSourceApp {
-	id String @id @default(cuid())
-	sourceId String @map("source_id")
-	source AppSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-	/** Unique slug within source, prefixed with source name: e.g. "linuxserver-sonarr" */
-	slug String @unique
-	name String
-	category String @default("other")
-	icon String @default("📦")
-	description String @default("")
-	image String
-	defaultPort Int @default(8080) @map("default_port")
-	internalPort Int? @map("internal_port")
-	path String @default("/")
-	envJson String @default("{}") @map("env_json")
-	volumesJson String @default("[]") @map("volumes_json")
-	command String?
-	extraPortsJson String @default("[]") @map("extra_ports_json")
-	/** Raw data from source for reference/debugging */
-	rawJson String? @map("raw_json")
-	/** Version/tag from source for change detection */
-	sourceVersion String? @map("source_version")
-	createdAt DateTime @default(now()) @map("created_at")
-	updatedAt DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(cuid())
+  sourceId       String    @map("source_id")
+  source         AppSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  /**
+   * Unique slug within source, prefixed with source name: e.g. "linuxserver-sonarr"
+   */
+  slug           String    @unique
+  name           String
+  category       String    @default("other")
+  icon           String    @default("📦")
+  description    String    @default("")
+  image          String
+  defaultPort    Int       @default(8080) @map("default_port")
+  internalPort   Int?      @map("internal_port")
+  path           String    @default("/")
+  envJson        String    @default("{}") @map("env_json")
+  volumesJson    String    @default("[]") @map("volumes_json")
+  command        String?
+  extraPortsJson String    @default("[]") @map("extra_ports_json")
+  /**
+   * Raw data from source for reference/debugging
+   */
+  rawJson        String?   @map("raw_json")
+  /**
+   * Version/tag from source for change detection
+   */
+  sourceVersion  String?   @map("source_version")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-	@@index([sourceId, category])
-	@@index([category])
-
-	@@map("app_source_apps")
+  @@index([sourceId, category])
+  @@index([category])
+  @@map("app_source_apps")
 }
