@@ -52,7 +52,7 @@ export function AnnouncementEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--modal-bg)] p-6 shadow-2xl">
-        <h3 className="text-lg font-semibold text-white">编辑公告</h3>
+        <h3 className="text-lg font-semibold text-white">{t("announcementsPage.edit.title")}</h3>
 
         <div className="mt-4 space-y-3">
           <div>
