@@ -99,6 +99,8 @@ beforeEach(() => {
     { id: "perm_command:create", key: "command:create" },
     { id: "perm_command:execute", key: "command:execute" },
     { id: "perm_command:read", key: "command:read" },
+    { id: "perm_cost:read", key: "cost:read" },
+    { id: "perm_cost:manage", key: "cost:manage" },
     { id: "perm_role:manage", key: "role:manage" },
     { id: "perm_server:read", key: "server:read" },
     { id: "perm_server:ssh", key: "server:ssh" },

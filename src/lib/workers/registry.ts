@@ -27,12 +27,14 @@ import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "@/lib
 import { startSftpSyncJobWorker, stopSftpSyncJobWorkerForTests } from "@/lib/storage/sftp-sync-job";
 import { startSftpStaleInventoryWorker, stopSftpStaleInventoryWorkerForTests } from "@/lib/storage/sftp-stale-inventory-job";
 import { startOperationTaskRetentionWorker, stopOperationTaskRetentionWorkerForTests } from "@/lib/operation-task/retention-worker";
+import { startCostSnapshotWorker, stopCostSnapshotWorkerForTests } from "@/lib/cost/snapshot-worker";
 
 export type WorkerId =
   | "alert-evaluation"
   | "backup"
   | "command-execution"
   | "command-maintenance"
+  | "cost-snapshot"
   | "download-execution"
   | "quick-service"
   | "scheduled-task"
@@ -76,6 +78,7 @@ function getRegistryState(): Record<WorkerId, { started: boolean }> {
       backup: { started: false },
       "command-execution": { started: false },
       "command-maintenance": { started: false },
+      "cost-snapshot": { started: false },
       "download-execution": { started: false },
       "quick-service": { started: false },
       "scheduled-task": { started: false },
@@ -194,11 +197,24 @@ const OPERATION_TASK_RETENTION: WorkerSpec = {
   stop: () => stopOperationTaskRetentionWorkerForTests(),
 };
 
+const COST_SNAPSHOT: WorkerSpec = {
+  id: "cost-snapshot",
+  // TR-031 E01: 每日 01:00 跑 cost_entries → cost_snapshots 聚合
+  label: "成本每日聚合快照",
+  jobType: "cost.snapshot",
+  start: () => {
+    startCostSnapshotWorker();
+    return Promise.resolve();
+  },
+  stop: () => stopCostSnapshotWorkerForTests(),
+};
+
 export const WORKER_REGISTRY: readonly WorkerSpec[] = Object.freeze([
   ALERT_EVALUATION,
   BACKUP,
   COMMAND_EXECUTION,
   COMMAND_MAINTENANCE,
+  COST_SNAPSHOT,
   DOWNLOAD_EXECUTION,
   QUICK_SERVICE,
   SCHEDULED_TASK,

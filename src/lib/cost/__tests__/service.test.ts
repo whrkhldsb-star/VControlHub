@@ -1,0 +1,401 @@
+/**
+ * TR-031 E01: Cost tracking — service unit tests.
+ *
+ * Uses vi.mock("@/lib/db") to swap in a minimal in-memory store that
+ * mimics the subset of prisma.costEntry / prisma.costSnapshot methods
+ * the service touches. Avoids the Prisma migration / SQLite dance.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+type CostEntryRow = {
+	id: string;
+	category: string;
+	provider: string;
+	amount: string; // store as string to mirror Decimal precision
+	currency: string;
+	effectiveDate: Date;
+	notes: string | null;
+	createdById: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+};
+
+type CostSnapshotRow = {
+	id: string;
+	snapshotDate: Date;
+	totalAmount: string;
+	byCategory: Record<string, string>;
+	entryCount: number;
+	createdAt: Date;
+};
+
+const store = {
+	entries: new Map<string, CostEntryRow>(),
+	snapshots: new Map<string, CostSnapshotRow>(), // key = snapshotDate.toISOString()
+	seq: 0,
+};
+
+function resetStore() {
+	store.entries.clear();
+	store.snapshots.clear();
+	store.seq = 0;
+}
+
+function makePrismaMock() {
+	return {
+		costEntry: {
+			create: vi.fn(async ({ data }: { data: Omit<CostEntryRow, "id" | "createdAt" | "updatedAt"> }) => {
+				store.seq += 1;
+				const row: CostEntryRow = {
+					...data,
+					id: `entry_${store.seq}`,
+					createdAt: new Date("2026-06-01T00:00:00Z"),
+					updatedAt: new Date("2026-06-01T00:00:00Z"),
+				};
+				store.entries.set(row.id, row);
+				return row;
+			}),
+			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
+				return store.entries.get(where.id) ?? null;
+			}),
+			findMany: vi.fn(
+				async ({
+					where,
+					orderBy,
+					take,
+				}: {
+					where?: { category?: string; effectiveDate?: { gte?: Date; lt?: Date } };
+					orderBy?: { effectiveDate?: "asc" | "desc" };
+					take?: number;
+				}) => {
+					let rows = Array.from(store.entries.values());
+					if (where?.category) rows = rows.filter((r) => r.category === where.category);
+					if (where?.effectiveDate?.gte) {
+						const gte = where.effectiveDate.gte.getTime();
+						rows = rows.filter((r) => r.effectiveDate.getTime() >= gte);
+					}
+					if (where?.effectiveDate?.lt) {
+						const lt = where.effectiveDate.lt.getTime();
+						rows = rows.filter((r) => r.effectiveDate.getTime() < lt);
+					}
+					if (orderBy?.effectiveDate === "desc") {
+						rows.sort((a, b) => b.effectiveDate.getTime() - a.effectiveDate.getTime());
+					}
+					if (take !== undefined) rows = rows.slice(0, take);
+					return rows;
+				},
+			),
+			update: vi.fn(
+				async ({ where, data }: { where: { id: string }; data: Partial<CostEntryRow> }) => {
+					const cur = store.entries.get(where.id);
+					if (!cur) throw new Error(`CostEntry not found: ${where.id}`);
+					const next: CostEntryRow = {
+						...cur,
+						...data,
+						updatedAt: new Date("2026-06-02T00:00:00Z"),
+					};
+					store.entries.set(where.id, next);
+					return next;
+				},
+			),
+			delete: vi.fn(async ({ where }: { where: { id: string } }) => {
+				const cur = store.entries.get(where.id);
+				if (!cur) throw new Error(`CostEntry not found: ${where.id}`);
+				store.entries.delete(where.id);
+				return cur;
+			}),
+		},
+		costSnapshot: {
+			findMany: vi.fn(
+				async ({
+					orderBy,
+					take,
+				}: {
+					orderBy?: { snapshotDate?: "asc" | "desc" };
+					take?: number;
+				}) => {
+					let rows = Array.from(store.snapshots.values());
+					if (orderBy?.snapshotDate === "desc") {
+						rows.sort((a, b) => b.snapshotDate.getTime() - a.snapshotDate.getTime());
+					}
+					if (take !== undefined) rows = rows.slice(0, take);
+					return rows;
+				},
+			),
+			upsert: vi.fn(
+				async ({
+					where,
+					create,
+					update,
+				}: {
+					where: { snapshotDate: Date };
+					create: Omit<CostSnapshotRow, "id" | "createdAt">;
+					update: Partial<CostSnapshotRow>;
+				}) => {
+					const key = where.snapshotDate.toISOString();
+					const existing = store.snapshots.get(key);
+					if (existing) {
+						const next = { ...existing, ...update };
+						store.snapshots.set(key, next);
+						return next;
+					}
+					store.seq += 1;
+					const row: CostSnapshotRow = {
+						id: `snap_${store.seq}`,
+						createdAt: new Date("2026-06-01T00:00:00Z"),
+						...create,
+					};
+					store.snapshots.set(key, row);
+					return row;
+				},
+			),
+		},
+		$transaction: vi.fn(async (arg: unknown) => {
+			// Tests don't use $transaction directly; the service uses it only
+			// for upsert which we've already mocked. Return identity passthrough.
+			return typeof arg === "function" ? null : arg;
+		}),
+	};
+}
+
+vi.mock("@/lib/db", () => ({
+	prisma: makePrismaMock(),
+}));
+
+import {
+	createCostEntry,
+	updateCostEntry,
+	deleteCostEntry,
+	getCostEntry,
+	listCostEntries,
+	summarizeMonth,
+	listRecentSnapshots,
+	upsertDailySnapshot,
+} from "../service";
+import { prisma } from "@/lib/db";
+
+const prismaMock = prisma as unknown as ReturnType<typeof makePrismaMock>;
+
+beforeEach(() => {
+	resetStore();
+});
+
+afterEach(() => {
+	vi.clearAllMocks();
+});
+
+describe("createCostEntry", () => {
+	it("normalizes defaults and persists", async () => {
+		const rec = await createCostEntry({
+			category: "vps",
+			provider: "阿里云",
+			amount: "12.50",
+			effectiveDate: "2026-06-15",
+		});
+		expect(rec.id).toMatch(/^entry_/);
+		expect(rec.currency).toBe("CNY");
+		expect(rec.amount).toBe("12.50");
+		expect(rec.effectiveDate).toBe("2026-06-15");
+		expect(rec.createdById).toBeNull();
+	});
+
+	it("stores optional notes + custom currency", async () => {
+		const rec = await createCostEntry({
+			category: "bandwidth",
+			provider: "Cloudflare",
+			amount: "9.99",
+			currency: "USD",
+			effectiveDate: "2026-06-01",
+			notes: "Pro plan",
+		});
+		expect(rec.currency).toBe("USD");
+		expect(rec.notes).toBe("Pro plan");
+	});
+
+	it("rejects invalid input via zod (negative amount)", async () => {
+		await expect(
+			createCostEntry({
+				category: "vps",
+				provider: "x",
+				amount: "-1.00",
+				effectiveDate: "2026-06-15",
+			}),
+		).rejects.toThrow();
+	});
+
+	it("rejects bad date format", async () => {
+		await expect(
+			createCostEntry({
+				category: "vps",
+				provider: "x",
+				amount: "1.00",
+				effectiveDate: "20260615",
+			}),
+		).rejects.toThrow();
+	});
+});
+
+describe("updateCostEntry", () => {
+	it("patches a subset of fields", async () => {
+		const created = await createCostEntry({
+			category: "vps",
+			provider: "x",
+			amount: "10.00",
+			effectiveDate: "2026-06-15",
+		});
+		const updated = await updateCostEntry(created.id, { amount: "20.00" });
+		expect(updated.amount).toBe("20.00");
+		expect(updated.provider).toBe("x");
+	});
+
+	it("rejects empty patches", async () => {
+		await expect(updateCostEntry("entry_1", {})).rejects.toThrow();
+	});
+});
+
+describe("deleteCostEntry + getCostEntry", () => {
+	it("round-trips", async () => {
+		const created = await createCostEntry({
+			category: "storage",
+			provider: "B2",
+			amount: "3.50",
+			effectiveDate: "2026-06-15",
+		});
+		expect(await getCostEntry(created.id)).not.toBeNull();
+		await deleteCostEntry(created.id);
+		expect(await getCostEntry(created.id)).toBeNull();
+	});
+});
+
+describe("listCostEntries", () => {
+	it("filters by month", async () => {
+		await createCostEntry({
+			category: "vps",
+			provider: "A",
+			amount: "1",
+			effectiveDate: "2026-05-30",
+		});
+		await createCostEntry({
+			category: "vps",
+			provider: "A",
+			amount: "2",
+			effectiveDate: "2026-06-15",
+		});
+		await createCostEntry({
+			category: "vps",
+			provider: "A",
+			amount: "3",
+			effectiveDate: "2026-07-01",
+		});
+		const june = await listCostEntries({ month: "2026-06" });
+		expect(june).toHaveLength(1);
+		expect(june[0]?.amount).toBe("2.00");
+	});
+
+	it("filters by category", async () => {
+		await createCostEntry({
+			category: "vps",
+			provider: "A",
+			amount: "1",
+			effectiveDate: "2026-06-01",
+		});
+		await createCostEntry({
+			category: "storage",
+			provider: "B",
+			amount: "2",
+			effectiveDate: "2026-06-02",
+		});
+		const vps = await listCostEntries({ category: "vps" });
+		expect(vps).toHaveLength(1);
+		expect(vps[0]?.category).toBe("vps");
+	});
+});
+
+describe("summarizeMonth", () => {
+	it("aggregates by category in requested currency only", async () => {
+		await createCostEntry({
+			category: "vps",
+			provider: "A",
+			amount: "100.00",
+			currency: "CNY",
+			effectiveDate: "2026-06-05",
+		});
+		await createCostEntry({
+			category: "vps",
+			provider: "B",
+			amount: "50.00",
+			currency: "CNY",
+			effectiveDate: "2026-06-10",
+		});
+		await createCostEntry({
+			category: "bandwidth",
+			provider: "C",
+			amount: "20.00",
+			currency: "CNY",
+			effectiveDate: "2026-06-20",
+		});
+		// USD entry must not be summed into CNY total.
+		await createCostEntry({
+			category: "vps",
+			provider: "D",
+			amount: "9.99",
+			currency: "USD",
+			effectiveDate: "2026-06-25",
+		});
+		const summary = await summarizeMonth("2026-06", "CNY");
+		expect(summary.totalAmount).toBe("170.00");
+		expect(summary.byCategory.vps).toBe("150.00");
+		expect(summary.byCategory.bandwidth).toBe("20.00");
+		expect(summary.byCategory.storage).toBe("0.00");
+		expect(summary.entryCount).toBe(3);
+		expect(summary.rangeStart).toBe("2026-06-01");
+		expect(summary.rangeEnd).toBe("2026-06-30");
+	});
+
+	it("rejects malformed month", async () => {
+		await expect(summarizeMonth("2026-13")).rejects.toThrow();
+		await expect(summarizeMonth("2026/06")).rejects.toThrow();
+	});
+});
+
+describe("snapshot writer + reader", () => {
+	it("upsertDailySnapshot is idempotent on the same date", async () => {
+		const day = new Date("2026-06-15T00:00:00Z");
+		await upsertDailySnapshot({
+			snapshotDate: day,
+			totalAmount: "100.00",
+			byCategory: { vps: "70.00", bandwidth: "20.00", storage: "10.00", other: "0.00" },
+			entryCount: 5,
+		});
+		const updated = await upsertDailySnapshot({
+			snapshotDate: day,
+			totalAmount: "150.00",
+			byCategory: { vps: "100.00", bandwidth: "30.00", storage: "20.00", other: "0.00" },
+			entryCount: 6,
+		});
+		expect(updated.entryCount).toBe(6);
+		expect(updated.totalAmount).toBe("150.00");
+	});
+
+	it("listRecentSnapshots returns most-recent-first", async () => {
+		await upsertDailySnapshot({
+			snapshotDate: new Date("2026-06-10T00:00:00Z"),
+			totalAmount: "10",
+			byCategory: { vps: "10", bandwidth: "0", storage: "0", other: "0" },
+			entryCount: 1,
+		});
+		await upsertDailySnapshot({
+			snapshotDate: new Date("2026-06-15T00:00:00Z"),
+			totalAmount: "20",
+			byCategory: { vps: "20", bandwidth: "0", storage: "0", other: "0" },
+			entryCount: 1,
+		});
+		const recent = await listRecentSnapshots(10);
+		expect(recent.map((r) => r.snapshotDate)).toEqual(["2026-06-15", "2026-06-10"]);
+	});
+});
+
+// Reference the mock so TypeScript doesn't complain about the unused
+// module-level const; the actual mock instance is read by the service
+// through `import { prisma } from "@/lib/db"`.
+void prismaMock;

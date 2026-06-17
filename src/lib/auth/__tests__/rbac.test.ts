@@ -17,6 +17,7 @@ describe("RBAC defaults", () => {
       "audit:read",
       "backup:read",
       "command:read",
+      "cost:read",
       "deploy:read",
       "health:read",
       "server:read",

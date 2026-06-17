@@ -31,6 +31,7 @@ import { zh as sharespageZh, en as sharespageEn } from "./dictionaries/shares-pa
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
 import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
+import { zh as costpageZh, en as costpageEn } from "./dictionaries/cost-page";
 import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
 import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
 import { zh as dockerZh, en as dockerEn } from "./dictionaries/docker";
@@ -92,6 +93,7 @@ const zh: Record<string, string> = {
 	...authZh,
 	...backupspageZh,
 	...commonZh,
+	...costpageZh,
 	...csvpreviewZh,
 	...dashboardZh,
 	...deploymentspageZh,
@@ -161,6 +163,7 @@ const en: Record<string, string> = {
 	...authEn,
 	...backupspageEn,
 	...commonEn,
+	...costpageEn,
 	...csvpreviewEn,
 	...dashboardEn,
 	...deploymentspageEn,

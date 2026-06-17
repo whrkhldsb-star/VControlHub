@@ -47,6 +47,8 @@ const PERMISSION_LABELS: Record<string, { name: string; description: string }> =
   "command:create": { name: "创建命令", description: "允许创建命令执行请求" },
   "command:execute": { name: "执行命令", description: "允许发起和执行命令" },
   "command:read": { name: "查看命令", description: "允许查看命令执行记录" },
+  "cost:read": { name: "查看成本", description: "允许查看成本追踪条目、月报与每日快照趋势" },
+  "cost:manage": { name: "管理成本", description: "允许增删改成本追踪条目与每日快照" },
   "playbook:manage": { name: "管理 Playbook", description: "允许创建、编辑和删除 Playbook 自动化链" },
   "playbook:read": { name: "查看 Playbook", description: "允许浏览 Playbook 列表与运行历史" },
   "playbook:run": { name: "运行 Playbook", description: "允许对 Playbook 进行演练或实跑" },

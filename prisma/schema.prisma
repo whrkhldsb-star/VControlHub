@@ -106,6 +106,7 @@ model User {
  aiConversations AiConversation[]
  aiHostedRequests AiHostedAction[] @relation("AiHostedRequester")
  aiHostedApprovals AiHostedAction[] @relation("AiHostedApprover")
+ costEntries CostEntry[] @relation("CostEntryCreatedBy")
  twoFactorEnabled Boolean @default(false)
  twoFactorSecret String?
  preferences Json?
@@ -1099,6 +1100,40 @@ model ServerFileProxy {
 }
 
 // ── App Store: External Catalog Sources ──────────────────────────────
+
+// ── Cost Tracking (TR-031 E01) ──────────────────────────────
+
+model CostEntry {
+  id            String   @id @default(cuid())
+  category      String   // vps | bandwidth | storage | other
+  provider      String   // e.g. "阿里云", "腾讯云", "BandwagonHost"
+  amount        Decimal  @db.Decimal(12, 2)
+  currency      String   @default("CNY")
+  effectiveDate DateTime @db.Date
+  notes         String?
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdBy User? @relation("CostEntryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([category, effectiveDate])
+  @@index([effectiveDate])
+  @@index([createdById, effectiveDate])
+  @@map("cost_entries")
+}
+
+model CostSnapshot {
+  id           String   @id @default(cuid())
+  snapshotDate DateTime @unique @db.Date
+  totalAmount  Decimal  @db.Decimal(14, 2)
+  byCategory   Json     // { vps: "10.00", bandwidth: "5.00", ... }
+  entryCount   Int
+  createdAt    DateTime @default(now())
+
+  @@index([snapshotDate])
+  @@map("cost_snapshots")
+}
 
 model AppSource {
 	id String @id @default(cuid())

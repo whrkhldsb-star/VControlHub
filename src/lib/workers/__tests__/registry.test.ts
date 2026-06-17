@@ -130,6 +130,7 @@ const EXPECTED_WORKER_IDS: WorkerId[] = [
   "backup",
   "command-execution",
   "command-maintenance",
+  "cost-snapshot",
   "download-execution",
   "quick-service",
   "scheduled-task",
@@ -148,7 +149,7 @@ describe("worker registry", () => {
     _resetWorkerRegistryForTests();
   });
 
-  it("describes all 10 workers in the canonical order", () => {
+  it("describes all 11 workers in the canonical order", () => {
     expect(WORKER_REGISTRY.map((w) => w.id)).toEqual(EXPECTED_WORKER_IDS);
     for (const w of WORKER_REGISTRY) {
       expect(w.label).toBeTruthy();
@@ -160,7 +161,7 @@ describe("worker registry", () => {
 
   it("getWorkerStatuses reports every worker as not started initially", () => {
     const statuses = getWorkerStatuses();
-    expect(statuses).toHaveLength(10);
+    expect(statuses).toHaveLength(11);
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
@@ -195,9 +196,9 @@ describe("worker registry", () => {
       ]),
     );
     expect(result.started).not.toContain("backup");
-    // 9/10 should be reported started.
+    // 10/11 should be reported started.
     const startedCount = getWorkerStatuses().filter((s) => s.started).length;
-    expect(startedCount).toBe(9);
+    expect(startedCount).toBe(10);
   });
 
   it("startAllWorkers starts every worker once", async () => {
