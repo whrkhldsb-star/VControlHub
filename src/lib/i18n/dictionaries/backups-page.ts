@@ -69,6 +69,25 @@ export const zh: Record<string, string> = {
 	"backupsPage.records.error": "错误：{message}",
 	"backupsPage.records.restoreHint": "只有 COMPLETED 状态的备份可以执行恢复。",
 	"backupsPage.records.voidHint": "对历史 PENDING/FAILED 记录写入作废说明，不删除备份审计记录。",
+
+	// TR-007 M03: 异地备份 (S3-compatible) 概览 section
+	"backupsPage.offsite.title": "异地备份 (S3-compatible)",
+	"backupsPage.offsite.description": "每日将本地备份推送至 S3-compatible 端点；配置和 dry-run 在「设置」页的「异地备份」分组。",
+	"backupsPage.offsite.status.enabled": "已启用",
+	"backupsPage.offsite.status.disabled": "未启用",
+	"backupsPage.offsite.provider": "Provider：{provider}",
+	"backupsPage.offsite.bucket": "Bucket：{bucket}",
+	"backupsPage.offsite.region": "Region：{region}",
+	"backupsPage.offsite.window": "每日推送窗口：{hour}:00 (UTC)",
+	"backupsPage.offsite.retention": "保留天数：{days} 天",
+	"backupsPage.offsite.dryRunLast": "最近一次 dry-run：{status} · 耗时 {latencyMs}ms",
+	"backupsPage.offsite.dryRunNever": "尚未执行 dry-run",
+	"backupsPage.offsite.dryRunButton": "立即 dry-run",
+	"backupsPage.offsite.dryRunning": "正在执行…",
+	"backupsPage.offsite.dryRunOk": "dry-run 成功，latency {latencyMs}ms",
+	"backupsPage.offsite.dryRunFailed": "dry-run 失败：{message}",
+	"backupsPage.offsite.dryRunDisabled": "未启用异地备份",
+	"backupsPage.offsite.openSettings": "前往设置",
 };
 
 export const en: Record<string, string> = {
@@ -122,4 +141,23 @@ export const en: Record<string, string> = {
 	"backupsPage.records.error": "Error: {message}",
 	"backupsPage.records.restoreHint": "Only COMPLETED backups can be restored.",
 	"backupsPage.records.voidHint": "Historical PENDING/FAILED records are marked void but not deleted; the audit record is preserved.",
+
+	// TR-007 M03: 异地备份 (S3-compatible) overview section
+	"backupsPage.offsite.title": "Offsite backup (S3-compatible)",
+	"backupsPage.offsite.description": "Daily push local backups to an S3-compatible endpoint; configure and dry-run via the Offsite Backup section on the Settings page.",
+	"backupsPage.offsite.status.enabled": "Enabled",
+	"backupsPage.offsite.status.disabled": "Disabled",
+	"backupsPage.offsite.provider": "Provider: {provider}",
+	"backupsPage.offsite.bucket": "Bucket: {bucket}",
+	"backupsPage.offsite.region": "Region: {region}",
+	"backupsPage.offsite.window": "Daily push window: {hour}:00 (UTC)",
+	"backupsPage.offsite.retention": "Retention: {days} days",
+	"backupsPage.offsite.dryRunLast": "Last dry-run: {status} · {latencyMs}ms",
+	"backupsPage.offsite.dryRunNever": "No dry-run has been executed yet",
+	"backupsPage.offsite.dryRunButton": "Run dry-run now",
+	"backupsPage.offsite.dryRunning": "Running…",
+	"backupsPage.offsite.dryRunOk": "dry-run succeeded, latency {latencyMs}ms",
+	"backupsPage.offsite.dryRunFailed": "dry-run failed: {message}",
+	"backupsPage.offsite.dryRunDisabled": "Offsite backup is not enabled",
+	"backupsPage.offsite.openSettings": "Open settings",
 };

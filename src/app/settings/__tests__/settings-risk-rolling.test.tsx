@@ -152,23 +152,26 @@ describe("FieldRollbackButton", () => {
 });
 
 describe("SETTINGS_SCHEMA risk classification (TR-014 schema audit)", () => {
-  it("marks exactly the documented high-risk fields", () => {
-    const expectedHigh = new Set([
-      "session.timeout",
-      "password.minLength",
-      "smtp.pass",
-      "runtime.commandExecutionTimeoutMs",
-      "runtime.commandStaleRunningAfterMs",
-      "runtime.sshIdleTimeoutSec",
-    ]);
-    const allHigh: string[] = [];
-    for (const section of SETTINGS_SCHEMA) {
-      for (const field of section.fields) {
-        if (field.riskLevel === "high") allHigh.push(field.key);
-      }
-    }
-    expect(new Set(allHigh)).toEqual(expectedHigh);
-  });
+	it("marks exactly the documented high-risk fields", () => {
+		const expectedHigh = new Set([
+			"session.timeout",
+			"password.minLength",
+			"smtp.pass",
+			"runtime.commandExecutionTimeoutMs",
+			"runtime.commandStaleRunningAfterMs",
+			"runtime.sshIdleTimeoutSec",
+			// TR-007 M03: 异地备份的 accessKeyId / secretAccessKey 改错会导致推送失败
+			"offsite.accessKeyId",
+			"offsite.secretAccessKey",
+		]);
+		const allHigh: string[] = [];
+		for (const section of SETTINGS_SCHEMA) {
+			for (const field of section.fields) {
+				if (field.riskLevel === "high") allHigh.push(field.key);
+			}
+		}
+		expect(new Set(allHigh)).toEqual(expectedHigh);
+	});
 
   it("marks all password.requireXxx switches as medium risk", () => {
     for (const section of SETTINGS_SCHEMA) {

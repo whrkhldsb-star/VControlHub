@@ -11,6 +11,8 @@ import { RestoreBackupButton } from "./restore-backup-button";
 import { RetentionButton } from "./retention-button";
 import { RetryBackupRecordButton } from "./retry-backup-record-button";
 import { VoidBackupRecordButton } from "./void-backup-record-button";
+import { OffsiteDryRunButton } from "./offsite-dry-run-button";
+import { loadOffsiteConfig } from "@/lib/storage/offsite/service";
 import { formatZhDateTime } from "@/lib/datetime/format";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +24,11 @@ export default async function BackupsPage() {
 	if (!sessionHasPermission(session, "backup:read")) return <PageShell><EmptyState text={t("backupsPage.noPermission")} /></PageShell>;
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
-	const [backups, servers] = await Promise.all([listBackupRecords(), listServerProfiles()]);
+	const [backups, servers, offsite] = await Promise.all([
+		listBackupRecords(),
+		listServerProfiles(),
+		loadOffsiteConfig().catch(() => null),
+	]);
 	const summary = summarizeBackupPolicy(backups);
 	const serverOptions = servers.map((server) => ({ id: server.id, name: server.name, enabled: server.enabled }));
 	const scheduledCommandByType = {
@@ -121,6 +127,45 @@ export default async function BackupsPage() {
 					<h2 className="text-sm font-semibold text-white">{t("backupsPage.create.title")}</h2>
 					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.create.description")}</p>
 					<CreateBackupForm />
+				</section>
+			)}
+
+			{canCreate && (
+				<section data-card className="mb-6 p-5">
+					<div className="flex flex-wrap items-start justify-between gap-4">
+						<div>
+							<h2 className="text-sm font-semibold text-white">{t("backupsPage.offsite.title")}</h2>
+							<p className="mt-1 text-xs text-slate-500">{t("backupsPage.offsite.description")}</p>
+						</div>
+						<a
+							href="/settings#offsite"
+							className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400 transition hover:border-white/[0.16] hover:text-slate-200"
+						>
+							{t("backupsPage.offsite.openSettings")}
+						</a>
+					</div>
+					{offsite ? (
+						<div className="mt-4 grid gap-3 text-xs text-slate-300 md:grid-cols-2">
+							<p>
+								<span
+									data-tone={offsite.enabled ? "emerald" : "slate"}
+									className={`mr-2 rounded-full px-2 py-0.5 text-xs ${offsite.enabled ? "bg-emerald-400/15 text-emerald-100" : "bg-slate-400/15 text-slate-300"}`}
+								>
+									{offsite.enabled ? t("backupsPage.offsite.status.enabled") : t("backupsPage.offsite.status.disabled")}
+								</span>
+								{t("backupsPage.offsite.provider").replace("{provider}", offsite.provider)}
+							</p>
+							{offsite.bucket && <p>{t("backupsPage.offsite.bucket").replace("{bucket}", offsite.bucket)}</p>}
+							{offsite.region && <p>{t("backupsPage.offsite.region").replace("{region}", offsite.region)}</p>}
+							<p>{t("backupsPage.offsite.window").replace("{hour}", String(offsite.dailyWindowHour))}</p>
+							<p>{t("backupsPage.offsite.retention").replace("{days}", String(offsite.retentionDays))}</p>
+						</div>
+					) : (
+						<p className="mt-4 text-xs text-slate-500">{t("backupsPage.offsite.dryRunNever")}</p>
+					)}
+					<div className="mt-4">
+						<OffsiteDryRunButton />
+					</div>
 				</section>
 			)}
 

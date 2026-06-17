@@ -365,6 +365,125 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 			},
 		],
 	},
+	{
+		// TR-007 M03: 异地备份 (S3-compatible)
+		// 放在 SETTINGS_SCHEMA 末尾, 不影响既有 platform/password/runtime/smtp/dashboard 的索引断言
+		id: "offsite",
+		icon: "☁️",
+		title: "异地备份 (S3-compatible)",
+		description: (s) => (s["offsite.enabled"] === "true"
+			? "已启用异地备份，每日将本地备份推送至 S3-compatible 端点。"
+			: "未启用。启用前下方连接参数会被保存但不会用于实际备份。"),
+		badge: (s) => (s["offsite.enabled"] === "true" ? "已启用" : "未启用"),
+		badgeTone: (s) => (s["offsite.enabled"] === "true" ? "emerald" : "slate"),
+		defaultOpen: false,
+		asForm: true,
+		layout: "grid-2",
+		headerSwitchKey: "offsite.enabled",
+		noticeBanner: "异地备份走 SigV4 签名 + PUT/HEAD/DELETE 协议；不引新依赖，复用 undici fetch 与 Node 22 内置 crypto。Provider 决定默认 URL 模式 (AWS → virtual-hosted；其他 → path-style)。",
+		saveMessage: "异地备份设置已保存；启用后每日窗口到达时会按当前配置尝试推送，失败会告警到 failureAlertRecipient。",
+		fields: [
+			// headerSwitchKey 渲染 offsite.enabled 到 header; fields 里同步保留以便 PATCH key 列表正确
+			{ key: "offsite.enabled", label: "启用异地备份", type: "switch" },
+			{
+				key: "offsite.provider",
+				label: "Provider",
+				type: "select",
+				defaultValue: "s3",
+				options: [
+					{ value: "s3", label: "AWS S3" },
+					{ value: "r2", label: "Cloudflare R2" },
+					{ value: "b2", label: "Backblaze B2" },
+					{ value: "minio", label: "MinIO (自建)" },
+				],
+				helperText: "Provider 决定默认 URL 寻址模式；S3 走 virtual-hosted，其他默认 path-style。",
+			},
+			{
+				key: "offsite.endpoint",
+				label: "Endpoint URL",
+				type: "text",
+				placeholder: "https://s3.us-east-1.amazonaws.com",
+				helperText: "S3-compatible 端点；留空时按 provider + region 推断。",
+			},
+			{
+				key: "offsite.region",
+				label: "Region",
+				type: "text",
+				placeholder: "us-east-1",
+				helperText: "AWS region 必填；MinIO/R2/B2 可填任意值但需与 endpoint 保持一致。",
+			},
+			{
+				key: "offsite.bucket",
+				label: "Bucket",
+				type: "text",
+				placeholder: "my-backup-bucket",
+				helperText: "目标存储桶；需先在对应 provider 控制台创建。",
+			},
+			{
+				key: "offsite.accessKeyId",
+				label: "Access Key ID",
+				type: "text",
+				placeholder: "AKIAEXAMPLE...",
+				helperText: "从 provider 后台获取的 access key；不要使用主账号 root key。",
+				// TR-014: 改凭据后下次推送会失败; UI 看不到实际值是否正确, 需配合 dry-run 验证
+				riskLevel: "high",
+			},
+			{
+				key: "offsite.secretAccessKey",
+				label: "Secret Access Key",
+				type: "password",
+				placeholder: "••••••••",
+				autoComplete: "new-password",
+				helperText: "凭据 at-rest 加密 (settings.crypto.service); GET 时返回 *** 占位。",
+				// TR-014: 改凭据错会让所有异地推送失败; 改后无法立即验证
+				riskLevel: "high",
+			},
+			{
+				key: "offsite.pathPrefix",
+				label: "路径前缀",
+				type: "text",
+				placeholder: "vcontrolhub-backups/",
+				helperText: "对象 key 前缀；必须以 / 结尾。",
+				validate: (value) => {
+					const trimmed = value.trim();
+					if (!trimmed) return null;
+					return trimmed.endsWith("/") ? null : "路径前缀必须以 / 结尾";
+				},
+			},
+			{
+				key: "offsite.dailyWindowHour",
+				label: "每日推送窗口 (小时)",
+				type: "number",
+				placeholder: "3",
+				min: 0,
+				max: 23,
+				helperText: "0–23 整数；UTC 整点窗口；默认 03:00。",
+				validate: (value) => parseInteger(value || "3", "每日推送窗口", 0, 23),
+			},
+			{
+				key: "offsite.retentionDays",
+				label: "保留天数",
+				type: "number",
+				placeholder: "30",
+				min: 1,
+				max: 3650,
+				helperText: "异地端保留天数；超过的备份对象会被 lifecycle job 清理。",
+				validate: (value) => parseInteger(value || "30", "保留天数", 1, 3650),
+			},
+			{
+				key: "offsite.failureAlertRecipient",
+				label: "失败告警收件人",
+				type: "text",
+				placeholder: "ops@example.com",
+				helperText: "异地推送失败时发告警邮件到此地址；留空则不告警。",
+				validate: (value) => {
+					const trimmed = value.trim();
+					if (!trimmed) return null;
+					return isValidEmail(trimmed) ? null : "失败告警收件人不是合法邮箱";
+				},
+			},
+		],
+	},
 ];
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -385,6 +504,7 @@ export function buildTocItems(): { id: string; icon: string; title: string; subt
 		smtp: "SMTP / 告警收件人",
 		runtime: "命令 / SSH / 列表上限",
 		dashboard: "拖拽重排 / 编辑入口",
+		offsite: "S3 / 推送窗口 / 保留",
 	};
 	return SETTINGS_SCHEMA.map((s) => ({
 		id: s.id,

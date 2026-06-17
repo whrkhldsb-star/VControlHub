@@ -34,6 +34,18 @@ const DEFAULTS: Record<string, string> = {
 	"smtp.enabled": "false",
 	// TR-020 M02: 仪表盘拖拽重排默认开启 (admin 可关)
 	"dashboard.layout.dragReorderEnabled": "true",
+	// TR-007 M03: 异地备份 (S3-compatible, 默认全部关闭)
+	"offsite.enabled": "false",
+	"offsite.provider": "s3",
+	"offsite.endpoint": "",
+	"offsite.region": "auto",
+	"offsite.bucket": "",
+	"offsite.accessKeyId": "",
+	"offsite.secretAccessKey": "",
+	"offsite.pathPrefix": "vcontrolhub-backups/",
+	"offsite.dailyWindowHour": "3",
+	"offsite.retentionDays": "30",
+	"offsite.failureAlertRecipient": "",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),

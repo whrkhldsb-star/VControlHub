@@ -30,6 +30,18 @@ export const SettingKey = z.union([
 	z.literal("runtime.aiConversationListLimit"),
 	// TR-020 M02: 仪表盘拖拽重排总开关 (默认 true, admin 可关)
 	z.literal("dashboard.layout.dragReorderEnabled"),
+	// TR-007 M03: 异地备份 (S3-compatible, 默认关闭)
+	z.literal("offsite.enabled"),
+	z.literal("offsite.provider"),
+	z.literal("offsite.endpoint"),
+	z.literal("offsite.region"),
+	z.literal("offsite.bucket"),
+	z.literal("offsite.accessKeyId"),
+	z.literal("offsite.secretAccessKey"),
+	z.literal("offsite.pathPrefix"),
+	z.literal("offsite.dailyWindowHour"),
+	z.literal("offsite.retentionDays"),
+	z.literal("offsite.failureAlertRecipient"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -63,6 +75,18 @@ export const VALID_SETTING_KEYS: string[] = [
 	"runtime.aiConversationListLimit",
 	// TR-020 M02: 仪表盘拖拽重排总开关
 	"dashboard.layout.dragReorderEnabled",
+	// TR-007 M03: 异地备份 (S3-compatible)
+	"offsite.enabled",
+	"offsite.provider",
+	"offsite.endpoint",
+	"offsite.region",
+	"offsite.bucket",
+	"offsite.accessKeyId",
+	"offsite.secretAccessKey",
+	"offsite.pathPrefix",
+	"offsite.dailyWindowHour",
+	"offsite.retentionDays",
+	"offsite.failureAlertRecipient",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */
