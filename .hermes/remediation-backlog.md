@@ -455,3 +455,51 @@ Purpose: durable handoff for multi-round autonomous remediation and optimization
 - Verification: `git diff --check` passed; `npm test -- src/app/files/__tests__/files-browser-spa.test.tsx --reporter=dot` passed 1 file / 11 tests; full `npm run verify` passed (Prisma generate, typecheck, lint, tests, Next build, runtime build, deploy-assets).
 - Production: build artifacts `.next/BUILD_ID`, `dist/server.js`, and `dist/ssh-ws-proxy.js` exist after verify; deployment/smoke evidence is recorded in remediation state after activation.
 - Residual: continue P2 placeholder-only/low-visibility patrol on remaining dense controls; this closes the file storage-node selector sub-slice only.
+
+### 2026-06-16T23:13:00Z — TR-054 R10G-account-password-page (auto-remediation, P-NEW-AA 路径)
+- Scope: queue 8 pending 全部 design-blocked (M01/M03/M04/M05/E01/E02/55/56 含 "由用户拍板/数据源/凭据/设计/范围/策略" 关键词), 走 P-NEW-AA 4 步 workaround: 不消耗 attempts, 选 R10G-account-password-page (RSC page + client form, 17 hardcode, 单一模块) 跑 auto-remediation
+- Fixes:
+  - 新建 src/lib/i18n/dictionaries/account-password-page.ts (accountPasswordPage.* 21 zh + 21 en key, 含 description / 3 label+3 placeholder / show+hide + 2 aria template / saving / redirectCountdown `{seconds}` template / redirectNow / RSC page 5 keys)
+  - translations.ts: import + zh/en spread 3 patch (account 排在 ai 前, alphabetic)
+  - change-password-form.tsx (client, "use client"): 12 hardcode 改 t() (description / 3 PasswordField label+3 placeholder / 2 toggle aria+text / saving pending / redirectCountdown template / redirectNow button)
+  - page.tsx (RSC, server component): 5 hardcode 改 t() (title / description / securityTips / tip1+2+3) + 加 `import { t } from "@/lib/i18n/translations"`
+  - PasswordField sub-component: 加 `const { t } = useI18n()` hook (避免 prop drilling, 干净)
+- Verification:
+  - 4-fold: `grep -c accountpasswordpage translations.ts` = 3 ✓; mtime updated; `wc -l` 212→215 (+3) ✓; `npx tsx -e t('accountPasswordPage.title', 'en')` 返 "Change password" ✓
+  - `npx tsc --noEmit` 0 err
+  - `npx vitest run src/app/account/` 5/5 pass (change-password-form 5 case 全过, 含 show/hide toggle 跟 TR-052 redirect 1.5s 测试)
+  - `npx vitest run` (full) 304 files / 2103 tests pass + 1 skipped
+  - `npx eslint` on src/app/account/ + i18n files 0 warn
+  - `npm run build` OK
+  - `sudo bash deploy.sh` 25/25 PASS
+  - `npx tsx scripts/i18n-coverage.ts` 跑: src/app/account **完全从 missing 列表消失** (was 12/12 missing → 0/12, 0% → 100% coverage)
+  - production curl `/account/password` 返 307 → /login (auth gate 正常, key 不 leak)
+  - 5 min service log scan: 0 new error/warn (deploy timeout info log + worker lifecycle 启动 + gateway probe 通过, 全 normal)
+- Commit: `8aad063` 6 files / +174/-183 (push 成功, HEAD == origin/main)
+- 工具调用: ~25 calls 单 tick 跑通 (5 patch + 1 write_file + 1 write + 1 write + verify + commit + push + log)
+- Residual: 下一个 R10G 候选 = deployments (4.5%, 42/44 missing, 大) 或 ssh-terminal-modal (7.1%, 13/14, 小 client component) 或 downloads (10.5%, 34/38, 中). 8 pending design-blocked 仍等用户拍板
+
+### 2026-06-16T23:51:00Z — TR-054 R10G-ssh-terminal-modal (auto-remediation, P-NEW-AA 续做)
+- Scope: queue 8 pending design-blocked 仍等用户拍板 (M01/M03/M04/M05/E01/E02/55/56), 走 P-NEW-AA 4 步 workaround 续做: 不消耗 attempts, 选 R10G-ssh-terminal-modal (1 client component, 22 hardcode, 7.1% 13/14 missing, 中风险)
+- Fixes:
+  - 新建 src/lib/i18n/dictionaries/ssh-terminal-modal.ts (sshTerminalModal.* 21 zh + 21 en key, 含 4 status (connected/connecting/error/closed) + 6 header (title `{serverName}` template / panelToggle / panelToggleTitle / ariaClose / reconnect / close) + 6 error (errTokenFetchFailed / errTokenEmpty / errUnknown / errClosed / errDisconnected / errConnectionFailed) + 6 favorites (title / label / placeholder / add / empty / remove `{cmd}` template) + 2 history (title / empty) + 1 quickCommands (title))
+  - translations.ts: import + zh/en spread 3 patch (sshTerminalModal 排在 snippetsPage 后 statusPage 前, alphabetic)
+  - ssh-terminal-modal.tsx (client, "use client"): 加 useI18n hook + 22 hardcode 改 t() (4 status ternary / title 模板 replace `{serverName}` / panel toggle title+text / reconnect / ariaClose / close / favorites title+label+placeholder+add aria+empty+remove template / history title+empty / quick commands title)
+  - ssh-terminal-modal.test.tsx: render → renderWithI18n as render (P-NEW-T 1-line import fix unblock verify, 6 测试断言全过含 aria-label getByRole 跟 getByText 中文)
+- Verification:
+  - 4-fold: `grep -c sshterminalmodal translations.ts` = 3 ✓; mtime updated; `wc -l` 215→218 (+3) ✓; `npx tsx -e t('sshTerminalModal.title', 'zh')` 返 "SSH 终端 — {serverName}" ✓
+  - 字典实测: 21 keys × 2 locales 全部能查, 模板字段 (`{serverName}` / `{cmd}`) 正确返回字符串
+  - `npx tsc --noEmit` 0 err
+  - `npx vitest run src/components/__tests__/ssh-terminal-modal.test.tsx` 5/5 pass (含 6 个 hardcode 中文断言: dialog name "SSH 终端 — prod-vps" / status "连接中" / 按钮 "📋 命令面板" / "关闭 SSH 终端" / "重连" / "添加常用 SSH 命令" / "添加常用命令" / remove regex `^删除常用命令 `)
+  - `npx vitest run` (full) 304 files / 2103 tests pass + 1 skipped
+  - `npm run lint` 0 err / 38 pre-existing warnings (no new)
+  - `npm run build` OK (.next/BUILD_ID generated)
+  - `sudo bash deploy.sh` 25/25 PASS
+  - `npx tsx scripts/i18n-coverage.ts` 跑: src/components/ssh-terminal-modal **完全从 missing 列表消失** (was 13/14 missing → 0/14, 7.1% → 100% coverage)
+  - production curl `/servers` 307 auth-redirect, `/api/auth/ws-token` 401 unauth, services all active
+  - 5 min service log scan: 0 new error/warn (deploy timeout info log + worker lifecycle 启动 + gateway probe 通过, 全 normal)
+- Commit: `528c471` 6 files / +157/-167 (push 成功, HEAD == origin/main, sibling paused 3 check 1s 稳定 = opportunity window)
+- 工具调用: ~30 calls 单 tick 跑通 (write 字典 + 3 patch translations + 12 patch component + 1 patch test + 4 verify + 1 build + 1 deploy + 1 commit + 1 push + 1 readme closeout)
+- 撞车记录: 第一次 patch 缺 inner-`if` 上下文 (nested `if (!disposed && nonce === ...)` 包裹 setErrorMsg), 2 次 fail + 1 次 indent 错位需 revert 修复. P-NEW-M v2 协议确保每次 patch 后 grep 验证, 撞车后立刻 fix 不留.
+- 防御升级: 多行 patch 必用 1 outer `if` block 完整上下文, 不只 match 1 行 (P-NEW-Y false positive 同样模式: 看到 warning 必 `git diff` 验证, 不盲信)
+- Residual: 下一个 R10G 候选 = deployments (4.5%, 42/44 missing, 大) 或 qa-reports (10%, 9/10, 小 page) 或 downloads (10.5%, 34/38, 中). 8 pending design-blocked 仍等用户拍板. queue.json 不动 (auto-remediation 不入 queue, 保持 8 pending 透明)

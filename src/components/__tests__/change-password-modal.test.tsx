@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { ChangePasswordModal } from "../change-password-modal";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -47,5 +48,22 @@ describe("ChangePasswordModal", () => {
 
     await user.click(screen.getByRole("button", { name: "关闭修改密码弹窗" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders English copy under the en locale (TR-054 i18n closeout)", () => {
+    render(
+      <I18nProvider initialLocale="en">
+        <ChangePasswordModal open={true} onClose={vi.fn()} />
+      </I18nProvider>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Change login password" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAccessibleDescription(
+      "Enter your current password to set a new one. The change won't force a logout; the new password is required for the next login.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Close change password modal" }),
+    ).toBeInTheDocument();
   });
 });

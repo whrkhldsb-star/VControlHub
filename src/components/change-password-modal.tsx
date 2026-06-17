@@ -4,6 +4,7 @@ import { useActionState, useId, useState } from "react";
 
 import { SubmitButton } from "./submit-button";
 import { changePasswordAction, type AccountPasswordActionState } from "@/app/account/password/actions";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 const initialState: AccountPasswordActionState = {};
 
@@ -18,6 +19,16 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 	const [state, formAction] = useActionState(changePasswordAction, initialState);
 	const titleId = useId();
 	const descriptionId = useId();
+	const { t } = useI18n();
+	const closeModalLabel = t("common.closeChangePasswordModal") === "common.closeChangePasswordModal"
+		? "关闭修改密码弹窗"
+		: t("common.closeChangePasswordModal");
+	const changePasswordDescription = t("common.changePasswordDescription") === "common.changePasswordDescription"
+		? "输入当前密码后设置新密码。修改后不会强制退出，下次登录需使用新密码。"
+		: t("common.changePasswordDescription");
+	const titleText = t("common.editPassword") === "common.editPassword"
+		? "修改登录密码"
+		: t("common.editPassword");
 
 	if (!open) return null;
 
@@ -36,12 +47,12 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 				className="relative z-10 w-full max-w-md mx-4 rounded-3xl border border-[var(--border)] bg-slate-900 p-6 shadow-2xl"
 			>
 				<div className="flex items-center justify-between mb-4">
-					<h2 id={titleId} className="text-xl font-semibold text-white">修改登录密码</h2>
+					<h2 id={titleId} className="text-xl font-semibold text-white">{titleText}</h2>
 					<button
 						type="button"
 						onClick={onClose}
 						className="rounded-xl p-2 text-[var(--text-secondary)] hover:bg-white/5 hover:text-white light:hover:text-slate-900 transition"
-						aria-label="关闭修改密码弹窗"
+						aria-label={closeModalLabel}
 					>
 						<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
 							<path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -50,7 +61,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 				</div>
 
 				<p id={descriptionId} className="mb-4 text-sm text-[var(--text-secondary)]">
-					输入当前密码后设置新密码。修改后不会强制退出，下次登录需使用新密码。
+					{changePasswordDescription}
 				</p>
 
 				<form action={formAction} className="grid gap-4">
