@@ -26,6 +26,7 @@ import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups
 import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
 import { zh as operationtaskspageZh, en as operationtaskspageEn } from "./dictionaries/operation-tasks-page";
 import { zh as scheduledtaskspageZh, en as scheduledtaskspageEn } from "./dictionaries/scheduled-tasks-page";
+import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
 import { zh as sharespageZh, en as sharespageEn } from "./dictionaries/shares-page";
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
 import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
@@ -125,6 +126,7 @@ const zh: Record<string, string> = {
 	...requestspageZh,
 	...scheduledtasksZh,
 	...scheduledtaskspageZh,
+	...settingspageZh,
 	...searchZh,
 	...serversZh,
 	...serverspageZh,
@@ -192,6 +194,7 @@ const en: Record<string, string> = {
 	...requestspageEn,
 	...scheduledtasksEn,
 	...scheduledtaskspageEn,
+	...settingspageEn,
 	...searchEn,
 	...serversEn,
 	...serverspageEn,

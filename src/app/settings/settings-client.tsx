@@ -5,6 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
 	SETTINGS_SCHEMA,
 	buildTocItems,
@@ -91,6 +92,7 @@ export function SettingsClient({
 	canManage,
 	twoFactorEnabled = false,
 }: Props) {
+	const { t } = useI18n();
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
@@ -215,13 +217,13 @@ export function SettingsClient({
 						body: JSON.stringify(payload),
 					});
 					setSaved(true);
-					setSavedMessage(section.saveMessage || "设置已保存。");
+					setSavedMessage(section.saveMessage || t("settingsClient.saveSuccess"));
 					setTimeout(() => {
 						setSaved(false);
 						setSavedMessage(null);
 					}, 5000);
 				} catch (err) {
-					setError(err instanceof Error ? err.message : "保存失败");
+					setError(err instanceof Error ? err.message : t("settingsClient.saveFailed"));
 				} finally {
 					setSaving(false);
 				}
@@ -256,7 +258,7 @@ export function SettingsClient({
 			)}
 
 			{/* Quick-jump TOC + expand/collapse all */}
-			<nav aria-label="设置分类导航" className="p-4 space-y-3" data-card>
+			<nav aria-label={t("settingsClient.categoryNav")} className="p-4 space-y-3" data-card>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
 						<h2 className="text-sm font-semibold text-white">⚙️ 设置分类</h2>

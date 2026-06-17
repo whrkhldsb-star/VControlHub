@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
+import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 type AiHostedApprovalCardProps = {
@@ -24,16 +24,17 @@ function formatParams(params: unknown) {
   }
 }
 
-function riskLabel(riskLevel: string) {
+function riskLabel(t: (k: string) => string, riskLevel: string) {
   const normalized = riskLevel.toLowerCase();
-  if (normalized === "critical") return "极高风险";
-  if (normalized === "high") return "高风险";
-  if (normalized === "medium") return "中风险";
-  if (normalized === "low") return "低风险";
+  if (normalized === "critical") return t("aiHostedApproval.riskCritical");
+  if (normalized === "high") return t("aiHostedApproval.riskHigh");
+  if (normalized === "medium") return t("aiHostedApproval.riskMedium");
+  if (normalized === "low") return t("aiHostedApproval.riskLow");
   return riskLevel;
 }
 
 export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
+  const { t } = useI18n();
   const [status, setStatus] = useState<"pending" | "approving" | "rejecting" | "approved" | "rejected">("pending");
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +49,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
       setStatus(decision === "approve" ? "approved" : "rejected");
     } catch (err) {
       setStatus("pending");
-      setError(err instanceof Error ? err.message : "审批操作失败");
+      setError(err instanceof Error ? err.message : t("aiHostedApproval.reviewFailed"));
     }
   }
 
@@ -60,18 +61,18 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-white">{action.actionName}</h3>
-            <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[11px] font-medium text-cyan-200">AI 助手授权</span>
-            <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(action.riskLevel)}</span>
+            <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[11px] font-medium text-cyan-200">{t("aiHostedApproval.badge")}</span>
+            <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[11px] font-medium text-amber-200">{riskLabel(t, action.riskLevel)}</span>
           </div>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">需要你确认 AI 是否可以执行该高风险操作；只处理当前账号的 AI 托管请求。</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
             <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-slate-600">操作类型</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-600">{t("aiHostedApproval.actionType")}</div>
               <div className="mt-1 font-mono text-cyan-100">{action.actionType}</div>
             </div>
             <div className="rounded-lg border border-white/[0.05] bg-slate-950/40 px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-slate-600">目标 VPS</div>
-              <div className="mt-1 text-slate-200">{action.server ? `${action.server.name} · ${action.server.host}` : "未指定"}</div>
+              <div className="text-[10px] uppercase tracking-wider text-slate-600">{t("aiHostedApproval.targetVps")}</div>
+              <div className="mt-1 text-slate-200">{action.server ? `${action.server.name} · ${action.server.host}` : t("aiHostedApproval.notSpecified")}</div>
             </div>
           </div>
           <pre className="mt-3 max-h-32 overflow-auto rounded-lg border border-white/[0.05] bg-slate-950/60 p-3 text-[11px] text-[var(--text-secondary)]">{formatParams(action.params)}</pre>
@@ -84,7 +85,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             onClick={() => review("approve")}
             className="rounded-lg bg-emerald-500 px-3 py-2 text-xs font-medium text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {status === "approving" ? "批准中…" : status === "approved" ? "已批准" : "批准 AI 执行"}
+            {status === "approving" ? t("aiHostedApproval.approving") : status === "approved" ? t("aiHostedApproval.approved") : t("aiHostedApproval.approveAction")}
           </button>
           <button
             type="button"
@@ -92,7 +93,7 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
             onClick={() => review("reject")}
             className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {status === "rejecting" ? "拒绝中…" : status === "rejected" ? "已拒绝" : "拒绝"}
+            {status === "rejecting" ? t("aiHostedApproval.rejecting") : status === "rejected" ? t("aiHostedApproval.rejected") : t("aiHostedApproval.reject")}
           </button>
         </div>
       </div>

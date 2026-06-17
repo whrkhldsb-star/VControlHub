@@ -36,6 +36,22 @@ export const zh: Record<string, string> = {
 
 	"requestsPage.cancel.errorFallback": "取消失败",
 
+	"aiHostedApproval.badge": "AI 助手授权",
+	"aiHostedApproval.riskCritical": "极高风险",
+	"aiHostedApproval.riskHigh": "高风险",
+	"aiHostedApproval.riskMedium": "中风险",
+	"aiHostedApproval.riskLow": "低风险",
+	"aiHostedApproval.description": "需要你确认 AI 是否可以执行该高风险操作；只处理当前账号的 AI 托管请求。",
+	"aiHostedApproval.actionType": "操作类型",
+	"aiHostedApproval.targetVps": "目标 VPS",
+	"aiHostedApproval.notSpecified": "未指定",
+	"aiHostedApproval.reviewFailed": "审批操作失败",
+	"aiHostedApproval.approving": "批准中…",
+	"aiHostedApproval.approved": "已批准",
+	"aiHostedApproval.approveAction": "批准 AI 执行",
+	"aiHostedApproval.rejecting": "拒绝中…",
+	"aiHostedApproval.rejected": "已拒绝",
+	"aiHostedApproval.reject": "拒绝",
 };
 
 export const en: Record<string, string> = {
@@ -69,4 +85,20 @@ export const en: Record<string, string> = {
 
 	"requestsPage.cancel.errorFallback": "Cancellation failed",
 
+	"aiHostedApproval.badge": "AI assistant authorization",
+	"aiHostedApproval.riskCritical": "Critical risk",
+	"aiHostedApproval.riskHigh": "High risk",
+	"aiHostedApproval.riskMedium": "Medium risk",
+	"aiHostedApproval.riskLow": "Low risk",
+	"aiHostedApproval.description": "Confirm whether AI can execute this high-risk action; only handles AI-hosted requests for the current account.",
+	"aiHostedApproval.actionType": "Action type",
+	"aiHostedApproval.targetVps": "Target VPS",
+	"aiHostedApproval.notSpecified": "Not specified",
+	"aiHostedApproval.reviewFailed": "Review action failed",
+	"aiHostedApproval.approving": "Approving…",
+	"aiHostedApproval.approved": "Approved",
+	"aiHostedApproval.approveAction": "Approve AI execution",
+	"aiHostedApproval.rejecting": "Rejecting…",
+	"aiHostedApproval.rejected": "Rejected",
+	"aiHostedApproval.reject": "Reject",
 };

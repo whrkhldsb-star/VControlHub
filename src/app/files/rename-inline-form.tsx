@@ -7,6 +7,7 @@ import {
   renameFileEntryAction,
   type StorageActionState,
 } from "../storage/actions";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 const initialState: StorageActionState = {};
 
@@ -26,6 +27,7 @@ export function RenameInlineForm({
   onRefresh?: () => void;
   onNotify?: (type: "success" | "error" | "info", message: string) => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState(currentName);
@@ -70,8 +72,8 @@ export function RenameInlineForm({
       <button
         type="button"
         onClick={handleToggle}
-        title="重命名"
-        aria-label={`重命名 ${currentName}`}
+        title={t("renameInlineForm.rename")}
+        aria-label={`${t("renameInlineForm.rename")} ${currentName}`}
         className={
           variant === "menu"
             ? "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm text-amber-100 transition hover:bg-amber-400/10"
@@ -91,7 +93,7 @@ export function RenameInlineForm({
           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           <path d="m15 5 4 4" />
         </svg>
-        {variant === "menu" ? <span>重命名</span> : null}
+        {variant === "menu" ? <span>{t("renameInlineForm.rename")}</span> : null}
       </button>
     );
   }
@@ -108,7 +110,7 @@ export function RenameInlineForm({
       <input type="hidden" name="fileEntryId" value={fileEntryId} />{" "}
       <label className="grid gap-1 text-sm text-[var(--text-secondary)]">
         {" "}
-        <span className="sr-only">新名称</span>{" "}
+        <span className="sr-only">{t("renameInlineForm.newName")}</span>{" "}
         <input
           ref={inputRef}
           name="newName"
@@ -118,13 +120,13 @@ export function RenameInlineForm({
           minLength={1}
           maxLength={255}
           pattern={String.raw`^[^\s/\\:*?"<>|]+$`}
-          placeholder="输入新名称"
+          placeholder={t("renameInlineForm.inputPlaceholder")}
           className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500"
         />
       </label>
       {newName.trim() && newName !== currentName ? (
         <span className="text-xs text-[var(--text-secondary)]">
-          路径：/{previewPath}
+          {t("renameInlineForm.pathPrefix")}/{previewPath}
         </span>
       ) : null}
       <button
@@ -133,14 +135,14 @@ export function RenameInlineForm({
         data-tone="accent"
         className="rounded-full border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
       >
-        确认
+        {t("renameInlineForm.confirm")}
       </button>
       <button
         type="button"
         onClick={handleCancel}
         className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
       >
-        取消
+        {t("renameInlineForm.cancel")}
       </button>
     </form>
   );

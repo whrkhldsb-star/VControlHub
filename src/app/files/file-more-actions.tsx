@@ -17,6 +17,7 @@ import {
   ShareFileButton,
 } from "./file-row-actions";
 import type { StorageEntry } from "./file-entry-utils";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type FileMoreActionsProps = {
   entry: StorageEntry;
@@ -44,6 +45,7 @@ export function FileMoreActions({
   entryCanWrite,
   entryCanDelete,
 }: FileMoreActionsProps) {
+  const { t } = useI18n();
   const hasMoreActions =
     (canShare && entryCanRead(entry) && entry.entryType === "FILE") ||
     entryCanWrite(entry) ||
@@ -53,8 +55,8 @@ export function FileMoreActions({
     <details className="relative inline-flex group/more">
       <summary
         role="button"
-        title="更多操作"
-        aria-label={`更多操作 ${entry.name}`}
+        title={t("fileMoreActions.more")}
+        aria-label={`${t("fileMoreActions.more")} ${entry.name}`}
         className={
           compact
             ? "inline-flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-lg border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:text-white light:hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
@@ -62,7 +64,7 @@ export function FileMoreActions({
         }
       >
         <span aria-hidden="true">⋯</span>
-        {compact ? null : <span>更多</span>}
+        {compact ? null : <span>{t("fileMoreActions.more")}</span>}
       </summary>
       <div className="absolute right-0 top-9 z-40 flex min-w-44 flex-col gap-1 rounded-2xl border border-white/10 bg-slate-950/95 p-2 text-left shadow-2xl shadow-slate-950/40 light:shadow-slate-200/70">
         {canShare && entryCanRead(entry) ? (
