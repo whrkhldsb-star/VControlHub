@@ -51,7 +51,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         data-tone="rose" className="rounded-lg border border-rose-400/30 px-3 py-1.5 text-xs font-medium text-rose-100 transition hover:bg-rose-400/20"
-        aria-label={`${t("requestsPage.cancel.ariaLabel")}: ${commandTitle}`}
+        aria-label={`${t("requestsPage.cancel.ariaLabel")}：${commandTitle}`}
       >
         {t("requestsPage.cancel.title")}
       </button>

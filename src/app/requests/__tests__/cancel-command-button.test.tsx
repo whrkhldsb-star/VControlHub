@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,12 +9,10 @@ import { CancelCommandButton } from "../cancel-command-button";
 const refreshMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
+  useRouter: () => ({ refresh: refreshMock }) }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({
-  csrfFetch: vi.fn(),
-}));
+  csrfFetch: vi.fn() }));
 
 describe("CancelCommandButton", () => {
   beforeEach(() => {
@@ -32,8 +31,7 @@ describe("CancelCommandButton", () => {
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/commands", expect.objectContaining({
       method: "PATCH",
-      body: JSON.stringify({ action: "cancel", commandRequestId: "cmd1", reason: "wrong maintenance window" }),
-    })));
+      body: JSON.stringify({ action: "cancel", commandRequestId: "cmd1", reason: "wrong maintenance window" }) })));
     expect(refreshMock).toHaveBeenCalledOnce();
     expect(screen.getByRole("status")).toHaveTextContent("命令取消请求已提交");
   });

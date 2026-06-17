@@ -45,7 +45,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	if (templates.length === 0) {
 		return (
 			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
-				t("deploymentsPage.launch.noTemplateHint")
+				{t("deploymentsPage.launch.noTemplateHint")}
 			</div>
 		);
 	}
@@ -54,7 +54,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		return (
 			<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 px-4 py-3 text-sm text-amber-100 light:bg-amber-50">
 				<p className="font-medium">{t("deploymentsPage.launch.noVpsTitle")}</p>
-				<p className="mt-1 text-xs text-amber-100/80">{t("deploymentsPage.launch.noVpsDesc")}，部署模板会在这里选择目标节点后进入审批链路。</p>
+				<p className="mt-1 text-xs text-amber-100/80">{t("deploymentsPage.launch.noVpsDesc")}</p>
 				<Link href="/servers" className="mt-3 inline-flex rounded-lg border border-amber-300/40 px-3 py-1.5 text-xs font-semibold text-amber-50 transition hover:bg-amber-300/10">{t("deploymentsPage.launch.addVps")}</Link>
 			</div>
 		);
@@ -134,7 +134,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					</div>
 				</div>
 			) : (
-				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400">t("deploymentsPage.launch.noVariables")</p>
+				<p className="rounded-xl border border-white/[0.06] bg-slate-950/60 px-4 py-3 text-xs text-slate-400">{t("deploymentsPage.launch.noVariables")}</p>
 			)}
 
 			<div>

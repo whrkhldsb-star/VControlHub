@@ -56,7 +56,7 @@ export function AnnouncementEditModal({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-xs text-slate-400" htmlFor="announcementTitle">{t("announcementsPage.edit.title")}</label>
+            <label className="block text-xs text-slate-400" htmlFor="announcementTitle">{t("announcementsPage.edit.titleLabel")}</label>
             <input
               id="announcementTitle"
               value={title}

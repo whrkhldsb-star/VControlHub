@@ -32,7 +32,7 @@ export const zh: Record<string, string> = {
 
 	"deploymentsPage.launch.noVariables": "该模板没有变量，可直接选择目标 VPS 提交。",
 
-	"deploymentsPage.launch.noVpsDesc": "暂无可用 VPS，不能发起部署",
+	"deploymentsPage.launch.noVpsDesc": "暂无可用 VPS，不能发起部署。",
 
 	"deploymentsPage.launch.noVpsTitle": "暂无可用 VPS",
 

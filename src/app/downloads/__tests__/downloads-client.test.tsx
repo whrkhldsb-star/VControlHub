@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -6,8 +7,7 @@ import { DownloadsClient, type ServerOption } from "../downloads-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
-  csrfFetch: vi.fn(),
-}));
+  csrfFetch: vi.fn() }));
 
 const servers: ServerOption[] = [
   { id: "srv_1", name: "主节点", host: "127.0.0.1", storagePath: "/root/downloads", storageDriver: "LOCAL", directAccessMode: "PROXY", directAccessAvailable: false, accessTransport: "relay", accessStatusLabel: "当前：中转", accessDescription: "本机文件由管理端直接提供受控下载与预览。" },
@@ -37,8 +37,7 @@ const runningTask = {
   batchUrls: null,
   downloadAccess: null,
   server: { id: "srv_1", name: "主节点", host: "127.0.0.1" },
-  creator: null,
-};
+  creator: null };
 
 describe("DownloadsClient", () => {
   beforeEach(() => {
@@ -87,9 +86,7 @@ describe("DownloadsClient", () => {
           fallbackHref: "/api/storage/sftp-download?nodeId=store_1&path=downloads%2Fa.iso&download=1",
           label: "下载文件",
           statusLabel: "当前：直连",
-          description: "远端文件可切换为存储服务器直连（自动优先直连），不可用时回退到管理端 SFTP 中转。",
-        },
-      });
+          description: "远端文件可切换为存储服务器直连（自动优先直连），不可用时回退到管理端 SFTP 中转。" } });
 
     render(<DownloadsClient servers={servers} canManage canManageNode />);
 

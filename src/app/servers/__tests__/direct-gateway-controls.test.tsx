@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 
 import { ServerCreateForm } from "../server-create-form";
@@ -7,12 +8,10 @@ import { ServerCardActions } from "../server-card-actions";
 
 const { refreshMock, actionStateOverrides } = vi.hoisted(() => ({
   refreshMock: vi.fn(),
-  actionStateOverrides: [] as unknown[],
-}));
+  actionStateOverrides: [] as unknown[] }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: refreshMock }),
-}));
+  useRouter: () => ({ refresh: refreshMock }) }));
 
 vi.mock("react", async () => {
   const actual = await vi.importActual<typeof import("react")>("react");
@@ -22,8 +21,7 @@ vi.mock("react", async () => {
       actionStateOverrides.shift() ?? initialState,
       action,
       false,
-    ],
-  };
+    ] };
 
   it("offers an edit form for managed VPS nodes", async () => {
     const user = userEvent.setup();
@@ -62,20 +60,17 @@ vi.mock("react", async () => {
 vi.mock("@/components/submit-button", () => ({
   SubmitButton: ({
     children,
-    className,
-  }: {
+    className }: {
     children: React.ReactNode;
     className?: string;
   }) => (
     <button type="submit" className={className}>
       {children}
     </button>
-  ),
-}));
+  ) }));
 
 vi.mock("@/components/ssh-terminal-modal", () => ({
-  SshTerminalModal: () => <div data-testid="ssh-terminal-modal" />,
-}));
+  SshTerminalModal: () => <div data-testid="ssh-terminal-modal" /> }));
 
 describe("server direct gateway controls", () => {
   beforeEach(() => {
@@ -91,15 +86,13 @@ describe("server direct gateway controls", () => {
             id: "key_1",
             name: "root key",
             fingerprint: "SHA256:abc",
-            description: null,
-          },
+            description: null },
         ]}
       />,
     );
 
     const checkbox = screen.getByRole("checkbox", {
-      name: /启用目标服务器直连/,
-    });
+      name: /启用目标服务器直连/ });
     expect(checkbox).not.toBeChecked();
     expect(checkbox).toHaveAttribute("name", "enableDirectGateway");
     expect(screen.getByText(/默认使用网站服务器中转/)).toBeInTheDocument();
@@ -120,8 +113,7 @@ describe("server direct gateway controls", () => {
           enabled: false,
           statusLabel: "网站中转",
           publicUrl: null,
-          port: 0,
-        }}
+          port: 0 }}
       />,
     );
 
@@ -148,8 +140,7 @@ describe("server direct gateway controls", () => {
           enabled: true,
           statusLabel: "目标直连",
           publicUrl: "http://203.0.113.10:31888",
-          port: 31888,
-        }}
+          port: 31888 }}
       />,
     );
 
@@ -177,8 +168,7 @@ describe("server direct gateway controls", () => {
           enabled: false,
           statusLabel: "网站中转",
           publicUrl: null,
-          port: 0,
-        }}
+          port: 0 }}
       />,
     );
 
@@ -204,8 +194,7 @@ describe("server direct gateway controls", () => {
           enabled: true,
           statusLabel: "目标直连",
           publicUrl: "http://203.0.113.10:31888",
-          port: 31888,
-        }}
+          port: 31888 }}
       />,
     );
 
@@ -223,8 +212,7 @@ describe("server direct gateway controls", () => {
       {
         error: "目标服务器直连只能启用于已绑定 SFTP 存储节点的 VPS。",
         success: undefined,
-        relatedStorageCount: undefined,
-      },
+        relatedStorageCount: undefined },
     );
 
     render(
@@ -240,8 +228,7 @@ describe("server direct gateway controls", () => {
           enabled: false,
           statusLabel: "网站中转",
           publicUrl: null,
-          port: 0,
-        }}
+          port: 0 }}
       />,
     );
 

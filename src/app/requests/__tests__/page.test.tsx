@@ -1,36 +1,30 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
-    get: () => undefined,
-  })),
-}));
+    get: () => undefined })) }));
 
 vi.mock("@/lib/auth/require-session", () => ({
   requireSession: vi.fn().mockResolvedValue({
     userId: "u_1",
     username: "admin",
     roles: ["admin"],
-    mustChangePassword: false,
-  }),
-}));
+    mustChangePassword: false }) }));
 
 vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: vi.fn().mockReturnValue(true),
-}));
+  sessionHasPermission: vi.fn().mockReturnValue(true) }));
 
 vi.mock("../review-command-form", () => ({
   ReviewCommandForm: ({ commandRequestId }: { commandRequestId: string }) => (
     <div data-testid="review-command-form">审批表单：{commandRequestId}</div>
-  ),
-}));
+  ) }));
 
 vi.mock("../cancel-command-button", () => ({
   CancelCommandButton: ({ commandRequestId }: { commandRequestId: string; commandTitle: string }) => (
     <div data-testid="cancel-command-button">取消按钮：{commandRequestId}</div>
-  ),
-}));
+  ) }));
 
 vi.mock("@/lib/command/service", () => ({
   listCommandRequests: vi.fn().mockResolvedValue([
@@ -47,16 +41,14 @@ vi.mock("@/lib/command/service", () => ({
         {
           id: "target_1",
           status: "PENDING_APPROVAL",
-          server: { id: "srv_1", name: "hk-prod-1", host: "203.0.113.10", port: 22 },
-        },
+          server: { id: "srv_1", name: "hk-prod-1", host: "203.0.113.10", port: 22 } },
       ],
       latestApproval: null,
       executionLogs: [
         { id: "log_2", summary: "检测到陈旧 RUNNING 命令：后台执行器 worker-old，最后心跳 2026-01-01T00:01:00.000Z；已根据目标状态自动归档为 FAILED。", createdAt: "2026-01-01T00:02:00.000Z" },
         { id: "log_1", summary: "命令审批已通过，任务正在进入执行器队列。", createdAt: "2026-01-01T00:00:00.000Z" },
       ],
-      latestLog: { id: "log_2", summary: "检测到陈旧 RUNNING 命令：后台执行器 worker-old，最后心跳 2026-01-01T00:01:00.000Z；已根据目标状态自动归档为 FAILED。" },
-    },
+      latestLog: { id: "log_2", summary: "检测到陈旧 RUNNING 命令：后台执行器 worker-old，最后心跳 2026-01-01T00:01:00.000Z；已根据目标状态自动归档为 FAILED。" } },
     {
       id: "cmd_2",
       title: "Deploy app",
@@ -70,15 +62,12 @@ vi.mock("@/lib/command/service", () => ({
         {
           id: "target_2",
           status: "PENDING_APPROVAL",
-          server: { id: "srv_2", name: "sg-app-1", host: "198.51.100.20", port: 22 },
-        },
+          server: { id: "srv_2", name: "sg-app-1", host: "198.51.100.20", port: 22 } },
       ],
       latestApproval: null,
       executionLogs: [],
-      latestLog: null,
-    },
-  ]),
-}));
+      latestLog: null },
+  ]) }));
 
 vi.mock("@/lib/ai/hosted-service", () => ({
   getPendingActions: vi.fn().mockResolvedValue([
@@ -90,10 +79,8 @@ vi.mock("@/lib/ai/hosted-service", () => ({
       status: "PENDING_APPROVAL",
       params: { serviceName: "nginx" },
       createdAt: new Date("2026-05-27T07:00:00Z"),
-      server: { id: "srv_1", name: "hk-prod-1", host: "203.0.113.10" },
-    },
-  ]),
-}));
+      server: { id: "srv_1", name: "hk-prod-1", host: "203.0.113.10" } },
+  ]) }));
 
 import RequestsPage from "../page";
 

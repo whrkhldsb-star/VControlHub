@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { describe, expect, it, vi } from "vitest";
 
 import { CommandCreateForm } from "../command-create-form";
@@ -7,8 +8,7 @@ vi.mock("react", async () => {
 	const actual = await vi.importActual<typeof import("react")>("react");
 	return {
 		...actual,
-		useActionState: () => [{}, vi.fn()],
-	};
+		useActionState: () => [{}, vi.fn()] };
 });
 
 describe("CommandCreateForm", () => {

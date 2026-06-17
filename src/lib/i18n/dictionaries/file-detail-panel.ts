@@ -22,7 +22,7 @@ export const zh: Record<string, string> = {
 	"fileDetailPanel.findInMedia": "在媒体库中查找",
 	"fileDetailPanel.managementActions": "管理操作",
 
-	"fileMoreActions.more": "更多",
+	"fileMoreActions.more": "更多操作",
 	"renameInlineForm.rename": "重命名",
 	"renameInlineForm.newName": "新名称",
 	"renameInlineForm.inputPlaceholder": "输入新名称",
@@ -51,7 +51,7 @@ export const en: Record<string, string> = {
 	"fileDetailPanel.findInMedia": "Find in media library",
 	"fileDetailPanel.managementActions": "Management actions",
 
-	"fileMoreActions.more": "More",
+	"fileMoreActions.more": "More actions",
 	"renameInlineForm.rename": "Rename",
 	"renameInlineForm.newName": "New name",
 	"renameInlineForm.inputPlaceholder": "Enter new name",

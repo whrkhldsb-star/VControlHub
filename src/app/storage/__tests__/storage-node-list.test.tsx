@@ -1,23 +1,20 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { checkStorageNodeHealthActionMock } = vi.hoisted(() => ({
-  checkStorageNodeHealthActionMock: vi.fn(),
-}));
+  checkStorageNodeHealthActionMock: vi.fn() }));
 
 vi.mock("../actions", () => ({
   checkStorageNodeHealthAction: checkStorageNodeHealthActionMock,
-  deleteStorageNodeAction: vi.fn(),
-}));
+  deleteStorageNodeAction: vi.fn() }));
 
 vi.mock("./storage-node-edit-form", () => ({
-  StorageNodeEditForm: () => React.createElement("div", null, "编辑表单"),
-}));
+  StorageNodeEditForm: () => React.createElement("div", null, "编辑表单") }));
 
 vi.mock("./storage-node-delete-button", () => ({
-  StorageNodeDeleteButton: () => React.createElement("button", { type: "button" }, "删除"),
-}));
+  StorageNodeDeleteButton: () => React.createElement("button", { type: "button" }, "删除") }));
 
 import { StorageNodeList } from "../storage-node-list";
 
@@ -46,8 +43,7 @@ describe("StorageNodeList health UI", () => {
             healthStatus: "UNHEALTHY",
             lastHealthCheckAt: "2026-05-05T12:00:00.000Z",
             lastHealthLatencyMs: 321,
-            lastHealthError: "connect ECONNREFUSED",
-          },
+            lastHealthError: "connect ECONNREFUSED" },
         ]}
       />,
     );

@@ -287,7 +287,7 @@ export function ServerCreateForm({
               Gateway 微服务。
             </p>
             <p className="mt-1 text-xs text-slate-500">
-              t("serversPage.create.directGateway.note")
+              {t("serversPage.create.directGateway.note")}
             </p>
           </div>
         </div>

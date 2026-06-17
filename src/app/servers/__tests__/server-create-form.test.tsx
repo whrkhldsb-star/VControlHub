@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -11,13 +12,11 @@ vi.mock("react", async () => {
     useActionState: () => [
       { error: undefined, success: undefined, relatedStorageCount: undefined },
       vi.fn(),
-    ],
-  };
+    ] };
 });
 
 vi.mock("../actions", () => ({
-  createServerAction: vi.fn(),
-}));
+  createServerAction: vi.fn() }));
 
 describe("ServerCreateForm", () => {
   it("keeps the VPS password field empty by default when password auth is selected", async () => {

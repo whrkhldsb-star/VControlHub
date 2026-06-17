@@ -222,7 +222,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 					<section role="dialog" aria-modal="true" aria-labelledby="delete-scheduled-task-title" className="w-full max-w-md rounded-2xl border border-rose-400/25 bg-slate-950 p-6 shadow-[0_24px_100px_rgba(244,63,94,0.16)]">
 						<h2 id="delete-scheduled-task-title" className="text-lg font-semibold text-white">{t("scheduledTasksPage.delete.title")}</h2>
 						<p className="mt-3 text-sm leading-6 text-slate-300">
-							{t("scheduledTasksPage.delete.desc").replace("{name}", taskPendingDelete.name)}任务入口追踪。
+							{t("scheduledTasksPage.delete.desc").split("{name}")[0]}<strong className="font-semibold text-white">{taskPendingDelete.name}</strong>{t("scheduledTasksPage.delete.desc").split("{name}")[1]}任务入口追踪。
 						</p>
 						<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 							<button type="button" onClick={() => setTaskPendingDelete(null)} className="min-h-11 rounded-xl border border-white/[0.08] px-4 py-2 text-sm font-medium text-slate-200 hover:bg-white/[0.06]">
