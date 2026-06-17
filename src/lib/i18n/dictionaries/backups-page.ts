@@ -121,6 +121,15 @@ export const zh: Record<string, string> = {
 	"backupsPage.restore.pending": "正在恢复...",
 	"backupsPage.restore.confirm": "确认恢复",
 	"backupsPage.restore.warningDetail": "恢复 {type} 备份会覆盖当前数据/文件。请输入 {confirmText} 确认恢复",
+	"backupsPage.retention.confirm": "确认清理过期备份?",
+	"backupsPage.retention.note": "将永久删除超出保留天数的备份，无法恢复。",
+	"backupsPage.retention.days": "保留天数",
+	"backupsPage.retention.affected": "预计清理 {count} 个备份",
+	"backupsPage.retention.submit": "立即清理",
+	"backupsPage.retention.submitting": "清理中…",
+	"backupsPage.retention.success": "已清理 {count} 个过期备份",
+	"backupsPage.retention.errorFallback": "清理失败",
+	"backupsPage.retention.cancel": "取消",
 
 };
 
@@ -227,5 +236,14 @@ export const en: Record<string, string> = {
 	"backupsPage.restore.pending": "Restoring...",
 	"backupsPage.restore.confirm": "Confirm restore",
 	"backupsPage.restore.warningDetail": "Restoring the {type} backup will overwrite current data/files. Enter {confirmText} to confirm.",
+	"backupsPage.retention.confirm": "Confirm cleanup of expired backups?",
+	"backupsPage.retention.note": "Backups exceeding the retention days will be permanently deleted and cannot be recovered.",
+	"backupsPage.retention.days": "Retention days",
+	"backupsPage.retention.affected": "Estimated {count} backups to clean",
+	"backupsPage.retention.submit": "Clean now",
+	"backupsPage.retention.submitting": "Cleaning…",
+	"backupsPage.retention.success": "Cleaned {count} expired backups",
+	"backupsPage.retention.errorFallback": "Cleanup failed",
+	"backupsPage.retention.cancel": "Cancel",
 
 };

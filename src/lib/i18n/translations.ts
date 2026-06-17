@@ -27,6 +27,8 @@ import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/dow
 import { zh as operationtaskspageZh, en as operationtaskspageEn } from "./dictionaries/operation-tasks-page";
 import { zh as scheduledtaskspageZh, en as scheduledtaskspageEn } from "./dictionaries/scheduled-tasks-page";
 import { zh as sharespageZh, en as sharespageEn } from "./dictionaries/shares-page";
+import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
+import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
 import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
 import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
