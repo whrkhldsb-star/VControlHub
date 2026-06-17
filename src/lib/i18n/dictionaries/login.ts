@@ -27,6 +27,8 @@ export const zh: Record<string, string> = {
 	"login.form.submit": "登录后台",
 	"login.form.username": "用户名",
 	"login.form.usernamePlaceholder": "输入用户名",
+	"login.verify2faDescription": "请输入您身份验证器应用中显示的验证码",
+	"login.verify2faBackToLogin": "← 返回登录",
 };
 
 export const en: Record<string, string> = {
@@ -51,4 +53,6 @@ export const en: Record<string, string> = {
 	"login.form.submit": "Sign in",
 	"login.form.username": "Username",
 	"login.form.usernamePlaceholder": "Enter username",
+	"login.verify2faDescription": "Enter the 6-digit code from your authenticator app.",
+	"login.verify2faBackToLogin": "← Back to sign in",
 };
