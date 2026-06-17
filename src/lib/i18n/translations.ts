@@ -23,6 +23,7 @@ import { zh as apitokenspageZh, en as apitokenspageEn } from "./dictionaries/api
 import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
 import { zh as authZh, en as authEn } from "./dictionaries/auth";
 import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
+import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
 import { zh as csvpreviewZh, en as csvpreviewEn } from "./dictionaries/csv-preview";
 import { zh as dashboardZh, en as dashboardEn } from "./dictionaries/dashboard";
@@ -48,6 +49,7 @@ import { zh as notificationspageZh, en as notificationspageEn } from "./dictiona
 import { zh as officepreviewZh, en as officepreviewEn } from "./dictionaries/office-preview";
 import { zh as operationtasksZh, en as operationtasksEn } from "./dictionaries/operation-tasks";
 import { zh as preferencespageZh, en as preferencespageEn } from "./dictionaries/preferences-page";
+import { zh as playbookspageZh, en as playbookspageEn } from "./dictionaries/playbooks-page";
 import { zh as qareportspageZh, en as qareportspageEn } from "./dictionaries/qa-reports-page";
 import { zh as quickServicesZh, en as quickServicesEn } from "./dictionaries/quick-services";
 import { zh as recyclebinsectionZh, en as recyclebinsectionEn } from "./dictionaries/recycle-bin-section";
@@ -106,6 +108,7 @@ const zh: Record<string, string> = {
 	...officepreviewZh,
 	...operationtasksZh,
 	...preferencespageZh,
+	...playbookspageZh,
 	...qareportspageZh,
 	...quickServicesZh,
 	...recyclebinsectionZh,
@@ -165,6 +168,7 @@ const en: Record<string, string> = {
 	...officepreviewEn,
 	...operationtasksEn,
 	...preferencespageEn,
+	...playbookspageEn,
 	...qareportspageEn,
 	...quickServicesEn,
 	...recyclebinsectionEn,

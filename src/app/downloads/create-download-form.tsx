@@ -52,20 +52,22 @@ export interface CreateDownloadFormProps {
 	onSubmit: () => void;
 }
 
-const categories = [
-	{ value: "", label: "未分类", icon: "📦" },
-	{ value: "video", label: "影视", icon: "🎬" },
-	{ value: "music", label: "音乐", icon: "🎵" },
-	{ value: "software", label: "软件", icon: "💿" },
-	{ value: "document", label: "文档", icon: "📄" },
-	{ value: "image", label: "图片", icon: "🖼️" },
-];
+function getCategories(t: (k: string) => string) {
+	return [
+		{ value: "", label: t("downloadsPage.form.category.uncategorized"), icon: "📦" },
+		{ value: "video", label: t("downloadsPage.form.category.video"), icon: "🎬" },
+		{ value: "music", label: t("downloadsPage.form.category.music"), icon: "🎵" },
+		{ value: "software", label: t("downloadsPage.form.category.software"), icon: "💿" },
+		{ value: "document", label: t("downloadsPage.form.category.document"), icon: "📄" },
+		{ value: "image", label: t("downloadsPage.form.category.image"), icon: "🖼️" },
+	];
+}
 
-function urlTypeLabel(url: string) {
-	if (url.startsWith("magnet:?")) return "🧲 磁力链接";
+function urlTypeLabel(url: string, t: (k: string) => string) {
+	if (url.startsWith("magnet:?")) return t("downloadsPage.form.linkType.magnet");
 	if (url.startsWith("https://")) return "🔒 HTTPS";
 	if (url.startsWith("http://")) return "🔓 HTTP";
-	return "❓ 未知";
+	return t("downloadsPage.form.linkType.unknown");
 }
 
 export function CreateDownloadForm({
@@ -86,7 +88,7 @@ export function CreateDownloadForm({
 
 	return (
 		<div data-card className="mb-6 p-5 space-y-4">
-			<h3 className="text-lg font-semibold text-white">新建下载任务</h3>
+			<h3 className="text-lg font-semibold text-white">{t("downloadsPage.form.title")}</h3>
 
 			{/* Batch mode toggle */}
 			<div className="flex items-center gap-3">
@@ -101,7 +103,7 @@ export function CreateDownloadForm({
 				>
 					📋 批量模式
 				</button>
-				{form.batchMode && <span className="text-xs text-slate-500">每行一个链接</span>}
+				{form.batchMode && <span className="text-xs text-slate-500">{t("downloadsPage.form.batchHint")}</span>}
 			</div>
 
 			{form.batchMode ? (
@@ -121,7 +123,7 @@ export function CreateDownloadForm({
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-cyan-400/30 placeholder:text-white/20 resize-y"
 					/>
 					<p className="text-[11px] text-slate-500">
-						批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。
+						{t("downloadsPage.form.batchNotice")}
 					</p>
 					{batchModeError && <p className="text-[11px] text-rose-300">{batchModeError}</p>}
 				</div>
@@ -138,16 +140,16 @@ export function CreateDownloadForm({
 						type="url"
 						value={form.url}
 						onChange={(e) => onFormChange({ ...form, url: e.target.value })}
-						placeholder="https://example.com/file.zip 或 magnet:?xt=urn:btih:..."
+						placeholder={t("downloadsPage.form.linkPlaceholder")}
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
-					{form.url && <p className="text-[11px] text-slate-500">{urlTypeLabel(form.url)}</p>}
+					{form.url && <p className="text-[11px] text-slate-500">{urlTypeLabel(form.url, t)}</p>}
 				</div>
 			)}
 
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadServer">目标 VPS</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadServer">{t("downloadsPage.form.targetVps")}</label>
 					<select
 						id="downloadServer"
 						value={form.serverId}
@@ -174,7 +176,7 @@ export function CreateDownloadForm({
 					)}
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadTargetPath">保存路径</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadTargetPath">{t("downloadsPage.form.savePath")}</label>
 					<input
 						id="downloadTargetPath"
 						value={form.targetPath}
@@ -192,19 +194,19 @@ export function CreateDownloadForm({
 						id="downloadFileName"
 						value={form.fileName}
 						onChange={(e) => onFormChange({ ...form, fileName: e.target.value })}
-						placeholder="留空自动"
+						placeholder={t("downloadsPage.form.savePathPlaceholder")}
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadCategory">分类</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadCategory">{t("downloadsPage.form.category")}</label>
 					<select
 						id="downloadCategory"
 						value={form.category}
 						onChange={(e) => onFormChange({ ...form, category: e.target.value })}
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30"
 					>
-						{categories.map((c) => (
+						{getCategories(t).map((c) => (
 							<option key={c.value} value={c.value}>
 								{c.icon} {c.label}
 							</option>
@@ -212,13 +214,13 @@ export function CreateDownloadForm({
 					</select>
 				</div>
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadMaxSpeed">限速 KB/s（可选）</label>
+					<label className="text-xs font-medium text-white/50 tracking-wide" htmlFor="downloadMaxSpeed">{t("downloadsPage.form.speedLimit")}</label>
 					<input
 						id="downloadMaxSpeed"
 						value={form.maxSpeedKb}
 						onChange={(e) => onFormChange({ ...form, maxSpeedKb: e.target.value })}
 						type="number"
-						placeholder="不限"
+						placeholder={t("downloadsPage.form.speedLimitPlaceholder")}
 						className="w-full rounded-lg border border-white/[0.06] bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none focus:border-cyan-400/30 placeholder:text-white/20"
 					/>
 				</div>
@@ -229,7 +231,7 @@ export function CreateDownloadForm({
 					data-tone="amber"
 					className="rounded-xl border border-amber-400/20 px-4 py-3 text-xs text-amber-200/70"
 				>
-					🧲 磁力链接采用中转模式：本机 aria2 RPC 下载 → SFTP 传输到目标 VPS → 清理临时文件。支持实时进度追踪。
+					{t("downloadsPage.form.magnetNotice")}
 				</div>
 			)}
 
@@ -241,8 +243,7 @@ export function CreateDownloadForm({
 					完成后的“下载文件”按钮和文件管理使用同一套访问策略。
 				</p>
 				<p className="mt-1 text-cyan-100/70/70">
-					不在下载页单独启动传输模式；选择目标 VPS 后按其存储直连设置显示当前真实模式，直连可用时走
-					Direct Gateway，未配置或切回中转时走网站 SFTP 中转。
+					{t("downloadsPage.form.transportInfo")}
 				</p>
 			</div>
 
@@ -253,7 +254,7 @@ export function CreateDownloadForm({
 					disabled={submitting || Boolean(batchModeError) || !form.serverId}
 					className="rounded-2xl bg-cyan-500 px-5 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:opacity-60"
 				>
-					{submitting ? "提交中…" : "开始下载"}
+					{submitting ? t("downloadsPage.form.submitting") : t("downloadsPage.form.submit")}
 				</button>
 			</div>
 		</div>

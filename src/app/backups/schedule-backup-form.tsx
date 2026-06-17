@@ -12,26 +12,30 @@ type Props = {
   commandByType: Record<BackupType, string>;
 };
 
-const TYPE_LABEL: Record<BackupType, string> = {
-  DATABASE: "数据库",
-  FILES: "文件",
-  FULL: "完整",
-};
+function getTypeLabel(t: (k: string) => string, type: BackupType): string {
+  const map: Record<BackupType, string> = {
+    DATABASE: t("backupsPage.schedule.type.database"),
+    FILES: t("backupsPage.schedule.type.files"),
+    FULL: t("backupsPage.schedule.type.full"),
+  };
+  return map[type];
+}
 
 const scheduleBackupTypeSelectId = "schedule-backup-type";
 const scheduleCronInputId = "schedule-backup-cron";
 
-function describeCronPreview(expr: string) {
+function describeCronPreview(expr: string, t: (k: string) => string) {
   const parts = expr.trim().split(/\s+/);
-  if (parts.length !== 5) return "请输入 5 段 Cron 表达式：分钟 小时 日期 月份 星期";
+  if (parts.length !== 5) return t("backupsPage.schedule.cronError.5parts");
   const [min, hour, day, month, dow] = parts;
-  if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return "每小时整点执行";
-  if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return `每天 ${hour!}:${min!.padStart(2, "0")} 执行`;
+  if (min === "0" && hour === "*" && day === "*" && month === "*" && dow === "*") return t("backupsPage.schedule.cronPreview.everyHour");
+  if (day === "*" && month === "*" && dow === "*" && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) return t("backupsPage.schedule.cronPreview.everyDay").replace("{hour}", hour!).replace("{min}", min!.padStart(2, "0"));
   if (day === "*" && month === "*" && /^\d+$/.test(dow!) && /^\d+$/.test(hour!) && /^\d+$/.test(min!)) {
-    const names: Record<string, string> = { "0": "周日", "1": "周一", "2": "周二", "3": "周三", "4": "周四", "5": "周五", "6": "周六" };
-    return `每${names[dow!] ?? `周${dow!}`} ${hour!}:${min!.padStart(2, "0")} 执行`;
+    const dowName = t(`backupsPage.schedule.cronPreview.dowName.${dow}`);
+    const safeName = dowName.startsWith("backupsPage.") ? t("backupsPage.schedule.cronPreview.dowFallback").replace("{dow}", dow!) : dowName;
+    return t("backupsPage.schedule.cronPreview.everyDow").replace("{dowName}", safeName).replace("{hour}", hour!).replace("{min}", min!.padStart(2, "0"));
   }
-  return "自定义 Cron；保存后会进入定时任务调度队列";
+  return t("backupsPage.schedule.cronPreview.custom");
 }
 
 export function ScheduleBackupForm({ servers, commandByType }: Props) {
@@ -42,7 +46,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "ok" | "error"; text: string } | null>(null);
   const enabledServers = useMemo(() => servers.filter((server) => server.enabled), [servers]);
-  const cronPreview = useMemo(() => describeCronPreview(cronExpression), [cronExpression]);
+  const cronPreview = useMemo(() => describeCronPreview(cronExpression, t), [cronExpression, t]);
   const command = commandByType[type];
 
   const toggleServer = (id: string) => {
@@ -59,22 +63,22 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
     setMessage(null);
     try {
       const serverIds = Array.from(selectedServerIds);
-      if (serverIds.length === 0) throw new Error("请选择至少一台执行备份的 VPS 节点");
+      if (serverIds.length === 0) throw new Error(t("backupsPage.schedule.error.noServer"));
       await csrfFetch("/api/scheduled-tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `定时${TYPE_LABEL[type]}备份`,
+          name: t("backupsPage.schedule.nameTemplate").replace("{type}", getTypeLabel(t, type)),
           cronExpression,
           command,
-          reason: `由备份页面创建的${TYPE_LABEL[type]}定时备份`,
+          reason: t("backupsPage.schedule.reasonTemplate").replace("{type}", getTypeLabel(t, type)),
           serverIds,
         }),
       });
-      setMessage({ type: "ok", text: "定时备份任务已创建，可在定时任务页面查看下一次运行时间和执行日志。" });
+      setMessage({ type: "ok", text: t("backupsPage.schedule.success") });
       setSelectedServerIds(new Set());
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "创建定时备份失败" });
+      setMessage({ type: "error", text: error instanceof Error ? error.message : t("backupsPage.schedule.failFallback") });
     } finally {
       setSubmitting(false);
     }
@@ -99,9 +103,9 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
       <p data-tone="cyan" className="rounded-lg border border-cyan-400/10 px-3 py-2 text-xs text-cyan-100">{t("common.preview")}{cronPreview}</p>
       <code className="block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{command}</code>
       <div className="space-y-2">
-        <p className="text-xs font-medium text-[var(--text-secondary)]">执行节点</p>
+        <p className="text-xs font-medium text-[var(--text-secondary)]">{t("backupsPage.schedule.executeOn")}</p>
         {enabledServers.length === 0 ? (
-          <p className="text-xs text-amber-200">暂无可用 VPS 节点，请先在 VPS 管理中启用至少一台节点。</p>
+          <p className="text-xs text-amber-200">{t("backupsPage.schedule.empty")}</p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
             {enabledServers.map((server) => (
@@ -114,7 +118,7 @@ export function ScheduleBackupForm({ servers, commandByType }: Props) {
         )}
       </div>
       <button type="submit" disabled={submitting || enabledServers.length === 0} className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60">
-        {submitting ? "创建中…" : "创建定时备份"}
+        {submitting ? t("backupsPage.schedule.submitting") : t("backupsPage.schedule.submit")}
       </button>
       {message && <p role="status" className={`text-xs ${message.type === "ok" ? "text-emerald-300" : "text-rose-300"}`}>{message.text}</p>}
     </form>
