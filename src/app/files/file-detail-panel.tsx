@@ -94,23 +94,23 @@ export function FileDetailPanel({
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
             <div className="grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <p className="text-xs text-slate-500">存储节点</p>
+                <p className="text-xs text-slate-500">{t("fileDetailPanel.storageNode")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.storageNode.name}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">驱动</p>
+                <p className="text-xs text-slate-500">{t("fileDetailPanel.driver")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.storageNode.driver}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">大小</p>
+                <p className="text-xs text-slate-500">{t("fileDetailPanel.size")}</p>
                 <p className="mt-1 font-medium">{detailEntry.sizeLabel}</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500">修改时间</p>
+                <p className="text-xs text-slate-500">{t("fileDetailPanel.modified")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.updatedAt
                     ? formatDate(detailEntry.updatedAt)
@@ -118,7 +118,7 @@ export function FileDetailPanel({
                 </p>
               </div>
               <div className="sm:col-span-2">
-                <p className="text-xs text-slate-500">访问方式</p>
+                <p className="text-xs text-slate-500">{t("fileDetailPanel.accessMode")}</p>
                 <p className="mt-1 font-medium">
                   {detailEntry.directAccess.description}
                 </p>

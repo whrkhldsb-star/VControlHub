@@ -213,6 +213,7 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
 }
 
 function SparkBars({ points, color, locale = "zh" }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink"; locale?: "zh" | "en" }) {
+  const { t } = useI18n();
   const max = Math.max(1, ...points.map((point) => point.value));
   const colors = {
     cyan: "bg-cyan-400/70",
@@ -220,7 +221,7 @@ function SparkBars({ points, color, locale = "zh" }: { points: Array<{ label: st
     pink: "bg-pink-400/70",
   };
   return (
-    <div className="mt-4 flex h-24 items-end gap-1" aria-label={locale === "zh" ? "趋势柱状图" : "Trend bar chart"}>
+    <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.trendChart")}>
       {points.map((point, index) => (
         <div key={`${point.label}-${index}`} className="flex min-w-0 flex-1 flex-col items-center gap-1">
           <div
@@ -236,12 +237,13 @@ function SparkBars({ points, color, locale = "zh" }: { points: Array<{ label: st
 }
 
 function StackedDownloadBars({ points, locale = "zh" }: { points: DownloadTrendPoint[]; locale?: "zh" | "en" }) {
+  const { t } = useI18n();
   const max = Math.max(
     1,
     ...points.map((point) => point.completed + point.failed + point.running + point.pending),
   );
   return (
-    <div className="mt-4 flex h-24 items-end gap-1" aria-label={locale === "zh" ? "下载趋势柱状图" : "Download trend bar chart"}>
+    <div className="mt-4 flex h-24 items-end gap-1" aria-label={t("dashboardAnalytics.downloadTrend")}>
       {points.map((point) => {
         const total = point.completed + point.failed + point.running + point.pending;
         const height = Math.max(6, (total / max) * 88);

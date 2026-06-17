@@ -83,6 +83,9 @@ export const zh: Record<string, string> = {
 	"dashboard.vps-nodes": "VPS 节点",
 	"dashboard.welcome": "欢迎回来",
 	"dashboard.widget-detail-close": "关闭详情",
+	"dashboardAnalytics.trendChart": "趋势柱状图",
+	"dashboardAnalytics.downloadTrend": "下载趋势柱状图",
+
 };
 
 export const en: Record<string, string> = {
@@ -163,4 +166,7 @@ export const en: Record<string, string> = {
 	"dashboard.vps-nodes": "VPS Nodes",
 	"dashboard.welcome": "Welcome back",
 	"dashboard.widget-detail-close": "Close details",
+	"dashboardAnalytics.trendChart": "Trend bar chart",
+	"dashboardAnalytics.downloadTrend": "Download trend bar chart",
+
 };

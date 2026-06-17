@@ -135,7 +135,7 @@ export function ArchivePreviewClient({
 						))}
 					</div>
 					<div className="px-4 py-2 text-xs text-slate-500 border-t border-white/[0.04]">
-						共 {entries.length} 项
+						{t("archivePreview.totalItems").replace("{count}", String(entries.length))}
 					</div>
 				</div>
 			) : entries && entries.length === 0 ? (

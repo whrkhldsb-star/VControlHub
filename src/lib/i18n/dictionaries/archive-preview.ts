@@ -14,6 +14,8 @@ export const zh: Record<string, string> = {
 	"archivePreview.table.name": "名称",
 	"archivePreview.table.size": "大小",
 	"archivePreview.entryType.directory": "目录",
+	"archivePreview.totalItems": "共 {count} 项",
+
 };
 
 export const en: Record<string, string> = {
@@ -29,4 +31,6 @@ export const en: Record<string, string> = {
 	"archivePreview.table.name": "Name",
 	"archivePreview.table.size": "Size",
 	"archivePreview.entryType.directory": "Directory",
+	"archivePreview.totalItems": "{count} items total",
+
 };

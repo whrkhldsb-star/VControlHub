@@ -11,6 +11,20 @@ export const zh: Record<string, string> = {
 	"sharesPage.picker.selected": "已选 {count} 个",
 	"sharesPage.picker.path": "当前位置",
 	"sharesPage.picker.breadcrumb": "路径导航",
+	"sharesPage.picker.description": "像文件管理一样浏览目录，勾选文件或文件夹后批量创建分享链接，不需要跳转到文件管理页。",
+	"sharesPage.picker.refresh": "刷新当前目录",
+	"sharesPage.picker.root": "根目录",
+	"sharesPage.picker.name": "名称",
+	"sharesPage.picker.type": "类型",
+	"sharesPage.picker.size": "大小",
+	"sharesPage.picker.loading": "加载中…",
+	"sharesPage.picker.folder": "文件夹",
+	"sharesPage.picker.file": "文件",
+	"sharesPage.picker.selectFolder": "选择文件夹",
+	"sharesPage.picker.selectFile": "选择文件",
+	"sharesPage.picker.selectedPrefix": "已选择",
+	"sharesPage.picker.selectedSuffix": "项",
+
 };
 
 export const en: Record<string, string> = {
@@ -18,8 +32,21 @@ export const en: Record<string, string> = {
 	"sharesPage.picker.search": "Search files",
 	"sharesPage.picker.cancel": "Cancel",
 	"sharesPage.picker.confirm": "Confirm share",
-	"sharesPage.picker.empty": "No files found",
 	"sharesPage.picker.selected": "{count} selected",
 	"sharesPage.picker.path": "Current path",
 	"sharesPage.picker.breadcrumb": "Path navigation",
+	"sharesPage.picker.description": "Browse directories like in File Manager, tick files or folders to create share links in bulk, no need to jump to the File Manager page.",
+	"sharesPage.picker.refresh": "Refresh current directory",
+	"sharesPage.picker.root": "Root directory",
+	"sharesPage.picker.name": "Name",
+	"sharesPage.picker.type": "Type",
+	"sharesPage.picker.size": "Size",
+	"sharesPage.picker.loading": "Loading…",
+	"sharesPage.picker.folder": "Folder",
+	"sharesPage.picker.file": "File",
+	"sharesPage.picker.selectFolder": "Select folder",
+	"sharesPage.picker.selectFile": "Select file",
+	"sharesPage.picker.selectedPrefix": "Selected",
+	"sharesPage.picker.selectedSuffix": "items",
+
 };

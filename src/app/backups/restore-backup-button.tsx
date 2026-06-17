@@ -15,7 +15,7 @@ type Props = {
 const CONFIRM_TEXT = "RESTORE";
 
 export function RestoreBackupButton({ backupId, backupType, disabled = false }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -32,7 +32,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
 
   const handleRestore = async () => {
     if (confirmText !== CONFIRM_TEXT) {
-      setError(`请输入 ${CONFIRM_TEXT} 以确认恢复。`);
+      setError(t("backupsPage.restore.errorInput").replace("{confirmText}", CONFIRM_TEXT));
       return;
     }
 
@@ -45,12 +45,16 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ confirm: CONFIRM_TEXT }),
       }) as { restoredAt?: string; error?: string };
-      setMessage(result.restoredAt ? `恢复已执行：${new Date(result.restoredAt).toLocaleString("zh-CN")}` : "恢复已执行");
+      setMessage(
+        result.restoredAt
+          ? t("backupsPage.restore.successWithTime").replace("{time}", new Date(result.restoredAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US"))
+          : t("backupsPage.restore.success")
+      );
       setConfirmOpen(false);
       setConfirmText("");
       router.refresh();
     } catch (restoreError) {
-      setError(restoreError instanceof Error ? restoreError.message : "恢复执行失败");
+      setError(restoreError instanceof Error ? restoreError.message : t("backupsPage.restore.errorFallback"));
     } finally {
       setPending(false);
     }
@@ -77,7 +81,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
             aria-describedby="restore-backup-description"
             className="mx-0 w-full max-w-md rounded-t-2xl border border-rose-400/30 bg-slate-950 p-5 shadow-2xl shadow-black/30 sm:mx-4 sm:rounded-2xl"
           >
-            <h3 id="restore-backup-title" className="text-base font-semibold text-white">确认恢复备份</h3>
+            <h3 id="restore-backup-title" className="text-base font-semibold text-white">{t("backupsPage.restore.confirmTitle")}</h3>
             <p id="restore-backup-description" className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
               恢复 <span className="font-semibold text-white">{backupType}</span> 备份会覆盖当前数据/文件。请输入 <span className="font-mono font-semibold text-rose-200">{CONFIRM_TEXT}</span> 后继续。
             </p>
@@ -111,7 +115,7 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 onClick={handleRestore}
                 data-tone="rose" className="min-h-11 rounded-xl border border-rose-400/30 px-4 py-2 text-sm font-semibold text-rose-100 transition hover:bg-rose-500/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {pending ? "正在恢复..." : "确认恢复"}
+                {pending ? t("backupsPage.restore.pending") : t("backupsPage.restore.confirm")}
               </button>
             </div>
           </div>

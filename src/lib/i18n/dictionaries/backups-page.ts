@@ -113,6 +113,14 @@ export const zh: Record<string, string> = {
 	"backupsPage.schedule.empty": "暂无可用 VPS 节点，请先在 VPS 管理中启用至少一台节点。",
 	"backupsPage.schedule.submitting": "创建中…",
 	"backupsPage.schedule.submit": "创建定时备份",
+	"backupsPage.restore.errorInput": "请输入 {confirmText} 以确认恢复。",
+	"backupsPage.restore.successWithTime": "恢复已执行：{time}",
+	"backupsPage.restore.errorFallback": "恢复执行失败",
+	"backupsPage.restore.confirmTitle": "确认恢复备份",
+	"backupsPage.restore.cancel": "取消",
+	"backupsPage.restore.pending": "正在恢复...",
+	"backupsPage.restore.confirm": "确认恢复",
+	"backupsPage.restore.warningDetail": "恢复 {type} 备份会覆盖当前数据/文件。请输入 {confirmText} 确认恢复",
 
 };
 
@@ -211,5 +219,13 @@ export const en: Record<string, string> = {
 	"backupsPage.schedule.empty": "No VPS nodes available. Enable at least one node in VPS Management first.",
 	"backupsPage.schedule.submitting": "Creating…",
 	"backupsPage.schedule.submit": "Create scheduled backup",
+	"backupsPage.restore.errorInput": "Please enter {confirmText} to confirm restore.",
+	"backupsPage.restore.successWithTime": "Restore executed: {time}",
+	"backupsPage.restore.errorFallback": "Restore execution failed",
+	"backupsPage.restore.confirmTitle": "Confirm restore backup",
+	"backupsPage.restore.cancel": "Cancel",
+	"backupsPage.restore.pending": "Restoring...",
+	"backupsPage.restore.confirm": "Confirm restore",
+	"backupsPage.restore.warningDetail": "Restoring the {type} backup will overwrite current data/files. Enter {confirmText} to confirm.",
 
 };

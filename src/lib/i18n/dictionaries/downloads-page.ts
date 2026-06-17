@@ -46,7 +46,7 @@ export const en: Record<string, string> = {
 	"downloadsPage.form.speedLimit": "Speed limit KB/s (optional)",
 	"downloadsPage.form.speedLimitPlaceholder": "Unlimited",
 	"downloadsPage.form.magnetNotice": "🧲 Magnet links use relay mode: aria2 RPC on this host → SFTP to target VPS → cleanup. Live progress tracking is supported.",
-	"downloadsPage.form.postSubmit": "The "Downloaded files" button after completion uses the same access policy as File Manager.",
+	"downloadsPage.form.postSubmit": "The \"Downloaded files\" button after completion uses the same access policy as File Manager.",
 	"downloadsPage.form.transportInfo": "Transport mode is not started from the Downloads page. The selected VPS's storage-direct setting determines the actual mode: direct when available, otherwise the SFTP relay.",
 	"downloadsPage.form.submitting": "Submitting…",
 	"downloadsPage.form.submit": "Start download",

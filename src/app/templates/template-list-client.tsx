@@ -70,7 +70,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 					templateId: template.id,
 					serverIds,
 					variables: vars,
-					reason: `从模板中心下发：${template.name}`,
+					reason: t("templatesPage.deployReason").replace("{name}", template.name),
 				}),
 			});
 			addToast("success", t("templatesPage.toast.submitted"));
