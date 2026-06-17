@@ -356,7 +356,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 
 			{/* Stats Panel */}
 			{showStats && stats && (
-				<div className="mt-3 p-4 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-xl">
+			<div className="mt-3 p-4 bg-[var(--surface-elevated)] border border-[var(--border)] rounded-xl">
 					<div className="flex items-center justify-between mb-3">
 						<h3 className="text-sm font-semibold text-white">{t("imageBedPage.stats.title")}</h3>
 						<button onClick={() => setShowStats(false)} className="text-slate-500 hover:text-slate-300 text-sm">✕</button>
@@ -430,12 +430,12 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="mt-2 flex items-center gap-2 text-xs">
 					<span className="text-slate-500">{t("imageBedPage.legacy.uploadTo")}</span>
 					<label className="sr-only" htmlFor="imageBedLegacyNode">{t("imageBedPage.legacy.nodeLabel")}</label>
-					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50">
+					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50">
 						<option value="">{t("imageBedPage.legacy.defaultNode")}</option>
 						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
 					</select>
 					<label className="sr-only" htmlFor="imageBedLegacyPath">{t("imageBedPage.legacy.pathLabel")}</label>
-					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50" />
+					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50" />
 					{!storageNodes.length && <button onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-cyan-400 hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
 				</div>
 				<div
@@ -490,7 +490,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && fetchImages(1)}
-						className="min-h-11 w-full rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 sm:w-72 light:bg-slate-100/50"
+						className="min-h-11 w-full rounded-lg border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50 sm:w-72"
 					/>
 				</label>
 				<button onClick={() => fetchImages(1)} className="min-h-11 rounded-lg bg-cyan-500/10 px-4 py-2 text-sm text-cyan-400 hover:bg-cyan-500/20 transition">{t("imageBedPage.search.submit")}</button>
@@ -508,7 +508,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div data-testid="image-bed-grid" className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 					{images.map((img) => (
 						<Card key={img.id}>
-							<div className="group relative aspect-square bg-slate-800/50 light:bg-slate-100/50 rounded-lg overflow-hidden mb-3">
+							<div className="group relative aspect-square bg-[var(--input-bg)] rounded-lg overflow-hidden mb-3">
 								{batchMode && (
 									<div
 										onClick={(e) => { e.stopPropagation(); toggleSelect(img.id); }}
@@ -586,22 +586,22 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<div className="space-y-3">
 							<div>
 								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishNode">存储节点（本地或 SFTP）</label>
-								<select id="imageBedPublishNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400/50">
+								<select id="imageBedPublishNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm({ ...publishForm, storageNodeId: e.target.value })} className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-400/50">
 									<option value="">选择存储节点</option>
 									{storageNodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
 								</select>
 							</div>
 							<div>
 								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishPath">文件相对路径</label>
-								<input id="imageBedPublishPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
+								<input id="imageBedPublishPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm({ ...publishForm, relativePath: e.target.value })} placeholder="e.g. images/photo.png" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
 								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishFilename">文件名（可选）</label>
-								<input id="imageBedPublishFilename" type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder="默认使用路径中的文件名" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
+								<input id="imageBedPublishFilename" type="text" value={publishForm.filename} onChange={(e) => setPublishForm({ ...publishForm, filename: e.target.value })} placeholder="默认使用路径中的文件名" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 							<div>
 								<label className="text-xs text-slate-400 mb-1 block" htmlFor="imageBedPublishAlbum">相册（可选）</label>
-								<input id="imageBedPublishAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder="归类到相册" className="w-full bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
+								<input id="imageBedPublishAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm({ ...publishForm, album: e.target.value })} placeholder="归类到相册" className="w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 light:placeholder:text-slate-400 focus:outline-none focus:border-cyan-400/50" />
 							</div>
 						</div>
 						<div className="mt-5 flex items-center justify-end gap-2">

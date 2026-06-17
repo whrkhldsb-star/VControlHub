@@ -443,7 +443,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 												defaultValue={task.maxSpeedKb ?? ""}
 												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
-												className="w-16 bg-slate-800/50 light:bg-slate-100/50 border border-slate-700 rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
+												className="w-16 bg-[var(--input-bg)] border-[var(--input-border)] rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
 											/>
 										</span>
 									)}

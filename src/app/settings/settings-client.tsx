@@ -632,7 +632,7 @@ function FieldRollbackButton({
 			disabled={disabled || isAtDefault}
 			title={isAtDefault ? "已经是默认值" : `恢复默认 (${field.defaultValue})`}
 			aria-label={`恢复 ${field.label} 到默认值`}
-			className="inline-flex items-center gap-0.5 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-[10px] font-medium text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40 light:border-slate-200 light:bg-slate-50 light:text-slate-600 light:hover:border-cyan-500/40 light:hover:text-cyan-700"
+			className="inline-flex items-center gap-0.5 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-[10px] font-medium text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40 light:bg-slate-50 light:hover:border-cyan-500/40 light:hover:text-cyan-700"
 		>
 			<span aria-hidden>↺</span>
 			{/* 可见文本用 sr-only 隐藏避免污染父 label.textContent; 视觉只看图标 ↺ */}
@@ -1041,10 +1041,10 @@ function SaveButtonWithDiff({
 					data-component="diff-table"
 					role="region"
 					aria-label="未保存的修改"
-					className="overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02] light:border-slate-200 light:bg-slate-50"
+					className="overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.02] light:bg-slate-50"
 				>
 					<table className="w-full text-xs">
-						<thead className="border-b border-white/[0.08] bg-white/[0.02] text-left text-[11px] uppercase tracking-wide text-slate-400 light:border-slate-200 light:bg-slate-100/70 light:text-slate-500">
+						<thead className="border-b border-white/[0.08] bg-white/[0.02] text-left text-[11px] uppercase tracking-wide text-slate-400 light:bg-slate-100/70">
 							<tr>
 								<th className="px-3 py-2 font-medium">字段</th>
 								<th className="px-3 py-2 font-medium">原值</th>
@@ -1058,10 +1058,10 @@ function SaveButtonWithDiff({
 									key={change.key}
 									data-pending-key={change.key}
 									data-pending-risk={change.riskLevel}
-									className="border-t border-white/[0.04] align-top light:border-slate-200"
+									className="border-t border-white/[0.04] align-top"
 								>
 									<td className="px-3 py-2 font-mono text-[11px] text-white light:text-slate-900">{change.label}</td>
-									<td className="px-3 py-2 text-slate-400 line-through light:text-slate-500">
+									<td className="px-3 py-2 text-slate-400 line-through">
 										{renderDiffValue(change.oldValue)}
 									</td>
 									<td className="px-3 py-2 text-cyan-100 light:text-cyan-800">{renderDiffValue(change.newValue)}</td>
@@ -1114,13 +1114,13 @@ function HighRiskConfirmModal({
 			aria-labelledby="high-risk-confirm-title"
 			data-component="high-risk-confirm-modal"
 			data-testid="high-risk-confirm-modal"
-			className="rounded-2xl border border-white/[0.08] bg-slate-900/95 p-0 text-white shadow-2xl backdrop:bg-slate-950/70 light:border-slate-200 light:bg-white light:text-slate-900 light:backdrop:bg-slate-900/60"
+			className="rounded-2xl border border-white/[0.08] bg-slate-900/95 p-0 text-white shadow-2xl backdrop:bg-slate-950/70 light:bg-white light:text-slate-900 light:backdrop:bg-slate-900/60"
 		>
 			<div className="w-[min(560px,90vw)] p-5">
 				<h2 id="high-risk-confirm-title" className="text-base font-semibold text-rose-200 light:text-rose-700">
 					确认高风险修改
 				</h2>
-				<p className="mt-1 text-xs text-slate-400 light:text-slate-600">
+				<p className="mt-1 text-xs text-slate-400">
 					以下 {changes.length} 项修改会立即影响已运行服务或安全策略，请二次确认。
 				</p>
 				<ul className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
@@ -1136,7 +1136,7 @@ function HighRiskConfirmModal({
 							<div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
 								<div>
 									<span className="text-slate-500">原值 </span>
-									<span className="text-slate-300 line-through light:text-slate-500">{renderDiffValue(change.oldValue, 40)}</span>
+									<span className="text-slate-300 line-through">{renderDiffValue(change.oldValue, 40)}</span>
 								</div>
 								<div>
 									<span className="text-slate-500">新值 </span>
@@ -1152,7 +1152,7 @@ function HighRiskConfirmModal({
 						onClick={onCancel}
 						disabled={busy}
 						data-action="cancel"
-						className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 light:border-slate-200 light:bg-white light:text-slate-700 light:hover:bg-slate-50"
+						className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 light:bg-white light:text-slate-700 light:hover:bg-slate-50"
 					>
 						取消
 					</button>
