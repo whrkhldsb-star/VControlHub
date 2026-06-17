@@ -146,7 +146,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             aria-label={t("audit.filterBySeverity")}
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
-            <option value="">全部级别</option>
+            <option value="">{t("audit.all-severities")}</option>
             <option value="INFO">INFO</option>
             <option value="WARNING">WARNING</option>
             <option value="CRITICAL">CRITICAL</option>
@@ -161,13 +161,13 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none"
           >
             <option value="">{t("audit.all-types")}</option>
-            <option value="auth.login">登录</option>
-            <option value="auth.login_failed">登录失败</option>
-            <option value="auth.password_change">修改密码</option>
-            <option value="storage.file_delete">删除文件</option>
+            <option value="auth.login">{t("audit.action.auth.login")}</option>
+            <option value="auth.login_failed">{t("audit.action.auth.login_failed")}</option>
+            <option value="auth.password_change">{t("audit.action.auth.password_change")}</option>
+            <option value="storage.file_delete">{t("audit.action.storage.file_delete")}</option>
             <option value="server.create">{t("audit.create-node")}</option>
-            <option value="command.execute">执行命令</option>
-            <option value="download.create">创建下载</option>
+            <option value="command.execute">{t("audit.action.command.execute")}</option>
+            <option value="download.create">{t("audit.action.download.create")}</option>
           </select>
           <button
             type="button"
@@ -207,25 +207,25 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Desktop */}
         <div className="hidden md:block">
           <div className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] bg-white/5 px-4 py-3 text-xs uppercase tracking-[0.2em] text-slate-400">
-            <div>时间</div>
-            <div>级别</div>
-            <div>类型</div>
-            <div>操作者</div>
+            <div>{t("audit.header.time")}</div>
+            <div>{t("audit.header.level")}</div>
+            <div>{t("audit.header.type")}</div>
+            <div>{t("audit.header.actor")}</div>
             <div>{t("audit.details")}</div>
             <div>{t("audit.source")}</div>
           </div>
           <div className="divide-y divide-white/5 bg-slate-950/40">
             {loading ? (
-              <EmptyState>加载中…</EmptyState>
+              <EmptyState>{t("audit.loading")}</EmptyState>
             ) : error && !data ? (
               <div className="px-4 py-10 text-sm text-rose-200">{t("audit.load-error")}</div>
             ) : !data || data.logs.length === 0 ? (
-              <EmptyState>暂无审计日志。</EmptyState>
+              <EmptyState>{t("audit.empty")}</EmptyState>
             ) : (
               data.logs.map((log) => (
                 <div key={log.id} className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
                   <div className="text-xs text-slate-400">
-                    {new Date(log.createdAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    {new Date(log.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </div>
                   <div>
                     <span data-tone={severityTone(log.severity)} className="rounded-full border px-2 py-0.5 text-[10px] font-medium">
@@ -249,11 +249,11 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         {/* Mobile */}
         <div className="md:hidden divide-y divide-white/5 bg-slate-950/40">
           {loading ? (
-            <EmptyState>加载中…</EmptyState>
+            <EmptyState>{t("audit.loading")}</EmptyState>
           ) : error ? (
             <div className="px-4 py-10 text-sm text-rose-200">{t("audit.load-error")}</div>
           ) : !data || data.logs.length === 0 ? (
-            <EmptyState>暂无审计日志。</EmptyState>
+            <EmptyState>{t("audit.empty")}</EmptyState>
           ) : (
             data.logs.map((log) => (
               <div key={log.id} className="px-4 py-3 space-y-2">
@@ -264,7 +264,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                   </span>
                 </div>
                 <div className="text-xs text-slate-400">
-                  {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString("zh-CN")}
+                  {log.actor ? (log.actor.displayName ?? log.actor.username) : log.actorType} · {new Date(log.createdAt).toLocaleString(locale === "zh" ? "zh-CN" : "en-US")}
                 </div>
                 <div className="text-xs text-slate-500 font-mono truncate">
                   {Object.entries(log.detail).map(([k, v]) => `${k}=${String(v)}`).join(", ")}
@@ -287,7 +287,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             ← 上一页
           </button>
           <span className="text-sm text-slate-400">
-            第 {data.page} / {data.totalPages} 页 · 共 {data.total} 条
+            {t("audit.pagination.info", { page: data.page, totalPages: data.totalPages, total: data.total })}
           </span>
           <button
             type="button"
