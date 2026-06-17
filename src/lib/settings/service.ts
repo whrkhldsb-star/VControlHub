@@ -32,6 +32,8 @@ const DEFAULTS: Record<string, string> = {
 	"smtp.from": "",
 	"smtp.alertRecipients": "",
 	"smtp.enabled": "false",
+	// TR-020 M02: 仪表盘拖拽重排默认开启 (admin 可关)
+	"dashboard.layout.dragReorderEnabled": "true",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),

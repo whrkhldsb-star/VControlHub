@@ -4,6 +4,7 @@ import { getStorageOverview } from "@/lib/storage/service";
 import { listCommandRequests } from "@/lib/command/service";
 import { getUnreadCount } from "@/lib/notification/service";
 import { prisma } from "@/lib/db";
+import { getSetting } from "@/lib/settings/service";
 import { PageShell } from "@/components/page-shell";
 import { DashboardAnalyticsPanel } from "../dashboard-analytics-panel";
 import { DashboardPreferenceClient } from "../dashboard-preference-client";
@@ -36,7 +37,7 @@ function formatDashboardAuditDate(value: Date | string | number) {
 
 export default async function DashboardPage() {
   const session = await requireSession("/dashboard");
-  const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotif, activeScheduled] = await Promise.all([
+  const [servers, storage, requests, recentAuditLogs, downloadStats, unreadNotif, activeScheduled, dragReorderEnabledRaw] = await Promise.all([
     listServerProfiles(),
     getStorageOverview(),
     listCommandRequests(),
@@ -48,7 +49,11 @@ export default async function DashboardPage() {
     prisma.downloadTask.groupBy({ by: ["status"], _count: true }),
     getUnreadCount(session.userId),
     prisma.scheduledTask.count({ where: { status: "ACTIVE" } }),
+    // TR-020 M02: admin 可关的仪表盘拖拽重排总开关 (默认 true)
+    getSetting("dashboard.layout.dragReorderEnabled"),
   ]);
+  // 默认值兜底: 数据库无记录时 DEFAULTS 已是 "true", 但保险起见再判断一次
+  const dragReorderEnabled = dragReorderEnabledRaw !== "false";
 
   const pendingCount = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
   const recentRequests = requests.slice(0, 5);
@@ -102,7 +107,7 @@ export default async function DashboardPage() {
           activeScheduledTasks: activeScheduled,
         }}
       />
-      <DashboardPreferenceClient>
+      <DashboardPreferenceClient dragReorderEnabled={dragReorderEnabled}>
         <DashboardServerHero
           summary={{
             total: servers.length,

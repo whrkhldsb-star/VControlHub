@@ -161,4 +161,55 @@ describe("DashboardPreferenceClient", () => {
       dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
     });
   });
+
+  // TR-020 M02: admin 在系统设置关闭拖拽重排时, 整个 toolbar 都不渲染
+  it("hides the customize toolbar entirely when dragReorderEnabled=false", async () => {
+    csrfFetchMock.mockResolvedValue({
+      defaultPage: "/",
+      dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+      notificationsEnabled: true,
+      notificationSound: true,
+      autoRefreshInterval: 30,
+    });
+
+    render(
+      <DashboardPreferenceClient dragReorderEnabled={false}>
+        <section data-dashboard-widget="server-status">服务器状态</section>
+        <section data-dashboard-widget="quick-links">快捷入口</section>
+        <section data-dashboard-widget="analytics">数据趋势</section>
+        <section data-dashboard-widget="audit-log">最近操作日志</section>
+      </DashboardPreferenceClient>,
+    );
+
+    // 编辑入口、提示条、保存/完成按钮都不应该出现
+    expect(screen.queryByRole("button", { name: "dashboard.customize-edit" })).not.toBeInTheDocument();
+    expect(screen.queryByText("dashboard.customize-drag-tip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "dashboard.customize-done" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "dashboard.customize-reset" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("customize-done")).not.toBeInTheDocument();
+
+    // widget 内容本身依然渲染 (开关只控制编辑入口, 不影响 widget 可见)
+    expect(screen.getByText("服务器状态")).toBeInTheDocument();
+    expect(screen.getByText("快捷入口")).toBeInTheDocument();
+    expect(screen.getByText("数据趋势")).toBeInTheDocument();
+    expect(screen.getByText("最近操作日志")).toBeInTheDocument();
+
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+  });
+
+  it("renders the customize toolbar by default (dragReorderEnabled defaults to true)", async () => {
+    csrfFetchMock.mockResolvedValue({
+      defaultPage: "/",
+      dashboardWidgets: ["server-status", "quick-links", "analytics", "audit-log"],
+      notificationsEnabled: true,
+      notificationSound: true,
+      autoRefreshInterval: 30,
+    });
+
+    renderDashboardPreferenceClient();
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
+
+    // 默认 dragReorderEnabled=true, 编辑入口应当可见
+    expect(screen.getByRole("button", { name: "dashboard.customize-edit" })).toBeInTheDocument();
+  });
 });

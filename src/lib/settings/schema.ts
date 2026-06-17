@@ -28,6 +28,8 @@ export const SettingKey = z.union([
 	z.literal("runtime.operationTaskListLimit"),
 	z.literal("runtime.aiProviderListLimit"),
 	z.literal("runtime.aiConversationListLimit"),
+	// TR-020 M02: 仪表盘拖拽重排总开关 (默认 true, admin 可关)
+	z.literal("dashboard.layout.dragReorderEnabled"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -59,6 +61,8 @@ export const VALID_SETTING_KEYS: string[] = [
 	"runtime.operationTaskListLimit",
 	"runtime.aiProviderListLimit",
 	"runtime.aiConversationListLimit",
+	// TR-020 M02: 仪表盘拖拽重排总开关
+	"dashboard.layout.dragReorderEnabled",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */

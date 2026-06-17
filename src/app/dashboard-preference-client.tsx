@@ -36,7 +36,15 @@ const defaultDashboardPreferences: DashboardPreferences = {
  * State is local — no Redux / Zustand. The toolbar is "stateless" and only
  * emits intent (see DashboardCustomizeToolbar).
  */
-export function DashboardPreferenceClient({ children }: { children: React.ReactNode }) {
+export function DashboardPreferenceClient({
+	children,
+	// TR-020 M02: 系统设置里 admin 可关的拖拽重排总开关
+	// 默认 true, 关闭后整个工具栏不再渲染 (用户看不到「编辑布局」入口)
+	dragReorderEnabled = true,
+}: {
+	children: React.ReactNode;
+	dragReorderEnabled?: boolean;
+}) {
 	const { t } = useI18n();
 	const [preferences, setPreferences] = useState<DashboardPreferences>(defaultDashboardPreferences);
 	const [isEditing, setIsEditing] = useState(false);
@@ -235,16 +243,19 @@ export function DashboardPreferenceClient({ children }: { children: React.ReactN
 	return (
 		<>
 			<style>{visibleStyle}</style>
-			<DashboardCustomizeToolbar
-				isEditing={isEditing}
-				onEnterEdit={handleEnterEdit}
-				onExitEdit={() => {
-					void handleExitEdit();
-				}}
-				onReset={handleReset}
-				hiddenIds={effectiveHidden}
-				onToggleVisibility={handleToggleVisibility}
-			/>
+			{/* TR-020 M02: 系统设置关闭拖拽时, 整个工具栏不再渲染 */}
+			{dragReorderEnabled ? (
+				<DashboardCustomizeToolbar
+					isEditing={isEditing}
+					onEnterEdit={handleEnterEdit}
+					onExitEdit={() => {
+						void handleExitEdit();
+					}}
+					onReset={handleReset}
+					hiddenIds={effectiveHidden}
+					onToggleVisibility={handleToggleVisibility}
+				/>
+			) : null}
 			<div
 				ref={gridRef}
 				className={

@@ -79,7 +79,7 @@ describe("getSectionSaveKeys", () => {
 describe("buildTocItems", () => {
 	it("emits one TOC entry per schema section in declaration order", () => {
 		const items = buildTocItems();
-		expect(items.map((i) => i.id)).toEqual(["2fa", "platform", "password", "runtime", "smtp"]);
+		expect(items.map((i) => i.id)).toEqual(["2fa", "platform", "password", "runtime", "smtp", "dashboard"]);
 	});
 
 	it("strips the parenthetical suffix from the SMTP title for the TOC chip", () => {
@@ -94,8 +94,9 @@ describe("buildTocItems", () => {
 
 	it("uses field count as the subtitle for sections without a custom override", () => {
 		const items = buildTocItems();
-		// All 5 sections currently have a custom subtitle; verify them all explicitly.
+		// All 6 sections currently have a custom subtitle; verify them all explicitly.
 		expect(items.find((i) => i.id === "2fa")?.subtitle).toBe("两步验证");
+		expect(items.find((i) => i.id === "dashboard")?.subtitle).toBe("拖拽重排 / 编辑入口");
 		expect(items.find((i) => i.id === "platform")?.subtitle).toBe("品牌 / Logo");
 		expect(items.find((i) => i.id === "password")?.subtitle).toBe("超时 / 复杂度");
 		expect(items.find((i) => i.id === "smtp")?.subtitle).toBe("SMTP / 告警收件人");
@@ -179,8 +180,10 @@ describe("Schema declaration order", () => {
 		// settings-client.test.tsx asserts save button positions [0]=platform, [1]=password,
 		// [2]=runtime, [3]=smtp. The schema must keep that order; if you reorder, also
 		// update the test assertions.
+		// TR-020 M02: 仪表盘拖拽重排总开关放在 SETTINGS_SCHEMA 末尾, 不影响 platform/password/runtime/smtp
+		// 的保存按钮索引, 但 saveable 列表新增 dashboard 末位
 		const saveable = SETTINGS_SCHEMA.filter((s) => !s.custom);
-		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp"]);
+		expect(saveable.map((s) => s.id)).toEqual(["platform", "password", "runtime", "smtp", "dashboard"]);
 	});
 });
 

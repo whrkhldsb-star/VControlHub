@@ -346,6 +346,25 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 			},
 		],
 	},
+	{
+		// TR-020 M02: 仪表盘布局相关总开关 (admin 可关)
+		// 放在 SETTINGS_SCHEMA 末尾, 不会改变既有 platform/password/runtime/smtp 的保存按钮顺序断言
+		id: "dashboard",
+		icon: "🧩",
+		title: "仪表盘布局",
+		description: "控制仪表盘首页的拖拽重排与编辑入口；不影响 widget 内容本身。",
+		defaultOpen: false,
+		saveMessage: "仪表盘布局设置已保存；拖拽开关关闭后首页不再显示「编辑布局」入口。",
+		fields: [
+			{
+				key: "dashboard.layout.dragReorderEnabled",
+				label: "允许拖拽重排仪表盘 widget",
+				type: "switch",
+				defaultValue: "true",
+				helperText: "关闭后仪表盘顶部不再显示「编辑布局」入口，widget 顺序与显隐使用当前持久化结果不再变化。",
+			},
+		],
+	},
 ];
 
 /* ── Helpers ────────────────────────────────────────────── */
@@ -365,6 +384,7 @@ export function buildTocItems(): { id: string; icon: string; title: string; subt
 		password: "超时 / 复杂度",
 		smtp: "SMTP / 告警收件人",
 		runtime: "命令 / SSH / 列表上限",
+		dashboard: "拖拽重排 / 编辑入口",
 	};
 	return SETTINGS_SCHEMA.map((s) => ({
 		id: s.id,
