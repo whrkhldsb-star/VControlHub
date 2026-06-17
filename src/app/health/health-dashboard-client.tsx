@@ -58,6 +58,7 @@ const healthCopy: Record<"zh" | "en", HealthCopy> = {
 		summaryCards: { total: "节点总数", online: "在线正常", warning: "性能警告", critical: "严重告警", offline: "离线/停用" },
 		ui: {
 			selfCheck: "系统自检",
+			collectingMetrics: "正在采集自检指标…",
 			repairSuggestions: "修复建议",
 			checksSummary: (summary) => `${summary.total} 项检查 · ${summary.healthy} 正常 · ${summary.warning} 警告 · ${summary.critical} 严重`,
 			auditLog: "看审计日志",
@@ -121,6 +122,7 @@ const healthCopy: Record<"zh" | "en", HealthCopy> = {
 		summaryCards: { total: "Total Nodes", online: "Online Healthy", warning: "Performance Warnings", critical: "Critical Alerts", offline: "Offline/Disabled" },
 		ui: {
 			selfCheck: "System Self-check",
+			collectingMetrics: "Collecting self-check metrics…",
 			repairSuggestions: "Repair Suggestions",
 			checksSummary: (summary) => `${summary.total} checks · ${summary.healthy} healthy · ${summary.warning} warnings · ${summary.critical} critical`,
 			auditLog: "View Audit Log",
@@ -363,7 +365,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 						<div className="min-w-0">
 							<p className="text-xs uppercase tracking-[0.25em] text-cyan-300/70">{copy.ui.selfCheck}</p>
 							<h2 className="mt-1 text-lg font-semibold text-white">{copy.ui.repairSuggestions}</h2>
-							<p className="mt-1 text-xs text-slate-400">{locale === "zh" ? "正在采集自检指标…" : "Collecting self-check metrics…"}</p>
+							<p className="mt-1 text-xs text-slate-400">{copy.ui.collectingMetrics}</p>
 						</div>
 					</div>
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
