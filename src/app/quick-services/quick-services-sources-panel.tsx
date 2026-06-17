@@ -16,6 +16,7 @@
 
 import { useState } from "react";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type AppSource = {
 	id: string;
@@ -37,14 +38,15 @@ type SourcesPanelActions = {
 	syncing: string | null;
 };
 
-const SOURCE_PRESETS = [
+function getSourcePresets(t: (k: string) => string) {
+  return [
 	{
 		key: "linuxserver",
 		badge: "LinuxServer",
 		label: "LinuxServer.io",
 		type: "json" as const,
 		url: "https://docs.linuxserver.io/general/container-customization",
-		description: "LinuxServer 团队精选，覆盖文件、媒体、自动化等场景。",
+		description: t("quickServicesPage.sources.linuxserverDesc"),
 	},
 	{
 		key: "github-apps",
@@ -52,19 +54,20 @@ const SOURCE_PRESETS = [
 		label: "GitHub Apps",
 		type: "github" as const,
 		url: "https://api.github.com/repos/example/apps.json",
-		description: "从 GitHub 仓库同步社区维护的应用列表。",
+		description: t("quickServicesPage.sources.githubDesc"),
 	},
 	{
 		key: "custom",
 		badge: "Custom",
-		label: "自定义 JSON",
+		label: t("quickServicesPage.sources.customLabel"),
 		type: "json" as const,
 		url: "https://example.com/apps.json",
-		description: "填写你自己托管的 JSON catalog 地址。",
+		description: t("quickServicesPage.sources.customDesc"),
 	},
-];
+  ];
+}
 
-type SourcePresetKey = (typeof SOURCE_PRESETS)[number]["key"];
+type SourcePresetKey = "linuxserver" | "github-apps" | "custom";
 
 type SourcesPanelProps = {
 	sources: AppSource[];
@@ -73,6 +76,7 @@ type SourcesPanelProps = {
 };
 
 export function SourcesPanel({ sources, actions, onRequestDeleteSource }: SourcesPanelProps) {
+	const { t } = useI18n();
 	const [sourcePreset, setSourcePreset] = useState<SourcePresetKey | null>(null);
 	const [newSourceName, setNewSourceName] = useState("");
 	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
@@ -80,7 +84,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 	const [newSourceType, setNewSourceType] = useState<"json" | "github" | "linuxserver">("json");
 
 	const applySourcePreset = (key: SourcePresetKey) => {
-		const preset = SOURCE_PRESETS.find((item) => item.key === key);
+		const preset = getSourcePresets(t).find((item) => item.key === key);
 		if (!preset) return;
 		setSourcePreset(key);
 		setNewSourceType(preset.type);
@@ -107,19 +111,19 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 			<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4 space-y-4">
 				<div className="flex items-center justify-between gap-3">
 					<div>
-						<p className="text-xs uppercase tracking-[0.2em] text-slate-500">新增应用源</p>
-						<p className="mt-1 text-sm text-slate-400">先选一个预设，再按你的实际源地址微调。</p>
+						<p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("quickServicesPage.sources.header")}</p>
+						<p className="mt-1 text-sm text-slate-400">{t("quickServicesPage.sources.headerDesc")}</p>
 					</div>
-					<span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-slate-500">点卡片填充</span>
+					<span className="rounded-full border border-white/[0.08] px-2 py-1 text-[10px] text-slate-500">{t("quickServicesPage.sources.tapToFill")}</span>
 				</div>
 				<div className="grid gap-3 sm:grid-cols-3">
-					{SOURCE_PRESETS.map((preset) => {
+					{getSourcePresets(t).map((preset) => {
 						const active = sourcePreset === preset.key;
 						return (
 							<button
 								key={preset.key}
 								type="button"
-								onClick={() => applySourcePreset(preset.key)}
+								onClick={() => applySourcePreset(preset.key as SourcePresetKey)}
 								className={`rounded-xl border p-3 text-left transition ${active ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/[0.08] bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] light:hover:bg-white"}`}
 							>
 								<div className="flex items-center justify-between gap-2">
@@ -134,7 +138,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				</div>
 				<div className="grid gap-3 md:grid-cols-2">
 					<label className="space-y-1">
-						<span className="text-xs text-slate-400">源名称</span>
+						<span className="text-xs text-slate-400">{t("quickServicesPage.sources.name")}</span>
 						<input
 							value={newSourceName}
 							onChange={(e) => setNewSourceName(e.target.value)}
@@ -143,7 +147,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						/>
 					</label>
 					<label className="space-y-1">
-						<span className="text-xs text-slate-400">显示名称</span>
+						<span className="text-xs text-slate-400">{t("quickServicesPage.sources.displayName")}</span>
 						<input
 							value={newSourceDisplayName}
 							onChange={(e) => setNewSourceDisplayName(e.target.value)}
@@ -152,7 +156,7 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						/>
 					</label>
 					<label className="space-y-1 md:col-span-2">
-						<span className="text-xs text-slate-400">源地址</span>
+						<span className="text-xs text-slate-400">{t("quickServicesPage.sources.url")}</span>
 						<input
 							value={newSourceUrl}
 							onChange={(e) => setNewSourceUrl(e.target.value)}
@@ -184,19 +188,19 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 				</div>
 			</div>
 			<div className="flex items-center justify-between">
-				<p className="text-xs text-slate-500">管理第三方应用源，同步后可在「社区推荐」中一键安装</p>
+				<p className="text-xs text-slate-500">t("quickServicesPage.sources.manageDesc")，同步后可在「社区推荐」中一键安装</p>
 				<button
 					type="button"
 					onClick={() => actions.doSync()}
 					disabled={actions.syncing !== null}
 					className="rounded-lg bg-cyan-500 px-4 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-40"
 				>
-					{actions.syncing === "all" ? "同步中…" : "🔄 同步所有源"}
+					{actions.syncing === "all" ? t("quickServicesPage.sources.syncing") : t("quickServicesPage.sources.syncAll")}
 				</button>
 			</div>
 			{sources.length === 0 && (
 				<EmptyState icon="🔗" variant="boxed">
-					还没有配置任何第三方源
+					t("quickServicesPage.sources.empty")
 				</EmptyState>
 			)}
 			{sources.map((src) => (
@@ -211,19 +215,19 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 						</div>
 						<div className="flex items-center gap-2">
 							<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.enabled ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-400" : "border-white/[0.06] text-slate-500"}`}>
-								{src.enabled ? "已启用" : "已禁用"}
+								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</span>
 							{src.lastSyncStatus && (
 								<span className={`text-[10px] px-2 py-0.5 rounded-full border ${src.lastSyncStatus === "success" ? "border-emerald-400/20 bg-emerald-500/[0.06] text-emerald-400" : "border-rose-400/20 bg-rose-500/[0.06] text-rose-400"}`}>
-									{src.lastSyncStatus === "success" ? "同步成功" : "同步失败"}
+									{src.lastSyncStatus === "success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
 								</span>
 							)}
 						</div>
 					</div>
 					<div className="flex items-center gap-3 text-[10px] text-slate-500">
-						<span>类型: {src.type}</span>
-						<span>同步次数: {src.syncCount}</span>
-						{src.lastSyncAt && <span>上次同步: {new Date(src.lastSyncAt).toLocaleString()}</span>}
+						<span>{t("quickServicesPage.sources.type") + ": " + src.type}</span>
+						<span>{t("quickServicesPage.sources.syncCount") + ": " + String(src.syncCount)}</span>
+						{src.lastSyncAt && <span>{t("quickServicesPage.sources.lastSyncAt") + ": " + new Date(src.lastSyncAt).toLocaleString()}</span>}
 					</div>
 					{src.lastSyncError && (
 						<div className="text-[10px] text-rose-300 bg-rose-500/[0.06] rounded px-2 py-1">{src.lastSyncError}</div>
@@ -235,14 +239,14 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							disabled={actions.syncing !== null}
 							className="rounded-lg border border-white/[0.1] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.06] transition disabled:opacity-50"
 						>
-							{actions.syncing === src.id ? "同步中…" : "立即同步"}
+							{actions.syncing === src.id ? "同步中…" : t("quickServicesPage.sources.syncNow")}
 						</button>
 						<button
 							type="button"
 							onClick={() => actions.doToggleSource(src.id, !src.enabled)}
 							className={`rounded-lg border px-3 py-1.5 text-xs transition ${src.enabled ? "border-amber-400/20 text-amber-300 hover:bg-amber-500/[0.08]" : "border-emerald-400/20 text-emerald-300 hover:bg-emerald-500/[0.08]"}`}
 						>
-							{src.enabled ? "禁用" : "启用"}
+							{src.enabled ? t("quickServicesPage.sources.disable") : t("quickServicesPage.sources.enable")}
 						</button>
 						<button
 							type="button"

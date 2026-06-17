@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 interface StorageNode {
   id: string;
@@ -10,6 +11,7 @@ interface StorageNode {
 }
 
 export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
@@ -56,7 +58,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       setExpiresIn("");
       router.refresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "创建失败");
+      setError(e instanceof Error ? e.message : t("sharesPage.create.errorFallback"));
     } finally {
       setSaving(false);
     }
@@ -69,42 +71,42 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           onClick={() => setOpen(true)}
           className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
         >
-          + 高级创建分享链接
+          t("sharesPage.create.title")
         </button>
       ) : (
         <div data-card className=" p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-white">高级分享链接</h3>
-              <p className="mt-1 text-xs text-slate-500">选择存储节点和路径。目录分享会公开列出该路径下已索引文件，访问者可逐个下载。</p>
+              <h3 className="text-sm font-semibold text-white">{t("sharesPage.create.advancedTitle")}</h3>
+              <p className="mt-1 text-xs text-slate-500">{t("sharesPage.create.desc")}</p>
             </div>
             <button onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-slate-500 hover:text-slate-300">收起</button>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareNode">存储节点</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareNode">{t("sharesPage.create.node")}</label>
               <select id="createShareNode" value={nodeId} onChange={(e) => setNodeId(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none">
                 {nodes.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePath">访问路径</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createSharePath">{t("sharesPage.create.path")}</label>
               <input id="createSharePath" value={path} onChange={(e) => setPath(e.target.value)} placeholder={entryType === "DIRECTORY" ? "如 /public 或 /docs" : "如 /docs/readme.md"} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareEntryType">分享类型</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareEntryType">{t("sharesPage.create.entryType")}</label>
               <select id="createShareEntryType" value={entryType} onChange={(e) => setEntryType(e.target.value as "FILE" | "DIRECTORY")} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none">
-                <option value="DIRECTORY">目录：允许访问路径下所有已索引文件</option>
-                <option value="FILE">单文件：只允许下载该文件</option>
+                <option value="DIRECTORY">{t("sharesPage.create.entryType.DIRECTORY")}</option>
+                <option value="FILE">{t("sharesPage.create.entryType.FILE")}</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareName">名称（可选）</label>
+              <label className="block text-xs text-[var(--text-secondary)] mb-1" htmlFor="createShareName">{t("sharesPage.create.name")}</label>
               <input id="createShareName" value={name} onChange={(e) => setName(e.target.value)} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
             <div>
-              <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">有效期（小时，空=永久）</label>
+              <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.expires")}</label>
               <input id="share-expires-in" type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
           </div>
@@ -113,7 +115,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           {result && (
             <div data-tone="emerald" className="mt-3 rounded-lg border border-emerald-400/20 p-3">
-              <p className="text-xs text-emerald-300 font-medium">✅ 分享链接已创建</p>
+              <p className="text-xs text-emerald-300 font-medium">t("sharesPage.create.success")</p>
               <div className="mt-2 flex items-center gap-2">
                 <code className="block flex-1 break-all text-xs text-emerald-200">{shareUrl || `/share/${result.token}`}</code>
                 <button
@@ -121,10 +123,10 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
                   onClick={handleCopy}
                   data-tone="emerald" className="shrink-0 rounded-lg border border-emerald-400/30 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/20"
                 >
-                  {copied ? "已复制 ✓" : "复制链接"}
+                  {copied ? t("sharesPage.create.copied") : t("sharesPage.create.copy")}
                 </button>
               </div>
-              <p className="mt-1 text-[10px] text-slate-500">请妥善保存 token，数据库仅存储哈希，无法再次查看。</p>
+              <p className="mt-1 text-[10px] text-slate-500">t("sharesPage.create.tokenWarning")，数据库仅存储哈希，无法再次查看。</p>
             </div>
           )}
 
@@ -133,7 +135,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             disabled={saving || !nodeId || !path.trim()}
             className="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500 disabled:opacity-40"
           >
-            {saving ? "创建中…" : "创建"}
+            {saving ? t("sharesPage.create.submitting") : t("sharesPage.create.submit")}
           </button>
         </div>
       )}

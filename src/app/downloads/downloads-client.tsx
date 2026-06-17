@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 import { CreateDownloadFormLazy } from "./create-download-form-lazy";
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -44,9 +45,15 @@ const statusBadge: Record<string, string> = {
 	CANCELLED: "border-slate-400/30 bg-slate-400/10 text-slate-100",
 };
 
-const statusLabel: Record<string, string> = {
-	PENDING: "等待中", RUNNING: "下载中", COMPLETED: "已完成", FAILED: "失败", CANCELLED: "已取消",
-};
+function getStatusLabel(t: (k: string) => string): Record<string, string> {
+	return {
+		PENDING: t("downloadsPage.status.PENDING"),
+		RUNNING: t("downloadsPage.status.RUNNING"),
+		COMPLETED: t("downloadsPage.status.COMPLETED"),
+		FAILED: t("downloadsPage.status.FAILED"),
+		CANCELLED: t("downloadsPage.status.CANCELLED"),
+	};
+}
 
 const categoryIcon: Record<string, string> = {
 	video: "🎬", music: "🎵", software: "💿", document: "📄", image: "🖼️", other: "📦",
@@ -61,11 +68,11 @@ const categories = [
 	{ value: "image", label: "图片", icon: "🖼️" },
 ];
 
-function urlTypeLabel(url: string) {
-	if (url.startsWith("magnet:?")) return "🧲 磁力链接";
+function urlTypeLabel(url: string, t: (k: string) => string) {
+	if (url.startsWith("magnet:?")) return t("downloadsPage.linkType.magnet");
 	if (url.startsWith("https://")) return "🔒 HTTPS";
 	if (url.startsWith("http://")) return "🔓 HTTP";
-	return "❓ 未知";
+	return t("downloadsPage.linkType.unknown");
 }
 
 function formatBytes(b: string | number | null): string {
@@ -100,6 +107,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 /* ── Main Component ───────────────────────────────────────── */
 
 export function DownloadsClient({ servers, canManage, canManageNode }: { servers: ServerOption[]; canManage: boolean; canManageNode: boolean }) {
+	const { t } = useI18n();
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
@@ -123,7 +131,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			setGlobalStat(data.globalStat ?? null);
 			setMessage((current) => current?.type === "error" ? null : current);
 		} catch (error) {
-			setMessage({ type: "error", text: getErrorMessage(error, "下载列表加载失败") });
+			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.loadList")) });
 		} finally { setLoading(false); }
 	}, []);
 
@@ -145,7 +153,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const hasBatchMagnet = invalidBatchUrls.some((line) => line.startsWith("magnet:?") || line.endsWith(".torrent"));
 	const hasBatchHttp = invalidBatchUrls.some((line) => line.startsWith("http://") || line.startsWith("https://"));
 	const batchModeError = form.batchMode && invalidBatchUrls.length > 1 && hasBatchMagnet && hasBatchHttp
-		? "磁力/BT 链接请单独创建任务，不要与普通 HTTP/HTTPS 链接混用。"
+		? t("downloadsPage.error.magnetBatchNotice")
 		: null;
 
 	const handleServerChange = (serverId: string) => {
@@ -155,7 +163,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const handleSubmit = async () => {
 		if (!form.serverId) {
-			setMessage({ type: "error", text: "暂无可用的下载目标 VPS：请先在 VPS 管理中为节点绑定存储节点并配置 SSH 密钥或密码。" });
+			setMessage({ type: "error", text: t("downloadsPage.error.noVps") });
 			return;
 		}
 		if (batchModeError) {
@@ -164,7 +172,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		}
 		const trimmedFileName = form.fileName.trim();
 		if (trimmedFileName && (trimmedFileName.includes("/") || trimmedFileName.includes("\\") || trimmedFileName.includes(".."))) {
-			setMessage({ type: "error", text: "文件名只能填写单个文件名，不能包含路径分隔符或 .." });
+			setMessage({ type: "error", text: t("downloadsPage.error.invalidFilename") });
 			return;
 		}
 		setSubmitting(true); setMessage(null);
@@ -181,10 +189,10 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			const _data = await csrfFetch("/api/downloads", {
 				method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 			});
-			setMessage({ type: "success", text: isBatch ? `批量下载已创建 (${batchUrls?.length ?? 0} 个链接)` : "下载任务已创建" });
+			setMessage({ type: "success", text: isBatch ? `${t("downloadsPage.success.batchCreated").replace("${count}", String(batchUrls?.length ?? 0))}` : t("downloadsPage.success.taskCreated") });
 			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
 			setShowForm(false); fetchTasks();
-		} catch (error) { setMessage({ type: "error", text: getErrorMessage(error, "下载任务创建失败") }); }
+		} catch (error) { setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.taskCreate")) }); }
 		finally { setSubmitting(false); }
 	};
 
@@ -193,16 +201,16 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		try {
 			if (action === "cancel") {
 				await csrfFetch(`/api/downloads?taskId=${taskId}`, { method: "DELETE" });
-				setMessage({ type: "success", text: "任务已取消" });
+				setMessage({ type: "success", text: t("downloadsPage.success.cancelled") });
 				void fetchTasks();
 			} else if (action === "purge") {
 				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
 				setTasks((current) => current.filter((task) => task.id !== taskId));
-				setMessage({ type: "success", text: "任务记录已删除" });
+				setMessage({ type: "success", text: t("downloadsPage.success.deleted") });
 			} else if (action === "retry") {
 				const task = tasks.find((t) => t.id === taskId);
 				if (!task) {
-					setMessage({ type: "error", text: "未找到任务记录" });
+					setMessage({ type: "error", text: t("downloadsPage.error.notFound") });
 					return;
 				}
 				const payload: Record<string, unknown> = {
@@ -218,7 +226,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				setMessage({ type: "success", text: "已重新创建下载任务" });
+				setMessage({ type: "success", text: t("downloadsPage.success.recreated") });
 				void fetchTasks();
 			} else if (action.startsWith("limit:")) {
 				const maxSpeedKb = parseInt(action.slice(6));
@@ -226,7 +234,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					method: "PATCH", headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ taskId, maxSpeedKb }),
 				});
-				setMessage({ type: "success", text: `限速已设置为 ${maxSpeedKb} KB/s` });
+				setMessage({ type: "success", text: t("downloadsPage.success.speedSet").replace("${kb}", String(maxSpeedKb)) });
 				void fetchTasks();
 			} else {
 				const result = await csrfFetch("/api/downloads", {
@@ -250,7 +258,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				}
 			}
 		} catch (error) {
-			setMessage({ type: "error", text: getErrorMessage(error, "下载任务操作失败") });
+			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.taskOp")) });
 		}
 	};
 
@@ -261,9 +269,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				method: "PATCH", headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ globalMaxSpeedKb: kb }),
 			});
-			setMessage({ type: "success", text: kb === 0 ? "已取消全局限速" : `已设置全局限速 ${kb} KB/s` });
+			setMessage({ type: "success", text: kb === 0 ? t("downloadsPage.success.globalSpeedCleared") : t("downloadsPage.success.globalSpeedSet").replace("${kb}", String(kb)) });
 		} catch (error) {
-			setMessage({ type: "error", text: getErrorMessage(error, "全局限速设置失败") });
+			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.globalSpeed")) });
 		}
 	};
 
@@ -289,26 +297,26 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{globalStat && (
 				<div data-card className="mb-6 p-4 flex flex-wrap items-center gap-6 text-sm">
 					<div>
-						<span className="text-slate-500">全局下载速度</span>
+						<span className="text-slate-500">{t("downloadsPage.stats.globalSpeed")}</span>
 						<span className="ml-2 text-cyan-300 font-mono">{formatSpeed(globalStat.downloadSpeed)}</span>
 					</div>
 					<div>
-						<span className="text-slate-500">活跃任务</span>
+						<span className="text-slate-500">{t("downloadsPage.stats.active")}</span>
 						<span className="ml-2 text-white font-medium">{globalStat.numActive}</span>
 					</div>
 					<div>
-						<span className="text-slate-500">等待中</span>
+						<span className="text-slate-500">{t("downloadsPage.stats.pending")}</span>
 						<span className="ml-2 text-amber-200">{globalStat.numWaiting}</span>
 					</div>
 					<div className="ml-auto flex items-center gap-2">
-						<span className="text-xs text-slate-500">全局限速</span>
+						<span className="text-xs text-slate-500">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
 								className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition"
 							>
-								{kb === 0 ? "不限" : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
+								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
-						)) : <span className="text-xs text-slate-600">需 manage-node 权限</span>}
+						)) : <span className="text-xs text-slate-600">t("downloadsPage.stats.needPermission")</span>}
 					</div>
 				</div>
 			)}
@@ -316,8 +324,8 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			{/* Quick Stats */}
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
 				<div className="mb-4 flex gap-3 text-xs text-slate-500">
-					{runningCount > 0 && <span className="text-cyan-300">⬇ {runningCount} 个下载中</span>}
-					{pendingCount > 0 && <span className="text-amber-300">⏳ {pendingCount} 个等待中</span>}
+					{runningCount > 0 && <span className="text-cyan-300">{t("downloadsPage.stats.runningCount").replace("${count}", String(runningCount))}</span>}
+					{pendingCount > 0 && <span className="text-amber-300">{t("downloadsPage.stats.pendingCount").replace("${count}", String(pendingCount))}</span>}
 				</div>
 			)}
 
@@ -330,7 +338,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 								filter === f ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
 							}`}
 						>
-							{f === "ALL" ? "全部" : statusLabel[f]}
+							{f === "ALL" ? t("downloadsPage.filter.all") : getStatusLabel(t)[f]}
 						</button>
 					))}
 					<div className="w-px h-4 bg-white/10" />
@@ -348,11 +356,11 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					<button type="button" onClick={() => setShowForm(!showForm)}
 						data-tone="cyan" className="rounded-2xl border border-cyan-400/30 px-5 py-2 text-sm text-cyan-100 transition hover:bg-cyan-400/20"
 					>
-						{showForm ? "取消" : "+ 新建下载"}
+						{showForm ? t("downloadsPage.form.cancelLabel") : t("downloadsPage.form.createLabel")}
 					</button>
 				) : canManage ? (
 					<div data-tone="amber" className="rounded-2xl border border-amber-400/20 px-4 py-2 text-xs text-amber-100">
-						暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。
+						t("downloadsPage.form.noTarget")
 					</div>
 				) : null}
 			</div>
@@ -372,11 +380,11 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 			{/* Task list */}
 			{loading ? (
-				<EmptyState>加载中…</EmptyState>
+				<EmptyState>{t("downloadsPage.loading")}</EmptyState>
 			) : filteredTasks.length === 0 && message?.type !== "error" ? (
 			<div data-empty-state className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02]">
 				<div className="text-4xl mb-3">⬇️</div>
-				<p className="text-sm text-slate-500">{filter === "ALL" ? "暂无下载任务" : `没有${statusLabel[filter]}的任务`}</p>
+				<p className="text-sm text-slate-500">{filter === "ALL" ? t("downloadsPage.empty") : t("downloadsPage.emptyFilter").replace("${status}", getStatusLabel(t)[filter] ?? "")}</p>
 			</div>
 		) : (
 			<div className="space-y-2.5">
@@ -387,9 +395,9 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 							{/* Header row */}
 							<div className="flex flex-wrap items-center gap-2 mb-2.5">
 								<span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusBadge[task.status] ?? ""}`}>
-									{statusLabel[task.status] ?? task.status}
+									{getStatusLabel(t)[task.status] ?? task.status}
 								</span>
-								<span className="text-[11px] text-slate-500">{urlTypeLabel(task.url)}</span>
+								<span className="text-[11px] text-slate-500">{urlTypeLabel(task.url, t)}</span>
 								{task.relayMode && <span data-tone="amber" className="rounded-full border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-100">中转</span>}
 									{task.category && <span className="text-[11px] text-slate-500">{categoryIcon[task.category] ?? "📦"} {task.category}</span>}
 									{task.isBatch && <span data-tone="cyan" className="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[10px] text-cyan-100">批量</span>}
@@ -434,12 +442,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										<button type="button" onClick={() => handleAction(task.id, "pause")}
 											data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs text-amber-100 hover:bg-amber-400/10 transition"
 										>
-											⏸ 暂停
+											t("downloadsPage.action.pause")
 										</button>
 									)}
 									{task.status === "RUNNING" && task.aria2Gid && canManage && (
 										<span className="flex items-center gap-1 text-xs text-slate-400">
-											<label htmlFor={`limit-${task.id}`}>限速</label>
+											<label htmlFor={`limit-${task.id}`}>{t("downloadsPage.action.limit")}</label>
 											<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 												defaultValue={task.maxSpeedKb ?? ""}
 												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
@@ -451,21 +459,21 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 										<button type="button" onClick={() => handleAction(task.id, "resume")}
 											data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
 										>
-											▶ 继续
+											t("downloadsPage.action.resume")
 										</button>
 									)}
 									{(task.status === "RUNNING" || task.status === "PENDING") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "cancel")}
 											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
-											✕ 取消
+											t("downloadsPage.action.cancel")
 										</button>
 									)}
 									{canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "refresh")}
 											className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-400 hover:bg-white/[0.05] transition"
 										>
-											🔄 刷新
+											t("downloadsPage.action.refresh")
 										</button>
 									)}
 									{task.downloadAccess && (
@@ -487,25 +495,25 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 									return (
 										<a href={href}
 											data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-400/10 transition"
-											title="在文件管理中打开保存目录"
+											title={t("downloadsPage.action.openFolderTitle")}
 										>
-											📂 打开文件夹
+											t("downloadsPage.action.openFolder")
 										</a>
 									);
 								})()}
 								{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 									<button type="button" onClick={() => handleAction(task.id, "retry")}
 										data-tone="cyan" className="rounded-lg border border-cyan-400/20 px-3 py-1.5 text-xs text-cyan-100 hover:bg-cyan-400/10 transition"
-										title="使用相同链接和目标路径重新创建下载任务"
+										title={t("downloadsPage.action.retryTitle")}
 									>
-										↻ 重试
+										t("downloadsPage.action.retry")
 									</button>
 								)}
 								{(task.status === "COMPLETED" || task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 										<button type="button" onClick={() => handleAction(task.id, "purge")}
 											data-tone="rose" className="rounded-lg border border-rose-400/20 px-3 py-1.5 text-xs text-rose-100 hover:bg-rose-400/10 transition"
 										>
-											🗑 删除记录
+											t("downloadsPage.action.delete")
 										</button>
 									)}
 								</div>
