@@ -55,6 +55,7 @@ export const zh: Record<string, string> = {
 	"requestsPage.cancel.reasonLabel": "取消原因（可选）",
 	"requestsPage.cancel.reasonPlaceholder": "例如：维护窗口变更、目标选错、需要重新提交参数……",
 	"requestsPage.cancel.keep": "保留命令",
+	"requestsPage.cancel.successMessage": "命令取消请求已提交，任务状态已刷新。",
 
 	// review-command-form.tsx (client)
 	"requestsPage.review.commentLabel": "审批意见",
@@ -121,6 +122,7 @@ export const en: Record<string, string> = {
 	"requestsPage.cancel.reasonLabel": "Cancel reason (optional)",
 	"requestsPage.cancel.reasonPlaceholder": "e.g. maintenance window changed, wrong target, need to resubmit parameters…",
 	"requestsPage.cancel.keep": "Keep command",
+	"requestsPage.cancel.successMessage": "Cancel request submitted; task status refreshed.",
 
 	// review-command-form.tsx
 	"requestsPage.review.commentLabel": "Review comment",

@@ -34,7 +34,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
           reason: reason.trim() || undefined,
         }),
       });
-      setMessage("命令取消请求已提交，任务状态已刷新。");
+      setMessage(t("requestsPage.cancel.successMessage"));
       setOpen(false);
       setReason("");
       router.refresh();

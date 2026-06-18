@@ -667,6 +667,7 @@ function StepConfigEditor({
 	step: SerializedStep;
 	onConfigChange: (patch: Record<string, unknown>) => void;
 }) {
+	const { t } = useI18n();
 	const cfg = step.config;
 	if (step.type === "run_command") {
 		return (
@@ -679,7 +680,7 @@ function StepConfigEditor({
 					placeholder="docker compose up -d"
 					className={`${monoFieldInputClass} resize-y`}
 				/>
-				<p className="text-[10px] text-slate-500">serverIds 默认为空，命令会按 cron/手动触发时再解析；此处只保存命令字符串。</p>
+				<p className="text-[10px] text-slate-500">{t("playbooksPage.createForm.runCommandHint")}</p>
 			</div>
 		);
 	}

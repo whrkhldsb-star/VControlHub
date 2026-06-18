@@ -1,21 +1,14 @@
 {
-  "generatedAt": "2026-06-18T04:37:37.075Z",
+  "generatedAt": "2026-06-18T05:14:38.645Z",
   "summary": {
     "files": 273,
-    "filesWithStrings": 61,
-    "totalStrings": 486,
+    "filesWithStrings": 60,
+    "totalStrings": 485,
     "coveredStrings": 159,
-    "missingStrings": 327,
-    "coveragePercent": 32.7
+    "missingStrings": 326,
+    "coveragePercent": 32.8
   },
   "perModule": [
-    {
-      "module": "src/app/playbooks",
-      "total": 1,
-      "covered": 0,
-      "missing": 1,
-      "coveragePercent": 0
-    },
     {
       "module": "src/app/deployments",
       "total": 38,
@@ -3837,18 +3830,10 @@
     },
     "src/app/playbooks/playbook-list-client.tsx": {
       "path": "src/app/playbooks/playbook-list-client.tsx",
-      "total": 1,
+      "total": 0,
       "covered": 0,
-      "missing": 1,
-      "candidates": [
-        {
-          "text": "serverIds 默认为空，命令会按 cron/手动触发时再解析；此处只保存命令字符串。",
-          "line": 682,
-          "kind": "text",
-          "context": "<p className=\"text-[10px] text-slate-500\">serverIds 默认为空，命令会按 cron/手动触发时再解析；此处只保",
-          "covered": false
-        }
-      ]
+      "missing": 0,
+      "candidates": []
     },
     "src/app/preferences/error.tsx": {
       "path": "src/app/preferences/error.tsx",
