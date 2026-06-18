@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
-function formatSize(bytes: bigint | number | null) {
-  if (bytes == null) return "未知";
+function formatSize(locale: "zh" | "en", bytes: bigint | number | null) {
+  if (bytes == null) return t("sharePage.sizeUnknown", locale);
   const b = Number(bytes);
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
@@ -19,6 +20,7 @@ export default async function SharePage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const locale = await getServerLocale();
 
   let share: Awaited<ReturnType<typeof peekShareToken>> | null = null;
   let files: Awaited<ReturnType<typeof listShareDirectoryFiles>> = [];
@@ -30,7 +32,7 @@ export default async function SharePage({
       files = await listShareDirectoryFiles(share);
     }
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : "分享链接无效";
+    errorMessage = err instanceof Error ? err.message : t("sharePage.invalidToken", locale);
   }
 
   return (
@@ -41,7 +43,7 @@ export default async function SharePage({
             {errorMessage ? "🔒" : share?.entryType === "DIRECTORY" ? "📁" : "📦"}
           </div>
           <h1 className="text-lg font-semibold text-white">
-            {errorMessage ? "无法访问该分享" : share?.entryType === "DIRECTORY" ? "目录分享" : "文件分享"}
+            {errorMessage ? t("sharePage.errorTitle", locale) : share?.entryType === "DIRECTORY" ? t("sharePage.directoryTitle", locale) : t("sharePage.fileTitle", locale)}
           </h1>
         </div>
 
@@ -57,30 +59,30 @@ export default async function SharePage({
               </p>
               <dl className="mt-3 grid gap-1.5 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
                 <div className="flex justify-between gap-3">
-                  <dt>存储节点</dt>
+                  <dt>{t("sharePage.storageNode", locale)}</dt>
                   <dd className="text-[var(--text-secondary)]">{share.storageNode?.name ?? "—"}</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt>类型</dt>
+                  <dt>{t("sharePage.type", locale)}</dt>
                   <dd className="text-[var(--text-secondary)]">
-                    {share.entryType === "DIRECTORY" ? "目录" : "文件"}
+                    {share.entryType === "DIRECTORY" ? t("sharePage.typeDirectory", locale) : t("sharePage.typeFile", locale)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3 sm:col-span-2">
-                  <dt>路径</dt>
+                  <dt>{t("sharePage.path", locale)}</dt>
                   <dd className="break-all text-right text-[var(--text-secondary)]">{share.path}</dd>
                 </div>
                 {share.expiresAt ? (
                   <div className="flex justify-between gap-3 sm:col-span-2">
-                    <dt>有效期至</dt>
+                    <dt>{t("sharePage.expiresAt", locale)}</dt>
                     <dd className="text-[var(--text-secondary)]">
                       {new Date(share.expiresAt).toLocaleString("zh-CN")}
                     </dd>
                   </div>
                 ) : (
                   <div className="flex justify-between gap-3">
-                    <dt>有效期</dt>
-                    <dd className="text-[var(--text-secondary)]">永久有效</dd>
+                    <dt>{t("sharePage.expires", locale)}</dt>
+                    <dd className="text-[var(--text-secondary)]">{t("sharePage.permanent", locale)}</dd>
                   </div>
                 )}
               </dl>
@@ -90,19 +92,19 @@ export default async function SharePage({
               <div data-card className=" p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-white">可下载文件</h2>
-                    <span className="text-xs text-slate-500">最多显示 200 个已索引文件</span>
+                    <h2 className="text-sm font-semibold text-white">{t("sharePage.downloadable", locale)}</h2>
+                    <span className="text-xs text-slate-500">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
                   <a
                     href={`/api/share/${encodeURIComponent(token)}?archive=1`}
                     className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/10"
                   >
-                    ⬇ 下载整个目录
+                    {t("sharePage.downloadDirectory", locale)}
                   </a>
                 </div>
                 {files.length === 0 ? (
                   <div data-tone="amber" className="rounded-lg border border-amber-400/20 px-4 py-3 text-center text-xs text-amber-200">
-                    当前目录暂未发现可下载文件。系统已自动尝试刷新目录索引，请稍后重试或联系分享者确认目录内有文件。
+                    {t("sharePage.noFiles", locale)}
                   </div>
                 ) : (
                   <div className="divide-y divide-white/[0.06] light:divide-slate-200">
@@ -110,13 +112,13 @@ export default async function SharePage({
                       <div key={file.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-white">{file.name}</div>
-                          <div className="truncate text-xs text-slate-500" title={file.relativePath}>{file.relativePath} · {formatSize(file.size)}</div>
+                          <div className="truncate text-xs text-slate-500" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
                         </div>
                         <a
                           href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
                           className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
                         >
-                          下载
+                          {t("sharePage.download", locale)}
                         </a>
                       </div>
                     ))}
@@ -128,7 +130,7 @@ export default async function SharePage({
                 href={`/api/share/${encodeURIComponent(token)}`}
                 className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-cyan-500"
               >
-                ⬇ 下载文件
+                {t("sharePage.downloadFile", locale)}
               </a>
             )}
           </div>
@@ -136,7 +138,7 @@ export default async function SharePage({
 
         <div className="mt-6 text-center">
           <Link href="/" className="text-xs text-slate-500 transition hover:text-slate-300 light:hover:text-slate-700">
-            VControlHub
+            {t("sharePage.brand", locale)}
           </Link>
         </div>
       </div>
