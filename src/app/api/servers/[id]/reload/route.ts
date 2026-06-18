@@ -28,6 +28,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:reload");
@@ -47,11 +48,11 @@ const PROJECT_DIR_PATTERN = /^\/[A-Za-z0-9._\-/]{0,255}$/;
 const reloadBodySchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("systemd"),
-    unit: z.string().regex(UNIT_NAME_PATTERN, "unit 名称只允许字母数字 . _ - @"),
+    unit: z.string().regex(UNIT_NAME_PATTERN, t("apiServersReload.unitNamePatternError", "zh")),
   }),
   z.object({
     kind: z.literal("compose"),
-    projectDir: z.string().regex(PROJECT_DIR_PATTERN, "projectDir 必须是绝对路径且不含 shell 元字符"),
+    projectDir: z.string().regex(PROJECT_DIR_PATTERN, t("apiServersReload.projectDirPatternError", "zh")),
     /** 可选的 compose 服务名，缺省则 up 整个项目 */
     service: z.string().regex(UNIT_NAME_PATTERN).optional(),
   }),
@@ -106,25 +107,26 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: reloadBodySchema,
-      errorMessage: "服务重载失败",
+      errorMessage: t("apiServersReload.errorMessage", locale),
     },
     async ({ session, body }) => {
       if (!session) {
-        return Response.json({ error: "未登录或会话已过期" }, { status: 401 });
+        return Response.json({ error: t("apiServersReload.unauthorized", locale) }, { status: 401 });
       }
       if (!sessionHasPermission(session, "server:ssh")) {
-        return Response.json({ error: "缺少服务器 SSH 权限" }, { status: 403 });
+        return Response.json({ error: t("apiServersReload.missingSshPermission", locale) }, { status: 403 });
       }
 
       const server = await loadServer(id);
       if (!server) {
-        return Response.json({ error: "服务器不存在" }, { status: 404 });
+        return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
       }
 
       const command = buildCommand(body);
@@ -163,7 +165,7 @@ export async function POST(
           command,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "远端执行失败";
+        const message = error instanceof Error ? error.message : t("apiServersReload.remoteExecutionFailed", locale);
         logger.warn("server reload raised", { serverId: id, error: message });
         auditUserAction(
           session.userId,
@@ -172,7 +174,7 @@ export async function POST(
           "CRITICAL",
         );
         return Response.json(
-          { error: `重载失败：${message}`, command },
+          { error: t("apiServersReload.reloadFailedWithMessage", locale).replace("{message}", message), command },
           { status: 502 },
         );
       }

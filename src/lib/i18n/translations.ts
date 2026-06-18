@@ -69,6 +69,7 @@ import { zh as scheduledtasksZh, en as scheduledtasksEn } from "./dictionaries/s
 import { zh as searchZh, en as searchEn } from "./dictionaries/search";
 import { zh as serversZh, en as serversEn } from "./dictionaries/servers";
 import { zh as serverspageZh, en as serverspageEn } from "./dictionaries/servers-page";
+import { zh as serversreloadapiZh, en as serversreloadapiEn } from "./dictionaries/servers-reload-api";
 import { zh as sharepageZh, en as sharepageEn } from "./dictionaries/share-page";
 import { zh as sharesZh, en as sharesEn } from "./dictionaries/shares";
 import { zh as snippetsPageZh, en as snippetsPageEn } from "./dictionaries/snippets-page";
@@ -141,6 +142,7 @@ const zh: Record<string, string> = {
 	...searchZh,
 	...serversZh,
 	...serverspageZh,
+	...serversreloadapiZh,
 	...sharepageZh,
 	...sharesZh,
 	...sharespageZh,
@@ -215,6 +217,7 @@ const en: Record<string, string> = {
 	...searchEn,
 	...serversEn,
 	...serverspageEn,
+	...serversreloadapiEn,
 	...sharepageEn,
 	...sharesEn,
 	...sharespageEn,
