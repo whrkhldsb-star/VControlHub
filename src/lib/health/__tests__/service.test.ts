@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock } = vi.hoisted(() => ({
+const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock } = vi.hoisted(() => ({
 	prismaMock: {
 		server: {
 			findMany: vi.fn(),
@@ -22,6 +22,7 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMo
 	createNotificationMock: vi.fn(),
 	fetchWebhookSafelyMock: vi.fn(),
 	sendAlertEmailMock: vi.fn(),
+	sendAlertTelegramMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -31,6 +32,7 @@ vi.mock("@/lib/server/monitor", () => ({ collectServerMetrics: collectServerMetr
 vi.mock("@/lib/server/connectivity", () => ({ tcpProbe: tcpProbeMock }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
+vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendAlertTelegramMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
 
 import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
@@ -59,6 +61,7 @@ describe("evaluateAlerts", () => {
 		createNotificationMock.mockResolvedValue({});
 		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
 		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
+		sendAlertTelegramMock.mockResolvedValue({ accepted: [{ chatId: "100200300", messageId: 1 }], rejected: [] });
 	});
 
 	it("does not trigger rules with durationSeconds until the condition is sustained", async () => {
@@ -195,6 +198,76 @@ describe("evaluateAlerts", () => {
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule_email" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:03:00.000Z") }),
+		});
+	});
+
+	it("sends Telegram alerts when a rule with the telegram channel triggers", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T00:04:00.000Z"));
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_telegram",
+				name: "CPU telegram",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["telegram"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		await evaluateAlerts();
+
+		expect(sendAlertTelegramMock).toHaveBeenCalledWith(expect.objectContaining({
+			title: "告警: Prod cpu usage",
+			message: "CPU telegram: cpu_usage gte 80 (当前: 95)",
+			contextLines: expect.arrayContaining(["服务器: Prod", "当前值: 95"]),
+		}));
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule_telegram" },
+			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:04:00.000Z") }),
+		});
+	});
+
+	it("does not let telegram delivery failures prevent rule state updates", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-05-25T00:05:00.000Z"));
+		sendAlertTelegramMock.mockRejectedValueOnce(new Error("network down"));
+		prismaMock.alertRule.findMany.mockResolvedValue([
+			{
+				id: "rule_tg_fail",
+				name: "CPU telegram fail",
+				metric: "cpu_usage",
+				threshold: 80,
+				operator: "gte",
+				durationSeconds: 0,
+				enabled: true,
+				lastTriggeredAt: null,
+				lastMatchedAt: null,
+				cooldownMinutes: 0,
+				silenceWindows: [],
+				serverIds: [],
+				notifyChannels: ["telegram"],
+				webhookUrl: null,
+			},
+		]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+
+		await evaluateAlerts();
+
+		expect(sendAlertTelegramMock).toHaveBeenCalled();
+		// lastTriggeredAt 仍然要被更新 (best-effort 投递)
+		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
+			where: { id: "rule_tg_fail" },
+			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:05:00.000Z") }),
 		});
 	});
 

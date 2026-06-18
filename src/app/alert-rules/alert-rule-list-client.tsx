@@ -418,6 +418,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 					{[
 						{ key: "in_app", i18nKey: "alertRulesPage.createForm.channel.in_app" },
 						{ key: "email", i18nKey: "alertRulesPage.createForm.channel.email" },
+						{ key: "telegram", i18nKey: "alertRulesPage.createForm.channel.telegram" },
 						{ key: "webhook", i18nKey: "alertRulesPage.createForm.channel.webhook" },
 					].map(({ key, i18nKey }) => (
 						<button key={key} type="button" onClick={() => toggleChannel(key)}

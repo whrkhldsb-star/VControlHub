@@ -108,6 +108,26 @@ function normalizeSettingValue(key: string, value: string) {
 		case "smtp.user":
 		case "smtp.pass":
 			return { key, value: value.trim() };
+		case "telegram.enabled":
+			return normalizeBooleanSetting(key, value);
+		case "telegram.botToken":
+			// Bot Token 形如 "123456:ABC-DEF..." — 拒绝空白和明显非 token 字符; 不强校验格式以兼容老 Bot API
+			return { key, value: value.trim() };
+		case "telegram.chatId": {
+			// 允许多目标 (群/频道) 逗号/分号/换行/CJK 分隔; 每个目标必须是数字 (group 为负数) 或 "@channelusername"
+			const tokens = value
+				.split(/[\n,;，；]+/)
+				.map((item) => item.trim())
+				.filter(Boolean);
+			if (tokens.length === 0) {
+				throw new Error("Telegram Chat ID 至少配置 1 个目标");
+			}
+			const invalid = tokens.find((token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token));
+			if (invalid) {
+				throw new Error(`Telegram Chat ID 格式不正确：${invalid}（应为数字或 @channelusername）`);
+			}
+			return { key, value: tokens.join(",") };
+		}
 		default:
 			return { key, value };
 	}

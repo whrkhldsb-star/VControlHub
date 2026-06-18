@@ -51,6 +51,10 @@ const DEFAULTS: Record<string, string> = {
 	// TR-032 E02: 智能 AI 运维 (默认 recommendation 模式, provider 留空 = 走内置信号 surface)
 	"ai.ops.mode": "recommendation",
 	"ai.ops.provider": "",
+	// TR-009 55d: Telegram Bot 告警 (默认关闭; botToken 为密码型敏感字段, GET 时返回 ***)
+	"telegram.enabled": "false",
+	"telegram.botToken": "",
+	"telegram.chatId": "",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),

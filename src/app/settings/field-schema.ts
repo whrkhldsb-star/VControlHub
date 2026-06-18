@@ -137,6 +137,8 @@ function runtimeNumber(key: string, label: string, defaultValue: string, min: nu
 
 const SMTP_DISABLED_HINT = "启用 SMTP 后可编辑";
 const isSmtpDisabled = (s: Record<string, string>) => s["smtp.enabled"] !== "true";
+const TELEGRAM_DISABLED_HINT = "启用 Telegram 后可编辑";
+const isTelegramDisabled = (s: Record<string, string>) => s["telegram.enabled"] !== "true";
 
 export const SETTINGS_SCHEMA: SectionDef[] = [
 	{
@@ -347,6 +349,61 @@ export const SETTINGS_SCHEMA: SectionDef[] = [
 		],
 	},
 	{
+		// TR-009 55d: Telegram Bot 告警渠道
+		// 走 https://api.telegram.org/bot<token>/sendMessage, 不引新依赖 (复用 undici fetch)
+		// botToken is sensitive (masked in GET); chatId 支持多目标 (群/频道), 逗号/分号/换行/CJK 分隔
+		id: "telegram",
+		icon: "💬",
+		title: "Telegram 告警",
+		description: (s) => (s["telegram.enabled"] === "true"
+			? "Telegram 已启用，告警规则选择 telegram 渠道时会推送到下方 Chat ID。"
+			: "Telegram 未启用，Bot Token 会保留但不会用于发送消息。启用后可在告警规则中选择 telegram 渠道。"),
+		badge: (s) => (s["telegram.enabled"] === "true" ? "已启用" : "未启用"),
+		badgeTone: (s) => (s["telegram.enabled"] === "true" ? "emerald" : "slate"),
+		defaultOpen: false,
+		asForm: true,
+		layout: "grid-2",
+		saveMessage: "Telegram 设置已保存；启用后系统告警会使用最新 Bot Token 推送。",
+		headerSwitchKey: "telegram.enabled",
+		fields: [
+			{ key: "telegram.enabled", label: "启用 Telegram 告警", type: "switch" },
+			{
+				key: "telegram.botToken",
+				label: "Bot Token",
+				type: "password",
+				placeholder: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+				autoComplete: "off",
+				disabled: isTelegramDisabled,
+				helperText: (s) => (isTelegramDisabled(s)
+					? TELEGRAM_DISABLED_HINT
+					: "向 @BotFather 创建 bot 后获取的 token；GET 时返回 *** 占位。"),
+				// TR-014: Bot Token 错会让所有 Telegram 告警失败; 改后无法立即验证
+				riskLevel: "high",
+			},
+			{
+				key: "telegram.chatId",
+				label: "Chat ID",
+				type: "textarea",
+				placeholder: "100200300\n-100400500\n@channel_alerts",
+				disabled: isTelegramDisabled,
+				helperText: (s) => (isTelegramDisabled(s)
+					? TELEGRAM_DISABLED_HINT
+					: "支持多个目标：私聊用用户数字 ID、群用 - 开头的数字、公开频道用 @channelusername；可用逗号、分号、换行分隔。"),
+				validate: (value) => {
+					const tokens = value
+						.split(/[\n,;，；]+/)
+						.map((item) => item.trim())
+						.filter(Boolean);
+					if (tokens.length === 0) return "Telegram Chat ID 至少配置 1 个目标";
+					const invalid = tokens.find(
+						(token) => !/^-?\d+$/.test(token) && !/^@[A-Za-z0-9_]{4,}$/.test(token),
+					);
+					return invalid ? `Telegram Chat ID 格式不正确：${invalid}（应为数字或 @channelusername）` : null;
+				},
+			},
+		],
+	},
+	{
 		// TR-020 M02: 仪表盘布局相关总开关 (admin 可关)
 		// 放在 SETTINGS_SCHEMA 末尾, 不会改变既有 platform/password/runtime/smtp 的保存按钮顺序断言
 		id: "dashboard",
@@ -538,6 +595,7 @@ export function buildTocItems(): { id: string; icon: string; title: string; subt
 		platform: "品牌 / Logo",
 		password: "超时 / 复杂度",
 		smtp: "SMTP / 告警收件人",
+		telegram: "Bot Token / Chat ID",
 		runtime: "命令 / SSH / 列表上限",
 		dashboard: "拖拽重排 / 编辑入口",
 		offsite: "S3 / 推送窗口 / 保留",

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { sendAlertEmail } from "@/lib/notification/email";
+import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
@@ -161,6 +162,45 @@ export async function testAlertRule(id: string): Promise<{ rule: { id: string; n
 				channel: "email",
 				status: "failed",
 				message: error instanceof Error ? error.message : "邮件测试发送失败",
+			});
+		}
+	}
+
+	if (rule.notifyChannels.includes("telegram")) {
+		try {
+			const result = await sendAlertTelegram({
+				title,
+				message,
+				contextLines: [
+					`规则: ${rule.name}`,
+					`指标: ${rule.metric}`,
+					`阈值: ${rule.threshold}`,
+				],
+			});
+			if (result.accepted.length === 0) {
+				deliveries.push({
+					channel: "telegram",
+					status: "failed",
+					message: result.rejected[0]?.reason ?? "Telegram 发送失败",
+				});
+			} else if (result.rejected.length > 0) {
+				deliveries.push({
+					channel: "telegram",
+					status: "failed",
+					message: `Telegram 部分失败：${result.rejected.length}/${result.accepted.length + result.rejected.length} 个目标发送失败`,
+				});
+			} else {
+				deliveries.push({
+					channel: "telegram",
+					status: "sent",
+					message: `Telegram 测试已发送给 ${result.accepted.length} 个目标`,
+				});
+			}
+		} catch (error) {
+			deliveries.push({
+				channel: "telegram",
+				status: "failed",
+				message: error instanceof Error ? error.message : "Telegram 测试发送失败",
 			});
 		}
 	}

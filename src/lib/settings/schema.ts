@@ -47,6 +47,10 @@ export const SettingKey = z.union([
 	// TR-032 E02: 智能 AI 运维 (ai.ops.mode 默认 recommendation, admin 可切 autonomous; ai.ops.provider 留口对接真实 AI 提供方)
 	z.literal("ai.ops.mode"),
 	z.literal("ai.ops.provider"),
+	// TR-009 55d: Telegram Bot 告警渠道 (Bot Token 由 user 自建, Chat ID 可逗号/分号/换行分隔多目标)
+	z.literal("telegram.enabled"),
+	z.literal("telegram.botToken"),
+	z.literal("telegram.chatId"),
 ]);
 
 export type SettingKey = z.infer<typeof SettingKey>;
@@ -97,6 +101,10 @@ export const VALID_SETTING_KEYS: string[] = [
 	// TR-032 E02: 智能 AI 运维
 	"ai.ops.mode",
 	"ai.ops.provider",
+	// TR-009 55d: Telegram Bot 告警
+	"telegram.enabled",
+	"telegram.botToken",
+	"telegram.chatId",
 ];
 
 /* ── Sensitive key detection ──────────────────────────────── */

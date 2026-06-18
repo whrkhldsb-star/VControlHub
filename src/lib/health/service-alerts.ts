@@ -10,6 +10,7 @@
  */
 import { prisma } from "@/lib/db";
 import { sendAlertEmail } from "@/lib/notification/email";
+import { sendAlertTelegram } from "@/lib/notification/telegram";
 import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
@@ -183,6 +184,24 @@ export async function evaluateAlerts() {
 					});
 				} catch {
 					/* email best-effort */
+				}
+			}
+
+			if (rule.notifyChannels.includes("telegram")) {
+				try {
+					await sendAlertTelegram({
+						title,
+						message,
+						contextLines: [
+							`服务器: ${server.serverName}`,
+							`指标: ${rule.metric}`,
+							`当前值: ${value}`,
+							`阈值: ${rule.operator} ${rule.threshold}`,
+							`时间: ${new Date().toISOString()}`,
+						],
+					});
+				} catch {
+					/* telegram best-effort */
 				}
 			}
 
