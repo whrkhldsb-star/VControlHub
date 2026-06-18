@@ -74,7 +74,7 @@ function entryKey(input: { storageNodeId: string; path: string; entryType: strin
 
 export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 	const router = useRouter();
-	const { locale } = useI18n();
+	const { t } = useI18n();
 	const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
 	const [path, setPath] = useState("");
 	const [data, setData] = useState<FileListResponse | null>(() => nodes[0]?.id ? { currentPath: "", nodeIdFilter: nodes[0].id, folders: [], files: [], nodes } : null);
@@ -87,60 +87,33 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 
 	const selectedItems = useMemo(() => Object.values(selected), [selected]);
 	const breadcrumb = useMemo(() => path.split("/").filter(Boolean), [path]);
-	const copyText = locale === "zh" ? {
-		eyebrow: "Share Center",
-		title: "在分享中心选择文件",
-		description: "像文件管理一样浏览目录，勾选文件或文件夹后批量创建分享链接，不需要跳转到文件管理页。",
-		refresh: "刷新当前目录",
-		root: "根目录",
-		name: "名称",
-		type: "类型",
-		size: "大小",
-		loading: "加载中…",
-		empty: "当前目录没有可分享条目",
-		folder: "文件夹",
-		file: "文件",
-		selectFolder: "选择文件夹",
-		selectFile: "选择文件",
-		selectedPrefix: "已选择",
-		selectedSuffix: "项",
-		selectedHint: "文件和文件夹会分别生成独立分享链接。",
-		clear: "清空",
-		selectedEmpty: "勾选左侧文件或文件夹",
-		creating: "创建中…",
-		create: "创建分享链接",
-		created: "已创建，可直接复制：",
-		copy: "复制",
-		copied: "已复制",
-		loadError: "加载文件列表失败",
-		createError: "创建分享失败",
-	} : {
-		eyebrow: "Share Center",
-		title: "Choose files in Shares",
-		description: "Browse storage like the file manager, select files or folders, and create share links without leaving this page.",
-		refresh: "Refresh current folder",
-		root: "Root",
-		name: "Name",
-		type: "Type",
-		size: "Size",
-		loading: "Loading…",
-		empty: "No shareable items in this folder",
-		folder: "Folder",
-		file: "File",
-		selectFolder: "Select folder",
-		selectFile: "Select file",
-		selectedPrefix: "Selected",
-		selectedSuffix: "items",
-		selectedHint: "Files and folders create separate share links.",
-		clear: "Clear",
-		selectedEmpty: "Select files or folders on the left",
-		creating: "Creating…",
-		create: "Create share links",
-		created: "Created. Copy directly:",
-		copy: "Copy",
-		copied: "Copied",
-		loadError: "Failed to load file list",
-		createError: "Failed to create shares",
+	const copyText = {
+		eyebrow: t("sharesPage.picker.eyebrow"),
+		title: t("sharesPage.picker.title"),
+		description: t("sharesPage.picker.description"),
+		refresh: t("sharesPage.picker.refresh"),
+		root: t("sharesPage.picker.root"),
+		name: t("sharesPage.picker.name"),
+		type: t("sharesPage.picker.type"),
+		size: t("sharesPage.picker.size"),
+		loading: t("sharesPage.picker.loading"),
+		empty: t("sharesPage.picker.noItems"),
+		folder: t("sharesPage.picker.folder"),
+		file: t("sharesPage.picker.file"),
+		selectFolder: t("sharesPage.picker.selectFolder"),
+		selectFile: t("sharesPage.picker.selectFile"),
+		selectedPrefix: t("sharesPage.picker.selectedPrefix"),
+		selectedSuffix: t("sharesPage.picker.selectedSuffix"),
+		selectedHint: t("sharesPage.picker.selectedHint"),
+		clear: t("sharesPage.picker.clear"),
+		selectedEmpty: t("sharesPage.picker.selectedEmpty"),
+		creating: t("sharesPage.picker.creating"),
+		create: t("sharesPage.picker.create"),
+		created: t("sharesPage.picker.created"),
+		copy: t("sharesPage.picker.copy"),
+		copied: t("sharesPage.picker.copied"),
+		loadError: t("sharesPage.picker.loadError"),
+		createError: t("sharesPage.picker.createError"),
 	};
 
 	const loadFiles = useCallback(async () => {
@@ -250,7 +223,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<label className="sr-only" htmlFor="shareFilePickerNode">存储节点</label>
+					<label className="sr-only" htmlFor="shareFilePickerNode">{t("sharesPage.picker.storageNodeLabel")}</label>
 					<select
 						id="shareFilePickerNode"
 						value={nodeId}

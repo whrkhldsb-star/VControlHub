@@ -3,7 +3,7 @@
  */
 
 export const zh: Record<string, string> = {
-	"sharesPage.picker.title": "选择要分享的文件",
+	"sharesPage.picker.title": "在分享中心选择文件",
 	"sharesPage.picker.search": "搜索文件",
 	"sharesPage.picker.cancel": "取消",
 	"sharesPage.picker.confirm": "确认分享",
@@ -42,10 +42,23 @@ export const zh: Record<string, string> = {
 	"sharesPage.create.submitting": "创建中…",
 	"sharesPage.create.errorFallback": "创建失败",
 
+	"sharesPage.picker.eyebrow": "Share Center",
+	"sharesPage.picker.noItems": "当前目录没有可分享条目",
+	"sharesPage.picker.selectedHint": "文件和文件夹会分别生成独立分享链接。",
+	"sharesPage.picker.clear": "清空",
+	"sharesPage.picker.selectedEmpty": "勾选左侧文件或文件夹",
+	"sharesPage.picker.creating": "创建中…",
+	"sharesPage.picker.create": "创建分享链接",
+	"sharesPage.picker.created": "已创建，可直接复制：",
+	"sharesPage.picker.copy": "复制",
+	"sharesPage.picker.copied": "已复制",
+	"sharesPage.picker.loadError": "加载文件列表失败",
+	"sharesPage.picker.createError": "创建分享失败",
+	"sharesPage.picker.storageNodeLabel": "存储节点",
 };
 
 export const en: Record<string, string> = {
-	"sharesPage.picker.title": "Select files to share",
+	"sharesPage.picker.title": "Choose files in Shares",
 	"sharesPage.picker.search": "Search files",
 	"sharesPage.picker.cancel": "Cancel",
 	"sharesPage.picker.confirm": "Confirm share",
@@ -83,4 +96,17 @@ export const en: Record<string, string> = {
 	"sharesPage.create.submitting": "Creating…",
 	"sharesPage.create.errorFallback": "Creation failed",
 
+	"sharesPage.picker.eyebrow": "Share Center",
+	"sharesPage.picker.noItems": "No shareable items in this folder",
+	"sharesPage.picker.selectedHint": "Files and folders create separate share links.",
+	"sharesPage.picker.clear": "Clear",
+	"sharesPage.picker.selectedEmpty": "Select files or folders on the left",
+	"sharesPage.picker.creating": "Creating…",
+	"sharesPage.picker.create": "Create share links",
+	"sharesPage.picker.created": "Created. Copy directly:",
+	"sharesPage.picker.copy": "Copy",
+	"sharesPage.picker.copied": "Copied",
+	"sharesPage.picker.loadError": "Failed to load file list",
+	"sharesPage.picker.createError": "Failed to create shares",
+	"sharesPage.picker.storageNodeLabel": "Storage node",
 };

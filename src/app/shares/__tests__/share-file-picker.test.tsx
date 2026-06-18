@@ -14,12 +14,30 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
 
-vi.mock("@/lib/i18n/use-locale", () => ({
-	useI18n: vi.fn(() => ({ locale: "zh" })),
-}));
+vi.mock("@/lib/i18n/use-locale", async (importOriginal) => {
+	const mod = await importOriginal<typeof import("@/lib/i18n/use-locale")>();
+	const translations = await import("@/lib/i18n/translations");
+	let currentLocale: "zh" | "en" = "zh";
+	const buildT = () => (key: string) => translations.t(key, currentLocale);
+	const useI18nMock = vi.fn(() => ({
+		locale: currentLocale,
+		t: buildT(),
+		setLocale: vi.fn(),
+	}));
+	(globalThis as { __setI18nLocale?: (l: "zh" | "en") => void }).__setI18nLocale = (l) => {
+		currentLocale = l;
+	};
+	return {
+		...mod,
+		useI18n: useI18nMock,
+	};
+});
 
 const mockedFetch = vi.mocked(csrfFetch);
 const mockedUseI18n = vi.mocked(useI18n);
+const setI18nLocale = (locale: "zh" | "en") => {
+	(globalThis as { __setI18nLocale?: (l: "zh" | "en") => void }).__setI18nLocale?.(locale);
+};
 
 describe("ShareFilePicker", () => {
 	beforeEach(() => {
@@ -27,7 +45,7 @@ describe("ShareFilePicker", () => {
 		mockedFetch.mockReset();
 		refresh.mockReset();
 		// Reset i18n to default Chinese after a test that flipped to English
-		mockedUseI18n.mockReturnValue({ locale: "zh" } as ReturnType<typeof useI18n>);
+		setI18nLocale("zh");
 	});
 	it("browses files in share center and creates links for selected folders and files", async () => {
 		const user = userEvent.setup();
@@ -64,7 +82,7 @@ describe("ShareFilePicker", () => {
 	});
 
 	it("renders English copy without mutating storage node names", async () => {
-		mockedUseI18n.mockReturnValue({ locale: "en" } as ReturnType<typeof useI18n>);
+		setI18nLocale("en");
 		mockedFetch.mockResolvedValueOnce({
 			currentPath: "",
 			nodeIdFilter: "node_1",
