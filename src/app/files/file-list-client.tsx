@@ -4,6 +4,7 @@ import { useState, useCallback, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import { deleteFileEntryAction } from "../storage/actions";
 import { moveFileAction } from "./move-file-action";
 import { FileBatchToolbarLazy } from "./file-batch-toolbar-lazy";
@@ -76,6 +77,7 @@ export function FileListClient({
   onFolderClick,
   onRefresh,
 }: FileListClientProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const { toasts, showToast, dismissToast } = useFileToast();
 
@@ -312,7 +314,7 @@ export function FileListClient({
 
   const emptyMessage = searchQuery
     ? `未找到匹配 "${searchQuery}" 的文件。`
-    : "当前目录暂无内容。";
+    : t("fileListClient.emptyFolder");
 
   const [detailEntryId, setDetailEntryId] = useState<string | null>(null);
   const detailEntry = useMemo(() => {
@@ -324,7 +326,7 @@ export function FileListClient({
     return (
       <button
         type="button"
-        title="资料详情"
+        title={t("fileListClient.detailTitle")}
         aria-label={`资料详情 ${entry.name}`}
         onClick={() => setDetailEntryId(entry.id)}
         className={
@@ -366,7 +368,7 @@ export function FileListClient({
     return (
       <Link
         href={downloadUrl}
-        title="下载"
+        title={t("fileListClient.downloadTitle")}
         aria-label={`下载 ${entry.name}`}
         download={downloadUrl.startsWith("/") ? true : undefined}
         target={downloadUrl.startsWith("/") ? undefined : "_blank"}
@@ -393,7 +395,7 @@ export function FileListClient({
     return (
       <Link
         href={href}
-        title="下载目录归档"
+        title={t("fileListClient.downloadFolderArchiveTitle")}
         aria-label={`下载目录 ${folder.displayName ?? folder.name}`}
         download
         className={
@@ -764,22 +766,22 @@ export function FileListClient({
                   }}
                   onChange={toggleAll}
                   disabled={visibleFiles.length === 0}
-                  aria-label="全选文件"
+                  aria-label={t("fileListClient.selectAllFiles")}
                   className="rounded h-4 w-4 accent-cyan-400"
                 />
               </div>
               <div />
               <div>
-                名称 <SortIcon col="name" label="名称" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                {t("fileListClient.name")} <SortIcon col="name" label={t("fileListClient.name")} sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>
-                大小 <SortIcon col="size" label="大小" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                {t("fileListClient.size")} <SortIcon col="size" label={t("fileListClient.size")} sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>
-                来源 <SortIcon col="source" label="来源" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                {t("fileListClient.source")} <SortIcon col="source" label={t("fileListClient.source")} sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>
-                修改时间 <SortIcon col="updated" label="修改时间" sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
+                {t("fileListClient.modified")} <SortIcon col="updated" label={t("fileListClient.modified")} sortKey={sortKey} sortDir={sortDir} onToggle={toggleSort} />
               </div>
               <div>操作</div>
             </div>
@@ -799,7 +801,7 @@ export function FileListClient({
                     <input
                       type="checkbox"
                       disabled
-                      aria-label="选择文件夹（暂未启用）"
+                      aria-label={t("fileListClient.selectFolderDisabled")}
                       className="rounded h-4 w-4 accent-cyan-400 opacity-30"
                     />
                   </div>
@@ -1087,7 +1089,7 @@ export function FileListClient({
                 type="button"
                 onClick={() => dismissToast(toast.id)}
                 className="rounded-full px-1.5 text-white/80 hover:bg-white/15 hover:text-white"
-                aria-label="关闭提醒"
+                aria-label={t("fileListClient.closeNotice")}
               >
                 ×
               </button>
@@ -1110,8 +1112,8 @@ export function FileListClient({
             <button
               type="button"
               onClick={() => handleViewModeChange("list")}
-              title="列表视图"
-              aria-label="列表视图"
+              title={t("fileListClient.listView")}
+              aria-label={t("fileListClient.listView")}
               aria-pressed={viewMode === "list"}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 viewMode === "list"
@@ -1141,8 +1143,8 @@ export function FileListClient({
             <button
               type="button"
               onClick={() => handleViewModeChange("grid")}
-              title="图标视图"
-              aria-label="图标视图"
+              title={t("fileListClient.iconView")}
+              aria-label={t("fileListClient.iconView")}
               aria-pressed={viewMode === "grid"}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 viewMode === "grid"
@@ -1170,8 +1172,8 @@ export function FileListClient({
             <button
               type="button"
               onClick={() => handleViewModeChange("details")}
-              title="详情视图"
-              aria-label="详情视图"
+              title={t("fileListClient.detailView")}
+              aria-label={t("fileListClient.detailView")}
               aria-pressed={viewMode === "details"}
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                 viewMode === "details"

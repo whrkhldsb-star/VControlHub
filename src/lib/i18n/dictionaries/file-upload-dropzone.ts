@@ -43,6 +43,21 @@ export const zh: Record<string, string> = {
 	"filesBrowserSpa.allNodes": "全部节点",
 	"filesBrowserSpa.currentDirectoryOps": "当前目录操作",
 	"filesBrowserSpa.searchLabel": "搜索",
+
+	"fileListClient.emptyFolder": "当前目录暂无内容。",
+	"fileListClient.detailTitle": "资料详情",
+	"fileListClient.downloadTitle": "下载",
+	"fileListClient.downloadFolderArchiveTitle": "下载目录归档",
+	"fileListClient.selectAllFiles": "全选文件",
+	"fileListClient.name": "名称",
+	"fileListClient.size": "大小",
+	"fileListClient.source": "来源",
+	"fileListClient.modified": "修改时间",
+	"fileListClient.selectFolderDisabled": "选择文件夹（暂未启用）",
+	"fileListClient.closeNotice": "关闭提醒",
+	"fileListClient.listView": "列表视图",
+	"fileListClient.iconView": "图标视图",
+	"fileListClient.detailView": "详情视图",
 };
 
 export const en: Record<string, string> = {
@@ -83,4 +98,19 @@ export const en: Record<string, string> = {
 	"filesBrowserSpa.allNodes": "All nodes",
 	"filesBrowserSpa.currentDirectoryOps": "Current directory operations",
 	"filesBrowserSpa.searchLabel": "Search",
+
+	"fileListClient.emptyFolder": "Current folder is empty.",
+	"fileListClient.detailTitle": "File details",
+	"fileListClient.downloadTitle": "Download",
+	"fileListClient.downloadFolderArchiveTitle": "Download folder archive",
+	"fileListClient.selectAllFiles": "Select all files",
+	"fileListClient.name": "Name",
+	"fileListClient.size": "Size",
+	"fileListClient.source": "Source",
+	"fileListClient.modified": "Modified",
+	"fileListClient.selectFolderDisabled": "Select folder (not yet enabled)",
+	"fileListClient.closeNotice": "Dismiss notice",
+	"fileListClient.listView": "List view",
+	"fileListClient.iconView": "Icon view",
+	"fileListClient.detailView": "Detail view",
 };
