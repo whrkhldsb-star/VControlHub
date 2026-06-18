@@ -12,6 +12,7 @@ import {
   toStorageEntry,
   type FileProp,
 } from "@/app/files/file-entry-utils";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,8 @@ type PageProps = {
 
 type MediaPlayerItem = NonNullable<Awaited<ReturnType<typeof getMediaItem>>>;
 
-function formatSize(bytes: bigint | number | null) {
-  if (!bytes) return "未知";
+function formatSize(locale: "zh" | "en", bytes: bigint | number | null) {
+  if (!bytes) return t("mediaPage.player.sizeUnknown", locale);
   const b = Number(bytes);
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
@@ -48,7 +49,7 @@ function safeMediaReturnHref(from?: string) {
   return "/media";
 }
 
-function createStorageEntry(item: MediaPlayerItem) {
+function createStorageEntry(item: MediaPlayerItem, locale: "zh" | "en") {
   const node = item.storageNode;
   if (!node) return null;
 
@@ -62,7 +63,7 @@ function createStorageEntry(item: MediaPlayerItem) {
     mimeType: item.mimeType,
     relativePath: item.relativePath,
     sizeBytes: item.size == null ? null : Number(item.size),
-    sizeLabel: formatSize(item.size),
+    sizeLabel: formatSize(locale, item.size),
     previewable: true,
     directAccessMode: isDirectAccess ? "direct-url" : "managed-download",
     directAccessHref:
@@ -72,7 +73,7 @@ function createStorageEntry(item: MediaPlayerItem) {
             .map(encodeURIComponent)
             .join("/")}`
         : null,
-    directAccessDescription: isDirectAccess ? "目标服务器直连" : "网站中转",
+    directAccessDescription: isDirectAccess ? t("mediaPage.player.directAccess", locale) : t("mediaPage.player.relayed", locale),
     storageNodeId: node.id,
     storageNodeName: node.name,
     storageNodeDriver: node.driver,
@@ -86,6 +87,7 @@ export default async function MediaPlayerPage({
   searchParams,
 }: PageProps) {
   const session = await requireSession("/media");
+  const locale = await getServerLocale();
   if (!sessionHasPermission(session, "storage:read"))
     return <PermissionDenied />;
 
@@ -103,7 +105,7 @@ export default async function MediaPlayerPage({
       ? siblings[currentIndex + 1]
       : null;
 
-  const storageEntry = createStorageEntry(item);
+  const storageEntry = createStorageEntry(item, locale);
   if (!storageEntry) notFound();
 
   const mediaHref = `/api/media/${encodeURIComponent(item.id)}/stream`;
@@ -120,10 +122,10 @@ export default async function MediaPlayerPage({
   const isAudio = item.mimeType.startsWith("audio/");
   const mediaKindLabel =
     item.mediaType === "image"
-      ? "图片"
+      ? t("mediaPage.stat.image", locale)
       : item.mediaType === "audio"
-        ? "音频"
-        : "视频";
+        ? t("mediaPage.stat.audio", locale)
+        : t("mediaPage.stat.video", locale);
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -134,11 +136,11 @@ export default async function MediaPlayerPage({
               href={returnHref}
               className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 hover:border-cyan-400/50 hover:bg-white/5 light:hover:bg-white"
             >
-              ← 返回媒体库
+              ← {t("mediaPage.player.backToLibrary", locale)}
             </Link>
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-cyan-300">
-                Media Player
+                {t("mediaPage.player.eyebrow", locale)}
               </p>
               <h1 className="truncate text-xl font-semibold text-white">
                 {item.name}
@@ -151,13 +153,13 @@ export default async function MediaPlayerPage({
               data-tone="accent"
               className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2"
             >
-              <Download size={16} /> 下载
+              <Download size={16} /> {t("mediaPage.player.download", locale)}
             </a>
             <Link
               href={sourceHref}
               className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-slate-200 hover:bg-white/5 light:hover:bg-white"
             >
-              <FolderOpen size={16} /> 打开源文件
+              <FolderOpen size={16} /> {t("mediaPage.player.openSource", locale)}
             </Link>
           </div>
         </header>
@@ -183,12 +185,12 @@ export default async function MediaPlayerPage({
                 />
               ) : (
                 <div className="py-16 text-center text-sm text-[var(--text-secondary)]">
-                  此媒体类型暂不支持在线预览，请下载后查看。
+                  {t("mediaPage.player.previewUnsupported", locale)}
                 </div>
               )}
             </div>
             <nav
-              aria-label="媒体播放导航"
+              aria-label={t("mediaPage.player.navAria", locale)}
               className="grid gap-2 sm:grid-cols-2"
             >
               {previousItem ? (
@@ -196,14 +198,14 @@ export default async function MediaPlayerPage({
                   href={`/media/${encodeURIComponent(previousItem.id)}?from=${navigationFrom}`}
                   className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200 transition hover:bg-white/[0.06]"
                 >
-                  <span className="block text-xs text-slate-500">上一项</span>
+                  <span className="block text-xs text-slate-500">{t("mediaPage.player.previousLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
                     {previousItem.name}
                   </span>
                 </Link>
               ) : (
                 <span className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-slate-500">
-                  已经是第一项
+                  {t("mediaPage.player.isFirst", locale)}
                 </span>
               )}
               {nextItem ? (
@@ -211,14 +213,14 @@ export default async function MediaPlayerPage({
                   href={`/media/${encodeURIComponent(nextItem.id)}?from=${navigationFrom}`}
                   className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-right text-sm text-slate-200 transition hover:bg-white/[0.06]"
                 >
-                  <span className="block text-xs text-slate-500">下一项</span>
+                  <span className="block text-xs text-slate-500">{t("mediaPage.player.nextLabel", locale)}</span>
                   <span className="mt-1 block truncate font-medium">
                     {nextItem.name}
                   </span>
                 </Link>
               ) : (
                 <span className="rounded-2xl border border-white/10 px-4 py-3 text-right text-sm text-slate-500">
-                  已经是最后一项
+                  {t("mediaPage.player.isLast", locale)}
                 </span>
               )}
             </nav>
@@ -238,7 +240,7 @@ export default async function MediaPlayerPage({
                   {mediaKindLabel}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {item.mimeType || "未知 MIME"}
+                  {item.mimeType || t("mediaPage.player.mimeUnknown", locale)}
                 </p>
               </div>
               {item.favorite ? (
@@ -253,25 +255,25 @@ export default async function MediaPlayerPage({
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-xs uppercase tracking-wide text-slate-500">
-                  大小
+                  {t("mediaPage.player.sizeLabel", locale)}
                 </dt>
                 <dd className="mt-1 text-slate-200">
-                  {formatSize(item.size)}
+                  {formatSize(locale, item.size)}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-slate-500">
-                  存储
+                  {t("mediaPage.player.storageLabel", locale)}
                 </dt>
                 <dd className="mt-1 text-slate-200">
                   {item.storageNode?.server?.name ??
                     item.storageNode?.name ??
-                    "未知存储"}
+                    t("mediaPage.player.storageUnknown", locale)}
                 </dd>
               </div>
               <div>
                 <dt className="text-xs uppercase tracking-wide text-slate-500">
-                  路径
+                  {t("mediaPage.player.pathLabel", locale)}
                 </dt>
                 <dd className="mt-1 break-all rounded-2xl bg-black/20 p-3 font-mono text-xs text-slate-300">
                   {item.relativePath}
@@ -282,7 +284,7 @@ export default async function MediaPlayerPage({
             {item.tags.length > 0 ? (
               <div className="mt-5">
                 <div className="mb-2 inline-flex items-center gap-1 text-xs uppercase tracking-wide text-slate-500">
-                  <Tag size={12} /> 标签
+                  <Tag size={12} /> {t("mediaPage.player.tagsLabel", locale)}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {item.tags.map((tag) => (

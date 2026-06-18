@@ -25,6 +25,11 @@ function modeDescription(locale: Locale, type: "image" | "video" | "audio" | und
 	if (type === "audio") return t("mediaPage.workspace.audioDesc", locale);
 	return t("mediaPage.workspace.allDesc", locale);
 }
+function typeLabel(locale: Locale, type: "image" | "video" | "audio"): string {
+	if (type === "image") return t("mediaPage.stat.image", locale);
+	if (type === "video") return t("mediaPage.stat.video", locale);
+	return t("mediaPage.stat.audio", locale);
+}
 
 export default async function Page({ searchParams }: { searchParams?: Promise<MediaSearchParams> }) {
   const session = await requireSession("/media");
@@ -88,35 +93,35 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
             <div className="flex flex-wrap gap-2 text-xs">
               {mediaType === "image" ? (
                 <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 px-3 py-1.5 font-medium text-emerald-200 transition hover:bg-emerald-400/20">
-                  🔗 外链中心
+                  {t("mediaPage.linkHub.label", locale)}
                 </Link>
               ) : null}
-              <span data-tone="cyan" className="inline-flex items-center rounded-full border border-cyan-400/20 px-3 py-1.5 text-cyan-200">当前视图 {media.length} 项</span>
+              <span data-tone="cyan" className="inline-flex items-center rounded-full border border-cyan-400/20 px-3 py-1.5 text-cyan-200">{t("mediaPage.viewCount", locale).replace("{count}", String(media.length))}</span>
             </div>
           </div>
 
-          <div role="tablist" aria-label="媒体类型" className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+          <div role="tablist" aria-label={t("mediaPage.aria.mediaType", locale)} className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
             <FilterLink href={mediaHref({ favorite, q, tag })} active={!mediaType} activeClassName="border-cyan-400/45 bg-cyan-400/20 text-cyan-100" inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]" className="rounded-2xl border px-4 py-3 transition">
-              <span className="block text-base">全部</span><span className="text-xs opacity-70">{totalCount} 项媒体</span>
+              <span className="block text-base">{t("mediaPage.filter.allTab", locale)}</span><span className="text-xs opacity-70">{t("mediaPage.filter.allCount", locale).replace("{count}", String(totalCount))}</span>
             </FilterLink>
-            <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? "再次点击取消图片筛选" : "只看图片"}>
-              <span className="flex items-center justify-between"><span>🖼️ 图片</span><span>{imageCount}</span></span><span className="mt-1 block text-xs opacity-70">上传 / 发布外链 {mediaType === "image" ? "×" : ""}</span>
+            <FilterLink href={toggleTypeHref(filters, "image")} active={mediaType === "image"} activeClassName="border-blue-400/55 bg-blue-400/20 text-blue-100" inactiveClassName="border-blue-400/20 bg-blue-400/[0.06] text-blue-200 hover:bg-blue-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "image" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "image")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "image"))}>
+              <span className="flex items-center justify-between"><span>{t("mediaPage.filter.imageTab", locale)}</span><span>{imageCount}</span></span><span className="mt-1 block text-xs opacity-70">{t("mediaPage.filter.imageDesc", locale)} {mediaType === "image" ? t("mediaPage.filter.toggleOff", locale) : ""}</span>
             </FilterLink>
-            <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/55 bg-purple-400/20 text-purple-100 light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "video" ? "再次点击取消视频筛选" : "只看视频"}>
-              <span className="flex items-center justify-between"><span>🎬 视频</span><span>{videoCount}</span></span><span className="mt-1 block text-xs opacity-70">播放 / 下载 {mediaType === "video" ? "×" : ""}</span>
+            <FilterLink href={toggleTypeHref(filters, "video")} active={mediaType === "video"} activeClassName="border-purple-400/55 bg-purple-400/20 text-purple-100 light:text-purple-900" inactiveClassName="border-purple-400/20 bg-purple-400/[0.06] text-purple-200 light:text-purple-800 hover:bg-purple-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "video" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "video")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "video"))}>
+              <span className="flex items-center justify-between"><span>{t("mediaPage.filter.videoTab", locale)}</span><span>{videoCount}</span></span><span className="mt-1 block text-xs opacity-70">{t("mediaPage.filter.videoDesc", locale)} {mediaType === "video" ? t("mediaPage.filter.toggleOff", locale) : ""}</span>
             </FilterLink>
-            <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/55 bg-emerald-400/20 text-emerald-100" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 hover:bg-emerald-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "audio" ? "再次点击取消音频筛选" : "只看音频"}>
-              <span className="flex items-center justify-between"><span>🎧 音频</span><span>{audioCount}</span></span><span className="mt-1 block text-xs opacity-70">播放 / 收藏 {mediaType === "audio" ? "×" : ""}</span>
+            <FilterLink href={toggleTypeHref(filters, "audio")} active={mediaType === "audio"} activeClassName="border-emerald-400/55 bg-emerald-400/20 text-emerald-100" inactiveClassName="border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-200 hover:bg-emerald-400/10" className="rounded-2xl border px-4 py-3 transition" title={mediaType === "audio" ? t("mediaPage.filter.titleToggleOffType", locale).replace("{type}", typeLabel(locale, "audio")) : t("mediaPage.filter.titleOnlyType", locale).replace("{type}", typeLabel(locale, "audio"))}>
+              <span className="flex items-center justify-between"><span>{t("mediaPage.filter.audioTab", locale)}</span><span>{audioCount}</span></span><span className="mt-1 block text-xs opacity-70">{t("mediaPage.filter.audioDesc", locale)} {mediaType === "audio" ? t("mediaPage.filter.toggleOff", locale) : ""}</span>
             </FilterLink>
           </div>
         </div>
 
         <aside className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
-          <h2 className="text-sm font-semibold text-white">推荐流程</h2>
+          <h2 className="text-sm font-semibold text-white">{t("mediaPage.flow.title", locale)}</h2>
           <ol className="mt-3 space-y-3 text-sm text-slate-400">
-            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">1</span><span>先用类型卡片进入图片、视频或音频工作区。</span></li>
-            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">2</span><span>搜索、标签和收藏筛选会在切换时保留。</span></li>
-            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">3</span><span>图片外链只从图片工作区发布，历史复制到外链中心处理。</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">1</span><span>{t("mediaPage.flow.step1", locale)}</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">2</span><span>{t("mediaPage.flow.step2", locale)}</span></li>
+            <li className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-400/15 text-xs text-cyan-200">3</span><span>{t("mediaPage.flow.step3", locale)}</span></li>
           </ol>
         </aside>
       </section>
@@ -127,34 +132,34 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         {tag && <input type="hidden" name="tag" value={tag} />}
         <div className="flex w-full max-w-sm flex-col gap-1">
           <label htmlFor="media-search" className="text-xs font-medium text-slate-400">
-            搜索媒体
+            {t("mediaPage.search.label", locale)}
           </label>
           <input
             id="media-search"
             type="search"
             name="q"
             defaultValue={q ?? ""}
-            placeholder="文件名、路径、标签…"
+            placeholder={t("mediaPage.search.placeholder", locale)}
             className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-400/50"
           />
         </div>
-        <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500">搜索</button>
+        <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-cyan-500">{t("mediaPage.search.submit", locale)}</button>
         {(q || tag || mediaType || favorite) && (
           <FilterLink href="/media" active={false} activeClassName="" inactiveClassName="rounded-xl border border-white/10 px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5">
-            清除筛选
+            {t("mediaPage.search.clearFilters", locale)}
           </FilterLink>
         )}
       </form>
 
       <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-        <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100" inactiveClassName="border-amber-400/20 bg-amber-400/[0.06] text-amber-200 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? "再次点击取消收藏筛选" : "只看收藏"}>
-          ⭐ 收藏 {favCount}
+        <FilterLink href={toggleFavoriteHref(filters)} active={favorite === true} activeClassName="border-amber-400/40 bg-amber-400/20 text-amber-100" inactiveClassName="border-amber-400/20 bg-amber-400/[0.06] text-amber-200 hover:bg-amber-400/10" className="rounded-full border px-3 py-1 transition" title={favorite ? t("mediaPage.filter.titleToggleOffFav", locale) : t("mediaPage.filter.titleOnlyFav", locale)}>
+          {t("mediaPage.favoriteFilter", locale).replace("{count}", String(favCount))}
         </FilterLink>
       </div>
 
       {tagCloud.length > 0 && (
         <div data-card className="mb-5  p-3">
-          <div className="mb-2 text-xs font-semibold text-slate-400">标签筛选</div>
+          <div className="mb-2 text-xs font-semibold text-slate-400">{t("mediaPage.tagFilter.title", locale)}</div>
           <div className="flex flex-wrap gap-2 text-xs">
             {tagCloud.map((entry) => (
               <FilterLink
@@ -164,7 +169,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
                 activeClassName="border-cyan-400/40 bg-cyan-400/20 text-cyan-100"
                 inactiveClassName="border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]"
                 className="rounded-full border px-2.5 py-1 transition"
-                title={tag === entry.tag ? `再次点击取消 #${entry.tag} 筛选` : `筛选 #${entry.tag}`}
+                title={tag === entry.tag ? t("mediaPage.tagFilter.titleToggleOff", locale).replace("{tag}", entry.tag) : t("mediaPage.tagFilter.titleApply", locale).replace("{tag}", entry.tag)}
               >
                 #{entry.tag} <span className="opacity-60">{entry.count}</span>
                 {tag === entry.tag ? <span className="ml-1 opacity-70">×</span> : null}
@@ -178,11 +183,11 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
         <section data-tone="emerald" className="mb-5 rounded-2xl border border-emerald-400/20 p-4 light:border-emerald-200 light:bg-emerald-50">
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-emerald-100">图片发布工作流</h2>
-              <p className="mt-1 text-xs text-emerald-100/75">在这里选择存储节点批量上传；已入库图片卡片可直接发布外链，外链历史进入“外链中心”统一复制和审计。</p>
+              <h2 className="text-sm font-semibold text-emerald-100">{t("mediaPage.upload.title", locale)}</h2>
+              <p className="mt-1 text-xs text-emerald-100/75">{t("mediaPage.upload.desc", locale)}</p>
             </div>
             <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center justify-center rounded-xl border border-emerald-300/30 px-3 py-2 text-xs font-medium text-emerald-100 transition hover:bg-emerald-500/25">
-              打开外链中心
+              {t("mediaPage.linkHub.open", locale)}
             </Link>
           </div>
           <MediaImageUploadPanel />
@@ -193,7 +198,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
 
       {grouped.size === 0 && (
         <EmptyState icon="🎬" variant="boxed">
-          暂无媒体条目。请先在文件管理中浏览 VPS 存储，然后点击「扫描媒体索引」生成媒体列表。
+          {t("mediaPage.empty", locale)}
         </EmptyState>
       )}
 
@@ -202,7 +207,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           <div className="mb-3 flex items-center gap-2">
             <span className="text-lg">🖥️</span>
             <h2 className="text-sm font-semibold text-white">{serverName}</h2>
-            <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{items.length} 项</span>
+            <span className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{t("mediaPage.itemCount", locale).replace("{count}", String(items.length))}</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {items.map((m) => (
