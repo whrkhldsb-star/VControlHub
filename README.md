@@ -326,9 +326,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 完整 TR 编号与历史见 `git log`。当前未完成项：
 
-| 编号 | 主题 | 备注 |
-|---|---|---|
-| TR-052 | `/dashboard` 首屏专属页面 | `/` 307→login 后无概览页 |
+_（无 — TR-052 `/dashboard` 首屏已在 commit `2f74051` 之前落地，`src/app/page.tsx` 即 dashboard 内容，浏览器实测登录后 `/` 完整渲染：核心资源 / 运维队列 / 6 台在线 VPS hero / 快速链接 / 数据趋势 / 最近审批 + 操作日志全部就绪。）_
 
 ## 🗺️ 下一步升级方向
 
@@ -340,7 +338,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P2 — 用户体验和可运营性
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
-- [ ] **落地页真 dashboard**（TR-052）— `/` 307→login 后无 dashboard，首屏直接看概览，做一个 `/dashboard` 路由专属页面。
 
 ### P3 — 长期愿景
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
