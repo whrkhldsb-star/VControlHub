@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
 import { EmptyState } from "@/components/page-shell";
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
   useQuickServiceActions,
   type ConfigPreview,
@@ -64,18 +65,20 @@ interface AppSource {
 	syncCount: number;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-	storage: "☁️ 存储网盘",
-	media: "🎬 媒体影视",
-	devtools: "🔧 开发工具",
-	notes: "📝 笔记文档",
-	network: "🌐 网络监控",
-	blog: "✍️ 博客建站",
-	other: "📦 其他服务",
-};
-
 const CATEGORY_ORDER = ["storage", "media", "devtools", "notes", "network", "blog", "other"];
 const RECOMMENDED_SERVICE_SLUGS = ["alist", "uptime-kuma", "portainer", "vaultwarden", "gitea"];
+
+function buildCategoryLabels(t: (key: string) => string): Record<string, string> {
+	return {
+		storage: t("qsPage.category.storage"),
+		media: t("qsPage.category.media"),
+		devtools: t("qsPage.category.devtools"),
+		notes: t("qsPage.category.notes"),
+		network: t("qsPage.category.network"),
+		blog: t("qsPage.category.blog"),
+		other: t("qsPage.category.other"),
+	};
+}
 
 const QUICK_SERVICE_PUBLIC_HOST = process.env.NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST ?? "";
 
@@ -127,6 +130,8 @@ function sortByPriority(items: CatalogItem[]): CatalogItem[] {
 /* ── Main Component ─────────────────────────────────────────────── */
 
 export function QuickServicesClient({ canManage }: { canManage: boolean }) {
+	const { t } = useI18n();
+	const categoryLabels = buildCategoryLabels(t);
 	const [catalog, setCatalog] = useState<CatalogItem[]>([]);
 	const [remoteCatalog, setRemoteCatalog] = useState<CatalogItem[]>([]);
 	const [sources, setSources] = useState<AppSource[]>([]);
@@ -155,7 +160,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			setDockerStatus(data.docker ?? null);
 			if (typeof data.publicHost === "string") setQuickServicePublicHost(data.publicHost);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "加载失败");
+			setError(err instanceof Error ? err.message : t("qsPage.loadFailedFallback"));
 		} finally {
 			setLoading(false);
 		}
@@ -192,7 +197,12 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 	const openInstallDialog = (item: CatalogItem) => {
 		if (dockerStatus && !dockerStatus.available) {
-			actions.showMessage({ type: "err", text: dockerStatus.installHint ? `${dockerStatus.message}：${dockerStatus.installHint}` : (dockerStatus.message ?? "Docker 不可用") });
+			actions.showMessage({
+				type: "err",
+				text: dockerStatus.installHint
+					? t("qsPage.dockerMessage").replace("{message}", dockerStatus.message ?? "").replace("{hint}", dockerStatus.installHint)
+					: (dockerStatus.message ?? t("qsPage.dockerUnavailable")),
+			});
 			return;
 		}
 		setInstallDialog(item);
@@ -205,7 +215,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 	const advanceInstall = (input: { slug: string; name: string; port: number }) => {
 		const item = [...catalog, ...remoteCatalog].find((candidate) => candidate.slug === input.slug);
 		if (!item) {
-			actions.showMessage({ type: "err", text: "未找到待安装服务配置，请刷新后重试" });
+			actions.showMessage({ type: "err", text: t("qsPage.installConfigMissing") });
 			return;
 		}
 		setConfigPreview({ action: "install", item, port: input.port });
@@ -254,14 +264,14 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		await actions.doDeleteSource(id);
 	};
 
-	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">加载中…</div>;
+	if (loading) return <div className="text-sm text-slate-500 py-12 text-center">{t("qsPage.loading")}</div>;
 	if (error) return <div className="text-sm text-rose-400 py-12 text-center">{error}</div>;
 
 	if (!canManage) {
 		return (
 			<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
 				<div className="text-4xl mb-3">🔒</div>
-				<p className="text-sm text-slate-500">当前角色无快捷服务管理权限</p>
+				<p className="text-sm text-slate-500">{t("qsPage.permissionDenied")}</p>
 			</div>
 		);
 	}
@@ -320,22 +330,22 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		protocol: typeof window !== "undefined" ? window.location.protocol : null,
 		path: item.path,
 	});
-	const accessHostLabel = quickServicePublicHost || hostName || "当前主机";
+	const accessHostLabel = quickServicePublicHost || hostName || t("qsPage.currentHost");
 	const staleSources = sources.filter((source) => source.enabled && source.lastSyncStatus !== "success");
 	const lastSyncedSource = sources
 		.filter((source) => source.lastSyncAt)
 		.sort((a, b) => new Date(b.lastSyncAt ?? 0).getTime() - new Date(a.lastSyncAt ?? 0).getTime())[0];
 	const nextAction = errorItems.length > 0
-		? { label: "查看异常服务", tab: "installed" as Tab, tone: "rose" }
+		? { label: t("qsPage.viewErrorServices"), tab: "installed" as Tab, tone: "rose" }
 		: runningItems.length > 0
-			? { label: "管理运行服务", tab: "installed" as Tab, tone: "emerald" }
-			: { label: "安装推荐服务", tab: "store" as Tab, tone: "cyan" };
+			? { label: t("qsPage.manageRunningServices"), tab: "installed" as Tab, tone: "emerald" }
+			: { label: t("qsPage.installRecommendedServices"), tab: "store" as Tab, tone: "cyan" };
 
 	return (
 		<div className="space-y-6">
 			{dockerStatus && !dockerStatus.available ? (
 				<div data-tone="amber" className="rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-100">
-					<div className="font-medium">Docker 环境未就绪，快捷服务安装已暂停</div>
+					<div className="font-medium">{t("qsPage.dockerNotReadyTitle")}</div>
 					<p className="mt-1 text-xs text-amber-100/75/75">{dockerStatus.message}</p>
 					{dockerStatus.installHint ? <p data-code-surface="true" className="mt-2 rounded-lg border border-amber-300/20 bg-slate-950/50 px-3 py-2 font-mono text-xs text-amber-50">{dockerStatus.installHint}</p> : null}
 				</div>
@@ -347,25 +357,25 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
 						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-md border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
-							查看任务中心
+							{t("qsPage.viewTaskCenter")}
 						</Link>
 					) : null}
 				</div>
 			)}
 
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<SummaryPill label="运行中" value={summary.running} tone="emerald" />
-				<SummaryPill label="已停止" value={summary.stopped} tone="amber" />
-				<SummaryPill label="异常" value={summary.error} tone="rose" />
-				<SummaryPill label="可安装" value={summary.available} tone="cyan" />
+				<SummaryPill label={t("qsPage.summaryRunning")} value={summary.running} tone="emerald" />
+				<SummaryPill label={t("qsPage.summaryStopped")} value={summary.stopped} tone="amber" />
+				<SummaryPill label={t("qsPage.summaryError")} value={summary.error} tone="rose" />
+				<SummaryPill label={t("qsPage.summaryAvailable")} value={summary.available} tone="cyan" />
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>
-							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">运行概览</p>
-							<h2 className="mt-1 text-base font-semibold text-white">{runningItems.length > 0 ? `${runningItems.length} 个服务在线` : "还没有运行中的服务"}</h2>
+							<p className="text-xs uppercase tracking-[0.2em] text-cyan-300/70">{t("qsPage.runningOverview")}</p>
+							<h2 className="mt-1 text-base font-semibold text-white">{runningItems.length > 0 ? t("qsPage.runningOnlineCount").replace("{count}", String(runningItems.length)) : t("qsPage.noRunningServicesYet")}</h2>
 						</div>
 						<button type="button" onClick={() => setTab(nextAction.tab)}
 							className={`rounded-full border px-3 py-1.5 text-xs transition ${nextAction.tone === "rose" ? "border-rose-400/30 bg-rose-400/10 text-rose-100 hover:bg-rose-400/15" : nextAction.tone === "emerald" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100 hover:bg-emerald-400/15" : "border-cyan-400/30 bg-cyan-400/10 text-cyan-100 hover:bg-cyan-400/15"}`}
@@ -377,7 +387,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						{runningItems.slice(0, 4).map((item) => {
 							const access = quickServiceAccess(item);
 							return (
-								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? `${item.name} 访问入口，${access.label}` : `${item.name} 访问入口未配置`} data-tone="emerald" className="rounded-xl border border-emerald-400/15 p-3 transition hover:bg-emerald-400/[0.1]">
+								<a key={item.slug} href={access?.url ?? "#"} target="_blank" rel="noreferrer" aria-disabled={!access} aria-label={access ? t("qsPage.accessEntry").replace("{name}", item.name).replace("{label}", access.label) : t("qsPage.accessEntryUnconfigured").replace("{name}", item.name)} data-tone="emerald" className="rounded-xl border border-emerald-400/15 p-3 transition hover:bg-emerald-400/[0.1]">
 									<div className="flex items-center justify-between gap-2">
 										<span className="truncate text-sm font-medium text-white">{item.icon} {item.name}</span>
 										<span className="text-[10px] text-emerald-200">:{item.port ?? item.defaultPort}</span>
@@ -387,23 +397,23 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 								</a>
 							);
 						})}
-						{runningItems.length === 0 && <p className="text-sm text-slate-500">从推荐服务中安装 AList、Uptime Kuma 或 Portainer 后，这里会出现访问入口。</p>}
+						{runningItems.length === 0 && <p className="text-sm text-slate-500">{t("qsPage.recommendedHint")}</p>}
 					</div>
 				</div>
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
-					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">端口</p>
-					<h3 className="mt-1 text-base font-semibold text-white">{usedPorts.length} 个监听端口</h3>
-					<p className="mt-2 text-sm leading-6 text-slate-400">安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。</p>
+					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("qsPage.portsLabel")}</p>
+					<h3 className="mt-1 text-base font-semibold text-white">{t("qsPage.listeningPortsCount").replace("{count}", String(usedPorts.length))}</h3>
+					<p className="mt-2 text-sm leading-6 text-slate-400">{t("qsPage.portsHint")}</p>
 					<div className="mt-3 flex flex-wrap gap-1.5">
 						{usedPorts.slice(0, 8).map((port) => <span key={port} className="rounded-full border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">{port}</span>)}
 					</div>
 				</div>
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
-					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">应用源</p>
-					<h3 className="mt-1 text-base font-semibold text-white">{sources.filter((s) => s.enabled).length}/{sources.length} 个源启用</h3>
-					<p className="mt-2 text-sm leading-6 text-slate-400">{lastSyncedSource ? `最近同步：${lastSyncedSource.displayName}` : "还没有同步记录。"}</p>
+					<p className="text-xs uppercase tracking-[0.2em] text-slate-500">{t("qsPage.sourcesLabel")}</p>
+					<h3 className="mt-1 text-base font-semibold text-white">{t("qsPage.sourcesEnabledCount").replace("{enabled}", String(sources.filter((s) => s.enabled).length)).replace("{total}", String(sources.length))}</h3>
+					<p className="mt-2 text-sm leading-6 text-slate-400">{lastSyncedSource ? t("qsPage.lastSynced").replace("{name}", lastSyncedSource.displayName) : t("qsPage.noSyncRecord")}</p>
 					<button type="button" onClick={() => setTab("sources")} className={`mt-3 rounded-lg border px-3 py-1.5 text-xs transition ${staleSources.length > 0 ? "border-amber-400/30 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15" : "border-white/[0.08] text-slate-300 hover:bg-white/[0.06]"}`}>
-						{staleSources.length > 0 ? `处理 ${staleSources.length} 个待同步源` : "管理应用源"}
+						{staleSources.length > 0 ? t("qsPage.handleStaleSources").replace("{count}", String(staleSources.length)) : t("qsPage.manageSources")}
 					</button>
 				</div>
 			</section>
@@ -411,7 +421,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Search bar */}
 			<div className="space-y-1.5">
 				<label htmlFor="quick-service-search" className="block text-xs font-medium text-slate-400">
-					搜索快捷服务
+					{t("qsPage.searchLabel")}
 				</label>
 				<div className="relative">
 					<input
@@ -419,7 +429,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 						type="search"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder="应用名称、描述、镜像…"
+						placeholder={t("qsPage.searchPlaceholder")}
 						data-card className="w-full  px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400/40 transition"
 					/>
 					{search && (
@@ -434,10 +444,10 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<section data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-4">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<h2 className="text-sm font-semibold text-white">推荐快速服务</h2>
-							<p className="mt-1 text-xs text-slate-400">优先覆盖文件、监控、容器管理、密码库和代码托管。</p>
+							<h2 className="text-sm font-semibold text-white">{t("qsPage.recommendedHeader")}</h2>
+							<p className="mt-1 text-xs text-slate-400">{t("qsPage.recommendedSubheader")}</p>
 						</div>
-						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200">MVP 优先</span>
+						<span className="rounded-full border border-cyan-400/20 px-2 py-1 text-[11px] text-cyan-200">{t("qsPage.mvpPriority")}</span>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						{recommendedItems.map((item) => (
@@ -462,16 +472,16 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 			{/* Tab bar */}
 			<div data-card className="flex flex-wrap gap-1  p-1 w-fit">
 				<button onClick={() => setTab("store")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "store" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
-					🏪 本地精选 ({localAvailable.length})
+					{t("qsPage.tabStore").replace("{count}", String(localAvailable.length))}
 				</button>
 				<button onClick={() => setTab("community")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "community" ? "bg-violet-500/20 text-violet-300 light:bg-violet-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
-					🌐 社区推荐 ({remoteAvailable.length})
+					{t("qsPage.tabCommunity").replace("{count}", String(remoteAvailable.length))}
 				</button>
 				<button onClick={() => setTab("installed")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "installed" ? "bg-cyan-500/20 text-cyan-300 light:bg-cyan-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
-					📦 已安装 ({installed.length})
+					{t("qsPage.tabInstalled").replace("{count}", String(installed.length))}
 				</button>
 				<button onClick={() => setTab("sources")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === "sources" ? "bg-amber-500/20 text-amber-300 light:bg-amber-100" : "text-slate-400 hover:text-white light:hover:bg-slate-100 light:hover:text-slate-900"}`}>
-					⚙️ 应用源 ({sources.length})
+					{t("qsPage.tabSources").replace("{count}", String(sources.length))}
 				</button>
 			</div>
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}
@@ -494,7 +504,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				if (items.length === 0) return null;
 				return (
 					<div key={cat} className="space-y-3">
-						<h2 className="text-sm font-semibold text-white/70 tracking-wide">{CATEGORY_LABELS[cat] ?? cat}</h2>
+						<h2 className="text-sm font-semibold text-white/70 tracking-wide">{categoryLabels[cat] ?? cat}</h2>
 						<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{items.map((item) => (
 								<ServiceCard
@@ -518,17 +528,17 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 
 			{tab === "installed" && installed.length === 0 && (
 				<EmptyState icon="📦" variant="boxed">
-					还没有安装任何服务，去商店看看吧
+					{t("qsPage.emptyInstalled")}
 				</EmptyState>
 			)}
 			{tab === "store" && localAvailable.length === 0 && (
 				<EmptyState icon="✅" variant="boxed">
-					所有精选服务都已安装！
+					{t("qsPage.emptyStore")}
 				</EmptyState>
 			)}
 			{tab === "community" && remoteAvailable.length === 0 && (
 				<EmptyState icon="🌐" variant="boxed">
-					{sources.some((s) => s.enabled) ? "所有社区应用都已安装！" : "请先在「应用源」中同步数据"}
+					{sources.some((s) => s.enabled) ? t("qsPage.emptyCommunityAllInstalled") : t("qsPage.emptyCommunityHint")}
 				</EmptyState>
 			)}
 
