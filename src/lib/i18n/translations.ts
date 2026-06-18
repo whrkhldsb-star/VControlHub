@@ -28,6 +28,7 @@ import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/dow
 import { zh as operationtaskspageZh, en as operationtaskspageEn } from "./dictionaries/operation-tasks-page";
 import { zh as scheduledtaskspageZh, en as scheduledtaskspageEn } from "./dictionaries/scheduled-tasks-page";
 import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
+import { zh as sharetokenapiZh, en as sharetokenapiEn } from "./dictionaries/share-token-api";
 import { zh as sharespageZh, en as sharespageEn } from "./dictionaries/shares-page";
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
 import { zh as filespageZh, en as filespageEn } from "./dictionaries/files-page";
@@ -136,6 +137,7 @@ const zh: Record<string, string> = {
 	...scheduledtasksZh,
 	...scheduledtaskspageZh,
 	...settingspageZh,
+	...sharetokenapiZh,
 	...searchZh,
 	...serversZh,
 	...serverspageZh,
@@ -209,6 +211,7 @@ const en: Record<string, string> = {
 	...scheduledtasksEn,
 	...scheduledtaskspageEn,
 	...settingspageEn,
+	...sharetokenapiEn,
 	...searchEn,
 	...serversEn,
 	...serverspageEn,
