@@ -161,3 +161,15 @@ export function isProtectedByApproval(input: {
 
 	return ASSISTANT_APPROVAL_ACTIONS.includes(input.actionType);
 }
+
+/**
+ * Resolve the full set of permissions granted to a list of roles.
+ *
+ * Pure, side-effect-free — safe to import from both server and client
+ * contexts. Lives here (rather than in `authorization.ts`) so that client
+ * components can use it without pulling in `next/headers` (transitively
+ * imported by `require-session.ts` via `requirePermission`).
+ */
+export function getPermissionsFromRoles(roles: RoleKey[]): Permission[] {
+	return Array.from(new Set(roles.flatMap((role) => DEFAULT_ROLE_PERMISSIONS[role] ?? [])));
+}

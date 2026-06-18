@@ -11,6 +11,8 @@ import { ThemeToggle } from "./theme-toggle";
 import { LanguageToggle } from "./language-toggle";
 import { getAppName, getPublicLabel } from "@/lib/branding";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { type Permission } from "@/lib/auth/rbac";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { IconExternal, IconKey, mainNavItems, systemNavItems } from "./nav-items";
 
 interface QuickServiceLink {
@@ -18,6 +20,28 @@ interface QuickServiceLink {
 	name: string;
 	icon: string;
 	path: string;
+}
+
+/**
+ * Decide whether the current session is allowed to see a nav item.
+ *
+ * - `href` not present in the map → page does not declare any permission,
+ *   visible to anyone authenticated.
+ * - `href` declares `[]` permissions → same as above (explicit empty).
+ * - `href` declares one or more permissions → user must hold at least one
+ *   (`canAny`). Mirrors task 56's "无权限 UI 元素 完全不渲染" rule
+ *   (TR-030 multi-tenant via permission-gated render).
+ */
+function filterByPermissions<T extends { href: string }>(
+	items: readonly T[],
+	declaredPermissionsByHref: Record<string, readonly Permission[]>,
+	canAny: (permissions: readonly Permission[]) => boolean,
+): T[] {
+	return items.filter((item) => {
+		const required = declaredPermissionsByHref[item.href];
+		if (!required || required.length === 0) return true;
+		return canAny(required);
+	});
 }
 
 function SidebarControls() {
@@ -44,15 +68,27 @@ function SidebarControls() {
 	);
 }
 
-export function AppSidebar({ username, quickServices = [] }: { username?: string; quickServices?: QuickServiceLink[] }) {
+export function AppSidebar({
+	username,
+	quickServices = [],
+	declaredPermissionsByHref = {},
+}: {
+	username?: string;
+	quickServices?: QuickServiceLink[];
+	declaredPermissionsByHref?: Record<string, readonly Permission[]>;
+}) {
 	const pathname = usePathname();
 	const { t } = useI18n();
+	const gate = useGateRoute();
 	const [mobileOpen, setMobileOpen] = useState(false);
 	const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 	const shouldRenderSidebar = Boolean(username);
 	const iconInitial = username?.trim().charAt(0).toUpperCase() ?? "";
 
 	if (!shouldRenderSidebar) return null;
+
+	const visibleMainNav = filterByPermissions(mainNavItems, declaredPermissionsByHref, gate.canAny);
+	const visibleSystemNav = filterByPermissions(systemNavItems, declaredPermissionsByHref, gate.canAny);
 
 	const isActive = (href: string) => {
 		if (href === "/") return pathname === "/";
@@ -93,12 +129,16 @@ export function AppSidebar({ username, quickServices = [] }: { username?: string
 			</div>
 
 			<div className="flex-1 space-y-0.5 overflow-y-auto overflow-x-hidden px-3 py-4">
-				{mainNavItems.map(renderNavLink)}
+				{visibleMainNav.map(renderNavLink)}
 
-				<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
-					{t("nav.system") === "nav.system" ? "系统管理" : t("nav.system")}
-				</div>
-				{systemNavItems.map(renderNavLink)}
+				{visibleSystemNav.length > 0 && (
+					<>
+						<div className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
+							{t("nav.system") === "nav.system" ? "系统管理" : t("nav.system")}
+						</div>
+						{visibleSystemNav.map(renderNavLink)}
+					</>
+				)}
 
 				{quickServices.length > 0 && (
 					<>

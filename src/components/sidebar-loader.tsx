@@ -1,25 +1,19 @@
 import { cookies, headers } from "next/headers";
 
-import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { getCurrentSession } from "@/lib/auth/server-session";
+import { loadSidebarDeclaredPermissions } from "@/lib/auth/declared-permissions";
 import { config } from "@/lib/config/env";
 import { buildQuickServiceAccessUrl } from "@/lib/quick-service/access-url";
 import { listQuickServices } from "@/lib/quick-service/service";
+import { mainNavItems, systemNavItems } from "./nav-items";
 
 import { AppSidebar } from "@/components/app-sidebar";
 
-export async function SidebarLoader() {
-	const cookieStore = await cookies();
-	const sessionCookie = cookieStore.get(getSessionCookieName());
+const sidebarHrefs = [...mainNavItems, ...systemNavItems].map((item) => item.href);
 
-	let username: string | undefined;
-	if (sessionCookie?.value) {
-		try {
-			const payload = await verifySessionToken(sessionCookie.value);
-			username = payload.username;
-		} catch {
-			// not logged in — sidebar will still render, just no username
-		}
-	}
+export async function SidebarLoader() {
+	const session = await getCurrentSession();
+	const username = session?.username;
 
 	// 未登录时不显示侧栏（登录页等）
 	if (!username) {
@@ -51,5 +45,13 @@ export async function SidebarLoader() {
 		// DB may not be ready; skip
 	}
 
-	return <AppSidebar username={username} quickServices={quickServices} />;
+	const declaredPermissionsByHref = loadSidebarDeclaredPermissions(sidebarHrefs);
+
+	return (
+		<AppSidebar
+			username={username}
+			quickServices={quickServices}
+			declaredPermissionsByHref={declaredPermissionsByHref}
+		/>
+	);
 }

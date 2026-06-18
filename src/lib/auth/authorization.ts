@@ -1,14 +1,14 @@
 import { ForbiddenError } from "@/lib/errors";
 import type { Permission, RoleKey } from "./rbac";
-import { DEFAULT_ROLE_PERMISSIONS } from "./rbac";
+import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles } from "./rbac";
 import { requireSession } from "./require-session";
 
-export function getPermissionsFromRoles(roles: RoleKey[]): Permission[] {
-  return Array.from(new Set(roles.flatMap((role) => DEFAULT_ROLE_PERMISSIONS[role] ?? [])));
-}
+// Re-export for backwards compat — existing consumers (require-api-permission.ts,
+// many server pages) keep importing from "@/lib/auth/authorization".
+export { getPermissionsFromRoles };
 
 export function sessionHasPermission(session: { roles: RoleKey[] }, permission: Permission) {
-  return getPermissionsFromRoles(session.roles).includes(permission);
+	return getPermissionsFromRoles(session.roles).includes(permission);
 }
 
 export async function requirePermission(permission: Permission) {

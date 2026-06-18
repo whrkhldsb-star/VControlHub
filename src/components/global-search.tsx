@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { mainNavItems, systemNavItems } from "./nav-items";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { t as translate, type Locale } from "@/lib/i18n/translations";
+import { type Permission } from "@/lib/auth/rbac";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 
 export interface SearchItem {
 	label: string;
@@ -86,7 +88,33 @@ export function getSearchItems(locale: Locale = "zh"): SearchItem[] {
 	return localizeSearchItems(locale);
 }
 
-export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: number }) {
+/**
+ * Filter search items against the user session's permission gate.
+ *
+ * Items with no declared permissions (or declared empty array) are visible to
+ * any authenticated user. Items with declared permissions are kept only when
+ * the user holds at least one (`canAny`). Mirrors the sidebar's
+ * permission-gated render contract (TR-030 / task 56).
+ */
+function filterItemsByPermissions(
+	items: readonly SearchItem[],
+	declaredPermissionsByHref: Record<string, readonly Permission[]>,
+	canAny: (permissions: readonly Permission[]) => boolean,
+): SearchItem[] {
+	return items.filter((item) => {
+		const required = declaredPermissionsByHref[item.href];
+		if (!required || required.length === 0) return true;
+		return canAny(required);
+	});
+}
+
+export function GlobalSearch({
+	externalOpenSignal = 0,
+	declaredPermissionsByHref = {},
+}: {
+	externalOpenSignal?: number;
+	declaredPermissionsByHref?: Record<string, readonly Permission[]>;
+}) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
 	const [selectedIndex, setSelectedIndex] = useState(0);
@@ -94,7 +122,11 @@ export function GlobalSearch({ externalOpenSignal = 0 }: { externalOpenSignal?: 
 	const returnFocusRef = useRef<HTMLElement | null>(null);
 	const router = useRouter();
 	const { locale, t } = useI18n();
-	const searchItems = useMemo(() => localizeSearchItems(locale), [locale]);
+	const gate = useGateRoute();
+	const searchItems = useMemo(
+		() => filterItemsByPermissions(localizeSearchItems(locale), declaredPermissionsByHref, gate.canAny),
+		[locale, declaredPermissionsByHref, gate.canAny],
+	);
 
 	const filtered = query
 		? searchItems.filter(

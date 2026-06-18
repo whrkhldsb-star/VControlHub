@@ -2,8 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 
-import { type Permission, type RoleKey } from "./rbac";
-import { getPermissionsFromRoles } from "./authorization";
+import { type Permission, type RoleKey, getPermissionsFromRoles } from "./rbac";
 
 /**
  * Client-side view of the authenticated session.
