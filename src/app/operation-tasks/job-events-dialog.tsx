@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type JobEventLevel = "info" | "warn" | "error";
 
@@ -23,23 +24,27 @@ type JobEventsDialogProps = {
   onClose: () => void;
 };
 
-const LEVEL_LABEL: Record<JobEventLevel, string> = {
-  info: "信息",
-  warn: "告警",
-  error: "错误",
-};
+function buildLevelLabels(t: (key: string) => string): Record<JobEventLevel, string> {
+	return {
+		info: t("jobEventsDialog.level.info"),
+		warn: t("jobEventsDialog.level.warn"),
+		error: t("jobEventsDialog.level.error"),
+	};
+}
 
-const TYPE_LABEL: Record<string, string> = {
-  claimed: "认领",
-  heartbeat: "心跳",
-  progress: "进度",
-  completed: "完成",
-  failed: "失败",
-  retrying: "重试",
-  recovered: "恢复",
-  cancelled: "取消",
-  enqueued: "入队",
-};
+function buildTypeLabels(t: (key: string) => string): Record<string, string> {
+	return {
+		claimed: t("jobEventsDialog.type.claimed"),
+		heartbeat: t("jobEventsDialog.type.heartbeat"),
+		progress: t("jobEventsDialog.type.progress"),
+		completed: t("jobEventsDialog.type.completed"),
+		failed: t("jobEventsDialog.type.failed"),
+		retrying: t("jobEventsDialog.type.retrying"),
+		recovered: t("jobEventsDialog.type.recovered"),
+		cancelled: t("jobEventsDialog.type.cancelled"),
+		enqueued: t("jobEventsDialog.type.enqueued"),
+	};
+}
 
 function levelTone(level: string): "info" | "warn" | "error" {
   if (level === "error") return "error";
@@ -64,6 +69,9 @@ function summarizePayload(payload: unknown): string | null {
 }
 
 export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) {
+  const { t } = useI18n();
+  const levelLabels = buildLevelLabels(t);
+  const typeLabels = buildTypeLabels(t);
   const [events, setEvents] = useState<JobEventRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +100,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         }
         setHasMore(next.length >= 100);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "加载任务事件失败");
+        setError(err instanceof Error ? err.message : t("jobEventsDialog.loadError"));
       } finally {
         setLoading(false);
       }
@@ -140,20 +148,20 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
           <div>
             <h2 id="job-events-dialog-title" className="text-sm font-semibold text-white">
-              任务事件流
+              {t("jobEventsDialog.title")}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              jobId <span className="font-mono text-slate-300">{jobId}</span> · 按时间倒序展示认领、心跳、完成、失败、重试等事件
+              {t("jobEventsDialog.subtitle").replace("{id}", jobId)}
             </p>
           </div>
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            aria-label="关闭"
+            aria-label={t("jobEventsDialog.closeAria")}
             className="rounded-md border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05]"
           >
-            关闭
+            {t("jobEventsDialog.close")}
           </button>
         </div>
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
@@ -163,16 +171,16 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             </div>
           ) : null}
           {loading && events.length === 0 ? (
-            <p className="text-sm text-slate-500">加载中…</p>
+            <p className="text-sm text-slate-500">{t("jobEventsDialog.loading")}</p>
           ) : null}
           {!loading && !error && events.length === 0 ? (
-            <p className="text-sm text-slate-500">该任务暂无事件记录</p>
+            <p className="text-sm text-slate-500">{t("jobEventsDialog.empty")}</p>
           ) : null}
           {events.length > 0 ? (
             <ol className="space-y-2">
               {events.map((event) => {
                 const tone = levelTone(event.level);
-                const typeLabel = TYPE_LABEL[event.type] ?? event.type;
+                const typeLabel = typeLabels[event.type] ?? event.type;
                 const summary = summarizePayload(event.payload);
                 return (
                   <li
@@ -183,11 +191,11 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-white">{typeLabel}</span>
                       <span data-tone={tone} className="rounded border px-1.5 py-0.5 text-[10px] font-medium">
-                        {LEVEL_LABEL[tone]}
+                        {levelLabels[tone]}
                       </span>
                       <span className="text-slate-500">{formatTime(event.createdAt)}</span>
                       {event.workerId ? (
-                        <span className="font-mono text-[10px] text-slate-500" title="worker id">
+                        <span className="font-mono text-[10px] text-slate-500" title={t("jobEventsDialog.workerIdTitle")}>
                           {event.workerId}
                         </span>
                       ) : null}
@@ -205,7 +213,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
           ) : null}
         </div>
         <div className="flex items-center justify-between border-t border-white/[0.06] px-5 py-3 text-xs text-slate-500">
-          <span>共 {events.length} 条{hasMore ? "，可加载更多" : ""}</span>
+          <span>{t("jobEventsDialog.totalCount").replace("{count}", String(events.length)).replace("{more}", hasMore ? t("jobEventsDialog.moreSuffix") : "")}</span>
           <div className="flex gap-2">
             <button
               type="button"
@@ -213,7 +221,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
               disabled={loading}
               className="rounded-md border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
             >
-              刷新
+              {t("jobEventsDialog.refresh")}
             </button>
             {hasMore ? (
               <button
@@ -222,7 +230,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 disabled={loading}
                 className="rounded-md border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
               >
-                加载更早事件
+                {t("jobEventsDialog.loadMore")}
               </button>
             ) : null}
           </div>
