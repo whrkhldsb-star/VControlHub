@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/lib/i18n/use-locale";
+
 /**
  * `ConfigPreviewDialog` — final confirmation modal shown after the user
  * picks a port in the install dialog (or hits "更新" on an installed
@@ -47,14 +49,32 @@ export function ConfigPreviewDialog({
 	onConfirm,
 }: ConfigPreviewDialogProps) {
 	if (!configPreview) return null;
+	const { t } = useI18n();
 	const { action, item, port } = configPreview;
-	const title = action === "install" ? "确认安装配置" : "确认更新配置";
+	const title = action === "install" ? t("qsPage.configConfirmTitle.install") : t("qsPage.configConfirmTitle.update");
 	const body =
 		action === "install"
-			? "安装会拉取镜像并创建 qs-* 容器。"
-			: "更新会拉取当前镜像并重建 qs-* 容器。";
-	const confirmLabel = action === "install" ? "确认安装" : "确认更新";
+			? t("qsPage.configConfirmBody.install")
+			: t("qsPage.configConfirmBody.update");
+	const confirmLabel = action === "install" ? t("qsPage.configConfirmLabel.install") : t("qsPage.configConfirmLabel.update");
+	const cancelLabel = t("qsPage.configConfirmCancel");
+	const noneLabel = t("qsPage.configFieldNone");
+	const warning = t("qsPage.configConfirmWarning");
+	const suffix = t("qsPage.configConfirmSuffix");
+	const fieldService = t("qsPage.configFieldService");
+	const fieldImage = t("qsPage.configFieldImage");
+	const fieldPort = t("qsPage.configFieldPort");
+	const fieldExtraPort = t("qsPage.configFieldExtraPort");
+	const fieldEnv = t("qsPage.configFieldEnv");
+	const fieldVolume = t("qsPage.configFieldVolume");
+	const portMapping = t("qsPage.configPortMapping");
+	const envCountTpl = t("qsPage.configEnvCount");
+	const volumeEntryTpl = t("qsPage.configVolumeEntry");
+	const portEntryTpl = t("qsPage.configPortEntry");
+	const portSep = t("qsPage.configPortListSeparator");
+	const volumeSep = t("qsPage.configVolumeListSeparator");
 	const volumeList = getVolumeMounts(item);
+	const envCount = getEnvCount(item);
 
 	return (
 		<div
@@ -70,40 +90,40 @@ export function ConfigPreviewDialog({
 			>
 				<h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
 				<p className="text-sm leading-6 text-slate-300">
-					{body}请确认端口、挂载和公开访问边界后继续。
+					{body}{suffix}
 				</p>
 				<div data-card className="mt-4 grid gap-2  p-3 text-xs text-slate-300">
 					<div>
-						<span className="text-slate-500">服务：</span>
+						<span className="text-slate-500">{fieldService}</span>
 						{item.name} ({item.slug})
 					</div>
 					<div>
-						<span className="text-slate-500">镜像：</span>
+						<span className="text-slate-500">{fieldImage}</span>
 						{item.image}
 					</div>
 					<div>
-						<span className="text-slate-500">端口：</span>
-						容器 {getPrimaryContainerPort(item)} → 宿主机 {port}
+						<span className="text-slate-500">{fieldPort}</span>
+						{portMapping.replace("{container}", String(getPrimaryContainerPort(item))).replace("{host}", String(port))}
 					</div>
 					<div>
-						<span className="text-slate-500">额外端口：</span>
+						<span className="text-slate-500">{fieldExtraPort}</span>
 						{(item.extraPorts ?? []).length > 0
-							? item.extraPorts!.map((p) => `${p.container}→${p.host}`).join("、")
-							: "无"}
+							? item.extraPorts!.map((p) => portEntryTpl.replace("{container}", String(p.container)).replace("{host}", String(p.host))).join(portSep)
+							: noneLabel}
 					</div>
 					<div>
-						<span className="text-slate-500">环境变量：</span>
-						{getEnvCount(item)} 个键（不展示密钥值）
+						<span className="text-slate-500">{fieldEnv}</span>
+						{envCountTpl.replace("{count}", String(envCount))}
 					</div>
 					<div>
-						<span className="text-slate-500">宿主机挂载：</span>
+						<span className="text-slate-500">{fieldVolume}</span>
 						{volumeList.length > 0
-							? volumeList.map((v) => `${v.host} → ${v.container}`).join("；")
-							: "无"}
+							? volumeList.map((v) => volumeEntryTpl.replace("{host}", v.host).replace("{container}", v.container)).join(volumeSep)
+							: noneLabel}
 					</div>
 				</div>
 				<div data-tone="amber" className="mt-4 rounded-xl border border-amber-400/20 p-3 text-xs leading-5 text-amber-100">
-					公开端口不会经过 VControlHub 登录鉴权；若服务暴露到公网，请确认防火墙、VPN、反代或应用自身账号已配置。
+					{warning}
 				</div>
 				<div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
 					<button
@@ -111,7 +131,7 @@ export function ConfigPreviewDialog({
 						onClick={onCancel}
 						className="min-h-11 rounded-lg border border-white/[0.1] px-4 py-2 text-xs text-slate-400 hover:bg-white/[0.04] transition"
 					>
-						取消
+						{cancelLabel}
 					</button>
 					<button
 						type="button"
