@@ -26,6 +26,7 @@ import { zh as auditZh, en as auditEn } from "./dictionaries/audit";
 import { zh as authZh, en as authEn } from "./dictionaries/auth";
 import { zh as backupspageZh, en as backupspageEn } from "./dictionaries/backups-page";
 import { zh as downloadspageZh, en as downloadspageEn } from "./dictionaries/downloads-page";
+import { zh as downloadsapiZh, en as downloadsapiEn } from "./dictionaries/downloads-api";
 import { zh as operationtaskspageZh, en as operationtaskspageEn } from "./dictionaries/operation-tasks-page";
 import { zh as scheduledtaskspageZh, en as scheduledtaskspageEn } from "./dictionaries/scheduled-tasks-page";
 import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
@@ -109,6 +110,7 @@ const zh: Record<string, string> = {
 	...dockerZh,
 	...dockerpageZh,
 	...downloadspageZh,
+	...downloadsapiZh,
 	...errorZh,
 	...fileUploadDropzoneZh,
 	...filedetailpanelZh,
@@ -186,6 +188,7 @@ const en: Record<string, string> = {
 	...dockerEn,
 	...dockerpageEn,
 	...downloadspageEn,
+	...downloadsapiEn,
 	...errorEn,
 	...fileUploadDropzoneEn,
 	...filedetailpanelEn,

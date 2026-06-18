@@ -37,6 +37,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AppError, AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
 function taskTargetRelativePath(task: { targetPath: string | null; server?: { storageNode?: { basePath: string } | null } | null }) {
@@ -116,8 +117,8 @@ function taskDownloadAccess(task: {
     fallbackHref: "fallbackHref" in strategy && strategy.fallbackHref
       ? `${strategy.fallbackHref}${strategy.fallbackHref.includes("?") ? "&" : "?"}download=1`
       : null,
-    label: "下载文件",
-    statusLabel: isDirect ? "当前：直连" : "当前：中转",
+    label: t("apiDownloads.label", "zh"),
+    statusLabel: isDirect ? t("apiDownloads.statusLabelDirect", "zh") : t("apiDownloads.statusLabelRelay", "zh"),
     description: strategy.description,
   };
 }
@@ -149,9 +150,9 @@ async function canAccessDownloadTask(input: {
 /* ── POST: Create download task ───────────────────────────── */
 
 const postDownloadSchema = z.object({
-  url: z.string().url("请输入有效的URL"),
-  serverId: z.string().min(1, "缺少 serverId"),
-  targetPath: z.string().min(1, "缺少 targetPath"),
+  url: z.string().url(t("apiDownloads.urlInvalid", "zh")),
+  serverId: z.string().min(1, t("apiDownloads.missingServerId", "zh")),
+  targetPath: z.string().min(1, t("apiDownloads.missingTargetPath", "zh")),
   fileName: z.string().optional(),
   category: z.string().optional(),
   maxSpeedKb: z.number().optional(),
@@ -165,17 +166,18 @@ export async function POST(request: Request) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "创建下载任务失败",
+      errorMessage: t("apiDownloads.createTaskFailed", "zh"),
     },
     async ({ session }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const body = await request.json();
       const parsed = postDownloadSchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json(
           {
-            error: "输入校验失败",
+            error: t("apiDownloads.invalidInput", locale),
             details: parsed.error.flatten().fieldErrors,
           },
           { status: 400 },
@@ -204,7 +206,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error:
-              "磁力/BT 链接需单独创建任务，请勿与普通链接混在同一批量中",
+              t("apiDownloads.magnetMixedInBatch", locale),
           },
           { status: 400 },
         );
@@ -227,16 +229,16 @@ export async function POST(request: Request) {
         include: { sshKey: true, storageNode: true },
       });
       if (!server)
-        throw new NotFoundError("VPS 节点不存在");
+        throw new NotFoundError(t("apiDownloads.serverNotFound", locale));
       if (!server.storageNode) {
         return NextResponse.json(
-          { error: "该 VPS 未绑定存储节点，无法创建下载任务" },
+          { error: t("apiDownloads.serverMissingStorage", locale) },
           { status: 400 },
         );
       }
       if (!server.sshKey && !server.password)
         return NextResponse.json(
-          { error: "该 VPS 未配置 SSH 密钥或密码" },
+          { error: t("apiDownloads.serverMissingCredentials", locale) },
           { status: 400 },
         );
 
@@ -254,7 +256,7 @@ export async function POST(request: Request) {
       } catch (error) {
         return NextResponse.json(
           {
-            error: error instanceof Error ? error.message : "下载目标路径无效",
+            error: error instanceof Error ? error.message : t("apiDownloads.invalidTargetPath", locale),
           },
           { status: 400 },
         );
@@ -268,7 +270,7 @@ export async function POST(request: Request) {
       });
       if (!accessDecision.allowed) {
         return NextResponse.json(
-          { error: accessDecision.reason ?? "没有该存储节点或路径的访问授权" },
+          { error: accessDecision.reason ?? t("apiDownloads.accessDenied", locale) },
           { status: 403 },
         );
       }
@@ -278,7 +280,7 @@ export async function POST(request: Request) {
         safeFileName = normalizeDownloadFileName(fileName);
       } catch (error) {
         return NextResponse.json(
-          { error: error instanceof Error ? error.message : "下载文件名无效" },
+          { error: error instanceof Error ? error.message : t("apiDownloads.invalidFileName", locale) },
           { status: 400 },
         );
       }
@@ -315,7 +317,7 @@ export async function POST(request: Request) {
             targetPath: resolvedTargetPath,
             fileName: taskFileName,
             status: "PENDING",
-            progress: relayMode ? "准备中转下载..." : "准备远程下载...",
+            progress: relayMode ? t("apiDownloads.progressRelay", locale) : t("apiDownloads.progressDirect", locale),
             relayMode,
             createdBy: session.userId,
             category: category || null,
@@ -351,7 +353,7 @@ export async function POST(request: Request) {
           const message =
             dispatchFailure instanceof Error
               ? dispatchFailure.message
-              : "入队下载执行任务失败";
+              : t("apiDownloads.enqueueFailed", locale);
           failedTaskIds.push(task.id);
           logError(
             `[DownloadAPI] Failed to enqueue ${relayMode ? "aria2 relay" : "direct download"} job for task ${task.id}:`,
@@ -393,7 +395,7 @@ export async function POST(request: Request) {
               where: { id },
               data: {
                 status: "FAILED",
-                progress: "任务派发失败",
+                progress: t("apiDownloads.dispatchFailed", locale),
                 errorMessage: dispatchError!.message,
               },
             }),
@@ -411,7 +413,7 @@ export async function POST(request: Request) {
         });
         return NextResponse.json(
           {
-            error: `下载任务创建失败：${dispatchError.message}`,
+            error: t("apiDownloads.createFailedWithMessage", locale).replace("{message}", dispatchError.message),
             code: "DOWNLOAD_DISPATCH_FAILED",
             taskIds: allRolledBackIds,
           },
@@ -435,10 +437,11 @@ export async function POST(request: Request) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: "获取下载任务失败" },
+    { permission: "storage:read", errorMessage: t("apiDownloads.fetchTasksFailed", "zh") },
     async ({ session }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { serverId, category } = parseSearchParams(
         request,
         z.object({
@@ -488,7 +491,7 @@ export async function GET(request: Request) {
                   a.status === "complete"
                     ? {
                         status: "COMPLETED" as const,
-                        progress: "下载完成",
+                        progress: t("apiDownloads.completed", locale),
                         completedBytes: a.completedLength,
                         totalBytes: a.totalLength,
                         downloadSpeed: a.downloadSpeed,
@@ -497,7 +500,7 @@ export async function GET(request: Request) {
                       ? {
                           status: "FAILED" as const,
                           progress,
-                          errorMessage: `aria2 下载失败: ${a.status}`,
+                          errorMessage: t("apiDownloads.aria2ErrorWithStatus", locale).replace("{status}", a.status),
                           completedBytes: a.completedLength,
                           totalBytes: a.totalLength,
                           downloadSpeed: a.downloadSpeed,
@@ -565,17 +568,18 @@ export async function PATCH(request: Request) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "操作失败",
+      errorMessage: t("apiDownloads.operationFailed", "zh"),
     },
     async ({ session }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const body = await request.json();
       const parsed = patchDownloadSchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json(
           {
-            error: "输入校验失败",
+            error: t("apiDownloads.invalidInput", locale),
             details: parsed.error.flatten().fieldErrors,
           },
           { status: 400 },
@@ -586,7 +590,7 @@ export async function PATCH(request: Request) {
       // Global speed limit
       if (globalMaxSpeedKb !== undefined) {
         if (!sessionHasPermission(session, "storage:manage-node")) {
-          throw new ForbiddenError("缺少全局下载限速管理权限");
+          throw new ForbiddenError(t("apiDownloads.missingGlobalSpeedPermission", locale));
         }
         try {
           await ensureAria2Daemon();
@@ -597,23 +601,23 @@ export async function PATCH(request: Request) {
         } catch (err) {
           logError("[DownloadAPI] Global speed limit failed:", err);
           return NextResponse.json(
-            { error: "设置全局限速失败" },
+            { error: t("apiDownloads.setGlobalSpeedFailed", locale) },
             { status: 500 },
           );
         }
       }
 
       if (!taskId)
-        throw new ValidationError("缺少 taskId");
+        throw new ValidationError(t("apiDownloads.missingTaskId", locale));
 
       const task = await prisma.downloadTask.findUnique({
         where: { id: taskId },
         include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
-        throw new NotFoundError("任务不存在");
+        throw new NotFoundError(t("apiDownloads.taskNotFound", locale));
       if (!(await canAccessDownloadTask({ session, task, operation: "write" }))) {
-        throw new ForbiddenError("没有该下载任务的控制权限");
+        throw new ForbiddenError(t("apiDownloads.noControlPermission", locale));
       }
 
       // Per-task speed limit
@@ -630,7 +634,7 @@ export async function PATCH(request: Request) {
           return NextResponse.json({ success: true });
         } catch (err) {
           logError("[DownloadAPI] Per-task speed limit failed:", err);
-          throw new AppError({ code: "INTERNAL_ERROR", message: "设置限速失败", status: 500 });
+          throw new AppError({ code: "INTERNAL_ERROR", message: t("apiDownloads.setSpeedFailed", locale), status: 500 });
         }
       }
 
@@ -640,13 +644,13 @@ export async function PATCH(request: Request) {
         } catch (err) {
           logError("[DownloadAPI] Failed to pause aria2 download:", err);
           return NextResponse.json(
-            { error: "暂停下载失败，远端任务状态未改变" },
+            { error: t("apiDownloads.pauseFailed", locale) },
             { status: 502 },
           );
         }
         await prisma.downloadTask.update({
           where: { id: taskId },
-          data: { status: "PENDING", progress: "已暂停" },
+          data: { status: "PENDING", progress: t("apiDownloads.paused", locale) },
         });
         return NextResponse.json({ success: true });
       }
@@ -657,13 +661,13 @@ export async function PATCH(request: Request) {
         } catch (err) {
           logError("[DownloadAPI] Failed to unpause aria2 download:", err);
           return NextResponse.json(
-            { error: "恢复下载失败，远端任务状态未改变" },
+            { error: t("apiDownloads.unpauseFailed", locale) },
             { status: 502 },
           );
         }
         await prisma.downloadTask.update({
           where: { id: taskId },
-          data: { status: "RUNNING", progress: "恢复下载..." },
+          data: { status: "RUNNING", progress: t("apiDownloads.resuming", locale) },
         });
         return NextResponse.json({ success: true });
       }
@@ -753,7 +757,7 @@ export async function PATCH(request: Request) {
               const size = /^\d+$/.test(sizeLine ?? "") ? sizeLine : null;
               const data = {
                 status: "COMPLETED" as const,
-                progress: "下载完成",
+                progress: t("apiDownloads.completed", locale),
                 ...(size
                   ? { fileSize: size, totalBytes: size, completedBytes: size }
                   : {}),
@@ -777,8 +781,8 @@ export async function PATCH(request: Request) {
             if (remoteState === "FAILED") {
               const data = {
                 status: "FAILED" as const,
-                progress: "下载失败",
-                errorMessage: "远程下载进程已退出或失败",
+                progress: t("apiDownloads.failed", locale),
+                errorMessage: t("apiDownloads.remoteProcessFailed", locale),
               };
               await prisma.downloadTask.update({ where: { id: taskId }, data });
               return NextResponse.json({ status: data.status, progress: data.progress });
@@ -793,7 +797,7 @@ export async function PATCH(request: Request) {
         });
       }
 
-      throw new ValidationError("未知操作");
+      throw new ValidationError(t("apiDownloads.unknownAction", locale));
     },
   );
 }
@@ -806,15 +810,16 @@ export async function DELETE(request: Request) {
     {
       permission: "storage:write",
       rateLimit: GENERAL_WRITE_LIMIT,
-      errorMessage: "取消任务失败",
+      errorMessage: t("apiDownloads.cancelTaskFailed", "zh"),
     },
     async ({ session }) => {
+      const locale = await getServerLocale();
       if (!session)
-        throw new AuthError("未认证");
+        throw new AuthError(t("apiDownloads.unauthorized", locale));
       const { taskId, purge } = parseSearchParams(
         request,
         z.object({
-          taskId: z.string().trim().min(1, "缺少 taskId"),
+          taskId: z.string().trim().min(1, t("apiDownloads.missingTaskId", locale)),
           purge: z
             .string()
             .optional()
@@ -827,9 +832,9 @@ export async function DELETE(request: Request) {
         include: { server: { include: { sshKey: true, storageNode: true } } },
       });
       if (!task)
-        throw new NotFoundError("任务不存在");
+        throw new NotFoundError(t("apiDownloads.taskNotFound", locale));
       if (!(await canAccessDownloadTask({ session, task, operation: "delete" }))) {
-        throw new ForbiddenError("没有该下载任务的取消权限");
+        throw new ForbiddenError(t("apiDownloads.noCancelPermission", locale));
       }
 
       // Purge: hard-delete a terminal-state task row from history.
@@ -837,7 +842,7 @@ export async function DELETE(request: Request) {
       if (purge) {
         if (task.status === "RUNNING" || task.status === "PENDING") {
           return NextResponse.json(
-            { error: "请先取消正在进行的任务，再删除记录" },
+            { error: t("apiDownloads.cancelActiveFirst", locale) },
             { status: 409 },
           );
         }
@@ -855,7 +860,7 @@ export async function DELETE(request: Request) {
         } catch (err) {
           logError("[DownloadAPI] Failed to remove aria2 download:", err);
           return NextResponse.json(
-            { error: "取消 aria2 下载失败，任务状态未改变" },
+            { error: t("apiDownloads.aria2CancelFailed", locale) },
             { status: 502 },
           );
         }
@@ -869,7 +874,7 @@ export async function DELETE(request: Request) {
             } catch (err) {
               logError("[DownloadAPI] Failed to kill process:", err);
               return NextResponse.json(
-                { error: "取消本地中转下载进程失败，任务状态未改变" },
+                { error: t("apiDownloads.localRelayCancelFailed", locale) },
                 { status: 502 },
               );
             }
@@ -889,7 +894,7 @@ export async function DELETE(request: Request) {
           } catch (err) {
             logError("[DownloadAPI] Failed to kill remote process:", err);
             return NextResponse.json(
-              { error: "取消远程下载进程失败，任务状态未改变" },
+              { error: t("apiDownloads.remoteProcessCancelFailed", locale) },
               { status: 502 },
             );
           }
@@ -898,7 +903,7 @@ export async function DELETE(request: Request) {
 
       await prisma.downloadTask.update({
         where: { id: taskId },
-        data: { status: "CANCELLED", errorMessage: "用户取消" },
+        data: { status: "CANCELLED", errorMessage: t("apiDownloads.userCancelled", locale) },
       });
 
       auditUserAction(session.userId, "download.cancel", {
