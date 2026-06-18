@@ -1,4 +1,5 @@
-import { act, renderHook } from "@testing-library/react";
+import { act } from "@testing-library/react";
+import { renderHookWithI18n as renderHook } from "@/lib/i18n/__tests__/test-helpers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useQuickServiceActions } from "../use-quick-service-actions";

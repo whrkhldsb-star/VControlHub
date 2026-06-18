@@ -10,7 +10,7 @@
 "use client";
 
 import { type ReactElement } from "react";
-import { render, type RenderOptions } from "@testing-library/react";
+import { render, renderHook, type RenderHookOptions, type RenderOptions } from "@testing-library/react";
 
 import { I18nProvider } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/translations";
@@ -24,6 +24,22 @@ export function renderWithI18n(
 	{ locale = "zh", ...options }: I18nRenderOptions = {},
 ) {
 	return render(ui, {
+		wrapper: ({ children }) => (
+			<I18nProvider initialLocale={locale}>{children}</I18nProvider>
+		),
+		...options,
+	});
+}
+
+type I18nRenderHookOptions<P> = Omit<RenderHookOptions<P>, "wrapper"> & {
+	locale?: Locale;
+};
+
+export function renderHookWithI18n<Result, Props>(
+	callback: (initialProps: Props) => Result,
+	{ locale = "zh", ...options }: I18nRenderHookOptions<Props> = {} as I18nRenderHookOptions<Props>,
+) {
+	return renderHook(callback, {
 		wrapper: ({ children }) => (
 			<I18nProvider initialLocale={locale}>{children}</I18nProvider>
 		),

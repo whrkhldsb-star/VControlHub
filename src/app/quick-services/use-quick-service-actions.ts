@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 export type QuickServiceMessage = {
   type: "ok" | "err";
@@ -91,6 +92,7 @@ export function useQuickServiceActions({
   fetchCatalog,
   fetchSources,
 }: UseQuickServiceActionsInput): UseQuickServiceActionsResult {
+  const { t } = useI18n();
   const [message, setMessage] = useState<QuickServiceMessage | null>(null);
   const [actionSlug, setActionSlug] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
@@ -121,15 +123,15 @@ export function useQuickServiceActions({
         setMessage({
           type: "ok",
           text: data.taskId
-            ? `${preview.item.name} 安装已排队（${data.taskId}），可在任务中心查看进度。`
-            : `${preview.item.name} 安装任务已提交，正在拉取镜像…`,
+            ? t("qsActions.queued").replace("{name}", preview.item.name).replace("{taskId}", data.taskId)
+            : t("qsActions.submitted").replace("{name}", preview.item.name),
           taskId: data.taskId,
         });
         setTimeout(fetchCatalog, 1500);
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : "安装失败",
+          text: err instanceof Error ? err.message : t("qsActions.installFailed"),
         });
       } finally {
         setActionSlug(null);
@@ -151,42 +153,42 @@ export function useQuickServiceActions({
           },
         );
         const updateDetails = [
-          data.health ? `健康状态：${data.health}` : null,
+          data.health ? t("qsActions.healthDetail").replace("{health}", data.health) : null,
           data.logTail
-            ? `最近日志：${data.logTail.split("\n").slice(-2).join(" / ")}`
+            ? t("qsActions.logTailDetail").replace("{tail}", data.logTail.split("\n").slice(-2).join(" / "))
             : null,
         ]
           .filter(Boolean)
           .join("；");
-        const queuedSuffix = data.taskId ? `（${data.taskId}）` : "";
+        const queuedSuffix = data.taskId ? t("qsActions.taskSuffix").replace("{id}", data.taskId) : "";
         const actionMessages: Record<string, string> = data.queued
           ? {
-              start: `启动已排队${queuedSuffix}，可在任务中心查看进度。`,
-              stop: `停止已排队${queuedSuffix}，可在任务中心查看进度。`,
-              sync: `状态刷新已排队${queuedSuffix}，可在任务中心查看进度。`,
-              update: `更新已排队${queuedSuffix}，后台将拉取镜像并重建容器。`,
+              start: t("qsActions.queuedStart").replace("{task}", queuedSuffix),
+              stop: t("qsActions.queuedStop").replace("{task}", queuedSuffix),
+              sync: t("qsActions.queuedSync").replace("{task}", queuedSuffix),
+              update: t("qsActions.queuedUpdate").replace("{task}", queuedSuffix),
             }
           : {
-              start: "已启动",
-              stop: "已停止",
+              start: t("qsActions.started"),
+              stop: t("qsActions.stopped"),
               sync:
                 data.status === "running"
-                  ? "状态已刷新：运行中"
-                  : "状态已刷新：已停止",
+                  ? t("qsActions.syncRunning")
+                  : t("qsActions.syncStopped"),
               update: updateDetails
-                ? `更新完成，已拉取镜像并重建容器；${updateDetails}`
-                : "更新完成，已拉取镜像并重建容器",
+                ? t("qsActions.updateDetails").replace("{details}", updateDetails)
+                : t("qsActions.updateSimple"),
             };
         setMessage({
           type: "ok",
-          text: actionMessages[action] ?? "操作完成",
+          text: actionMessages[action] ?? t("qsActions.opComplete"),
           taskId: data.taskId,
         });
         fetchCatalog();
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : "操作失败",
+          text: err instanceof Error ? err.message : t("qsActions.opFailed"),
         });
       } finally {
         setActionSlug(null);
@@ -207,23 +209,23 @@ export function useQuickServiceActions({
             body: JSON.stringify({ deleteVolumes: target.deleteVolumes }),
           },
         );
-        const taskLabel = data.taskId ? `（${data.taskId}）` : "";
+        const taskLabel = data.taskId ? t("qsActions.taskSuffix").replace("{id}", data.taskId) : "";
         setMessage({
           type: "ok",
           text: data.queued
             ? target.deleteVolumes
-              ? `卸载并删除数据目录已排队${taskLabel}`
-              : `卸载已排队${taskLabel}，数据目录将保留`
+              ? t("qsActions.uninstallAndDeleteQueued").replace("{task}", taskLabel)
+              : t("qsActions.uninstallKeepQueued").replace("{task}", taskLabel)
             : target.deleteVolumes
-              ? "已卸载并删除数据目录"
-              : "已卸载，数据目录已保留",
+              ? t("qsActions.uninstallAndDeleteDone")
+              : t("qsActions.uninstallKeepDone"),
           taskId: data.taskId,
         });
         fetchCatalog();
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : "卸载失败",
+          text: err instanceof Error ? err.message : t("qsActions.uninstallFailed"),
         });
       } finally {
         setActionSlug(null);
@@ -241,13 +243,13 @@ export function useQuickServiceActions({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "sync", sourceId }),
         });
-        setMessage({ type: "ok", text: "同步完成，正在刷新应用列表…" });
+        setMessage({ type: "ok", text: t("qsActions.syncDone") });
         await fetchSources();
         await fetchCatalog();
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : "同步失败",
+          text: err instanceof Error ? err.message : t("qsActions.syncFailed"),
         });
       } finally {
         setSyncing(null);
@@ -267,7 +269,7 @@ export function useQuickServiceActions({
         fetchSources();
         if (!enabled) fetchCatalog();
       } catch {
-        setMessage({ type: "err", text: "操作失败" });
+        setMessage({ type: "err", text: t("qsActions.opFailed") });
       }
     },
     [fetchCatalog, fetchSources],
@@ -277,13 +279,13 @@ export function useQuickServiceActions({
     async (id: string) => {
       try {
         await csrfFetch(`/api/app-sources?sourceId=${id}`, { method: "DELETE" });
-        setMessage({ type: "ok", text: "源已删除" });
+        setMessage({ type: "ok", text: t("qsActions.sourceDeleted") });
         await fetchSources();
         await fetchCatalog();
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : "删除失败",
+          text: err instanceof Error ? err.message : t("qsActions.deleteFailed"),
         });
       }
     },
@@ -293,7 +295,7 @@ export function useQuickServiceActions({
   const doAddSource = useCallback(
     async (input: AddSourceInput) => {
       if (!input.name.trim() || !input.displayName.trim() || !input.url.trim()) {
-        setMessage({ type: "err", text: "请先填写完整的源信息" });
+        setMessage({ type: "err", text: t("qsActions.addSourceEmpty") });
         return;
       }
       try {
@@ -307,12 +309,12 @@ export function useQuickServiceActions({
             type: input.type,
           }),
         });
-        setMessage({ type: "ok", text: "应用源已添加" });
+        setMessage({ type: "ok", text: t("qsActions.addSourceDone") });
         await fetchSources();
       } catch (err) {
         setMessage({
           type: "err",
-          text: err instanceof Error ? err.message : "添加失败",
+          text: err instanceof Error ? err.message : t("qsActions.addSourceFailed"),
         });
       }
     },
