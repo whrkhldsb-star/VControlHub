@@ -99,18 +99,18 @@ export function ServerCardActions({
           <button
             type="button"
             onClick={handleOpenTerminal}
-            aria-label={`打开 ${serverName} SSH 终端`}
+            aria-label={t("serverCardActions.sshTerminalAria").replace("{name}", serverName)}
             data-tone="cyan" className="flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
           >
             <span aria-hidden="true">💻</span>
-            <span>SSH 终端</span>
+            <span>{t("serverCardActions.sshTerminalButton")}</span>
           </button>
         )}
 
         {canManageServers && directGateway ? (
           <form
             action={directAction}
-            aria-label="目标服务器直连网关控制"
+            aria-label={t("serverCardActions.directGateway.formAria")}
             data-tone="cyan" className="space-y-3 rounded-2xl border border-cyan-400/20 p-3 light:border-cyan-700/20 light:bg-cyan-50/80"
           >
             <input type="hidden" name="serverId" value={serverId} />
@@ -121,7 +121,7 @@ export function ServerCardActions({
             />
             <div className="space-y-1" role="status" aria-live="polite">
               <div className="text-xs font-medium text-slate-200">
-                直连状态：{directGateway.statusLabel}
+                {t("serverCardActions.directGateway.statusPrefix").replace("{status}", directGateway.statusLabel)}
               </div>
               {directGateway.publicUrl ? (
                 <a
@@ -134,7 +134,7 @@ export function ServerCardActions({
                 </a>
               ) : (
                 <div className="text-[11px] text-slate-500">
-                  当前上传、下载、在线浏览默认走网站中转。
+                  {t("serverCardActions.directGateway.relayHint")}
                 </div>
               )}
             </div>
@@ -142,33 +142,32 @@ export function ServerCardActions({
               {directGateway.enabled ? (
                 <>
                   <p className="font-medium text-cyan-100">
-                    直连服务已声明启用。
+                    {t("serverCardActions.directGateway.enabledTitle")}
                   </p>
                   <p>
-                    若文件预览/下载异常，请先确认目标 VPS 上 Direct Gateway
-                    进程仍在监听 {directGateway.port || "配置端口"}，并检查防火墙是否放行该端口；切回网站中转会先尝试卸载远端服务，成功后再更新数据库状态。
+                    {t("serverCardActions.directGateway.enabledDetail").replace("{port}", String(directGateway.port || t("serverCardActions.directGateway.enabledDetailPortFallback")))}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="font-medium text-cyan-100">
-                    启用前检查：VPS 必须绑定 SFTP 存储节点且不是本机地址。
+                    {t("serverCardActions.directGateway.disabledTitle")}
                   </p>
                   <p>
-                    点击启用会通过 SSH 安装目标服务器 Direct Gateway；如果远端安装失败，页面会保留网站中转并显示错误，不会把直连标记成成功。
+                    {t("serverCardActions.directGateway.disabledDetail")}
                   </p>
                 </>
               )}
             </div>
             <SubmitButton
               pendingLabel={
-                directGateway.enabled ? "删除服务中..." : "安装服务中..."
+                directGateway.enabled ? t("serverCardActions.directGateway.pendingDisable") : t("serverCardActions.directGateway.pendingEnable")
               }
               data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:border-cyan-700/30 light:bg-cyan-100 light:hover:bg-cyan-200"
             >
               {directGateway.enabled
-                ? "切回网站中转并删除直连服务"
-                : "启用目标直连"}
+                ? t("serverCardActions.directGateway.disableLabel")
+                : t("serverCardActions.directGateway.enableLabel")}
             </SubmitButton>
             {directState.error ? (
               <div role="alert" className="text-xs text-rose-200">
@@ -189,14 +188,14 @@ export function ServerCardActions({
             onClick={() => setShowEdit((value) => !value)}
             className="w-full rounded-2xl border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-white/10"
           >
-            {showEdit ? "收起编辑" : "编辑节点"}
+            {showEdit ? t("serverCardActions.edit.toggleHide") : t("serverCardActions.edit.toggleShow")}
           </button>
         ) : null}
 
         {canManageServers && showEdit ? (
           <form
             action={editAction}
-            aria-label="编辑 VPS 节点"
+            aria-label={t("serverCardActions.edit.formAria")}
             className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3"
           >
             <input type="hidden" name="serverId" value={serverId} />
@@ -205,7 +204,7 @@ export function ServerCardActions({
               className="block text-xs text-slate-400"
               htmlFor={`edit-name-${serverId}`}
             >
-              节点名称
+              {t("serverCardActions.edit.name")}
             </label>
             <input
               id={`edit-name-${serverId}`}
@@ -218,7 +217,7 @@ export function ServerCardActions({
               className="block text-xs text-slate-400"
               htmlFor={`edit-host-${serverId}`}
             >
-              IP / 域名
+              {t("serverCardActions.edit.host")}
             </label>
             <input
               id={`edit-host-${serverId}`}
@@ -231,7 +230,7 @@ export function ServerCardActions({
               className="block text-xs text-slate-400"
               htmlFor={`edit-port-${serverId}`}
             >
-              SSH 端口
+              {t("serverCardActions.edit.port")}
             </label>
             <input
               id={`edit-port-${serverId}`}
@@ -246,7 +245,7 @@ export function ServerCardActions({
               className="block text-xs text-slate-400"
               htmlFor={`edit-username-${serverId}`}
             >
-              用户名
+              {t("serverCardActions.edit.username")}
             </label>
             <input
               id={`edit-username-${serverId}`}
@@ -261,7 +260,7 @@ export function ServerCardActions({
                   className="block text-xs text-slate-400"
                   htmlFor={`edit-password-${serverId}`}
                 >
-                  新密码（留空保持不变）
+                  {t("serverCardActions.edit.password")}
                 </label>
                 <input
                   id={`edit-password-${serverId}`}
@@ -277,7 +276,7 @@ export function ServerCardActions({
               className="block text-xs text-slate-400"
               htmlFor={`edit-description-${serverId}`}
             >
-              描述
+              {t("serverCardActions.edit.description")}
             </label>
             <textarea
               id={`edit-description-${serverId}`}
@@ -290,7 +289,7 @@ export function ServerCardActions({
               className="block text-xs text-slate-400"
               htmlFor={`edit-tags-${serverId}`}
             >
-              标签
+              {t("serverCardActions.edit.tags")}
             </label>
             <input
               id={`edit-tags-${serverId}`}
@@ -300,10 +299,10 @@ export function ServerCardActions({
               className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
             />
             <SubmitButton
-              pendingLabel="校验中..."
+              pendingLabel={t("serverCardActions.edit.pending")}
               data-tone="emerald" className="w-full rounded-2xl border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 light:border-emerald-700/30 light:bg-emerald-50 light:hover:bg-emerald-100"
             >
-              保存并校验连接
+              {t("serverCardActions.edit.submit")}
             </SubmitButton>
             {editState.error ? (
               <div role="alert" className="text-xs text-rose-200">{editState.error}</div>
@@ -320,10 +319,10 @@ export function ServerCardActions({
           <form action={toggleAction} className="space-y-2">
             <input type="hidden" name="serverId" value={serverId} />
             <SubmitButton
-              pendingLabel="处理中..."
+              pendingLabel={t("serverCardActions.toggle.pending")}
               data-tone="cyan" className="w-full rounded-2xl border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20 light:border-cyan-700/30 light:bg-cyan-50 light:hover:bg-cyan-100"
             >
-              {enabled ? "停用节点" : "启用节点"}
+              {enabled ? t("serverCardActions.toggle.disable") : t("serverCardActions.toggle.enable")}
             </SubmitButton>
             {toggleState.error ? (
               <div role="alert" className="text-xs text-rose-200">{toggleState.error}</div>
@@ -355,12 +354,11 @@ export function ServerCardActions({
                   <div id={`delete-server-description-${serverId}`}>
                   {relatedStorageCount > 0 ? (
                     <p className="mt-1 text-xs text-rose-300/80">
-                      该 VPS 关联了 {relatedStorageCount}{" "}
-                      个存储节点，删除后存储节点将失去 VPS 绑定
+                      {t("serverCardActions.delete.relatedStorageHint").replace("{count}", String(relatedStorageCount))}
                     </p>
                   ) : null}
                   <p className="mt-1 text-xs text-rose-300/80">
-                    删除成功后节点会从 VPS 列表移除，并同步清理关联存储/直连状态；请输入节点名称完成确认。
+                    {t("serverCardActions.delete.postConfirmHint")}
                   </p>
                   </div>
                 </div>
@@ -379,7 +377,7 @@ export function ServerCardActions({
                 />
                 <div className="flex gap-2">
                   <SubmitButton
-                    pendingLabel="删除中..."
+                    pendingLabel={t("serverCardActions.delete.pending")}
                     data-tone="rose" className="flex-1 rounded-2xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:hover:bg-rose-200"
                   >
                     {t("common.confirmDelete")}
@@ -389,16 +387,16 @@ export function ServerCardActions({
                     onClick={() => router.refresh()}
                     className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10 light:hover:bg-slate-100"
                   >
-                    取消
+                    {t("serverCardActions.delete.cancel")}
                   </button>
                 </div>
               </div>
             ) : (
               <SubmitButton
-                pendingLabel="查询中..."
+                pendingLabel={t("serverCardActions.delete.pendingLookup")}
                 data-tone="rose" className="w-full rounded-2xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-50 light:hover:bg-rose-100"
               >
-                删除节点
+                {t("serverCardActions.delete.confirm")}
               </SubmitButton>
             )}
             {deleteState.error ? (
