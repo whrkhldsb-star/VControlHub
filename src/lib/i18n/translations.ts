@@ -70,6 +70,7 @@ import { zh as searchZh, en as searchEn } from "./dictionaries/search";
 import { zh as serversZh, en as serversEn } from "./dictionaries/servers";
 import { zh as serverspageZh, en as serverspageEn } from "./dictionaries/servers-page";
 import { zh as serversreloadapiZh, en as serversreloadapiEn } from "./dictionaries/servers-reload-api";
+import { zh as serversfileproxyapiZh, en as serversfileproxyapiEn } from "./dictionaries/servers-file-proxy-api";
 import { zh as sharepageZh, en as sharepageEn } from "./dictionaries/share-page";
 import { zh as sharesZh, en as sharesEn } from "./dictionaries/shares";
 import { zh as snippetsPageZh, en as snippetsPageEn } from "./dictionaries/snippets-page";
@@ -143,6 +144,7 @@ const zh: Record<string, string> = {
 	...serversZh,
 	...serverspageZh,
 	...serversreloadapiZh,
+	...serversfileproxyapiZh,
 	...sharepageZh,
 	...sharesZh,
 	...sharespageZh,
@@ -218,6 +220,7 @@ const en: Record<string, string> = {
 	...serversEn,
 	...serverspageEn,
 	...serversreloadapiEn,
+	...serversfileproxyapiEn,
 	...sharepageEn,
 	...sharesEn,
 	...sharespageEn,

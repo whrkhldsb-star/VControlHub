@@ -26,6 +26,7 @@ import {
   decryptServerPassword,
   decryptSshPrivateKey,
 } from "@/lib/ssh/ssh-key-crypto";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 const FILE_PROXY_TTL_MS = 2 * 60 * 60 * 1000;
@@ -95,18 +96,19 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "文件代理状态获取失败" },
+    { requireAuth: true, errorMessage: t("apiServersFileProxy.getErrorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: t("apiServersFileProxy.unauthorized", locale) },
           { status: 401 },
         );
       if (!sessionHasPermission(session, "server:ssh")) {
         return NextResponse.json(
-          { error: "缺少服务器 SSH 权限" },
+          { error: t("apiServersFileProxy.missingSshPermission", locale) },
           { status: 403 },
         );
       }
@@ -118,7 +120,7 @@ export async function GET(
       });
 
       if (!server) {
-        throw new NotFoundError("服务器不存在");
+        throw new NotFoundError(t("apiServersFileProxy.serverNotFound", locale));
       }
 
       const proxy = await prisma.serverFileProxy.findUnique({
@@ -195,18 +197,19 @@ export async function POST(
 ) {
   const rl = await withRateLimit(request, UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "启动文件代理失败" },
+    { requireAuth: true, errorMessage: t("apiServersFileProxy.startErrorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: t("apiServersFileProxy.unauthorized", locale) },
           { status: 401 },
         );
       if (!sessionHasPermission(session, "server:ssh")) {
         return NextResponse.json(
-          { error: "缺少服务器 SSH 权限" },
+          { error: t("apiServersFileProxy.missingSshPermission", locale) },
           { status: 403 },
         );
       }
@@ -218,12 +221,12 @@ export async function POST(
         });
 
         if (!server) {
-          throw new NotFoundError("服务器不存在");
+          throw new NotFoundError(t("apiServersFileProxy.serverNotFound", locale));
         }
 
         if (!server.publicUrl) {
           return NextResponse.json(
-            { error: "服务器未配置公网访问地址(publicUrl)，无法启用直连模式" },
+            { error: t("apiServersFileProxy.missingPublicUrl", locale) },
             { status: 400 },
           );
         }
@@ -231,7 +234,7 @@ export async function POST(
         const serveDir = server.storageNode?.basePath?.trim();
         if (!serveDir) {
           return NextResponse.json(
-            { error: "服务器未绑定 SFTP 存储节点，无法确定文件代理根目录" },
+            { error: t("apiServersFileProxy.missingStorageNode", locale) },
             { status: 400 },
           );
         }
@@ -302,7 +305,7 @@ export async function POST(
         const pid = parseInt(result.stdout.trim(), 10);
         if (isNaN(pid) || pid <= 0) {
           return NextResponse.json(
-            { error: "启动文件代理失败", details: result.stderr },
+            { error: t("apiServersFileProxy.startFailed", locale), details: result.stderr },
             { status: 500 },
           );
         }
@@ -325,7 +328,7 @@ export async function POST(
 
         if (!actualPort) {
           return NextResponse.json(
-            { error: "无法确定代理端口" },
+            { error: t("apiServersFileProxy.cannotDeterminePort", locale) },
             { status: 500 },
           );
         }
@@ -364,7 +367,7 @@ export async function POST(
           },
         });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "操作失败";
+        const msg = error instanceof Error ? error.message : t("apiServersFileProxy.operationFailed", locale);
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       }
     },
@@ -379,18 +382,19 @@ export async function DELETE(
 ) {
   const rl = await withRateLimit(request, UPLOAD_LIMIT);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+  const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { requireAuth: true, errorMessage: "停止文件代理失败" },
+    { requireAuth: true, errorMessage: t("apiServersFileProxy.stopErrorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: t("apiServersFileProxy.unauthorized", locale) },
           { status: 401 },
         );
       if (!sessionHasPermission(session, "server:ssh")) {
         return NextResponse.json(
-          { error: "缺少服务器 SSH 权限" },
+          { error: t("apiServersFileProxy.missingSshPermission", locale) },
           { status: 403 },
         );
       }
@@ -432,7 +436,7 @@ export async function DELETE(
 
         return NextResponse.json({ status: "stopped" });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "操作失败";
+        const msg = error instanceof Error ? error.message : t("apiServersFileProxy.operationFailed", locale);
         throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
       }
     },
