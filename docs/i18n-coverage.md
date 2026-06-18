@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-18T05:14:38.645Z | Files: 273 | Strings: 485 | Coverage: **32.8%** (159/485)
+> Generated: 2026-06-18T05:49:34.309Z | Files: 273 | Strings: 473 | Coverage: **33%** (156/473)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -14,7 +14,6 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 | `src/app/media` | 38 | 7 | 31 | 18.4% |
 | `src/app/quick-services` | 38 | 7 | 31 | 18.4% |
 | `src/app/settings` | 30 | 6 | 24 | 20% |
-| `src/components/two-factor-settings.tsx` | 12 | 3 | 9 | 25% |
 | `src/app/servers` | 87 | 29 | 58 | 33.3% |
 | `src/app/storage` | 43 | 15 | 28 | 34.9% |
 | `src/app/files` | 121 | 45 | 76 | 37.2% |
@@ -251,18 +250,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L97 text "批量停用所选节点"
 - _…and 1 more_
 
-### `src/components/two-factor-settings.tsx` — 9/12 missing (25%)
-
-- L81 text "🔐 两步验证 (2FA)"
-- L93 text "启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。"
-- L108 text "两步验证已启用。如需关闭，请输入验证器 App 中的当前验证码。"
-- L122 text "1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码"
-- L134 text "密钥（手动输入）："
-- L137 text "2. 输入验证器 App 中显示的6位验证码："
-- L140 text "6位验证码"
-- L172 text "输入验证器 App 中的当前验证码以关闭两步验证："
-- _…and 1 more_
-
 ### `src/app/media/[id]/page.tsx` — 8/13 missing (38.5%)
 
 - L136 text "← 返回媒体库"
@@ -302,3 +289,11 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L94 text "最多显示 200 个已索引文件"
 - L99 text "⬇ 下载整个目录"
 - L104 text "当前目录暂未发现可下载文件。系统已自动尝试刷新目录索引，请稍后重试或联系分享者确认目录内有文件。"
+
+### `src/app/files/preview/page.tsx` — 5/5 missing (0%)
+
+- L108 text "← 返回文件"
+- L121 text "⬇ 下载"
+- L129 text "⚠ 文件较大（  MB），预览可能较慢。建议直接下载后查看。"
+- L178 text "此文件类型暂不支持在线预览"
+- L184 text "⬇ 下载后查看"

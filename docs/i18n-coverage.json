@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-18T05:14:38.645Z",
+  "generatedAt": "2026-06-18T05:49:34.309Z",
   "summary": {
     "files": 273,
-    "filesWithStrings": 60,
-    "totalStrings": 485,
-    "coveredStrings": 159,
-    "missingStrings": 326,
-    "coveragePercent": 32.8
+    "filesWithStrings": 59,
+    "totalStrings": 473,
+    "coveredStrings": 156,
+    "missingStrings": 317,
+    "coveragePercent": 33
   },
   "perModule": [
     {
@@ -36,13 +36,6 @@
       "covered": 6,
       "missing": 24,
       "coveragePercent": 20
-    },
-    {
-      "module": "src/components/two-factor-settings.tsx",
-      "total": 12,
-      "covered": 3,
-      "missing": 9,
-      "coveragePercent": 25
     },
     {
       "module": "src/app/servers",
@@ -6316,98 +6309,10 @@
     },
     "src/components/two-factor-settings.tsx": {
       "path": "src/components/two-factor-settings.tsx",
-      "total": 12,
-      "covered": 3,
-      "missing": 9,
-      "candidates": [
-        {
-          "text": "🔐 两步验证 (2FA)",
-          "line": 81,
-          "kind": "text",
-          "context": "<h3 className=\"text-sm font-medium text-white\">🔐 两步验证 (2FA)",
-          "covered": false
-        },
-        {
-          "text": "启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。",
-          "line": 93,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-[var(--text-secondary)] mb-3\"> 启用两步验证后，登录时需要输入验",
-          "covered": false
-        },
-        {
-          "text": "两步验证已启用。如需关闭，请输入验证器 App 中的当前验证码。",
-          "line": 108,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-[var(--text-secondary)] mb-3\"> 两步验证已启用。如需关闭，请输入",
-          "covered": false
-        },
-        {
-          "text": "关闭两步验证",
-          "line": 114,
-          "kind": "text",
-          "context": "<button onClick={() => { setStep(\"disable\"); setCode(\"\"); setError(\"\"); }}",
-          "covered": true,
-          "key": "auth.2fa-disable"
-        },
-        {
-          "text": "1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码",
-          "line": 122,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-[var(--text-secondary)]\"> 1. 使用验证器 App（如 Google",
-          "covered": false
-        },
-        {
-          "text": "密钥（手动输入）：",
-          "line": 134,
-          "kind": "text",
-          "context": "<p className=\"text-[10px] text-slate-500 mb-1\">密钥（手动输入）：",
-          "covered": false
-        },
-        {
-          "text": "2. 输入验证器 App 中显示的6位验证码：",
-          "line": 137,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-[var(--text-secondary)]\"> 2. 输入验证器 App 中显示的6位验证",
-          "covered": false
-        },
-        {
-          "text": "6位验证码",
-          "line": 140,
-          "kind": "text",
-          "context": "<label htmlFor=\"two-factor-setup-code\" className=\"block text-xs font-medium text",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 164,
-          "kind": "text",
-          "context": "<button onClick={() => { setStep(\"idle\"); setCode(\"\"); setError(\"\"); }} ",
-          "covered": true,
-          "key": "aiOpsPage.actions.cancel"
-        },
-        {
-          "text": "输入验证器 App 中的当前验证码以关闭两步验证：",
-          "line": 172,
-          "kind": "text",
-          "context": "<p className=\"text-xs text-[var(--text-secondary)]\">输入验证器 App 中的当前验证码以关闭两步验证：",
-          "covered": false
-        },
-        {
-          "text": "当前验证码",
-          "line": 173,
-          "kind": "text",
-          "context": "<label htmlFor=\"two-factor-disable-code\" className=\"block text-xs font-medium te",
-          "covered": false
-        },
-        {
-          "text": "取消",
-          "line": 197,
-          "kind": "text",
-          "context": "<button onClick={() => { setStep(\"idle\"); setCode(\"\"); setError(\"\"); }} ",
-          "covered": true,
-          "key": "aiOpsPage.actions.cancel"
-        }
-      ]
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
     }
   }
 }

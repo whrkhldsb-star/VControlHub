@@ -1,11 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "../settings-client";
+import { renderWithI18n as renderWithLocale } from "@/lib/i18n/__tests__/test-helpers";
+
+// Wrap with I18nProvider (zh default) so `t(key)` resolves to the original
+// Chinese strings these assertions still expect — without it, t(key) returns
+// the key itself and `getByLabelText("平台名称")` would fail because the
+// rendered label would be "settingsPage.fields.platformName".
+const render = (ui: React.ReactElement) => renderWithLocale(ui, { locale: "zh" });
 
 const refreshMock = vi.fn();
 

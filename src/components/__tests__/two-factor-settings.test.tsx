@@ -1,9 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TwoFactorSettings } from "../two-factor-settings";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { renderWithI18n as renderWithLocale } from "@/lib/i18n/__tests__/test-helpers";
+
+// Wrap with I18nProvider (zh default) so `t(key)` resolves to the original
+// Chinese strings these assertions still expect — without it, t(key) returns
+// the key itself and `getByRole("button", { name: "开启两步验证" })` would
+// fail because the rendered name would be "auth.2fa-enable".
+const render = (ui: React.ReactElement) => renderWithLocale(ui, { locale: "zh" });
 
 const refreshMock = vi.fn();
 
@@ -108,5 +115,15 @@ describe("TwoFactorSettings", () => {
 
 		expect(refreshMock).toHaveBeenCalledTimes(1);
 		expect(window.location.reload).not.toHaveBeenCalled();
+	});
+
+	it("renders English copy when locale is en", () => {
+		renderWithLocale(<TwoFactorSettings enabled={false} />, { locale: "en" });
+
+		// Heading and badge are translated.
+		expect(screen.getByRole("heading", { name: /Two-factor authentication/ })).toBeInTheDocument();
+		expect(screen.getByText("Disabled")).toBeInTheDocument();
+		// Idle CTA uses the translated "Enable 2FA" copy.
+		expect(screen.getByRole("button", { name: "Enable 2FA" })).toBeEnabled();
 	});
 });
