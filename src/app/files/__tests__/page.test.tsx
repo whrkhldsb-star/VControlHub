@@ -159,6 +159,12 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: vi.fn().mockResolvedValue({
+    get: vi.fn().mockReturnValue(undefined),
+  }),
+}));
+
 vi.mock("@/app/storage/actions", () => ({
   getStorageFormOptions: vi.fn().mockResolvedValue({
     servers: [{ id: "srv_1", name: "香港一号", host: "203.0.113.10" }],

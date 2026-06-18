@@ -30,6 +30,7 @@ import { zh as scheduledtaskspageZh, en as scheduledtaskspageEn } from "./dictio
 import { zh as settingspageZh, en as settingspageEn } from "./dictionaries/settings-page";
 import { zh as sharespageZh, en as sharespageEn } from "./dictionaries/shares-page";
 import { zh as filedetailpanelZh, en as filedetailpanelEn } from "./dictionaries/file-detail-panel";
+import { zh as filespageZh, en as filespageEn } from "./dictionaries/files-page";
 import { zh as deploymentspageZh, en as deploymentspageEn } from "./dictionaries/deployments-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
 import { zh as costpageZh, en as costpageEn } from "./dictionaries/cost-page";
@@ -106,6 +107,7 @@ const zh: Record<string, string> = {
 	...errorZh,
 	...fileUploadDropzoneZh,
 	...filedetailpanelZh,
+	...filespageZh,
 	...healthpageZh,
 	...imagebedZh,
 	...imagebedpageZh,
@@ -178,6 +180,7 @@ const en: Record<string, string> = {
 	...errorEn,
 	...fileUploadDropzoneEn,
 	...filedetailpanelEn,
+	...filespageEn,
 	...healthpageEn,
 	...imagebedEn,
 	...imagebedpageEn,

@@ -20,6 +20,7 @@ import {
 
 import { getStorageFormOptions } from "@/app/storage/actions";
 import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { FilesBrowserSpa } from "./files-browser-spa";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { StorageNodeManager } from "./storage-node-manager";
@@ -38,6 +39,7 @@ type FilesPageProps = {
 
 export default async function FilesPage({ searchParams }: FilesPageProps) {
   const session = await requireSession("/files");
+  const locale = await getServerLocale();
   const canEditLocalFiles = sessionHasPermission(session, "storage:write");
   const canDelete = sessionHasPermission(session, "storage:delete");
   const canShare = sessionHasPermission(session, "share:create");
@@ -73,7 +75,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           maxDepth: 1,
         });
         if (syncResult.errors.length > 0) {
-          syncWarning = syncResult.errors[0] ?? "远端目录同步失败，已显示本地索引";
+          syncWarning = syncResult.errors[0] ?? t("filesPage.syncWarningFallback", locale);
         } else {
           storage = await getStorageOverview();
         }
@@ -216,27 +218,27 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     <PageShell maxW="max-w-7xl">
       <PageHeader
         eyebrow="Storage"
-        title="文件与存储管理"
-        description="文件浏览、上传下载、存储节点管理一体化"
+        title={t("filesPage.title", locale)}
+        description={t("filesPage.description", locale)}
       >
         <div className="flex flex-wrap gap-2 text-xs text-slate-400">
           <Link
             href="/audit"
             className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
           >
-            审计日志
+            {t("filesPage.linkAuditLog", locale)}
           </Link>
           <Link
             href="/health"
             className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
           >
-            系统自检
+            {t("filesPage.linkHealthCheck", locale)}
           </Link>
           <Link
             href="/servers"
             className="rounded-full border border-[var(--border)] bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.06]"
           >
-            服务器管理
+            {t("filesPage.linkServers", locale)}
           </Link>
         </div>
       </PageHeader>
@@ -244,7 +246,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
       <section className="grid gap-3 sm:grid-cols-4 mb-8">
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            文件节点
+            {t("filesPage.statTotalNodes", locale)}
           </div>
           <div className="mt-1.5 text-2xl font-semibold text-white">
             {storage.stats.totalNodes}
@@ -252,7 +254,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </article>
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            活跃文件
+            {t("filesPage.statActiveFiles", locale)}
           </div>
           <div className="mt-1.5 text-2xl font-semibold text-white">
             {storage.stats.totalEntries}
@@ -260,7 +262,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </article>
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            当前目录
+            {t("filesPage.statCurrentDirectory", locale)}
           </div>
           <div className="mt-1.5 text-2xl font-semibold text-white">
             {totalItems}
@@ -268,7 +270,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         </article>
         <article data-card className=" p-4 hover:bg-white/[0.05] transition-colors duration-150">
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            回收站
+            {t("filesPage.statRecycleBin", locale)}
           </div>
           <div className="mt-1.5 text-2xl font-semibold text-white">
             {storage.stats.deletedEntries}
@@ -281,31 +283,31 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
           href="/files?scope=all"
           data-tone="cyan" className="rounded-xl border border-cyan-400/20 p-4 transition hover:bg-cyan-400/[0.1]"
         >
-          <div className="text-sm font-semibold text-white">全局文件搜索</div>
+          <div className="text-sm font-semibold text-white">{t("filesPage.globalSearchTitle", locale)}</div>
           <p className="mt-1.5 text-sm leading-6 text-slate-300">
-            跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。
+            {t("filesPage.globalSearchDesc", locale)}
           </p>
-          <div className="mt-3 text-xs text-cyan-200">打开全局搜索</div>
+          <div className="mt-3 text-xs text-cyan-200">{t("filesPage.globalSearchCta", locale)}</div>
         </Link>
         <Link
           href="/files?scope=current"
           data-card className=" p-4 transition hover:bg-white/[0.06]"
         >
-          <div className="text-sm font-semibold text-white">当前目录检索</div>
+          <div className="text-sm font-semibold text-white">{t("filesPage.currentSearchTitle", locale)}</div>
           <p className="mt-1.5 text-sm leading-6 text-slate-300">
-            在当前路径内筛选文件名，适合编辑前先缩小范围。
+            {t("filesPage.currentSearchDesc", locale)}
           </p>
-          <div className="mt-3 text-xs text-slate-400">仅当前目录</div>
+          <div className="mt-3 text-xs text-slate-400">{t("filesPage.currentSearchCta", locale)}</div>
         </Link>
         <Link
           href="/files?tab=recycle"
           data-card className=" p-4 transition hover:bg-white/[0.06]"
         >
-          <div className="text-sm font-semibold text-white">回收站</div>
+          <div className="text-sm font-semibold text-white">{t("filesPage.recycleTitle", locale)}</div>
           <p className="mt-1.5 text-sm leading-6 text-slate-300">
-            查看最近删除的文件，做误删恢复前的快速核对。
+            {t("filesPage.recycleDesc", locale)}
           </p>
-          <div className="mt-3 text-xs text-slate-400">进入回收站</div>
+          <div className="mt-3 text-xs text-slate-400">{t("filesPage.recycleCta", locale)}</div>
         </Link>
       </section>
 

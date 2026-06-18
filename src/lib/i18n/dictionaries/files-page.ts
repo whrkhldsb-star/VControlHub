@@ -1,0 +1,46 @@
+/**
+ * i18n dictionary: `filesPage.*` — Files & Storage management page (R26).
+ */
+export const zh: Record<string, string> = {
+	"filesPage.title": "文件与存储管理",
+	"filesPage.description": "文件浏览、上传下载、存储节点管理一体化",
+	"filesPage.linkAuditLog": "审计日志",
+	"filesPage.linkHealthCheck": "系统自检",
+	"filesPage.linkServers": "服务器管理",
+	"filesPage.statTotalNodes": "文件节点",
+	"filesPage.statActiveFiles": "活跃文件",
+	"filesPage.statCurrentDirectory": "当前目录",
+	"filesPage.statRecycleBin": "回收站",
+	"filesPage.globalSearchTitle": "全局文件搜索",
+	"filesPage.globalSearchDesc": "跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。",
+	"filesPage.globalSearchCta": "打开全局搜索",
+	"filesPage.currentSearchTitle": "当前目录检索",
+	"filesPage.currentSearchDesc": "在当前路径内筛选文件名，适合编辑前先缩小范围。",
+	"filesPage.currentSearchCta": "仅当前目录",
+	"filesPage.recycleTitle": "回收站",
+	"filesPage.recycleDesc": "查看最近删除的文件，做误删恢复前的快速核对。",
+	"filesPage.recycleCta": "进入回收站",
+	"filesPage.syncWarningFallback": "远端目录同步失败，已显示本地索引",
+};
+
+export const en: Record<string, string> = {
+	"filesPage.title": "Files & Storage",
+	"filesPage.description": "Browse files, upload and download, and manage storage nodes in one place.",
+	"filesPage.linkAuditLog": "Audit log",
+	"filesPage.linkHealthCheck": "Health check",
+	"filesPage.linkServers": "Servers",
+	"filesPage.statTotalNodes": "Storage nodes",
+	"filesPage.statActiveFiles": "Active files",
+	"filesPage.statCurrentDirectory": "Current directory",
+	"filesPage.statRecycleBin": "Recycle bin",
+	"filesPage.globalSearchTitle": "Global file search",
+	"filesPage.globalSearchDesc": "Search filenames across local and SFTP nodes; great for locating configs, logs, and uploads.",
+	"filesPage.globalSearchCta": "Open global search",
+	"filesPage.currentSearchTitle": "Current-directory search",
+	"filesPage.currentSearchDesc": "Filter filenames inside the current path; ideal for narrowing scope before edits.",
+	"filesPage.currentSearchCta": "Current directory only",
+	"filesPage.recycleTitle": "Recycle bin",
+	"filesPage.recycleDesc": "Inspect recently deleted files before deciding to recover.",
+	"filesPage.recycleCta": "Open recycle bin",
+	"filesPage.syncWarningFallback": "Remote directory sync failed; showing the local index.",
+};
