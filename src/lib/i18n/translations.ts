@@ -268,8 +268,15 @@ export function getAllTranslations(locale: Locale): Record<string, string> {
  * so a single call here keeps server output consistent with the client tree.
  */
 export async function getServerLocale(): Promise<Locale> {
-	const { cookies } = await import("next/headers");
-	const store = await cookies();
-	const value = store.get("vps-locale")?.value;
-	return value === "en" ? "en" : "zh";
+	try {
+		const { cookies } = await import("next/headers");
+		const store = await cookies();
+		const value = store.get("vps-locale")?.value;
+		return value === "en" ? "en" : "zh";
+	} catch {
+		// cookies() throws when called outside a NextRequest scope (e.g. vitest unit
+		// tests, background tasks). Default to zh so server-side error messages
+		// still resolve.
+		return "zh";
+	}
 }

@@ -107,16 +107,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const locale = await getServerLocale();
   return withApiRoute(
     request,
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: reloadBodySchema,
-      errorMessage: t("apiServersReload.errorMessage", locale),
+      // errorMessage is filled inside the route callback after getServerLocale resolves.
+      errorMessage: t("apiServersReload.errorMessage", "zh"),
     },
     async ({ session, body }) => {
+      const locale = await getServerLocale();
       if (!session) {
         return Response.json({ error: t("apiServersReload.unauthorized", locale) }, { status: 401 });
       }

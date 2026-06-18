@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useId, useRef, type ReactNode, type SyntheticEvent } from "react";
+import { useState, useCallback, useEffect, useId, useMemo, useRef, type ReactNode, type SyntheticEvent } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { TwoFactorSettingsLazy } from "./two-factor-settings-lazy";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
@@ -8,12 +8,12 @@ import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
 	SETTINGS_SCHEMA,
-	buildTocItems,
 	getSectionSaveKeys,
 	type BadgeTone,
 	type FieldDef,
 	type SectionDef,
 } from "./field-schema";
+import { getSettingsSchema, getTocItems } from "./field-schema-i18n";
 
 type Props = {
 	settings: Record<string, string>;
@@ -93,6 +93,11 @@ export function SettingsClient({
 	twoFactorEnabled = false,
 }: Props) {
 	const { t } = useI18n();
+	// Translated schema (title/description/helper/badge/saveMessage/noticeBanner/label
+	// are all projected through the i18n dictionary). defaultOpen / keys / validate
+	// remain from the original const.
+	const schema = useMemo(() => getSettingsSchema(t), [t]);
+	const tocItems = useMemo(() => getTocItems(t), [t]);
 	const [settings, setSettings] = useState(initialSettings);
 	const [saving, setSaving] = useState(false);
 	const [saved, setSaved] = useState(false);
@@ -282,7 +287,7 @@ export function SettingsClient({
 					</div>
 				</div>
 				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-					{buildTocItems().map((item) => (
+					{tocItems.map((item) => (
 						<a
 							key={item.id}
 							href={`#${item.id}`}
@@ -300,7 +305,7 @@ export function SettingsClient({
 				</div>
 			</nav>
 
-			{SETTINGS_SCHEMA.map((section) => (
+			{schema.map((section) => (
 				<SchemaDrivenSection
 					key={section.id}
 					section={section}

@@ -48,8 +48,8 @@ export function ConfigPreviewDialog({
 	onCancel,
 	onConfirm,
 }: ConfigPreviewDialogProps) {
-	if (!configPreview) return null;
 	const { t } = useI18n();
+	if (!configPreview) return null;
 	const { action, item, port } = configPreview;
 	const title = action === "install" ? t("qsPage.configConfirmTitle.install") : t("qsPage.configConfirmTitle.update");
 	const body =
