@@ -31,14 +31,6 @@ import {
 } from "@/lib/preferences/auto-probe";
 import { normalizeUserPreferences, type UserPreferences } from "@/lib/preferences/user-preferences";
 
-export const AUTO_PROBE_INTERVAL_OPTIONS = [
-	{ value: 10, label: "10 秒" },
-	{ value: 30, label: "30 秒" },
-	{ value: 60, label: "1 分钟" },
-	{ value: 120, label: "2 分钟" },
-	{ value: 300, label: "5 分钟" },
-] as const;
-
 type AutoProbeContextValue = {
 	enabled: boolean;
 	intervalSec: number;

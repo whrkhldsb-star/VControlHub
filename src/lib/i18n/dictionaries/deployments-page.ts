@@ -1,5 +1,5 @@
 /**
- * i18n dictionary: `deploymentsPage.launch.*` (19 keys).
+ * i18n dictionary: `deploymentsPage.*` (51 keys).
  */
 
 export const zh: Record<string, string> = {
@@ -23,29 +23,17 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.launch.success": "部署任务已创建",
 	"deploymentsPage.launch.errorFallback": "部署失败",
 	"deploymentsPage.launch.addVps": "去添加 VPS",
-
 	"deploymentsPage.launch.noServerSelected": "请至少选择一个目标 VPS",
-
 	"deploymentsPage.launch.noTemplate": "请选择部署模板",
-
 	"deploymentsPage.launch.noTemplateHint": "没有可用模板；请先在命令模板中心创建。",
-
 	"deploymentsPage.launch.noVariables": "该模板没有变量，可直接选择目标 VPS 提交。",
-
 	"deploymentsPage.launch.noVpsDesc": "暂无可用 VPS，不能发起部署。",
-
 	"deploymentsPage.launch.noVpsTitle": "暂无可用 VPS",
-
 	"deploymentsPage.launch.previewCommand": "预览命令",
-
 	"deploymentsPage.launch.reasonPlaceholder": "例如：版本升级",
-
 	"deploymentsPage.launch.targetVpsHint": "默认使用网站服务器中转；勾选后会通过 SSH 安装 VControlHub Direct Gateway 微服务。",
-
 	"deploymentsPage.launch.targetVpsTitle": "目标 VPS",
-
 	"deploymentsPage.launch.variablesHint": "下发前请填入实际值",
-
 	"deploymentsPage.launch.variablesTitle": "模板变量",
 
 	"deploymentsPage.page.noPermission": "你没有应用部署查看权限。",
@@ -79,6 +67,27 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.page.runsSection.requestPending": "待创建",
 	"deploymentsPage.page.runsSection.rollback": "Rollback: ",
 	"deploymentsPage.page.runsSection.rollbackMeta": "最近回滚：{status} · 审批 {request} · {date}",
+
+	"deploymentsPage.export.generateError": "生成部署导出包失败",
+	"deploymentsPage.export.downloadHttpError": "下载失败 (HTTP {status})",
+	"deploymentsPage.export.downloadZipError": "下载 ZIP 失败",
+	"deploymentsPage.export.title": "迁移部署导出包",
+	"deploymentsPage.export.desc": "生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。",
+	"deploymentsPage.export.targetDomain": "目标域名",
+	"deploymentsPage.export.appName": "应用标识",
+	"deploymentsPage.export.generating": "生成中...",
+	"deploymentsPage.export.generate": "生成导出包",
+	"deploymentsPage.export.summary": "{domain} · {count} 个文件 · {size} KB · 危险演示开关默认关闭",
+	"deploymentsPage.export.packaging": "打包中...",
+	"deploymentsPage.export.downloadZip": "一键导出 ZIP",
+	"deploymentsPage.export.fileTree": "目录树",
+	"deploymentsPage.export.noFiles": "暂无文件",
+	"deploymentsPage.export.viewing": "查看中",
+	"deploymentsPage.export.emptyExport": "导出包不包含任何文件。",
+	"deploymentsPage.export.rollbackFile": "单文件回滚",
+	"deploymentsPage.export.copied": "已复制",
+	"deploymentsPage.export.copyRollback": "复制内容回滚",
+	"deploymentsPage.export.downloadFile": "下载此文件",
 };
 
 export const en: Record<string, string> = {
@@ -102,29 +111,17 @@ export const en: Record<string, string> = {
 	"deploymentsPage.launch.success": "Deployment task created",
 	"deploymentsPage.launch.errorFallback": "Deployment failed",
 	"deploymentsPage.launch.addVps": "Add VPS",
-
 	"deploymentsPage.launch.noServerSelected": "Please select at least one target VPS",
-
 	"deploymentsPage.launch.noTemplate": "Please select a deployment template",
-
 	"deploymentsPage.launch.noTemplateHint": "No templates available; create one in the command template center first.",
-
 	"deploymentsPage.launch.noVariables": "This template has no variables; pick a target VPS and submit directly.",
-
 	"deploymentsPage.launch.noVpsDesc": "No available VPS; cannot launch deployment",
-
 	"deploymentsPage.launch.noVpsTitle": "No available VPS",
-
 	"deploymentsPage.launch.previewCommand": "Preview command",
-
 	"deploymentsPage.launch.reasonPlaceholder": "e.g. Version upgrade",
-
 	"deploymentsPage.launch.targetVpsHint": "By default the web server relays traffic; when enabled, VControlHub Direct Gateway microservice will be installed via SSH.",
-
 	"deploymentsPage.launch.targetVpsTitle": "Target VPS",
-
 	"deploymentsPage.launch.variablesHint": "Fill in actual values before dispatching",
-
 	"deploymentsPage.launch.variablesTitle": "Template variables",
 
 	"deploymentsPage.page.noPermission": "You do not have permission to view deployments.",
@@ -158,4 +155,25 @@ export const en: Record<string, string> = {
 	"deploymentsPage.page.runsSection.requestPending": "pending",
 	"deploymentsPage.page.runsSection.rollback": "Rollback: ",
 	"deploymentsPage.page.runsSection.rollbackMeta": "Latest rollback: {status} · request {request} · {date}",
+
+	"deploymentsPage.export.generateError": "Failed to generate deployment export bundle",
+	"deploymentsPage.export.downloadHttpError": "Download failed (HTTP {status})",
+	"deploymentsPage.export.downloadZipError": "Failed to download ZIP",
+	"deploymentsPage.export.title": "Migration deployment export bundle",
+	"deploymentsPage.export.desc": "Generate an auditable portable deployment template: env samples, systemd units, Caddy examples, and deployment scripts. The export contains placeholders only and never writes production secrets or connection strings.",
+	"deploymentsPage.export.targetDomain": "Target domain",
+	"deploymentsPage.export.appName": "App identifier",
+	"deploymentsPage.export.generating": "Generating…",
+	"deploymentsPage.export.generate": "Generate export bundle",
+	"deploymentsPage.export.summary": "{domain} · {count} files · {size} KB · dangerous demo flags disabled by default",
+	"deploymentsPage.export.packaging": "Packaging…",
+	"deploymentsPage.export.downloadZip": "Download ZIP in one click",
+	"deploymentsPage.export.fileTree": "File tree",
+	"deploymentsPage.export.noFiles": "No files yet",
+	"deploymentsPage.export.viewing": "Viewing",
+	"deploymentsPage.export.emptyExport": "The export bundle contains no files.",
+	"deploymentsPage.export.rollbackFile": "Single-file rollback",
+	"deploymentsPage.export.copied": "Copied",
+	"deploymentsPage.export.copyRollback": "Copy rollback content",
+	"deploymentsPage.export.downloadFile": "Download this file",
 };

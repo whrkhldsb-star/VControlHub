@@ -1,6 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import React from "react";
+
+import { I18nProvider } from "@/lib/i18n/provider";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
   csrfFetch: vi.fn(),
@@ -60,6 +63,8 @@ import DeploymentsPage from "../page";
 const csrfFetchMock = vi.mocked(csrfFetch);
 const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
+const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh">{ui}</I18nProvider>);
+
 const sampleExport = {
   export: {
     id: "exp-uuid-1",
@@ -81,7 +86,7 @@ describe("DeploymentsPage deploy-export panel", () => {
 
   it("renders the panel, generates a portable export, and shows the ZIP download + tree preview", async () => {
     const user = userEvent.setup();
-    render(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
+    wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
     expect(screen.getByText("迁移部署导出包")).toBeInTheDocument();
     await user.type(screen.getByLabelText("目标域名"), " Console.Example.Test ");
@@ -118,7 +123,7 @@ describe("DeploymentsPage deploy-export panel", () => {
   });
 
   it("bounds enabled target server hydration for the deployment form", async () => {
-    render(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
+    wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
 
     expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: { enabled: true },

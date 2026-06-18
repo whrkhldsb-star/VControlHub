@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 type DeploymentExportManifest = {
   appName?: string;
@@ -109,6 +110,7 @@ function downloadTextFile(filename: string, content: string) {
 }
 
 export function DeploymentExportPanel() {
+  const { t } = useI18n();
   const [domain, setDomain] = useState("");
   const [appName, setAppName] = useState("");
   const [pending, setPending] = useState(false);
@@ -163,7 +165,7 @@ export function DeploymentExportPanel() {
       })) as DeploymentExportResponse;
       setResult(response.export ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "生成部署导出包失败");
+      setError(err instanceof Error ? err.message : t("deploymentsPage.export.generateError"));
     } finally {
       setPending(false);
     }
@@ -179,7 +181,7 @@ export function DeploymentExportPanel() {
       });
       if (!response.ok) {
         const text = await response.text().catch(() => "");
-        throw new Error(text || `下载失败 (HTTP ${response.status})`);
+        throw new Error(text || t("deploymentsPage.export.downloadHttpError").replace("{status}", String(response.status)));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -193,7 +195,7 @@ export function DeploymentExportPanel() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setZipError(err instanceof Error ? err.message : "下载 ZIP 失败");
+      setZipError(err instanceof Error ? err.message : t("deploymentsPage.export.downloadZipError"));
     } finally {
       setZipPending(false);
     }
@@ -215,9 +217,9 @@ export function DeploymentExportPanel() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-200/70">Portable Export</p>
-          <h2 className="mt-1 text-sm font-semibold text-white">迁移部署导出包</h2>
-          <p className="mt-1 max-w-3xl text-xs text-slate-500">
-            生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。
+          <h2 className="mt-1 text-sm font-semibold text-white">{t("deploymentsPage.export.title")}</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {t("deploymentsPage.export.desc")}
           </p>
         </div>
       </div>
@@ -227,7 +229,7 @@ export function DeploymentExportPanel() {
         className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end"
       >
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
-          目标域名
+          {t("deploymentsPage.export.targetDomain")}
           <input
             value={domain}
             onChange={(event) => setDomain(event.target.value)}
@@ -236,7 +238,7 @@ export function DeploymentExportPanel() {
           />
         </label>
         <label className="grid gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
-          应用标识
+          {t("deploymentsPage.export.appName")}
           <input
             value={appName}
             onChange={(event) => setAppName(event.target.value)}
@@ -248,7 +250,7 @@ export function DeploymentExportPanel() {
           disabled={pending}
           className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending ? "生成中..." : "生成导出包"}
+          {pending ? t("deploymentsPage.export.generating") : t("deploymentsPage.export.generate")}
         </button>
       </form>
 
@@ -264,7 +266,7 @@ export function DeploymentExportPanel() {
             <div>
               <h3 className="text-sm font-semibold text-white">{result.name ?? "portable deployment"}</h3>
               <p className="mt-1 text-xs text-slate-500">
-                {result.manifest?.domain ?? "example.com"} · {fileCount} 个文件 · {(totalSize / 1024).toFixed(1)} KB · 危险演示开关默认关闭
+                {t("deploymentsPage.export.summary").replace("{domain}", result.manifest?.domain ?? "example.com").replace("{count}", String(fileCount)).replace("{size}", (totalSize / 1024).toFixed(1))}
               </p>
             </div>
             <button
@@ -274,7 +276,7 @@ export function DeploymentExportPanel() {
               data-testid="deploy-export-zip"
               className="rounded-lg border border-cyan-300/40 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {zipPending ? "打包中..." : "一键导出 ZIP"}
+              {zipPending ? t("deploymentsPage.export.packaging") : t("deploymentsPage.export.downloadZip")}
             </button>
           </div>
 
@@ -317,14 +319,15 @@ function nodeKey(node: TreeNode) {
 }
 
 function DeploymentExportTree({ tree, activePath, onSelect }: TreeProps) {
+  const { t } = useI18n();
   return (
     <div
       data-testid="deploy-export-tree"
       className="rounded-lg border border-white/[0.06] bg-black/30 p-3 font-mono text-xs text-[var(--text-secondary)]"
     >
-      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">目录树</p>
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">{t("deploymentsPage.export.fileTree")}</p>
       {tree.length === 0 ? (
-        <p className="text-xs text-slate-500">暂无文件</p>
+        <p className="text-xs text-slate-500">{t("deploymentsPage.export.noFiles")}</p>
       ) : (
         <ul className="space-y-1">
           {tree.map((node) => (
@@ -353,6 +356,7 @@ function TreeRow({
   activePath: string | null;
   onSelect: (path: string) => void;
 }) {
+  const { t } = useI18n();
   if (!node.isFile) {
     return (
       <li>
@@ -392,7 +396,7 @@ function TreeRow({
       >
         <span aria-hidden>📄</span>
         <span className="truncate">{node.name}</span>
-        {isActive ? <span className="ml-auto text-[10px] text-cyan-200">查看中</span> : null}
+        {isActive ? <span className="ml-auto text-[10px] text-cyan-200">{t("deploymentsPage.export.viewing")}</span> : null}
       </button>
     </li>
   );
@@ -417,10 +421,11 @@ function DeploymentFilePreview({
   onSelect,
   copyState,
 }: PreviewProps) {
+  const { t } = useI18n();
   if (fileNames.length === 0 || !activePath) {
     return (
       <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-xs text-slate-500">
-        导出包不包含任何文件。
+        {t("deploymentsPage.export.emptyExport")}
       </div>
     );
   }
@@ -429,7 +434,7 @@ function DeploymentFilePreview({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-200/70">
-          单文件回滚
+          {t("deploymentsPage.export.rollbackFile")}
         </label>
         <select
           data-testid="deploy-export-file-select"
@@ -449,7 +454,7 @@ function DeploymentFilePreview({
           onClick={() => onCopy(content, activePath)}
           className="rounded border border-cyan-300/40 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10"
         >
-          {justCopied ? "已复制" : "复制内容回滚"}
+          {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </button>
         <button
           type="button"
@@ -457,7 +462,7 @@ function DeploymentFilePreview({
           onClick={() => onDownload(activePath, content)}
           className="rounded border border-white/[0.08] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
         >
-          下载此文件
+          {t("deploymentsPage.export.downloadFile")}
         </button>
       </div>
       <pre

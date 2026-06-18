@@ -287,14 +287,14 @@ export function ServerOverviewDetails({
 			className="mt-4 space-y-3 border-t border-white/[0.06] pt-4"
 		>
 			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
-				<h3 className="mb-3 text-sm font-medium text-white/80">连接与状态</h3>
+				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.section.connectionStatus")}</h3>
 				<div className="grid gap-2 text-sm">
 					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
 					<InfoRow label={t("serverOverviewDetails.username")} value={server.username} />
 					<InfoRow label={t("serverOverviewDetails.address")} value={`${server.host}:${server.port}`} />
 					<InfoRow label={t("serverOverviewDetails.nodeStatus")} value={server.statusLabel} />
 					<InfoRow
-						label="SSH 密钥"
+						label={t("serverOverviewDetails.sshKey")}
 						value={server.sshKey ? server.sshKey.name : t("serverOverviewDetails.notConfigured")}
 					/>
 				</div>
@@ -302,12 +302,11 @@ export function ServerOverviewDetails({
 					data-tone="cyan"
 					className="mt-3 rounded-lg border border-cyan-400/10 p-2 text-[11px] leading-5 text-slate-500 light:border-cyan-700/15 light:bg-cyan-50"
 				>
-					状态徽章表示 VControlHub 是否允许该 VPS 接收操作；若 SSH
-					终端、文件中转或直连访问异常，请结合下方连接摘要、直连模式和最近命令状态定位真实服务健康。
+					{t("serverOverviewDetails.banner.description")}
 				</p>
 				{server.sshKey?.fingerprint ? (
 					<p className="mt-2 truncate text-[11px] text-slate-600">
-						指纹：{server.sshKey.fingerprint}
+						{t("serverOverviewDetails.fingerprintPrefix")}{server.sshKey.fingerprint}
 					</p>
 				) : null}
 				{(server.tags ?? []).length > 0 ? (
@@ -325,7 +324,7 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
-				<h3 className="mb-3 text-sm font-medium text-white/80">操作与资源</h3>
+				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.section.operationsResources")}</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
 						label={t("serverOverviewDetails.relatedStorage")}
@@ -363,25 +362,24 @@ export function ServerOverviewDetails({
 			<section className="rounded-lg border border-cyan-400/10 bg-cyan-400/[0.035] p-3 light:border-cyan-700/15 light:bg-cyan-50">
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 					<div>
-						<h3 className="text-sm font-medium text-cyan-100">诊断下一步</h3>
+						<h3 className="text-sm font-medium text-cyan-100">{t("serverOverviewDetails.diagnosticsNext")}</h3>
 						<p className="mt-1 text-[11px] leading-5 text-slate-400">
-							这里展示的是可执行诊断入口：节点“启用”只表示允许接收操作，不等于 SSH、SFTP 或 Direct
-							Gateway 实时在线。
+							{t("serverOverviewDetails.diagnosticsDescription")}
 						</p>
 					</div>
 					<Link
 						href={`/api/servers/monitor?serverId=${encodeURIComponent(server.id)}`}
 						className="inline-flex shrink-0 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 px-3 py-1.5 text-xs text-cyan-100 transition hover:bg-cyan-300/15 light:border-cyan-700/20"
 					>
-						查看实时监控 JSON
+						{t("serverOverviewDetails.viewMonitorJson")}
 					</Link>
 				</div>
 				<div className="mt-3 rounded-lg border border-white/[0.05] bg-slate-950/35 p-3">
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<div>
-							<div className="text-xs font-medium text-white">实时探测</div>
+							<div className="text-xs font-medium text-white">{t("serverOverviewDetails.realtimeProbe")}</div>
 							<p className="mt-1 text-[11px] leading-5 text-slate-500">
-								点击后通过现有监控接口发起一次 SSH 只读采样，失败时会显示连接、权限或远端命令错误。
+								{t("serverOverviewDetails.realtimeProbeDescription")}
 							</p>
 						</div>
 						<button
@@ -399,7 +397,7 @@ export function ServerOverviewDetails({
 							data-tone="emerald"
 							className="mt-3 rounded-lg border border-emerald-400/20 p-2 text-[11px] leading-5 text-emerald-100 light:border-emerald-700/20 light:bg-emerald-50"
 						>
-							探测成功：{diagnosticRun.summary}（{diagnosticRun.checkedAt}）
+							{t("serverOverviewDetails.diagnosticSuccess").replace("{summary}", diagnosticRun.summary).replace("{checkedAt}", diagnosticRun.checkedAt)}
 						</div>
 					) : null}
 					{diagnosticRun.status === "error" ? (
@@ -408,7 +406,7 @@ export function ServerOverviewDetails({
 							data-tone="rose"
 							className="mt-3 rounded-lg border border-rose-400/20 p-2 text-[11px] leading-5 text-rose-100 light:border-rose-700/20 light:bg-rose-50"
 						>
-							探测失败：{diagnosticRun.message}（{diagnosticRun.checkedAt}）
+							{t("serverOverviewDetails.diagnosticFailure").replace("{message}", diagnosticRun.message).replace("{checkedAt}", diagnosticRun.checkedAt)}
 						</div>
 					) : null}
 				</div>
@@ -434,7 +432,7 @@ export function ServerOverviewDetails({
 									href={item.href}
 									className="mt-2 inline-flex text-[11px] font-medium text-cyan-200 underline-offset-4 hover:underline"
 								>
-									打开相关入口
+									{t("serverOverviewDetails.openRelatedEntry")}
 								</Link>
 							) : null}
 						</div>
@@ -443,9 +441,9 @@ export function ServerOverviewDetails({
 			</section>
 
 			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
-				<h3 className="mb-3 text-sm font-medium text-white/80">最近命令投递</h3>
+				<h3 className="mb-3 text-sm font-medium text-white/80">{t("serverOverviewDetails.latestCommands")}</h3>
 				{server.latestCommands.length === 0 ? (
-					<p className="text-xs text-slate-500">暂无命令投递记录。</p>
+					<p className="text-xs text-slate-500">{t("serverOverviewDetails.noCommandRecords")}</p>
 				) : (
 					<div className="space-y-2">
 						{server.latestCommands.map((command) => (

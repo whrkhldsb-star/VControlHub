@@ -189,7 +189,7 @@ describe("ServersPage", () => {
     expect(
       await screen.findByRole("region", { name: "hk-prod-1 VPS 详情" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("连接与状态")).toBeInTheDocument();
+    expect(await screen.findByText("连接状态")).toBeInTheDocument();
     expect(screen.getByText(/状态徽章表示 VControlHub 是否允许该 VPS 接收操作/)).toBeInTheDocument();
     expect(screen.getByText(/直连访问异常/)).toBeInTheDocument();
     expect(screen.getByText("诊断下一步")).toBeInTheDocument();
@@ -248,7 +248,7 @@ describe("ServersPage", () => {
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("探测失败：连接失败: timeout");
+    expect(await screen.findByRole("alert")).toHaveTextContent("失败: 连接失败: timeout");
     expect(screen.getByText("诊断下一步")).toBeInTheDocument();
     vi.unstubAllGlobals();
   });
