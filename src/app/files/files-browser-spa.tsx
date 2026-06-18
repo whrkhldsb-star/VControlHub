@@ -208,7 +208,7 @@ function NodeFilterSelect({
     <div className={compact ? "space-y-2" : "w-full max-w-xl space-y-2"}>
       <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
         <span>
-          当前：{getNodeIcon(selectedNode?.driver ?? "")}{" "}
+          {t("filesBrowserSpa.currentSelectionLabel")}{getNodeIcon(selectedNode?.driver ?? "")}{" "}
           {getNodeLabel(t, selectedNode)}
         </span>
         {value ? (
@@ -217,13 +217,13 @@ function NodeFilterSelect({
             onClick={() => onChange("")}
             className="text-cyan-300 hover:text-cyan-100 light:hover:text-cyan-700 light:hover:text-cyan-900"
           >
-            清除
+            {t("filesBrowserSpa.clear")}
           </button>
         ) : null}
       </div>
       <div className="space-y-1">
         <label htmlFor={searchInputId} className="block text-xs font-medium text-[var(--text-secondary)]">
-          搜索存储节点
+          {t("filesBrowserSpa.searchStorageNode")}
         </label>
         <input
           id={searchInputId}
@@ -236,7 +236,7 @@ function NodeFilterSelect({
       </div>
       <div className="space-y-1">
         <label htmlFor={selectInputId} className="block text-xs font-medium text-[var(--text-secondary)]">
-          选择存储节点
+          {t("filesBrowserSpa.selectStorageNode")}
         </label>
         <select
           id={selectInputId}
@@ -254,7 +254,7 @@ function NodeFilterSelect({
       </div>
       {filteredNodes.length === 0 ? (
         <p className="text-xs text-amber-300">
-          没有匹配的节点
+          {t("filesBrowserSpa.noMatchingNode")}
         </p>
       ) : null}
     </div>
@@ -342,7 +342,7 @@ function FolderTreeClient({
                 aria-label={
                   hasChildren
                     ? `${isExpanded ? t("filesBrowserSpa.collapseNode") : t("filesBrowserSpa.expandNode")} ${child.displayName ?? child.name}`
-                    : `打开 ${child.displayName ?? child.name}`
+                    : t("filesBrowserSpa.openChild").replace("{name}", child.displayName ?? child.name)
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
                 className="grid h-8 w-8 flex-none place-items-center rounded-xl text-xs text-[var(--text-secondary)] hover:bg-white/10 hover:text-white light:hover:text-slate-900"
@@ -410,7 +410,7 @@ function BreadcrumbsClient({
         onClick={() => onNavigate("")}
         className="rounded-full border border-[var(--border)] px-3 py-1.5 text-slate-200 hover:bg-white/5"
       >
-        全部文件
+        {t("filesBrowserSpa.allFiles")}
       </button>
       {segments.map((segment, index) => {
         const nextPath = segments.slice(0, index + 1).join("/");
@@ -545,7 +545,7 @@ export function FilesBrowserSpa({
           <div>
             <h2 className="text-2xl font-semibold text-white">{t("filesBrowserSpa.directoryTree")}</h2>
             <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
-              按层级展开所有已登记目录，便于快速跳转。
+              {t("filesBrowserSpa.hierarchyDescription")}
             </p>
           </div>
         </div>
@@ -554,7 +554,7 @@ export function FilesBrowserSpa({
         {data.nodes.length > 1 ? (
           <div className="mt-4 flex flex-col gap-1.5">
             <label className="text-xs text-[var(--text-secondary)]">
-              按节点筛选
+              {t("filesBrowserSpa.filterByNode")}
             </label>
             <NodeFilterSelect
               t={t}
@@ -602,10 +602,10 @@ export function FilesBrowserSpa({
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-white">
-                  切换存储节点
+                  {t("filesBrowserSpa.switchStorageNode")}
                 </h3>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  节点变多后可以先搜索，再从下拉框切换到目标节点；列表会自动按 LOCAL 或 SFTP 节点类型执行浏览、上传、下载和文件操作。
+                  {t("filesBrowserSpa.switchStorageNodeDesc")}
                 </p>
               </div>
               <NodeFilterSelect
@@ -626,7 +626,7 @@ export function FilesBrowserSpa({
                 {currentPathDisplay.title}
                 {loading ? (
                   <span className="ml-2 text-sm text-cyan-300 animate-pulse">
-                    加载中…
+                    {t("filesBrowserSpa.loading")}
                   </span>
                 ) : null}
               </h2>
@@ -654,7 +654,7 @@ export function FilesBrowserSpa({
               <div className="flex flex-1 flex-col gap-1 sm:flex-row sm:items-end sm:gap-3">
                 <div className="flex flex-1 flex-col gap-1">
                   <label htmlFor="files-search-query" className="text-xs font-medium text-[var(--text-secondary)]">
-                    搜索文件名
+                    {t("filesBrowserSpa.searchFileName")}
                   </label>
                   <input
                     id="files-search-query"
@@ -673,7 +673,7 @@ export function FilesBrowserSpa({
                   type="submit"
                   data-tone="cyan" className="rounded-full border border-cyan-400/30 px-5 py-2.5 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
                 >
-                  搜索
+                  {t("filesBrowserSpa.searchLabel")}
                 </button>
                 {data.searchQuery ? (
                   <button
@@ -684,16 +684,17 @@ export function FilesBrowserSpa({
                     }}
                     className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-white/10"
                   >
-                    清除
+                    {t("filesBrowserSpa.clear")}
                   </button>
                 ) : null}
               </div>
             </div>
             {data.searchQuery ? (
               <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                搜索 &quot;{data.searchQuery}&quot; —{" "}
-                {data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder")}找到{" "}
-                {data.stats.totalItems} 个结果
+                {t("filesBrowserSpa.searchResults")
+                  .replace("{query}", data.searchQuery)
+                  .replace("{scope}", data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder"))
+                  .replace("{count}", String(data.stats.totalItems))}
               </p>
             ) : null}
           </form>
@@ -702,16 +703,15 @@ export function FilesBrowserSpa({
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div>
                 <h3 className="text-xl font-semibold text-white">
-                  当前目录操作
+                  {t("filesBrowserSpa.currentDirectoryOps")}
                 </h3>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
                   {t("filesBrowserSpa.currentPathPrefix")}{currentPathDisplay.label}
                 </p>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  项目数 {data.stats.totalItems}
-                  {data.sourceSummary.length > 0
-                    ? ` · 来源节点：${data.sourceSummary.join("、")}`
-                    : ""}
+                  {t("filesBrowserSpa.itemCountWithSource")
+                    .replace("{count}", String(data.stats.totalItems))
+                    .replace("{sources}", data.sourceSummary.join("、"))}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -736,7 +736,7 @@ export function FilesBrowserSpa({
                     data-tone="accent"
                     className="rounded-full border px-4 py-2 text-sm font-medium transition"
                   >
-                    ⬆ 上传文件
+                    {t("filesBrowserSpa.uploadFiles")}
                   </a>
                 ) : null}
                 {data.permissions.canEditLocalFiles && data.nodes.length > 0 ? (
@@ -765,7 +765,7 @@ export function FilesBrowserSpa({
                     }
                     className="cursor-not-allowed rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
                   >
-                    新建文件夹
+                    {t("filesBrowserSpa.createFolder")}
                   </button>
                 )}
               </div>
@@ -813,7 +813,7 @@ export function FilesBrowserSpa({
               initialNodeId={preferredUploadNode}
               initialRelativeDir={data.currentPath}
               uploadDir={data.currentPath}
-              title={`上传到当前目录 ${currentPathDisplay.uploadPathLabel}`}
+              title={t("filesBrowserSpa.uploadToPath").replace("{path}", currentPathDisplay.uploadPathLabel)}
               description={t("filesBrowserSpa.uploadDescription")}
               submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
               pathLabel={t("filesBrowserSpa.uploadPathLabel")}

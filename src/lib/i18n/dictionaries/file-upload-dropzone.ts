@@ -58,6 +58,24 @@ export const zh: Record<string, string> = {
 	"fileListClient.listView": "列表视图",
 	"fileListClient.iconView": "图标视图",
 	"fileListClient.detailView": "详情视图",
+
+	// files-browser-spa R26
+	"filesBrowserSpa.currentSelectionLabel": "当前：",
+	"filesBrowserSpa.clear": "清除",
+	"filesBrowserSpa.searchStorageNode": "搜索存储节点",
+	"filesBrowserSpa.selectStorageNode": "选择存储节点",
+	"filesBrowserSpa.noMatchingNode": "没有匹配的节点",
+	"filesBrowserSpa.openChild": "打开 {name}",
+	"filesBrowserSpa.filterByNode": "按节点筛选",
+	"filesBrowserSpa.switchStorageNode": "切换存储节点",
+	"filesBrowserSpa.switchStorageNodeDesc": "节点变多后可以先搜索，再从下拉框切换到目标节点；列表会自动按 LOCAL 或 SFTP 节点类型执行浏览、上传、下载和文件操作。",
+	"filesBrowserSpa.loading": "加载中…",
+	"filesBrowserSpa.searchFileName": "搜索文件名",
+	"filesBrowserSpa.searchResults": '搜索 "{query}" — 在{scope}找到 {count} 个结果',
+	"filesBrowserSpa.itemCountWithSource": "项目数 {count} · 来源节点：{sources}",
+	"filesBrowserSpa.uploadFiles": "⬆ 上传文件",
+	"filesBrowserSpa.createFolder": "新建文件夹",
+	"filesBrowserSpa.uploadToPath": "上传到当前目录 {path}",
 };
 
 export const en: Record<string, string> = {
@@ -113,4 +131,22 @@ export const en: Record<string, string> = {
 	"fileListClient.listView": "List view",
 	"fileListClient.iconView": "Icon view",
 	"fileListClient.detailView": "Detail view",
+
+	// files-browser-spa R26
+	"filesBrowserSpa.currentSelectionLabel": "Current: ",
+	"filesBrowserSpa.clear": "Clear",
+	"filesBrowserSpa.searchStorageNode": "Search storage nodes",
+	"filesBrowserSpa.selectStorageNode": "Select storage node",
+	"filesBrowserSpa.noMatchingNode": "No matching nodes",
+	"filesBrowserSpa.openChild": "Open {name}",
+	"filesBrowserSpa.filterByNode": "Filter by node",
+	"filesBrowserSpa.switchStorageNode": "Switch storage node",
+	"filesBrowserSpa.switchStorageNodeDesc": "When there are many nodes, search first and switch from the dropdown. The list will automatically browse, upload, download, and operate files by LOCAL or SFTP node type.",
+	"filesBrowserSpa.loading": "Loading…",
+	"filesBrowserSpa.searchFileName": "Search file name",
+	"filesBrowserSpa.searchResults": 'Searched "{query}" — found {count} results in {scope}',
+	"filesBrowserSpa.itemCountWithSource": "{count} items · source nodes: {sources}",
+	"filesBrowserSpa.uploadFiles": "⬆ Upload files",
+	"filesBrowserSpa.createFolder": "New folder",
+	"filesBrowserSpa.uploadToPath": "Upload to current directory {path}",
 };

@@ -10,6 +10,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FilesBrowserSpa } from "../files-browser-spa";
+import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
 
 const pushMock = vi.hoisted(() => vi.fn());
 
@@ -164,7 +165,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("shows a visible label for the file search input", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -179,7 +180,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("refreshes the SPA file list after upload completes", async () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -206,7 +207,7 @@ describe("FilesBrowserSpa", () => {
       new Error("文件列表刷新失败"),
     );
 
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -223,7 +224,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("refreshes the SPA file list after create-folder succeeds", async () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -244,7 +245,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("defaults create-folder and upload targets to the currently selected storage node", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{
           ...baseData,
@@ -284,7 +285,7 @@ describe("FilesBrowserSpa", () => {
         ],
       }),
     } as Response);
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{
           ...baseData,
@@ -346,7 +347,7 @@ describe("FilesBrowserSpa", () => {
       }),
     } as Response);
 
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{
           ...baseData,
@@ -399,7 +400,7 @@ describe("FilesBrowserSpa", () => {
       }),
     } as Response);
 
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{
           ...baseData,
@@ -454,7 +455,7 @@ describe("FilesBrowserSpa", () => {
     const pushStateSpy = vi.spyOn(window.history, "pushState");
     const replaceStateSpy = vi.spyOn(window.history, "replaceState");
 
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -485,7 +486,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("hides internal grouped node path keys in current-path labels", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{
           ...baseData,
@@ -504,7 +505,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("keeps nested directory tree collapsed until a folder is expanded", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{ ...baseData, currentPath: "" }}
         deletedEntries={[]}
@@ -522,7 +523,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("collapses the directory tree sidebar behind a mobile toggle button by default", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -542,7 +543,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("expands the directory tree sidebar when the mobile toggle is clicked", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -559,7 +560,7 @@ describe("FilesBrowserSpa", () => {
   });
 
   it("collapses the directory tree sidebar when the mobile toggle is clicked again", () => {
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={baseData}
         deletedEntries={[]}
@@ -586,7 +587,7 @@ describe("FilesBrowserSpa", () => {
       }),
     } as Response);
 
-    render(
+    renderWithI18n(
       <FilesBrowserSpa
         initialData={{ ...baseData, currentPath: "" }}
         deletedEntries={[]}
