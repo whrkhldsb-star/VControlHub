@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { SubmitButton } from "@/components/submit-button";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import { updateStorageNodeAction, type StorageActionState } from "./actions";
 
@@ -28,6 +29,7 @@ export function StorageNodeEditForm({
 	};
 	servers: Array<{ id: string; name: string; host: string }>;
 }) {
+	const { t } = useI18n();
 	const [state, formAction] = useActionState(updateStorageNodeAction, initialState);
 	const [driver, setDriver] = useState<string>(node.driver);
 
@@ -38,16 +40,16 @@ export function StorageNodeEditForm({
 			<input type="hidden" name="storageNodeId" value={node.id} />
 
 			<div>
-				<h3 className="text-lg font-medium text-white">编辑存储节点</h3>
+				<h3 className="text-lg font-medium text-white">{t("storagePage.form.editTitle")}</h3>
 			</div>
 
 			<div className="grid gap-4 md:grid-cols-2">
 				<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-					<span>节点名称</span>
+					<span>{t("storagePage.form.fieldName")}</span>
 					<input name="name" defaultValue={node.name} required className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
 				</label>
 				<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-					<span>驱动</span>
+					<span>{t("storagePage.form.fieldDriver")}</span>
 					<select
 						name="driver"
 						defaultValue={node.driver}
@@ -59,60 +61,60 @@ export function StorageNodeEditForm({
 					</select>
 				</label>
 				<label className="grid gap-2 text-sm text-[var(--text-secondary)] md:col-span-2">
-					<span>根目录</span>
-					<input name="basePath" defaultValue={node.basePath} required className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" placeholder="/srv/storage 或 /data/media" />
+					<span>{t("storagePage.form.fieldBasePath")}</span>
+					<input name="basePath" defaultValue={node.basePath} required className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" placeholder={t("storagePage.form.basePathPlaceholder")} />
 				</label>
 				{isSftp ? (
 					<>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>绑定 VPS <span className="text-rose-400">*（SFTP 必填绑定VPS或远端主机）</span></span>
+							<span>{t("storagePage.form.fieldBindVps")} <span className="text-rose-400">{t("storagePage.form.fieldBindVpsRequired")}</span></span>
 							<select name="serverId" defaultValue={node.serverId ?? ""} className="rounded-2xl border border-rose-400/40 bg-slate-950 px-4 py-3 text-white">
-								<option value="">不绑定</option>
+								<option value="">{t("storagePage.form.optionNotBound")}</option>
 								{servers.map((server) => (
 									<option key={server.id} value={server.id}>{server.name} · {server.host}</option>
 								))}
 							</select>
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>远端主机 <span className="text-rose-400">*（SFTP 必填远端主机或绑定VPS）</span></span>
-							<input name="host" defaultValue={node.host ?? ""} className="rounded-2xl border border-rose-400/40 bg-slate-950 px-4 py-3 text-white" placeholder="203.0.113.20" />
+							<span>{t("storagePage.form.fieldRemoteHost")} <span className="text-rose-400">{t("storagePage.form.fieldRemoteHostRequired")}</span></span>
+							<input name="host" defaultValue={node.host ?? ""} className="rounded-2xl border border-rose-400/40 bg-slate-950 px-4 py-3 text-white" placeholder={t("storagePage.form.hostPlaceholder")} />
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>端口</span>
+							<span>{t("storagePage.form.fieldPort")}</span>
 							<input name="port" type="number" min={1} max={65535} defaultValue={node.port ?? 22} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>用户名</span>
+							<span>{t("storagePage.form.fieldUsername")}</span>
 							<input name="username" defaultValue={node.username ?? "root"} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)] md:col-span-2">
-							<span>访问模式</span>
+							<span>{t("storagePage.form.fieldAccessMode")}</span>
 							<select name="directAccessMode" defaultValue={node.directAccessMode ?? "PROXY"} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white">
-								<option value="PROXY">网站服务器中转（最安全）</option>
-								<option value="DIRECT">存储服务器直连（需签名外链服务）</option>
-								<option value="AUTO">自动：可直连则直连，否则中转</option>
+								<option value="PROXY">{t("storagePage.form.accessModeProxy")}</option>
+								<option value="DIRECT">{t("storagePage.form.accessModeDirect")}</option>
+								<option value="AUTO">{t("storagePage.form.accessModeAuto")}</option>
 							</select>
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>直连基础 URL</span>
-							<input name="publicBaseUrl" type="url" defaultValue={node.publicBaseUrl ?? ""} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" placeholder="https://cdn.example.com/media" />
+							<span>{t("storagePage.form.fieldPublicBaseUrl")}</span>
+							<input name="publicBaseUrl" type="url" defaultValue={node.publicBaseUrl ?? ""} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" placeholder={t("storagePage.form.publicBaseUrlPlaceholder")} />
 						</label>
 						<label className="grid gap-2 text-sm text-[var(--text-secondary)]">
-							<span>直连链接有效期（秒）</span>
+							<span>{t("storagePage.form.fieldDirectExpiresSeconds")}</span>
 							<input name="directAccessExpiresSeconds" type="number" min={60} max={86400} defaultValue={node.directAccessExpiresSeconds ?? 300} className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white" />
 						</label>
 					</>
 				) : null}
 				<label className="flex items-center gap-3 text-sm text-[var(--text-secondary)] md:col-span-2">
 					<input name="isDefault" type="checkbox" defaultChecked={node.isDefault} className="h-4 w-4" />
-					设为默认存储节点
+					{t("storagePage.form.fieldIsDefault")}
 				</label>
 			</div>
 
 			{state.error ? <div data-tone="rose" className="rounded-2xl border border-rose-400/30 px-4 py-3 text-sm text-rose-100">{state.error}</div> : null}
 			{state.success ? <div data-tone="emerald" className="rounded-2xl border border-emerald-400/30 px-4 py-3 text-sm text-emerald-100">{state.success}</div> : null}
 
-			<div className="flex justify-end"><SubmitButton pendingLabel="保存中...">保存修改</SubmitButton></div>
+			<div className="flex justify-end"><SubmitButton pendingLabel={t("storagePage.form.submitPending")}>{t("storagePage.form.submitEdit")}</SubmitButton></div>
 		</form>
 	);
 }

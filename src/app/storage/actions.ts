@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { writeAuditLog } from "@/lib/audit/service";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
+import { serverT } from "@/lib/i18n/server-locale";
 import {
   checkStorageNodeHealth,
   createFileEntry,
@@ -53,19 +54,23 @@ export async function getStorageFormOptions() {
 export async function checkStorageNodeHealthAction(storageNodeId: string) {
   await requirePermission("storage:manage-node");
 
+  const t = await serverT();
   try {
     const result = await checkStorageNodeHealth(storageNodeId);
     revalidatePath("/storage");
     revalidatePath("/files");
+    const statusLabel = result.healthStatus === "HEALTHY"
+      ? t("storagePage.action.healthCheckCompletedHealthy")
+      : t("storagePage.action.healthCheckCompletedError");
     return {
-      success: `节点健康检查完成：${result.healthStatus === "HEALTHY" ? "健康" : "异常"}`,
+      success: t("storagePage.action.healthCheckCompleted").replace("{status}", statusLabel),
       health: result,
     } satisfies StorageActionState & {
       health: Awaited<ReturnType<typeof checkStorageNodeHealth>>;
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "节点健康检查失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.healthCheckFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -76,6 +81,7 @@ export async function createStorageNodeAction(
 ) {
   await requirePermission("storage:manage-node");
 
+  const t = await serverT();
   try {
     const driver = String(formData.get("driver") ?? "LOCAL").toUpperCase() as
       | "LOCAL"
@@ -111,10 +117,10 @@ export async function createStorageNodeAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: "存储节点已创建。" } satisfies StorageActionState;
+    return { success: t("storagePage.action.createNodeSuccess") } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "创建存储节点失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.createNodeFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -125,6 +131,7 @@ export async function createFolderAction(
 ) {
   await requirePermission("storage:write");
 
+  const t = await serverT();
   try {
     const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
     const currentPathResult = normalizeStorageTargetDirectory(
@@ -145,11 +152,11 @@ export async function createFolderAction(
     const folderName = folderNameResult.path;
 
     if (!storageNodeId) {
-      return { error: "缺少存储节点参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
     }
 
     if (!folderName) {
-      return { error: "文件夹名称不能为空" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingFolderName") } satisfies StorageActionState;
     }
 
     const pathResult = joinStoragePath(currentPath, folderName);
@@ -170,7 +177,7 @@ export async function createFolderAction(
 
     if (existing) {
       return {
-        error: `路径 /${relativePath} 已存在，请使用其他名称`,
+        error: t("storagePage.action.folderAlreadyExists").replace("{path}", relativePath),
       } satisfies StorageActionState;
     }
 
@@ -200,7 +207,7 @@ export async function createFolderAction(
     });
 
     if (!storageNode) {
-      return { error: "存储节点不存在" } satisfies StorageActionState;
+      return { error: t("storagePage.action.nodeNotFound") } satisfies StorageActionState;
     }
 
     let folderCreated = false;
@@ -212,7 +219,7 @@ export async function createFolderAction(
       folderCreated = true;
     } catch (error) {
       return {
-        error: error instanceof Error ? error.message : "创建文件夹失败",
+        error: error instanceof Error ? error.message : t("storagePage.action.folderCreateFailed"),
       } satisfies StorageActionState;
     }
 
@@ -245,11 +252,11 @@ export async function createFolderAction(
     revalidatePath("/files");
 
     return {
-      success: `文件夹 /${relativePath} 已创建`,
+      success: t("storagePage.action.folderCreated").replace("{path}", relativePath),
     } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "创建文件夹失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.folderCreateFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -260,11 +267,12 @@ export async function deleteFileEntryAction(
 ) {
   await requirePermission("storage:delete");
 
+  const t = await serverT();
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
     if (!fileEntryId) {
-      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
     const entry = await prisma.fileEntry.findUnique({
@@ -298,7 +306,7 @@ export async function deleteFileEntryAction(
     });
 
     if (!entry) {
-      return { error: "文件条目不存在" } satisfies StorageActionState;
+      return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     if (entry.entryType === "DIRECTORY") {
@@ -327,7 +335,7 @@ export async function deleteFileEntryAction(
       });
     } catch (error) {
       backingDeleteWarning =
-        error instanceof Error ? error.message : "物理文件删除失败";
+        error instanceof Error ? error.message : t("storagePage.action.physicalFileDeleteFailed");
       writeAuditLog({
         actorType: "SYSTEM",
         action: "storage.file_delete_backing_failed",
@@ -354,12 +362,14 @@ export async function deleteFileEntryAction(
 
     return {
       success: backingDeleteWarning
-        ? `已将 ${entry.name} 移至回收站；物理文件删除失败，索引仍可恢复或稍后重试永久删除：${backingDeleteWarning}`
-        : `已将 ${entry.name} 移至回收站`,
+        ? t("storagePage.action.fileMovedToRecycleWithWarning")
+            .replace("{name}", entry.name)
+            .replace("{warning}", backingDeleteWarning)
+        : t("storagePage.action.fileMovedToRecycle").replace("{name}", entry.name),
     } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "删除文件条目失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.fileDeleteFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -370,11 +380,12 @@ export async function restoreFileEntryAction(
 ) {
   await requirePermission("storage:delete");
 
+  const t = await serverT();
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
     if (!fileEntryId) {
-      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
     const entry = await prisma.fileEntry.findUnique({
@@ -389,7 +400,7 @@ export async function restoreFileEntryAction(
     });
 
     if (!entry) {
-      return { error: "文件条目不存在" } satisfies StorageActionState;
+      return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     await restoreFileEntry({ fileEntryId });
@@ -409,10 +420,10 @@ export async function restoreFileEntryAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: `已恢复 ${entry.name}` } satisfies StorageActionState;
+    return { success: t("storagePage.action.fileRestored").replace("{name}", entry.name) } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "恢复文件条目失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.fileRestoreFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -423,11 +434,12 @@ export async function permanentDeleteFileEntryAction(
 ) {
   await requirePermission("storage:delete");
 
+  const t = await serverT();
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
     if (!fileEntryId) {
-      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
     const entry = await prisma.fileEntry.findUnique({
@@ -461,7 +473,7 @@ export async function permanentDeleteFileEntryAction(
     });
 
     if (!entry) {
-      return { error: "文件条目不存在" } satisfies StorageActionState;
+      return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     await deleteBackingObject({
@@ -489,10 +501,10 @@ export async function permanentDeleteFileEntryAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: `已永久删除 ${entry.name}` } satisfies StorageActionState;
+    return { success: t("storagePage.action.filePermanentlyDeleted").replace("{name}", entry.name) } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "永久删除文件条目失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.filePermanentlyDeleteFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -503,20 +515,21 @@ export async function renameFileEntryAction(
 ) {
   await requirePermission("storage:write");
 
+  const t = await serverT();
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
     const newName = String(formData.get("newName") ?? "").trim();
 
     if (!fileEntryId) {
-      return { error: "缺少文件条目参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
     if (!newName) {
-      return { error: "名称不能为空" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingEntryName") } satisfies StorageActionState;
     }
 
     if (/[\\/:*?"<>|]/.test(newName)) {
-      return { error: "名称包含非法字符" } satisfies StorageActionState;
+      return { error: t("storagePage.action.invalidEntryName") } satisfies StorageActionState;
     }
 
     const entry = await prisma.fileEntry.findUnique({
@@ -550,7 +563,7 @@ export async function renameFileEntryAction(
     });
 
     if (!entry) {
-      return { error: "文件条目不存在" } satisfies StorageActionState;
+      return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
     }
 
     const lastSlashIndex = entry.relativePath.lastIndexOf("/");
@@ -571,7 +584,7 @@ export async function renameFileEntryAction(
 
     if (existing) {
       return {
-        error: `路径 /${newRelativePath} 已存在，请使用其他名称`,
+        error: t("storagePage.action.pathAlreadyExists").replace("{path}", newRelativePath),
       } satisfies StorageActionState;
     }
 
@@ -612,10 +625,10 @@ export async function renameFileEntryAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: `已重命名为 ${newName}` } satisfies StorageActionState;
+    return { success: t("storagePage.action.fileRenamed").replace("{name}", newName) } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "重命名文件条目失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.fileRenameFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -626,6 +639,7 @@ export async function updateStorageNodeAction(
 ) {
   await requirePermission("storage:manage-node");
 
+  const t = await serverT();
   try {
     const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
     const driver = String(formData.get("driver") ?? "")
@@ -638,7 +652,7 @@ export async function updateStorageNodeAction(
     const isDefaultRaw = String(formData.get("isDefault") ?? "").trim();
 
     if (!storageNodeId) {
-      return { error: "缺少存储节点参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
     }
 
     await updateStorageNode({
@@ -675,10 +689,10 @@ export async function updateStorageNodeAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: "存储节点已更新。" } satisfies StorageActionState;
+    return { success: t("storagePage.action.updateNodeSuccess") } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "更新存储节点失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.updateNodeFailed"),
     } satisfies StorageActionState;
   }
 }
@@ -689,11 +703,12 @@ export async function deleteStorageNodeAction(
 ) {
   await requirePermission("storage:manage-node");
 
+  const t = await serverT();
   try {
     const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
 
     if (!storageNodeId) {
-      return { error: "缺少存储节点参数" } satisfies StorageActionState;
+      return { error: t("storagePage.action.missingNodeParam") } satisfies StorageActionState;
     }
 
     await deleteStorageNode(storageNodeId);
@@ -703,10 +718,10 @@ export async function deleteStorageNodeAction(
     revalidatePath("/storage");
     revalidatePath("/files");
 
-    return { success: "存储节点已删除。" } satisfies StorageActionState;
+    return { success: t("storagePage.action.deleteNodeSuccess") } satisfies StorageActionState;
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : "删除存储节点失败",
+      error: error instanceof Error ? error.message : t("storagePage.action.deleteNodeFailed"),
     } satisfies StorageActionState;
   }
 }
