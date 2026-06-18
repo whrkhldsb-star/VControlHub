@@ -6,9 +6,16 @@
  * manual scan trigger, recommendation execute, and settings editor. The
  * scan trigger is synchronous and returns the latest log row, mirroring
  * the cost-summary page pattern.
+ *
+ * TR-030 / 56 multi-tenant (Tick 3): the read-permission check is
+ * delegated to `requirePagePermission()` so the second-line guard is
+ * uniform across routes — a forbidden request throws `ForbiddenError`
+ * which the root `error.tsx` (or the local one) renders as
+ * `<PermissionDenied />`. This avoids per-page "缺少权限" banners that
+ * drift in copy and layout.
  */
-import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listAiOpsLogs, summariseAiOps } from "@/lib/ai/ops/service";
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { getSetting } from "@/lib/settings/service";
@@ -30,26 +37,10 @@ async function loadInitialSettings() {
 }
 
 export default async function AiOpsPage() {
-	const session = await requireSession("/ai-ops");
-	const canRead = sessionHasPermission(session, "ai:ops:read");
+	const session = await requirePagePermission("ai:ops:read");
 	const canManage = sessionHasPermission(session, "ai:ops:manage");
 	const canAutonomous = sessionHasPermission(session, "ai:ops:autonomous");
 	const locale = await getServerLocale();
-
-	if (!canRead) {
-		return (
-			<PageShell maxW="max-w-7xl">
-				<PageHeader
-					eyebrow={t("aiOpsPage.eyebrow", locale)}
-					title={t("aiOpsPage.title", locale)}
-					description={t("aiOpsPage.desc", locale)}
-				/>
-				<div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 text-sm text-amber-100">
-					缺少 ai:ops:read 权限
-				</div>
-			</PageShell>
-		);
-	}
 
 	const [summary, logs, settings] = await Promise.all([
 		summariseAiOps(),

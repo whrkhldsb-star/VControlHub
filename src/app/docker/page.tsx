@@ -1,10 +1,7 @@
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { PermissionDenied } from "@/components/page-shell";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import DockerPageClient from "./docker-page-client";
 
 export default async function DockerPage() {
-  const session = await requireSession("/docker");
-  if (!sessionHasPermission(session, "docker:manage")) return <PermissionDenied />;
+  await requirePagePermission("docker:manage");
   return <DockerPageClient />;
 }

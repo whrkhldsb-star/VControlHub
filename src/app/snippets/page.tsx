@@ -1,15 +1,13 @@
-import { requireSession } from "@/lib/auth/require-session";
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { listSnippets } from "@/lib/snippet/service";
-import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell";
+import { PageShell, PageHeader } from "@/components/page-shell";
 import { SnippetList } from "./snippet-list-client";
 import { t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-	const session = await requireSession("/snippets");
-	if (!sessionHasPermission(session, "snippet:manage")) return <PermissionDenied />;
+	const session = await requirePagePermission("snippet:manage");
 	const snippets = await listSnippets({ userId: session.userId });
 
 	const serialized = snippets.map((s) => ({

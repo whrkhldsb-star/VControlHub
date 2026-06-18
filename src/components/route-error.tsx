@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { PermissionDenied } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 type RouteErrorProps = {
@@ -18,12 +19,25 @@ export function RouteError({
 	description,
 }: RouteErrorProps) {
 	const { t } = useI18n();
-	const resolvedTitle = title ?? t("error.title");
-	const resolvedDescription = description ?? t("error.routeDescription");
+
 	useEffect(() => {
-		console.error("[Route Error]", error);
+		// TR-030 / 56 multi-tenant (Tick 3): ForbiddenError is an expected,
+		// permission-driven signal, not a defect. Still log it for audit so
+		// cron / smoke pipelines can correlate page hits with denial.
+		if (error.name !== "ForbiddenError") {
+			console.error("[Route Error]", error);
+		}
 	}, [error]);
 
+	// Second-line guard for `requirePagePermission()`: render the shared
+	// <PermissionDenied /> surface so the user sees a consistent denial
+	// state across every route, instead of a generic rose error card.
+	if (error.name === "ForbiddenError") {
+		return <PermissionDenied />;
+	}
+
+	const resolvedTitle = title ?? t("error.title");
+	const resolvedDescription = description ?? t("error.routeDescription");
 	return (
 		<div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 p-8 text-center">
 			<div className="rounded-full bg-rose-500/10 p-4 ring-1 ring-rose-400/15">

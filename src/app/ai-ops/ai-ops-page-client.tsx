@@ -304,16 +304,18 @@ export function AiOpsPageClient({
 			</section>
 
 			<section aria-label="ai-ops-actions" className={`${cardClass} flex flex-wrap items-center gap-3`}>
-				<button
-					type="button"
-					className={buttonPrimary}
-					disabled={!canManage || scanning}
-					onClick={() => void triggerScan()}
-				>
-					{scanning
-						? t("aiOpsPage.actions.scanning")
-						: t("aiOpsPage.actions.triggerScan")}
-				</button>
+				{canManage && (
+					<button
+						type="button"
+						className={buttonPrimary}
+						disabled={scanning}
+						onClick={() => void triggerScan()}
+					>
+						{scanning
+							? t("aiOpsPage.actions.scanning")
+							: t("aiOpsPage.actions.triggerScan")}
+					</button>
+				)}
 				<button
 					type="button"
 					className={buttonGhost}
@@ -376,28 +378,40 @@ export function AiOpsPageClient({
 				<div className="grid gap-4 sm:grid-cols-2">
 					<label className="flex flex-col gap-2">
 						<span className={labelClass}>{t("aiOpsPage.settings.mode")}</span>
-						<select
-							className={selectClass}
-							value={settings.mode}
-							disabled={!canManage}
-							onChange={(e) =>
-								setSettings((s) => ({ ...s, mode: e.target.value as AiOpsMode }))
-							}
-						>
-							<option value="recommendation">{t("aiOpsPage.mode.recommendation")}</option>
-							<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
-						</select>
+						{canManage ? (
+							<select
+								className={selectClass}
+								value={settings.mode}
+								onChange={(e) =>
+									setSettings((s) => ({ ...s, mode: e.target.value as AiOpsMode }))
+								}
+							>
+								<option value="recommendation">{t("aiOpsPage.mode.recommendation")}</option>
+								<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
+							</select>
+						) : (
+							<span className="text-sm text-white/80">
+								{settings.mode === "autonomous"
+									? t("aiOpsPage.mode.autonomous")
+									: t("aiOpsPage.mode.recommendation")}
+							</span>
+						)}
 					</label>
 					<label className="flex flex-col gap-2">
 						<span className={labelClass}>{t("aiOpsPage.settings.provider")}</span>
-						<input
-							type="text"
-							className={inputClass}
-							value={editingProvider}
-							disabled={!canManage}
-							placeholder={t("aiOpsPage.settings.notConfigured")}
-							onChange={(e) => setEditingProvider(e.target.value)}
-						/>
+						{canManage ? (
+							<input
+								type="text"
+								className={inputClass}
+								value={editingProvider}
+								placeholder={t("aiOpsPage.settings.notConfigured")}
+								onChange={(e) => setEditingProvider(e.target.value)}
+							/>
+						) : (
+							<span className="text-sm text-white/80">
+								{editingProvider.trim() || t("aiOpsPage.settings.notConfigured")}
+							</span>
+						)}
 					</label>
 				</div>
 				{canManage && (
@@ -559,15 +573,13 @@ export function AiOpsPageClient({
 														</div>
 													)}
 												</div>
-												{recommendation && (
+												{recommendation && canManage && (
 													<div className="flex flex-col gap-1">
 														{recommendation.requiresApproval ? (
 															<button
 																type="button"
 																className={buttonPrimary}
-																disabled={
-																	!canManage || executing === action.id
-																}
+																disabled={executing === action.id}
 																onClick={() =>
 																	void executeAction(
 																		selectedLog.id,
@@ -582,9 +594,7 @@ export function AiOpsPageClient({
 															<button
 																type="button"
 																className={buttonGhost}
-																disabled={
-																	!canManage || executing === action.id
-																}
+																disabled={executing === action.id}
 																onClick={() =>
 																	void executeAction(
 																		selectedLog.id,
@@ -600,9 +610,7 @@ export function AiOpsPageClient({
 															<button
 																type="button"
 																className={buttonDanger}
-																disabled={
-																	!canManage || executing === action.id
-																}
+																disabled={executing === action.id}
 																onClick={() =>
 																	void executeAction(
 																		selectedLog.id,
