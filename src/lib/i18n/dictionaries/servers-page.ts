@@ -106,6 +106,24 @@ export const zh: Record<string, string> = {
 	"serverOverviewDetails.vpsDetails": "VPS 详情",
 
 	"serverOverviewDetails.directGatewayRepairAdvice": "Direct Gateway 修复建议",
+
+	"serverOverviewCard.websiteRelay": "网站中转",
+	"serverOverviewCard.disabled": "停用",
+	"serverOverviewCard.disabledDescription": "节点已停用，不会接收新的 SSH、文件或直连操作。",
+	"serverOverviewCard.checking": "检测中",
+	"serverOverviewCard.checkingDescription": "正在通过 /api/servers/monitor 实时探测，请稍候。",
+	"serverOverviewCard.offline": "离线",
+	"serverOverviewCard.enabledPendingProbe": "启用 · 待探测",
+	"serverOverviewCard.enabledPendingProbeDescription": "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。",
+	"serverOverviewCard.realtimeProbeFailed": "实时探测失败",
+	"serverOverviewCard.connection": "连接",
+	"serverOverviewCard.key": "密钥",
+	"serverOverviewCard.direct": "直连",
+	"serverOverviewCard.notConfigured": "未配置",
+	"serverOverviewCard.collapseDetails": "收起详情",
+	"serverOverviewCard.viewDetails": "查看详情",
+	"serverOverviewCard.pendingApproval": "待审批",
+	"serverOverviewCard.itemsCount": " 条",
 };
 
 export const en: Record<string, string> = {
@@ -209,4 +227,22 @@ export const en: Record<string, string> = {
 	"serverOverviewDetails.vpsDetails": "VPS details",
 
 	"serverOverviewDetails.directGatewayRepairAdvice": "Direct Gateway repair advice",
+
+	"serverOverviewCard.websiteRelay": "Website relay",
+	"serverOverviewCard.disabled": "Disabled",
+	"serverOverviewCard.disabledDescription": "Node is disabled and will not accept new SSH, file, or direct operations.",
+	"serverOverviewCard.checking": "Checking",
+	"serverOverviewCard.checkingDescription": "Running realtime probe via /api/servers/monitor, please wait.",
+	"serverOverviewCard.offline": "Offline",
+	"serverOverviewCard.enabledPendingProbe": "Enabled · awaiting probe",
+	"serverOverviewCard.enabledPendingProbeDescription": "Node accepts operations, but list status does not reflect realtime SSH/SFTP/direct connectivity. Expand details to run a realtime probe.",
+	"serverOverviewCard.realtimeProbeFailed": "Realtime probe failed",
+	"serverOverviewCard.connection": "Connection",
+	"serverOverviewCard.key": "Key",
+	"serverOverviewCard.direct": "Direct",
+	"serverOverviewCard.notConfigured": "Not configured",
+	"serverOverviewCard.collapseDetails": "Collapse details",
+	"serverOverviewCard.viewDetails": "View details",
+	"serverOverviewCard.pendingApproval": "Pending approval",
+	"serverOverviewCard.itemsCount": " items",
 };

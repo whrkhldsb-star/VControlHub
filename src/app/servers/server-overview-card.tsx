@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { useAutoProbeSettings } from "./auto-probe-context";
 import { ServerOverviewDetailsLazy } from "./server-overview-details-lazy";
@@ -55,9 +56,10 @@ export function ServerOverviewCard({
   canManageServers,
   canUseSshTerminal,
 }: ServerOverviewCardProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const [diagnosticRun, setDiagnosticRun] = useState<DiagnosticRunState>({ status: "idle" });
-  const directLabel = server.directGateway?.statusLabel ?? "网站中转";
+  const directLabel = server.directGateway?.statusLabel ?? t("serverOverviewCard.websiteRelay");
   const detailsId = `server-details-${server.id}`;
 
   // Status badge reflects the latest live probe outcome instead of the static
@@ -67,16 +69,16 @@ export function ServerOverviewCard({
   let listHealthToneClass: string;
   let listHealthDescription: string;
   if (!server.enabled) {
-    listHealthLabel = "停用";
+    listHealthLabel = t("serverOverviewCard.disabled");
     listHealthToneClass =
       "border-slate-400/20 bg-slate-400/10 text-slate-400";
     listHealthDescription =
-      "节点已停用，不会接收新的 SSH、文件或直连操作。";
+      t("serverOverviewCard.disabledDescription");
   } else if (diagnosticRun.status === "loading") {
-    listHealthLabel = "检测中";
+    listHealthLabel = t("serverOverviewCard.checking");
     listHealthToneClass =
       "border-sky-400/30 bg-sky-400/10 text-sky-200 light:border-sky-700/30 light:bg-sky-50";
-    listHealthDescription = "正在通过 /api/servers/monitor 实时探测，请稍候。";
+    listHealthDescription = t("serverOverviewCard.checkingDescription");
   } else if (diagnosticRun.status === "success") {
     listHealthLabel = `在线 · ${diagnosticRun.checkedAt.split(" ").pop() ?? ""}`.trim();
     listHealthToneClass =
@@ -86,16 +88,16 @@ export function ServerOverviewCard({
         ? `最近一次实时探测成功：${diagnosticRun.summary}（${diagnosticRun.checkedAt}）`
         : `最近一次实时探测成功（${diagnosticRun.checkedAt}）`;
   } else if (diagnosticRun.status === "error") {
-    listHealthLabel = "离线";
+    listHealthLabel = t("serverOverviewCard.offline");
     listHealthToneClass =
       "border-rose-400/30 bg-rose-400/10 text-rose-200 light:border-rose-700/30 light:bg-rose-50";
     listHealthDescription = `最近一次实时探测失败：${diagnosticRun.message}（${diagnosticRun.checkedAt}）`;
   } else {
-    listHealthLabel = "启用 · 待探测";
+    listHealthLabel = t("serverOverviewCard.enabledPendingProbe");
     listHealthToneClass =
       "border-amber-400/20 bg-amber-400/10 text-amber-100 light:border-amber-700/25 light:bg-amber-50";
     listHealthDescription =
-      "该节点已允许接收操作，但列表状态未代表 SSH/SFTP/直连实时在线；展开详情可运行实时探测。";
+      t("serverOverviewCard.enabledPendingProbeDescription");
   }
 
   const runRealtimeDiagnostics = useCallback(async () => {
@@ -131,7 +133,7 @@ export function ServerOverviewCard({
     } catch (error) {
       setDiagnosticRun({
         status: "error",
-        message: error instanceof Error ? error.message : "实时探测失败",
+        message: error instanceof Error ? error.message : t("serverOverviewCard.realtimeProbeFailed"),
         checkedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
       });
     }
@@ -202,15 +204,15 @@ export function ServerOverviewCard({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-        <CompactField label="连接" value={server.connectionTypeLabel} />
+        <CompactField label={t("serverOverviewCard.connection")} value={server.connectionTypeLabel} />
         <CompactField
-          label="密钥"
-          value={server.sshKey ? server.sshKey.name : "未配置"}
+          label={t("serverOverviewCard.key")}
+          value={server.sshKey ? server.sshKey.name : t("serverOverviewCard.notConfigured")}
         />
-        <CompactField label="直连" value={directLabel} />
+        <CompactField label={t("serverOverviewCard.direct")} value={directLabel} />
         <CompactField
-          label="待审批"
-          value={`${server.pendingCommandCount} 条`}
+          label={t("serverOverviewCard.pendingApproval")}
+          value={`${server.pendingCommandCount} ${t("serverOverviewCard.itemsCount")}`}
         />
       </div>
       <p data-tone="amber" className="mt-2 rounded-lg border border-amber-400/10 px-2 py-1.5 text-[11px] leading-5 text-slate-500 light:border-amber-700/15 light:bg-amber-50">
@@ -241,7 +243,7 @@ export function ServerOverviewCard({
           aria-controls={detailsId}
           className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1 text-xs text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 light:hover:bg-slate-100"
         >
-          {expanded ? "收起详情" : "查看详情"}
+          {expanded ? t("serverOverviewCard.collapseDetails") : t("serverOverviewCard.viewDetails")}
         </button>
       </div>
 
