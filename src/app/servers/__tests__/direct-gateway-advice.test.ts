@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { getDirectGatewayHealthyNote, getDirectGatewayRepairAdvice } from "../direct-gateway-advice";
 
+import { zh as dict } from "@/lib/i18n/dictionaries/servers-page";
+
+/**
+ * Mock `t(key)` that resolves keys against the zh dictionary, falling back to
+ * the key itself. The advice helpers receive the same dictionary the production
+ * UI uses, so this keeps the existing assertions (which were authored against
+ * the literal Chinese strings) meaningful.
+ */
+function t(key: string): string {
+	return dict[key] ?? key;
+}
+
 const baseInput = {
   directGateway: null as null | {
     enabled: boolean;
@@ -17,7 +29,7 @@ const baseInput = {
 
 describe("getDirectGatewayRepairAdvice", () => {
   it("1. returns 'enable node' as the only advice when the node is disabled", () => {
-    const advice = getDirectGatewayRepairAdvice({ ...baseInput, serverEnabled: false });
+    const advice = getDirectGatewayRepairAdvice(t, { ...baseInput, serverEnabled: false });
     expect(advice).toHaveLength(1);
     expect(advice[0]!.title).toBe("节点未启用");
     expect(advice[0]!.priority).toBe("primary");
@@ -25,7 +37,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   });
 
   it("2. flags missing SFTP node as primary advice when direct gateway is enabled", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: { enabled: true, statusLabel: "目标直连", publicUrl: "http://1.2.3.4:31888", port: 31888 },
       hasStorageNode: false,
@@ -35,7 +47,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   });
 
   it("3. flags inconsistent direct-gateway state when port<=0 or publicUrl is missing", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: { enabled: true, statusLabel: "目标直连", publicUrl: null, port: 0 },
     });
@@ -44,7 +56,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   });
 
   it("4. suggests enabling direct gateway when not enabled and SFTP is bound", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: { enabled: false, statusLabel: "网站中转", publicUrl: null, port: 0 },
     });
@@ -53,7 +65,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   });
 
   it("5. suggests binding SFTP first when not enabled and no SFTP is bound", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: { enabled: false, statusLabel: "网站中转", publicUrl: null, port: 0 },
       hasStorageNode: false,
@@ -62,7 +74,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   });
 
   it("6. adds a secondary 'pending commands' note when command backlog > 0", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: { enabled: false, statusLabel: "网站中转", publicUrl: null, port: 0 },
       pendingCommandCount: 3,
@@ -76,7 +88,7 @@ describe("getDirectGatewayRepairAdvice", () => {
   it("7. shows a 'safe transport' banner (loopback bind) instead of the doc note when no other advice", () => {
     // TR-002 R3: 直连已就位 + loopback bind → risk=safe 触发 emerald secondary
     // banner。设计取舍：安全状态下不重复追加"边界文档"secondary，避免噪音。
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: {
         enabled: true,
@@ -95,7 +107,7 @@ describe("getDirectGatewayRepairAdvice", () => {
 
   it("omits boundary doc note when user cannot manage servers (safe banner still surfaces)", () => {
     // TR-002 R3: 同上, 显式给 loopback bind → safe banner 仍会出现, 但无边界文档
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...baseInput,
       directGateway: {
         enabled: true,
@@ -113,14 +125,14 @@ describe("getDirectGatewayRepairAdvice", () => {
   });
 
   it("hides '/servers' anchor when user cannot manage servers (rule 1 still shown)", () => {
-    const advice = getDirectGatewayRepairAdvice({ ...baseInput, serverEnabled: false, canManageServers: false });
+    const advice = getDirectGatewayRepairAdvice(t, { ...baseInput, serverEnabled: false, canManageServers: false });
     expect(advice).toHaveLength(1);
     expect(advice[0]!.title).toBe("节点未启用");
     expect(advice[0]!.href).toBeNull();
   });
 
   it("treats undefined directGateway the same as disabled (no crash)", () => {
-    const advice = getDirectGatewayRepairAdvice({ ...baseInput, directGateway: undefined });
+    const advice = getDirectGatewayRepairAdvice(t, { ...baseInput, directGateway: undefined });
     expect(advice[0]!.title).toBe("可启用目标直连");
   });
 });
@@ -128,12 +140,12 @@ describe("getDirectGatewayRepairAdvice", () => {
 describe("getDirectGatewayHealthyNote", () => {
   it("mentions publicUrl when present", () => {
     expect(
-      getDirectGatewayHealthyNote({ statusLabel: "目标直连", publicUrl: "http://1.2.3.4:31888" }),
+      getDirectGatewayHealthyNote(t, { statusLabel: "目标直连", publicUrl: "http://1.2.3.4:31888" }),
     ).toContain("公网入口 http://1.2.3.4:31888");
   });
 
   it("falls back to 'relay' wording when publicUrl is missing", () => {
-    expect(getDirectGatewayHealthyNote({ statusLabel: "网站中转", publicUrl: null })).toContain("回退到网站服务器中转");
+    expect(getDirectGatewayHealthyNote(t, { statusLabel: "网站中转", publicUrl: null })).toContain("回退到网站服务器中转");
   });
 });
 
@@ -147,7 +159,7 @@ describe("TR-002 R3 risk banner", () => {
   };
 
   it("emits a safe emerald banner when bind is loopback + http", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...enabledInput,
       directGateway: {
         enabled: true,
@@ -166,7 +178,7 @@ describe("TR-002 R3 risk banner", () => {
   });
 
   it("emits an amber warning banner when bind is 0.0.0.0 + https", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...enabledInput,
       directGateway: {
         enabled: true,
@@ -184,7 +196,7 @@ describe("TR-002 R3 risk banner", () => {
   });
 
   it("emits a rose danger banner when bind is 0.0.0.0 + http", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...enabledInput,
       directGateway: {
         enabled: true,
@@ -203,7 +215,7 @@ describe("TR-002 R3 risk banner", () => {
   });
 
   it("adds an amber 'scheme unrecognized' secondary hint when protocol is unknown", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...enabledInput,
       directGateway: {
         enabled: true,
@@ -221,7 +233,7 @@ describe("TR-002 R3 risk banner", () => {
   });
 
   it("does NOT emit a risk banner when the gateway is not enabled", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...enabledInput,
       directGateway: {
         enabled: false,
@@ -236,7 +248,7 @@ describe("TR-002 R3 risk banner", () => {
   });
 
   it("falls back to loopback when bindAddress is missing", () => {
-    const advice = getDirectGatewayRepairAdvice({
+    const advice = getDirectGatewayRepairAdvice(t, {
       ...enabledInput,
       directGateway: {
         enabled: true,

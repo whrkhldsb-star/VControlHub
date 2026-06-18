@@ -125,15 +125,17 @@ function adviceBadgeClass(tone: "emerald" | "amber" | "rose" | undefined) {
 }
 
 function DirectGatewayHealthyDetail({
+	t,
 	statusLabel: dgLabel,
 	publicUrl,
 }: {
+	t: (k: string) => string;
 	statusLabel: string;
 	publicUrl: string | null;
 }) {
 	return (
 		<p data-testid="direct-gateway-healthy-note">
-			{getDirectGatewayHealthyNote({ statusLabel: dgLabel, publicUrl })}
+			{getDirectGatewayHealthyNote(t, { statusLabel: dgLabel, publicUrl })}
 		</p>
 	);
 }
@@ -208,7 +210,7 @@ export function ServerOverviewDetails({
 	onRunRealtimeDiagnostics,
 }: ServerOverviewDetailsProps) {
 	const { t } = useI18n();
-	const directGatewayAdvice = getDirectGatewayRepairAdvice({
+	const directGatewayAdvice = getDirectGatewayRepairAdvice(t, {
 		directGateway: server.directGateway ?? null,
 		serverEnabled: server.enabled,
 		hasStorageNode: !!server.storageNode,
@@ -253,6 +255,7 @@ export function ServerOverviewDetails({
 			tone: server.directGateway?.enabled ? "success" : "info",
 			detail: directGatewayHealthy ? (
 				<DirectGatewayHealthyDetail
+					t={t}
 					statusLabel={server.directGateway?.statusLabel ?? t("serverOverviewDetails.websiteRelay")}
 					publicUrl={server.directGateway?.publicUrl ?? null}
 				/>

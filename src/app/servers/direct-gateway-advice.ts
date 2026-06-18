@@ -69,7 +69,10 @@ export type DirectGatewayAdviceItem = {
  *  7. 具备 server:write 但没有任何建议 → secondary：参考直连签名边界文档
  *  8. TR-002 R3：已启用直连 + bind/protocol 已知 → 插入一条 risk banner（按等级染色）
  */
-export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectGatewayAdviceItem[] {
+export function getDirectGatewayRepairAdvice(
+	t: (key: string) => string,
+	input: DirectGatewayInput,
+): DirectGatewayAdviceItem[] {
   const result: DirectGatewayAdviceItem[] = [];
   const dg = input.directGateway;
   const isDirect = !!dg?.enabled;
@@ -77,11 +80,11 @@ export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectG
   if (!input.serverEnabled) {
     return [
       {
-        title: "节点未启用",
-        detail: "Direct Gateway 安装、操作和实时探测都需要节点处于启用状态；先在节点卡片启用后再诊断。",
+        title: t("directGatewayAdvice.nodeDisabled.title"),
+        detail: t("directGatewayAdvice.nodeDisabled.detail"),
         priority: "primary",
         href: input.canManageServers ? "/servers" : null,
-        hrefLabel: "去节点列表",
+        hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
       },
     ];
   }
@@ -89,22 +92,22 @@ export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectG
   if (isDirect) {
     if (!input.hasStorageNode) {
       result.push({
-        title: "直连已启用但缺少 SFTP 节点",
-        detail: "Direct Gateway 需要绑定 SFTP 存储节点作为文件代理边界，否则直连签名下载将回退到网站中转。",
+        title: t("directGatewayAdvice.missingSftp.title"),
+        detail: t("directGatewayAdvice.missingSftp.detail"),
         priority: "primary",
         href: input.canManageServers ? "/servers" : null,
-        hrefLabel: "去节点列表",
+        hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
       });
     } else {
       const port = dg?.port ?? 0;
       const publicUrl = dg?.publicUrl ?? null;
       if (port <= 0 || !publicUrl) {
         result.push({
-          title: "直连状态不一致",
-          detail: "已启用但缺少公网入口或端口；请在节点卡片“切回网站中转”后再重新启用，或重新运行节点诊断确认远端服务是否启动。",
+          title: t("directGatewayAdvice.inconsistent.title"),
+          detail: t("directGatewayAdvice.inconsistent.detail"),
           priority: "primary",
           href: input.canManageServers ? "/servers" : null,
-          hrefLabel: "去节点列表",
+          hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
         });
       } else {
         // TR-002 R3: 直连已就位 + bind/protocol 已知 → 评估传输风险
@@ -121,40 +124,44 @@ export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectG
         });
         if (risk.level === "safe") {
           result.push({
-            title: "直连传输安全",
-            detail: `监听 ${bindAddress}，仅本机可访问；HMAC 签名 + 本地监听足以保证签名下载不被外部抓取。`,
+            title: t("directGatewayAdvice.transportSafe.title"),
+            detail: t("directGatewayAdvice.transportSafe.detail").replace("{bind}", bindAddress),
             priority: "secondary",
             href: null,
             tone: "emerald",
           });
         } else if (risk.level === "warning") {
           result.push({
-            title: "直连传输：警告",
-            detail: `${risk.reasons[0] ?? "公网可达 + 已加密"}；${risk.recommendations[0] ?? ""}`,
+            title: t("directGatewayAdvice.transportWarning.title"),
+            detail: t("directGatewayAdvice.transportWarning.detail")
+              .replace("{reason}", risk.reasons[0] ?? "")
+              .replace("{recommendation}", risk.recommendations[0] ?? ""),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,
-            hrefLabel: "去节点列表",
+            hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
             tone: "amber",
           });
         } else {
           // danger：多 reason / 多 recommendation 用分号拼成一句可读 detail
           result.push({
-            title: "直连传输：危险",
-            detail: `${risk.reasons.join("；")}。建议：${risk.recommendations[0] ?? "改回 127.0.0.1"}`,
+            title: t("directGatewayAdvice.transportDanger.title"),
+            detail: t("directGatewayAdvice.transportDanger.detail")
+              .replace("{reasons}", risk.reasons.join("；"))
+              .replace("{recommendation}", risk.recommendations[0] ?? t("directGatewayAdvice.transportDanger.fallbackRecommendation")),
             priority: "primary",
             href: input.canManageServers ? "/servers" : null,
-            hrefLabel: "去节点列表",
+            hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
             tone: "rose",
           });
         }
         // protocol 解析失败时再补一条 secondary 提示用户自查
         if (resolvedProtocol === "unknown") {
           result.push({
-            title: "公网入口协议未识别",
-            detail: "无法解析 publicUrl 的 scheme，请检查节点卡片中的直连公网入口是否配置正确。",
+            title: t("directGatewayAdvice.protocolUnknown.title"),
+            detail: t("directGatewayAdvice.protocolUnknown.detail"),
             priority: "secondary",
             href: input.canManageServers ? "/servers" : null,
-            hrefLabel: "去节点列表",
+            hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
             tone: "amber",
           });
         }
@@ -163,35 +170,35 @@ export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectG
   } else {
     if (input.hasStorageNode) {
       result.push({
-        title: "可启用目标直连",
-        detail: "当前会回退到网站服务器中转；若 VPS 与本机之间网络可用，启用直连可绕开中转提升大文件下载/媒体播放性能。",
+        title: t("directGatewayAdvice.canEnable.title"),
+        detail: t("directGatewayAdvice.canEnable.detail"),
         priority: "primary",
         href: input.canManageServers ? "/servers" : null,
-        hrefLabel: "去节点列表",
+        hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
       });
     } else {
       result.push({
-        title: "先绑定 SFTP 存储节点",
-        detail: "Direct Gateway 需要 SFTP 节点作为 file proxy 边界；先在节点卡片绑定 SFTP 节点，再考虑启用直连。",
+        title: t("directGatewayAdvice.needSftpFirst.title"),
+        detail: t("directGatewayAdvice.needSftpFirst.detail"),
         priority: "primary",
         href: input.canManageServers ? "/servers" : null,
-        hrefLabel: "去节点列表",
+        hrefLabel: t("directGatewayAdvice.hrefLabel.nodeList"),
       });
     }
   }
 
   if (input.pendingCommandCount > 0) {
     result.push({
-      title: `审批中心有 ${input.pendingCommandCount} 条待处理`,
-      detail: "先处理待审批命令，避免修复建议被排队任务遮蔽。",
+      title: t("directGatewayAdvice.pending.title").replace("{count}", String(input.pendingCommandCount)),
+      detail: t("directGatewayAdvice.pending.detail"),
       priority: "secondary",
       href: "/requests",
-      hrefLabel: "打开审批中心",
+      hrefLabel: t("directGatewayAdvice.hrefLabel.approvalCenter"),
     });
   } else if (result.length === 0 && input.canManageServers) {
     result.push({
-      title: "Direct Gateway 边界文档",
-      detail: "当前直连状态正常；可在节点详情查看直连签名链接行为，并结合防火墙、VPN 或反代 TLS 进一步加固传输边界。",
+      title: t("directGatewayAdvice.boundaryDoc.title"),
+      detail: t("directGatewayAdvice.boundaryDoc.detail"),
       priority: "secondary",
       href: null,
     });
@@ -201,9 +208,14 @@ export function getDirectGatewayRepairAdvice(input: DirectGatewayInput): DirectG
 }
 
 /** 给 UI 用的"无问题"提示文案 */
-export function getDirectGatewayHealthyNote(input: { statusLabel: string; publicUrl: string | null }): string {
+export function getDirectGatewayHealthyNote(
+	t: (key: string) => string,
+	input: { statusLabel: string; publicUrl: string | null },
+): string {
   if (input.publicUrl) {
-    return `当前已配置为 ${input.statusLabel}，公网入口 ${input.publicUrl} 可被签名链接调用。`;
+    return t("directGatewayHealthyNote.withPublicUrl")
+      .replace("{status}", input.statusLabel)
+      .replace("{url}", input.publicUrl);
   }
-  return `当前为 ${input.statusLabel}，文件下载和媒体播放会回退到网站服务器中转。`;
+  return t("directGatewayHealthyNote.relayFallback").replace("{status}", input.statusLabel);
 }
