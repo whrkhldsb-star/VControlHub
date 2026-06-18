@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
 import { SshTerminalModal } from "@/components/ssh-terminal-modal";
+import { useI18n } from "@/lib/i18n/use-locale";
 
 import {
   deleteServerAction,
@@ -58,6 +59,7 @@ export function ServerCardActions({
   onSshConnect,
   directGateway,
 }: ServerCardActionsProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [toggleState, toggleAction] = useActionState(
     toggleServerAction,
@@ -348,7 +350,7 @@ export function ServerCardActions({
                 <input type="hidden" name="confirmDelete" value="true" />
                 <div className="space-y-1 text-sm text-rose-200">
                   <p id={`delete-server-title-${serverId}`} className="font-semibold">
-                    确认删除「{serverName}」？
+                    {t("serversPage.delete.confirmTitle").replace("{name}", serverName)}
                   </p>
                   <div id={`delete-server-description-${serverId}`}>
                   {relatedStorageCount > 0 ? (
@@ -366,7 +368,7 @@ export function ServerCardActions({
                   htmlFor={`delete-confirm-name-${serverId}`}
                   className="block text-xs font-medium text-rose-200"
                 >
-                  输入 VPS 名称「{serverName}」确认删除
+                  {t("serversPage.delete.confirmNameInput").replace("{name}", serverName)}
                 </label>
                 <input
                   id={`delete-confirm-name-${serverId}`}
@@ -380,7 +382,7 @@ export function ServerCardActions({
                     pendingLabel="删除中..."
                     data-tone="rose" className="flex-1 rounded-2xl border border-rose-400/30 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-400/20 light:hover:bg-rose-100 light:hover:bg-rose-200"
                   >
-                    确认删除
+                    {t("common.confirmDelete")}
                   </SubmitButton>
                   <button
                     type="button"

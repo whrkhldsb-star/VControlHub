@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screen } from "@testing-library/react";
-import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
+import { renderWithI18n as render, renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
 import userEvent from "@testing-library/user-event";
 
 import { ServerCreateForm } from "../server-create-form";
@@ -287,6 +287,35 @@ describe("server direct gateway controls", () => {
       screen.getByLabelText("输入 VPS 名称「prod」确认删除"),
     ).toBeInTheDocument();
     expect(screen.getByText(/删除成功后节点会从 VPS 列表移除/)).toBeInTheDocument();
+  });
+
+  it("renders destructive-delete confirmation in English when locale is en", () => {
+    actionStateOverrides.push(
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
+      { error: undefined, success: undefined, relatedStorageCount: 2 },
+      { error: undefined, success: undefined, relatedStorageCount: undefined },
+    );
+
+    renderWithI18n(
+      <ServerCardActions
+        serverId="srv_1"
+        serverName="prod"
+        host="203.0.113.10"
+        port={22}
+        enabled={true}
+        sessionToken="token"
+        canManageServers
+      />,
+      { locale: "en" },
+    );
+
+    expect(
+      screen.getByRole("alertdialog"),
+    ).toHaveAccessibleName('Delete "prod"?');
+    expect(
+      screen.getByLabelText('Type VPS name "prod" to confirm delete'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
   });
 
   it("offers an edit form for managed VPS nodes", async () => {
