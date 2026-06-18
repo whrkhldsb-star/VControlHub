@@ -2,31 +2,19 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 
-import { type Permission, type RoleKey, getPermissionsFromRoles } from "./rbac";
+import { EMPTY_GATE, type SessionGate } from "./session-gate";
 
 /**
  * Client-side view of the authenticated session.
  *
- * Built by `gateFromRoles()` from a server-verified `SessionPayload`.
- * Defaults to an unauthenticated empty gate when no provider is mounted so
- * that misuse (forgetting the provider) yields a fail-safe "no permissions"
- * rather than throwing — keeping with task 56's "hide UI when no permission"
- * contract (TR-030 multi-tenant via permission-gated render).
+ * Built by `gateFromRoles()` (server-friendly, in `./session-gate`) from a
+ * server-verified `SessionPayload` and fed into `SessionGateProvider` here so
+ * the client tree can read it via `useSessionGate()`. Defaults to an
+ * unauthenticated empty gate when no provider is mounted so misuse (forgetting
+ * the provider) yields a fail-safe "no permissions" rather than throwing —
+ * keeping with task 56's "hide UI when no permission" contract (TR-030
+ * multi-tenant via permission-gated render).
  */
-export interface SessionGate {
-	/** Roles directly from session.roles (raw, no expansion). */
-	roles: RoleKey[];
-	/** Permissions resolved from roles — denormalized for O(1) lookup. */
-	permissions: Permission[];
-	/** True if the session represents an authenticated user. */
-	authenticated: boolean;
-}
-
-export const EMPTY_GATE: SessionGate = {
-	roles: [],
-	permissions: [],
-	authenticated: false,
-};
 
 const SessionGateContext = createContext<SessionGate>(EMPTY_GATE);
 
@@ -53,15 +41,7 @@ export function useSessionGate(): SessionGate {
 	return useContext(SessionGateContext) ?? EMPTY_GATE;
 }
 
-/**
- * Build a `SessionGate` from a server-issued role list. Pure, side-effect-free
- * helper so server components (e.g. `SidebarLoader`) can construct the value
- * that gets handed to the client provider.
- */
-export function gateFromRoles(roles: RoleKey[]): SessionGate {
-	return {
-		roles: [...roles],
-		permissions: getPermissionsFromRoles(roles),
-		authenticated: roles.length > 0,
-	};
-}
+// Re-export the server-friendly primitives so existing client code that
+// imports `SessionGate` / `EMPTY_GATE` / `gateFromRoles` from
+// "./session-context" keeps working.
+export { EMPTY_GATE, gateFromRoles, type SessionGate } from "./session-gate";

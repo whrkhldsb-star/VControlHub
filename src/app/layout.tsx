@@ -12,11 +12,8 @@ import { DomI18nBridge } from "@/lib/i18n/dom-bridge";
 import { ThemeProvider } from "@/lib/theme/provider";
 import { getAppMetadataTitle, getAppDescription } from "@/lib/branding";
 import { getSessionCookieName } from "@/lib/auth/session";
-import {
-	EMPTY_GATE,
-	SessionGateProvider,
-	gateFromRoles,
-} from "@/lib/auth/session-context";
+import { EMPTY_GATE, gateFromRoles } from "@/lib/auth/session-gate";
+import { SessionGateProvider } from "@/lib/auth/session-context";
 import { getCurrentSession } from "@/lib/auth/server-session";
 import { type Locale } from "@/lib/i18n/translations";
 import { type Theme } from "@/lib/theme/use-theme";
