@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useId } from "react";
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import {
   FileListClient,
   type FolderProp,
@@ -145,7 +146,7 @@ function getDisplaySegment(segment: string, nodes: NodeOption[] = []) {
   return node ? node.name : group.label;
 }
 
-function getCurrentPathDisplay(path: string, nodes: NodeOption[], nodeIdFilter: string) {
+function getCurrentPathDisplay(t: (k: string) => string, path: string, nodes: NodeOption[], nodeIdFilter: string) {
   const selectedNode = getNodeById(nodes, nodeIdFilter);
   const segments = splitPath(path);
   const groupSegment = segments.find(isNodeGroupSegment);
@@ -160,9 +161,9 @@ function getCurrentPathDisplay(path: string, nodes: NodeOption[], nodeIdFilter: 
       ? `${groupNode.name}（${groupNode.driver}）`
       : groupSegment
         ? getDisplaySegment(groupSegment, nodes)
-        : "全部节点";
+        : t("filesBrowserSpa.allNodes");
   return {
-    title: selectedNode?.name ?? groupNode?.name ?? (remotePath || "全部文件"),
+    title: selectedNode?.name ?? groupNode?.name ?? (remotePath || t("filesBrowserSpa.allFiles")),
     label: `${nodeLabel}：/${remotePath}`,
     uploadPathLabel: `/${remotePath}`,
   };
@@ -172,17 +173,19 @@ function getNodeIcon(driver: string) {
   return driver === "SFTP" ? "🖥" : "💾";
 }
 
-function getNodeLabel(node?: NodeOption) {
-  if (!node) return "全部节点";
+function getNodeLabel(t: (k: string) => string, node?: NodeOption) {
+  if (!node) return t("filesBrowserSpa.allNodes");
   return `${node.name}（${node.driver}）`;
 }
 
 function NodeFilterSelect({
+  t,
   nodes,
   value,
   onChange,
   compact = false,
 }: {
+  t: (k: string) => string;
   nodes: NodeOption[];
   value: string;
   onChange: (nodeId: string) => void;
@@ -206,7 +209,7 @@ function NodeFilterSelect({
       <div className="flex items-center justify-between gap-3 text-xs text-[var(--text-secondary)]">
         <span>
           当前：{getNodeIcon(selectedNode?.driver ?? "")}{" "}
-          {getNodeLabel(selectedNode)}
+          {getNodeLabel(t, selectedNode)}
         </span>
         {value ? (
           <button
@@ -227,7 +230,7 @@ function NodeFilterSelect({
           type="search"
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}
-          placeholder="节点名称、类型或 ID"
+          placeholder={t("filesBrowserSpa.searchPlaceholder")}
           className="w-full rounded-2xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
         />
       </div>
@@ -241,7 +244,7 @@ function NodeFilterSelect({
           onChange={(event) => onChange(event.currentTarget.value)}
           className="w-full rounded-2xl border border-cyan-400/30 bg-slate-950 px-3 py-2 text-sm text-white focus:border-cyan-400/50 focus:outline-none light:border-cyan-500/40"
         >
-          <option value="">🌐 全部节点</option>
+          <option value="">{t("filesBrowserSpa.allNodesOption")}</option>
           {filteredNodes.map((node) => (
             <option key={node.id} value={node.id}>
               {getNodeIcon(node.driver)} {node.name}（{node.driver}）
@@ -290,6 +293,7 @@ function useFolderNavigation(
 /* ── FolderTree (client-side, SPA) ──────────────────────────────── */
 
 function FolderTreeClient({
+  t,
   node,
   currentPath,
   onNavigate,
@@ -297,6 +301,7 @@ function FolderTreeClient({
   onToggle,
   depth = 0,
 }: {
+  t: (k: string) => string;
   node: TreeRootNode;
   currentPath: string;
   onNavigate: (path: string) => void;
@@ -336,7 +341,7 @@ function FolderTreeClient({
                 }
                 aria-label={
                   hasChildren
-                    ? `${isExpanded ? "折叠" : "展开"} ${child.displayName ?? child.name}`
+                    ? `${isExpanded ? t("filesBrowserSpa.collapseNode") : t("filesBrowserSpa.expandNode")} ${child.displayName ?? child.name}`
                     : `打开 ${child.displayName ?? child.name}`
                 }
                 aria-expanded={hasChildren ? isExpanded : undefined}
@@ -364,6 +369,7 @@ function FolderTreeClient({
             </div>
             {hasChildren && isExpanded ? (
               <FolderTreeClient
+                t={t}
                 node={child}
                 currentPath={currentPath}
                 onNavigate={onNavigate}
@@ -382,10 +388,12 @@ function FolderTreeClient({
 /* ── Breadcrumbs (client-side, SPA) ─────────────────────────────── */
 
 function BreadcrumbsClient({
+  t,
   path,
   nodes,
   onNavigate,
 }: {
+  t: (k: string) => string;
   path: string;
   nodes: NodeOption[];
   onNavigate: (path: string) => void;
@@ -394,7 +402,7 @@ function BreadcrumbsClient({
 
   return (
     <nav
-      aria-label="面包屑"
+      aria-label={t("filesBrowserSpa.breadcrumbAria")}
       className="flex flex-wrap items-center gap-2 text-sm text-[var(--text-secondary)]"
     >
       <button
@@ -440,6 +448,7 @@ export function FilesBrowserSpa({
   initialData: FilesApiResponse;
   deletedEntries: DeletedEntryProp[];
 }) {
+  const { t } = useI18n();
   // Listing state (data / loading / listError / search / selection epoch /
   // popstate listener) is owned by the hook (R25).  The mobile sidebar
   // toggle stays here because the rendering is part of the page shell
@@ -463,6 +472,7 @@ export function FilesBrowserSpa({
     (n) => n.driver === "LOCAL" || n.driver === "SFTP",
   );
   const currentPathDisplay = getCurrentPathDisplay(
+    t,
     data.currentPath,
     data.nodes,
     data.nodeIdFilter,
@@ -471,7 +481,7 @@ export function FilesBrowserSpa({
   const preferredUploadNode = data.nodeIdFilter && uploadNodes.some((node) => node.id === data.nodeIdFilter)
     ? data.nodeIdFilter
     : uploadNodes[0]?.id ?? data.nodes[0]?.id;
-  const refreshLabel = selectedNode?.driver === "SFTP" ? "刷新远端文件" : "刷新列表";
+  const refreshLabel = selectedNode?.driver === "SFTP" ? t("filesBrowserSpa.refreshRemoteFiles") : t("filesBrowserSpa.refreshList");
   const [expandedTreePaths, setExpandedTreePaths] = useState<Set<string>>(() =>
     getInitialExpandedTreePaths(initialData.tree, initialData.currentPath),
   );
@@ -518,7 +528,7 @@ export function FilesBrowserSpa({
         aria-controls="files-browser-sidebar"
         className="flex min-h-11 w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-slate-900/60 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800/60 light:bg-slate-100 light:hover:bg-slate-200/60 xl:hidden"
       >
-        <span>{mobileSidebarOpen ? "收起目录树" : "展开目录树"}</span>
+        <span>{mobileSidebarOpen ? t("filesBrowserSpa.collapseDirectoryTree") : t("filesBrowserSpa.expandDirectoryTree")}</span>
         <span aria-hidden="true" className="text-xs">
           {mobileSidebarOpen ? "▴" : "▾"}
         </span>
@@ -526,14 +536,14 @@ export function FilesBrowserSpa({
       {/* Sidebar: Directory tree */}
       <aside
         id="files-browser-sidebar"
-        aria-label="目录树"
+        aria-label={t("filesBrowserSpa.sidebarAria")}
         className={`rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-white">目录树</h2>
+            <h2 className="text-2xl font-semibold text-white">{t("filesBrowserSpa.directoryTree")}</h2>
             <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
               按层级展开所有已登记目录，便于快速跳转。
             </p>
@@ -547,6 +557,7 @@ export function FilesBrowserSpa({
               按节点筛选
             </label>
             <NodeFilterSelect
+              t={t}
               nodes={data.nodes}
               value={data.nodeIdFilter}
               onChange={handleNodeFilterChange}
@@ -565,13 +576,14 @@ export function FilesBrowserSpa({
                 : "text-cyan-100 hover:bg-white/5"
             }`}
           >
-            <span>全部文件</span>
+            <span>{t("filesBrowserSpa.allFiles")}</span>
             <span className="text-xs text-cyan-200/70">
               {data.stats.totalEntries}
             </span>
           </button>
           {data.tree.children && data.tree.children.length > 0 ? (
             <FolderTreeClient
+              t={t}
               node={data.tree}
               currentPath={data.currentPath}
               onNavigate={handleTreeNavigate}
@@ -597,6 +609,7 @@ export function FilesBrowserSpa({
                 </p>
               </div>
               <NodeFilterSelect
+                t={t}
                 nodes={data.nodes}
                 value={data.nodeIdFilter}
                 onChange={handleNodeFilterChange}
@@ -618,10 +631,11 @@ export function FilesBrowserSpa({
                 ) : null}
               </h2>
               <p className="mt-2 text-sm leading-7 text-[var(--text-secondary)]">
-                {currentPathDisplay.label ? `当前路径：${currentPathDisplay.label}` : "当前路径：全部节点：/"}
+                {currentPathDisplay.label ? t("filesBrowserSpa.currentPathPrefix") + currentPathDisplay.label : t("filesBrowserSpa.currentPathAllNodes")}
               </p>
             </div>
             <BreadcrumbsClient
+              t={t}
               path={data.currentPath}
               nodes={data.nodes}
               onNavigate={navigateToFolder}
@@ -649,8 +663,8 @@ export function FilesBrowserSpa({
                     onChange={(e) => setSearchInput(e.currentTarget.value)}
                     placeholder={
                       data.searchScope === "all"
-                        ? "在全部文件中搜索…"
-                        : "在当前目录搜索…"
+                        ? t("filesBrowserSpa.searchAllFiles")
+                        : t("filesBrowserSpa.searchCurrentFolder")
                     }
                     className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/50 focus:outline-none"
                   />
@@ -678,7 +692,7 @@ export function FilesBrowserSpa({
             {data.searchQuery ? (
               <p className="mt-2 text-xs text-[var(--text-secondary)]">
                 搜索 &quot;{data.searchQuery}&quot; —{" "}
-                {data.searchScope === "all" ? "在全部文件中" : "在当前目录"}找到{" "}
+                {data.searchScope === "all" ? t("filesBrowserSpa.searchInAllFiles") : t("filesBrowserSpa.searchInCurrentFolder")}找到{" "}
                 {data.stats.totalItems} 个结果
               </p>
             ) : null}
@@ -691,7 +705,7 @@ export function FilesBrowserSpa({
                   当前目录操作
                 </h3>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                  当前路径：{currentPathDisplay.label}
+                  {t("filesBrowserSpa.currentPathPrefix")}{currentPathDisplay.label}
                 </p>
                 <p className="mt-1 text-sm text-[var(--text-secondary)]">
                   项目数 {data.stats.totalItems}
@@ -714,7 +728,7 @@ export function FilesBrowserSpa({
                   disabled={loading}
                   data-tone="emerald" className="rounded-full border border-emerald-400/30 px-4 py-2 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {loading ? "刷新中…" : `↻ ${refreshLabel}`}
+                  {loading ? t("filesBrowserSpa.refreshing") : `↻ ${refreshLabel}`}
                 </button>
                 {data.permissions.canEditLocalFiles ? (
                   <a
@@ -746,8 +760,8 @@ export function FilesBrowserSpa({
                     aria-disabled="true"
                     title={
                       !data.permissions.canEditLocalFiles
-                        ? "没有文件编辑权限，无法新建文件夹"
-                        : "当前没有可用的存储节点，无法新建文件夹"
+                        ? t("filesBrowserSpa.cannotCreateFolderNoPermission")
+                        : t("filesBrowserSpa.cannotCreateFolderNoNode")
                     }
                     className="cursor-not-allowed rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm font-medium text-[var(--text-secondary)]"
                   >
@@ -765,8 +779,8 @@ export function FilesBrowserSpa({
               data-tone="amber" className="mt-4 rounded-lg border border-amber-400/30 px-4 py-3 text-sm text-amber-100"
             >
               {data.syncWarning === listError
-                ? "远端同步提醒"
-                : "文件列表刷新失败"}
+                ? t("filesBrowserSpa.remoteSyncNotice")
+                : t("filesBrowserSpa.fileListRefreshFailed")}
               ：{listError}
             </div>
           ) : null}
@@ -800,9 +814,9 @@ export function FilesBrowserSpa({
               initialRelativeDir={data.currentPath}
               uploadDir={data.currentPath}
               title={`上传到当前目录 ${currentPathDisplay.uploadPathLabel}`}
-              description="选择目标存储节点和上传目录路径。"
-              submitLabel="拖拽文件到这里，或点击选择本地文件"
-              pathLabel="上传目录路径"
+              description={t("filesBrowserSpa.uploadDescription")}
+              submitLabel={t("filesBrowserSpa.uploadSubmitLabel")}
+              pathLabel={t("filesBrowserSpa.uploadPathLabel")}
               allowNodeSelection={true}
               onUploadComplete={() =>
                 fetchFiles(

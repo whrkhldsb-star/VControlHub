@@ -19,6 +19,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerCardActions } from "./server-card-actions";
 import { getDirectGatewayRepairAdvice, getDirectGatewayHealthyNote } from "./direct-gateway-advice";
 
@@ -138,8 +139,10 @@ function DirectGatewayHealthyDetail({
 }
 
 function DirectGatewayAdviceList({
+	t,
 	advice,
 }: {
+	t: (k: string) => string;
 	advice: Array<{
 		title: string;
 		detail: string;
@@ -154,7 +157,7 @@ function DirectGatewayAdviceList({
 	return (
 		<ul
 			role="list"
-			aria-label="Direct Gateway 修复建议"
+			aria-label={t("serverOverviewDetails.directGatewayRepairAdvice")}
 			className="mt-1 space-y-1.5"
 		>
 			{advice.map((item, index) => (
@@ -172,7 +175,7 @@ function DirectGatewayAdviceList({
 									: "rounded border border-slate-300/20 bg-slate-300/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-200 light:border-slate-400/30"
 							}
 						>
-							{item.priority === "primary" ? "建议" : "参考"}
+							{item.priority === "primary" ? t("serverOverviewDetails.recommendation") : t("serverOverviewDetails.reference")}
 						</span>
 						<span>{item.title}</span>
 						{item.href && item.hrefLabel ? (
@@ -204,6 +207,7 @@ export function ServerOverviewDetails({
 	diagnosticRun,
 	onRunRealtimeDiagnostics,
 }: ServerOverviewDetailsProps) {
+	const { t } = useI18n();
 	const directGatewayAdvice = getDirectGatewayRepairAdvice({
 		directGateway: server.directGateway ?? null,
 		serverEnabled: server.enabled,
@@ -220,54 +224,54 @@ export function ServerOverviewDetails({
 		href: string | null;
 	}> = [
 		{
-			label: "SSH 交互连接",
+			label: t("serverOverviewDetails.sshInteractive"),
 			status: server.enabled && canUseSshTerminal
-				? "可验证"
+				? t("serverOverviewDetails.verifiable")
 				: server.enabled
-					? "缺少权限"
-					: "节点停用",
+					? t("serverOverviewDetails.missingPermission")
+					: t("serverOverviewDetails.nodeDisabled"),
 			tone: server.enabled && canUseSshTerminal ? "success" : "warning",
 			detail: server.enabled
-				? "从详情操作区打开 SSH 终端，确认凭据、网络和远端 shell 是否真实可用。"
-				: "先启用节点后再进行实时连接诊断。",
+				? t("serverOverviewDetails.sshInteractiveDetail")
+				: t("serverOverviewDetails.enableNodeFirst"),
 			href: null,
 		},
 		{
-			label: "SFTP / 文件管理",
-			status: server.storageNode ? "已绑定" : "未绑定",
+			label: t("serverOverviewDetails.sftpManagement"),
+			status: server.storageNode ? t("serverOverviewDetails.bound") : t("serverOverviewDetails.unbound"),
 			tone: server.storageNode ? "success" : "warning",
 			detail: server.storageNode
-				? `文件入口将使用 ${server.storageNode.name} · ${server.storageNode.basePath}。`
-				: "未绑定存储节点时，文件浏览、媒体索引和直连文件代理都缺少真实目录边界。",
+				? t("serverOverviewDetails.sftpDetailPrefix") + server.storageNode.name + " · " + server.storageNode.basePath + t("serverOverviewDetails.sftpDetailSuffix")
+				: t("serverOverviewDetails.sftpUnboundDetail"),
 			href: server.storageNode
 				? `/files?nodeId=${encodeURIComponent(server.storageNode.id)}`
 				: null,
 		},
 		{
-			label: "Direct Gateway",
-			status: server.directGateway?.enabled ? "已配置" : "网站中转",
+			label: t("serverOverviewDetails.directGateway"),
+			status: server.directGateway?.enabled ? t("serverOverviewDetails.configured") : t("serverOverviewDetails.websiteRelay"),
 			tone: server.directGateway?.enabled ? "success" : "info",
 			detail: directGatewayHealthy ? (
 				<DirectGatewayHealthyDetail
-					statusLabel={server.directGateway?.statusLabel ?? "网站中转"}
+					statusLabel={server.directGateway?.statusLabel ?? t("serverOverviewDetails.websiteRelay")}
 					publicUrl={server.directGateway?.publicUrl ?? null}
 				/>
 			) : (
-				<DirectGatewayAdviceList advice={directGatewayAdvice} />
+				<DirectGatewayAdviceList t={t} advice={directGatewayAdvice} />
 			),
 			href: server.directGateway?.publicUrl ?? null,
 		},
 		{
-			label: "命令审批队列",
+			label: t("serverOverviewDetails.commandApprovalQueue"),
 			status:
 				server.pendingCommandCount > 0
-					? `${server.pendingCommandCount} 条待处理`
-					: "无待审批",
+					? server.pendingCommandCount + t("serverOverviewDetails.pendingCountSuffix")
+					: t("serverOverviewDetails.noPending"),
 			tone: server.pendingCommandCount > 0 ? "warning" : "success",
 			detail:
 				server.pendingCommandCount > 0
-					? "先处理审批中心里的待审批命令，避免诊断结果被排队任务遮蔽。"
-					: "没有待审批命令阻塞当前节点操作。",
+					? t("serverOverviewDetails.pendingDetail")
+					: t("serverOverviewDetails.noPendingDetail"),
 			href: server.pendingCommandCount > 0 ? "/requests" : null,
 		},
 	];
@@ -276,19 +280,19 @@ export function ServerOverviewDetails({
 		<div
 			id={detailsId}
 			role="region"
-			aria-label={`${server.name} VPS 详情`}
+			aria-label={`${server.name} ${t("serverOverviewDetails.vpsDetails")}`}
 			className="mt-4 space-y-3 border-t border-white/[0.06] pt-4"
 		>
 			<section className="rounded-lg border border-white/[0.04] bg-slate-950/40 p-3">
 				<h3 className="mb-3 text-sm font-medium text-white/80">连接与状态</h3>
 				<div className="grid gap-2 text-sm">
-					<InfoRow label="连接方式" value={server.connectionTypeLabel} />
-					<InfoRow label="登录账号" value={server.username} />
-					<InfoRow label="地址" value={`${server.host}:${server.port}`} />
-					<InfoRow label="节点状态" value={server.statusLabel} />
+					<InfoRow label={t("serverOverviewDetails.connectionType")} value={server.connectionTypeLabel} />
+					<InfoRow label={t("serverOverviewDetails.username")} value={server.username} />
+					<InfoRow label={t("serverOverviewDetails.address")} value={`${server.host}:${server.port}`} />
+					<InfoRow label={t("serverOverviewDetails.nodeStatus")} value={server.statusLabel} />
 					<InfoRow
 						label="SSH 密钥"
-						value={server.sshKey ? server.sshKey.name : "未配置"}
+						value={server.sshKey ? server.sshKey.name : t("serverOverviewDetails.notConfigured")}
 					/>
 				</div>
 				<p
@@ -321,16 +325,16 @@ export function ServerOverviewDetails({
 				<h3 className="mb-3 text-sm font-medium text-white/80">操作与资源</h3>
 				<div className="space-y-2 text-sm">
 					<InfoRow
-						label="关联存储"
+						label={t("serverOverviewDetails.relatedStorage")}
 						value={
 							server.storageNode
 								? `${server.storageNode.name} · ${server.storageNode.basePath}`
-								: "未绑定"
+								: t("serverOverviewDetails.unbound")
 						}
 					/>
-					<InfoRow label="直连模式" value={directLabel} />
-					<InfoRow label="累计命令目标" value={String(server.targetCount)} />
-					<InfoRow label="连接摘要" value={server.connectionSummary} />
+					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
+					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
+					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={server.connectionSummary} />
 				</div>
 				{canManageServers || canUseSshTerminal ? (
 					<div className="mt-3">
@@ -383,7 +387,7 @@ export function ServerOverviewDetails({
 							disabled={diagnosticRun.status === "loading" || !server.enabled}
 							className="inline-flex shrink-0 items-center justify-center rounded-lg border border-emerald-300/25 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60 light:border-emerald-700/20 light:bg-emerald-50"
 						>
-							{diagnosticRun.status === "loading" ? "探测中..." : "运行实时探测"}
+							{diagnosticRun.status === "loading" ? t("serverOverviewDetails.diagnosing") : t("serverOverviewDetails.runRealtimeDiagnostics")}
 						</button>
 					</div>
 					{diagnosticRun.status === "success" ? (
@@ -451,7 +455,7 @@ export function ServerOverviewDetails({
 										{command.title}
 									</span>
 									<span className="shrink-0 text-[11px] text-slate-500">
-										{command.initiatedByType === "ASSISTANT" ? "助手" : "用户"}
+										{command.initiatedByType === "ASSISTANT" ? t("serverOverviewDetails.assistant") : t("serverOverviewDetails.user")}
 									</span>
 								</div>
 								<div className="mt-1 text-[11px] text-slate-500">
