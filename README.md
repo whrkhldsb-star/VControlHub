@@ -322,47 +322,27 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
-## 📋 任务追踪编号表（待办）
+## 📋 任务追踪
 
-> 状态列含义：⏳ = 建议但未启动 / 队列中 = 后台自动推进中 / 主体已落地 = 主体做完但有未做续项。完整 TR 描述与已完成项见 git log + `~/.hermes/state/vcontrolhub-task-queue.json`。
+完整 TR 编号与历史见 `git log`。当前未完成项：
 
-| 编号 | 优先级 | 主题 | 状态 |
-|---|---|---|---|
-| TR-007 | P2 | 备份策略管理 — 任务化 / 异地 / 恢复验证 / 保留清理 | 主体已落地，续做异地+恢复演练 |
-| TR-009 | P2 | 既有增强项队列（备份 / 编辑 / 媒体 / 告警 Telegram） | 队列中 |
-| TR-023 | P3 | 自动化工作流 Playbook（条件触发 / 告警联动 / 步骤编排） | 队列中（等用户拍板设计） |
-| TR-030 | P3 | 多租户 / 团队空间（资源隔离 / 配额 / 权限继承） | 队列中 |
-| TR-031 | P3 | 成本追踪（VPS 费用 / 带宽 / 存储 / 月报） | 队列中（等用户拍板数据源） |
-| TR-032 | P3 | 智能运维 AI（主动诊断 / 异常预测 / 自动修复建议） | 队列中（等用户拍板范围） |
-| TR-033 | P3 | PWA 离线支持和集成市场 | 队列中（等用户拍板策略） |
-| TR-040 | P2 | N+1 查询审计与修复（command / command-template / quick-service） | ⚠️ R1 部分完成（quick-service syncSource / share-link syncLocalShareDirectory），R2 续做 command 域 |
-| TR-051 | P1 | `ADMIN_INITIAL_PASSWORD` env vs DB hash 不一致 — boot 时若 DB hash 与 env 不一致，开发环境自动 reseed admin，生产环境显式报错 | ✅ 完成（`src/lib/auth/bootstrap.ts:verifyAdminPasswordConsistency` + `src/instrumentation.ts:35` + `npm run admin:consistency-check`） |
-| TR-052 | P3 | 落地页 `/` 307→login 后无 dashboard — 首屏直接看概览，做一个 `/dashboard` 路由专属页面 | ⏳ |
-| TR-053 | P1 | 公开 `/api/status` 泄露存储节点详情 — 公开端点只返 `overall`，详细 checks 给登录后页面 | ✅ 完成（`src/app/api/status/route.ts` L6-8 未登录只返 overall） |
-
----
+| 编号 | 主题 | 备注 |
+|---|---|---|
+| TR-052 | `/dashboard` 首屏专属页面 | `/` 307→login 后无概览页 |
 
 ## 🗺️ 下一步升级方向
 
-按 P 级排序，配 `<!-- TR-XXX -->` 编号定位。已完成项已从本节移除。
+按 P 级排序。已完成项已从本节移除。
 
 ### P1 — 阻塞性
-
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-- [x] **公开 `/api/status` 泄露存储节点详情**（TR-053）— 未登录可见 6 节点探测状态。公开端点只返 `overall`，详细 checks 给登录后页面。安全/隐私。 ✅ 落地：`src/app/api/status/route.ts` L6-8
-- [x] **admin 密码 env vs DB hash 不一致**（TR-051）— boot 时若 DB hash 与 env 不一致，开发环境自动 reseed admin，生产环境显式报错。阻塞门。 ✅ 落地：`src/lib/auth/bootstrap.ts:verifyAdminPasswordConsistency` + `src/instrumentation.ts:35` + `npm run admin:consistency-check` CLI
 
 ### P2 — 用户体验和可运营性
-
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
-- [x] **N+1 查询修复**（TR-040）— 3 个候选文件。✅ R1 部分完成 (R1.1 quick-service syncSource / R1.2 share-link syncLocalShareDirectory / R1.3 rollback 跳过 — 价值小)；R2 续做 command 域
-- [x] **Direct Gateway TLS / 跨 worker 并发上限 / lease 策略**（New-E / TR-043）— deploy 默认接 Caddy 反代 TLS、并发上限与 lease 公式、强制 `recordJobEvent`。✅ 全部落地: lease 公式统一 (`computeLeaseMs`) + deploy 默认 Caddy (`deploy.sh` L27-70 + L82-85) + 强制 recordJobEvent (`src/lib/job/service.ts` 8 函数全有:enqueued/claimed/heartbeat/completed/failed/retrying/cancelled/recovered)
-- [x] **i18n 覆盖 / QA 报告 / README 状态对账**（New-G）— TR-042 / TR-029 / 自动对账脚本三件套。✅ 全落: `scripts/i18n-coverage.ts` (22.9%) + `scripts/readme-reconcile.ts` (人审 dry-run) + `scripts/readme-reconcile-closeout.ts` (cron 集成)
 - [ ] **落地页真 dashboard**（TR-052）— `/` 307→login 后无 dashboard，首屏直接看概览，做一个 `/dashboard` 路由专属页面。
 
 ### P3 — 长期愿景
-
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面。
 - [ ] **多租户 / 团队空间**（TR-030）。
