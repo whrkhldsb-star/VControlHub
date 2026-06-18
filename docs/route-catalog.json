@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-17T00:20:40.472Z",
+  "generatedAt": "2026-06-18T00:39:11.307Z",
   "summary": {
-    "sidebarMain": 22,
+    "sidebarMain": 23,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
-    "pages": 42,
-    "apiRoutes": 88,
-    "permissionsDefined": 41
+    "pages": 46,
+    "apiRoutes": 108,
+    "permissionsDefined": 49
   },
   "sidebar": {
     "main": [
@@ -87,6 +87,10 @@
         "fallbackLabel": "定时任务"
       },
       {
+        "href": "/playbooks",
+        "fallbackLabel": "Playbook 自动化"
+      },
+      {
         "href": "/alert-rules",
         "fallbackLabel": "智能告警"
       },
@@ -136,6 +140,17 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": []
+    },
+    {
+      "path": "/ai-ops",
+      "file": "src/app/ai-ops/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "ai:ops:autonomous",
+        "ai:ops:manage",
+        "ai:ops:read"
+      ]
     },
     {
       "path": "/ai",
@@ -196,6 +211,16 @@
         "backup:create",
         "backup:read",
         "backup:restore"
+      ]
+    },
+    {
+      "path": "/cost-summary",
+      "file": "src/app/cost-summary/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "cost:manage",
+        "cost:read"
       ]
     },
     {
@@ -326,6 +351,13 @@
       "declaredPermissions": []
     },
     {
+      "path": "/offline",
+      "file": "src/app/offline/page.tsx",
+      "inSidebarMain": false,
+      "inSidebarSystem": false,
+      "declaredPermissions": []
+    },
+    {
       "path": "/operation-tasks",
       "file": "src/app/operation-tasks/page.tsx",
       "inSidebarMain": true,
@@ -340,6 +372,17 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": []
+    },
+    {
+      "path": "/playbooks",
+      "file": "src/app/playbooks/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "playbook:manage",
+        "playbook:read",
+        "playbook:run"
+      ]
     },
     {
       "path": "/preferences",
@@ -602,6 +645,69 @@
       "declaredPermissions": []
     },
     {
+      "path": "/src/app/api/ai/ops/logs/[id]/execute",
+      "file": "src/app/api/ai/ops/logs/[id]/execute/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ai:ops:autonomous",
+        "ai:ops:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/ops/logs/[id]",
+      "file": "src/app/api/ai/ops/logs/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "ai:ops:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/ops/logs",
+      "file": "src/app/api/ai/ops/logs/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "ai:ops:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/ops/scan",
+      "file": "src/app/api/ai/ops/scan/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "ai:ops:manage"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/ops/settings",
+      "file": "src/app/api/ai/ops/settings/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "ai:ops:manage",
+        "ai:ops:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/ai/ops/summary",
+      "file": "src/app/api/ai/ops/summary/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "ai:ops:read"
+      ]
+    },
+    {
       "path": "/src/app/api/ai/providers/[id]",
       "file": "src/app/api/ai/providers/[id]/route.ts",
       "methods": [
@@ -768,6 +874,28 @@
       ]
     },
     {
+      "path": "/src/app/api/backups/offsite/dry-run",
+      "file": "src/app/api/backups/offsite/dry-run/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "backup:create"
+      ]
+    },
+    {
+      "path": "/src/app/api/backups/offsite",
+      "file": "src/app/api/backups/offsite/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "backup:create",
+        "backup:read"
+      ]
+    },
+    {
       "path": "/src/app/api/backups/retention",
       "file": "src/app/api/backups/retention/route.ts",
       "methods": [
@@ -817,6 +945,51 @@
         "command:create",
         "command:execute",
         "command:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/entries/[id]",
+      "file": "src/app/api/cost/entries/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "cost:manage",
+        "cost:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/entries",
+      "file": "src/app/api/cost/entries/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "cost:manage",
+        "cost:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/snapshots",
+      "file": "src/app/api/cost/snapshots/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "cost:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/cost/summary",
+      "file": "src/app/api/cost/summary/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "declaredPermissions": [
+        "cost:read"
       ]
     },
     {
@@ -1032,6 +1205,47 @@
       ]
     },
     {
+      "path": "/src/app/api/images/upload/[id]/chunk",
+      "file": "src/app/api/images/upload/[id]/chunk/route.ts",
+      "methods": [
+        "PUT"
+      ],
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/upload/[id]/complete",
+      "file": "src/app/api/images/upload/[id]/complete/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/upload/[id]",
+      "file": "src/app/api/images/upload/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET"
+      ],
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
+      "path": "/src/app/api/images/upload/init",
+      "file": "src/app/api/images/upload/init/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "storage:write"
+      ]
+    },
+    {
       "path": "/src/app/api/images/upload",
       "file": "src/app/api/images/upload/route.ts",
       "methods": [
@@ -1131,6 +1345,51 @@
       ],
       "declaredPermissions": [
         "task:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/playbooks/[id]/dry-run",
+      "file": "src/app/api/playbooks/[id]/dry-run/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "playbook:run"
+      ]
+    },
+    {
+      "path": "/src/app/api/playbooks/[id]",
+      "file": "src/app/api/playbooks/[id]/route.ts",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "declaredPermissions": [
+        "playbook:manage",
+        "playbook:read"
+      ]
+    },
+    {
+      "path": "/src/app/api/playbooks/[id]/run",
+      "file": "src/app/api/playbooks/[id]/run/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "declaredPermissions": [
+        "playbook:run"
+      ]
+    },
+    {
+      "path": "/src/app/api/playbooks",
+      "file": "src/app/api/playbooks/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "declaredPermissions": [
+        "playbook:manage",
+        "playbook:read"
       ]
     },
     {
@@ -1451,6 +1710,9 @@
     "ai:chat",
     "ai:manage",
     "ai:action:approve",
+    "ai:ops:read",
+    "ai:ops:manage",
+    "ai:ops:autonomous",
     "backup:create",
     "backup:read",
     "backup:restore",
@@ -1458,6 +1720,8 @@
     "command:create",
     "command:execute",
     "command:read",
+    "cost:read",
+    "cost:manage",
     "deploy:manage",
     "deploy:read",
     "deploy:run",
@@ -1468,6 +1732,9 @@
     "image:write",
     "media:manage",
     "notification:manage",
+    "playbook:manage",
+    "playbook:read",
+    "playbook:run",
     "role:manage",
     "server:read",
     "server:ssh",
