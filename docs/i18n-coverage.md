@@ -1,6 +1,6 @@
 # VControlHub i18n Coverage Report
 
-> Generated: 2026-06-16T23:47:47.751Z | Files: 261 | Strings: 702 | Coverage: **25.9%** (182/702)
+> Generated: 2026-06-18T04:37:37.075Z | Files: 273 | Strings: 486 | Coverage: **32.7%** (159/486)
 
 This report cross-references hardcoded Chinese strings in `src/app/**/*.tsx` and `src/components/**/*.tsx` against the values in `src/lib/i18n/translations.ts`. A string is **covered** when its exact value already exists in the `zh` translation map; **missing** strings are candidates for new translation keys (or for relocation to the `dom-bridge` runtime substitution system).
 
@@ -10,29 +10,27 @@ Strings inside `data-i18n-skip` regions, in `<script>` tags, or in JSX expressio
 
 | Module | Strings | Covered | Missing | Coverage |
 |---|---|---|---|---|
-| `src/app/deployments` | 44 | 2 | 42 | 4.5% |
-| `src/app/qa-reports` | 10 | 1 | 9 | 10% |
-| `src/app/downloads` | 38 | 4 | 34 | 10.5% |
-| `src/app/requests` | 24 | 3 | 21 | 12.5% |
-| `src/app/shares` | 14 | 2 | 12 | 14.3% |
-| `src/app/quick-services` | 48 | 7 | 41 | 14.6% |
-| `src/app/media` | 38 | 6 | 32 | 15.8% |
-| `src/app/settings` | 31 | 5 | 26 | 16.1% |
-| `src/app/servers` | 105 | 26 | 79 | 24.8% |
-| `src/app/backups` | 16 | 4 | 12 | 25% |
-| `src/components/route-error.tsx` | 4 | 1 | 3 | 25% |
+| `src/app/playbooks` | 1 | 0 | 1 | 0% |
+| `src/app/deployments` | 38 | 1 | 37 | 2.6% |
+| `src/app/media` | 38 | 7 | 31 | 18.4% |
+| `src/app/quick-services` | 38 | 7 | 31 | 18.4% |
+| `src/app/settings` | 30 | 6 | 24 | 20% |
 | `src/components/two-factor-settings.tsx` | 12 | 3 | 9 | 25% |
-| `src/app/storage` | 46 | 13 | 33 | 28.3% |
-| `src/app/files` | 139 | 44 | 95 | 31.7% |
-| `src/app/login` | 3 | 1 | 2 | 33.3% |
-| `src/app/operation-tasks` | 29 | 10 | 19 | 34.5% |
-| `src/app/image-bed` | 22 | 8 | 14 | 36.4% |
-| `src/app/scheduled-tasks` | 23 | 10 | 13 | 43.5% |
+| `src/app/servers` | 87 | 29 | 58 | 33.3% |
+| `src/app/storage` | 43 | 15 | 28 | 34.9% |
+| `src/app/files` | 121 | 45 | 76 | 37.2% |
+| `src/app/audit` | 12 | 5 | 7 | 41.7% |
+| `src/app/operation-tasks` | 9 | 4 | 5 | 44.4% |
+| `src/app/backups` | 8 | 4 | 4 | 50% |
 | `src/app/global-error.tsx` | 4 | 2 | 2 | 50% |
 | `src/app/share` | 12 | 6 | 6 | 50% |
-| `src/app/audit` | 28 | 15 | 13 | 53.6% |
-| `src/components/change-password-modal.tsx` | 5 | 3 | 2 | 60% |
-| `src/app/announcements` | 6 | 5 | 1 | 83.3% |
+| `src/app/downloads` | 7 | 4 | 3 | 57.1% |
+| `src/app/image-bed` | 5 | 3 | 2 | 60% |
+| `src/app/shares` | 3 | 2 | 1 | 66.7% |
+| `src/app/scheduled-tasks` | 13 | 11 | 2 | 84.6% |
+| `src/app/announcements` | 1 | 1 | 0 | 100% |
+| `src/app/requests` | 1 | 1 | 0 | 100% |
+| `src/components/change-password-modal.tsx` | 2 | 2 | 0 | 100% |
 | `src/components/page-shell.tsx` | 1 | 1 | 0 | 100% |
 
 ## Top missing strings (frequency-sorted)
@@ -41,45 +39,33 @@ Each row is a Chinese string that appears in source but has no matching key in `
 
 | String | Count | First 3 occurrences |
 |---|---|---|
-| 修改时间 | 2 | `src/app/files/file-detail-panel.tsx:113` (text), `src/app/files/file-list-client.tsx:781` (text) |
+| 目录树 | 3 | `src/app/deployments/deployment-export-panel.tsx:325` (text), `src/app/files/files-browser-spa.tsx:527` (aria-label), `src/app/files/files-browser-spa.tsx:536` (text) |
 | 列表视图 | 2 | `src/app/files/file-list-client.tsx:1110` (title), `src/app/files/file-list-client.tsx:1110` (aria-label) |
 | 图标视图 | 2 | `src/app/files/file-list-client.tsx:1141` (title), `src/app/files/file-list-client.tsx:1141` (aria-label) |
 | 详情视图 | 2 | `src/app/files/file-list-client.tsx:1170` (title), `src/app/files/file-list-client.tsx:1170` (aria-label) |
-| 选择存储节点 | 2 | `src/app/files/files-browser-spa.tsx:235` (text), `src/app/image-bed/image-bed-page-client.tsx:590` (text) |
-| 目录树 | 2 | `src/app/files/files-browser-spa.tsx:527` (aria-label), `src/app/files/files-browser-spa.tsx:536` (text) |
 | 移动 | 2 | `src/app/files/move-inline-form.tsx:66` (title), `src/app/files/move-inline-form.tsx:90` (text) |
-| 系统自检 | 2 | `src/app/files/page.tsx:232` (text), `src/components/route-error.tsx:58` (text) |
 | 当前目录 | 2 | `src/app/files/page.tsx:262` (text), `src/app/files/search-scope-toggle.tsx:42` (text) |
 | 回收站 | 2 | `src/app/files/page.tsx:270` (text), `src/app/files/page.tsx:304` (text) |
-| 重命名 | 2 | `src/app/files/rename-inline-form.tsx:70` (title), `src/app/files/rename-inline-form.tsx:94` (text) |
-| 共   条 | 2 | `src/app/operation-tasks/job-events-dialog.tsx:208` (text), `src/app/operation-tasks/operation-task-list-client.tsx:86` (text) |
-| ← 返回报告列表 | 2 | `src/app/qa-reports/[id]/page.tsx:53` (text), `src/app/qa-reports/[id]/page.tsx:68` (text) |
-| 原因： | 2 | `src/app/requests/page.tsx:93` (text), `src/app/scheduled-tasks/scheduled-task-list-client.tsx:174` (text) |
-| 原因 / 备注 | 2 | `src/app/scheduled-tasks/scheduled-task-list-client.tsx:333` (text), `src/app/servers/command-create-form.tsx:60` (text) |
 | 确认删除「 」？ | 2 | `src/app/servers/server-card-actions.tsx:350` (text), `src/app/storage/storage-node-delete-button.tsx:39` (text) |
-| 当前运行值： | 2 | `src/app/settings/settings-client.tsx:795` (text), `src/app/settings/settings-client.tsx:881` (text) |
-| 生效位置： | 2 | `src/app/settings/settings-client.tsx:798` (text), `src/app/settings/settings-client.tsx:884` (text) |
-| 保存后需重启对应服务才会改变已启动进程。 | 2 | `src/app/settings/settings-client.tsx:804` (text), `src/app/settings/settings-client.tsx:890` (text) |
-| 原值 | 2 | `src/app/settings/settings-client.tsx:1050` (text), `src/app/settings/settings-client.tsx:1138` (text) |
-| 新值 | 2 | `src/app/settings/settings-client.tsx:1051` (text), `src/app/settings/settings-client.tsx:1142` (text) |
-| 根目录 | 2 | `src/app/storage/storage-node-create-form.tsx:46` (text), `src/app/storage/storage-node-edit-form.tsx:62` (text) |
+| 当前运行值： | 2 | `src/app/settings/settings-client.tsx:797` (text), `src/app/settings/settings-client.tsx:883` (text) |
+| 生效位置： | 2 | `src/app/settings/settings-client.tsx:800` (text), `src/app/settings/settings-client.tsx:886` (text) |
+| 保存后需重启对应服务才会改变已启动进程。 | 2 | `src/app/settings/settings-client.tsx:806` (text), `src/app/settings/settings-client.tsx:892` (text) |
+| 原值 | 2 | `src/app/settings/settings-client.tsx:1052` (text), `src/app/settings/settings-client.tsx:1140` (text) |
+| 新值 | 2 | `src/app/settings/settings-client.tsx:1053` (text), `src/app/settings/settings-client.tsx:1144` (text) |
 | 绑定 VPS | 2 | `src/app/storage/storage-node-create-form.tsx:52` (text), `src/app/storage/storage-node-edit-form.tsx:68` (text) |
 | *（SFTP 必填绑定VPS或远端主机） | 2 | `src/app/storage/storage-node-create-form.tsx:52` (text), `src/app/storage/storage-node-edit-form.tsx:68` (text) |
 | 不绑定 | 2 | `src/app/storage/storage-node-create-form.tsx:54` (text), `src/app/storage/storage-node-edit-form.tsx:70` (text) |
+| 远端主机 | 2 | `src/app/storage/storage-node-create-form.tsx:61` (text), `src/app/storage/storage-node-edit-form.tsx:77` (text) |
+| *（SFTP 必填远端主机或绑定VPS） | 2 | `src/app/storage/storage-node-create-form.tsx:61` (text), `src/app/storage/storage-node-edit-form.tsx:77` (text) |
+| 访问模式 | 2 | `src/app/storage/storage-node-create-form.tsx:73` (text), `src/app/storage/storage-node-edit-form.tsx:89` (text) |
+| 网站服务器中转（最安全） | 2 | `src/app/storage/storage-node-create-form.tsx:75` (text), `src/app/storage/storage-node-edit-form.tsx:91` (text) |
+| 存储服务器直连（需签名外链服务） | 2 | `src/app/storage/storage-node-create-form.tsx:76` (text), `src/app/storage/storage-node-edit-form.tsx:92` (text) |
+| 自动：可直连则直连，否则中转 | 2 | `src/app/storage/storage-node-create-form.tsx:77` (text), `src/app/storage/storage-node-edit-form.tsx:93` (text) |
+| 直连基础 URL | 2 | `src/app/storage/storage-node-create-form.tsx:81` (text), `src/app/storage/storage-node-edit-form.tsx:97` (text) |
+| 直连链接有效期（秒） | 2 | `src/app/storage/storage-node-create-form.tsx:85` (text), `src/app/storage/storage-node-edit-form.tsx:101` (text) |
+| 设为默认存储节点 | 2 | `src/app/storage/storage-node-create-form.tsx:91` (text), `src/app/storage/storage-node-edit-form.tsx:107` (text) |
 
 ## Files with missing translations (most gaps first)
-
-### `src/app/settings/settings-client.tsx` — 26/30 missing (13.3%)
-
-- L242 text "当前角色无系统设置权限"
-- L253 text "✓ 设置已保存 ` : ""}"
-- L259 aria-label aria-label= "设置分类导航"
-- L262 text "⚙️ 设置分类"
-- L263 text "点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。"
-- L270 text "全部展开"
-- L277 text "全部折叠"
-- L572 text "最近修改"
-- _…and 18 more_
 
 ### `src/app/deployments/page.tsx` — 24/25 missing (4%)
 
@@ -91,6 +77,18 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L54 text "3. 填写变量"
 - L55 text "填写模板所需的变量值（如版本号、端口等）"
 - L59 text "4. 选择 VPS"
+- _…and 16 more_
+
+### `src/app/settings/settings-client.tsx` — 24/29 missing (17.2%)
+
+- L244 text "当前角色无系统设置权限"
+- L255 text "✓ 设置已保存 ` : ""}"
+- L264 text "⚙️ 设置分类"
+- L265 text "点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。"
+- L272 text "全部展开"
+- L279 text "全部折叠"
+- L574 text "最近修改"
+- L575 text "时间："
 - _…and 16 more_
 
 ### `src/app/media/page.tsx` — 23/25 missing (8%)
@@ -117,29 +115,17 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L396 text "安装前会实时检查端口冲突，当前服务端口会优先显示在运行入口里。"
 - _…and 15 more_
 
-### `src/app/downloads/downloads-client.tsx` — 21/22 missing (4.5%)
-
-- L292 text "全局下载速度"
-- L296 text "活跃任务"
-- L300 text "等待中"
-- L304 text "全局限速"
-- L311 text "需 manage-node 权限"
-- L319 text "⬇   个下载中"
-- L320 text "⏳   个等待中"
-- L354 text "暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。"
-- _…and 13 more_
-
-### `src/app/files/files-browser-spa.tsx` — 20/27 missing (25.9%)
+### `src/app/files/files-browser-spa.tsx` — 19/27 missing (29.6%)
 
 - L207 text "当前："
 - L222 text "搜索存储节点"
 - L225 placeholder placeholder= "节点名称、类型或 ID"
-- L235 text "选择存储节点"
 - L244 text "🌐 全部节点"
 - L253 text "没有匹配的节点"
 - L396 aria-label aria-label= "面包屑"
 - L527 aria-label aria-label= "目录树"
-- _…and 12 more_
+- L536 text "目录树"
+- _…and 11 more_
 
 ### `src/app/servers/server-card-actions.tsx` — 16/24 missing (33.3%)
 
@@ -154,30 +140,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L195 aria-label aria-label= "编辑 VPS 节点"
 - _…and 8 more_
 
-### `src/app/servers/server-create-form.tsx` — 16/24 missing (33.3%)
-
-- L37 text "连接方式"
-- L65 text "SSH 密钥"
-- L74 text "选择密钥"
-- L126 placeholder placeholder= "留空，不使用默认密码"
-- L136 text "密码不会预填；请手动输入目标 VPS 当前 SSH 密码。"
-- L164 text "添加 VPS 节点"
-- L165 text "录入 SSH 密钥、IP 与端口完成纳管"
-- L189 placeholder placeholder= "例如 prod-1"
-- _…and 8 more_
-
-### `src/app/files/page.tsx` — 15/17 missing (11.8%)
-
-- L217 title title= "文件与存储管理"
-- L232 text "系统自检"
-- L246 text "文件节点"
-- L254 text "活跃文件"
-- L262 text "当前目录"
-- L270 text "回收站"
-- L284 text "全局文件搜索"
-- L285 text "跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。"
-- _…and 7 more_
-
 ### `src/app/servers/server-overview-details.tsx` — 15/15 missing (0%)
 
 - L155 aria-label aria-label= "Direct Gateway 修复建议"
@@ -190,18 +152,6 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L360 text "这里展示的是可执行诊断入口：节点“启用”只表示允许接收操作，不等于 SSH、SFTP 或 Direct
 							Gateway 实时在线。"
 - L368 text "查看实时监控 JSON"
-- _…and 7 more_
-
-### `src/app/storage/storage-node-create-form.tsx` — 15/20 missing (25%)
-
-- L24 text "新增存储节点"
-- L25 text "支持本机存储与绑定 VPS 的 SFTP 存储节点。"
-- L46 text "根目录"
-- L52 text "绑定 VPS"
-- L52 text "*（SFTP 必填绑定VPS或远端主机）"
-- L54 text "不绑定"
-- L61 text "远端主机"
-- L61 text "*（SFTP 必填远端主机或绑定VPS）"
 - _…and 7 more_
 
 ### `src/app/files/file-batch-toolbar.tsx` — 14/17 missing (17.6%)
@@ -218,98 +168,138 @@ Each row is a Chinese string that appears in source but has no matching key in `
 - L145 aria-label aria-label= "批量移动目标路径"
 - _…and 6 more_
 
-### `src/app/operation-tasks/operation-task-list-client.tsx` — 14/20 missing (30%)
+### `src/app/files/page.tsx` — 14/17 missing (17.6%)
 
-- L86 text "共   条"
-- L99 text "按当前筛选结果归类失败任务，优先处理重复出现的失败模式。"
-- L101 text "共   条失败"
-- L106 text "来源：  · 最新："
-- L113 text "最近任务"
-- L114 text "可优先查看失败/运行中任务，并按 durable job 类型缩小排查范围。"
-- L118 text "状态筛选"
-- L124 text "任务类型"
+- L217 title title= "文件与存储管理"
+- L246 text "文件节点"
+- L254 text "活跃文件"
+- L262 text "当前目录"
+- L270 text "回收站"
+- L284 text "全局文件搜索"
+- L285 text "跨本地和 SFTP 节点搜索文件名，适合快速定位配置、日志和上传文件。"
+- L288 text "打开全局搜索"
 - _…and 6 more_
 
-### `src/app/storage/storage-node-edit-form.tsx` — 14/19 missing (26.3%)
+### `src/app/storage/storage-node-create-form.tsx` — 14/20 missing (30%)
+
+- L24 text "新增存储节点"
+- L25 text "支持本机存储与绑定 VPS 的 SFTP 存储节点。"
+- L52 text "绑定 VPS"
+- L52 text "*（SFTP 必填绑定VPS或远端主机）"
+- L54 text "不绑定"
+- L61 text "远端主机"
+- L61 text "*（SFTP 必填远端主机或绑定VPS）"
+- L73 text "访问模式"
+- _…and 6 more_
+
+### `src/app/storage/storage-node-edit-form.tsx` — 13/19 missing (31.6%)
 
 - L41 text "编辑存储节点"
-- L62 text "根目录"
 - L68 text "绑定 VPS"
 - L68 text "*（SFTP 必填绑定VPS或远端主机）"
 - L70 text "不绑定"
 - L77 text "远端主机"
 - L77 text "*（SFTP 必填远端主机或绑定VPS）"
 - L89 text "访问模式"
-- _…and 6 more_
-
-### `src/app/downloads/create-download-form.tsx` — 13/15 missing (13.3%)
-
-- L89 text "新建下载任务"
-- L101 text "📋 批量模式"
-- L104 text "每行一个链接"
-- L112 text "下载链接（每行一个）"
-- L123 text "批量模式仅用于多个 HTTP/HTTPS 链接；磁力/BT 链接请单独创建任务，不要与普通链接混用。"
-- L133 text "下载链接"
-- L177 text "保存路径"
-- L191 placeholder placeholder= "留空自动"
+- L91 text "网站服务器中转（最安全）"
 - _…and 5 more_
 
-### `src/app/files/file-list-client.tsx` — 13/23 missing (43.5%)
+### `src/app/files/file-list-client.tsx` — 12/23 missing (47.8%)
 
 - L394 title title= "下载目录归档"
 - L759 aria-label aria-label= "全选文件"
-- L781 text "修改时间"
 - L799 aria-label aria-label= "选择文件夹（暂未启用）"
 - L966 text "打开"
 - L1086 aria-label aria-label= "关闭提醒"
 - L1104 text "· 已选   个"
 - L1110 title title= "列表视图"
-- _…and 5 more_
-
-### `src/app/image-bed/image-bed-page-client.tsx` — 13/19 missing (31.6%)
-
-- L504 text "暂无图片，上传第一张吧"
-- L545 text "来源："
-- L563 text "上一页"
-- L565 text "下一页"
-- L585 text "☁️ 从云盘发布到图床"
-- L588 text "存储节点（本地或 SFTP）"
-- L590 text "选择存储节点"
-- L595 text "文件相对路径"
-- _…and 5 more_
-
-### `src/app/scheduled-tasks/scheduled-task-list-client.tsx` — 13/22 missing (40.9%)
-
-- L129 text "搜索定时任务 / 执行日志"
-- L144 text "+ 创建定时任务"
-- L174 text "原因："
-- L176 text "目标节点：  台"
-- L177 text "已执行：  次"
-- L178 text "上次运行："
-- L179 text "下次运行："
-- L182 text "最近执行日志"
-- _…and 5 more_
-
-### `src/app/deployments/deployment-launch-form.tsx` — 12/13 missing (7.7%)
-
-- L45 text "请先到“命令模板”创建带变量占位符的部署模板，再回到这里选择目标 VPS 发起部署。"
-- L54 text "暂无可用 VPS，不能发起部署。"
-- L55 text "请先到服务器管理页面添加或启用 VPS，部署模板会在这里选择目标节点后进入审批链路。"
-- L56 text "去添加 VPS"
-- L100 text "部署模板"
-- L111 text "部署原因"
-- L113 placeholder placeholder= "例如：上线新版本 / 修复服务异常"
-- L122 text "模板变量"
+- L1110 aria-label aria-label= "列表视图"
 - _…and 4 more_
 
-### `src/app/shares/create-share-form.tsx` — 12/13 missing (7.7%)
+### `src/app/deployments/deployment-export-panel.tsx` — 11/11 missing (0%)
 
-- L71 text "+ 高级创建分享链接"
-- L78 text "高级分享链接"
-- L79 text "选择存储节点和路径。目录分享会公开列出该路径下已索引文件，访问者可逐个下载。"
-- L81 text "收起"
-- L92 text "访问路径"
-- L96 text "分享类型"
-- L98 text "目录：允许访问路径下所有已索引文件"
-- L99 text "单文件：只允许下载该文件"
-- _…and 4 more_
+- L218 text "迁移部署导出包"
+- L219 text "生成可审计的便携部署模板：环境变量示例、systemd 单元、Caddy 示例和部署脚本。导出内容只包含占位符，不会写入生产密钥或连接串。"
+- L229 text "目标域名"
+- L238 text "应用标识"
+- L266 text "·   个文件 ·   KB · 危险演示开关默认关闭"
+- L325 text "目录树"
+- L327 text "暂无文件"
+- L395 text "查看中"
+- _…and 3 more_
+
+### `src/app/servers/ssh-key-create-form.tsx` — 10/13 missing (23.1%)
+
+- L18 text "添加 SSH 密钥"
+- L19 text "用于节点纳管的 SSH 密钥对"
+- L27 placeholder placeholder= "例如 prod-key"
+- L35 text "可直接粘贴 OpenSSH 私钥，也可以只上传 PuTTY .ppk 文件；上传 .ppk 时后端会自动转换并提取公钥。"
+- L40 text "私钥"
+- L41 placeholder placeholder= "粘贴 SSH 私钥内容；如果上传 .ppk 可留空"
+- L45 text "公钥"
+- L50 text "PuTTY .ppk 上传"
+- _…and 2 more_
+
+### `src/app/servers/batch-server-action-panel.tsx` — 9/10 missing (10%)
+
+- L45 text "批量节点操作"
+- L46 text "先勾选节点，再统一启用或停用。适合维护窗口和巡检后的回收操作。"
+- L48 text "当前共有   台启用节点，已选中   台"
+- L58 text "已选中：  台"
+- L60 text "其中启用   台，停用   台"
+- L61 text "当前为部分选择"
+- L88 text "确认停用   台节点"
+- L97 text "批量停用所选节点"
+- _…and 1 more_
+
+### `src/components/two-factor-settings.tsx` — 9/12 missing (25%)
+
+- L81 text "🔐 两步验证 (2FA)"
+- L93 text "启用两步验证后，登录时需要输入验证器 App 生成的6位动态验证码，增强账户安全性。"
+- L108 text "两步验证已启用。如需关闭，请输入验证器 App 中的当前验证码。"
+- L122 text "1. 使用验证器 App（如 Google Authenticator、Microsoft Authenticator）扫描下方二维码"
+- L134 text "密钥（手动输入）："
+- L137 text "2. 输入验证器 App 中显示的6位验证码："
+- L140 text "6位验证码"
+- L172 text "输入验证器 App 中的当前验证码以关闭两步验证："
+- _…and 1 more_
+
+### `src/app/media/[id]/page.tsx` — 8/13 missing (38.5%)
+
+- L136 text "← 返回媒体库"
+- L160 text "打开源文件"
+- L185 text "此媒体类型暂不支持在线预览，请下载后查看。"
+- L190 aria-label aria-label= "媒体播放导航"
+- L199 text "上一项"
+- L205 text "已经是第一项"
+- L214 text "下一项"
+- L220 text "已经是最后一项"
+
+### `src/app/audit/page.tsx` — 7/8 missing (12.5%)
+
+- L42 text "回到首页"
+- L43 text "去系统自检"
+- L62 text "高风险动作监控"
+- L63 text "已重点跟踪命令执行、文件删除、服务器删除、权限变更、容器重启和令牌创建。当前 WARNING 占比  % ，CRITICAL 占比  % ，异常增多时优先从下方日志按动作筛选复核。"
+- L70 text "按动作筛查："
+- L77 text "最常见动作"
+- L80 text "暂无动作统计。"
+
+### `src/app/quick-services/config-preview-dialog.tsx` — 7/9 missing (22.2%)
+
+- L72 text "请确认端口、挂载和公开访问边界后继续。"
+- L77 text "服务："
+- L81 text "镜像："
+- L85 text "端口："
+- L89 text "额外端口："
+- L99 text "宿主机挂载："
+- L105 text "公开端口不会经过 VControlHub 登录鉴权；若服务暴露到公网，请确认防火墙、VPN、反代或应用自身账号已配置。"
+
+### `src/app/share/[token]/page.tsx` — 6/12 missing (50%)
+
+- L82 text "有效期"
+- L83 text "永久有效"
+- L93 text "可下载文件"
+- L94 text "最多显示 200 个已索引文件"
+- L99 text "⬇ 下载整个目录"
+- L104 text "当前目录暂未发现可下载文件。系统已自动尝试刷新目录索引，请稍后重试或联系分享者确认目录内有文件。"

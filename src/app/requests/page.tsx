@@ -86,16 +86,16 @@ export default async function RequestsPage() {
 											<InitiatorBadge assistant={request.isAssistantInitiated} />
 										</div>
 										{canApprove ? (
-										<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">{request.command}</p>
-									) : (
-										<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">🔒 仅审批人可查看命令内容</p>
-									)}
-										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">原因：{request.reason}</p>}
-										<p className="mt-1 text-[11px] text-slate-600">申请人：{request.requester.displayName || request.requester.username}</p>
-									</div>
-									<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
-										目标 {request.targets.length} 台
-									</div>
+											<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-cyan-100/80 border border-white/[0.04]">{request.command}</p>
+										) : (
+											<p className="mt-2.5 rounded-lg bg-slate-950/60 px-3 py-2 font-mono text-xs text-slate-500 border border-white/[0.04]">{t("requestsPage.card.approvalOnly", locale)}</p>
+										)}
+										{request.reason && <p className="mt-2 text-sm text-[var(--text-secondary)]">{t("requestsPage.card.reason", locale)}{request.reason}</p>}
+										<p className="mt-1 text-[11px] text-slate-600">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
+										</div>
+										<div className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-[var(--text-secondary)] shrink-0">
+										{t("requestsPage.card.targetCount", locale).replace("{count}", String(request.targets.length))}
+										</div>
 								</div>
 
 								<div className="mt-4 grid gap-3 lg:grid-cols-3">
@@ -110,7 +110,7 @@ export default async function RequestsPage() {
 										</div>
 									</InfoSection>
 
-									<InfoSection title="最新审批">
+									<InfoSection title={t("requestsPage.card.latestApprovalTitle", locale)}>
 										{request.latestApproval ? (
 											<InfoItem className="text-sm">
 												<div className={`font-medium ${request.latestApproval.approved ? "text-emerald-300" : "text-rose-300"}`}>
@@ -122,11 +122,11 @@ export default async function RequestsPage() {
 												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-[var(--text-secondary)]">{request.latestApproval.comment}</div>}
 											</InfoItem>
 										) : (
-											<p className="text-xs text-slate-500">尚未形成审批记录。</p>
+											<p className="text-xs text-slate-500">{t("requestsPage.card.latestApprovalEmpty", locale)}</p>
 										)}
 									</InfoSection>
 
-									<InfoSection title="执行 / worker 记录">
+									<InfoSection title={t("requestsPage.card.executionLogsTitle", locale)}>
 										{request.executionLogs.length > 0 ? (
 											<div className="space-y-2">
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
@@ -137,7 +137,7 @@ export default async function RequestsPage() {
 												))}
 											</div>
 										) : (
-											<p className="text-xs text-slate-500">暂无执行日志。</p>
+											<p className="text-xs text-slate-500">{t("requestsPage.card.executionLogsEmpty", locale)}</p>
 										)}
 									</InfoSection>
 								</div>

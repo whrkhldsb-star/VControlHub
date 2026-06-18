@@ -63,17 +63,17 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950 p-5 shadow-2xl">
             <h3 id={`cancel-command-${commandRequestId}-title`} className="text-lg font-semibold text-white">{t("requestsPage.cancel.confirmTitle")}</h3>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              将取消“{commandTitle}”。若 SSH 子进程仍在当前执行器内运行，系统会发送终止信号；否则会把仍处于待审批/已批准/运行中的目标标记为 CANCELLED。
+              {t("requestsPage.cancel.confirmBody").replace("{title}", commandTitle)}
             </p>
             <label htmlFor={`cancel-command-${commandRequestId}-reason`} className="mt-4 block text-sm font-medium text-slate-200">
-              取消原因（可选）
+              {t("requestsPage.cancel.reasonLabel")}
             </label>
             <textarea
               id={`cancel-command-${commandRequestId}-reason`}
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               className="mt-2 min-h-20 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white outline-none focus:border-rose-300"
-              placeholder="例如：维护窗口变更、目标选错、需要重新提交参数……"
+              placeholder={t("requestsPage.cancel.reasonPlaceholder")}
             />
             <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
@@ -85,7 +85,7 @@ export function CancelCommandButton({ commandRequestId, commandTitle }: Props) {
                 }}
                 className="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/5 disabled:opacity-50"
               >
-                保留命令
+                {t("requestsPage.cancel.keep")}
               </button>
               <button
                 type="button"
