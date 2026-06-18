@@ -15,6 +15,7 @@ export type Locale = "zh" | "en";
 
 import { zh as accountpasswordpageZh, en as accountpasswordpageEn } from "./dictionaries/account-password-page";
 import { zh as aiZh, en as aiEn } from "./dictionaries/ai";
+import { zh as aichatapiZh, en as aichatapiEn } from "./dictionaries/ai-chat-api";
 import { zh as aiopspageZh, en as aiopspageEn } from "./dictionaries/ai-ops-page";
 import { zh as alertrulespageZh, en as alertrulespageEn } from "./dictionaries/alert-rules-page";
 import { zh as apidocspageZh, en as apidocspageEn } from "./dictionaries/api-docs-page";
@@ -90,6 +91,7 @@ import { zh as storagepageZh, en as storagepageEn } from "./dictionaries/storage
 const zh: Record<string, string> = {
 	...accountpasswordpageZh,
 	...aiZh,
+	...aichatapiZh,
 	...aiopspageZh,
 	...alertrulespageZh,
 	...apidocspageZh,
@@ -166,6 +168,7 @@ const zh: Record<string, string> = {
 const en: Record<string, string> = {
 	...accountpasswordpageEn,
 	...aiEn,
+	...aichatapiEn,
 	...aiopspageEn,
 	...alertrulespageEn,
 	...apidocspageEn,

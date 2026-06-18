@@ -15,6 +15,7 @@ import {
   createHostedAction,
   executeSafeAction,
 } from "@/lib/ai/hosted-service";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +39,11 @@ type HistoryMessage = {
 };
 
 export async function POST(request: Request) {
+  const locale = await getServerLocale();
   const rl = checkRateLimit(getClientIp(request), AI_CHAT_LIMIT);
   if (!rl.allowed) {
     return NextResponse.json(
-      { error: "请求过于频繁，请稍后再试" },
+      { error: t("apiAiChat.rateLimited", locale) },
       {
         status: 429,
         headers: { "Retry-After": String(Math.ceil(rl.retryAfterMs / 1000)) },
@@ -51,11 +53,11 @@ export async function POST(request: Request) {
 
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorMessage: "AI 请求失败" },
+    { permission: "ai:chat", errorMessage: t("apiAiChat.errorMessage", locale) },
     async ({ session }) => {
       if (!session)
         return NextResponse.json(
-          { error: "未登录或会话已过期" },
+          { error: t("apiAiChat.unauthorized", locale) },
           { status: 401 },
         );
 
@@ -69,23 +71,23 @@ export async function POST(request: Request) {
       try {
         body = await request.json();
       } catch {
-        throw new ValidationError("无效请求");
+        throw new ValidationError(t("apiAiChat.invalidRequest", locale));
       }
 
       const parsed = chatRequestSchema.safeParse(body);
       if (!parsed.success) {
-        throw new ValidationError("输入参数无效");
+        throw new ValidationError(t("apiAiChat.invalidInput", locale));
       }
 
       if (!body.conversationId || !body.content?.trim()) {
-        throw new ValidationError("缺少必要参数");
+        throw new ValidationError(t("apiAiChat.missingParams", locale));
       }
 
       let conv: Awaited<ReturnType<typeof getConversationById>>;
       try {
         conv = await getConversationById(body.conversationId, session.userId);
       } catch {
-        throw new NotFoundError("对话不存在");
+        throw new NotFoundError(t("apiAiChat.conversationNotFound", locale));
       }
 
       const provider = conv.provider;
@@ -165,7 +167,7 @@ export async function POST(request: Request) {
               `--- File: ${f.name} ---\n${f.content}\n--- End of ${f.name} ---`,
           )
           .join("\n\n");
-        fullText = `${userText}\n\n📎 附件内容:\n\n${fileParts}`;
+        fullText = `${userText}${t("apiAiChat.attachmentPrefix", locale)}${fileParts}`;
       }
 
       if (hasImages) {
@@ -240,7 +242,7 @@ export async function POST(request: Request) {
             session.userId,
           );
         } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : "AI 请求失败";
+          const msg = e instanceof Error ? e.message : t("apiAiChat.requestFailedFallback", locale);
           throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
         }
 
@@ -267,7 +269,7 @@ export async function POST(request: Request) {
                 if (!reader) {
                   controller.enqueue(
                     encoder.encode(
-                      `data: ${JSON.stringify({ error: "无法读取响应流" })}\n\n`,
+                      `data: ${JSON.stringify({ error: t("apiAiChat.cannotReadStream", locale) })}\n\n`,
                     ),
                   );
                   controller.close();
@@ -410,7 +412,7 @@ export async function POST(request: Request) {
                 }
               } catch (err) {
                 const errMsg =
-                  err instanceof Error ? err.message : "流式传输错误";
+                  err instanceof Error ? err.message : t("apiAiChat.streamErrorFallback", locale);
                 controller.enqueue(
                   encoder.encode(
                     `data: ${JSON.stringify({ type: "error", error: errMsg })}\n\n`,
@@ -427,7 +429,7 @@ export async function POST(request: Request) {
                 data: {
                   conversationId: conv.id,
                   role: "assistant",
-                  content: fullContent || "(无响应内容)",
+                  content: fullContent || t("apiAiChat.emptyContent", locale),
                   reasoningContent: fullReasoning || undefined,
                   toolCalls: JSON.stringify(toolCalls),
                   model: conv.model,
@@ -526,7 +528,7 @@ export async function POST(request: Request) {
                     allToolResults.push({
                       toolCallId,
                       toolName: tool.name,
-                      result: "等待审批",
+                      result: t("apiAiChat.waitingForApproval", locale),
                       needsApproval: true,
                       actionId: action.id,
                     });
@@ -566,7 +568,7 @@ export async function POST(request: Request) {
       }
 
       // Fallback (should not reach here)
-      throw new AppError({ code: "INTERNAL_ERROR", message: "意外错误", status: 500 });
+      throw new AppError({ code: "INTERNAL_ERROR", message: t("apiAiChat.unexpectedError", locale), status: 500 });
     },
   );
 }
