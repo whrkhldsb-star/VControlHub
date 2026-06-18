@@ -24,6 +24,12 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: vi.fn().mockResolvedValue({
+    get: vi.fn().mockReturnValue(undefined),
+  }),
+}));
+
 vi.mock("@/lib/deployment/service", () => ({
   listDeploymentRuns: vi.fn().mockResolvedValue([]),
   listDeploymentTemplates: vi.fn().mockResolvedValue([

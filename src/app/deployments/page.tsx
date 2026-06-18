@@ -7,6 +7,7 @@ import { DeploymentLaunchForm } from "./deployment-launch-form";
 import { DeploymentExportPanel } from "./deployment-export-panel";
 import { ResendDeployButton } from "./resend-deploy-button";
 import { RollbackDeployButton } from "./rollback-deploy-button";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,11 @@ function deploymentStatusTone(status: string) {
 export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
 
 	const session = await requireSession("/deployments");
-	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text="你没有应用部署查看权限。" /></PageShell>;
+	const locale = await getServerLocale();
+	const tr = (key: string) => t(key, locale);
+	const trTpl = (key: string, vars: Record<string, string>) =>
+		Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), tr(key));
+	if (!sessionHasPermission(session, "deploy:read")) return <PageShell><EmptyState text={tr("deploymentsPage.page.noPermission")} /></PageShell>;
 	const canRun = sessionHasPermission(session, "deploy:run");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = await searchParams;
@@ -33,50 +38,50 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const latestRun = runs[0];
 	return (
 		<PageShell>
-			<PageHeader eyebrow="Deploy" title="应用部署" description="选择部署模板 → 填写变量 → 选择目标 VPS → 提交审批 → 自动执行。" />
+			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
 
 			{/* How it works */}
 			<section data-tone="cyan" className="mb-6 rounded-xl border border-cyan-400/20 p-5">
-				<h2 className="text-sm font-semibold text-white mb-3">💡 使用流程</h2>
+				<h2 className="text-sm font-semibold text-white mb-3">{tr("deploymentsPage.page.howItWorks.title")}</h2>
 				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">📝</div>
-						<div className="font-medium text-white">1. 创建模板</div>
-						<div className="mt-1">在「命令模板」页面创建带 <code className="text-cyan-300">{"{{变量名}}"}</code> 的部署脚本</div>
+						<div className="font-medium text-white">{tr("deploymentsPage.page.howItWorks.step1.title")}</div>
+						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step1.desc").replace("{{变量名}}", "{{variable}}")}</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🎯</div>
-						<div className="font-medium text-white">2. 选择模板</div>
-						<div className="mt-1">在下方选择你要部署的模板</div>
+						<div className="font-medium text-white">{tr("deploymentsPage.page.howItWorks.step2.title")}</div>
+						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step2.desc")}</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">⚙️</div>
-						<div className="font-medium text-white">3. 填写变量</div>
-						<div className="mt-1">填写模板所需的变量值（如版本号、端口等）</div>
+						<div className="font-medium text-white">{tr("deploymentsPage.page.howItWorks.step3.title")}</div>
+						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step3.desc")}</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🖥️</div>
-						<div className="font-medium text-white">4. 选择 VPS</div>
-						<div className="mt-1">勾选要部署到的目标服务器</div>
+						<div className="font-medium text-white">{tr("deploymentsPage.page.howItWorks.step4.title")}</div>
+						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step4.desc")}</div>
 					</div>
 					<div className="rounded-lg border border-white/[0.06] bg-black/20 p-3 text-center">
 						<div className="text-lg mb-1">🚀</div>
-						<div className="font-medium text-white">5. 提交审批</div>
-						<div className="mt-1">进入审批链路，审批通过后自动执行并记录日志</div>
+						<div className="font-medium text-white">{tr("deploymentsPage.page.howItWorks.step5.title")}</div>
+						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step5.desc")}</div>
 					</div>
 				</div>
-				<p className="mt-3 text-xs text-slate-500">每次部署都会保存不可变快照；配置了回滚命令的模板可执行真实回滚，未配置时仍可按原模板重发。所有操作经过审批链路，确保可审计。</p>
+				<p className="mt-3 text-xs text-slate-500">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
 			</section>
 			{formError && (
 				<div role="alert" data-tone="rose" className="mb-6 rounded-xl border border-rose-400/20 px-4 py-3 text-sm text-rose-200">
-					部署提交失败：{formError}
+					{tr("deploymentsPage.page.submitFailed")}{formError}
 				</div>
 			)}
 			{canExport && <DeploymentExportPanel />}
 			{canRun && (
 				<section data-card className="mb-6  p-5">
-					<h2 className="text-sm font-semibold text-white">发起模板部署</h2>
-					<p className="mt-1 text-xs text-slate-500">选择模板后填写变量和目标 VPS。提交后进入命令审批/执行链路，不会绕过平台审计。</p>
+					<h2 className="text-sm font-semibold text-white">{tr("deploymentsPage.page.launchSection.title")}</h2>
+					<p className="mt-1 text-xs text-slate-500">{tr("deploymentsPage.page.launchSection.desc")}</p>
 					<DeploymentLaunchForm templates={templates} servers={servers} />
 				</section>
 			)}
@@ -84,13 +89,13 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<section data-tone="emerald" className="mb-6 rounded-xl border border-emerald-400/20 p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70">真实回滚</p>
-							<h2 className="mt-1 text-sm font-semibold text-white">最近部署：{latestRun.template.name}</h2>
-							<p className="mt-1 text-xs text-[var(--text-secondary)]">目标 {latestRun.serverIds.length} 台 · {latestRun.createdAt.toLocaleString("zh-CN")} · 快照 {latestRun.snapshotId || "待生成"}</p>
+							<p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/70">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
+							<h2 className="mt-1 text-sm font-semibold text-white">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
+							<p className="mt-1 text-xs text-[var(--text-secondary)]">{trTpl("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: latestRun.createdAt.toLocaleString("zh-CN"), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
 						<span className={`rounded-full border px-2.5 py-1 text-xs ${deploymentStatusTone(latestRun.status)}`}>{latestRun.status}</span>
 					</div>
-					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{latestRun.snapshot?.rollbackCommand || "该部署快照没有回滚命令，可使用重发作为兼容操作。"}</code>
+					<code className="mt-4 block max-h-24 overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
 					<div className="mt-4 flex flex-wrap items-center gap-3">
 						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
 						<ResendDeployButton
@@ -98,29 +103,29 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 							variables={latestRun.variables as Record<string, string> | null}
 							serverIds={latestRun.serverIds}
 							reason={`重新提交部署：${latestRun.template.name}`}
-							label="重新提交部署"
+							label={tr("deploymentsPage.launch.title")}
 						/>
-						<span className="text-xs text-slate-500">真实回滚执行快照中的 rollback command；重新提交部署会再次执行原模板。</span>
+						<span className="text-xs text-slate-500">{tr("deploymentsPage.page.latestDeploy.help")}</span>
 					</div>
 				</section>
 			)}
 			<section data-card className="">
-				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">部署运行</div>
+				<div className="border-b border-white/[0.06] px-5 py-4 text-sm font-semibold text-white">{tr("deploymentsPage.page.runsSection.title")}</div>
 				<div className="divide-y divide-white/[0.06]">
-					{runs.length === 0 ? <EmptyState text="暂无部署运行记录" /> : runs.map((r) => (
+					{runs.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : runs.map((r) => (
 						<div key={r.id} className="px-5 py-4">
 							<div className="flex items-center justify-between gap-3">
 								<div>
 									<h3 className="text-sm font-medium text-white">{r.template.name}</h3>
-									<p className="mt-1 text-xs text-slate-500">目标 {r.serverIds.length} 台 · {r.createdAt.toLocaleString("zh-CN")} · 审批 {r.commandRequestId || "待创建"}</p>
+									<p className="mt-1 text-xs text-slate-500">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString("zh-CN"), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
 								</div>
 								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">Rollback: {r.snapshot.rollbackCommand}</code>}
+							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div data-tone="emerald" className="mt-2 rounded-lg border border-emerald-400/20 px-3 py-2 text-xs text-emerald-100">
-									最近回滚：{r.rollbackAttempts[0]!.status} · 审批 {r.rollbackAttempts[0]!.commandRequestId || "待创建"} · {r.rollbackAttempts[0]!.createdAt.toLocaleString("zh-CN")}
+									{trTpl("deploymentsPage.page.runsSection.rollbackMeta", { status: r.rollbackAttempts[0]!.status, request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: r.rollbackAttempts[0]!.createdAt.toLocaleString("zh-CN") })}
 								</div>
 							)}
 							{r.errorMessage && <p className="mt-2 text-xs text-rose-300">{r.errorMessage}</p>}
