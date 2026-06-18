@@ -1,7 +1,6 @@
 /**
- * i18n dictionary: `settingsClient.*` (12 keys).
+ * i18n dictionary: `settingsClient.*`.
  */
-
 export const zh: Record<string, string> = {
 	"settingsClient.saveSuccess": "设置已保存。",
 	"settingsClient.saveFailed": "保存失败",
@@ -15,6 +14,60 @@ export const zh: Record<string, string> = {
 	"settingsClient.save": "保存",
 	"settingsClient.unsavedChanges": "未保存的修改",
 	"settingsClient.confirmSave": "确认保存",
+
+	"settingsClient.metadataNoRecord": "暂无记录",
+	"settingsClient.emptyValue": "（空）",
+	"settingsClient.noPermission": "当前角色无系统设置权限",
+	"settingsClient.savedWithMessage": "✓ 设置已保存",
+	"settingsClient.categoryTitle": "⚙️ 设置分类",
+	"settingsClient.categoryDescription": "点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。",
+	"settingsClient.expandAll": "全部展开",
+	"settingsClient.collapseAll": "全部折叠",
+	"settingsClient.sectionItemsSuffixAdvanced": " 项 · 高级",
+	"settingsClient.sectionItemsSuffix": " 项",
+
+	"settingsClient.recentlyUpdated": "最近修改",
+	"settingsClient.metadataTime": "时间：",
+	"settingsClient.metadataActor": "修改人：",
+	"settingsClient.metadataNoActor": "暂无审计记录",
+
+	"settingsClient.riskHigh": "高风险",
+	"settingsClient.riskMedium": "中风险",
+	"settingsClient.riskHighDescription": "改此值可能立即影响已运行服务（密码 / 强保活 / 鉴权相关）",
+	"settingsClient.riskMediumDescription": "改此值会影响行为但不会立即破坏（多数 runtime 调参）",
+
+	"settingsClient.fieldIsDefault": "已经是默认值",
+	"settingsClient.fieldRestoreDefault": "恢复默认 ({value})",
+	"settingsClient.fieldRestoreAria": "恢复 {label} 到默认值",
+	"settingsClient.fieldDefaultSr": "默认",
+
+	"settingsClient.highRiskWarning": "高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。",
+	"settingsClient.runtimeValueLabel": "当前运行值：",
+	"settingsClient.runtimeSourceLabel": "来源：",
+	"settingsClient.runtimeAppliesLabel": "生效位置：",
+	"settingsClient.runtimeEnvLabel": "环境变量：",
+	"settingsClient.runtimeRangeLabel": "范围：",
+	"settingsClient.runtimeRestartWarning": "保存后需重启对应服务才会改变已启动进程。",
+
+	"settingsClient.changesCount": "{count} 项已修改",
+	"settingsClient.changesCountHighRisk": "{count} 项已修改 · {high} 高风险",
+	"settingsClient.changesCountMediumRisk": "{count} 项已修改 · {medium} 中风险",
+
+	"settingsClient.diffTableField": "字段",
+	"settingsClient.diffTableOriginal": "原值",
+	"settingsClient.diffTableNew": "新值",
+	"settingsClient.diffTableRisk": "风险",
+
+	"settingsClient.confirmHighRiskTitle": "确认高风险修改",
+	"settingsClient.confirmHighRiskDescription": "以下 {count} 项修改会立即影响已运行服务或安全策略，请二次确认。",
+	"settingsClient.confirmOriginal": "原值 ",
+	"settingsClient.confirmNew": "新值 ",
+	"settingsClient.confirmCancel": "取消",
+	"settingsClient.confirmSaveAction": "确认保存",
+
+	"settingsClient.expandAria": "{count} 项已修改, {expanded} 改动列表",
+	"settingsClient.expanded": "展开",
+	"settingsClient.collapsed": "收起",
 };
 
 export const en: Record<string, string> = {
@@ -30,4 +83,58 @@ export const en: Record<string, string> = {
 	"settingsClient.save": "Save",
 	"settingsClient.unsavedChanges": "Unsaved changes",
 	"settingsClient.confirmSave": "Confirm save",
+
+	"settingsClient.metadataNoRecord": "No record yet",
+	"settingsClient.emptyValue": "(empty)",
+	"settingsClient.noPermission": "Current role has no permission to manage system settings",
+	"settingsClient.savedWithMessage": "✓ Settings saved",
+	"settingsClient.categoryTitle": "⚙️ Settings categories",
+	"settingsClient.categoryDescription": "Click a category to jump, or expand/collapse all groups. Common items are open by default; advanced runtime parameters are collapsed.",
+	"settingsClient.expandAll": "Expand all",
+	"settingsClient.collapseAll": "Collapse all",
+	"settingsClient.sectionItemsSuffixAdvanced": " items · Advanced",
+	"settingsClient.sectionItemsSuffix": " items",
+
+	"settingsClient.recentlyUpdated": "Recently updated",
+	"settingsClient.metadataTime": "Time: ",
+	"settingsClient.metadataActor": "Actor: ",
+	"settingsClient.metadataNoActor": "No audit record",
+
+	"settingsClient.riskHigh": "High risk",
+	"settingsClient.riskMedium": "Medium risk",
+	"settingsClient.riskHighDescription": "Changing this may immediately affect running services (passwords / keepalive / authentication-related).",
+	"settingsClient.riskMediumDescription": "Changing this affects behavior but will not immediately break services (most runtime tuning).",
+
+	"settingsClient.fieldIsDefault": "Already at default",
+	"settingsClient.fieldRestoreDefault": "Restore default ({value})",
+	"settingsClient.fieldRestoreAria": "Restore {label} to default",
+	"settingsClient.fieldDefaultSr": "Default",
+
+	"settingsClient.highRiskWarning": "High-risk settings changed — please confirm you understand the impact on running services before saving.",
+	"settingsClient.runtimeValueLabel": "Current runtime value: ",
+	"settingsClient.runtimeSourceLabel": "Source: ",
+	"settingsClient.runtimeAppliesLabel": "Applies to: ",
+	"settingsClient.runtimeEnvLabel": "Environment variable: ",
+	"settingsClient.runtimeRangeLabel": "Range: ",
+	"settingsClient.runtimeRestartWarning": "Restart the affected service after saving for the change to take effect on already-started processes.",
+
+	"settingsClient.changesCount": "{count} change(s) pending",
+	"settingsClient.changesCountHighRisk": "{count} change(s) pending · {high} high risk",
+	"settingsClient.changesCountMediumRisk": "{count} change(s) pending · {medium} medium risk",
+
+	"settingsClient.diffTableField": "Field",
+	"settingsClient.diffTableOriginal": "Original",
+	"settingsClient.diffTableNew": "New",
+	"settingsClient.diffTableRisk": "Risk",
+
+	"settingsClient.confirmHighRiskTitle": "Confirm high-risk changes",
+	"settingsClient.confirmHighRiskDescription": "The following {count} change(s) will immediately affect running services or security policy. Please confirm again.",
+	"settingsClient.confirmOriginal": "Original ",
+	"settingsClient.confirmNew": "New ",
+	"settingsClient.confirmCancel": "Cancel",
+	"settingsClient.confirmSaveAction": "Confirm save",
+
+	"settingsClient.expandAria": "{count} change(s) pending, {expanded} change list",
+	"settingsClient.expanded": "expand",
+	"settingsClient.collapsed": "collapse",
 };

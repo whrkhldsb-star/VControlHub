@@ -16,6 +16,7 @@ import React from "react";
 
 import { SettingsClient } from "@/app/settings/settings-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { I18nProvider } from "@/lib/i18n/provider";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
@@ -24,6 +25,8 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: vi.fn() }),
 }));
+
+const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh">{ui}</I18nProvider>);
 
 const baseRuntimeSettings = {
 	"platform.name": "VPS 统一管控平台",
@@ -46,14 +49,14 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 	});
 
 	it("hides the pending badge when no fields are modified", () => {
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 		// No field is modified; no "项已修改" badge anywhere
 		expect(screen.queryByText(/项已修改/)).toBeNull();
 	});
 
 	it("shows a pending badge with count when a field is modified", async () => {
 		const user = userEvent.setup();
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 		// commandOutputLimitBytes is medium risk — change it to trigger badge (without opening confirm modal)
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
 		await user.type(screen.getByLabelText("命令输出保留上限（字节）"), "100000");
@@ -64,7 +67,7 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 
 	it("expands an inline diff table when the badge is clicked", async () => {
 		const user = userEvent.setup();
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
 		await user.type(screen.getByLabelText("命令输出保留上限（字节）"), "100000");
 
@@ -77,7 +80,7 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 
 	it("uses rose tone for high-risk pending changes (badge + save button)", async () => {
 		const user = userEvent.setup();
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 		// commandExecutionTimeoutMs is high risk
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -94,7 +97,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("opens the modal when saving with a high-risk change", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -114,7 +117,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("does NOT call the API when cancel is clicked", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -131,7 +134,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("calls the API only after 确认保存 is clicked", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -155,7 +158,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("does NOT open the modal when only medium/low fields are modified", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		render(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
 
 		// commandOutputLimitBytes is medium — change only this, no high
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));

@@ -12,35 +12,42 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
+import { I18nProvider } from "@/lib/i18n/provider";
 import { FieldRiskBadge, FieldRollbackButton } from "@/app/settings/settings-client";
 import { SETTINGS_SCHEMA, type FieldDef } from "@/app/settings/field-schema";
 
+const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh">{ui}</I18nProvider>);
+
 describe("FieldRiskBadge", () => {
   it("returns null for undefined or low", () => {
-    const { container: c1 } = render(<FieldRiskBadge level={undefined} />);
+    const { container: c1 } = wrap(<FieldRiskBadge level={undefined} />);
     expect(c1.firstChild).toBeNull();
-    const { container: c2 } = render(<FieldRiskBadge level="low" />);
+    const { container: c2 } = wrap(<FieldRiskBadge level="low" />);
     expect(c2.firstChild).toBeNull();
   });
 
   it("renders medium badge with amber tone and data-risk='medium'", () => {
-    render(<FieldRiskBadge level="medium" />);
+    wrap(<FieldRiskBadge level="medium" />);
     const badge = screen.getByLabelText("中风险");
     expect(badge.getAttribute("data-risk")).toBe("medium");
     expect(badge.className).toContain("amber-400");
   });
 
   it("renders high badge with rose tone and data-risk='high'", () => {
-    render(<FieldRiskBadge level="high" />);
+    wrap(<FieldRiskBadge level="high" />);
     const badge = screen.getByLabelText("高风险");
     expect(badge.getAttribute("data-risk")).toBe("high");
     expect(badge.className).toContain("rose-400");
   });
 
   it("includes a sr-only text so screen readers read '高风险' / '中风险'", () => {
-    const { rerender } = render(<FieldRiskBadge level="high" />);
+    const { rerender } = wrap(<FieldRiskBadge level="high" />);
     expect(screen.getByText("高风险")).toBeInTheDocument();
-    rerender(<FieldRiskBadge level="medium" />);
+    rerender(
+      <I18nProvider initialLocale="zh">
+        <FieldRiskBadge level="medium" />
+      </I18nProvider>,
+    );
     expect(screen.getByText("中风险")).toBeInTheDocument();
   });
 });
@@ -57,67 +64,67 @@ describe("FieldRollbackButton", () => {
   }
 
   it("renders for fields with defaultValue (non-password)", () => {
-    render(<FieldRollbackButton field={makeField()} value="改过的值" onChange={() => {}} disabled={false} />);
+    wrap(<FieldRollbackButton field={makeField()} value="改过的值" onChange={() => {}} disabled={false} />);
     expect(screen.getByRole("button", { name: /恢复 测试字段 到默认值/ })).toBeInTheDocument();
   });
 
   it("does NOT render for password fields by default", () => {
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField({ type: "password" })}
         value="secret"
         onChange={() => {}}
         disabled={false}
-      />,
+              />,
     );
     expect(screen.queryByRole("button", { name: /恢复/ })).toBeNull();
   });
 
   it("does NOT render when field.rollbackable=false even with defaultValue", () => {
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField({ rollbackable: false })}
         value="改过的值"
         onChange={() => {}}
         disabled={false}
-      />,
+              />,
     );
     expect(screen.queryByRole("button", { name: /恢复/ })).toBeNull();
   });
 
   it("does NOT render when field.defaultValue is undefined", () => {
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField({ defaultValue: undefined })}
         value=""
         onChange={() => {}}
         disabled={false}
-      />,
+              />,
     );
     expect(screen.queryByRole("button", { name: /恢复/ })).toBeNull();
   });
 
   it("is disabled when value already equals defaultValue", () => {
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField()}
         value="默认值"
         onChange={() => {}}
         disabled={false}
-      />,
+              />,
     );
     const btn = screen.getByRole("button", { name: /恢复/ });
     expect(btn).toBeDisabled();
   });
 
   it("is disabled when value is empty (treats empty as 'no value yet')", () => {
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField()}
         value=""
         onChange={() => {}}
         disabled={false}
-      />,
+              />,
     );
     const btn = screen.getByRole("button", { name: /恢复/ });
     expect(btn).toBeDisabled();
@@ -126,26 +133,26 @@ describe("FieldRollbackButton", () => {
   it("calls onChange with defaultValue when clicked", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField({ defaultValue: "原始默认" })}
         value="被改过"
         onChange={onChange}
         disabled={false}
-      />,
+              />,
     );
     await user.click(screen.getByRole("button", { name: /恢复/ }));
     expect(onChange).toHaveBeenCalledWith("原始默认");
   });
 
   it("respects the parent disabled prop", () => {
-    render(
+    wrap(
       <FieldRollbackButton
         field={makeField()}
         value="different"
         onChange={() => {}}
         disabled={true}
-      />,
+              />,
     );
     expect(screen.getByRole("button", { name: /恢复/ })).toBeDisabled();
   });

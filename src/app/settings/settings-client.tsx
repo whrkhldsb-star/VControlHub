@@ -23,10 +23,10 @@ type Props = {
 	twoFactorEnabled?: boolean;
 };
 
-function formatMetadataDate(value: Date | string | null) {
-	if (!value) return "暂无记录";
+function formatMetadataDate(value: Date | string | null, t: (key: string) => string) {
+	if (!value) return t("settingsClient.metadataNoRecord");
 	const date = value instanceof Date ? value : new Date(value);
-	if (Number.isNaN(date.getTime())) return "暂无记录";
+	if (Number.isNaN(date.getTime())) return t("settingsClient.metadataNoRecord");
 	return date.toLocaleString("zh-CN", { hour12: false });
 }
 
@@ -79,8 +79,8 @@ function getPendingChanges(
 }
 
 /** 把任意 string 值截断并转义, 适合在 diff modal 表格里展示。空值显示 "（空）"。 */
-function renderDiffValue(value: string, max = 60): string {
-	if (value === "") return "（空）";
+function renderDiffValue(value: string, t: (key: string) => string, max = 60): string {
+	if (value === "") return t("settingsClient.emptyValue");
 	if (value.length <= max) return value;
 	return `${value.slice(0, max)}…`;
 }
@@ -241,7 +241,7 @@ export function SettingsClient({
 		return (
 			<div className="rounded-xl border border-dashed border-white/[0.08] bg-white/[0.02] p-12 text-center">
 				<div className="text-4xl mb-3">🔒</div>
-				<p className="text-sm text-slate-500">当前角色无系统设置权限</p>
+				<p className="text-sm text-slate-500">{t("settingsClient.noPermission")}</p>
 			</div>
 		);
 	}
@@ -253,7 +253,7 @@ export function SettingsClient({
 			)}
 			{saved && (
 				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">
-					✓ 设置已保存{savedMessage ? ` — ${savedMessage}` : ""}
+					{t("settingsClient.savedWithMessage")}{savedMessage ? ` — ${savedMessage}` : ""}
 				</div>
 			)}
 
@@ -261,8 +261,8 @@ export function SettingsClient({
 			<nav aria-label={t("settingsClient.categoryNav")} className="p-4 space-y-3" data-card>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 					<div>
-						<h2 className="text-sm font-semibold text-white">⚙️ 设置分类</h2>
-						<p className="mt-0.5 text-xs text-slate-500">点击下方分类快速跳转，或一键展开/折叠所有分组。常用项默认展开，运行参数等高级项默认折叠。</p>
+						<h2 className="text-sm font-semibold text-white">{t("settingsClient.categoryTitle")}</h2>
+						<p className="mt-0.5 text-xs text-slate-500">{t("settingsClient.categoryDescription")}</p>
 					</div>
 					<div className="flex gap-2">
 						<button
@@ -270,14 +270,14 @@ export function SettingsClient({
 							onClick={expandAll}
 							className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
 						>
-							全部展开
+							{t("settingsClient.expandAll")}
 						</button>
 						<button
 							type="button"
 							onClick={collapseAll}
 							className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
 						>
-							全部折叠
+							{t("settingsClient.collapseAll")}
 						</button>
 					</div>
 				</div>
@@ -376,6 +376,7 @@ function SchemaDrivenSection({
 	onHighRiskBlur,
 	onHighRiskChange,
 }: SchemaDrivenSectionProps) {
+	const { t } = useI18n();
 	const saveKeys = getSectionSaveKeys(section);
 	const hasSaveButton = saveKeys.length > 0;
 	const description = typeof section.description === "function" ? section.description(settings) : section.description;
@@ -409,7 +410,7 @@ function SchemaDrivenSection({
 			badge={
 				badge ??
 				(hasSaveButton
-					? `${saveKeys.length}${section.id === "runtime" ? " 项 · 高级" : " 项"}`
+					? `${saveKeys.length}${section.id === "runtime" ? t("settingsClient.sectionItemsSuffixAdvanced") : t("settingsClient.sectionItemsSuffix")}`
 					: section.id === "2fa" ? "2FA" : undefined)
 			}
 			badgeTone={badgeTone}
@@ -522,6 +523,7 @@ function CollapsibleSection({
 	asForm = false,
 	children,
 }: CollapsibleSectionProps) {
+	const { t } = useI18n();
 	const Inner = asForm ? "form" : "div";
 	const badgeClass = BADGE_COLOR_CLASSES[badgeTone] ?? BADGE_COLOR_CLASSES.cyan;
 	return (
@@ -529,7 +531,7 @@ function CollapsibleSection({
 			<details open={open} onToggle={onToggle} className="group">
 				<summary
 					className="cursor-pointer list-none p-5 transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-cyan-300 rounded-xl"
-					aria-label={`${open ? "折叠" : "展开"} ${title} 设置区`}
+					aria-label={`${open ? t("settingsClient.collapse") : t("settingsClient.expand")} ${title} ${t("settingsClient.sectionSuffix")}`}
 				>
 					<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 						<div className="flex items-start gap-3 min-w-0 flex-1">
@@ -569,11 +571,12 @@ function CollapsibleSection({
 }
 
 function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) {
+	const { t } = useI18n();
 	return (
 		<div data-tone="amber" className="rounded-lg border border-amber-400/20 px-3 py-2 text-xs text-amber-100 light:border-amber-200 light:bg-amber-50">
-			<p className="font-semibold">最近修改</p>
-			<p>时间：{formatMetadataDate(metadata?.updatedAt ?? null)}</p>
-			<p>修改人：{metadata?.actorName ?? "暂无审计记录"}</p>
+			<p className="font-semibold">{t("settingsClient.recentlyUpdated")}</p>
+			<p>{t("settingsClient.metadataTime")}{formatMetadataDate(metadata?.updatedAt ?? null, t)}</p>
+			<p>{t("settingsClient.metadataActor")}{metadata?.actorName ?? t("settingsClient.metadataNoActor")}</p>
 		</div>
 	);
 }
@@ -587,17 +590,18 @@ function AuditSummary({ metadata }: { metadata: SettingUpdateMetadata | null }) 
  * 兄弟节点文本会让它 fail); 视觉靠图标 (⚠) + 边框 + 背景传达。
  */
 function FieldRiskBadge({ level }: { level: "low" | "medium" | "high" | undefined }) {
+	const { t } = useI18n();
 	if (!level || level === "low") return null;
 	const className =
 		level === "high"
 			? "inline-flex items-center gap-0.5 rounded border border-rose-400/30 bg-rose-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-200 light:border-rose-700/25 light:bg-rose-50 light:text-rose-800"
 			: "inline-flex items-center gap-0.5 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200 light:border-amber-700/25 light:bg-amber-50 light:text-amber-800";
-	const label = level === "high" ? "高风险" : "中风险";
-	const title = level === "high"
-		? "改此值可能立即影响已运行服务（密码 / 强保活 / 鉴权相关）"
-		: "改此值会影响行为但不会立即破坏（多数 runtime 调参）";
+	const label = level === "high" ? t("settingsClient.riskHigh") : t("settingsClient.riskMedium");
+	const description = level === "high"
+		? t("settingsClient.riskHighDescription")
+		: t("settingsClient.riskMediumDescription");
 	return (
-		<span data-risk={level} title={title} aria-label={label} className={className}>
+		<span data-risk={level} title={description} aria-label={label} className={className}>
 			<span aria-hidden>⚠</span>
 			<span className="sr-only">{label}</span>
 		</span>
@@ -621,6 +625,7 @@ function FieldRollbackButton({
 	onChange: (value: string) => void;
 	disabled: boolean;
 }) {
+	const { t } = useI18n();
 	const supportsRollback =
 		field.rollbackable !== false &&
 		field.defaultValue !== undefined &&
@@ -632,13 +637,13 @@ function FieldRollbackButton({
 			type="button"
 			onClick={() => onChange(field.defaultValue ?? "")}
 			disabled={disabled || isAtDefault}
-			title={isAtDefault ? "已经是默认值" : `恢复默认 (${field.defaultValue})`}
-			aria-label={`恢复 ${field.label} 到默认值`}
+			title={isAtDefault ? t("settingsClient.fieldIsDefault") : t("settingsClient.fieldRestoreDefault").replace("{value}", field.defaultValue ?? "")}
+			aria-label={t("settingsClient.fieldRestoreAria").replace("{label}", field.label)}
 			className="inline-flex items-center gap-0.5 rounded border border-white/[0.08] bg-white/[0.02] px-1.5 py-0.5 text-[10px] font-medium text-slate-300 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40 light:bg-slate-50 light:hover:border-cyan-500/40 light:hover:text-cyan-700"
 		>
 			<span aria-hidden>↺</span>
 			{/* 可见文本用 sr-only 隐藏避免污染父 label.textContent; 视觉只看图标 ↺ */}
-			<span className="sr-only">默认</span>
+			<span className="sr-only">{t("settingsClient.fieldDefaultSr")}</span>
 		</button>
 	);
 }
@@ -664,6 +669,7 @@ type FieldRendererProps = {
 };
 
 function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: FieldRendererProps) {
+	const { t } = useI18n();
 	if (field.type === "switch") {
 		return (
 			<div className="flex items-center justify-between gap-3">
@@ -731,6 +737,7 @@ type SelectFieldProps = {
 };
 
 function SelectField({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: SelectFieldProps) {
+	const { t } = useI18n();
 	const inputId = useId();
 	const helperId = useId();
 	const runtimeId = useId();
@@ -781,7 +788,7 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
 				>
 					<span aria-hidden className="mr-1">⚠</span>
-					高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。
+					{t("settingsClient.highRiskWarning")}
 				</p>
 			)}
 			{helperText && (
@@ -795,15 +802,15 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 					className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
 				>
 					<p>
-						当前运行值：<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}
+						{t("settingsClient.runtimeValueLabel")}<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · {t("settingsClient.runtimeSourceLabel")}{runtimeSummary.sourceLabel}
 					</p>
-					<p>生效位置：{runtimeSummary.applies}</p>
+					<p>{t("settingsClient.runtimeAppliesLabel")}{runtimeSummary.applies}</p>
 					<p>
-						环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}
+						{t("settingsClient.runtimeEnvLabel")}<code>{runtimeSummary.env}</code> · {t("settingsClient.runtimeRangeLabel")}{runtimeSummary.min}–{runtimeSummary.max}
 						{runtimeSummary.unit}
 					</p>
 					{runtimeSummary.requiresRestart && (
-						<p className="font-medium text-amber-200">保存后需重启对应服务才会改变已启动进程。</p>
+						<p className="font-medium text-amber-200">{t("settingsClient.runtimeRestartWarning")}</p>
 					)}
 				</div>
 			)}
@@ -824,6 +831,7 @@ type InputFieldProps = {
 };
 
 function InputField({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: InputFieldProps) {
+	const { t } = useI18n();
 	const inputId = useId();
 	const helperId = useId();
 	const runtimeId = useId();
@@ -867,7 +875,7 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
 				>
 					<span aria-hidden className="mr-1">⚠</span>
-					高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。
+					{t("settingsClient.highRiskWarning")}
 				</p>
 			)}
 			{helperText && (
@@ -881,15 +889,15 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 					className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
 				>
 					<p>
-						当前运行值：<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · 来源：{runtimeSummary.sourceLabel}
+						{t("settingsClient.runtimeValueLabel")}<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · {t("settingsClient.runtimeSourceLabel")}{runtimeSummary.sourceLabel}
 					</p>
-					<p>生效位置：{runtimeSummary.applies}</p>
+					<p>{t("settingsClient.runtimeAppliesLabel")}{runtimeSummary.applies}</p>
 					<p>
-						环境变量：<code>{runtimeSummary.env}</code> · 范围：{runtimeSummary.min}–{runtimeSummary.max}
+						{t("settingsClient.runtimeEnvLabel")}<code>{runtimeSummary.env}</code> · {t("settingsClient.runtimeRangeLabel")}{runtimeSummary.min}–{runtimeSummary.max}
 						{runtimeSummary.unit}
 					</p>
 					{runtimeSummary.requiresRestart && (
-						<p className="font-medium text-amber-200">保存后需重启对应服务才会改变已启动进程。</p>
+						<p className="font-medium text-amber-200">{t("settingsClient.runtimeRestartWarning")}</p>
 					)}
 				</div>
 			)}
@@ -909,6 +917,7 @@ type TextAreaFieldProps = {
 };
 
 function TextAreaField({ field, value, disabled, helperText, onChange, showHighRiskWarning, onHighRiskBlur }: TextAreaFieldProps) {
+	const { t } = useI18n();
 	const inputId = useId();
 	const helperId = useId();
 	const warningId = useId();
@@ -944,7 +953,7 @@ function TextAreaField({ field, value, disabled, helperText, onChange, showHighR
 					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
 				>
 					<span aria-hidden className="mr-1">⚠</span>
-					高风险设置已修改 — 保存前请确认你了解此改动对已运行服务的影响。
+					{t("settingsClient.highRiskWarning")}
 				</p>
 			)}
 			{helperText && (
@@ -998,6 +1007,7 @@ function SaveButtonWithDiff({
 	saving: boolean;
 	onClick: () => void;
 }) {
+	const { t } = useI18n();
 	const count = pendingChanges.length;
 	const highCount = pendingChanges.filter((c) => c.riskLevel === "high").length;
 	const mediumCount = pendingChanges.filter((c) => c.riskLevel === "medium").length;
@@ -1009,7 +1019,7 @@ function SaveButtonWithDiff({
 						type="button"
 						onClick={onToggleExpand}
 						aria-expanded={expanded}
-						aria-label={`${count} 项已修改, ${expanded ? "收起" : "展开"} 改动列表`}
+						aria-label={t("settingsClient.expandAria").replace("{count}", String(count)).replace("{expanded}", expanded ? t("settingsClient.collapsed") : t("settingsClient.expanded"))}
 						data-pending-count={count}
 						className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition ${
 							highCount > 0
@@ -1021,7 +1031,13 @@ function SaveButtonWithDiff({
 					>
 						<span aria-hidden>{expanded ? "▾" : "▸"}</span>
 						<span>
-							{count} 项已修改{highCount > 0 ? ` · ${highCount} 高风险` : mediumCount > 0 ? ` · ${mediumCount} 中风险` : ""}
+							{count > 0
+							? (() => {
+								if (highCount > 0) return t("settingsClient.changesCountHighRisk").replace("{count}", String(count)).replace("{high}", String(highCount));
+								if (mediumCount > 0) return t("settingsClient.changesCountMediumRisk").replace("{count}", String(count)).replace("{medium}", String(mediumCount));
+								return t("settingsClient.changesCount").replace("{count}", String(count));
+							})()
+							: ""}
 						</span>
 					</button>
 				)}
@@ -1035,7 +1051,7 @@ function SaveButtonWithDiff({
 							: "bg-cyan-500 text-slate-950 hover:bg-cyan-400"
 					}`}
 				>
-					{saving ? "保存中…" : "保存"}
+					{saving ? t("settingsClient.saving") : t("settingsClient.save")}
 				</button>
 			</div>
 			{expanded && count > 0 && (
@@ -1048,10 +1064,10 @@ function SaveButtonWithDiff({
 					<table className="w-full text-xs">
 						<thead className="border-b border-white/[0.08] bg-white/[0.02] text-left text-[11px] uppercase tracking-wide text-slate-400 light:bg-slate-100/70">
 							<tr>
-								<th className="px-3 py-2 font-medium">字段</th>
-								<th className="px-3 py-2 font-medium">原值</th>
-								<th className="px-3 py-2 font-medium">新值</th>
-								<th className="px-3 py-2 font-medium">风险</th>
+								<th className="px-3 py-2 font-medium">{t("settingsClient.diffTableField")}</th>
+								<th className="px-3 py-2 font-medium">{t("settingsClient.diffTableOriginal")}</th>
+								<th className="px-3 py-2 font-medium">{t("settingsClient.diffTableNew")}</th>
+								<th className="px-3 py-2 font-medium">{t("settingsClient.diffTableRisk")}</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -1064,9 +1080,9 @@ function SaveButtonWithDiff({
 								>
 									<td className="px-3 py-2 font-mono text-[11px] text-white">{change.label}</td>
 									<td className="px-3 py-2 text-slate-400 line-through">
-										{renderDiffValue(change.oldValue)}
-									</td>
-									<td className="px-3 py-2 text-cyan-100 light:text-cyan-800">{renderDiffValue(change.newValue)}</td>
+										{renderDiffValue(change.oldValue, t)}
+										</td>
+										<td className="px-3 py-2 text-cyan-100 light:text-cyan-800">{renderDiffValue(change.newValue, t)}</td>
 									<td className="px-3 py-2">
 										<FieldRiskBadge level={change.riskLevel} />
 									</td>
@@ -1095,6 +1111,7 @@ function HighRiskConfirmModal({
 	onCancel: () => void;
 	onConfirm: () => void | Promise<void>;
 }) {
+	const { t } = useI18n();
 	const dialogRef = useRef<HTMLDialogElement | null>(null);
 	const [busy, setBusy] = useState(false);
 	useEffect(() => {
@@ -1120,11 +1137,11 @@ function HighRiskConfirmModal({
 		>
 			<div className="w-[min(560px,90vw)] p-5">
 				<h2 id="high-risk-confirm-title" className="text-base font-semibold text-rose-200 light:text-rose-700">
-					确认高风险修改
-				</h2>
-				<p className="mt-1 text-xs text-slate-400">
-					以下 {changes.length} 项修改会立即影响已运行服务或安全策略，请二次确认。
-				</p>
+					{t("settingsClient.confirmHighRiskTitle")}
+					</h2>
+					<p className="mt-1 text-xs text-slate-400">
+					{t("settingsClient.confirmHighRiskDescription").replace("{count}", String(changes.length))}
+					</p>
 				<ul className="mt-3 max-h-64 space-y-2 overflow-auto pr-1">
 					{changes.map((change) => (
 						<li
@@ -1137,12 +1154,12 @@ function HighRiskConfirmModal({
 							</div>
 							<div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
 								<div>
-									<span className="text-slate-500">原值 </span>
-									<span className="text-slate-300 line-through">{renderDiffValue(change.oldValue, 40)}</span>
+									<span className="text-slate-500">{t("settingsClient.confirmOriginal")}</span>
+									<span className="text-slate-300 line-through">{renderDiffValue(change.oldValue, t, 40)}</span>
 								</div>
 								<div>
-									<span className="text-slate-500">新值 </span>
-									<span className="text-rose-100 light:text-rose-800">{renderDiffValue(change.newValue, 40)}</span>
+									<span className="text-slate-500">{t("settingsClient.confirmNew")}</span>
+									<span className="text-rose-100 light:text-rose-800">{renderDiffValue(change.newValue, t, 40)}</span>
 								</div>
 							</div>
 						</li>
@@ -1155,10 +1172,10 @@ function HighRiskConfirmModal({
 						disabled={busy}
 						data-action="cancel"
 						className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-50 light:text-slate-700 light:hover:bg-slate-50"
-					>
-						取消
-					</button>
-					<button
+						>
+						{t("settingsClient.confirmCancel")}
+						</button>
+						<button
 						type="button"
 						onClick={async () => {
 							setBusy(true);
@@ -1171,9 +1188,9 @@ function HighRiskConfirmModal({
 						disabled={busy}
 						data-action="confirm"
 						className="rounded-lg bg-rose-500 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-400 disabled:opacity-50 light:bg-rose-600 light:hover:bg-rose-500"
-					>
-						{busy ? "保存中…" : "确认保存"}
-					</button>
+						>
+						{busy ? t("settingsClient.saving") : t("settingsClient.confirmSaveAction")}
+						</button>
 				</div>
 			</div>
 		</dialog>

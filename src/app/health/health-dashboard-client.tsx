@@ -50,7 +50,7 @@ type HealthCopy = {
 		trend: string;
 		trendHeading: (name: string) => string;
 	};
-	repair: Record<string, Pick<RepairSuggestion, "label" | "description" | "action">>;
+	repair: Record<string, Pick<RepairSuggestion, "label" | "description" | "action" | "descriptionCritical" | "descriptionWarning">>;
 };
 
 const healthCopy: Record<"zh" | "en", HealthCopy> = {
@@ -94,30 +94,35 @@ const healthCopy: Record<"zh" | "en", HealthCopy> = {
 			db: {
 				label: "检查数据库连接",
 				description: "数据库状态正常，可继续关注业务层告警。",
+				descriptionCritical: "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。",
 				action: "验证 DATABASE_URL、数据库进程和 Prisma 连接",
 			},
 			runtime: {
 				label: "确认运行目录",
 				description: "运行目录基线已就绪。",
+				descriptionWarning: "部署目录或缓存目录可能缺失，建议补齐并复查权限。",
 				action: "检查 storage / uploads / downloads / backups / logs / tmp",
 			},
 			services: {
 				label: "核对核心服务",
 				description: "核心服务在线，可继续检查业务功能。",
+				descriptionCritical: "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
 				action: "验证 vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
 			},
 			git: {
 				label: "核对 GitHub 同步",
 				description: "本地提交与 origin/main 保持一致。",
+				descriptionWarning: "本地与远端可能不同步，建议确认最近推送是否完成。",
 				action: "比对本地 HEAD 与 origin/main",
 			},
 			audit: {
 				label: "复查审计高风险动作",
 				description: "可快速查看最近的命令执行、删除、权限和令牌操作。",
+				descriptionCritical: "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。",
 				action: "查看 command.execute / storage.file_delete / api_token.create",
 			},
 		},
-	},
+		},
 	en: {
 		statusLabels: { healthy: "Healthy", warning: "Warning", critical: "Critical", offline: "Offline", unknown: "Unknown" },
 		summaryCards: { total: "Total Nodes", online: "Online Healthy", warning: "Performance Warnings", critical: "Critical Alerts", offline: "Offline/Disabled" },
@@ -158,30 +163,35 @@ const healthCopy: Record<"zh" | "en", HealthCopy> = {
 			db: {
 				label: "Check database connection",
 				description: "Database checks are healthy; continue watching business-level alerts.",
+				descriptionCritical: "First confirm the database and environment variables, then reload services and inspect logs if needed.",
 				action: "Verify DATABASE_URL, database process, and Prisma connectivity",
 			},
 			runtime: {
 				label: "Confirm runtime directories",
 				description: "Runtime directory baseline is ready.",
+				descriptionWarning: "Deployment or cache directories may be missing; create them and recheck ownership.",
 				action: "Check storage / uploads / downloads / backups / logs / tmp",
 			},
 			services: {
 				label: "Verify core services",
 				description: "Core services are online; continue checking product workflows.",
+				descriptionCritical: "First confirm Next.js, SSH WS, and Caddy are all running.",
 				action: "Verify vcontrolhub-next.service / vcontrolhub-ssh-ws.service / caddy.service",
 			},
 			git: {
 				label: "Check GitHub sync",
 				description: "Local commits match origin/main.",
+				descriptionWarning: "Local and remote refs may differ; confirm the latest push completed.",
 				action: "Compare local HEAD with origin/main",
 			},
 			audit: {
 				label: "Review high-risk audit actions",
 				description: "Quickly inspect recent command execution, deletion, permission, and token actions.",
+				descriptionCritical: "Critical alerts are present; use the audit page to identify recent high-risk operations first.",
 				action: "Open command.execute / storage.file_delete / api_token.create",
 			},
 		},
-	},
+		},
 };
 
 function translateSystemHealthText(value: string, locale: "zh" | "en") {
@@ -224,6 +234,8 @@ type RepairSuggestion = {
 	id: string;
 	label: string;
 	description: string;
+	descriptionCritical?: string;
+	descriptionWarning?: string;
 	action: string;
 	status: SystemHealthStatus;
 	href?: string;
@@ -232,14 +244,13 @@ type RepairSuggestion = {
 const repairSuggestions = (summary: SystemHealthSummary | null | undefined, locale: "zh" | "en"): RepairSuggestion[] => {
 	if (!summary) return [];
 	const copy = healthCopy[locale];
-	const zh = locale === "zh";
 	return [
 		{
 			id: "db",
 			label: copy.repair.db!.label,
 			action: copy.repair.db!.action,
 			description: summary.critical > 0
-				? zh ? "优先确认数据库与环境变量是否正常，必要时重载服务并检查日志。" : "First confirm the database and environment variables, then reload services and inspect logs if needed."
+				? copy.repair.db!.descriptionCritical ?? copy.repair.db!.description
 				: copy.repair.db!.description,
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
@@ -248,7 +259,7 @@ const repairSuggestions = (summary: SystemHealthSummary | null | undefined, loca
 			label: copy.repair.runtime!.label,
 			action: copy.repair.runtime!.action,
 			description: summary.warning > 0
-				? zh ? "部署目录或缓存目录可能缺失，建议补齐并复查权限。" : "Deployment or cache directories may be missing; create them and recheck ownership."
+				? copy.repair.runtime!.descriptionWarning ?? copy.repair.runtime!.description
 				: copy.repair.runtime!.description,
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
@@ -257,7 +268,7 @@ const repairSuggestions = (summary: SystemHealthSummary | null | undefined, loca
 			label: copy.repair.services!.label,
 			action: copy.repair.services!.action,
 			description: summary.critical > 0
-				? zh ? "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。" : "First confirm Next.js, SSH WS, and Caddy are all running."
+				? copy.repair.services!.descriptionCritical ?? copy.repair.services!.description
 				: copy.repair.services!.description,
 			status: summary.critical > 0 ? "critical" : "healthy",
 		},
@@ -266,7 +277,7 @@ const repairSuggestions = (summary: SystemHealthSummary | null | undefined, loca
 			label: copy.repair.git!.label,
 			action: copy.repair.git!.action,
 			description: summary.warning > 0
-				? zh ? "本地与远端可能不同步，建议确认最近推送是否完成。" : "Local and remote refs may differ; confirm the latest push completed."
+				? copy.repair.git!.descriptionWarning ?? copy.repair.git!.description
 				: copy.repair.git!.description,
 			status: summary.warning > 0 ? "warning" : "healthy",
 		},
@@ -275,7 +286,7 @@ const repairSuggestions = (summary: SystemHealthSummary | null | undefined, loca
 			label: copy.repair.audit!.label,
 			action: copy.repair.audit!.action,
 			description: summary.critical > 0
-				? zh ? "系统已经出现严重告警，建议结合审计页先锁定最近的高风险操作。" : "Critical alerts are present; use the audit page to identify recent high-risk operations first."
+				? copy.repair.audit!.descriptionCritical ?? copy.repair.audit!.description
 				: copy.repair.audit!.description,
 			href: "/audit?action=command.execute",
 			status: summary.critical > 0 ? "critical" : "warning",
