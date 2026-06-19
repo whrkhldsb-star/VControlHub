@@ -62,7 +62,10 @@ function stripComments(src: string): string {
 for (const f of CODE_FILES) {
   const raw = readFileSync(f, "utf8");
   const src = stripComments(raw);
-  for (const m of src.matchAll(tSimple)) used.add(m[1]);
+  for (const m of src.matchAll(tSimple)) {
+    const key = m[1];
+    if (key) used.add(key);
+  }
 }
 
 // --- Collect keys defined in dictionaries ---
@@ -84,11 +87,17 @@ for (const f of DICT_FILES) {
   if (enStart >= 0) sets.push({ set: definedEn, start: enStart, end: src.length });
   for (const { set, start, end } of sets) {
     const slice = src.slice(start, end);
-    for (const m of slice.matchAll(keyValue)) set.add(m[1]);
+    for (const m of slice.matchAll(keyValue)) {
+      const key = m[1];
+      if (key) set.add(key);
+    }
   }
   // Also map each key to its file for reports.
   const fileKeys = dictFileKeys.get(f) ?? new Set<string>();
-  for (const m of src.matchAll(keyValue)) fileKeys.add(m[1]);
+  for (const m of src.matchAll(keyValue)) {
+    const key = m[1];
+    if (key) fileKeys.add(key);
+  }
   dictFileKeys.set(f, fileKeys);
 }
 

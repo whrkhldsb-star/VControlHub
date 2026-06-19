@@ -88,7 +88,10 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
         </button>
       </div>
       <p className="text-xs text-slate-500">
-        {t("backupsPage.retention.matchInfo").replace("{total}", String(totalRecords)).replace("{older}", String(olderThan30Days))}系统会删除「保留窗口外且超过保留天数」以及「保留窗口内但超过保留天数」两类记录，并在任务中心产生一条 <code>backup.retention</code> 任务记录。
+        {t("backupsPage.retention.matchInfo")
+          .replace("{total}", String(totalRecords))
+          .replace("{older}", String(olderThan30Days))
+          .replace("{extra}", t("backupsPage.retention.matchInfoExtra"))}
       </p>
       {taskId && (
         <p role="status" className="text-xs text-emerald-300">

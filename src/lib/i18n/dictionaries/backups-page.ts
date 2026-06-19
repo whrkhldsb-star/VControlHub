@@ -134,6 +134,7 @@ export const zh: Record<string, string> = {
 	"backupsPage.retention.daysLabel": "保留天数",
 	"backupsPage.retention.keepLatestLabel": "每类型保留最新",
 	"backupsPage.retention.matchInfo": "系统会删除「保留窗口外且超过保留天数」以及「保留窗口内但超过保留天数」两类记录，并在任务中心产生一条 backup.retention 任务记录。",
+	"backupsPage.retention.matchInfoExtra": "系统会删除「保留窗口外且超过保留天数」以及「保留窗口内但超过保留天数」两类记录，并在任务中心产生一条 <code>backup.retention</code> 任务记录。",
 	"backupsPage.retention.pending": "清理中…",
 	"backupsPage.retention.error": "清理失败",
 
@@ -255,6 +256,7 @@ export const en: Record<string, string> = {
 	"backupsPage.retention.daysLabel": "Retention days",
 	"backupsPage.retention.keepLatestLabel": "Keep latest per type",
 	"backupsPage.retention.matchInfo": "Removes records outside the retention window beyond retention days, and records inside the window that exceed per-type keep-latest. A backup.retention job is recorded in the operation-tasks center.",
+	"backupsPage.retention.matchInfoExtra": "Removes records outside the retention window beyond retention days, and records inside the window that exceed per-type keep-latest. A <code>backup.retention</code> job is recorded in the operation-tasks center.",
 	"backupsPage.retention.pending": "Cleaning…",
 	"backupsPage.retention.error": "Cleanup failed",
 };
