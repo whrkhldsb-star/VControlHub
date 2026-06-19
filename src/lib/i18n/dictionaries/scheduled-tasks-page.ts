@@ -68,5 +68,10 @@ export const en: Record<string, string> = {
 	"scheduledTasksPage.delete.desc": "About to delete scheduled task {name}. After deletion it will stop being scheduled and historical results will no longer be available through this entry.",
 	"scheduledTasksPage.cancel": "Cancel",
 	"scheduledTasksPage.delete.confirm": "Delete",
+	"scheduledTasksPage.create": "+ Create scheduled task",
+	"scheduledTasksPage.reason": "Execution reason",
+	"scheduledTasksPage.lastRun": "Last run",
+	"scheduledTasksPage.nextRun": "Next run",
+	"scheduledTasksPage.search.empty": "No scheduled tasks or execution logs matching \"{query}\"",
 
 };

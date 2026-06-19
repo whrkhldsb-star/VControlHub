@@ -42,6 +42,14 @@ export const zh: Record<string, string> = {
 	"sharesPage.create.submitting": "创建中…",
 	"sharesPage.create.errorFallback": "创建失败",
 
+	"sharesPage.button.compact": "分享",
+	"sharesPage.button.title": "创建分享链接",
+	"sharesPage.button.regenerate": "重新生成分享链接",
+	"sharesPage.button.submitting": "创建中…",
+	"sharesPage.button.copied": "已复制",
+	"sharesPage.button.copiedNotify": "分享链接已生成并复制到剪贴板",
+	"sharesPage.button.errorFallback": "创建分享链接失败",
+
 	"sharesPage.picker.eyebrow": "Share Center",
 	"sharesPage.picker.noItems": "当前目录没有可分享条目",
 	"sharesPage.picker.selectedHint": "文件和文件夹会分别生成独立分享链接。",
@@ -65,6 +73,7 @@ export const en: Record<string, string> = {
 	"sharesPage.picker.selected": "{count} selected",
 	"sharesPage.picker.path": "Current path",
 	"sharesPage.picker.breadcrumb": "Path navigation",
+	"sharesPage.picker.empty": "No files found",
 	"sharesPage.picker.description": "Browse directories like in File Manager, tick files or folders to create share links in bulk, no need to jump to the File Manager page.",
 	"sharesPage.picker.refresh": "Refresh current directory",
 	"sharesPage.picker.root": "Root directory",
@@ -109,4 +118,12 @@ export const en: Record<string, string> = {
 	"sharesPage.picker.loadError": "Failed to load file list",
 	"sharesPage.picker.createError": "Failed to create shares",
 	"sharesPage.picker.storageNodeLabel": "Storage node",
+
+	"sharesPage.button.compact": "Share",
+	"sharesPage.button.title": "Create share link",
+	"sharesPage.button.regenerate": "Regenerate share link",
+	"sharesPage.button.submitting": "Creating…",
+	"sharesPage.button.copied": "Copied",
+	"sharesPage.button.copiedNotify": "Share link generated and copied to clipboard",
+	"sharesPage.button.errorFallback": "Failed to create share link",
 };

@@ -113,6 +113,7 @@ export const zh: Record<string, string> = {
 	"backupsPage.schedule.empty": "暂无可用 VPS 节点，请先在 VPS 管理中启用至少一台节点。",
 	"backupsPage.schedule.submitting": "创建中…",
 	"backupsPage.schedule.submit": "创建定时备份",
+	"backupsPage.restore.success": "恢复成功",
 	"backupsPage.restore.errorInput": "请输入 {confirmText} 以确认恢复。",
 	"backupsPage.restore.successWithTime": "恢复已执行：{time}",
 	"backupsPage.restore.errorFallback": "恢复执行失败",
@@ -130,6 +131,11 @@ export const zh: Record<string, string> = {
 	"backupsPage.retention.success": "已清理 {count} 个过期备份",
 	"backupsPage.retention.errorFallback": "清理失败",
 	"backupsPage.retention.cancel": "取消",
+	"backupsPage.retention.daysLabel": "保留天数",
+	"backupsPage.retention.keepLatestLabel": "每类型保留最新",
+	"backupsPage.retention.matchInfo": "系统会删除「保留窗口外且超过保留天数」以及「保留窗口内但超过保留天数」两类记录，并在任务中心产生一条 backup.retention 任务记录。",
+	"backupsPage.retention.pending": "清理中…",
+	"backupsPage.retention.error": "清理失败",
 
 };
 
@@ -225,9 +231,10 @@ export const en: Record<string, string> = {
 	"backupsPage.schedule.success": "Scheduled backup created. View next run time and logs on the Scheduled Tasks page.",
 	"backupsPage.schedule.failFallback": "Failed to create scheduled backup",
 	"backupsPage.schedule.executeOn": "Execution nodes",
-	"backupsPage.schedule.empty": "No VPS nodes available. Enable at least one node in VPS Management first.",
+	"backupsPage.schedule.empty": "No VPS nodes available — enable at least one in Server Management first.",
 	"backupsPage.schedule.submitting": "Creating…",
 	"backupsPage.schedule.submit": "Create scheduled backup",
+	"backupsPage.restore.success": "Restore completed",
 	"backupsPage.restore.errorInput": "Please enter {confirmText} to confirm restore.",
 	"backupsPage.restore.successWithTime": "Restore executed: {time}",
 	"backupsPage.restore.errorFallback": "Restore execution failed",
@@ -245,5 +252,9 @@ export const en: Record<string, string> = {
 	"backupsPage.retention.success": "Cleaned {count} expired backups",
 	"backupsPage.retention.errorFallback": "Cleanup failed",
 	"backupsPage.retention.cancel": "Cancel",
-
+	"backupsPage.retention.daysLabel": "Retention days",
+	"backupsPage.retention.keepLatestLabel": "Keep latest per type",
+	"backupsPage.retention.matchInfo": "Removes records outside the retention window beyond retention days, and records inside the window that exceed per-type keep-latest. A backup.retention job is recorded in the operation-tasks center.",
+	"backupsPage.retention.pending": "Cleaning…",
+	"backupsPage.retention.error": "Cleanup failed",
 };
