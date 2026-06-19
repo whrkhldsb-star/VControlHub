@@ -59,6 +59,7 @@ import { zh as navZh, en as navEn } from "./dictionaries/nav";
 import { zh as notfoundZh, en as notfoundEn } from "./dictionaries/not-found";
 import { zh as notificationspageZh, en as notificationspageEn } from "./dictionaries/notifications-page";
 import { zh as officepreviewZh, en as officepreviewEn } from "./dictionaries/office-preview";
+import { zh as openapispecZh, en as openapispecEn } from "./dictionaries/openapi-spec";
 import { zh as operationtasksZh, en as operationtasksEn } from "./dictionaries/operation-tasks";
 import { zh as preferencespageZh, en as preferencespageEn } from "./dictionaries/preferences-page";
 import { zh as playbookspageZh, en as playbookspageEn } from "./dictionaries/playbooks-page";
@@ -130,6 +131,7 @@ const zh: Record<string, string> = {
 	...navZh,
 	...notfoundZh,
 	...notificationspageZh,
+	...openapispecZh,
 	...officepreviewZh,
 	...operationtasksZh,
 	...operationtaskspageZh,
@@ -208,6 +210,7 @@ const en: Record<string, string> = {
 	...navEn,
 	...notfoundEn,
 	...notificationspageEn,
+	...openapispecEn,
 	...officepreviewEn,
 	...operationtasksEn,
 	...operationtaskspageEn,

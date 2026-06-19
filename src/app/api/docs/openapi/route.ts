@@ -1,399 +1,406 @@
 /**
- * OpenAPI/Swagger spec generator — scans all API routes and produces a spec.
+ * OpenAPI/Swagger spec generator — produces locale-aware spec.
  * GET /api/docs/openapi
  */
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { t } from "@/lib/i18n/translations";
+import { getServerLocale } from "@/lib/i18n/server-locale";
 
-const spec = {
-  openapi: "3.0.3",
-  info: {
-    title: "VPS 统一管控平台 API",
-    description:
-      "VPS管理平台的完整RESTful API文档，包含认证、服务器、文件、Docker、监控等模块。",
-    version: "2.0.0",
-    contact: { name: "VPS管控平台" },
-  },
-  servers: [{ url: "/api", description: "当前服务器" }],
-  tags: [
-    { name: "认证", description: "登录、登出、2FA" },
-    { name: "服务器", description: "服务器管理和监控" },
-    { name: "文件", description: "文件管理、SFTP" },
-    { name: "下载站", description: "下载任务管理" },
-    { name: "图床", description: "图片上传和管理" },
-    { name: "Docker", description: "容器管理" },
-    { name: "监控", description: "系统监控和健康检查" },
-    { name: "用户", description: "用户和权限管理" },
-    { name: "审计", description: "审计日志" },
-    { name: "通知", description: "通知管理" },
-    { name: "快服务", description: "一键Docker部署" },
-    { name: "代码片段", description: "代码片段管理" },
-    { name: "备份", description: "备份和恢复" },
-    { name: "AI", description: "AI助手" },
-    { name: "系统", description: "系统设置和健康" },
-  ],
-  paths: {
-    "/login": {
-      post: {
-        tags: ["认证"],
-        summary: "用户登录",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["username", "password"],
-                properties: {
-                  username: { type: "string" },
-                  password: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: {
-          "200": { description: "登录成功" },
-          "401": { description: "用户名或密码错误" },
-        },
-      },
+type TFunction = (key: string) => string;
+
+function buildOpenApiSpec(t: TFunction) {
+  return {
+    openapi: "3.0.3",
+    info: {
+      title: t("openapiSpec.info.title"),
+      description: t("openapiSpec.info.description"),
+      version: "2.0.0",
+      contact: { name: t("openapiSpec.info.contact.name") },
     },
-    "/auth/signout": {
-      post: {
-        tags: ["认证"],
-        summary: "用户登出",
-        responses: { "200": { description: "登出成功" } },
-      },
-    },
-    "/auth/2fa/setup": {
-      post: {
-        tags: ["认证"],
-        summary: "生成2FA密钥和二维码",
-        responses: { "200": { description: "返回secret和otpauthUrl" } },
-      },
-      put: {
-        tags: ["认证"],
-        summary: "验证TOTP码",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["code", "secret"],
-                properties: {
-                  code: { type: "string" },
-                  secret: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: { "200": { description: "验证结果" } },
-      },
-    },
-    "/auth/2fa/enable": {
-      post: {
-        tags: ["认证"],
-        summary: "启用2FA",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["code", "secret"],
-                properties: {
-                  code: { type: "string" },
-                  secret: { type: "string" },
-                },
-              },
-            },
-          },
-        },
-        responses: { "200": { description: "已启用" } },
-      },
-    },
-    "/auth/2fa/disable": {
-      post: {
-        tags: ["认证"],
-        summary: "禁用2FA",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["code"],
-                properties: { code: { type: "string" } },
-              },
-            },
-          },
-        },
-        responses: { "200": { description: "已禁用" } },
-      },
-    },
-    "/servers/monitor": {
-      get: {
-        tags: ["服务器"],
-        summary: "获取服务器监控数据",
-        parameters: [
-          {
-            name: "id",
-            in: "query",
-            schema: { type: "string" },
-            description: "服务器ID",
-          },
-        ],
-        responses: { "200": { description: "监控数据" } },
-      },
-    },
-    "/storage/local": {
-      get: {
-        tags: ["文件"],
-        summary: "列出本地文件",
-        parameters: [
-          {
-            name: "path",
-            in: "query",
-            schema: { type: "string" },
-            description: "目录路径",
-          },
-        ],
-        responses: { "200": { description: "文件列表" } },
-      },
-    },
-    "/storage/sftp": {
-      get: {
-        tags: ["文件"],
-        summary: "SFTP连接管理",
-        responses: { "200": { description: "连接列表" } },
-      },
-      post: {
-        tags: ["文件"],
-        summary: "创建SFTP连接",
-        responses: { "200": { description: "已创建" } },
-      },
-    },
-    "/downloads": {
-      get: {
-        tags: ["下载站"],
-        summary: "获取下载任务列表",
-        responses: { "200": { description: "任务列表" } },
-      },
-      post: {
-        tags: ["下载站"],
-        summary: "创建下载任务",
-        responses: { "200": { description: "已创建" } },
-      },
-    },
-    "/images/upload": {
-      post: {
-        tags: ["图床"],
-        summary: "上传图片",
-        requestBody: {
-          required: true,
-          content: {
-            "multipart/form-data": {
-              schema: {
-                type: "object",
-                required: ["file"],
-                properties: { file: { type: "string", format: "binary" } },
-              },
-            },
-          },
-        },
-        responses: { "200": { description: "上传成功" } },
-      },
-    },
-    "/images/list": {
-      get: {
-        tags: ["图床"],
-        summary: "获取图片列表",
-        responses: { "200": { description: "图片列表" } },
-      },
-    },
-    "/docker/containers": {
-      get: {
-        tags: ["Docker"],
-        summary: "列出容器",
-        parameters: [
-          {
-            name: "id",
-            in: "query",
-            schema: { type: "string" },
-            description: "容器ID(查单个)",
-          },
-          {
-            name: "logs",
-            in: "query",
-            schema: { type: "string" },
-            description: "获取日志的容器ID",
-          },
-        ],
-        responses: { "200": { description: "容器列表" } },
-      },
-      post: {
-        tags: ["Docker"],
-        summary: "容器操作(start/stop/restart/remove)",
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: ["id", "action"],
-                properties: {
-                  id: { type: "string" },
-                  action: {
-                    type: "string",
-                    enum: ["start", "stop", "restart", "remove"],
+    servers: [{ url: "/api", description: t("openapiSpec.info.serverDescription") }],
+    tags: [
+      { name: t("openapiSpec.tags.auth.name"), description: t("openapiSpec.tags.auth.description") },
+      { name: t("openapiSpec.tags.servers.name"), description: t("openapiSpec.tags.servers.description") },
+      { name: t("openapiSpec.tags.files.name"), description: t("openapiSpec.tags.files.description") },
+      { name: t("openapiSpec.tags.downloads.name"), description: t("openapiSpec.tags.downloads.description") },
+      { name: t("openapiSpec.tags.imageBed.name"), description: t("openapiSpec.tags.imageBed.description") },
+      { name: t("openapiSpec.tags.docker.name"), description: t("openapiSpec.tags.docker.description") },
+      { name: t("openapiSpec.tags.monitoring.name"), description: t("openapiSpec.tags.monitoring.description") },
+      { name: t("openapiSpec.tags.users.name"), description: t("openapiSpec.tags.users.description") },
+      { name: t("openapiSpec.tags.audit.name"), description: t("openapiSpec.tags.audit.description") },
+      { name: t("openapiSpec.tags.notifications.name"), description: t("openapiSpec.tags.notifications.description") },
+      { name: t("openapiSpec.tags.quickServices.name"), description: t("openapiSpec.tags.quickServices.description") },
+      { name: t("openapiSpec.tags.snippets.name"), description: t("openapiSpec.tags.snippets.description") },
+      { name: t("openapiSpec.tags.backups.name"), description: t("openapiSpec.tags.backups.description") },
+      { name: t("openapiSpec.tags.ai.name"), description: t("openapiSpec.tags.ai.description") },
+      { name: t("openapiSpec.tags.system.name"), description: t("openapiSpec.tags.system.description") },
+    ],
+    paths: {
+      "/login": {
+        post: {
+          tags: [t("openapiSpec.tags.auth.name")],
+          summary: t("openapiSpec.paths./login.post.summary"),
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["username", "password"],
+                  properties: {
+                    username: { type: "string" },
+                    password: { type: "string" },
                   },
                 },
               },
             },
           },
+          responses: {
+            "200": { description: t("openapiSpec.paths./login.post.responses.200") },
+            "401": { description: t("openapiSpec.paths./login.post.responses.401") },
+          },
         },
-        responses: { "200": { description: "操作完成" } },
       },
-    },
-    "/monitoring/stats": {
-      get: {
-        tags: ["监控"],
-        summary: "获取系统监控数据(CPU/内存/磁盘/网络)",
-        responses: { "200": { description: "监控数据" } },
+      "/auth/signout": {
+        post: {
+          tags: [t("openapiSpec.tags.auth.name")],
+          summary: t("openapiSpec.paths./auth/signout.post.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./auth/signout.post.responses.200") } },
+        },
       },
-    },
-    "/users": {
-      get: {
-        tags: ["用户"],
-        summary: "获取用户列表",
-        responses: { "200": { description: "用户列表" } },
-      },
-      post: {
-        tags: ["用户"],
-        summary: "创建用户",
-        responses: { "200": { description: "已创建" } },
-      },
-    },
-    "/users/permissions": {
-      get: {
-        tags: ["用户"],
-        summary: "获取权限列表",
-        responses: { "200": { description: "权限列表" } },
-      },
-    },
-    "/audit": {
-      get: {
-        tags: ["审计"],
-        summary: "获取审计日志",
-        parameters: [
-          { name: "page", in: "query", schema: { type: "integer" } },
-          { name: "pageSize", in: "query", schema: { type: "integer" } },
-        ],
-        responses: { "200": { description: "审计日志列表" } },
-      },
-    },
-    "/notifications": {
-      get: {
-        tags: ["通知"],
-        summary: "获取通知列表",
-        responses: { "200": { description: "通知列表" } },
-      },
-    },
-    "/quick-services": {
-      get: {
-        tags: ["快服务"],
-        summary: "获取快服务列表",
-        responses: { "200": { description: "快服务列表" } },
-      },
-    },
-    "/snippets": {
-      get: {
-        tags: ["代码片段"],
-        summary: "获取代码片段列表",
-        responses: { "200": { description: "片段列表" } },
-      },
-      post: {
-        tags: ["代码片段"],
-        summary: "创建代码片段",
-        responses: { "200": { description: "已创建" } },
-      },
-    },
-    "/backups": {
-      get: {
-        tags: ["备份"],
-        summary: "获取备份列表",
-        responses: { "200": { description: "备份列表" } },
-      },
-      post: {
-        tags: ["备份"],
-        summary: "创建并执行备份",
-        responses: { "201": { description: "备份执行完成或失败，状态写入备份记录" } },
-      },
-    },
-    "/dashboard/analytics": {
-      get: {
-        tags: ["系统"],
-        summary: "仪表盘图表数据",
-        parameters: [
-          {
-            name: "type",
-            in: "query",
-            schema: {
-              type: "string",
-              enum: ["servers", "downloads", "audit", "image-bed"],
+      "/auth/2fa/setup": {
+        post: {
+          tags: [t("openapiSpec.tags.auth.name")],
+          summary: t("openapiSpec.paths./auth/2fa/setup.post.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./auth/2fa/setup.post.responses.200") } },
+        },
+        put: {
+          tags: [t("openapiSpec.tags.auth.name")],
+          summary: t("openapiSpec.paths./auth/2fa/setup.put.summary"),
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["code", "secret"],
+                  properties: {
+                    code: { type: "string" },
+                    secret: { type: "string" },
+                  },
+                },
+              },
             },
           },
-        ],
-        responses: { "200": { description: "图表数据" } },
+          responses: { "200": { description: t("openapiSpec.paths./auth/2fa/setup.put.responses.200") } },
+        },
+      },
+      "/auth/2fa/enable": {
+        post: {
+          tags: [t("openapiSpec.tags.auth.name")],
+          summary: t("openapiSpec.paths./auth/2fa/enable.post.summary"),
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["code", "secret"],
+                  properties: {
+                    code: { type: "string" },
+                    secret: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: t("openapiSpec.paths./auth/2fa/enable.post.responses.200") } },
+        },
+      },
+      "/auth/2fa/disable": {
+        post: {
+          tags: [t("openapiSpec.tags.auth.name")],
+          summary: t("openapiSpec.paths./auth/2fa/disable.post.summary"),
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["code"],
+                  properties: { code: { type: "string" } },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: t("openapiSpec.paths./auth/2fa/disable.post.responses.200") } },
+        },
+      },
+      "/servers/monitor": {
+        get: {
+          tags: [t("openapiSpec.tags.servers.name")],
+          summary: t("openapiSpec.paths./servers/monitor.get.summary"),
+          parameters: [
+            {
+              name: "id",
+              in: "query",
+              schema: { type: "string" },
+              description: t("openapiSpec.paths./servers/monitor.get.parameters.id"),
+            },
+          ],
+          responses: { "200": { description: t("openapiSpec.paths./servers/monitor.get.responses.200") } },
+        },
+      },
+      "/storage/local": {
+        get: {
+          tags: [t("openapiSpec.tags.files.name")],
+          summary: t("openapiSpec.paths./storage/local.get.summary"),
+          parameters: [
+            {
+              name: "path",
+              in: "query",
+              schema: { type: "string" },
+              description: t("openapiSpec.paths./storage/local.get.parameters.path"),
+            },
+          ],
+          responses: { "200": { description: t("openapiSpec.paths./storage/local.get.responses.200") } },
+        },
+      },
+      "/storage/sftp": {
+        get: {
+          tags: [t("openapiSpec.tags.files.name")],
+          summary: t("openapiSpec.paths./storage/sftp.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./storage/sftp.get.responses.200") } },
+        },
+        post: {
+          tags: [t("openapiSpec.tags.files.name")],
+          summary: t("openapiSpec.paths./storage/sftp.post.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./storage/sftp.post.responses.200") } },
+        },
+      },
+      "/downloads": {
+        get: {
+          tags: [t("openapiSpec.tags.downloads.name")],
+          summary: t("openapiSpec.paths./downloads.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./downloads.get.responses.200") } },
+        },
+        post: {
+          tags: [t("openapiSpec.tags.downloads.name")],
+          summary: t("openapiSpec.paths./downloads.post.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./downloads.post.responses.200") } },
+        },
+      },
+      "/images/upload": {
+        post: {
+          tags: [t("openapiSpec.tags.imageBed.name")],
+          summary: t("openapiSpec.paths./images/upload.post.summary"),
+          requestBody: {
+            required: true,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  required: ["file"],
+                  properties: { file: { type: "string", format: "binary" } },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: t("openapiSpec.paths./images/upload.post.responses.200") } },
+        },
+      },
+      "/images/list": {
+        get: {
+          tags: [t("openapiSpec.tags.imageBed.name")],
+          summary: t("openapiSpec.paths./images/list.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./images/list.get.responses.200") } },
+        },
+      },
+      "/docker/containers": {
+        get: {
+          tags: [t("openapiSpec.tags.docker.name")],
+          summary: t("openapiSpec.paths./docker/containers.get.summary"),
+          parameters: [
+            {
+              name: "id",
+              in: "query",
+              schema: { type: "string" },
+              description: t("openapiSpec.paths./docker/containers.get.parameters.id"),
+            },
+            {
+              name: "logs",
+              in: "query",
+              schema: { type: "string" },
+              description: t("openapiSpec.paths./docker/containers.get.parameters.logs"),
+            },
+          ],
+          responses: { "200": { description: t("openapiSpec.paths./docker/containers.get.responses.200") } },
+        },
+        post: {
+          tags: [t("openapiSpec.tags.docker.name")],
+          summary: t("openapiSpec.paths./docker/containers.post.summary"),
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["id", "action"],
+                  properties: {
+                    id: { type: "string" },
+                    action: {
+                      type: "string",
+                      enum: ["start", "stop", "restart", "remove"],
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: { "200": { description: t("openapiSpec.paths./docker/containers.post.responses.200") } },
+        },
+      },
+      "/monitoring/stats": {
+        get: {
+          tags: [t("openapiSpec.tags.monitoring.name")],
+          summary: t("openapiSpec.paths./monitoring/stats.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./servers/monitor.get.responses.200") } },
+        },
+      },
+      "/users": {
+        get: {
+          tags: [t("openapiSpec.tags.users.name")],
+          summary: t("openapiSpec.paths./users.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./users.get.responses.200") } },
+        },
+        post: {
+          tags: [t("openapiSpec.tags.users.name")],
+          summary: t("openapiSpec.paths./users.post.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./users.post.responses.200") } },
+        },
+      },
+      "/users/permissions": {
+        get: {
+          tags: [t("openapiSpec.tags.users.name")],
+          summary: t("openapiSpec.paths./users/permissions.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./users/permissions.get.responses.200") } },
+        },
+      },
+      "/audit": {
+        get: {
+          tags: [t("openapiSpec.tags.audit.name")],
+          summary: t("openapiSpec.paths./audit.get.summary"),
+          parameters: [
+            { name: "page", in: "query", schema: { type: "integer" } },
+            { name: "pageSize", in: "query", schema: { type: "integer" } },
+          ],
+          responses: { "200": { description: t("openapiSpec.paths./audit.get.responses.200") } },
+        },
+      },
+      "/notifications": {
+        get: {
+          tags: [t("openapiSpec.tags.notifications.name")],
+          summary: t("openapiSpec.paths./notifications.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./notifications.get.responses.200") } },
+        },
+      },
+      "/quick-services": {
+        get: {
+          tags: [t("openapiSpec.tags.quickServices.name")],
+          summary: t("openapiSpec.paths./quick-services.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./quick-services.get.responses.200") } },
+        },
+      },
+      "/snippets": {
+        get: {
+          tags: [t("openapiSpec.tags.snippets.name")],
+          summary: t("openapiSpec.paths./snippets.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./snippets.get.responses.200") } },
+        },
+        post: {
+          tags: [t("openapiSpec.tags.snippets.name")],
+          summary: t("openapiSpec.paths./snippets.post.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./snippets.post.responses.200") } },
+        },
+      },
+      "/backups": {
+        get: {
+          tags: [t("openapiSpec.tags.backups.name")],
+          summary: t("openapiSpec.paths./backups.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./backups.get.responses.200") } },
+        },
+        post: {
+          tags: [t("openapiSpec.tags.backups.name")],
+          summary: t("openapiSpec.paths./backups.post.summary"),
+          responses: { "201": { description: t("openapiSpec.paths./backups.post.responses.201") } },
+        },
+      },
+      "/dashboard/analytics": {
+        get: {
+          tags: [t("openapiSpec.tags.system.name")],
+          summary: t("openapiSpec.paths./dashboard/analytics.get.summary"),
+          parameters: [
+            {
+              name: "type",
+              in: "query",
+              schema: {
+                type: "string",
+                enum: ["servers", "downloads", "audit", "image-bed"],
+              },
+            },
+          ],
+          responses: { "200": { description: t("openapiSpec.paths./dashboard/analytics.get.responses.200") } },
+        },
+      },
+      "/system-health": {
+        get: {
+          tags: [t("openapiSpec.tags.system.name")],
+          summary: t("openapiSpec.paths./system-health.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./system-health.get.responses.200") } },
+        },
+      },
+      "/health": {
+        get: {
+          tags: [t("openapiSpec.tags.system.name")],
+          summary: t("openapiSpec.paths./health.get.summary"),
+          responses: { "200": { description: "OK" } },
+        },
+      },
+      "/settings": {
+        get: {
+          tags: [t("openapiSpec.tags.system.name")],
+          summary: t("openapiSpec.paths./settings.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./settings.get.responses.200") } },
+        },
+        put: {
+          tags: [t("openapiSpec.tags.system.name")],
+          summary: t("openapiSpec.paths./settings.put.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./settings.put.responses.200") } },
+        },
+      },
+      "/status": {
+        get: {
+          tags: [t("openapiSpec.tags.system.name")],
+          summary: t("openapiSpec.paths./status.get.summary"),
+          responses: { "200": { description: t("openapiSpec.paths./status.get.responses.200") } },
+        },
       },
     },
-    "/system-health": {
-      get: {
-        tags: ["系统"],
-        summary: "系统健康检查",
-        responses: { "200": { description: "健康状态" } },
+    components: {
+      securitySchemes: {
+        cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
       },
     },
-    "/health": {
-      get: {
-        tags: ["系统"],
-        summary: "基本健康检查",
-        responses: { "200": { description: "OK" } },
-      },
-    },
-    "/settings": {
-      get: {
-        tags: ["系统"],
-        summary: "获取系统设置",
-        responses: { "200": { description: "设置" } },
-      },
-      put: {
-        tags: ["系统"],
-        summary: "更新系统设置",
-        responses: { "200": { description: "已更新" } },
-      },
-    },
-    "/status": {
-      get: {
-        tags: ["系统"],
-        summary: "获取系统状态",
-        responses: { "200": { description: "状态信息" } },
-      },
-    },
-  },
-  components: {
-    securitySchemes: {
-      cookieAuth: { type: "apiKey", in: "cookie", name: "session" },
-    },
-  },
-  security: [{ cookieAuth: [] }],
-};
+    security: [{ cookieAuth: [] }],
+  };
+}
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { requireAuth: true }, async () =>
-    NextResponse.json(spec),
-  );
+  return withApiRoute(request, { requireAuth: true }, async () => {
+    const locale = await getServerLocale();
+    const tr = (key: string) => t(key, locale);
+    return NextResponse.json(buildOpenApiSpec(tr));
+  });
 }
