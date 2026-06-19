@@ -143,7 +143,7 @@ export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotific
   };
 
   return (
-    <section data-dashboard-widget="quick-links" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+    <section data-dashboard-widget="quick-links" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<ServerIcon />} />
       <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<FilesIcon />} />
       <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<DownloadsIcon />} badge={downloads.running > 0 ? `${downloads.running} ${labels.running}` : undefined} badgeColor="cyan" />
