@@ -6,6 +6,7 @@
  */
 import { useState, useTransition } from "react";
 
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import { t } from "@/lib/i18n/translations";
 
 type DryRunState =
@@ -25,7 +26,7 @@ export function OffsiteDryRunButton() {
 		setState({ kind: "running" });
 		startTransition(async () => {
 			try {
-				const res = await fetch("/api/backups/offsite/dry-run", { method: "POST" });
+				const res = await csrfFetch("/api/backups/offsite/dry-run", { method: "POST" });
 				if (res.status === 422) {
 					const body = (await res.json()) as { reason?: string; issues?: string[] };
 					if (body.reason === "offsite_disabled") {
