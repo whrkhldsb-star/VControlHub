@@ -168,7 +168,7 @@ describe("PreferencesPage", () => {
 
 		// 等 /api/preferences 加载 + 切到 enabled=true
 		expect(await screen.findByRole("heading", { name: /VPS 自动探测/ })).toBeInTheDocument();
-		const toggle = screen.getByRole("switch", { name: "进入 /servers 页面时自动调用 /api/servers/monitor" }) as HTMLButtonElement;
+		const toggle = screen.getByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" }) as HTMLButtonElement;
 		expect(toggle).toHaveAttribute("aria-checked", "true");
 		expect(screen.getByRole("button", { name: "1 分钟" })).toHaveClass("border-cyan-500/50");
 	});
@@ -182,7 +182,7 @@ describe("PreferencesPage", () => {
 
 		render(wrap(<PreferencesPageClient />));
 
-		const toggle = await screen.findByRole("switch", { name: "进入 /servers 页面时自动调用 /api/servers/monitor" });
+		const toggle = await screen.findByRole("switch", { name: "进入 VPS 管理时自动探测节点状态" });
 		expect(toggle).toHaveAttribute("aria-checked", "false");
 		const intervalButton = screen.getByRole("button", { name: "1 分钟" });
 		expect(intervalButton).toBeDisabled();
