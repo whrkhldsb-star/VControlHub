@@ -84,7 +84,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
     },
     riskLevel: "low",
     autoApproved: true,
-    actionType: "get_status",
+    actionType: "list_docker_containers",
     actionName: "列出Docker容器",
   },
   {
@@ -101,7 +101,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
     },
     riskLevel: "low",
     autoApproved: true,
-    actionType: "get_status",
+    actionType: "check_service_status",
     actionName: "检查服务状态",
   },
 

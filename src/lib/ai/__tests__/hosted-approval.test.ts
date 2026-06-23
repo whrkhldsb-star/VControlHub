@@ -172,6 +172,27 @@ describe("AI hosted action approvals", () => {
 		});
 	});
 
+	it("rejects confirmation when the pending AI action would produce an invalid command", async () => {
+		const { confirmHostedAction } = await import("../hosted-service");
+		const action = {
+			id: "action_1",
+			status: "PENDING_APPROVAL",
+			actionType: "restart_service",
+			actionName: "重启服务",
+			riskLevel: "high",
+			autoApproved: false,
+			requesterId: "user_1",
+			serverId: "srv_prod",
+			params: JSON.stringify({ serviceName: "nginx;reboot", reason: "AI requested restart", serverId: "srv_prod" }),
+		};
+		prismaMock.aiHostedAction.findFirst.mockResolvedValue(action);
+
+		await expect(confirmHostedAction("action_1", { userId: "user_1", roles: ["operator"] })).rejects.toThrow("AI 操作参数无效，无法生成可审批命令");
+
+		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
+		expect(prismaMock.aiHostedAction.update).not.toHaveBeenCalled();
+	});
+
 	it("rejects confirmation when the pending AI action belongs to another requester", async () => {
 		const { confirmHostedAction } = await import("../hosted-service");
 		prismaMock.aiHostedAction.findFirst.mockResolvedValue(null);
