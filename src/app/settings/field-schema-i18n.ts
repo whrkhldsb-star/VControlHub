@@ -22,10 +22,12 @@ import {
 	SETTINGS_SCHEMA,
 	type FieldDef,
 	type SectionDef,
+	/* eslint-disable @typescript-eslint/no-unused-vars -- re-exported types kept for downstream consumers */
 	type SectionLayout,
 	type FieldType,
 	type FieldRiskLevel,
 	type BadgeTone,
+	/* eslint-enable @typescript-eslint/no-unused-vars */
 	type SelectOption,
 } from "./field-schema";
 

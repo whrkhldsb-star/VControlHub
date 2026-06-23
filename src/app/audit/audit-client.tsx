@@ -92,7 +92,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
     } finally {
       setLoading(false);
     }
-  }, [page, severityFilter, actionFilter, searchQuery]);
+  }, [page, severityFilter, actionFilter, searchQuery, t]);
 
 	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -14,7 +13,6 @@ import {
 } from "@/lib/storage/archive-stream";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
-import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { normalizeSharePath, resolveShareToken } from "@/lib/share-link/service";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
@@ -98,7 +96,6 @@ export async function GET(
 	}
 
 	let targetPath = share.path;
-	const searchParams = new URL(request.url).searchParams;
 	const { path: childPath, archive } = parseSearchParams(
 		request,
 		z.object({

@@ -5,7 +5,6 @@ import path from "node:path";
 import { Client, type ConnectConfig } from "ssh2";
 import { z } from "zod";
 
-import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -64,7 +63,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
-  const url = new URL(request.url);
   const { download } = parseSearchParams(
     request,
     z.object({

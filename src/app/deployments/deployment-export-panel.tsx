@@ -22,6 +22,8 @@ type DeploymentExportResponse = {
   };
 };
 
+const EMPTY_EXPORT_FILES: DeploymentExportFileMap = {};
+
 type TreeNode = {
   name: string;
   fullPath: string;
@@ -121,7 +123,7 @@ export function DeploymentExportPanel() {
   const [zipPending, setZipPending] = useState(false);
   const [zipError, setZipError] = useState<string | null>(null);
 
-  const files = result?.files ?? {};
+  const files = result?.files ?? EMPTY_EXPORT_FILES;
   const tree = useMemo(() => buildFileTree(files), [files]);
   const fileNames = useMemo(() => Object.keys(files).sort((a, b) => a.localeCompare(b)), [files]);
   const fileCount = fileNames.length;
@@ -132,6 +134,7 @@ export function DeploymentExportPanel() {
 
   // Reset the active file whenever the export result changes; default to the
   // first file (alphabetical) so the preview panel never opens empty.
+  /* eslint-disable react-hooks/set-state-in-effect -- active export file is derived from the latest generated file map; syncing selection here prevents stale previews after a new export. */
   useEffect(() => {
     if (fileNames.length === 0) {
       setActivePath(null);
@@ -141,6 +144,7 @@ export function DeploymentExportPanel() {
       setActivePath(fileNames[0] ?? null);
     }
   }, [fileNames, files, activePath]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Auto-clear the per-file "copied" indicator after a short delay.
   useEffect(() => {

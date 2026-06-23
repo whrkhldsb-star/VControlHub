@@ -32,7 +32,7 @@
 import { NextResponse } from "next/server";
 import { createLogger } from "@/lib/logging";
 import { isAppError } from "@/lib/errors";
-import { type ApiErrorCode, isApiErrorCode } from "@/lib/http/api-error-codes";
+import { type ApiErrorCode } from "@/lib/http/api-error-codes";
 
 const logger = createLogger("api");
 

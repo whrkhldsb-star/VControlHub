@@ -6,7 +6,6 @@ import { ShareRowActions } from "../share-row-actions";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 const refresh = vi.fn();
-const confirmSpy = vi.fn();
 
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh }),
@@ -21,18 +20,21 @@ describe("ShareRowActions", () => {
 		vi.restoreAllMocks();
 		mockedFetch.mockReset();
 		refresh.mockReset();
-		confirmSpy.mockReset();
-		vi.spyOn(window, "confirm").mockImplementation(confirmSpy);
 	});
 
-	it("calls the delete API and refreshes the router after confirming", async () => {
+	it("opens an inline confirmation before calling the delete API", async () => {
 		const user = userEvent.setup();
-		confirmSpy.mockReturnValue(true);
 		mockedFetch.mockResolvedValueOnce(undefined);
 
 		render(<ShareRowActions id="share_1" revoked={false} />);
 
 		await user.click(screen.getByRole("button", { name: "撤销" }));
+
+		expect(screen.getByText("撤销后该分享链接将立即失效且无法恢复。")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "确认撤销" })).toBeInTheDocument();
+		expect(mockedFetch).not.toHaveBeenCalled();
+
+		await user.click(screen.getByRole("button", { name: "确认撤销" }));
 
 		await waitFor(() =>
 			expect(mockedFetch).toHaveBeenCalledWith("/api/share-links?id=share_1", { method: "DELETE" }),
@@ -40,15 +42,15 @@ describe("ShareRowActions", () => {
 		expect(refresh).toHaveBeenCalled();
 	});
 
-	it("does not call the delete API when the confirmation is cancelled", async () => {
+	it("does not call the delete API when the inline confirmation is cancelled", async () => {
 		const user = userEvent.setup();
-		confirmSpy.mockReturnValue(false);
 
 		render(<ShareRowActions id="share_1" revoked={false} />);
 
 		await user.click(screen.getByRole("button", { name: "撤销" }));
+		await user.click(screen.getByRole("button", { name: "取消" }));
 
-		expect(confirmSpy).toHaveBeenCalled();
+		expect(screen.queryByRole("button", { name: "确认撤销" })).not.toBeInTheDocument();
 		expect(mockedFetch).not.toHaveBeenCalled();
 		expect(refresh).not.toHaveBeenCalled();
 	});

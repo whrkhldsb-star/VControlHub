@@ -239,7 +239,7 @@ export function SettingsClient({
 			}
 			await performSave();
 		},
-		[settings, initialSettings],
+		[settings, initialSettings, t],
 	);
 
 	if (!canManage) {
@@ -674,7 +674,6 @@ type FieldRendererProps = {
 };
 
 function FieldRenderer({ field, value, disabled, helperText, onChange, runtimeSummary, showHighRiskWarning, onHighRiskBlur }: FieldRendererProps) {
-	const { t } = useI18n();
 	if (field.type === "switch") {
 		return (
 			<div className="flex items-center justify-between gap-3">

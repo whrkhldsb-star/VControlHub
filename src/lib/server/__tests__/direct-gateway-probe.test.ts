@@ -150,12 +150,12 @@ describe("checkDirectGatewayPublicExposure", () => {
 describe("logDirectGatewayExposureResult", () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
   let infoSpy: ReturnType<typeof vi.spyOn>;
-  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let _errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     infoSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    _errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
   it("emits a warning when the gateway is publicly reachable", () => {

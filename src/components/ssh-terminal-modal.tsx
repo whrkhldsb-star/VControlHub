@@ -269,7 +269,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 			}
 			fitAddonRef.current = null;
 		};
-	}, [serverId, sessionToken, reconnectKey]);
+	}, [serverId, sessionToken, reconnectKey, t]);
 
 	const saveFavorites = (items: string[]) => {
 		try {

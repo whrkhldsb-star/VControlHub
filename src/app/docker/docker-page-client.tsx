@@ -101,7 +101,7 @@ export default function DockerPage() {
 	const removalDialogRef = useDialogFocus<HTMLDivElement>({ open: pendingRemoval !== null, onClose: closeRemovalDialog, initialFocusRef: removeCancelButtonRef });
 	const logsDialogRef = useDialogFocus<HTMLDivElement>({ open: logsId !== null, onClose: closeLogsDialog, initialFocusRef: logsCloseButtonRef });
 
-	const fetchContainers = async () => {
+	const fetchContainers = useCallback(async () => {
 		try {
 			const data = await csrfFetch("/api/docker/containers");
 			if (data.error) {
@@ -142,7 +142,7 @@ export default function DockerPage() {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [t]);
 
 	const handleAction = async (container: Container, action: "start" | "stop" | "restart" | "remove") => {
 		const id = container.Id;
@@ -200,7 +200,7 @@ export default function DockerPage() {
 			void fetchContainers();
 		}, 0);
 		return () => window.clearTimeout(timer);
-	}, []);
+	}, [fetchContainers]);
 
 	const runningContainers = useMemo(() => containers.filter((container) => container.State === "running").slice(0, 12), [containers]);
 

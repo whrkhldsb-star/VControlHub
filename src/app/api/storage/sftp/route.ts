@@ -21,7 +21,7 @@ const logger = createLogger("api:storage:sftp");
 export const dynamic = "force-dynamic";
 
 async function handleGet(request: Request, session: SessionPayload) {
-  const url = new URL(request.url);
+  const _url = new URL(request.url);
   const { nodeId, path: remotePath } = parseSearchParams(
     request,
     sftpListQuerySchema,

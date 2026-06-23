@@ -137,7 +137,7 @@ export function ServerOverviewCard({
         checkedAt: new Date().toLocaleString("zh-CN", { hour12: false }),
       });
     }
-  }, [server.id]);
+  }, [server.id, t]);
 
   // ---------------------------------------------------------------------
   // 自动探测：受 AutoProbeContext 控制，挂载/切回页面时跑一次 + 周期刷新。

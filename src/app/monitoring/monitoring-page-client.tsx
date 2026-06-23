@@ -73,7 +73,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
       setLoading(false);
       setRefreshing(false);
     }
-  }, [getMonitoringErrorMessage]);
+  }, [getMonitoringErrorMessage, t]);
 
   useEffect(() => {
     const onStorage = () => setRefreshIntervalSeconds(getRefreshIntervalFromStorage(globalThis.localStorage, 30));

@@ -62,7 +62,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 		} catch {
 			showToast(t("imageBed.toast.fetchListFailed"));
 		}
-	}, [fetchImages]);
+	}, [fetchImages, t]);
 	// Suppress unused warning — the variable keeps the call site stable while
 	// the hook owns the state mutations. The linter is happy if we use the
 	// result; downstream code reaches `fetchImages` directly via destructuring.

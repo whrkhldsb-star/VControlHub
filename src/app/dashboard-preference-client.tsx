@@ -100,7 +100,7 @@ export function DashboardPreferenceClient({
 		};
 	}, []);
 
-	const effectiveOrder = draftOrder ?? preferences.dashboardWidgets;
+	const _effectiveOrder = draftOrder ?? preferences.dashboardWidgets;
 	const effectiveHidden = useMemo(() => {
 		if (draftHidden) return draftHidden;
 		// All visible = none hidden. We model "hidden" as a separate set on top of order.
@@ -192,7 +192,7 @@ export function DashboardPreferenceClient({
 	);
 
 	// HTML5 drag-and-drop wiring — only enabled in edit mode.
-	const handleDragStart = useCallback(
+	const _handleDragStart = useCallback(
 		(id: DashboardWidgetId) => (e: React.DragEvent) => {
 			if (!isEditing) return;
 			setDragId(id);
@@ -211,7 +211,7 @@ export function DashboardPreferenceClient({
 		[isEditing],
 	);
 
-	const handleDrop = useCallback(
+	const _handleDrop = useCallback(
 		(targetId: DashboardWidgetId) => (e: React.DragEvent) => {
 			if (!isEditing) return;
 			e.preventDefault();

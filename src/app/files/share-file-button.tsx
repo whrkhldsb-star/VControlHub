@@ -27,7 +27,7 @@ export function ShareFileButton({
   const canShare = entry.entryType === "FILE";
   const label = useMemo(
     () => (compact ? t("sharesPage.button.compact") : `${t("sharesPage.button.compact")} ${entry.name}`),
-    [compact, entry.name],
+    [compact, entry.name, t],
   );
 
   async function copy(text: string) {

@@ -34,7 +34,7 @@ vi.mock("@/lib/i18n/use-locale", async (importOriginal) => {
 });
 
 const mockedFetch = vi.mocked(csrfFetch);
-const mockedUseI18n = vi.mocked(useI18n);
+const _mockedUseI18n = vi.mocked(useI18n);
 const setI18nLocale = (locale: "zh" | "en") => {
 	(globalThis as { __setI18nLocale?: (l: "zh" | "en") => void }).__setI18nLocale?.(locale);
 };

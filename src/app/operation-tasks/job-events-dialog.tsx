@@ -105,7 +105,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
         setLoading(false);
       }
     },
-    [jobId, open, events],
+    [jobId, open, events, t],
   );
 
   useEffect(() => {

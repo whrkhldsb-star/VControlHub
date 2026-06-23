@@ -212,7 +212,7 @@ function MetricLine({ label, value, color }: { label: string; value: number; col
   );
 }
 
-function SparkBars({ points, color, locale = "zh" }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink"; locale?: "zh" | "en" }) {
+function SparkBars({ points, color, locale: _locale = "zh" }: { points: Array<{ label: string; value: number }>; color: "cyan" | "violet" | "pink"; locale?: "zh" | "en" }) {
   const { t } = useI18n();
   const max = Math.max(1, ...points.map((point) => point.value));
   const colors = {
@@ -236,7 +236,7 @@ function SparkBars({ points, color, locale = "zh" }: { points: Array<{ label: st
   );
 }
 
-function StackedDownloadBars({ points, locale = "zh" }: { points: DownloadTrendPoint[]; locale?: "zh" | "en" }) {
+function StackedDownloadBars({ points, locale: _locale = "zh" }: { points: DownloadTrendPoint[]; locale?: "zh" | "en" }) {
   const { t } = useI18n();
   const max = Math.max(
     1,

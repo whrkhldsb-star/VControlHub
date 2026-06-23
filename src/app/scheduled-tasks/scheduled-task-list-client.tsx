@@ -94,7 +94,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 		} catch (err) {
 			setActionError(err instanceof Error ? err.message : t("scheduledTasks.toggleFailed"));
 		}
-	}, [refresh]);
+	}, [refresh, t]);
 
 	const retryTask = useCallback(async (id: string) => {
 		setActionError(null);
@@ -108,7 +108,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 		} catch (err) {
 			setActionError(err instanceof Error ? err.message : t("scheduledTasks.retryFailed"));
 		}
-	}, [refresh]);
+	}, [refresh, t]);
 
 	const deleteTask = useCallback(async (task: Task) => {
 		setTaskPendingDelete(null);
@@ -119,7 +119,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 		} catch (err) {
 			setActionError(err instanceof Error ? err.message : t("scheduledTasks.deleteFailed"));
 		}
-	}, [refresh]);
+	}, [refresh, t]);
 
 	return (
 		<div className="space-y-6">

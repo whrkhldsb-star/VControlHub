@@ -407,7 +407,7 @@ export function TextPreviewClient({
 		return () => {
 			cancelled = true;
 		};
-	}, [href, fileEntryId, canEdit, loadVersion]);
+	}, [href, fileEntryId, canEdit, loadVersion, t]);
 
 	const handleJumpToLine = useCallback(() => {
 		const num = parseInt(jumpLine, 10);
@@ -613,7 +613,7 @@ export function TextPreviewClient({
 			setSaveMessage(err instanceof Error ? err.message : t("textPreview.error.saveFailed"));
 			return null;
 		}
-	}, [driver, nodeId, relativePath, draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setReloadMessage, setSaveMessage, setSaveStatus, setShowDiffReview]);
+	}, [driver, nodeId, relativePath, draft, draftVersion.lastModifiedMs, draftVersion.updatedAt, fileEntryId, setEditMode, setReloadMessage, setSaveMessage, setSaveStatus, setShowDiffReview, t]);
 
 	const handleSave = useCallback(async () => {
 		await performSave();
@@ -663,7 +663,7 @@ export function TextPreviewClient({
 				setSaveMessage(t("textPreview.saved.reloadFailed").replace("{bytes}", String(bytes)));
 				setReloadMessage(err instanceof Error ? err.message : t("textPreview.error.reloadFailed"));
 				}
-	}, [performSave, serverId, reloadUnit, reloadKind, relativePath, setSaveMessage, setSaveStatus, setReloadMessage]);
+	}, [performSave, serverId, reloadUnit, reloadKind, relativePath, setSaveMessage, setSaveStatus, setReloadMessage, t]);
 
 	if (state.loading) {
 		return (

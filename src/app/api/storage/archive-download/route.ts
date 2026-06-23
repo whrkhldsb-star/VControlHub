@@ -95,7 +95,7 @@ export async function GET(request: Request) {
       throw new AuthError("未认证");
     }
 
-    const url = new URL(request.url);
+    const _url = new URL(request.url);
     const { nodeId, path: requestedPath } = parseSearchParams(
       request,
       storageFileQuerySchema,

@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       if (!session)
         throw new AuthError("未认证");
 
-      const url = new URL(request.url);
+      const _url = new URL(request.url);
       const { nodeId, path: remotePath, download } = parseSearchParams(
         request,
         contentDownloadQuerySchema,

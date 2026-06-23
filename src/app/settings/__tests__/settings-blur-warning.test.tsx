@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars -- test utilities imported for mock registration */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+/* eslint-enable @typescript-eslint/no-unused-vars */
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
@@ -18,6 +20,7 @@ vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: refreshMock }),
 }));
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- imported to register the mock
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { SettingsClient } from "../settings-client";
 
@@ -92,8 +95,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		const input = screen.getByLabelText("命令执行超时（毫秒）");
 		await user.clear(input);
 		await user.type(input, "120000");
-		// Blur the input
-		input.blur();
+		await user.tab();
 		expect(await screen.findByTestId("high-risk-blur-warning")).toBeInTheDocument();
 	});
 
@@ -104,7 +106,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		// Clear and re-type the same value to trigger change events, then blur
 		await user.clear(input);
 		await user.type(input, "300000");
-		input.blur();
+		await user.tab();
 		// Give React a tick to render
 		await waitFor(() => {
 			expect(screen.queryAllByTestId("high-risk-blur-warning")).toHaveLength(0);
@@ -117,7 +119,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		const input = screen.getByLabelText("命令执行超时（毫秒）");
 		await user.clear(input);
 		await user.type(input, "120000");
-		input.blur();
+		await user.tab();
 		expect(await screen.findByTestId("high-risk-blur-warning")).toBeInTheDocument();
 		// Continue editing — the warning should disappear without requiring a save
 		await user.type(input, "0");
@@ -149,7 +151,7 @@ describe("SettingsClient high-risk field blur warning (TR-014 M02)", () => {
 		const nameInput = screen.getByLabelText("平台名称");
 		await user.clear(nameInput);
 		await user.type(nameInput, "新平台名");
-		nameInput.blur();
+		await user.tab();
 		await waitFor(() => {
 			expect(screen.queryAllByTestId("high-risk-blur-warning")).toHaveLength(0);
 		});

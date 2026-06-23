@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-
-import { verifyBearerToken } from "@/lib/auth/bearer-token";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { fetchModelsFromProvider } from "@/lib/ai/service";

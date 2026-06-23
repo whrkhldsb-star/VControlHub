@@ -46,7 +46,7 @@ const DICT_FILES = readdirSync(DICT_DIR)
 
 // --- Collect t("...") keys used in code ---
 const used = new Set<string>();
-const tRegex = /\bt(?:\(\s*|plT\(\s*|rTpl\(\s*|\s+extends\s+\w+\s*\?\s*)['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
+const _tRegex = /\bt(?:\(\s*|plT\(\s*|rTpl\(\s*|\s+extends\s+\w+\s*\?\s*)['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
 // Match the simple dominant patterns: t("..."), tplT("..."), trTpl("...") — and the rare t("k", ...)
 const tSimple = /\b(?:t|tplT|trTpl)\(\s*['"]([a-zA-Z][a-zA-Z0-9_.]+)['"]/g;
 

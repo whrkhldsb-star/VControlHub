@@ -133,7 +133,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		} catch (error) {
 			setMessage({ type: "error", text: getErrorMessage(error, t("downloadsPage.error.loadList")) });
 		} finally { setLoading(false); }
-	}, []);
+	}, [t]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchTasks(); }, 0);

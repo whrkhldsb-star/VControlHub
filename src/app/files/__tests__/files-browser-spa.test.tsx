@@ -1,7 +1,6 @@
 import React from "react";
 import {
   fireEvent,
-  render,
   screen,
   waitFor,
   within,

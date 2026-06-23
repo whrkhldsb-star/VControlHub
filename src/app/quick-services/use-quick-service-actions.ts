@@ -137,7 +137,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog],
+    [fetchCatalog, t],
   );
 
   const doAction = useCallback(
@@ -194,7 +194,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog],
+    [fetchCatalog, t],
   );
 
   const doUninstall = useCallback(
@@ -231,7 +231,7 @@ export function useQuickServiceActions({
         setActionSlug(null);
       }
     },
-    [fetchCatalog],
+    [fetchCatalog, t],
   );
 
   const doSync = useCallback(
@@ -255,7 +255,7 @@ export function useQuickServiceActions({
         setSyncing(null);
       }
     },
-    [fetchCatalog, fetchSources],
+    [fetchCatalog, fetchSources, t],
   );
 
   const doToggleSource = useCallback(
@@ -272,7 +272,7 @@ export function useQuickServiceActions({
         setMessage({ type: "err", text: t("qsActions.opFailed") });
       }
     },
-    [fetchCatalog, fetchSources],
+    [fetchCatalog, fetchSources, t],
   );
 
   const doDeleteSource = useCallback(
@@ -289,7 +289,7 @@ export function useQuickServiceActions({
         });
       }
     },
-    [fetchCatalog, fetchSources],
+    [fetchCatalog, fetchSources, t],
   );
 
   const doAddSource = useCallback(
@@ -318,7 +318,7 @@ export function useQuickServiceActions({
         });
       }
     },
-    [fetchSources],
+    [fetchSources, t],
   );
 
   return {

@@ -19,15 +19,14 @@
 
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
-
 const ROOT = "/opt/VControlHub";
 
 function run(cmd: string): string {
   try {
     return execSync(cmd, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-  } catch (e: any) {
-    return (e.stdout || "") + (e.stderr || "");
+  } catch (e: unknown) {
+    const err = e as { stdout?: string; stderr?: string };
+    return (err.stdout || "") + (err.stderr || "");
   }
 }
 

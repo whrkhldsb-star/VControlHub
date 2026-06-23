@@ -164,7 +164,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [t]);
 
 	const fetchSources = useCallback(async () => {
 		try {

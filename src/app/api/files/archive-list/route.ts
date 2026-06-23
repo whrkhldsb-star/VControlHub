@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         request,
         archiveListQuerySchema,
       );
-      const cleanedRelativePath = (relativePath ?? "").replace(/^\/+/, "");
+      const _cleanedRelativePath = (relativePath ?? "").replace(/^\/+/, "");
 
       if (driver !== "LOCAL") {
         return NextResponse.json(

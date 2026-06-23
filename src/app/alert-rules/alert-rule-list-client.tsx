@@ -61,8 +61,11 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 	const [busyAction, setBusyAction] = useState<string | null>(null);
 	const [rulePendingDelete, setRulePendingDelete] = useState<AlertRule | null>(null);
 
-	const getErrorMessage = (error: unknown, fallbackKey: string) =>
-		error instanceof Error ? error.message : t(fallbackKey);
+	const getErrorMessage = useCallback(
+		(error: unknown, fallbackKey: string) =>
+			error instanceof Error ? error.message : t(fallbackKey),
+		[t],
+	);
 
 	const refresh = useCallback(async () => {
 		const data = await csrfFetch("/api/alert-rules");
@@ -85,7 +88,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 		} finally {
 			setBusyAction(null);
 		}
-	}, [refresh]);
+	}, [refresh, getErrorMessage]);
 
 	const deleteRule = useCallback(async (id: string) => {
 		setActionError(null);
@@ -100,7 +103,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 		} finally {
 			setBusyAction(null);
 		}
-	}, [refresh]);
+	}, [refresh, getErrorMessage]);
 
 	const triggerNow = useCallback(async () => {
 		setActionError(null);
@@ -115,7 +118,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 		} finally {
 			setBusyAction(null);
 		}
-	}, [addToast, refresh, t]);
+	}, [addToast, refresh, t, getErrorMessage]);
 
 	const testRule = useCallback(async (rule: AlertRule) => {
 		setActionError(null);
@@ -139,7 +142,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 		} finally {
 			setBusyAction(null);
 		}
-	}, [addToast, t]);
+	}, [addToast, t, getErrorMessage]);
 
 	return (
 		<div className="space-y-6">

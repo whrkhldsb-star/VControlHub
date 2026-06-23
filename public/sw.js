@@ -25,7 +25,6 @@
  * Versioning: bump CACHE_VERSION when the cache shape changes so
  * activate() can clear stale entries.
  */
-/* eslint-disable no-restricted-globals */
 
 const CACHE_VERSION = "vch-shell-v1";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;

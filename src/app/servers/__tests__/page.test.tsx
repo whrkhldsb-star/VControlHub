@@ -120,6 +120,12 @@ beforeEach(() => {
   });
 });
 
+async function waitForAutoProbePreferences() {
+  await waitFor(() => {
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith("/api/preferences");
+  });
+}
+
 afterEach(() => {
   vi.mocked(csrfFetch).mockReset();
 });
@@ -131,6 +137,7 @@ describe("ServersPage", () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
 
     expect(
       screen.getByRole("heading", { name: "VPS 管理" }),
@@ -184,6 +191,7 @@ describe("ServersPage", () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
 
     expect(
@@ -225,6 +233,7 @@ describe("ServersPage", () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
 
@@ -245,6 +254,7 @@ describe("ServersPage", () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
     await user.click(screen.getByRole("button", { name: /查看详情/ }));
     await user.click(screen.getByRole("button", { name: "运行实时探测" }));
 
@@ -273,6 +283,7 @@ describe("ServersPage", () => {
     ]);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
 
     expect(screen.getAllByText("local-node").length).toBeGreaterThan(0);
     expect(screen.queryByText("未绑定")).not.toBeInTheDocument();
@@ -307,6 +318,7 @@ describe("ServersPage", () => {
     serviceMocks.listServerProfilesMock.mockResolvedValueOnce([defaultServer]);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -332,6 +344,7 @@ describe("ServersPage", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(await ServersPage());
+    await waitForAutoProbePreferences();
 
     // 等 hydrate 完
     await waitFor(() => {

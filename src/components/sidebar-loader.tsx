@@ -1,4 +1,4 @@
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 
 import { getCurrentSession } from "@/lib/auth/server-session";
 import { loadSidebarDeclaredPermissions } from "@/lib/auth/declared-permissions";

@@ -1,6 +1,6 @@
 import { ForbiddenError } from "@/lib/errors";
 import type { Permission, RoleKey } from "./rbac";
-import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles } from "./rbac";
+import { getPermissionsFromRoles } from "./rbac";
 import { requireSession } from "./require-session";
 
 // Re-export for backwards compat — existing consumers (require-api-permission.ts,

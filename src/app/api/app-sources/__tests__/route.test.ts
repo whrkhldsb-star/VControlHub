@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prismaMock, syncMock, listMock, getRemoteAppsMock } = vi.hoisted(() => ({
+const { prismaMock, syncMock, listMock } = vi.hoisted(() => ({
   prismaMock: {
     appSource: {
       findMany: vi.fn(),
