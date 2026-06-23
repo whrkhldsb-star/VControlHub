@@ -851,7 +851,7 @@ return (
           await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
            method: "PATCH",
            headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ action: "approve" }),
+           body: JSON.stringify({ action: "confirm" }),
           });
           setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
           addToast("success", t("aiPage.approved"));

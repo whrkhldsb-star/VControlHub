@@ -77,7 +77,7 @@ export const zh: Record<string, string> = {
 	"aiPage.deleteFailedFallback": "删除失败",
 	"aiPage.opFailed": "操作失败",
 	"aiPage.reject": "拒绝",
-	"aiPage.approve": "批准",
+	"aiPage.approve": "确认创建请求",
 
 	// client — empty state
 	"aiPage.emptySelectConv": "选择一个对话或创建新对话",
@@ -174,7 +174,7 @@ export const zh: Record<string, string> = {
 	"aiPage.modelsMore": "等 {count} 个",
 
 	// client — approval
-	"aiPage.approved": "已批准并执行操作",
+	"aiPage.approved": "已确认，命令请求已创建并等待审批",
 	"aiPage.rejected": "已拒绝操作",
 	"aiPage.userDenied": "用户拒绝",
 	"aiPage.pendingApprovalsTitle": "🔒 待审批操作 ({count})",
@@ -263,7 +263,7 @@ export const en: Record<string, string> = {
 	"aiPage.deleteFailedFallback": "Failed to delete",
 	"aiPage.opFailed": "Operation failed",
 	"aiPage.reject": "Reject",
-	"aiPage.approve": "Approve",
+	"aiPage.approve": "Confirm request",
 
 	// client — empty state
 	"aiPage.emptySelectConv": "Select a conversation or create a new one",
@@ -360,7 +360,7 @@ export const en: Record<string, string> = {
 	"aiPage.modelsMore": " and {count} more",
 
 	// client — approval
-	"aiPage.approved": "Operation approved and executed",
+	"aiPage.approved": "Confirmed. A command request has been created and is waiting for approval",
 	"aiPage.rejected": "Operation rejected",
 	"aiPage.userDenied": "User denied",
 	"aiPage.pendingApprovalsTitle": "🔒 Pending approvals ({count})",

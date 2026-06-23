@@ -158,12 +158,13 @@ export const chatRequestSchema = z
 
 // === Hosted action schemas ===
 
-// PATCH /api/ai/hosted-actions/[id] body. `action: "approve"` ignores
-// `reason`; `action: "reject"` requires a non-empty `reason` for the audit
-// log.
+// PATCH /api/ai/hosted-actions/[id] body. `action: "confirm"` records the
+// requester's in-page confirmation and creates a CommandRequest; `approve` is
+// kept for admin approval of legacy auto-executed hosted actions. `reject`
+// requires a non-empty `reason` for the audit log.
 export const hostedActionDecisionSchema = z
   .object({
-    action: z.enum(["approve", "reject"]),
+    action: z.enum(["approve", "reject", "confirm"]),
     reason: z.string().trim().max(500, "理由过长").optional(),
   })
   .superRefine((value, ctx) => {

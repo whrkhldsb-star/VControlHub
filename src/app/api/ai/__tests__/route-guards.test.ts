@@ -20,6 +20,7 @@ const { mocks } = vi.hoisted(() => ({
     clearConversationMessages: vi.fn(),
     getPendingActions: vi.fn(),
     approveHostedAction: vi.fn(),
+    confirmHostedAction: vi.fn(),
     rejectHostedAction: vi.fn(),
     prisma: {
       aiHostedAction: {
@@ -65,6 +66,7 @@ vi.mock("@/lib/ai/service", () => ({
 vi.mock("@/lib/ai/hosted-service", () => ({
   getPendingActions: mocks.getPendingActions,
   approveHostedAction: mocks.approveHostedAction,
+  confirmHostedAction: mocks.confirmHostedAction,
   rejectHostedAction: mocks.rejectHostedAction,
 }));
 
@@ -116,6 +118,7 @@ describe("AI API shared guard migration", () => {
     mocks.clearConversationMessages.mockResolvedValue(undefined);
     mocks.getPendingActions.mockResolvedValue([{ id: "a1" }]);
     mocks.approveHostedAction.mockResolvedValue(undefined);
+    mocks.confirmHostedAction.mockResolvedValue(undefined);
     mocks.rejectHostedAction.mockResolvedValue({
       id: "a1",
       status: "REJECTED",
@@ -217,13 +220,28 @@ describe("AI API shared guard migration", () => {
     );
   });
 
-  it("requires ai:action:approve for hosted action approval and rejection", async () => {
+  it("uses auth-only hosted action confirmation so requester can create assistant command requests", async () => {
     const listResponse = await hostedActionsRoute.GET(
       new Request("http://local/api/ai/hosted-actions"),
     );
     expect(listResponse.status).toBe(200);
     expect(mocks.getPendingActions).toHaveBeenCalledWith("u1");
 
+    const confirmResponse = await hostedActionDetailRoute.PATCH(
+      new Request("http://local/api/ai/hosted-actions/a1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "confirm" }),
+      }),
+      { params: Promise.resolve({ id: "a1" }) },
+    );
+    expect(confirmResponse.status).toBe(200);
+    expect(mocks.requireApiSession).toHaveBeenCalled();
+    expect(mocks.requireApiPermission).not.toHaveBeenCalledWith("ai:action:approve");
+    expect(mocks.confirmHostedAction).toHaveBeenCalledWith("a1", session);
+  });
+
+  it("keeps admin approval/rejection protected by ai:action:approve in the service layer", async () => {
     const approveResponse = await hostedActionDetailRoute.PATCH(
       new Request("http://local/api/ai/hosted-actions/a1", {
         method: "PATCH",
@@ -233,7 +251,6 @@ describe("AI API shared guard migration", () => {
       { params: Promise.resolve({ id: "a1" }) },
     );
     expect(approveResponse.status).toBe(200);
-    expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:action:approve");
     expect(mocks.approveHostedAction).toHaveBeenCalledWith("a1", session);
   });
 

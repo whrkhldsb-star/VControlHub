@@ -7,12 +7,13 @@
  * 3. 危险操作 → 创建审批请求 → 等待用户审批 → 执行 → 返回结果
  */
 
-import { prisma } from "@/lib/db";
-import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
-import { getToolByName, type HostedTool } from "./hosted-tools";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
+import { createCommandRequest } from "@/lib/command/service";
+import { prisma } from "@/lib/db";
+import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
+import { getToolByName, type HostedTool } from "./hosted-tools";
 
 // ── 类型 ──────────────────────────────────────────────────
 
@@ -57,6 +58,60 @@ export function parseToolCall(tc: ToolCall): ParsedToolCall | null {
   return { toolCallId: tc.id, tool, args };
 }
 
+// ── VPS 解析与命令审批桥接 ─────────────────────────────────
+
+async function resolveServerId(args: Record<string, unknown>): Promise<string | null> {
+  const explicitId = typeof args.serverId === "string" ? args.serverId.trim() : "";
+  if (explicitId) return explicitId;
+
+  const query = typeof args.serverQuery === "string" ? args.serverQuery.trim() : "";
+  if (!query) return null;
+
+  const server = await prisma.server.findFirst({
+    where: {
+      OR: [
+        { id: query },
+        { name: { contains: query } },
+        { host: { contains: query } },
+      ],
+    },
+    select: { id: true, name: true, host: true },
+  });
+
+  return server?.id ?? null;
+}
+
+async function createAssistantCommandRequest(input: {
+  tool: HostedTool;
+  args: Record<string, unknown>;
+  userId: string;
+  serverId: string;
+}) {
+  const command = buildCommand(input.tool.actionType, input.args);
+  if (!command) {
+    throw new BusinessError("AI 操作参数无效，无法生成可审批命令");
+  }
+
+  const reason = typeof input.args.reason === "string" && input.args.reason.trim()
+    ? input.args.reason.trim()
+    : "AI 助手从网页会话发起，等待人工审批后执行。";
+
+  const request = await createCommandRequest({
+    title: `AI 助手：${input.tool.actionName}`,
+    command,
+    reason,
+    requesterId: input.userId,
+    serverIds: [input.serverId],
+    submissionMode: "assistant",
+  });
+
+  return { commandRequestId: request.id, requiresApproval: request.requiresApproval };
+}
+
+function requiredPermissionForAction(actionType: string): Permission {
+  return actionType === "list_servers" ? "server:read" : "server:ssh";
+}
+
 // ── 创建托管操作记录 ──────────────────────────────────────
 
 export async function createHostedAction(input: {
@@ -67,16 +122,17 @@ export async function createHostedAction(input: {
   args: Record<string, unknown>;
   userId: string;
 }) {
-	const { conversationId, messageId, tool, args, userId } = input;
-
+  const { conversationId, messageId, tool, args, userId } = input;
+  const serverId = await resolveServerId(args);
+  const params = { ...args, ...(serverId ? { serverId } : {}) };
   return prisma.aiHostedAction.create({
     data: {
       conversationId,
       messageId,
-      serverId: (args.serverId as string) || null,
+      serverId,
       actionType: tool.actionType,
       actionName: tool.actionName,
-      params: JSON.parse(JSON.stringify(args)),
+      params: JSON.stringify(params),
       riskLevel: tool.riskLevel,
       autoApproved: tool.autoApproved,
       status: tool.autoApproved ? "APPROVED" : "PENDING_APPROVAL",
@@ -96,8 +152,16 @@ export async function executeSafeAction(
   },
   context?: HostedActionExecutionContext,
 ): Promise<{ success: boolean; data: unknown; error?: string }> {
-  if (context && !sessionHasPermission(context.session, context.requiredPermission ?? "server:ssh")) {
-    return { success: false, data: null, error: "你没有服务器 SSH 执行权限" };
+  if (context && !sessionHasPermission(context.session, context.requiredPermission ?? requiredPermissionForAction(action.actionType))) {
+    return { success: false, data: null, error: action.actionType === "list_servers" ? "你没有服务器查看权限" : "你没有服务器 SSH 执行权限" };
+  }
+
+  if (action.actionType === "list_servers") {
+    const servers = await prisma.server.findMany({
+      orderBy: [{ enabled: "desc" }, { name: "asc" }],
+      select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
+    });
+    return { success: true, data: { servers } };
   }
 
   if (!action.serverId) {
@@ -269,23 +333,64 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
   });
 
-  // 执行操作
+  // 执行自动批准操作
   await executeApprovedAction(actionId, approver);
 }
 
-export async function rejectHostedAction(actionId: string, approver: HostedActionSession, reason?: string) {
-  if (!sessionHasPermission(approver, "ai:action:approve")) throw new ForbiddenError("缺少权限：ai:action:approve");
+export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
+  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError("缺少权限：server:ssh");
 
-  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId } });
-  if (!action) throw new NotFoundError("操作不存在或无权审批");
-  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待审批状态");
+  const action = await prisma.aiHostedAction.findFirst({ where: { id: actionId, requesterId: requester.userId } });
+  if (!action) throw new NotFoundError("操作不存在或无权确认");
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待确认状态");
+  if (action.autoApproved) throw new BusinessError("自动批准操作无需人工确认");
+  if (action.actionType === "list_servers") throw new BusinessError("列表查询无需创建命令请求");
+  if (!action.serverId) throw new BusinessError("未绑定目标 VPS，无法创建命令请求");
+
+  const params = JSON.parse(action.params) as Record<string, unknown>;
+  const commandRequest = await createAssistantCommandRequest({
+    tool: {
+      name: action.actionType,
+      description: "",
+      parameters: {},
+      riskLevel: action.riskLevel as HostedTool["riskLevel"],
+      autoApproved: action.autoApproved,
+      actionType: action.actionType,
+      actionName: action.actionName,
+    },
+    args: params,
+    userId: requester.userId,
+    serverId: action.serverId,
+  });
+
+  await prisma.aiHostedAction.update({
+    where: { id: actionId },
+    data: {
+      status: "APPROVED",
+      approverId: requester.userId,
+      approvedAt: new Date(),
+      result: JSON.stringify(commandRequest),
+    },
+  });
+}
+
+export async function rejectHostedAction(actionId: string, actor: HostedActionSession, reason?: string) {
+  const canApprove = sessionHasPermission(actor, "ai:action:approve");
+  const action = await prisma.aiHostedAction.findFirst({
+    where: canApprove ? { id: actionId } : { id: actionId, requesterId: actor.userId },
+  });
+  if (!action) {
+    if (canApprove) throw new NotFoundError("操作不存在或无权审批");
+    throw new NotFoundError("操作不存在或无权取消");
+  }
+  if (action.status !== "PENDING_APPROVAL") throw new BusinessError(canApprove ? "操作不在待审批状态" : "操作不在待确认状态");
 
   return prisma.aiHostedAction.update({
     where: { id: actionId },
     data: {
       status: "REJECTED",
-      approverId: approver.userId,
-      errorMessage: reason || "审批被拒绝",
+      approverId: actor.userId,
+      errorMessage: reason || (canApprove ? "审批被拒绝" : "用户取消确认"),
     },
   });
 }

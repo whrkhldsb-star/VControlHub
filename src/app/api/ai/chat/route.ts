@@ -469,13 +469,14 @@ export async function POST(request: Request) {
                     args,
                     userId: session.userId,
                   });
+                  const actionParams = JSON.parse(action.params) as Record<string, unknown>;
 
                   if (tool.autoApproved) {
                     const execResult = await executeSafeAction(
                       {
                         actionType: tool.actionType,
-                        serverId: (args.serverId as string) || null,
-                        params: args,
+                        serverId: action.serverId,
+                        params: actionParams,
                       },
                       { session },
                     );
@@ -521,7 +522,7 @@ export async function POST(request: Request) {
                     // 危险操作：需要审批
                     controller.enqueue(
                       encoder.encode(
-                        `data: ${JSON.stringify({ type: "tool_approval_needed", toolCallId, actionId: action.id, actionName: tool.actionName, riskLevel: tool.riskLevel, params: args })}\n\n`,
+                        `data: ${JSON.stringify({ type: "tool_approval_needed", toolCallId, actionId: action.id, actionName: tool.actionName, riskLevel: tool.riskLevel, params: actionParams })}\n\n`,
                       ),
                     );
 

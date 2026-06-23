@@ -2,13 +2,15 @@
  * PATCH /api/ai/hosted-actions/[id] — approve or reject an AI hosted action
  *
  * Permission rules:
- * - Users need `ai:action:approve` to approve or reject hosted actions.
+ * - `confirm` requires an authenticated requester with `server:ssh` in the service layer.
+ * - `approve` / `reject` require `ai:action:approve` in the service layer.
  */
 
 import { NextResponse } from "next/server";
 
 import {
   approveHostedAction,
+  confirmHostedAction,
   rejectHostedAction,
 } from "@/lib/ai/hosted-service";
 import { hostedActionDecisionSchema } from "@/lib/ai/schema";
@@ -26,7 +28,6 @@ export async function PATCH(
     request,
     {
       requireAuth: true,
-      permission: "ai:action:approve",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: "操作失败",
@@ -40,6 +41,15 @@ export async function PATCH(
       const parsed = hostedActionDecisionSchema.safeParse(body);
       if (!parsed.success) {
         throw new ValidationError("输入参数无效");
+      }
+
+      if (parsed.data.action === "confirm") {
+        await confirmHostedAction(id, session);
+        const { prisma } = await import("@/lib/db");
+        const action = await prisma.aiHostedAction.findUnique({
+          where: { id },
+        });
+        return NextResponse.json({ success: true, action });
       }
 
       if (parsed.data.action === "approve") {
