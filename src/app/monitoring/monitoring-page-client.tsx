@@ -190,7 +190,7 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-800">
               <div
-                className="h-full rounded-full bg-cyan-500 transition-all"
+                className="h-full rounded-full bg-cyan-500 transition-[width]"
                 style={{ width: `${stats.memory.usagePercent}%` }}
               />
             </div>

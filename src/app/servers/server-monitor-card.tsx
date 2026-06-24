@@ -53,7 +53,7 @@ function ProgressBar({ value, max = 100, className = "" }: { value: number; max?
 	return (
 		<div className={`h-1.5 rounded-full bg-white/[0.06] overflow-hidden ${className}`}>
 			<div
-				className={`h-full rounded-full transition-all duration-700 ${usageColor(pct)}`}
+				className={`h-full rounded-full transition-[width] duration-700 ${usageColor(pct)}`}
 				style={{ width: `${pct}%` }}
 			/>
 		</div>

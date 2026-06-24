@@ -519,7 +519,7 @@ export function FilesBrowserSpa({
   );
 
   return (
-    <section className="mt-8 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
+    <section className="mt-8 grid gap-8 xl:grid-cols-[320px_minmax(0,1fr)]">
       {/* Mobile-only sidebar toggle (hidden on xl+) */}
       <button
         type="button"
@@ -537,7 +537,7 @@ export function FilesBrowserSpa({
       <aside
         id="files-browser-sidebar"
         aria-label={t("filesBrowserSpa.sidebarAria")}
-        className={`rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 ${
+        className={`min-w-[280px] rounded-3xl border border-[var(--border)] bg-slate-900/60 p-6 ${
           mobileSidebarOpen ? "block" : "hidden xl:block"
         }`}
       >
@@ -566,7 +566,7 @@ export function FilesBrowserSpa({
           </div>
         ) : null}
 
-        <div className="mt-5 max-h-[28rem] overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 p-4 pr-2">
+        <div className="mt-5 max-h-[28rem] overflow-x-auto overflow-y-auto rounded-2xl border border-[var(--border)] bg-slate-950/50 p-4 pr-2">
           <button
             type="button"
             onClick={() => handleTreeNavigate("")}

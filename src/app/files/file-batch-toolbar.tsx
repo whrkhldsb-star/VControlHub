@@ -124,7 +124,7 @@ export function FileBatchToolbar({
               {progress.done < progress.total ? (
                 <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
                   <div
-                    className="h-full rounded-full bg-rose-400 transition-all"
+                    className="h-full rounded-full bg-rose-400 transition-[width]"
                     style={{
                       width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%`,
                     }}

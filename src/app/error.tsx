@@ -43,21 +43,21 @@ export default function RootError({
 
 	return (
 		<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
-			<h2 className="mb-3 text-2xl font-semibold text-white">
+			<h2 className="mb-3 text-2xl font-semibold text-[var(--text-primary)]">
 				{t("error.title")}
 			</h2>
-			<p className="mb-2 text-[15px] leading-relaxed text-neutral-400">
+			<p className="mb-2 text-sm leading-relaxed text-[var(--text-secondary)]">
 				{error.message || t("error.unknown")}
 			</p>
 			{error.digest && (
-				<p className="mb-4 text-[13px] text-neutral-500">
+				<p className="mb-4 text-xs text-slate-500">
 					{t("error.digest-label")} {error.digest}
 				</p>
 			)}
 			<div className="mt-5 flex justify-center gap-3">
 				<button
 					onClick={reset}
-					className="cursor-pointer rounded-lg border-none bg-blue-600 px-6 py-2 text-sm text-white hover:bg-blue-700"
+					className="cursor-pointer rounded-lg border-none bg-[var(--color-action)] px-6 py-2 text-sm text-white transition-colors hover:bg-[var(--color-action-hover)]"
 				>
 					{t("common.retry")}
 				</button>

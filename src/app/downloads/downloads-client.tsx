@@ -419,7 +419,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											<span>{pct}% · {formatSpeed(task.downloadSpeed)}</span>
 										</div>
 										<div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-											<div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-500"
+											<div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-[width] duration-500"
 												style={{ width: `${pct}%` }}
 											/>
 										</div>

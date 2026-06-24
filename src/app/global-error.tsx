@@ -20,18 +20,18 @@ export default function GlobalError({
 
 	return (
 		<html lang="zh-CN">
-			<body className="m-0 bg-[var(--surface-root)] p-0 font-sans text-[#e5e5e5]">
+			<body className="m-0 bg-[var(--surface-root)] p-0 font-sans text-[var(--text-primary)]">
 				<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
-					<h1 className="mb-3 text-[28px] font-semibold text-white">出错了</h1>
-					<p className="mb-6 text-base leading-relaxed text-[#a3a3a3]">
+					<h1 className="mb-3 text-3xl font-semibold text-[var(--text-primary)]">出错了</h1>
+					<p className="mb-6 text-base leading-relaxed text-[var(--text-secondary)]">
 						页面遇到了意外错误，请尝试刷新。如果问题持续出现，请联系管理员。
 					</p>
 					{error.digest && (
-						<p className="mb-4 text-[13px] text-[#737373]">错误标识: {error.digest}</p>
+						<p className="mb-4 text-xs text-slate-500">错误标识: {error.digest}</p>
 					)}
 					<button
 						onClick={reset}
-						className="rounded-lg bg-blue-600 px-7 py-2.5 text-[15px] text-white transition-colors hover:bg-blue-700"
+						className="rounded-lg bg-[var(--color-action)] px-7 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--color-action-hover)]"
 					>
 						重试
 					</button>

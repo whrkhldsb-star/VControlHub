@@ -465,7 +465,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						<span className="text-xs text-slate-500">{t("imageBedPage.progress.success").replace("{success}", String(uploadProgress.success)).replace("{failure}", String(uploadProgress.failure))}</span>
 					</div>
 					<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-						<div className="h-full rounded-full bg-cyan-400 transition-all" style={{ width: `${Math.round(((uploadProgress.success + uploadProgress.failure) / Math.max(uploadProgress.total, 1)) * 100)}%` }} />
+						<div className="h-full rounded-full bg-cyan-400 transition-[width]" style={{ width: `${Math.round(((uploadProgress.success + uploadProgress.failure) / Math.max(uploadProgress.total, 1)) * 100)}%` }} />
 					</div>
 					<div className="mt-3 space-y-1 text-xs">
 						{uploadProgress.queue.map((item, index) => (
