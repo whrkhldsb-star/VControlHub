@@ -110,8 +110,10 @@ export function AiOpsPageClient({
 			if (triggerFilter !== "all") params.set("triggerType", triggerFilter);
 			params.set("limit", "50");
 			const [logsRes, summaryRes] = await Promise.all([
-				csrfFetch(`/api/ai/ops/logs?${params.toString()}`),
-				csrfFetch("/api/ai/ops/summary"),
+				csrfFetch<Response>(`/api/ai/ops/logs?${params.toString()}`, {
+					raw: true,
+				}),
+				csrfFetch<Response>("/api/ai/ops/summary", { raw: true }),
 			]);
 			if (!logsRes.ok || !summaryRes.ok) throw new Error("reload failed");
 			const logsBody = (await logsRes.json()) as { logs: AiOpsLogRecord[] };
@@ -147,10 +149,11 @@ export function AiOpsPageClient({
 		if (!canManage) return;
 		setScanning(true);
 		try {
-			const res = await csrfFetch("/api/ai/ops/scan", {
+			const res = await csrfFetch<Response>("/api/ai/ops/scan", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({ notes: "manual-trigger-ui" }),
+				raw: true,
 			});
 			if (!res.ok) throw new Error(`status=${res.status}`);
 			const body = (await res.json()) as {
@@ -178,13 +181,14 @@ export function AiOpsPageClient({
 		if (!canManage) return;
 		setSavingSettings(true);
 		try {
-			const res = await csrfFetch("/api/ai/ops/settings", {
+			const res = await csrfFetch<Response>("/api/ai/ops/settings", {
 				method: "PATCH",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify({
 					mode: settings.mode,
 					providerId: editingProvider,
 				}),
+				raw: true,
 			});
 			if (!res.ok) throw new Error(`status=${res.status}`);
 			const body = (await res.json()) as Settings;
@@ -210,12 +214,13 @@ export function AiOpsPageClient({
 			}
 			setExecuting(actionId);
 			try {
-				const res = await csrfFetch(
+				const res = await csrfFetch<Response>(
 					`/api/ai/ops/logs/${encodeURIComponent(logId)}/execute`,
 					{
 						method: "POST",
 						headers: { "content-type": "application/json" },
 						body: JSON.stringify({ actionId, forceAutonomous }),
+						raw: true,
 					},
 				);
 				if (!res.ok) throw new Error(`status=${res.status}`);

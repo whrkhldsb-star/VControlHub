@@ -26,7 +26,10 @@ export function OffsiteDryRunButton() {
 		setState({ kind: "running" });
 		startTransition(async () => {
 			try {
-				const res = await csrfFetch("/api/backups/offsite/dry-run", { method: "POST" });
+				const res = await csrfFetch<Response>("/api/backups/offsite/dry-run", {
+					method: "POST",
+					raw: true,
+				});
 				if (res.status === 422) {
 					const body = (await res.json()) as { reason?: string; issues?: string[] };
 					if (body.reason === "offsite_disabled") {

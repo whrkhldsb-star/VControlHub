@@ -106,7 +106,9 @@ export function CostPageClient({
 	const fetchSummary = useCallback(
 		async (m: string, c: CostCurrency) => {
 			try {
-				const res = await csrfFetch(`/api/cost/summary?month=${m}&currency=${c}`);
+				const res = await csrfFetch<Response>(`/api/cost/summary?month=${m}&currency=${c}`, {
+					raw: true,
+				});
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				const data = (await res.json()) as { summary: CostSummary };
 				setSummary(data.summary);
@@ -122,7 +124,9 @@ export function CostPageClient({
 
 	const fetchEntries = useCallback(async () => {
 		try {
-			const res = await csrfFetch(`/api/cost/entries?limit=200`);
+			const res = await csrfFetch<Response>(`/api/cost/entries?limit=200`, {
+				raw: true,
+			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = (await res.json()) as { entries: CostEntryRecord[] };
 			setEntries(data.entries);
@@ -136,7 +140,9 @@ export function CostPageClient({
 
 	const fetchSnapshots = useCallback(async () => {
 		try {
-			const res = await csrfFetch(`/api/cost/snapshots?limit=30`);
+			const res = await csrfFetch<Response>(`/api/cost/snapshots?limit=30`, {
+				raw: true,
+			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = (await res.json()) as { snapshots: DailySnapshot[] };
 			setSnapshots(data.snapshots);
@@ -202,10 +208,11 @@ export function CostPageClient({
 			};
 			const url = editingId ? `/api/cost/entries/${editingId}` : "/api/cost/entries";
 			const method = editingId ? "PATCH" : "POST";
-			const res = await csrfFetch(url, {
+			const res = await csrfFetch<Response>(url, {
 				method,
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify(payload),
+				raw: true,
 			});
 			if (!res.ok) {
 				const err = await res.json().catch(() => ({}));
@@ -229,8 +236,9 @@ export function CostPageClient({
 		if (!confirmDelete) return;
 		setDeletingId(confirmDelete.id);
 		try {
-			const res = await csrfFetch(`/api/cost/entries/${confirmDelete.id}`, {
+			const res = await csrfFetch<Response>(`/api/cost/entries/${confirmDelete.id}`, {
 				method: "DELETE",
+				raw: true,
 			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			setConfirmDelete(null);

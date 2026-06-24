@@ -347,7 +347,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **5 个功能页无侧边栏入口** — `/monitoring`（系统监控图表）、`/preferences`（用户偏好设置）、`/cost-summary`（成本追踪）、`/ai-ops`（智能运维）、`/image-bed`（图床中心）均无法从侧边导航栏直接访问，只能靠 URL 直接输入或其他页面跳转。
 
 **P1 — 功能逻辑不完善**
-- [ ] **`csrfFetch` 返回值语义被 9 处客户端误用** — `src/lib/auth/csrf-client.ts:81-92` 默认返回 `response.json()`（非 raw 模式不是 `Response` 对象），但 `src/app/ai-ops/ai-ops-page-client.tsx:150/181/213`、`src/app/cost-summary/cost-page-client.tsx:109/125/139/205/232`、`src/app/backups/offsite-dry-run-button.tsx:29` 仍按 `res.ok` / `res.status` / `res.json()` 使用；成功响应会因 `res.ok === undefined` 被误判失败，422/502 分支也会在 wrapper 内先 throw。验证：`python3` 静态扫描 `csrfFetch(` 赋值后访问 `.ok/.status/.json`，共 9 个真实 call site；`downloads-client.tsx:240` 只读业务 JSON 字段 `result.status`，已排除为 false positive。修复方向：这些调用加 `{ raw: true }` 并保留 Response 分支，或统一改成解析后 JSON 流程。
 - [ ] **`downloads` 彻底清除（purge）无二次确认** — `downloads-client.tsx` 的 `purge=1` 操作（从 Aria2 彻底删除任务文件）点击后直接执行，无 AlertDialog/confirm 拦截，误操作风险高。
 - [ ] **审批中心无批量审批** — `/requests` 页面只能逐条审批，无"全选 + 批量通过"，高并发审批场景下效率低。
 - [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
