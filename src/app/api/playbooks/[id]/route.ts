@@ -7,6 +7,7 @@ import {
 } from "@/lib/playbook/service";
 import { idQuerySchema, updatePlaybookSchema } from "@/lib/playbook/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { apiError } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { ValidationError } from "@/lib/errors";
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
       if (!id) throw new ValidationError("缺少 playbook id");
       const playbook = await getPlaybook(id);
       if (!playbook) {
-        return NextResponse.json({ error: "not found" }, { status: 404 });
+        return apiError({ status: 404, code: "NOT_FOUND", message: "playbook 不存在" });
       }
       return NextResponse.json({ playbook });
     },

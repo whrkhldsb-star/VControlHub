@@ -8,18 +8,18 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-	const key = process.env.ENCRYPTION_KEY;
-	if (!key) {
-		if (config.isProduction) {
-			throw new Error("ENCRYPTION_KEY environment variable is required in production");
-		}
-		// Auto-generate for development
-		const generated = randomBytes(32).toString("hex");
-		process.env.ENCRYPTION_KEY = generated;
-		logger.warn("ENCRYPTION_KEY not set, auto-generated for development. Set it in .env for persistence.");
-		return scryptSync(generated, "salt-vps-platform", 32);
+	// 优先走 config 模块（生产强制 ENCRYPTION_KEY 必填）；开发环境兜底生成。
+	if (config.isProduction) {
+		const key = config.crypto.encryptionKey; // 缺失会 throw "Missing required env var: ENCRYPTION_KEY"
+		return scryptSync(key, "salt-vps-platform", 32);
 	}
-	return scryptSync(key, "salt-vps-platform", 32);
+	const existing = process.env.ENCRYPTION_KEY;
+	if (existing) return scryptSync(existing, "salt-vps-platform", 32);
+	// Auto-generate for development
+	const generated = randomBytes(32).toString("hex");
+	process.env.ENCRYPTION_KEY = generated;
+	logger.warn("ENCRYPTION_KEY not set, auto-generated for development. Set it in .env for persistence.");
+	return scryptSync(generated, "salt-vps-platform", 32);
 }
 
 /**

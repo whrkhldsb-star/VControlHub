@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { createDeploymentRollbackRun } from "@/lib/deployment/service";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { apiError } from "@/lib/http/api-error";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError, ValidationError } from "@/lib/errors";
@@ -37,8 +38,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ rollback }, { status: 201 });
       } catch (error) {
         const message = error instanceof Error ? error.message : "回滚失败";
-        const status = message.includes("不存在") ? 404 : message.includes("快照") || message.includes("回滚命令") ? 400 : 500;
-        return NextResponse.json({ error: message }, { status });
+        if (message.includes("不存在")) return apiError({ status: 404, code: "NOT_FOUND", message });
+        if (message.includes("快照") || message.includes("回滚命令")) {
+          return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
+        }
+        return apiError({ status: 500, code: "INTERNAL_ERROR", message });
       }
     },
   );

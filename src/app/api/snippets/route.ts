@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { apiError } from "@/lib/http/api-error";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createSnippet, deleteSnippet, listSnippets, updateSnippet } from "@/lib/snippet/service";
@@ -64,8 +65,9 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ snippet: await updateSnippet(id, data, actor) });
       } catch (err) {
         const message = err instanceof Error ? err.message : "更新失败";
-        const status = message.includes("无权") ? 403 : message.includes("不存在") ? 404 : 400;
-        return NextResponse.json({ error: message }, { status });
+        if (message.includes("无权")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
+        if (message.includes("不存在")) return apiError({ status: 404, code: "NOT_FOUND", message });
+        return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
       }
     },
   );
@@ -89,8 +91,9 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ success: true });
       } catch (err) {
         const message = err instanceof Error ? err.message : "删除失败";
-        const status = message.includes("无权") ? 403 : message.includes("不存在") ? 404 : 400;
-        return NextResponse.json({ error: message }, { status });
+        if (message.includes("无权")) return apiError({ status: 403, code: "PERMISSION_DENIED", message });
+        if (message.includes("不存在")) return apiError({ status: 404, code: "NOT_FOUND", message });
+        return apiError({ status: 400, code: "BUSINESS_RULE_FAILED", message });
       }
     },
   );

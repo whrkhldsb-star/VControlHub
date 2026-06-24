@@ -337,7 +337,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 测试 | 9/10 | 2394 tests pass / 1 skipped，tsc + lint 0 错误 |
 | i18n | 9/10 | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余） |
 | 前端 UX | 8/10 | 5 个功能页侧边栏入口已补齐；AI 客户端仍待响应式优化 |
-| 架构 | 8/10 | 97 findMany 无 take 分页保护，3 个路由不走统一错误格式 |
+| 架构 | 8/10 | 97 findMany 无 take 分页保护，108/108 路由全部走 TR-034 统一错误格式 |
 | 运维 | 9/10 | systemd + caddy + smoke + 双 build 全套完整 |
 | **综合** | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项** |
 
@@ -355,12 +355,9 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **10 种硬编码十六进制颜色** — `#f8fafc`、`#0c0f1a`、`#1e293b` 等色值散落在 TSX 文件中，绕过 Tailwind/CSS 变量体系，暗色模式切换时存在色彩不一致隐患。
 
 **P2 — 工程规范**
-- [ ] **3 个路由不用 TR-034 统一错误格式** — `api/snippets`、`api/playbooks/[id]`、`api/deployments/[id]/rollback` 直接返回 `NextResponse.json({ error: message })`，不走标准 `{ error, code, details }` 结构。
 - [ ] **97 处 `findMany` 无 `take` 保护** — 大部分列表查询无分页上限，数据量大时有内存和性能风险。
-- [ ] **`process.env.ENCRYPTION_KEY` 直接读取** — `src/lib/crypto/service.ts` 直接读 `process.env` 而不走项目统一的 config 模块。
 
 **P3 — 长期改善**
-- [ ] **`/status` 页面有 loading.tsx 但缺 error.tsx** — 公开状态页出错时无自定义错误界面。
 - [ ] **68 处 `p-5`/`p-7` 奇数间距混入** — Tailwind 标准档为 p-4/p-6/p-8，奇数档混入导致视觉节奏不统一。
 - [ ] **AI 客户端（1030 行）无响应式断点** — `ai-client.tsx` 无任何 `sm:/md:/lg:` 类，移动端为纯桌面宽度。
 - [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — TR-037 迁移未完成，约 80 条路由仍手动解析 body/query。
