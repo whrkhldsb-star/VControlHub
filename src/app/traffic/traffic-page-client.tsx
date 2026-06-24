@@ -152,8 +152,7 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 		<PageShell>
 			<div className="mb-6 flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} />
-					<p className="text-sm text-[var(--text-secondary)]">{t("trafficPage.desc")}</p>
+					<PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")} />
 				</div>
 				<div className="flex items-center gap-2">
 					<button onClick={() => fetchSummary()} className="rounded-lg bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/20">{t("trafficPage.refresh")}</button>

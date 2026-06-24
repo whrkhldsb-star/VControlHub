@@ -30,7 +30,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
   return (
     <PageShell maxW="max-w-4xl">
-      <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} className="mb-6" />
+      <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} description={t("ticketsDetail.desc", locale)} className="mb-6" />
       <TicketDetailClient initial={serialized} canManage={canManage} locale={locale} />
     </PageShell>
   );

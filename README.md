@@ -350,8 +350,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **P2 — UI 直观性与一致性**
 - [ ] **按钮色彩体系碎片化** — 主操作按钮存在 cyan-300/400/500/600 四档混用；危险操作全部已收敛到 `bg-rose-*`，仍需把主色 cyan 档位收敛到统一 `var(--color-action)` token。
-- [ ] **4 个核心页面缺少 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 无 eyebrow/title/description 三元素，用户进入页面后缺少上下文引导。
-- [ ] **约 13 处 PageHeader 无 description** — `downloads`、`notifications`、`tickets`、`scheduled-tasks`、`snippets`、`preferences` 等页面只有标题，缺少功能说明副文案，新用户引导不足。
+- [ ] **4 个核心页面"缺 PageHeader"实为假阳性** — `/ai` 是聊天 UI（自定义 chat header），`/storage` 仅 redirect 到 /files，`/media` 与 `/image-bed` 已具备 eyebrow/title/description 三元素（自定义 hero header，未用 PageHeader 组件名）。无需补齐。
+- [ ] **PageHeader description 已全量覆盖** — 真实 grep 仅 3 处缺失（preferences / traffic 把 desc 摆在外部 `<p>`、tickets/[id] 真缺），本轮已全部合并到 `description` prop / 补 i18n。
 - [ ] **10 种硬编码十六进制颜色** — 大多为合理保留（xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops），无可统一项；如需进一步抽象可后续单独审视。
 
 **P2 — 工程规范**
@@ -362,7 +362,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **AI 客户端（1030 行）无响应式断点** — `ai-client.tsx` 无任何 `sm:/md:/lg:` 类，移动端为纯桌面宽度。
 - [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — TR-037 迁移未完成，约 80 条路由仍手动解析 body/query。
 - [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。
-- [ ] **qa-reports 依赖 `.hermes` 运行时文件** — 纯 fresh install 环境（无 Hermes agent）下页面显示为空，建议添加空状态说明。
+- [x] **qa-reports 空状态友好引导** ✅ — `reports.length === 0` 时显示 📋 icon + 主文案 + hint 文案（提示 worker / `/alert-rules` 触发），与 filter empty 区分。
 
 ## 📋 任务追踪
 

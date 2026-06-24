@@ -332,19 +332,24 @@ export function QaReportsListClient({
 				</div>
 				{filtered.length === 0 ? (
 					<div className="px-5 py-8">
-						<EmptyState
-							text={
-								reports.length === 0
-									? t("qaReportsPage.emptyAll")
-									: t("qaReportsPage.emptyFiltered").replace(
-											"{kind}",
-											kindFilter === "all"
-												? ""
-												: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter),
-										)
-							}
-							variant="boxed"
-						/>
+						{reports.length === 0 ? (
+							<EmptyState variant="boxed" icon="📋">
+								<div className="space-y-2">
+									<p className="text-sm text-[var(--text-primary)]">{t("qaReportsPage.emptyAll")}</p>
+									<p className="text-xs text-[var(--text-muted)]">{t("qaReportsPage.emptyAllHint")}</p>
+								</div>
+							</EmptyState>
+						) : (
+							<EmptyState
+								text={t("qaReportsPage.emptyFiltered").replace(
+									"{kind}",
+									kindFilter === "all"
+										? ""
+										: (kindLabel(t, kindFilter as Exclude<KindFilter, "all">) ?? kindFilter),
+								)}
+								variant="boxed"
+							/>
+						)}
 					</div>
 				) : (
 					<ul className="divide-y divide-white/[0.06]">

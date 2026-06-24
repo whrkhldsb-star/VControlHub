@@ -199,8 +199,7 @@ export default function PreferencesPage() {
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} />
-			<p className="text-[var(--text-secondary)] mb-6">{t("preferencesPage.desc")}</p>
+			<PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} description={t("preferencesPage.desc")} />
 			{saved && (
 				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">{t("preferencesPage.status.saved")}</div>
 			)}
