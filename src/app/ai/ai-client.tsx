@@ -58,6 +58,7 @@ export function AiClient({
   const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
   const [modelSearch, setModelSearch] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState<ToolApprovalNeeded[]>([]);
+  const [approvalBusyById, setApprovalBusyById] = useState<Record<string, boolean>>({});
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<
     | { type: "delete-conversation"; id: string; title: string }
@@ -75,6 +76,7 @@ export function AiClient({
  const fileInputRef = useRef<HTMLInputElement | null>(null);
  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
  const abortControllerRef = useRef<AbortController | null>(null);
+ const approvalBusyRef = useRef<Set<string>>(new Set());
 
   // activeConv now comes from useConversations (R24)
   const activeProvider = activeConv
@@ -140,6 +142,37 @@ export function AiClient({
 		const data = await csrfFetch("/api/ai/providers");
 		if (data.providers) setProviders(data.providers);
 	}, []);
+
+  const refreshActiveMessages = useCallback(async () => {
+    if (!activeConvId) return;
+    const data = await csrfFetch(`/api/ai/conversations/${activeConvId}`);
+    if (data.conversation?.messages) setMessages(data.conversation.messages);
+  }, [activeConvId, setMessages]);
+
+  const handleHostedActionDecision = useCallback(async (approval: ToolApprovalNeeded, action: "confirm" | "reject") => {
+    if (approvalBusyRef.current.has(approval.actionId)) return;
+    approvalBusyRef.current.add(approval.actionId);
+    setApprovalBusyById((prev) => ({ ...prev, [approval.actionId]: true }));
+    try {
+      await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "reject" ? { action, reason: t("aiPage.userDenied") } : { action }),
+      });
+      setPendingApprovals((prev) => prev.filter((item) => item.actionId !== approval.actionId));
+      await refreshActiveMessages();
+      addToast("success", action === "reject" ? t("aiPage.rejected") : t("aiPage.approved"));
+    } catch {
+      addToast("error", t("aiPage.opFailed"));
+    } finally {
+      approvalBusyRef.current.delete(approval.actionId);
+      setApprovalBusyById((prev) => {
+        const { [approval.actionId]: _removed, ...rest } = prev;
+        void _removed;
+        return rest;
+      });
+    }
+  }, [addToast, refreshActiveMessages, t]);
 
   /* ── File Handling (capability-aware) ─────────────────────── */
   // Logic moved to hooks/use-file-attachments.ts; exposed below.
@@ -831,32 +864,16 @@ return (
       </div>
       <div className="flex gap-2 ml-3">
        <button
-        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 text-white transition"
-        onClick={async () => {
-         try {
-          await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
-           method: "PATCH",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ action: "reject", reason: t("aiPage.userDenied") }),
-          });
-          setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
-          addToast("success", t("aiPage.rejected"));
-         } catch { addToast("error", t("aiPage.opFailed")); }
-        }}
+        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 disabled:bg-red-900/60 disabled:cursor-not-allowed text-white transition"
+        disabled={approvalBusyById[approval.actionId]}
+        aria-busy={approvalBusyById[approval.actionId] ? "true" : undefined}
+        onClick={() => void handleHostedActionDecision(approval, "reject")}
        >{t("aiPage.reject")}</button>
        <button
-        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 text-white transition"
-        onClick={async () => {
-          try {
-          await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
-           method: "PATCH",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ action: "confirm" }),
-          });
-          setPendingApprovals((prev) => prev.filter((a) => a.actionId !== approval.actionId));
-          addToast("success", t("aiPage.approved"));
-         } catch { addToast("error", t("aiPage.opFailed")); }
-        }}
+        className="px-3 py-1 text-xs rounded bg-green-600 hover:bg-green-700 disabled:bg-green-900/60 disabled:cursor-not-allowed text-white transition"
+        disabled={approvalBusyById[approval.actionId]}
+        aria-busy={approvalBusyById[approval.actionId] ? "true" : undefined}
+        onClick={() => void handleHostedActionDecision(approval, "confirm")}
        >{t("aiPage.approve")}</button>
       </div>
      </div>

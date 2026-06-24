@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AiClient } from "../ai-client";
-import type { ConvItem, Provider } from "../ai-types";
+import type { ConvItem, Message, Provider } from "../ai-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 vi.mock("@/lib/auth/csrf-client", () => ({
@@ -209,5 +209,64 @@ describe("AiClient destructive actions", () => {
     await waitFor(() => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/ai/providers/provider-1", { method: "DELETE" });
     });
+  });
+
+  it("prevents duplicate hosted-action confirmation and refreshes messages after confirmation", async () => {
+    const user = userEvent.setup();
+    const refreshedMessage: Message = {
+      id: "msg-tool-result",
+      conversationId: "conv-1",
+      role: "tool",
+      content: JSON.stringify({ commandRequestId: "cmd-1", requiresApproval: true }),
+      reasoningContent: null,
+      imageUrls: "[]",
+      model: null,
+      inputTokens: null,
+      outputTokens: null,
+      latencyMs: null,
+      createdAt: "2026-05-27T00:01:00.000Z",
+    };
+    let confirmCalls = 0;
+    vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url === "/api/ai/conversations/conv-1" && !init) {
+        return { conversation: { ...conversation, messages: confirmCalls > 0 ? [refreshedMessage] : [] } };
+      }
+      if (url === "/api/ai/models?providerId=provider-1") {
+        return { models: [{ id: "gpt-4o-mini", name: "gpt-4o-mini" }] };
+      }
+      if (url === "/api/ai/chat") {
+        const stream = new ReadableStream({
+          start(controller) {
+            const encoder = new TextEncoder();
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "content", content: "我需要确认" })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "tool_approval_needed", toolCallId: "tc-1", actionId: "act-1", actionName: "重启服务", riskLevel: "high", params: { serverId: "srv-1" } })}\n\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", inputTokens: 1, outputTokens: 1, latencyMs: 10 })}\n\n`));
+            controller.close();
+          },
+        });
+        return new Response(stream, { status: 200 });
+      }
+      if (url === "/api/ai/hosted-actions/act-1") {
+        confirmCalls += 1;
+        return { success: true, action: { id: "act-1" } };
+      }
+      if (url === "/api/ai/conversations") {
+        return { conversations: [conversation] };
+      }
+      return {};
+    });
+
+    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    await user.click(screen.getByText("生产排障助手"));
+    await screen.findByText(/OpenAI · gpt-4o-mini/);
+    await user.type(screen.getByPlaceholderText(/输入消息/), "重启 nginx");
+    await user.click(screen.getByRole("button", { name: "发送消息" }));
+
+    const approveButton = await screen.findByRole("button", { name: "确认创建请求" });
+    await Promise.all([user.click(approveButton), user.click(approveButton)]);
+
+    await waitFor(() => expect(confirmCalls).toBe(1));
+    await waitFor(() => expect(screen.getByText(/commandRequestId/)).toBeInTheDocument());
   });
 });

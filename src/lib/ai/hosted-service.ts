@@ -13,7 +13,7 @@ import { createCommandRequest } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
-import { getToolByName, type HostedTool } from "./hosted-tools";
+import { getToolByName, type HostedActionType, type HostedTool } from "./hosted-tools";
 
 // ── 类型 ──────────────────────────────────────────────────
 
@@ -112,6 +112,22 @@ function requiredPermissionForAction(actionType: string): Permission {
   return actionType === "list_servers" ? "server:read" : "server:ssh";
 }
 
+const HOSTED_ACTION_TYPES = new Set<HostedActionType>([
+  "list_servers",
+  "get_status",
+  "read_logs",
+  "list_docker_containers",
+  "check_service_status",
+  "execute_command",
+  "restart_service",
+  "modify_config",
+  "deploy_docker",
+]);
+
+function isHostedActionType(actionType: string): actionType is HostedActionType {
+  return HOSTED_ACTION_TYPES.has(actionType as HostedActionType);
+}
+
 // ── 创建托管操作记录 ──────────────────────────────────────
 
 export async function createHostedAction(input: {
@@ -197,6 +213,11 @@ export async function executeSafeAction(
       }
 
       sshClient.on("ready", () => {
+        if (!isHostedActionType(action.actionType)) {
+          sshClient.end();
+          resolve({ success: false, data: null, error: "不支持的操作类型" });
+          return;
+        }
         const command = buildCommand(action.actionType, action.params);
         if (!command) {
           sshClient.end();
@@ -329,7 +350,7 @@ function normalizeEnvVars(value: unknown): string | null {
   }
 }
 
-export function buildCommand(actionType: string, params: Record<string, unknown>): string | null {
+export function buildCommand(actionType: HostedActionType, params: Record<string, unknown>): string | null {
   switch (actionType) {
     case "get_status":
       return "echo '=== UPTIME ===' && uptime && echo '=== MEMORY ===' && free -h && echo '=== DISK ===' && df -h / && echo '=== CPU ===' && top -bn1 | head -5";
@@ -412,6 +433,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   if (!action) throw new NotFoundError("操作不存在或无权确认");
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError("操作不在待确认状态");
   if (action.autoApproved) throw new BusinessError("自动批准操作无需人工确认");
+  if (!isHostedActionType(action.actionType)) throw new BusinessError("不支持的操作类型");
   if (action.actionType === "list_servers") throw new BusinessError("列表查询无需创建命令请求");
   if (!action.serverId) throw new BusinessError("未绑定目标 VPS，无法创建命令请求");
 

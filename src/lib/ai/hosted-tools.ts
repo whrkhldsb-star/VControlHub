@@ -8,6 +8,16 @@
 // ── 工具类型定义 ──────────────────────────────────────────────
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
+export type HostedActionType =
+  | "list_servers"
+  | "get_status"
+  | "read_logs"
+  | "list_docker_containers"
+  | "check_service_status"
+  | "execute_command"
+  | "restart_service"
+  | "modify_config"
+  | "deploy_docker";
 
 export interface HostedTool {
   name: string;
@@ -15,7 +25,7 @@ export interface HostedTool {
   parameters: Record<string, unknown>; // JSON Schema
   riskLevel: RiskLevel;
   autoApproved: boolean; // true = 安全操作，直接执行
-  actionType: string; // 对应 AiHostedAction.actionType
+  actionType: HostedActionType; // 对应 AiHostedAction.actionType
   actionName: string; // 人类可读名称
 }
 
@@ -24,7 +34,7 @@ export interface HostedTool {
 export const HOSTED_TOOLS: HostedTool[] = [
   {
     name: "list_servers",
-    description: "列出当前用户可绑定/操作的 VPS 目标。用户说“绑定 VPS”“在某台 VPS 上操作”但没有提供 serverId 时，先调用这个工具获取 id、名称和 IP。不会返回密码、密钥或连接凭据。",
+    description: "列出当前用户可绑定/操作的 VPS 目标。用户说“绑定 VPS”“在某台 VPS 上操作”但没有提供 serverId 时，先调用这个工具获取 id、名称和 IP。不会返回密码、密钥或连接凭据；本工具不需要 serverId/serverQuery。",
     parameters: {
       type: "object",
       properties: {},

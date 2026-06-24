@@ -209,9 +209,7 @@ export async function POST(request: Request) {
       // Prepare tools if hosting is enabled
       const tools = isHostingEnabled ? getOpenAIToolsFormat() : undefined;
 
-      // ── AI 请求 + Tool Calling 循环 ──────────────────────────────
-      // 最多 5 轮 tool calling 循环，防止无限循环
-      const MAX_TOOL_ROUNDS = 5;
+      // ── AI 请求 + Tool Calling 流 ──────────────────────────────
       const currentMessages = [...historyMessages];
       let totalInputTokens = 0;
       let totalOutputTokens = 0;
@@ -223,9 +221,8 @@ export async function POST(request: Request) {
         actionId?: string;
       }> = [];
 
-      for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-        let chatResult: Awaited<ReturnType<typeof sendChatRequest>>;
-        try {
+      let chatResult: Awaited<ReturnType<typeof sendChatRequest>>;
+      try {
           chatResult = await sendChatRequest(
             {
               providerId: provider.id,
@@ -236,7 +233,7 @@ export async function POST(request: Request) {
               top_p: conv.topP,
               frequency_penalty: conv.frequencyPenalty,
               presence_penalty: conv.presencePenalty,
-              stream: round === 0, // 只有第一轮用流式（直接返回给用户）
+              stream: true,
               tools,
             },
             session.userId,
@@ -246,13 +243,11 @@ export async function POST(request: Request) {
           throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
         }
 
-        // ── 第一轮：流式返回给客户端，同时检测 tool_calls ───────────
-        if (round === 0) {
-          const encoder = new TextEncoder();
-          const startTime = chatResult.startTime;
-          const providerType = chatResult.providerType;
+      const encoder = new TextEncoder();
+      const startTime = chatResult.startTime;
+      const providerType = chatResult.providerType;
 
-          const stream = new ReadableStream({
+      const stream = new ReadableStream({
             async start(controller) {
               let fullContent = "";
               let fullReasoning = "";
@@ -553,23 +548,13 @@ export async function POST(request: Request) {
             },
           });
 
-          return new Response(stream, {
-            headers: {
-              "Content-Type": "text/event-stream",
-              "Cache-Control": "no-cache",
-              Connection: "keep-alive",
-            },
-          });
-        }
-
-        // ── 后续轮次（非流式，处理 tool calling 循环）─────────
-        // 后续轮次只在用户审批后通过 /api/ai/hosted-actions/[id]/approve 触发
-        // 不在此处实现完整循环，避免长时间阻塞
-        break;
-      }
-
-      // Fallback (should not reach here)
-      throw new AppError({ code: "INTERNAL_ERROR", message: t("apiAiChat.unexpectedError", locale), status: 500 });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
     },
   );
 }

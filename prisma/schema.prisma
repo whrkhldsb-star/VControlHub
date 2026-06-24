@@ -1062,7 +1062,7 @@ model AiHostedAction {
   conversationId String
   messageId      String
   serverId       String?
-  actionType     String // get_status | read_logs | execute_command | restart_service | modify_config | deploy_docker
+  actionType     String // list_servers | get_status | read_logs | list_docker_containers | check_service_status | execute_command | restart_service | modify_config | deploy_docker
   actionName     String // 人类可读的操作名称
   params         String               @default("{}") // JSON: 操作参数
   status         AiHostedActionStatus @default(PENDING_APPROVAL)
