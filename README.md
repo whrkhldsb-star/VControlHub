@@ -477,6 +477,26 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ---
 
-## 📄 许可
+## 🎨 UI 美化待办（代码审查 2026-06-24）
+
+基于静态分析 + 浏览器走查确认，按影响大小排列。
+
+### 🔴 视觉 Bug（直接影响可用性）
+- [ ] **`/alert-rules` 和 `/playbooks` 页眉英文** — `alertRulesPage.eyebrow` 和 `playbooksPage.eyebrow` 字典值为 `"Automation"`，中文模式下直接显示英文。应改为 `"自动化"`（zh 字典）。
+- [ ] **`/files` 目录树列宽过窄** — 左侧节点名称普遍被截断（如 `本机默认存储（L…`），`files-browser-spa.tsx` sidebar 宽度未设最小宽度，应加 `min-w-[160px]` 或 `w-48`。
+- [ ] **`global-error.tsx` 全部用内联 style** — 全局错误页的字号/颜色/间距都是 `style={{ fontSize:28... }}`，与其余页面风格割裂，应迁移到 Tailwind className。
+
+### 🟠 设计一致性
+- [ ] **按钮主色拆分三对** — `cyan-400`/`cyan-500`、`rose-400`/`rose-500`、`emerald-400`/`emerald-500` 在 JSX 中随意切换（静态扫描：cyan-400 用 121 次、cyan-500 用 111 次）。建议统一：主色 `cyan-500`，危险 `rose-500`，成功 `emerald-500`，hover 态才降一档。
+- [ ] **圆角 5 种混用** — `rounded`（无后缀）、`rounded-md`、`rounded-lg`、`rounded-xl`、`rounded-2xl` 同时存在。建议规范：卡片 `rounded-xl`，小控件 `rounded-lg`，badge/按钮 `rounded-full`，去掉无后缀 `rounded` 和 `rounded-md`。
+- [ ] **Input 样式 3 种变体** — `rounded-2xl + bg-slate-950 + py-3`、`rounded-lg + bg-white/[0.04] + py-2.5`、`rounded-lg + bg-[var(--border)] + py-2` 混用。建议提取统一 `inputBase` className 或 InputBase 组件。
+- [ ] **`text-white/82` 异常 opacity** — `src/app/login/page.tsx:111` 的 `text-white/82` 是随意取值，应改为 `/80`（已有大量 `/80` 用例）。
+- [ ] **`/quick-services` 三卡宽度失衡** — `lg:grid-cols-[1.2fr_0.9fr_0.9fr]` 使"运行概览"卡偏宽 40%+，改为 `lg:grid-cols-3` 等宽更协调。
+
+### 🟡 细节打磨
+- [ ] **Loading skeleton 全部只有 5 行** — 35 个 `loading.tsx` 内容极简（spinner 或空 div），数据密集页（`/files`、`/health`、`/deployments`）应实现与页面结构匹配的骨架屏。
+- [ ] **`transition-all` 19 处** — 会触发全属性重绘，性能较差，建议改为 `transition-colors` 或 `transition-transform`（具体属性）。
+- [ ] **`/playbooks` 空状态无引导 CTA** — 空列表时只有说明文字，缺少内嵌"新建 Playbook"按钮，用户难以发现操作入口。
+- [ ] **文字 opacity 档位过多** — `/10`、`/20`、`/25`、`/30`、`/40`、`/50`、`/60`、`/70`、`/80`、`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档。
 
 私有项目 — 未经授权不得使用、复制或分发。
