@@ -1838,3 +1838,14 @@ html.light [data-tone="violet"] { --tone-bg: #f5f3ff; }  /* violet-50 */
 	--radius-card: 0.75rem;    /* rounded-xl — 卡片统一圆角 */
 	--radius-control: 0.5rem;  /* rounded-lg  — 按钮/input 统一圆角 */
 }
+
+/* S16. z-index 层级 token — 浮层层级有序管理 */
+:root {
+	--z-toast:   60;
+	--z-popover: 70;
+	--z-modal:  100;
+}
+
+/* S17. 页面底色统一 token */
+:root { --surface-root: #050508; }
+html.light { --surface-root: #f8fafc; }

@@ -85,7 +85,7 @@ export function ConfigPreviewDialog({
 				role="dialog"
 				aria-modal="true"
 				aria-label={title}
-				className="mx-0 w-full max-w-lg rounded-t-2xl border border-cyan-400/20 bg-[#0c0f1a] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
+				className="mx-0 w-full max-w-lg rounded-t-2xl border border-cyan-400/20 bg-[var(--surface-root)] p-6 shadow-2xl sm:mx-4 sm:rounded-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<h3 className="text-lg font-semibold text-white mb-2">{title}</h3>

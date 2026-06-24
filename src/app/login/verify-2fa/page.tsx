@@ -29,7 +29,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	const error = resolveErrorMessage(resolvedSearchParams.error);
 
 	return (
-		<main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050508] text-white">
+		<main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--surface-root)] text-white">
 			{/* Background effects */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.06),transparent_35%),linear-gradient(180deg,#08080c_0%,#050508_100%)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />

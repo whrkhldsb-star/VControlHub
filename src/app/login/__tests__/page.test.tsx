@@ -30,7 +30,7 @@ describe("LoginPage", () => {
 		const { container } = render(await LoginPage({ searchParams: Promise.resolve({}) }));
 
 		const main = container.querySelector("main");
-		expect(main).toHaveClass("bg-[#050508]");
+		expect(main).toHaveClass("bg-[var(--surface-root)]");
 		expect(main).toHaveClass("text-white");
 		// R2: 冗余 light: 修饰符已删, light 主题可读性由 globals.css Q 层接管
 		// (Q5b border-slate-* → var(--border), Q6 text-cyan-100 → var(--text-primary) 等)

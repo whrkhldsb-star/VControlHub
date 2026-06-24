@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 	const siteName = getSiteName();
 
 	return (
-		<main className="relative min-h-screen overflow-hidden bg-[#050508] text-white">
+		<main className="relative min-h-screen overflow-hidden bg-[var(--surface-root)] text-white">
 			{/* Background effects */}
 			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.08),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.06),transparent_35%),linear-gradient(180deg,#08080c_0%,#050508_100%)] light:bg-[radial-gradient(ellipse_at_top,rgba(14,165,233,0.18),transparent_48%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.14),transparent_36%),linear-gradient(180deg,#f8fafc_0%,#eef6ff_100%)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent light:via-cyan-300/50" />

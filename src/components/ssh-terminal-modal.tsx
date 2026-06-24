@@ -393,7 +393,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 						<div
 							ref={termRef}
 							data-testid="ssh-terminal-surface"
-							className="h-[clamp(320px,58vh,560px)] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0e1a] lg:h-full lg:min-h-[400px]"
+							className="h-[clamp(320px,58vh,560px)] w-full overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface-root)] lg:h-full lg:min-h-[400px]"
 						/>
 					</div>
 					{showSidePanel && (

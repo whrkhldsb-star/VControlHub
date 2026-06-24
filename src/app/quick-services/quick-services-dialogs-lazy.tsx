@@ -28,7 +28,7 @@ function DialogStub({ label }: { label: string }) {
 			data-testid={`quick-service-${label}-loading`}
 			className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
 		>
-			<div className="h-48 w-full max-w-md animate-pulse rounded-2xl border border-white/[0.06] bg-[#0c0f1a]/80" />
+			<div className="h-48 w-full max-w-md animate-pulse rounded-2xl border border-white/[0.06] bg-[var(--surface-root)]/80" />
 		</div>
 	);
 }

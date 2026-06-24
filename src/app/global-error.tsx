@@ -20,7 +20,7 @@ export default function GlobalError({
 
 	return (
 		<html lang="zh-CN">
-			<body className="m-0 bg-[#0a0a0a] p-0 font-sans text-[#e5e5e5]">
+			<body className="m-0 bg-[var(--surface-root)] p-0 font-sans text-[#e5e5e5]">
 				<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
 					<h1 className="mb-3 text-[28px] font-semibold text-white">出错了</h1>
 					<p className="mb-6 text-base leading-relaxed text-[#a3a3a3]">

@@ -140,7 +140,7 @@ export function InstallDialog({
 			onClick={onClose}
 		>
 			<div
-				className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[#0c0f1a] p-6 shadow-2xl"
+				className="w-full max-w-md mx-4 rounded-2xl border border-white/[0.08] bg-[var(--surface-root)] p-6 shadow-2xl"
 				onClick={(e) => e.stopPropagation()}
 			>
 				<h3 className="text-lg font-semibold text-white mb-1">{t("qsPage.installTitle").replace("{name}", open.name)}</h3>
