@@ -199,7 +199,19 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 			{showCreate && <CreatePlaybookForm onClose={() => { setShowCreate(false); void refresh(); }} />}
 
 			{playbooks.length === 0 ? (
-				<EmptyState icon="🧩" text={t("playbooksPage.empty")} variant="boxed" />
+				<EmptyState icon="🧩" variant="boxed">
+					<p>{t("playbooksPage.empty")}</p>
+					{canManage && !showCreate && (
+						<button
+							type="button"
+							onClick={() => setShowCreate(true)}
+							data-tone="accent"
+							className="mt-4 min-h-9 rounded-xl border px-4 py-2 text-sm font-medium transition-colors"
+						>
+							{t("playbooksPage.action.create")}
+						</button>
+					)}
+				</EmptyState>
 			) : (
 				<div className="space-y-3">
 					{playbooks.map((playbook) => {

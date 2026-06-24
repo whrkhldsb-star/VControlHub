@@ -102,7 +102,7 @@ export function AppSidebar({
 				key={item.href}
 				href={item.href}
 				onClick={() => setMobileOpen(false)}
-					className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-150 ${
+					className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors duration-150 ${
 					active
 						? "bg-cyan-400/[0.10] text-cyan-100 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16)] font-medium"
 						: "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
@@ -152,7 +152,7 @@ export function AppSidebar({
 								target="_blank"
 								rel="noopener noreferrer"
 								onClick={() => setMobileOpen(false)}
-								className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200"
+								className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400 transition-colors duration-150 hover:bg-white/[0.04] hover:text-slate-200"
 							>
 								<span className="shrink-0 text-[18px] leading-none">{item.icon}</span>
 								<span className="min-w-0 flex-1 truncate" title={item.name}>{item.name}</span>
@@ -176,7 +176,7 @@ export function AppSidebar({
 						setPasswordModalOpen(true);
 						setMobileOpen(false);
 					}}
-					className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition-all duration-150 hover:bg-white/[0.04] hover:text-slate-200"
+					className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors duration-150 hover:bg-white/[0.04] hover:text-slate-200"
 				>
 					<IconKey />
 					<span>{t("auth.change-password") === "auth.change-password" ? "修改密码" : t("auth.change-password")}</span>

@@ -444,7 +444,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files); }}
 					onClick={() => fileInputRef.current?.click()}
 					className={`
-						mt-4 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
+						mt-4 border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors
 						${dragOver ? "border-cyan-400 bg-cyan-400/5 light:bg-cyan-50" : "border-slate-700 hover:border-slate-500 bg-slate-900/50 light:hover:border-slate-400"}
 						${uploading ? "opacity-50 pointer-events-none" : ""}
 					`}

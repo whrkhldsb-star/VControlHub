@@ -508,7 +508,7 @@ export function FileListClient({
           return (
             <div
               key={entry.id}
-              className={`group relative flex flex-col rounded-2xl border border-white/[0.06] bg-slate-900/80 text-center transition-all duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
+              className={`group relative flex flex-col rounded-2xl border border-white/[0.06] bg-slate-900/80 text-center transition-colors duration-200 hover:border-cyan-400/20 hover:shadow-lg hover:shadow-cyan-400/5 overflow-hidden ${isChecked ? "ring-2 ring-cyan-400/50 bg-cyan-400/[0.04] light:bg-cyan-50" : ""}`}
             >
               {/* Selection checkbox */}
               <div className="absolute top-2 left-2 z-20">
