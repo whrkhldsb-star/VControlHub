@@ -344,19 +344,33 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 🚧 现有问题（按优先级）
 
 **P1 — 功能可发现性**
-- [ ] **5 个功能页无侧边栏入口**（用户体验阻塞）— `/monitoring`（系统监控图表）、`/preferences`（用户偏好设置）、`/cost-summary`（成本追踪）、`/ai-ops`（智能运维）、`/image-bed`（图床中心）均无法从侧边导航栏直接访问，用户只能靠直接输 URL 或从其他页面跳转。建议按模块归类加入侧边栏或在对应父页面添加显眼入口链接。
+- [ ] **5 个功能页无侧边栏入口** — `/monitoring`（系统监控图表）、`/preferences`（用户偏好设置）、`/cost-summary`（成本追踪）、`/ai-ops`（智能运维）、`/image-bed`（图床中心）均无法从侧边导航栏直接访问，只能靠 URL 直接输入或其他页面跳转。
+
+**P1 — 功能逻辑不完善**
+- [ ] **`downloads` 彻底清除（purge）无二次确认** — `downloads-client.tsx` 的 `purge=1` 操作（从 Aria2 彻底删除任务文件）点击后直接执行，无 AlertDialog/confirm 拦截，误操作风险高。
+- [ ] **审批中心无批量审批** — `/requests` 页面只能逐条审批，无"全选 + 批量通过"，高并发审批场景下效率低。
+- [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
+- [ ] **`/monitoring` 监控依赖轮询，无实时推送** — 使用 `setInterval` 定时拉取，无 WebSocket/SSE，数据有明显延迟，不适合高频实时场景。
+
+**P2 — UI 直观性与一致性**
+- [ ] **按钮色彩体系碎片化** — 主操作按钮存在 cyan-300/400/500/600 四档混用；危险操作同时使用 `bg-red-*` 和 `bg-rose-*` 两套色，无统一 design token，视觉噪音明显。
+- [ ] **4 个核心页面缺少 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 无 eyebrow/title/description 三元素，用户进入页面后缺少上下文引导。
+- [ ] **约 13 处 PageHeader 无 description** — `downloads`、`notifications`、`tickets`、`scheduled-tasks`、`snippets`、`preferences` 等页面只有标题，缺少功能说明副文案，新用户引导不足。
+- [ ] **10 种硬编码十六进制颜色** — `#f8fafc`、`#0c0f1a`、`#1e293b` 等色值散落在 TSX 文件中，绕过 Tailwind/CSS 变量体系，暗色模式切换时存在色彩不一致隐患。
 
 **P2 — 工程规范**
-- [ ] **`i18n:key-check` 未接入 verify 链** — `npm run verify` 不包含 `npm run i18n:key-check`，新的 `t(key)` 调用若没有对应字典 key 不会在 CI 门禁中暴露，只在浏览器切换 en 模式时才能发现。一行修改加入 verify 脚本即可。
-- [ ] **3 个路由不用 TR-034 统一错误格式** — `src/app/api/snippets/route.ts`、`src/app/api/playbooks/[id]/route.ts`、`src/app/api/deployments/[id]/rollback/route.ts` 直接返回 `NextResponse.json({ error: message })` 而非 `withApiRoute` 的标准 `{ error, code, details }` 格式，客户端错误处理不一致。
-- [ ] **97 处 `findMany` 无 `take` 保护** — 大部分列表查询没有分页上限，数据量大时有内存和性能风险。高频路由（`/api/users/permissions` 6 处，`/api/dashboard/analytics` 4 处）优先处理。
-- [ ] **`process.env.ENCRYPTION_KEY` 直接读取** — `src/lib/crypto/service.ts` 直接读 `process.env` 而不走项目统一的 config 模块，生产安全关键变量应走中心化配置。
+- [ ] **`i18n:key-check` 未接入 verify 链** — `npm run verify` 不包含 `npm run i18n:key-check`，新的 `t(key)` 调用若字典缺 key 不会被 CI 门禁捕获。
+- [ ] **3 个路由不用 TR-034 统一错误格式** — `api/snippets`、`api/playbooks/[id]`、`api/deployments/[id]/rollback` 直接返回 `NextResponse.json({ error: message })`，不走标准 `{ error, code, details }` 结构。
+- [ ] **97 处 `findMany` 无 `take` 保护** — 大部分列表查询无分页上限，数据量大时有内存和性能风险。
+- [ ] **`process.env.ENCRYPTION_KEY` 直接读取** — `src/lib/crypto/service.ts` 直接读 `process.env` 而不走项目统一的 config 模块。
 
 **P3 — 长期改善**
-- [ ] **AI 客户端（1030 行）无响应式断点** — `src/app/ai/ai-client.tsx` 无任何 `sm:/md:/lg:` 响应式 class，移动端布局为纯桌面宽度。
-- [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — 大多数路由仍在 handler 内部手动解析 body/query，TR-037 迁移尚未完成（约 80 条路由待迁移）。
-- [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（CVE，GHSA-qx2v-qp2m-jg93）在 Next.js 内置 postcss 依赖链，`npm audit fix --force` 会降级 Next.js 到 9.x（破坏性）。待 Next.js 官方发版修复，届时升级。
-- [ ] **qa-reports 服务依赖 `.hermes` 运行时文件** — `/qa-reports` 页面读取 `.hermes/remediation-state.json`，在纯 fresh install 环境（无 Hermes agent）下显示为空，建议添加空状态说明。
+- [ ] **`/status` 页面有 loading.tsx 但缺 error.tsx** — 公开状态页出错时无自定义错误界面。
+- [ ] **68 处 `p-5`/`p-7` 奇数间距混入** — Tailwind 标准档为 p-4/p-6/p-8，奇数档混入导致视觉节奏不统一。
+- [ ] **AI 客户端（1030 行）无响应式断点** — `ai-client.tsx` 无任何 `sm:/md:/lg:` 类，移动端为纯桌面宽度。
+- [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — TR-037 迁移未完成，约 80 条路由仍手动解析 body/query。
+- [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。
+- [ ] **qa-reports 依赖 `.hermes` 运行时文件** — 纯 fresh install 环境（无 Hermes agent）下页面显示为空，建议添加空状态说明。
 
 ## 📋 任务追踪
 
@@ -371,19 +385,27 @@ make logs SERVICE_PREFIX=vcontrolhub
 按 P 级排序。已完成项已从本节移除。
 
 ### P1 — 阻塞性
-- [ ] **5 个功能页补充侧边栏入口** — `/monitoring`、`/preferences`、`/cost-summary`、`/ai-ops`、`/image-bed` 加入侧边栏或对应父页面入口，提升功能可发现性。
+- [ ] **5 个功能页补充侧边栏入口** — `/monitoring`、`/preferences`、`/cost-summary`、`/ai-ops`、`/image-bed` 加入侧边栏或对应父页面入口。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
+- [ ] **downloads purge 操作补二次确认** — 彻底删除任务文件前加 AlertDialog 拦截。
+- [ ] **审批中心支持批量审批** — 全选 + 批量通过/拒绝。
 
 ### P2 — 用户体验和可运营性
-- [ ] **`i18n:key-check` 加入 verify 链** — 防止 t(key) 调用在字典中缺 key 而无 CI 门禁保护。
+- [ ] **`/traffic` 流量页补图表** — 带宽走势折线/柱状图，支持时间段切换。
+- [ ] **`/monitoring` 改为 WebSocket/SSE 实时推送** — 替换 setInterval 轮询，降低数据延迟。
+- [ ] **按钮色彩体系统一** — 主色统一到 `cyan-500`，危险色统一到 `rose-500`，写入 globals.css token。
+- [ ] **4 个核心页面补 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 补 eyebrow/title/description。
+- [ ] **`i18n:key-check` 加入 verify 链** — 一行改 package.json。
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
-- [ ] **高频 findMany 添加 take 分页保护** — 优先修 `/api/users/permissions`、`/api/dashboard/analytics`、`/api/users/route.ts`。
+- [ ] **高频 findMany 添加 take 分页保护** — 优先 `/api/users/permissions`、`/api/dashboard/analytics`。
 
 ### P3 — 长期愿景
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
 - [ ] **AI 客户端响应式布局** — `ai-client.tsx` 添加移动端断点支持。
+- [ ] **约 13 处 PageHeader 补 description** — downloads / notifications / tickets 等页面补功能说明副文案。
+- [ ] **硬编码颜色迁移 CSS 变量** — 10 种十六进制色值统一走 Tailwind/CSS token。
 - [ ] **多租户 / 团队空间**（TR-030）。
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。
 - [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。
