@@ -525,9 +525,16 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ## 🔐 安全加固方向（代码审查 2026-06-24）
 
-- [ ] **Cookie 未显式设置 `Secure` + `HttpOnly`** — `src/lib/auth/csrf.ts` 只见 `SameSite=Strict`，生产环境的 session cookie 应同时加 `Secure`（HTTPS-only）和 `HttpOnly`（禁止 JS 读取）标志，防会话劫持。
 - [ ] **CI workflow 覆盖率报告未接入** — `.github/workflows/ci.yml` 存在，但 vitest 未配置 coverage reporter，PR 合并时无覆盖率门禁，回归风险无法量化。建议加 `@vitest/coverage-v8` + 覆盖率阈值检查。
 - [ ] **无 APM / 错误监控** — 全项目无 Sentry / Datadog / OpenTelemetry，生产报错只能靠 `journalctl` 事后查。建议接入 Sentry（免费额度够用）或 OpenTelemetry 自托管，实现主动报错感知。
+
+### ⚠️ 误报订正（**审计订正**）
+> 代码审查曾建议给 `csrf_token` cookie 加 `HttpOnly` 标志。**这是审计假阳性**：
+
+- `csrf_token` 走 **Double-Submit Cookie 模式**（`src/lib/auth/csrf.ts` + `src/lib/auth/csrf-client.ts`），client 端必须通过 `document.cookie` 读 token 再注入 `X-CSRF-Token` header（见 `useCsrfToken()` hook）。**加 `HttpOnly` 会直接破坏 CSRF 防护**。
+- 真正承载身份的 **session cookie 已经是 `httpOnly: true`**（见 `src/app/api/auth/signout/route.ts:13` 和 `src/app/api/auth/2fa/verify-login/route.ts:110`）。
+- CSRF cookie 已有 `SameSite=Strict`（生产 `Secure`），加上 session cookie 的 `HttpOnly`，组合已满足 OWASP CSRF 防护推荐。
+- 文件 `src/lib/auth/csrf-client.ts` 顶部已加 JSDoc 注释解释此约束，防止后续审计重复误报。
 
 ---
 
@@ -548,10 +555,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 - `@types/node` 20 → 26 — API 类型变化，升级后需全量 tsc 验证
 - `undici` 7 → 8 — 内部 HTTP 库，Next.js 版本锁定，不要单独升
 
-### 可移除的未使用包（已代码扫描确认）
-- [ ] **`effect` 包 34MB** — 全项目 0 处 `import from 'effect'`，仅注释中出现字样，可 `npm remove effect`
-- [ ] **`@electric-sql` 包 26MB** — 全项目 0 处 import，可 `npm remove @electric-sql`
-- 合计节省：约 **60MB** node_modules 体积，加速 `npm ci` 和冷部署
+### ⚠️ 之前误标"可移除"的包（**审计订正**）
+> 代码审查曾建议 `npm remove effect` 和 `npm remove @electric-sql`，**实测两者均为 `prisma@7.8.0` 的 transitive dependency**，不在 `package.json` 顶层，**无法直接移除**。
+
+- `effect@3.20.0` ← `prisma → @prisma/config` 必需依赖
+- `@electric-sql/pglite*` ← `prisma → @prisma/dev` 必需依赖（pglite-socket / pglite-tools / pglite）
+
+验证命令：`npm ls effect` 和 `npm ls @electric-sql/pglite`。如要瘦身，需 `prisma` 主动减少这些依赖，非项目侧可解。
 
 ---
 

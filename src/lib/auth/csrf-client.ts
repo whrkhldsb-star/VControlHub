@@ -3,6 +3,29 @@
 import { useEffect, useState } from "react";
 
 /**
+ * ⚠️ SECURITY DESIGN NOTE — DO NOT add `HttpOnly` to the `csrf_token` cookie.
+ *
+ * This module implements the **Double-Submit Cookie** CSRF protection pattern:
+ *   - Server sets a random `csrf_token` cookie at login (SameSite=Strict + Secure in prod).
+ *   - Client reads that cookie via `document.cookie` and echoes it into the
+ *     `X-CSRF-Token` header on every state-changing request.
+ *   - Server (`src/lib/auth/csrf.ts:validateCsrf`) compares cookie value vs header value.
+ *
+ * The cookie **must be JS-readable** for this pattern to work. Adding `HttpOnly`
+ * would block `document.cookie` access and silently break every POST/PUT/DELETE/PATCH
+ * across the app.
+ *
+ * Identity is carried by a separate `session` cookie, which **is** `httpOnly: true`
+ * (see `src/app/api/auth/signout/route.ts` + `src/app/api/auth/2fa/verify-login/route.ts`).
+ * Stealing the `csrf_token` alone gives an attacker nothing — they still need the
+ * `session` cookie to impersonate the user, and that one is protected from XSS via HttpOnly.
+ *
+ * Past audits have repeatedly flagged "csrf_token missing HttpOnly" as a finding.
+ * It is a false positive. Do not change the cookie flags without redesigning the
+ * CSRF strategy (e.g. moving to synchronizer-token + server-rendered hidden inputs).
+ */
+
+/**
  * Hook to get the CSRF token from the csrf_token cookie.
  * Used to include X-CSRF-Token header in all state-changing API requests.
  */
