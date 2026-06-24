@@ -503,55 +503,38 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ## 🔧 前端可维护性改进方向（代码审查 2026-06-24）
 
-已完成项：✅ CSS 语义 token（`--color-action/danger/radius-card/control`）| ✅ `InputBase` 组件 | ✅ `global-error.tsx` 迁移 Tailwind | ✅ `transition-all` 主要场景已改 | ✅ `/servers`、`/files`、`/health` 专属骨架屏 | ✅ `/playbooks` 空状态 CTA
+**已完成：** ✅ CSS 语义 token（`--color-action/danger/radius-card/control`）| ✅ `InputBase` 组件 | ✅ `global-error.tsx` 迁移 Tailwind | ✅ `transition-all` 主要场景已改 | ✅ `/servers`、`/files`、`/health` 专属骨架屏 | ✅ `/playbooks` 空状态 CTA | ✅ `cn()` 工具函数 (`src/lib/cn.ts` + clsx) | ✅ 共享样式常量 (`src/lib/styles.ts`：INPUT_CLS / TABLE_TH_CLS / CHIP_CLS 等) | ✅ z-index token (`--z-toast:60 / --z-popover:70 / --z-modal:100`) | ✅ `--surface-root` token + 9 处 magic hex 色替换 | ✅ eyebrow 汉化 | ✅ quick-services 三卡等宽
 
-### 1. `cn()` 工具函数缺失（最高优先级）
+**待做：**
+- [ ] **超大 Client 组件拆分** — `file-list-client.tsx`(1247行)、`settings-client.tsx`(1202行)、`ai-client.tsx`(1030行) 各包含多个子功能，建议按职责拆分为 400 行以内的子组件
+- [ ] **40 处 input 替换 `<InputBase>`** — `src/components/input-base.tsx` 已建，11 个文件的重复 className 可批量替换
+- [ ] **文字 opacity 收敛** — `/10`~`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档
+- [ ] **组件文档** — `src/components/` 无文档，建议新增 `src/components/README.md` 列清单和 props
 
-当前状态：**全项目 0 处使用 `cn()`/`clsx`**。所有条件 className 都是手写模板字符串（`` `flex ${active ? "bg-cyan" : "text-slate"}` ``），全局有 16 种重复 60+ 字符的 className 字符串，每次修改样式要全局 grep。
+---
 
-改进方向：安装 `clsx`（已在 Next.js 依赖链内，0 新包），在 `src/lib/cn.ts` 导出 `cn = clsx`，然后所有条件 className 改用 `cn()`。好处：条件逻辑一目了然，IDE 能折叠/检索，改一个 className 只需改一处。
+## ⚡ 性能优化方向（代码审查 2026-06-24）
 
-### 2. 重复 className 字符串提取为常量
+**当前基线**：Next.js 进程内存占用约 276MB，1.1G node_modules，所有页面均为 `force-dynamic`（无缓存）。
 
-当前状态：静态扫描发现 10+ 种出现 7 次以上的完整 className 字符串，最典型：
-- `"rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"` — 16 处
-- `"px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"` — 14 处（表格 thead）
-- `"rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200"` — 9 处（错误输入框）
+### P1 — 对低内存主机影响最大
 
-改进方向：在 `src/lib/styles.ts` 导出共享 className 常量（`INPUT_CLS`、`INPUT_ERROR_CLS`、`TABLE_TH_CLS` 等），页面直接 `import { INPUT_CLS } from "@/lib/styles"`。改样式只需改一处。
+- [ ] **N+1 查询消除** — 静态扫描发现 10 个文件存在 for-of 循环内 `await prisma.*`，最严重：`quick-service/service-lifecycle.ts`（19 处）、`downloads/route.ts`（13 处）、`upload/service.ts`（11 处）。改用 `prisma.findMany({ where: { id: { in: ids } } })` 批量取，可将每次请求的 DB 往返从 N 次降到 1 次。
+- [ ] **findMany 无分页上限** — 97 处 `findMany` 无 `take`，数据量增长后会全表加载到内存。优先加 `take` 的路由：`/api/users/permissions`（6处）、`/api/dashboard/analytics`（4处）。
+- [ ] **所有页面 `force-dynamic`** — 包括内容变化极少的 `/snippets`、`/announcements`、`/api-tokens`。对这类页面可改为 `revalidate = 60`（ISR），减少每次请求的 DB 压力。
 
-### 3. z-index 层级无序
+### P2 — 内存占用优化
 
-当前状态：`z-[60]`（3处）、`z-[70]`（2处）、`z-[100]`（2处）散落各处，无命名约定，不知道哪个浮层在哪个上面。
+- [ ] **`effect` 包 34MB 疑似未用** — `node_modules/effect` 占 34MB，全项目只有 `session-gate.ts` 的注释里出现"side-effect-free"字样，无实际 `import from 'effect'`。如确认未使用，`npm remove effect` 直接节省 34MB node_modules 体积（不影响构建产物大小，但减少安装时间和磁盘占用）。
+- [ ] **`@electric-sql` 包疑似未用** — `node_modules/@electric-sql` 占 26MB，全项目无任何 `import from '@electric-sql'`。同上，确认后可移除。
+- [ ] **Worker 轮询频率可调** — 命令执行 worker 每 2 秒轮询一次（`COMMAND_EXECUTION_INTERVAL_MS = 2_000`），下载 worker 每 5 秒一次。低流量实例可将命令 worker 改为 5s、下载 worker 改为 10s，CPU 占用减半，对实时性影响极小。
+- [ ] **API 响应缓存未启用** — `src/lib/cache.ts` 已有 `buildCacheControl()` 工具，但调用处极少。只读统计类 API（`/api/dashboard/analytics`、`/api/status`）加 `stale-while-revalidate: 30` 可大幅减少 DB 查询次数。
 
-改进方向：在 `globals.css` 定义 z-index token：`--z-modal: 100; --z-popover: 70; --z-toast: 60;`，所有浮层改用 `z-[var(--z-modal)]`，层级关系一目了然。
+### P3 — 包体积 / 启动优化
 
-### 4. Magic number 颜色清零
-
-当前状态：`#0c0f1a`（5处）、`#050508`（3处）、`#0a0e1a`（1处）等多个近似深色背景值散落 TSX，是同一个"页面底色"的不同写法。
-
-改进方向：统一用 `bg-[var(--surface-root)]`（在 globals.css 新增），或统一替换为 `bg-slate-950`（已有大量用例）。
-
-### 5. 超大 Client 组件拆分（待做）
-
-当前状态：5 个文件超 800 行，最大 1247 行（`file-list-client.tsx`）。
-
-| 文件 | 行数 | 建议拆出 |
-| `file-list-client.tsx` | 1247 | 上传面板、预览面板、批量操作栏 |
-| `settings-client.tsx` | 1202 | 各设置分组独立组件 |
-| `ai-client.tsx` | 1030 | 对话面板、侧边栏、工具面板 |
-
-### 6. 剩余 `transition-all` 11 处
-
-进度条/宽度动画（`width: X%`）需要保留；登录表单按钮（hover shadow + brightness 同时变）可改为 `transition-[box-shadow,filter]`。
-
-### 7. Input 替换 `InputBase` 组件（待做）
-
-`src/components/input-base.tsx` 已建，40 处重复 className 散落 11 个文件，可批量替换。
-
-### 8. 组件可发现性
-
-`src/components/` 无文档，新功能容易重复造轮子（空状态就有两套实现）。建议在 `src/components/README.md` 列出核心组件清单和 props。
+- [ ] **lucide-react 40MB 按需验证** — 项目自定义了内联 SVG 图标系统（`nav-items.tsx`），但 `lucide-react` 仍在依赖中占 40MB。确认实际 import 来源，若仅 1-2 处使用可替换为内联 SVG 并移除包。
+- [ ] **Prisma 未配置 `connection_limit`** — 低内存主机（512MB）上 PostgreSQL 默认 100 连接 × Prisma pool 可能耗尽内存。建议在 `DATABASE_URL` 加 `?connection_limit=5&pool_timeout=15`（已有 `pool_max` 动态配置逻辑，只需调低默认值）。
+- [ ] **`sharp` 仅缩略图路由使用** — `@img/sharp-linux-x64` 33MB，仅 `/api/media/[id]/thumbnail` 调用。可改为动态 `require('sharp')` 推迟加载，减少冷启动内存。
 
 ---
 
