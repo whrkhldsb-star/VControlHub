@@ -347,6 +347,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **5 个功能页无侧边栏入口** — `/monitoring`（系统监控图表）、`/preferences`（用户偏好设置）、`/cost-summary`（成本追踪）、`/ai-ops`（智能运维）、`/image-bed`（图床中心）均无法从侧边导航栏直接访问，只能靠 URL 直接输入或其他页面跳转。
 
 **P1 — 功能逻辑不完善**
+- [ ] **`csrfFetch` 返回值语义被 9 处客户端误用** — `src/lib/auth/csrf-client.ts:81-92` 默认返回 `response.json()`（非 raw 模式不是 `Response` 对象），但 `src/app/ai-ops/ai-ops-page-client.tsx:150/181/213`、`src/app/cost-summary/cost-page-client.tsx:109/125/139/205/232`、`src/app/backups/offsite-dry-run-button.tsx:29` 仍按 `res.ok` / `res.status` / `res.json()` 使用；成功响应会因 `res.ok === undefined` 被误判失败，422/502 分支也会在 wrapper 内先 throw。验证：`python3` 静态扫描 `csrfFetch(` 赋值后访问 `.ok/.status/.json`，共 9 个真实 call site；`downloads-client.tsx:240` 只读业务 JSON 字段 `result.status`，已排除为 false positive。修复方向：这些调用加 `{ raw: true }` 并保留 Response 分支，或统一改成解析后 JSON 流程。
 - [ ] **`downloads` 彻底清除（purge）无二次确认** — `downloads-client.tsx` 的 `purge=1` 操作（从 Aria2 彻底删除任务文件）点击后直接执行，无 AlertDialog/confirm 拦截，误操作风险高。
 - [ ] **审批中心无批量审批** — `/requests` 页面只能逐条审批，无"全选 + 批量通过"，高并发审批场景下效率低。
 - [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
@@ -494,6 +495,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **`/quick-services` 三卡宽度失衡** — `lg:grid-cols-[1.2fr_0.9fr_0.9fr]` 使"运行概览"卡偏宽 40%+，改为 `lg:grid-cols-3` 等宽更协调。
 
 ### 🟡 细节打磨
+- [ ] **AI 输入区 2 个 icon-only 按钮缺少稳定可访问名称** — `src/app/ai/ai-input-area.tsx:66` 文件拒绝 toast 关闭按钮只显示 `×` 且无 `aria-label/title`；`src/app/ai/ai-input-area.tsx:130-138` 停止生成按钮只有 `title={t("aiPage.stopGenTitle")}`，没有显式 `aria-label`。同文件发送按钮 `src/app/ai/ai-input-area.tsx:119-128` 已有 `aria-label={t("aiPage.sendAria")}`，说明这不是组件体系限制而是漏补。验证：静态扫描 TSX `<button>` 的单字符文本/仅 title 图标按钮，单字符无名称命中 1 处；停止按钮为真实运行态 UI。
 - [ ] **Loading skeleton 全部只有 5 行** — 35 个 `loading.tsx` 内容极简（spinner 或空 div），数据密集页（`/files`、`/health`、`/deployments`）应实现与页面结构匹配的骨架屏。
 - [ ] **`transition-all` 19 处** — 会触发全属性重绘，性能较差，建议改为 `transition-colors` 或 `transition-transform`（具体属性）。
 - [ ] **`/playbooks` 空状态无引导 CTA** — 空列表时只有说明文字，缺少内嵌"新建 Playbook"按钮，用户难以发现操作入口。
@@ -507,6 +509,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **待做：**
 - [ ] **超大 Client 组件拆分** — `file-list-client.tsx`(1247行)、`settings-client.tsx`(1202行)、`ai-client.tsx`(1030行) 各包含多个子功能，建议按职责拆分为 400 行以内的子组件
+- [ ] **`ChangePasswordModal` 仍有 13 处中文硬编码** — `src/components/change-password-modal.tsx:70-85` 三个密码字段 label/description、`:101` 取消按钮、`:103` `SubmitButton pendingLabel/children`、`:131/136` 显示/隐藏文案仍不走字典；文件顶部虽调用 `useI18n()`，但只覆盖标题/说明/关闭按钮，切英文后表单主体仍显示中文。
+- [ ] **`FileUploadDropzone` 上传状态/错误文案仍硬编码中文** — `src/components/storage/file-upload-dropzone.tsx:28-52` 路径校验 reason、`:114/119/131/141/150/159/163-176` 上传队列和 toast、`:238` placeholder、`:280` dropzone 提示、`:326` 状态枚举均为中文；同文件已引入 `useI18n()` 并在节点选择/文件夹按钮处使用 `tr(...)`，因此不是无 i18n 基建，而是覆盖遗漏。
 - [ ] **40 处 input 替换 `<InputBase>`** — `src/components/input-base.tsx` 已建，11 个文件的重复 className 可批量替换
 - [ ] **文字 opacity 收敛** — `/10`~`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档
 - [ ] **组件文档** — `src/components/` 无文档，建议新增 `src/components/README.md` 列清单和 props
