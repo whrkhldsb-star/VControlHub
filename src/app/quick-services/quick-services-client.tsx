@@ -370,7 +370,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<SummaryPill label={t("qsPage.summaryAvailable")} value={summary.available} tone="cyan" />
 			</div>
 
-			<section className="grid gap-3 lg:grid-cols-[1.2fr_0.9fr_0.9fr]">
+			<section className="grid gap-3 lg:grid-cols-3">
 				<div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-4">
 					<div className="flex items-start justify-between gap-3">
 						<div>

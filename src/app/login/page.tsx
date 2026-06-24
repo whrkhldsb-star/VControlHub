@@ -108,7 +108,7 @@ function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: stri
 	return (
 		<div className="rounded-2xl bg-white/[0.03] p-3.5 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur light:border light:shadow-sm light:shadow-slate-200/70">
 			<div className="text-cyan-400/75">{icon}</div>
-			<div className="mt-2 text-sm font-semibold text-white/82">{title}</div>
+			<div className="mt-2 text-sm font-semibold text-white/80">{title}</div>
 			<div className="mt-0.5 text-xs text-white">{desc}</div>
 		</div>
 	);

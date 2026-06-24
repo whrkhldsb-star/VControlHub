@@ -15,39 +15,23 @@ export default function GlobalError({
 	reset: () => void;
 }) {
 	useEffect(() => {
-		// Log to console for server-side debugging (client errors also show in browser console)
 		console.error("[GlobalError]", error);
 	}, [error]);
 
 	return (
 		<html lang="zh-CN">
-			<body style={{ margin: 0, padding: 0, background: "#0a0a0a", color: "#e5e5e5", fontFamily: "system-ui, sans-serif" }}>
-				<div style={{ maxWidth: 600, margin: "80px auto", padding: "0 24px", textAlign: "center" }}>
-					<h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 12, color: "#fff" }}>
-						出错了
-					</h1>
-					<p style={{ fontSize: 16, color: "#a3a3a3", lineHeight: 1.6, marginBottom: 24 }}>
+			<body className="m-0 bg-[#0a0a0a] p-0 font-sans text-[#e5e5e5]">
+				<div className="mx-auto max-w-[600px] px-6 py-20 text-center">
+					<h1 className="mb-3 text-[28px] font-semibold text-white">出错了</h1>
+					<p className="mb-6 text-base leading-relaxed text-[#a3a3a3]">
 						页面遇到了意外错误，请尝试刷新。如果问题持续出现，请联系管理员。
 					</p>
 					{error.digest && (
-						<p style={{ fontSize: 13, color: "#737373", marginBottom: 16 }}>
-							错误标识: {error.digest}
-						</p>
+						<p className="mb-4 text-[13px] text-[#737373]">错误标识: {error.digest}</p>
 					)}
 					<button
 						onClick={reset}
-						style={{
-							padding: "10px 28px",
-							fontSize: 15,
-							background: "#2563eb",
-							color: "#fff",
-							border: "none",
-							borderRadius: 8,
-							cursor: "pointer",
-							transition: "background 0.2s",
-						}}
-						onMouseOver={(e) => (e.currentTarget.style.background = "#1d4ed8")}
-						onMouseOut={(e) => (e.currentTarget.style.background = "#2563eb")}
+						className="rounded-lg bg-blue-600 px-7 py-2.5 text-[15px] text-white transition-colors hover:bg-blue-700"
 					>
 						重试
 					</button>
