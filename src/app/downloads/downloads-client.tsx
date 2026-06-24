@@ -204,6 +204,11 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				setMessage({ type: "success", text: t("downloadsPage.success.cancelled") });
 				void fetchTasks();
 			} else if (action === "purge") {
+				const task = tasks.find((candidate) => candidate.id === taskId);
+				const confirmed = window.confirm(
+					t("downloadsPage.confirm.purge").replace("${name}", task?.fileName || task?.url || taskId),
+				);
+				if (!confirmed) return;
 				await csrfFetch(`/api/downloads?taskId=${taskId}&purge=1`, { method: "DELETE" });
 				setTasks((current) => current.filter((task) => task.id !== taskId));
 				setMessage({ type: "success", text: t("downloadsPage.success.deleted") });

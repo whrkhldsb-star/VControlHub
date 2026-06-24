@@ -126,10 +126,30 @@ describe("AiInputArea", () => {
 		await user.click(textarea);
 		await user.keyboard("{Shift>}{Enter}{/Shift}");
 		expect(handleSend).not.toHaveBeenCalled();
-		const stopButton = screen.getByTitle("停止生成");
+		const stopButton = screen.getByRole("button", { name: "停止生成" });
 		expect(stopButton).toBeInTheDocument();
 		await user.click(stopButton);
 		expect(handleStop).toHaveBeenCalledTimes(1);
+	});
+
+	it("gives icon-only controls accessible names", () => {
+		render(
+			<AiInputArea
+				input="hi"
+				setInput={vi.fn()}
+				streaming={true}
+				activeConv={baseConv}
+				currentModelCaps={baseCaps}
+				textareaRef={createRef<HTMLTextAreaElement>()}
+				fileInputRef={createRef<HTMLInputElement>()}
+				fileAttachmentsState={makeFileAttachmentState()}
+				handleSend={vi.fn()}
+				handleStopGeneration={vi.fn()}
+			/>
+		);
+
+		expect(screen.getByRole("button", { name: /上传文件/ })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "停止生成" })).toBeInTheDocument();
 	});
 
 	it("enables the send button when input has text even with no attachments", () => {
@@ -179,7 +199,7 @@ describe("AiInputArea", () => {
 			/>
 		);
 		expect(screen.getByText("📄 太大")).toBeInTheDocument();
-		const dismissButton = screen.getByRole("button", { name: "×" });
+		const dismissButton = screen.getByRole("button", { name: "关闭文件提示" });
 		await user.click(dismissButton);
 		expect(clearRejection).toHaveBeenCalledTimes(1);
 	});

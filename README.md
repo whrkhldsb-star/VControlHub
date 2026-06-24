@@ -317,15 +317,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 数据模型 | 53 |
 | UI 组件 | 27 |
 | 代码行数 | ~152,300（src 扫描） |
-| 测试 | 339 文件 / 2403 tests |
+| 测试 | 348 文件 / 2395 tests（2394 pass / 1 skipped） |
 | Docker 应用模板 | 44 (本地) + 187 (社区) |
 
 ---
 
 ## 🔬 全量代码审查（2026-06-24）
 
-**审查范围**：152,300 行 TypeScript/TSX，108 API 路由，46 页面，53 数据模型，339 测试文件。
-**方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + 2403 tests + build + build:runtime）全通过 + 浏览器实地走查（dashboard / servers / quick-services）。
+**审查范围**：152,300 行 TypeScript/TSX，108 API 路由，46 页面，53 数据模型，348 测试文件。
+**方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + i18n:key-check + 2394 passed / 1 skipped + build + build:runtime）全通过 + 浏览器实地走查（dashboard / servers / quick-services）。
 
 ### ✅ 现状健康评估
 
@@ -334,7 +334,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 代码质量 | 9/10 | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client |
 | 认证/授权 | 10/10 | 108/108 路由覆盖，4 个豁免全合理（login/share/2fa/openapi） |
 | 安全 | 8/10 | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升） |
-| 测试 | 9/10 | 2403 tests 全 pass，tsc + lint 0 错误 |
+| 测试 | 9/10 | 2394 tests pass / 1 skipped，tsc + lint 0 错误 |
 | i18n | 9/10 | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余） |
 | 前端 UX | 8/10 | 5 个功能页侧边栏入口已补齐；AI 客户端仍待响应式优化 |
 | 架构 | 8/10 | 97 findMany 无 take 分页保护，3 个路由不走统一错误格式 |
@@ -344,7 +344,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 🚧 现有问题（按优先级）
 
 **P1 — 功能逻辑不完善**
-- [ ] **`downloads` 彻底清除（purge）无二次确认** — `downloads-client.tsx` 的 `purge=1` 操作（从 Aria2 彻底删除任务文件）点击后直接执行，无 AlertDialog/confirm 拦截，误操作风险高。
 - [ ] **审批中心无批量审批** — `/requests` 页面只能逐条审批，无"全选 + 批量通过"，高并发审批场景下效率低。
 - [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
 - [ ] **`/monitoring` 监控依赖轮询，无实时推送** — 使用 `setInterval` 定时拉取，无 WebSocket/SSE，数据有明显延迟，不适合高频实时场景。
@@ -356,7 +355,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **10 种硬编码十六进制颜色** — `#f8fafc`、`#0c0f1a`、`#1e293b` 等色值散落在 TSX 文件中，绕过 Tailwind/CSS 变量体系，暗色模式切换时存在色彩不一致隐患。
 
 **P2 — 工程规范**
-- [ ] **`i18n:key-check` 未接入 verify 链** — `npm run verify` 不包含 `npm run i18n:key-check`，新的 `t(key)` 调用若字典缺 key 不会被 CI 门禁捕获。
 - [ ] **3 个路由不用 TR-034 统一错误格式** — `api/snippets`、`api/playbooks/[id]`、`api/deployments/[id]/rollback` 直接返回 `NextResponse.json({ error: message })`，不走标准 `{ error, code, details }` 结构。
 - [ ] **97 处 `findMany` 无 `take` 保护** — 大部分列表查询无分页上限，数据量大时有内存和性能风险。
 - [ ] **`process.env.ENCRYPTION_KEY` 直接读取** — `src/lib/crypto/service.ts` 直接读 `process.env` 而不走项目统一的 config 模块。
@@ -384,7 +382,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P1 — 阻塞性
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-- [ ] **downloads purge 操作补二次确认** — 彻底删除任务文件前加 AlertDialog 拦截。
 - [ ] **审批中心支持批量审批** — 全选 + 批量通过/拒绝。
 
 ### P2 — 用户体验和可运营性
@@ -392,7 +389,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **`/monitoring` 改为 WebSocket/SSE 实时推送** — 替换 setInterval 轮询，降低数据延迟。
 - [ ] **按钮色彩体系统一** — 主色统一到 `cyan-500`，危险色统一到 `rose-500`，写入 globals.css token。
 - [ ] **4 个核心页面补 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 补 eyebrow/title/description。
-- [ ] **`i18n:key-check` 加入 verify 链** — 一行改 package.json。
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
 - [ ] **高频 findMany 添加 take 分页保护** — 优先 `/api/users/permissions`、`/api/dashboard/analytics`。
@@ -478,7 +474,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 基于静态分析 + 浏览器走查确认，按影响大小排列。
 
 ### 🔴 视觉 Bug（直接影响可用性）
-- [ ] **`/alert-rules` 和 `/playbooks` 页眉英文** — `alertRulesPage.eyebrow` 和 `playbooksPage.eyebrow` 字典值为 `"Automation"`，中文模式下直接显示英文。应改为 `"自动化"`（zh 字典）。
 - [ ] **`/files` 目录树列宽过窄** — 左侧节点名称普遍被截断（如 `本机默认存储（L…`），`files-browser-spa.tsx` sidebar 宽度未设最小宽度，应加 `min-w-[160px]` 或 `w-48`。
 - [ ] **`global-error.tsx` 全部用内联 style** — 全局错误页的字号/颜色/间距都是 `style={{ fontSize:28... }}`，与其余页面风格割裂，应迁移到 Tailwind className。
 
@@ -490,7 +485,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **`/quick-services` 三卡宽度失衡** — `lg:grid-cols-[1.2fr_0.9fr_0.9fr]` 使"运行概览"卡偏宽 40%+，改为 `lg:grid-cols-3` 等宽更协调。
 
 ### 🟡 细节打磨
-- [ ] **AI 输入区 2 个 icon-only 按钮缺少稳定可访问名称** — `src/app/ai/ai-input-area.tsx:66` 文件拒绝 toast 关闭按钮只显示 `×` 且无 `aria-label/title`；`src/app/ai/ai-input-area.tsx:130-138` 停止生成按钮只有 `title={t("aiPage.stopGenTitle")}`，没有显式 `aria-label`。同文件发送按钮 `src/app/ai/ai-input-area.tsx:119-128` 已有 `aria-label={t("aiPage.sendAria")}`，说明这不是组件体系限制而是漏补。验证：静态扫描 TSX `<button>` 的单字符文本/仅 title 图标按钮，单字符无名称命中 1 处；停止按钮为真实运行态 UI。
 - [ ] **Loading skeleton 全部只有 5 行** — 35 个 `loading.tsx` 内容极简（spinner 或空 div），数据密集页（`/files`、`/health`、`/deployments`）应实现与页面结构匹配的骨架屏。
 - [ ] **`transition-all` 19 处** — 会触发全属性重绘，性能较差，建议改为 `transition-colors` 或 `transition-transform`（具体属性）。
 - [ ] **`/playbooks` 空状态无引导 CTA** — 空列表时只有说明文字，缺少内嵌"新建 Playbook"按钮，用户难以发现操作入口。
@@ -500,7 +494,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ## 🔧 前端可维护性改进方向（代码审查 2026-06-24）
 
-**已完成：** ✅ CSS 语义 token（`--color-action/danger/radius-card/control`）| ✅ `InputBase` 组件 | ✅ `global-error.tsx` 迁移 Tailwind | ✅ `transition-all` 主要场景已改 | ✅ `/servers`、`/files`、`/health` 专属骨架屏 | ✅ `/playbooks` 空状态 CTA | ✅ `cn()` 工具函数 (`src/lib/cn.ts` + clsx) | ✅ 共享样式常量 (`src/lib/styles.ts`：INPUT_CLS / TABLE_TH_CLS / CHIP_CLS 等) | ✅ z-index token (`--z-toast:60 / --z-popover:70 / --z-modal:100`) | ✅ `--surface-root` token + 9 处 magic hex 色替换 | ✅ eyebrow 汉化 | ✅ quick-services 三卡等宽
+**已完成：** ✅ CSS 语义 token（`--color-action/danger/radius-card/control`）| ✅ `InputBase` 组件 | ✅ `global-error.tsx` 迁移 Tailwind | ✅ `transition-all` 主要场景已改 | ✅ `/servers`、`/files`、`/health` 专属骨架屏 | ✅ `/playbooks` 空状态 CTA | ✅ `cn()` 工具函数 (`src/lib/cn.ts` + clsx) | ✅ 共享样式常量 (`src/lib/styles.ts`：INPUT_CLS / TABLE_TH_CLS / CHIP_CLS 等) | ✅ z-index token (`--z-toast:60 / --z-popover:70 / --z-modal:100`) | ✅ `--surface-root` token + 9 处 magic hex 色替换 | ✅ eyebrow 汉化 | ✅ quick-services 三卡等宽 | ✅ AI 输入区 icon-only 可访问名称
 
 **待做：**
 - [ ] **超大 Client 组件拆分** — `file-list-client.tsx`(1247行)、`settings-client.tsx`(1202行)、`ai-client.tsx`(1030行) 各包含多个子功能，建议按职责拆分为 400 行以内的子组件

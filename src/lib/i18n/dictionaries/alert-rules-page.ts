@@ -161,7 +161,7 @@ export const en: Record<string, string> = {
 	"alertRulesPage.error.test": "Failed to send test",
 	"alertRulesPage.error.toggle": "Failed to update alert rule",
 	"alertRulesPage.error.trigger": "Failed to start alert check",
-	"alertRulesPage.eyebrow": "自动化",
+	"alertRulesPage.eyebrow": "Automation",
 	"alertRulesPage.lastTriggered": "Last triggered: {date}",
 	"alertRulesPage.metric.cpu_usage": "CPU Usage",
 	"alertRulesPage.metric.disk_usage": "Disk Usage",

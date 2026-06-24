@@ -131,6 +131,62 @@ describe("DownloadsClient", () => {
     expect(screen.queryByRole("button", { name: "+ 新建下载" })).not.toBeInTheDocument();
   });
 
+  it("requires confirmation before purging completed task files", async () => {
+    const actor = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const completedTask = {
+      ...runningTask,
+      status: "COMPLETED",
+      aria2Gid: null,
+      fileName: "a.iso",
+      server: { ...runningTask.server, storageNode: null },
+    };
+
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [completedTask], globalStat: null });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
+    await actor.click(screen.getByRole("button", { name: "🗑 删除记录" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith("确认彻底删除下载任务「a.iso」的记录？此操作不可撤销。");
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(csrfFetch)).not.toHaveBeenCalledWith(
+      "/api/downloads?taskId=dl_1&purge=1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    confirmSpy.mockRestore();
+  });
+
+  it("purges completed task files after confirmation", async () => {
+    const actor = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const completedTask = {
+      ...runningTask,
+      status: "COMPLETED",
+      aria2Gid: null,
+      fileName: "a.iso",
+      server: { ...runningTask.server, storageNode: null },
+    };
+
+    vi.mocked(csrfFetch)
+      .mockResolvedValueOnce({ tasks: [completedTask], globalStat: null })
+      .mockResolvedValueOnce({ ok: true });
+
+    render(<DownloadsClient servers={servers} canManage canManageNode />);
+
+    expect(await screen.findByText("https://example.com/a.iso")).toBeInTheDocument();
+    await actor.click(screen.getByRole("button", { name: "🗑 删除记录" }));
+
+    expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith(
+      "/api/downloads?taskId=dl_1&purge=1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    expect(screen.queryByText("https://example.com/a.iso")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("任务记录已删除");
+    confirmSpy.mockRestore();
+  });
+
   it("prevents mixed HTTP and magnet batch submissions on the client", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [], globalStat: null });

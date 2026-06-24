@@ -63,7 +63,7 @@ export function AiInputArea({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
-          <button onClick={clearRejection} className="ml-auto text-red-400/60 hover:text-red-300 flex-shrink-0">×</button>
+          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-red-400/60 hover:text-red-300 flex-shrink-0">×</button>
         </div>
       )}
       <div className="flex gap-2 items-end">
@@ -72,6 +72,7 @@ export function AiInputArea({
           onClick={() => fileInputRef.current?.click()}
           disabled={streaming}
           className="h-10 w-10 rounded-xl bg-white/[0.04] text-[var(--text-secondary)] flex items-center justify-center hover:bg-white/[0.08] hover:text-slate-200 light:hover:text-slate-800 transition disabled:opacity-30"
+          aria-label={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
           title={t("aiPage.uploadFileTitle").replace("{types}", formatAllowedTypes(currentModelCaps))}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -130,6 +131,7 @@ export function AiInputArea({
           <button
             onClick={handleStopGeneration}
             className="h-10 w-10 rounded-xl bg-red-500/20 text-red-300 flex items-center justify-center hover:bg-red-500/30 transition"
+            aria-label={t("aiPage.stopGenTitle")}
             title={t("aiPage.stopGenTitle")}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

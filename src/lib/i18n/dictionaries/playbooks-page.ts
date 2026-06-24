@@ -118,7 +118,7 @@ export const en: Record<string, string> = {
 	"playbooksPage.error.delete": "Delete failed",
 	"playbooksPage.error.load": "Failed to load playbooks",
 	"playbooksPage.error.toggle": "Failed to toggle enabled state",
-	"playbooksPage.eyebrow": "自动化",
+	"playbooksPage.eyebrow": "Automation",
 	"playbooksPage.metric.cpu_usage": "CPU Usage",
 	"playbooksPage.metric.disk_usage": "Disk Usage",
 	"playbooksPage.metric.mem_usage": "Memory Usage",
