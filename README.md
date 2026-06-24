@@ -499,4 +499,61 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **`/playbooks` 空状态无引导 CTA** — 空列表时只有说明文字，缺少内嵌"新建 Playbook"按钮，用户难以发现操作入口。
 - [ ] **文字 opacity 档位过多** — `/10`、`/20`、`/25`、`/30`、`/40`、`/50`、`/60`、`/70`、`/80`、`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档。
 
-私有项目 — 未经授权不得使用、复制或分发。
+---
+
+## 🔧 前端可维护性改进方向（代码审查 2026-06-24）
+
+### 1. Design Token 系统化
+
+当前状态：`globals.css` 有 117 个 CSS 变量，但 10 种硬编码 hex 颜色、3 对主色各拆两档（cyan-400/500、rose-400/500、emerald-400/500）、5 种圆角、10 档 opacity 仍散落在 TSX 中。改一处设计决策需要全局 sed。
+
+改进方向：
+- 在 `globals.css` 把语义 token 补齐：`--color-action`（主操作）、`--color-danger`（破坏性）、`--color-success`、`--radius-card`、`--radius-control`
+- 所有按钮改用 `bg-[var(--color-action)]`，圆角改用 `rounded-[var(--radius-card)]`
+- 之后修改品牌色只需改一个变量
+
+### 2. 共享基础组件缺失
+
+当前状态：Input 样式 3 种变体散落各处；`EmptyState` 组件已有但 123 处空状态逻辑中仅 36 个文件使用，其余手写 div；`global-error.tsx` 用内联 style 而非 Tailwind。
+
+改进方向：
+- 提取 `<InputBase>` 组件（统一 className，支持 `size`/`error` prop）
+- 强制所有空状态走 `<EmptyState>`，删掉手写 div 版本
+- `global-error.tsx` 迁移到 Tailwind className（与其他错误页一致）
+
+### 3. 超大 Client 组件拆分
+
+当前状态：5 个文件超 800 行，最大 1247 行（`file-list-client.tsx`），单文件包含多个子功能，很难定位和修改某一功能。
+
+| 文件 | 行数 | 建议拆出 |
+| `file-list-client.tsx` | 1247 | 上传面板、预览面板、批量操作栏 |
+| `settings-client.tsx` | 1202 | 各设置分组独立组件 |
+| `ai-client.tsx` | 1030 | 对话面板、侧边栏、工具面板 |
+
+改进方向：每个子功能提取为独立文件，主组件只做组合，单文件控制在 400 行以内。
+
+### 4. Transition 规范
+
+当前状态：468 处裸 `transition`（未指定属性）、19 处 `transition-all`（触发全属性重绘）。
+
+改进方向：
+- 交互色变（hover/focus）→ `transition-colors duration-150`
+- 尺寸/位置变化 → `transition-transform duration-150`
+- 删除 `transition-all`，按需指定属性
+- 统一时长到 `duration-150`（现有 `duration-150` 和 `duration-200` 并存）
+
+### 5. Loading Skeleton 品质
+
+当前状态：35 个 `loading.tsx` 全部只有 5 行（基本是空 div 或 spinner），数据加载时页面一片空白或只有旋转圈。
+
+改进方向：对数据密集的页面（`/files`、`/health`、`/deployments`、`/servers`）实现与真实布局结构匹配的骨架屏，用 `animate-pulse` + 占位块替代 spinner，提升感知加载速度。
+
+### 6. 组件可发现性
+
+当前状态：共享组件散在 `src/components/` 下，无文档，新功能开发时容易重复造轮子（如空状态就有两套实现）。
+
+改进方向：在 `src/components/README.md` 列出所有共享组件的用途和 props，或引入 Storybook 做组件文档（低成本：只需覆盖核心 10-15 个组件）。
+
+---
+
+## 📄 许可
