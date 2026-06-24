@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-06-18T00:39:11.307Z",
+  "generatedAt": "2026-06-24T05:58:52.109Z",
   "summary": {
-    "sidebarMain": 23,
+    "sidebarMain": 28,
     "sidebarSystem": 5,
     "sidebarMobile": 5,
     "pages": 46,
@@ -21,6 +21,10 @@
       {
         "href": "/health",
         "fallbackLabel": "健康看板"
+      },
+      {
+        "href": "/monitoring",
+        "fallbackLabel": "服务器监控"
       },
       {
         "href": "/traffic",
@@ -47,6 +51,10 @@
         "fallbackLabel": "备份迁移"
       },
       {
+        "href": "/cost-summary",
+        "fallbackLabel": "成本追踪"
+      },
+      {
         "href": "/templates",
         "fallbackLabel": "命令模板"
       },
@@ -67,8 +75,16 @@
         "fallbackLabel": "媒体库"
       },
       {
+        "href": "/image-bed",
+        "fallbackLabel": "外链管理"
+      },
+      {
         "href": "/ai",
         "fallbackLabel": "AI 助手"
+      },
+      {
+        "href": "/ai-ops",
+        "fallbackLabel": "智能运维"
       },
       {
         "href": "/announcements",
@@ -97,6 +113,10 @@
       {
         "href": "/notifications",
         "fallbackLabel": "通知中心"
+      },
+      {
+        "href": "/preferences",
+        "fallbackLabel": "偏好设置"
       },
       {
         "href": "/settings",
@@ -144,7 +164,7 @@
     {
       "path": "/ai-ops",
       "file": "src/app/ai-ops/page.tsx",
-      "inSidebarMain": false,
+      "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "ai:ops:autonomous",
@@ -216,7 +236,7 @@
     {
       "path": "/cost-summary",
       "file": "src/app/cost-summary/page.tsx",
-      "inSidebarMain": false,
+      "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "cost:manage",
@@ -292,7 +312,7 @@
     {
       "path": "/image-bed",
       "file": "src/app/image-bed/page.tsx",
-      "inSidebarMain": false,
+      "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "image:read",
@@ -336,7 +356,7 @@
     {
       "path": "/monitoring",
       "file": "src/app/monitoring/page.tsx",
-      "inSidebarMain": false,
+      "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
         "docker:manage",
@@ -387,7 +407,7 @@
     {
       "path": "/preferences",
       "file": "src/app/preferences/page.tsx",
-      "inSidebarMain": false,
+      "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": []
     },
@@ -614,9 +634,7 @@
       "methods": [
         "PATCH"
       ],
-      "declaredPermissions": [
-        "ai:action:approve"
-      ]
+      "declaredPermissions": []
     },
     {
       "path": "/src/app/api/ai/hosted-actions",

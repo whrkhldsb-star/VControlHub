@@ -336,15 +336,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 安全 | 8/10 | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升） |
 | 测试 | 9/10 | 2403 tests 全 pass，tsc + lint 0 错误 |
 | i18n | 9/10 | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余） |
-| 前端 UX | 7/10 | 5 个功能页无侧边栏入口，AI 客户端无响应式 |
+| 前端 UX | 8/10 | 5 个功能页侧边栏入口已补齐；AI 客户端仍待响应式优化 |
 | 架构 | 8/10 | 97 findMany 无 take 分页保护，3 个路由不走统一错误格式 |
 | 运维 | 9/10 | systemd + caddy + smoke + 双 build 全套完整 |
 | **综合** | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项** |
 
 ### 🚧 现有问题（按优先级）
-
-**P1 — 功能可发现性**
-- [ ] **5 个功能页无侧边栏入口** — `/monitoring`（系统监控图表）、`/preferences`（用户偏好设置）、`/cost-summary`（成本追踪）、`/ai-ops`（智能运维）、`/image-bed`（图床中心）均无法从侧边导航栏直接访问，只能靠 URL 直接输入或其他页面跳转。
 
 **P1 — 功能逻辑不完善**
 - [ ] **`downloads` 彻底清除（purge）无二次确认** — `downloads-client.tsx` 的 `purge=1` 操作（从 Aria2 彻底删除任务文件）点击后直接执行，无 AlertDialog/confirm 拦截，误操作风险高。
@@ -385,7 +382,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 按 P 级排序。已完成项已从本节移除。
 
 ### P1 — 阻塞性
-- [ ] **5 个功能页补充侧边栏入口** — `/monitoring`、`/preferences`、`/cost-summary`、`/ai-ops`、`/image-bed` 加入侧边栏或对应父页面入口。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
 - [ ] **downloads purge 操作补二次确认** — 彻底删除任务文件前加 AlertDialog 拦截。

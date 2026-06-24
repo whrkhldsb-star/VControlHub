@@ -97,7 +97,6 @@ describe("GlobalSearch", () => {
 		expect(hrefs).not.toContain("/quickservice");
 		expect(hrefs).not.toContain("/backup");
 		expect(hrefs).not.toContain("/ssh");
-		expect(hrefs).not.toContain("/image-bed");
 		expect(hrefs).not.toContain("#password");
 		expect(hrefs).not.toContain("#2fa");
 	});
@@ -108,24 +107,29 @@ describe("GlobalSearch", () => {
 			"/dashboard",
 			"/servers",
 			"/health",
+			"/monitoring",
 			"/traffic",
 			"/files",
 			"/downloads",
 			"/operation-tasks",
 			"/shares",
 			"/backups",
+			"/cost-summary",
 			"/templates",
 			"/deployments",
 			"/quick-services",
 			"/snippets",
 			"/media",
+			"/image-bed",
 			"/ai",
+			"/ai-ops",
 			"/announcements",
 			"/tickets",
 			"/requests",
 			"/scheduled-tasks",
 			"/alert-rules",
 			"/notifications",
+			"/preferences",
 			"/settings",
 			"/users",
 			"/api-tokens",
