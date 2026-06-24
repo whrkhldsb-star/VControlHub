@@ -525,7 +525,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ## 🔐 安全加固方向（代码审查 2026-06-24）
 
-- [ ] **CI workflow 覆盖率报告未接入** — `.github/workflows/ci.yml` 存在，但 vitest 未配置 coverage reporter，PR 合并时无覆盖率门禁，回归风险无法量化。建议加 `@vitest/coverage-v8` + 覆盖率阈值检查。
+- [x] **CI 覆盖率报告与基础门禁已接入** — CI 已接入 `npm run test:coverage`（`@vitest/coverage-v8` + `coverage/` artifact），Vitest 配置当前基线约 lines 74.88% / statements 72.20% / functions 71.42% / branches 59.93%，并设置基础阈值 lines/statements/functions 70%、branches 55%；后续可随测试补齐逐步收紧。
 - [ ] **无 APM / 错误监控** — 全项目无 Sentry / Datadog / OpenTelemetry，生产报错只能靠 `journalctl` 事后查。建议接入 Sentry（免费额度够用）或 OpenTelemetry 自托管，实现主动报错感知。
 
 ### ⚠️ 误报订正（**审计订正**）

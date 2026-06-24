@@ -14,6 +14,33 @@ export default defineConfig({
     pool: "threads",
     maxWorkers: 4,
     isolate: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "lcov"],
+      reportsDirectory: "coverage",
+      thresholds: {
+        lines: 70,
+        statements: 70,
+        functions: 70,
+        branches: 55,
+      },
+      exclude: [
+        "**/node_modules/**",
+        "**/.next/**",
+        "**/dist/**",
+        "**/coverage/**",
+        "**/*.config.{ts,js,mjs,cjs}",
+        "**/prisma/**",
+        "**/scripts/**",
+        "**/public/**",
+        "**/__tests__/**",
+        "**/*.test.{ts,tsx}",
+        "**/*.spec.{ts,tsx}",
+        "src/test/**",
+        "src/types/**",
+        "src/lib/i18n/dictionaries/**",
+      ],
+    },
   },
   resolve: {
     alias: {
