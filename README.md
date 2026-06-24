@@ -312,40 +312,83 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 | 指标 | 数量 |
 |------|------|
-| 功能页面 | 39 |
-| API 端点 | 75（withApiRoute 全覆盖，7 个特殊路径合理豁免） |
-| 数据模型 | 46 |
+| 功能页面 | 46 |
+| API 端点 | 108（withApiRoute 全覆盖，4 个特殊路径合理豁免） |
+| 数据模型 | 53 |
 | UI 组件 | 27 |
-| 代码行数 | ~79,700（src 扫描） |
-| 测试 | 260 文件 / 1488 tests / 51.2% 覆盖 |
+| 代码行数 | ~152,300（src 扫描） |
+| 测试 | 339 文件 / 2403 tests |
 | Docker 应用模板 | 44 (本地) + 187 (社区) |
 
 ---
+
+## 🔬 全量代码审查（2026-06-24）
+
+**审查范围**：152,300 行 TypeScript/TSX，108 API 路由，46 页面，53 数据模型，339 测试文件。
+**方法**：静态 grep 信号 + 架构分析 + verify 链（tsc + lint + 2403 tests + build + build:runtime）全通过 + 浏览器实地走查（dashboard / servers / quick-services）。
+
+### ✅ 现状健康评估
+
+| 维度 | 评分 | 说明 |
+|---|---|---|
+| 代码质量 | 9/10 | 0 `@ts-ignore`，0 循环依赖，0 prisma 在 client |
+| 认证/授权 | 10/10 | 108/108 路由覆盖，4 个豁免全合理（login/share/2fa/openapi） |
+| 安全 | 8/10 | DOMPurify 全覆盖，CSRF 防护，AES-256 加密；5 个 postcss moderate vuln（Next.js 内置，无法单独升） |
+| 测试 | 9/10 | 2403 tests 全 pass，tsc + lint 0 错误 |
+| i18n | 9/10 | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余） |
+| 前端 UX | 7/10 | 5 个功能页无侧边栏入口，AI 客户端无响应式 |
+| 架构 | 8/10 | 97 findMany 无 take 分页保护，3 个路由不走统一错误格式 |
+| 运维 | 9/10 | systemd + caddy + smoke + 双 build 全套完整 |
+| **综合** | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项** |
+
+### 🚧 现有问题（按优先级）
+
+**P1 — 功能可发现性**
+- [ ] **5 个功能页无侧边栏入口**（用户体验阻塞）— `/monitoring`（系统监控图表）、`/preferences`（用户偏好设置）、`/cost-summary`（成本追踪）、`/ai-ops`（智能运维）、`/image-bed`（图床中心）均无法从侧边导航栏直接访问，用户只能靠直接输 URL 或从其他页面跳转。建议按模块归类加入侧边栏或在对应父页面添加显眼入口链接。
+
+**P2 — 工程规范**
+- [ ] **`i18n:key-check` 未接入 verify 链** — `npm run verify` 不包含 `npm run i18n:key-check`，新的 `t(key)` 调用若没有对应字典 key 不会在 CI 门禁中暴露，只在浏览器切换 en 模式时才能发现。一行修改加入 verify 脚本即可。
+- [ ] **3 个路由不用 TR-034 统一错误格式** — `src/app/api/snippets/route.ts`、`src/app/api/playbooks/[id]/route.ts`、`src/app/api/deployments/[id]/rollback/route.ts` 直接返回 `NextResponse.json({ error: message })` 而非 `withApiRoute` 的标准 `{ error, code, details }` 格式，客户端错误处理不一致。
+- [ ] **97 处 `findMany` 无 `take` 保护** — 大部分列表查询没有分页上限，数据量大时有内存和性能风险。高频路由（`/api/users/permissions` 6 处，`/api/dashboard/analytics` 4 处）优先处理。
+- [ ] **`process.env.ENCRYPTION_KEY` 直接读取** — `src/lib/crypto/service.ts` 直接读 `process.env` 而不走项目统一的 config 模块，生产安全关键变量应走中心化配置。
+
+**P3 — 长期改善**
+- [ ] **AI 客户端（1030 行）无响应式断点** — `src/app/ai/ai-client.tsx` 无任何 `sm:/md:/lg:` 响应式 class，移动端布局为纯桌面宽度。
+- [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — 大多数路由仍在 handler 内部手动解析 body/query，TR-037 迁移尚未完成（约 80 条路由待迁移）。
+- [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（CVE，GHSA-qx2v-qp2m-jg93）在 Next.js 内置 postcss 依赖链，`npm audit fix --force` 会降级 Next.js 到 9.x（破坏性）。待 Next.js 官方发版修复，届时升级。
+- [ ] **qa-reports 服务依赖 `.hermes` 运行时文件** — `/qa-reports` 页面读取 `.hermes/remediation-state.json`，在纯 fresh install 环境（无 Hermes agent）下显示为空，建议添加空状态说明。
 
 ## 📋 任务追踪
 
 完整 TR 编号与历史见 `git log`。当前未完成项：
 
-_（无 — TR-052 `/dashboard` 首屏已在 commit `2f74051` 之前落地，`src/app/page.tsx` 即 dashboard 内容，浏览器实测登录后 `/` 完整渲染：核心资源 / 运维队列 / 6 台在线 VPS hero / 快速链接 / 数据趋势 / 最近审批 + 操作日志全部就绪。）_
+- [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
+- [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
+- [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 
 ## 🗺️ 下一步升级方向
 
 按 P 级排序。已完成项已从本节移除。
 
 ### P1 — 阻塞性
+- [ ] **5 个功能页补充侧边栏入口** — `/monitoring`、`/preferences`、`/cost-summary`、`/ai-ops`、`/image-bed` 加入侧边栏或对应父页面入口，提升功能可发现性。
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
 
 ### P2 — 用户体验和可运营性
+- [ ] **`i18n:key-check` 加入 verify 链** — 防止 t(key) 调用在字典中缺 key 而无 CI 门禁保护。
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
+- [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
+- [ ] **高频 findMany 添加 take 分页保护** — 优先修 `/api/users/permissions`、`/api/dashboard/analytics`、`/api/users/route.ts`。
 
 ### P3 — 长期愿景
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
-- [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面。
+- [ ] **AI 客户端响应式布局** — `ai-client.tsx` 添加移动端断点支持。
 - [ ] **多租户 / 团队空间**（TR-030）。
-- [ ] **成本追踪**（TR-031）。
-- [ ] **智能运维 AI**（TR-032）。
-- [ ] **PWA 离线支持和集成市场**（TR-033）。
+- [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。
+- [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。
+- [ ] **PWA 离线支持和集成市场**（TR-033）— Service Worker 基础已就绪（`public/sw.js`），待完善离线体验。
+- [ ] **zod bodySchema/querySchema 全面迁移**（TR-037 续）— 约 80 条路由待迁移到声明式校验。
 
 ---
 
