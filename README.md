@@ -503,56 +503,55 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ## 🔧 前端可维护性改进方向（代码审查 2026-06-24）
 
-### 1. Design Token 系统化
+已完成项：✅ CSS 语义 token（`--color-action/danger/radius-card/control`）| ✅ `InputBase` 组件 | ✅ `global-error.tsx` 迁移 Tailwind | ✅ `transition-all` 主要场景已改 | ✅ `/servers`、`/files`、`/health` 专属骨架屏 | ✅ `/playbooks` 空状态 CTA
 
-当前状态：`globals.css` 有 117 个 CSS 变量，但 10 种硬编码 hex 颜色、3 对主色各拆两档（cyan-400/500、rose-400/500、emerald-400/500）、5 种圆角、10 档 opacity 仍散落在 TSX 中。改一处设计决策需要全局 sed。
+### 1. `cn()` 工具函数缺失（最高优先级）
 
-改进方向：
-- 在 `globals.css` 把语义 token 补齐：`--color-action`（主操作）、`--color-danger`（破坏性）、`--color-success`、`--radius-card`、`--radius-control`
-- 所有按钮改用 `bg-[var(--color-action)]`，圆角改用 `rounded-[var(--radius-card)]`
-- 之后修改品牌色只需改一个变量
+当前状态：**全项目 0 处使用 `cn()`/`clsx`**。所有条件 className 都是手写模板字符串（`` `flex ${active ? "bg-cyan" : "text-slate"}` ``），全局有 16 种重复 60+ 字符的 className 字符串，每次修改样式要全局 grep。
 
-### 2. 共享基础组件缺失
+改进方向：安装 `clsx`（已在 Next.js 依赖链内，0 新包），在 `src/lib/cn.ts` 导出 `cn = clsx`，然后所有条件 className 改用 `cn()`。好处：条件逻辑一目了然，IDE 能折叠/检索，改一个 className 只需改一处。
 
-当前状态：Input 样式 3 种变体散落各处；`EmptyState` 组件已有但 123 处空状态逻辑中仅 36 个文件使用，其余手写 div；`global-error.tsx` 用内联 style 而非 Tailwind。
+### 2. 重复 className 字符串提取为常量
 
-改进方向：
-- 提取 `<InputBase>` 组件（统一 className，支持 `size`/`error` prop）
-- 强制所有空状态走 `<EmptyState>`，删掉手写 div 版本
-- `global-error.tsx` 迁移到 Tailwind className（与其他错误页一致）
+当前状态：静态扫描发现 10+ 种出现 7 次以上的完整 className 字符串，最典型：
+- `"rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"` — 16 处
+- `"px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"` — 14 处（表格 thead）
+- `"rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200"` — 9 处（错误输入框）
 
-### 3. 超大 Client 组件拆分
+改进方向：在 `src/lib/styles.ts` 导出共享 className 常量（`INPUT_CLS`、`INPUT_ERROR_CLS`、`TABLE_TH_CLS` 等），页面直接 `import { INPUT_CLS } from "@/lib/styles"`。改样式只需改一处。
 
-当前状态：5 个文件超 800 行，最大 1247 行（`file-list-client.tsx`），单文件包含多个子功能，很难定位和修改某一功能。
+### 3. z-index 层级无序
+
+当前状态：`z-[60]`（3处）、`z-[70]`（2处）、`z-[100]`（2处）散落各处，无命名约定，不知道哪个浮层在哪个上面。
+
+改进方向：在 `globals.css` 定义 z-index token：`--z-modal: 100; --z-popover: 70; --z-toast: 60;`，所有浮层改用 `z-[var(--z-modal)]`，层级关系一目了然。
+
+### 4. Magic number 颜色清零
+
+当前状态：`#0c0f1a`（5处）、`#050508`（3处）、`#0a0e1a`（1处）等多个近似深色背景值散落 TSX，是同一个"页面底色"的不同写法。
+
+改进方向：统一用 `bg-[var(--surface-root)]`（在 globals.css 新增），或统一替换为 `bg-slate-950`（已有大量用例）。
+
+### 5. 超大 Client 组件拆分（待做）
+
+当前状态：5 个文件超 800 行，最大 1247 行（`file-list-client.tsx`）。
 
 | 文件 | 行数 | 建议拆出 |
 | `file-list-client.tsx` | 1247 | 上传面板、预览面板、批量操作栏 |
 | `settings-client.tsx` | 1202 | 各设置分组独立组件 |
 | `ai-client.tsx` | 1030 | 对话面板、侧边栏、工具面板 |
 
-改进方向：每个子功能提取为独立文件，主组件只做组合，单文件控制在 400 行以内。
+### 6. 剩余 `transition-all` 11 处
 
-### 4. Transition 规范
+进度条/宽度动画（`width: X%`）需要保留；登录表单按钮（hover shadow + brightness 同时变）可改为 `transition-[box-shadow,filter]`。
 
-当前状态：468 处裸 `transition`（未指定属性）、19 处 `transition-all`（触发全属性重绘）。
+### 7. Input 替换 `InputBase` 组件（待做）
 
-改进方向：
-- 交互色变（hover/focus）→ `transition-colors duration-150`
-- 尺寸/位置变化 → `transition-transform duration-150`
-- 删除 `transition-all`，按需指定属性
-- 统一时长到 `duration-150`（现有 `duration-150` 和 `duration-200` 并存）
+`src/components/input-base.tsx` 已建，40 处重复 className 散落 11 个文件，可批量替换。
 
-### 5. Loading Skeleton 品质
+### 8. 组件可发现性
 
-当前状态：35 个 `loading.tsx` 全部只有 5 行（基本是空 div 或 spinner），数据加载时页面一片空白或只有旋转圈。
-
-改进方向：对数据密集的页面（`/files`、`/health`、`/deployments`、`/servers`）实现与真实布局结构匹配的骨架屏，用 `animate-pulse` + 占位块替代 spinner，提升感知加载速度。
-
-### 6. 组件可发现性
-
-当前状态：共享组件散在 `src/components/` 下，无文档，新功能开发时容易重复造轮子（如空状态就有两套实现）。
-
-改进方向：在 `src/components/README.md` 列出所有共享组件的用途和 props，或引入 Storybook 做组件文档（低成本：只需覆盖核心 10-15 个组件）。
+`src/components/` 无文档，新功能容易重复造轮子（空状态就有两套实现）。建议在 `src/components/README.md` 列出核心组件清单和 props。
 
 ---
 
