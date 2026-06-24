@@ -153,7 +153,7 @@ export function FileTypeIcon({
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-red-400"
+        className="text-rose-400"
       >
         <path
           d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"

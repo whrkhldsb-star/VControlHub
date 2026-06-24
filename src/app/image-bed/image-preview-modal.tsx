@@ -91,7 +91,7 @@ export function ImagePreviewModal({
 						{canDelete && (
 							<button
 								onClick={() => onRequestDelete(image)}
-								className="min-h-11 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/30"
+								className="min-h-11 rounded-lg bg-rose-500/20 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-500/30"
 							>
 								删除
 							</button>

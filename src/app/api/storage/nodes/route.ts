@@ -38,6 +38,7 @@ export async function GET(request: Request) {
               where: { userId: session.userId, canRead: true },
               select: { storageNodeId: true },
               distinct: ["storageNodeId"],
+              take: 500,
             })).map((grant) => grant.storageNodeId),
           );
       const nodes = storage.nodes

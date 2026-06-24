@@ -344,7 +344,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</button>
 					{canDelete && (
-						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded px-3 text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
+						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded px-3 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
 					)}
 					<div className="flex items-center gap-1">
 						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} aria-label={t("imageBedPage.batch.albumLabel")} className="min-h-11 bg-slate-900/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
@@ -536,7 +536,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
 										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
 										{canDelete && (
-											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
+											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
 										)}
 									</div>
 								)}
@@ -618,7 +618,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						role="dialog"
 						aria-modal="true"
 						aria-label={pendingDelete.type === "single" ? t("imageBedPage.delete.ariaLabel.single") : t("imageBedPage.delete.ariaLabel.batch")}
-						className="bg-slate-900 border border-red-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
+						className="bg-slate-900 border border-rose-500/20 rounded-xl p-6 w-full max-w-md shadow-2xl"
 						onClick={(e) => e.stopPropagation()}
 					>
 						<h3 className="text-lg font-semibold text-white mb-2">{pendingDelete.type === "single" ? t("imageBedPage.delete.title.single") : t("imageBedPage.delete.title.batch")}</h3>
@@ -631,7 +631,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 						</p>
 						<div className="mt-6 flex items-center justify-end gap-2">
 							<button type="button" onClick={() => setPendingDelete(null)} className="px-4 py-2 text-sm text-slate-400 hover:text-slate-200 light:hover:text-slate-800 transition">{t("imageBedPage.delete.cancel")}</button>
-							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
+							<button type="button" onClick={confirmDelete} disabled={deleting} className="px-4 py-2 text-sm bg-rose-600 text-white rounded-lg hover:bg-rose-500 transition disabled:opacity-50">{deleting ? "删除中..." : "确认删除"}</button>
 						</div>
 					</div>
 				</div>

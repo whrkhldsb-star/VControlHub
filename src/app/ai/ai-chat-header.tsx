@@ -57,7 +57,7 @@ export function AiChatHeader({
         </button>
         <button
           onClick={onClearMessages}
-          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-red-500/10 hover:text-red-400 transition"
+          className="h-7 px-2.5 rounded-lg text-xs text-[var(--text-secondary)] hover:bg-rose-500/10 hover:text-rose-400 transition"
           title={t("aiPage.clearMessagesTitle")}
         >
           {t("aiPage.clear")}

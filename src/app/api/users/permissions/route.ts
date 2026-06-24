@@ -119,11 +119,12 @@ export async function GET(request: Request) {
           },
         },
       }),
-      prisma.role.findMany({ orderBy: { key: "asc" } }),
-      prisma.permission.findMany({ orderBy: { key: "asc" } }),
+      prisma.role.findMany({ orderBy: { key: "asc" }, take: 200 }),
+      prisma.permission.findMany({ orderBy: { key: "asc" }, take: 500 }),
       prisma.storageNode.findMany({
         select: { id: true, name: true, driver: true, basePath: true },
         orderBy: { name: "asc" },
+        take: 500,
       }),
     ]);
 
@@ -285,7 +286,7 @@ export async function PATCH(request: Request) {
             where: { userId: parsed.data.userId },
           });
           const validNodeIds = new Set(
-            (await tx.storageNode.findMany({ select: { id: true } })).map(
+            (await tx.storageNode.findMany({ select: { id: true }, take: 500 })).map(
               (node) => node.id,
             ),
           );

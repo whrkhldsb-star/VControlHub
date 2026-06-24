@@ -166,7 +166,7 @@ export function AiProviderPanel({
                         {PROVIDER_TYPES[p.type] || p.type}
                       </span>
                       {p.isDefault && <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">{t("common.default")}</span>}
-                      {!p.enabled && <span className="text-[10px] text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded">{t("aiPage.disabledBadge")}</span>}
+                      {!p.enabled && <span className="text-[10px] text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded">{t("aiPage.disabledBadge")}</span>}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">{p.baseUrl} · {p.defaultModel}</p>
                   </div>
@@ -195,7 +195,7 @@ export function AiProviderPanel({
                     </button>
                     <button
                       onClick={() => onDeleteProvider(p.id)}
-                      className="text-xs text-red-400/60 hover:text-red-400 transition"
+                      className="text-xs text-rose-400/60 hover:text-rose-400 transition"
                       aria-label={t("aiPage.deleteProviderAria2").replace("{name}", p.name)}
                     >
                       {t("aiPage.deleteAction")}

@@ -349,13 +349,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **`/monitoring` 监控依赖轮询，无实时推送** — 使用 `setInterval` 定时拉取，无 WebSocket/SSE，数据有明显延迟，不适合高频实时场景。
 
 **P2 — UI 直观性与一致性**
-- [ ] **按钮色彩体系碎片化** — 主操作按钮存在 cyan-300/400/500/600 四档混用；危险操作同时使用 `bg-red-*` 和 `bg-rose-*` 两套色，无统一 design token，视觉噪音明显。
+- [ ] **按钮色彩体系碎片化** — 主操作按钮存在 cyan-300/400/500/600 四档混用；危险操作全部已收敛到 `bg-rose-*`，仍需把主色 cyan 档位收敛到统一 `var(--color-action)` token。
 - [ ] **4 个核心页面缺少 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 无 eyebrow/title/description 三元素，用户进入页面后缺少上下文引导。
 - [ ] **约 13 处 PageHeader 无 description** — `downloads`、`notifications`、`tickets`、`scheduled-tasks`、`snippets`、`preferences` 等页面只有标题，缺少功能说明副文案，新用户引导不足。
-- [ ] **10 种硬编码十六进制颜色** — `#f8fafc`、`#0c0f1a`、`#1e293b` 等色值散落在 TSX 文件中，绕过 Tailwind/CSS 变量体系，暗色模式切换时存在色彩不一致隐患。
+- [ ] **10 种硬编码十六进制颜色** — 大多为合理保留（xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops），无可统一项；如需进一步抽象可后续单独审视。
 
 **P2 — 工程规范**
-- [ ] **97 处 `findMany` 无 `take` 保护** — 大部分列表查询无分页上限，数据量大时有内存和性能风险。
+- [ ] **少量 `findMany` 仍无 `take` 保护**（5 处） — 全部为受 zod schema `array(...).max()` 约束的 `where: { in: [...] }` 用法（users / users/permissions / sftp 内部递归），输入端已有上界，列表上界由 schema 控制；不影响生产风险。
 
 **P3 — 长期改善**
 - [ ] **68 处 `p-5`/`p-7` 奇数间距混入** — Tailwind 标准档为 p-4/p-6/p-8，奇数档混入导致视觉节奏不统一。
@@ -388,7 +388,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **4 个核心页面补 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 补 eyebrow/title/description。
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
-- [ ] **高频 findMany 添加 take 分页保护** — 优先 `/api/users/permissions`、`/api/dashboard/analytics`。
 
 ### P3 — 长期愿景
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。

@@ -113,6 +113,7 @@ describe("/api/storage/nodes", () => {
       where: { userId: "user_1", canRead: true },
       select: { storageNodeId: true },
       distinct: ["storageNodeId"],
+      take: 500,
     });
     await expect(response.json()).resolves.toEqual({
       nodes: [

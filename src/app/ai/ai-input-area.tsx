@@ -58,12 +58,12 @@ export function AiInputArea({
     <div className="px-4 py-3 border-t border-white/[0.06] bg-slate-950/30">
       {/* File rejection toast */}
       {fileRejectionMsg && (
-        <div className="mb-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="mb-2 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <span>{fileRejectionMsg}</span>
-          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-red-400/60 hover:text-red-300 flex-shrink-0">×</button>
+          <button onClick={clearRejection} aria-label={t("aiPage.fileRejectionDismissAria")} className="ml-auto text-rose-400/60 hover:text-rose-300 flex-shrink-0">×</button>
         </div>
       )}
       <div className="flex gap-2 items-end">
@@ -130,7 +130,7 @@ export function AiInputArea({
         {streaming && (
           <button
             onClick={handleStopGeneration}
-            className="h-10 w-10 rounded-xl bg-red-500/20 text-red-300 flex items-center justify-center hover:bg-red-500/30 transition"
+            className="h-10 w-10 rounded-xl bg-rose-500/20 text-rose-300 flex items-center justify-center hover:bg-rose-500/30 transition"
             aria-label={t("aiPage.stopGenTitle")}
             title={t("aiPage.stopGenTitle")}
           >

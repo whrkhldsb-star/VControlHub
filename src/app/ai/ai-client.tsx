@@ -855,7 +855,7 @@ return (
        <div className="text-sm text-white font-medium">{approval.actionName}</div>
        <div className="text-xs text-[var(--text-secondary)] truncate">
  {t("aiPage.riskLabel")}<span className={
- approval.riskLevel === "critical" ? "text-red-400" :
+ approval.riskLevel === "critical" ? "text-rose-400" :
  approval.riskLevel === "high" ? "text-orange-400" :
  approval.riskLevel === "medium" ? "text-yellow-400" : "text-green-400"
 }>{approval.riskLevel}</span>
@@ -864,7 +864,7 @@ return (
       </div>
       <div className="flex gap-2 ml-3">
        <button
-        className="px-3 py-1 text-xs rounded bg-red-600 hover:bg-red-700 disabled:bg-red-900/60 disabled:cursor-not-allowed text-white transition"
+        className="px-3 py-1 text-xs rounded bg-rose-600 hover:bg-rose-700 disabled:bg-rose-900/60 disabled:cursor-not-allowed text-white transition"
         disabled={approvalBusyById[approval.actionId]}
         aria-busy={approvalBusyById[approval.actionId] ? "true" : undefined}
         onClick={() => void handleHostedActionDecision(approval, "reject")}
@@ -893,7 +893,7 @@ return (
 					<Image src={url} alt="" width={48} height={48} loading="lazy" unoptimized className="w-12 h-12 rounded object-cover border border-[var(--border)]" />
                       <button
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                       >
                         ×
                       </button>
@@ -922,7 +922,7 @@ return (
                     )}
                       <button
                         onClick={() => setFileAttachments((prev) => prev.filter((_, j) => j !== i))}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[8px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
                       >
                         ×
                       </button>

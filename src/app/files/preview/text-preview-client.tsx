@@ -675,7 +675,7 @@ export function TextPreviewClient({
 
 	if (state.error) {
 		return (
-			<div className="flex flex-col items-center gap-3 py-16 text-red-300">
+			<div className="flex flex-col items-center gap-3 py-16 text-rose-300">
 				<span className="text-3xl">⚠️</span>
 				<p className="text-sm">{state.error}</p>
 			</div>
