@@ -16,6 +16,16 @@ http://your-domain.example, https://your-domain.example {
         Referrer-Policy strict-origin-when-cross-origin
     }
 
+    # 仅对 Next.js 页面路由（无扩展名路径）强制禁止缓存
+    # 防止 Cloudflare 缓存旧 HTML 后引用过期 CSS/JS hash 导致样式崩溃
+    # sw.js / *.png / *.svg 等静态文件不受影响，保留正常缓存
+    @html {
+        path_regexp ^/[^.]*$
+        not path /api/*
+        not path /direct/*
+    }
+    header @html Cache-Control "no-cache, no-store, must-revalidate"
+
     reverse_proxy /ssh 127.0.0.1:3001
     reverse_proxy /ssh/* 127.0.0.1:3001
 
