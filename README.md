@@ -473,7 +473,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 🟠 设计一致性
 - [x] **按钮主色已全局收敛** — Docker / Image Bed 已迁移至 `--accent` / `--accent-bg` / `--accent-border` / `--accent-hover` token；全代码库 `bg-blue-500/10\|20` 零残留。后续新组件直接用 `var(--accent*)` 即可。
 - [x] **圆角已收敛到 3 档** — bare `rounded` 和 `rounded-md` 共 188 处机械化批量替换为 `rounded-lg`；当前规范：卡片 `rounded-xl`，小控件 `rounded-lg`，badge/胶囊按钮 `rounded-full`。`rounded-2xl` 保留作为 hero 大圆角。
-- [ ] **Input 样式 3 种变体** — `rounded-2xl + bg-slate-950 + py-3`、`rounded-lg + bg-white/[0.04] + py-2.5`、`rounded-lg + bg-[var(--border)] + py-2` 混用。建议提取统一 `inputBase` className 或 InputBase 组件。
+- [x] **Input 样式已通过 `INPUT_CLS` 常量方案解决** — `src/lib/styles.ts` 提供 `INPUT_CLS`（标准表单）、`INPUT_DARK_CLS`（深色背景）、`INPUT_ERROR_CLS`（错误态）三个集中管理的 className，已覆盖 11 个文件的 input/textarea/select 样式，改样式只需改一处。**不再需要 InputBase 组件**，当前方案比组件更轻量，无需额外 props 传递。
 
 ### 🟡 细节打磨
 - [x] **Loading skeleton 已全覆盖数据密集页** — 新增 `DeploymentsPageSkeleton` / `DownloadsPageSkeleton` / `QuickServicesPageSkeleton` 三个结构化骨架屏（src/components/skeleton.tsx），分别覆盖 `/deployments`、`/downloads`、`/quick-services` 的 `loading.tsx`。
@@ -489,7 +489,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **超大 Client 组件拆分** — `file-list-client.tsx`(1247行)、`settings-client.tsx`(1202行)、`ai-client.tsx`(1030行) 各包含多个子功能，建议按职责拆分为 400 行以内的子组件
 - [ ] **`ChangePasswordModal` 仍有 13 处中文硬编码** — `src/components/change-password-modal.tsx:70-85` 三个密码字段 label/description、`:101` 取消按钮、`:103` `SubmitButton pendingLabel/children`、`:131/136` 显示/隐藏文案仍不走字典；文件顶部虽调用 `useI18n()`，但只覆盖标题/说明/关闭按钮，切英文后表单主体仍显示中文。
 - [ ] **`FileUploadDropzone` 上传状态/错误文案仍硬编码中文** — `src/components/storage/file-upload-dropzone.tsx:28-52` 路径校验 reason、`:114/119/131/141/150/159/163-176` 上传队列和 toast、`:238` placeholder、`:280` dropzone 提示、`:326` 状态枚举均为中文；同文件已引入 `useI18n()` 并在节点选择/文件夹按钮处使用 `tr(...)`，因此不是无 i18n 基建，而是覆盖遗漏。
-- [ ] **40 处 input 替换 `<InputBase>`** — `src/components/input-base.tsx` 已建，11 个文件的重复 className 可批量替换
+
 - [ ] **文字 opacity 收敛** — `/10`~`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档
 - [ ] **组件文档** — `src/components/` 无文档，建议新增 `src/components/README.md` 列清单和 props
 
