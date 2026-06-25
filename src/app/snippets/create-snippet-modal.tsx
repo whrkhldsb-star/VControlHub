@@ -143,7 +143,7 @@ export function CreateSnippetModal({
               type="checkbox"
               checked={isPrivate}
               onChange={(e) => setIsPrivate(e.target.checked)}
-              className="rounded border-white/20"
+              className="rounded-lg border-white/20"
             />
             {t("snippetsPage.modal.field.private")}
           </label>

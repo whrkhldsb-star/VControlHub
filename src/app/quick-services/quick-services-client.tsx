@@ -356,7 +356,7 @@ export function QuickServicesClient({ canManage }: { canManage: boolean }) {
 				<div role={actions.message.type === "ok" ? "status" : "alert"} className={`rounded-lg px-4 py-3 text-sm ${actions.message.type === "ok" ? "bg-emerald-500/[0.08] border border-emerald-400/20 text-emerald-200" : "bg-rose-500/[0.08] border border-rose-400/20 text-rose-200"}`}>
 					<span>{actions.message.text}</span>
 					{actions.message.taskId ? (
-						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-md border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
+						<Link href="/operation-tasks" className="ml-3 inline-flex rounded-lg border border-current/30 px-2 py-1 text-xs font-semibold hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
 							{t("qsPage.viewTaskCenter")}
 						</Link>
 					) : null}

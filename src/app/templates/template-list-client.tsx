@@ -115,7 +115,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 						<button
 							onClick={() => setFilterTag(null)}
 							data-tone={!filterTag ? "accent" : undefined}
-							className={`rounded-md border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
+							className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${!filterTag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
 						>
 							{t("templatesPage.filter.all")}
 						</button>
@@ -124,7 +124,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								key={tag}
 								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
 								data-tone={filterTag === tag ? "accent" : undefined}
-								className={`rounded-md border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
+								className={`rounded-lg border px-2 py-0.5 text-[11px] transition ${filterTag === tag ? "" : "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.05]"}`}
 							>
 								#{tag}
 							</button>
@@ -161,7 +161,7 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 									{tmpl.description && <p className="mt-0.5 text-[11px] text-slate-500">{tmpl.description}</p>}
 								</div>
 								{tmpl.isBuiltin && (
-									<span data-tone="accent" className="rounded-md border px-1.5 py-0.5 text-[9px] font-medium shrink-0">{t("templatesPage.badge.builtin")}</span>
+									<span data-tone="accent" className="rounded-lg border px-1.5 py-0.5 text-[9px] font-medium shrink-0">{t("templatesPage.badge.builtin")}</span>
 								)}
 							</div>
 							<div className="mt-2.5 rounded-lg border border-white/[0.06] bg-slate-950/70 px-3 py-2 font-mono text-xs text-slate-300 line-clamp-2">
@@ -176,14 +176,14 @@ export function TemplateListClient({ templates: initialTemplates, servers, canCr
 								<div className="mt-2 flex flex-wrap gap-1">
 {tmpl.variables.map((v) => {
 											const placeholder = `{{${v}}}`;
-											return <span key={v} data-tone="warning" className="rounded-md border px-1.5 py-0.5 text-[10px] font-mono">{placeholder}</span>;
+											return <span key={v} data-tone="warning" className="rounded-lg border px-1.5 py-0.5 text-[10px] font-mono">{placeholder}</span>;
 										})}
 								</div>
 							)}
 							{tmpl.tags.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 									{tmpl.tags.map((tag) => (
-										<span key={tag} className="rounded-md bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-500">#{tag}</span>
+										<span key={tag} className="rounded-lg bg-white/[0.04] border border-white/[0.06] px-1.5 py-0.5 text-[10px] text-slate-500">#{tag}</span>
 									))}
 								</div>
 							)}
@@ -252,13 +252,13 @@ function DeployButton({ template, servers, onDeploy, loading }: {
 							value={vars[v] ?? ""}
 							onChange={(e) => setVars((prev) => ({ ...prev, [v]: e.target.value }))}
 							placeholder={`{{${v}}}`}
-							className="flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+							className="flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[11px] text-white font-mono outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 						/>
 					</div>
 			)})}
 			<div className="flex flex-wrap gap-1">
 				{enabledServers.map((s) => (
-					<label key={s.id} className={`flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-400"}`}>
+					<label key={s.id} className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] cursor-pointer transition ${selectedIds.has(s.id) ? "border-cyan-400/20 bg-cyan-400/[0.06] text-white" : "border-white/[0.06] bg-white/[0.03] text-slate-400"}`}>
 						<input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => {
 							setSelectedIds((prev) => { const n = new Set(prev); if (n.has(s.id)) n.delete(s.id); else n.add(s.id); return n; });
 						}} className="accent-cyan-400" />

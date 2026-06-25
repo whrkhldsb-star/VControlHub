@@ -63,7 +63,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             max={3650}
             value={olderThanDays}
             onChange={(event) => setOlderThanDays(Math.max(1, Math.min(3650, Number(event.target.value) || MIN_OLDER_THAN_DAYS)))}
-            className="w-24 rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 text-sm text-white/70"
+            className="w-24 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-sm text-white/70"
             disabled={pending}
           />
         </label>
@@ -75,7 +75,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
             max={1000}
             value={keepLatestPerType}
             onChange={(event) => setKeepLatestPerType(Math.max(0, Math.min(1000, Number(event.target.value) || 0)))}
-            className="w-24 rounded-md border border-white/[0.08] bg-black/20 px-2 py-1 text-sm text-white/70"
+            className="w-24 rounded-lg border border-white/[0.08] bg-black/20 px-2 py-1 text-sm text-white/70"
             disabled={pending}
           />
         </label>

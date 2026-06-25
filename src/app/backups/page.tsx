@@ -100,7 +100,7 @@ export default async function BackupsPage() {
 									<span className="rounded-full bg-rose-400/15 px-2 py-0.5 text-xs text-rose-100">{t("backupsPage.failures.itemCount").replace("{count}", String(item.count))}</span>
 								</div>
 								{item.latestRecordPath && <p className="mt-2 text-xs text-slate-500">{t("backupsPage.failures.latestRecord").replace("{path}", item.latestRecordPath)}</p>}
-								<p className="mt-2 rounded-md border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
+								<p className="mt-2 rounded-lg border border-white/[0.06] bg-black/10 px-2 py-1.5 text-xs text-slate-300/60">{t("backupsPage.failures.remediation").replace("{remediation}", item.remediation)}</p>
 								{item.latestMessage && <p className="mt-1 line-clamp-2 text-xs text-slate-400">{item.latestMessage}</p>}
 							</div>
 						))}
@@ -139,7 +139,7 @@ export default async function BackupsPage() {
 						</div>
 						<a
 							href="/settings#offsite"
-							className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400 transition hover:border-white/[0.16] hover:text-slate-200"
+							className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400 transition hover:border-white/[0.16] hover:text-slate-200"
 						>
 							{t("backupsPage.offsite.openSettings")}
 						</a>
@@ -190,7 +190,7 @@ export default async function BackupsPage() {
 									<h3 className="text-sm font-medium text-white">{t("backupsPage.records.typeStatus").replace("{type}", b.type).replace("{status}", b.status)}</h3>
 									<p className="mt-1 text-xs text-slate-500">{t("backupsPage.records.pathTime").replace("{path}", b.filePath).replace("{time}", formatZhDateTime(b.createdAt))}</p>
 								</div>
-								<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
+								<span className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400">{b.creator?.displayName || b.creator?.username || t("backupsPage.records.creatorSystem")}</span>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-500">
 								<span>{t("backupsPage.records.size").replace("{size}", formatBackupSize(b.fileSize))}</span>

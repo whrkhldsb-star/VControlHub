@@ -542,7 +542,7 @@ function CollapsibleSection({
 						<div className="flex items-start gap-3 min-w-0 flex-1">
 							<span
 								aria-hidden
-								className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition group-open:rotate-90"
+								className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 transition group-open:rotate-90"
 							>
 								▶
 							</span>
@@ -789,7 +789,7 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 					id={warningId}
 					role="alert"
 					data-testid="high-risk-blur-warning"
-					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+					className="rounded-lg border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
 				>
 					<span aria-hidden className="mr-1">⚠</span>
 					{t("settingsClient.highRiskWarning")}
@@ -803,7 +803,7 @@ function SelectField({ field, value, disabled, helperText, onChange, runtimeSumm
 			{runtimeSummary && (
 				<div
 					id={runtimeId}
-					className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
+					className="rounded-lg border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
 				>
 					<p>
 						{t("settingsClient.runtimeValueLabel")}<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · {t("settingsClient.runtimeSourceLabel")}{runtimeSummary.sourceLabel}
@@ -876,7 +876,7 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 					id={warningId}
 					role="alert"
 					data-testid="high-risk-blur-warning"
-					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+					className="rounded-lg border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
 				>
 					<span aria-hidden className="mr-1">⚠</span>
 					{t("settingsClient.highRiskWarning")}
@@ -890,7 +890,7 @@ function InputField({ field, value, disabled, helperText, onChange, runtimeSumma
 			{runtimeSummary && (
 				<div
 					id={runtimeId}
-					className="rounded-md border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
+					className="rounded-lg border border-white/[0.06] bg-slate-950/30 px-2.5 py-2 text-[11px] leading-5 text-slate-300"
 				>
 					<p>
 						{t("settingsClient.runtimeValueLabel")}<strong className="text-white">{runtimeSummary.value}</strong> {runtimeSummary.unit} · {t("settingsClient.runtimeSourceLabel")}{runtimeSummary.sourceLabel}
@@ -954,7 +954,7 @@ function TextAreaField({ field, value, disabled, helperText, onChange, showHighR
 					id={warningId}
 					role="alert"
 					data-testid="high-risk-blur-warning"
-					className="rounded-md border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
+					className="rounded-lg border border-rose-400/30 bg-rose-500/[0.08] px-2.5 py-1.5 text-[11px] leading-5 text-rose-100 light:border-rose-300/40 light:bg-rose-50 light:text-rose-800"
 				>
 					<span aria-hidden className="mr-1">⚠</span>
 					{t("settingsClient.highRiskWarning")}

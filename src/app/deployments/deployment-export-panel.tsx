@@ -391,7 +391,7 @@ function TreeRow({
         type="button"
         onClick={() => onSelect(node.fullPath)}
         data-testid={`deploy-export-file-${node.fullPath}`}
-        className={`flex w-full items-center gap-1 rounded px-1 py-0.5 text-left transition ${
+        className={`flex w-full items-center gap-1 rounded-lg px-1 py-0.5 text-left transition ${
           isActive
             ? "bg-cyan-300/20 text-cyan-100"
             : "hover:bg-white/[0.04] text-[var(--text-secondary)]"
@@ -444,7 +444,7 @@ function DeploymentFilePreview({
           data-testid="deploy-export-file-select"
           value={activePath}
           onChange={(event) => onSelect(event.target.value)}
-          className="flex-1 rounded border border-white/[0.08] bg-slate-950 px-2 py-1 text-xs text-slate-100"
+          className="flex-1 rounded-lg border border-white/[0.08] bg-slate-950 px-2 py-1 text-xs text-slate-100"
         >
           {fileNames.map((name) => (
             <option key={name} value={name}>
@@ -456,7 +456,7 @@ function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-rollback"
           onClick={() => onCopy(content, activePath)}
-          className="rounded border border-cyan-300/40 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10"
+          className="rounded-lg border border-cyan-300/40 px-2 py-1 text-xs text-cyan-100 hover:bg-cyan-300/10"
         >
           {justCopied ? t("deploymentsPage.export.copied") : t("deploymentsPage.export.copyRollback")}
         </button>
@@ -464,7 +464,7 @@ function DeploymentFilePreview({
           type="button"
           data-testid="deploy-export-download-active"
           onClick={() => onDownload(activePath, content)}
-          className="rounded border border-white/[0.08] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
+          className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-cyan-300/40"
         >
           {t("deploymentsPage.export.downloadFile")}
         </button>

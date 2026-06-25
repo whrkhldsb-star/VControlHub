@@ -568,7 +568,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 						type="button"
 						onClick={addStep}
 						data-tone="accent"
-						className="min-h-9 rounded-md border px-3 py-1 text-xs transition"
+						className="min-h-9 rounded-lg border px-3 py-1 text-xs transition"
 					>
 						{t("playbooksPage.createForm.addStep")}
 					</button>
@@ -606,7 +606,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 										type="button"
 										onClick={() => removeStep(step.id)}
 										data-tone="danger"
-										className="min-h-9 rounded-md border px-2 py-1 text-xs"
+										className="min-h-9 rounded-lg border px-2 py-1 text-xs"
 									>
 										×
 									</button>

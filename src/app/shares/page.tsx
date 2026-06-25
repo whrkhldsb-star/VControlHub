@@ -39,7 +39,7 @@ export default async function SharesPage() {
 									<p className="mt-1 text-xs text-slate-500">{s.storageNode.name} · {s.path} · {t("shares.accessCountPrefix")}{s.accessCount}{t("shares.accessCountSuffix")}</p>
 								</div>
 								<div className="flex items-center gap-3">
-									<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
+									<span className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
 										{s.revokedAt ? t("shares.status.revoked") : s.expiresAt && s.expiresAt < new Date() ? t("shares.status.expired") : t("shares.status.active")}
 									</span>
 									{canManage ? <ShareRowActions id={s.id} revoked={Boolean(s.revokedAt)} /> : null}

@@ -421,13 +421,13 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 							<tbody className="divide-y divide-white/[0.04]">
 								{Array.from({ length: skeletonRowCount }).map((_, i) => (
 									<tr key={i} className="animate-pulse">
-										<td className="px-4 py-4"><div className="h-3 w-32 rounded bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-12 rounded bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-16 rounded bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-16 rounded bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-16 rounded bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-20 rounded bg-white/[0.06]" /></td>
-										<td className="px-4 py-4"><div className="h-3 w-8 rounded bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-32 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-12 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-16 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-20 rounded-lg bg-white/[0.06]" /></td>
+										<td className="px-4 py-4"><div className="h-3 w-8 rounded-lg bg-white/[0.06]" /></td>
 									</tr>
 								))}
 							</tbody>

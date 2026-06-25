@@ -317,7 +317,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 						<span className="text-xs text-slate-500">{t("downloadsPage.stats.globalLimit")}</span>
 						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
 							<button key={kb} onClick={() => handleGlobalSpeedLimit(kb)}
-								className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition"
+								className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[11px] text-slate-400 hover:bg-white/[0.06] transition"
 							>
 								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
 							</button>
@@ -456,7 +456,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 											<input id={`limit-${task.id}`} type="number" min={0} step={1024} placeholder="KB/s"
 												defaultValue={task.maxSpeedKb ?? ""}
 												onBlur={(e) => { const v = parseInt(e.target.value); if (!isNaN(v) && v >= 0) handleAction(task.id, `limit:${v}`); }}
-												className="w-16 bg-[var(--input-bg)] border-[var(--input-border)] rounded px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
+												className="w-16 bg-[var(--input-bg)] border-[var(--input-border)] rounded-lg px-1.5 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50"
 											/>
 										</span>
 									)}

@@ -72,7 +72,7 @@ export function OffsiteDryRunButton() {
 				onClick={run}
 				disabled={isRunning}
 				data-action="offsite-dry-run"
-				className="rounded-md border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+				className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-medium text-cyan-100 transition hover:border-cyan-300 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{isRunning ? t("backupsPage.offsite.dryRunning") : t("backupsPage.offsite.dryRunButton")}
 			</button>
@@ -90,7 +90,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<p
 				data-tone="emerald"
-				className="rounded-md border border-emerald-400/20 px-2 py-1.5 text-xs text-emerald-200"
+				className="rounded-lg border border-emerald-400/20 px-2 py-1.5 text-xs text-emerald-200"
 			>
 				{t("backupsPage.offsite.dryRunOk").replace("{latencyMs}", String(state.latencyMs))}
 			</p>
@@ -100,7 +100,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<p
 				data-tone="amber"
-				className="rounded-md border border-amber-400/20 px-2 py-1.5 text-xs text-amber-200"
+				className="rounded-lg border border-amber-400/20 px-2 py-1.5 text-xs text-amber-200"
 			>
 				{t("backupsPage.offsite.dryRunDisabled")}
 			</p>
@@ -110,7 +110,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<div
 				data-tone="amber"
-				className="rounded-md border border-amber-400/20 px-2 py-1.5 text-xs text-amber-200"
+				className="rounded-lg border border-amber-400/20 px-2 py-1.5 text-xs text-amber-200"
 			>
 				<p className="font-medium">dry-run failed: config_invalid</p>
 				<ul className="mt-1 list-disc pl-4">
@@ -125,7 +125,7 @@ function StateView({ state }: { state: DryRunState }) {
 		return (
 			<p
 				data-tone="rose"
-				className="rounded-md border border-rose-400/20 px-2 py-1.5 text-xs text-rose-200"
+				className="rounded-lg border border-rose-400/20 px-2 py-1.5 text-xs text-rose-200"
 			>
 				{t("backupsPage.offsite.dryRunFailed")
 					.replace("{message}", `[${state.code} / HTTP ${state.status}] ${state.message}`)}
@@ -135,7 +135,7 @@ function StateView({ state }: { state: DryRunState }) {
 	return (
 		<p
 			data-tone="rose"
-			className="rounded-md border border-rose-400/20 px-2 py-1.5 text-xs text-rose-200"
+			className="rounded-lg border border-rose-400/20 px-2 py-1.5 text-xs text-rose-200"
 		>
 			{t("backupsPage.offsite.dryRunFailed").replace("{message}", state.message)}
 		</p>

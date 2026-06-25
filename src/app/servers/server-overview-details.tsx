@@ -166,7 +166,7 @@ function DirectGatewayAdviceList({
 				<li
 					key={`${item.title}-${index}`}
 					data-tone={item.tone ?? "amber"}
-					className={`rounded-md border px-2 py-1.5 ${adviceToneClass(item.tone)}`}
+					className={`rounded-lg border px-2 py-1.5 ${adviceToneClass(item.tone)}`}
 				>
 					<div className={`flex flex-wrap items-baseline gap-1.5 text-[11px] font-medium leading-5 ${adviceTitleClass(item.tone)}`}>
 						<span
@@ -314,7 +314,7 @@ export function ServerOverviewDetails({
 						{(server.tags ?? []).map((tag) => (
 							<span
 								key={tag}
-								className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400"
+								className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px] text-slate-400"
 							>
 								#{tag}
 							</span>

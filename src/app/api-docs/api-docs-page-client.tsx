@@ -165,10 +165,10 @@ export default function ApiDocsPage() {
 									<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 										<div className="min-w-0 flex-1">
 											<div className="flex flex-wrap items-center gap-2">
-												<span className={`rounded-md border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-slate-200"}`}>
+												<span className={`rounded-lg border px-2 py-1 font-mono text-xs font-semibold uppercase ${methodStyles[entry.method] ?? "border-slate-400/25 bg-slate-400/10 text-slate-200"}`}>
 													{entry.method}
 												</span>
-												<code className="break-all rounded-md bg-slate-950/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
+												<code className="break-all rounded-lg bg-slate-950/60 px-2 py-1 font-mono text-sm text-cyan-100">/api{entry.path}</code>
 											</div>
 											<h3 className="mt-3 text-sm font-medium text-white">{entry.operation.summary ?? t("apiDocsPage.tag.untagged")}</h3>
 											{entry.operation.description ? <p className="mt-1 text-sm text-slate-400">{entry.operation.description}</p> : null}

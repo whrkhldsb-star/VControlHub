@@ -471,12 +471,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 基于静态分析 + 浏览器走查确认，按影响大小排列。
 
 ### 🟠 设计一致性
-- [ ] **按钮主色仍需全局收敛** — 已将错误页/仪表盘定制确认按钮迁移到 `--color-action`，但 Docker / Image Bed 等页面仍有局部 `bg-blue-500/10`、`bg-blue-500/20` 等状态/操作色；后续应按“主色 token + 状态色例外”规则统一。
-- [ ] **圆角 5 种混用** — `rounded`（无后缀）、`rounded-md`、`rounded-lg`、`rounded-xl`、`rounded-2xl` 同时存在。建议规范：卡片 `rounded-xl`，小控件 `rounded-lg`，badge/按钮 `rounded-full`，去掉无后缀 `rounded` 和 `rounded-md`。
+- [x] **按钮主色已全局收敛** — Docker / Image Bed 已迁移至 `--accent` / `--accent-bg` / `--accent-border` / `--accent-hover` token；全代码库 `bg-blue-500/10\|20` 零残留。后续新组件直接用 `var(--accent*)` 即可。
+- [x] **圆角已收敛到 3 档** — bare `rounded` 和 `rounded-md` 共 188 处机械化批量替换为 `rounded-lg`；当前规范：卡片 `rounded-xl`，小控件 `rounded-lg`，badge/胶囊按钮 `rounded-full`。`rounded-2xl` 保留作为 hero 大圆角。
 - [ ] **Input 样式 3 种变体** — `rounded-2xl + bg-slate-950 + py-3`、`rounded-lg + bg-white/[0.04] + py-2.5`、`rounded-lg + bg-[var(--border)] + py-2` 混用。建议提取统一 `inputBase` className 或 InputBase 组件。
 
 ### 🟡 细节打磨
-- [ ] **Loading skeleton 仍需扩展到更多数据密集页** — `/servers`、`/files`、`/health` 已有专属骨架屏；后续可补 `/deployments`、`/downloads`、`/quick-services` 等页面的结构化 loading。
+- [x] **Loading skeleton 已全覆盖数据密集页** — 新增 `DeploymentsPageSkeleton` / `DownloadsPageSkeleton` / `QuickServicesPageSkeleton` 三个结构化骨架屏（src/components/skeleton.tsx），分别覆盖 `/deployments`、`/downloads`、`/quick-services` 的 `loading.tsx`。
 - [ ] **文字 opacity 档位过多** — `/10`、`/20`、`/25`、`/30`、`/40`、`/50`、`/60`、`/70`、`/80` 等档位仍偏多，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档。
 
 ---

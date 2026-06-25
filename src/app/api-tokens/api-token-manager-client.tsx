@@ -182,7 +182,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
                       </div>
                       <p className="mt-2 font-mono text-xs text-slate-400">{token.tokenPrefix}…{token.tokenSuffix}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {token.scopes.map((scope) => <span key={scope} className="rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-slate-400">{scope}</span>)}
+                        {token.scopes.map((scope) => <span key={scope} className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 font-mono text-[11px] text-slate-400">{scope}</span>)}
                       </div>
                       <dl className="mt-3 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
                         <div><dt className="text-slate-600">{t("apiTokensPage.list.createdAt")}</dt><dd>{formatDate(token.createdAt)}</dd></div>

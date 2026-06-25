@@ -162,11 +162,11 @@ export function AiProviderPanel({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-[var(--text-primary)] font-medium">{p.name}</span>
-                      <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] text-slate-500 bg-white/5 px-1.5 py-0.5 rounded-lg">
                         {PROVIDER_TYPES[p.type] || p.type}
                       </span>
-                      {p.isDefault && <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">{t("common.default")}</span>}
-                      {!p.enabled && <span className="text-[10px] text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded">{t("aiPage.disabledBadge")}</span>}
+                      {p.isDefault && <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded-lg">{t("common.default")}</span>}
+                      {!p.enabled && <span className="text-[10px] text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded-lg">{t("aiPage.disabledBadge")}</span>}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">{p.baseUrl} · {p.defaultModel}</p>
                   </div>
@@ -236,7 +236,7 @@ export function AiProviderPanel({
                   <input id="ai-provider-edit-default-model" aria-label={t("aiPage.defaultModelLabel")} value={editForm.defaultModel} onChange={(e) => setEditForm((f) => f ? ({ ...f, defaultModel: e.target.value }) : f)} className="w-full mt-1 bg-black/30 border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-white" />
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
-                  <input type="checkbox" checked={editForm.isDefault} onChange={(e) => setEditForm((f) => f ? ({ ...f, isDefault: e.target.checked }) : f)} className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30" />
+                  <input type="checkbox" checked={editForm.isDefault} onChange={(e) => setEditForm((f) => f ? ({ ...f, isDefault: e.target.checked }) : f)} className="rounded-lg border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30" />
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>
@@ -291,7 +291,7 @@ export function AiProviderPanel({
                   {modelOptions.length > 0 && <div className="max-h-24 overflow-y-auto rounded-lg bg-black/20 p-2 text-[11px] text-[var(--text-secondary)]">{modelOptions.slice(0, 20).join("、")}{modelOptions.length > 20 ? t("aiPage.modelsMore").replace("{count}", String(modelOptions.length)) : ""}</div>}
                 </div>
                 <label className="flex items-center gap-2 col-span-2 max-sm:col-span-1 cursor-pointer">
-                  <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30" />
+                  <input type="checkbox" checked={provForm.isDefault} onChange={(e) => setProvForm((f) => ({ ...f, isDefault: e.target.checked }))} className="rounded-lg border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30" />
                   <span className="text-xs text-[var(--text-secondary)]">{t("common.setAsDefault")}</span>
                 </label>
               </div>

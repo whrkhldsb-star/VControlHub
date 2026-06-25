@@ -95,7 +95,7 @@ export function AnnouncementEditModal({
               type="checkbox"
               checked={pinned}
               onChange={(e) => setPinned(e.target.checked)}
-              className="rounded border-white/20"
+              className="rounded-lg border-white/20"
             />
             {t("common.pinned")}
           </label>

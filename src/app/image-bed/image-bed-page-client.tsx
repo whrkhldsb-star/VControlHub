@@ -286,7 +286,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					</div>
 					<div className="flex flex-wrap items-center gap-2 text-xs">
 						<Link href="/media?type=image" className="rounded-xl bg-emerald-500 px-4 py-2 font-medium text-white transition hover:bg-emerald-400">{t("imageBedPage.hero.openMedia")}</Link>
-						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-blue-400/25 bg-blue-500/10 px-4 py-2 font-medium text-blue-300 transition hover:bg-blue-500/20">{t("imageBedPage.hero.publishFromStorage")}</button>}
+						{canWrite && <button onClick={() => { fetchStorageNodes(); setShowPublishModal(true); }} className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 font-medium text-[var(--accent)] transition hover:bg-[var(--accent-hover)] hover:text-white">{t("imageBedPage.hero.publishFromStorage")}</button>}
 					</div>
 				</div>
 				<div className="mt-5 grid gap-2 text-xs sm:grid-cols-3">
@@ -340,17 +340,17 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 					className="sticky bottom-16 z-30 -mx-4 mt-3 flex flex-wrap items-center gap-2 border-y border-slate-700 bg-slate-900/95 p-3 backdrop-blur-sm md:static md:bottom-auto md:z-auto md:mx-0 md:gap-3 md:rounded-xl md:border md:bg-slate-800/50 md:p-3 md:backdrop-blur-0 light:md:bg-slate-100/50"
 				>
 					<span className="text-xs text-slate-400">{t("imageBedPage.batch.selected").replace("{count}", String(selectedIds.size))}</span>
-					<button onClick={selectAll} className="min-h-11 rounded px-3 text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
+					<button onClick={selectAll} className="min-h-11 rounded-lg px-3 text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 transition">
 						{selectedIds.size === images.length ? t("imageBedPage.batch.deselectAll") : t("imageBedPage.batch.selectAll")}
 					</button>
 					{canDelete && (
-						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded px-3 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
+						<button onClick={requestBatchDelete} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.delete")}</button>
 					)}
 					<div className="flex items-center gap-1">
-						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} aria-label={t("imageBedPage.batch.albumLabel")} className="min-h-11 bg-slate-900/50 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
-						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 rounded px-3 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.move")}</button>
+						<input type="text" value={batchAlbum} onChange={(e) => setBatchAlbum(e.target.value)} placeholder={t("imageBedPage.batch.albumPlaceholder")} aria-label={t("imageBedPage.batch.albumLabel")} className="min-h-11 bg-slate-900/50 border border-slate-600 rounded-lg px-2 py-1 text-xs text-slate-200 w-28 focus:outline-none focus:border-cyan-400/50" />
+						<button onClick={() => runBatchAction("moveAlbum")} disabled={selectedIds.size === 0 || !batchAlbum} className="min-h-11 rounded-lg px-3 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.move")}</button>
 					</div>
-					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded px-3 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
+					<button onClick={() => runBatchAction("togglePublic")} disabled={selectedIds.size === 0} className="min-h-11 rounded-lg px-3 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30 transition disabled:opacity-30">{t("imageBedPage.batch.togglePublic")}</button>
 				</div>
 			)}
 
@@ -430,12 +430,12 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 				<div className="mt-2 flex items-center gap-2 text-xs">
 					<span className="text-slate-500">{t("imageBedPage.legacy.uploadTo")}</span>
 					<label className="sr-only" htmlFor="imageBedLegacyNode">{t("imageBedPage.legacy.nodeLabel")}</label>
-					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50">
+					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-cyan-400/50">
 						<option value="">{t("imageBedPage.legacy.defaultNode")}</option>
 						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
 					</select>
 					<label className="sr-only" htmlFor="imageBedLegacyPath">{t("imageBedPage.legacy.pathLabel")}</label>
-					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50" />
+					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className="bg-[var(--input-bg)] border border-[var(--input-border)] rounded-lg px-2 py-1 text-xs text-slate-300 w-32 focus:outline-none focus:border-cyan-400/50" />
 					{!storageNodes.length && <button onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-cyan-400 hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
 				</div>
 				<div
@@ -512,7 +512,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								{batchMode && (
 									<div
 										onClick={(e) => { e.stopPropagation(); toggleSelect(img.id); }}
-										className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md border-2 flex items-center justify-center cursor-pointer transition ${selectedIds.has(img.id) ? "bg-cyan-500 border-cyan-400 text-white" : "bg-black/50 border-slate-500 hover:border-slate-300"}`}
+										className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition ${selectedIds.has(img.id) ? "bg-cyan-500 border-cyan-400 text-white" : "bg-black/50 border-slate-500 hover:border-slate-300"}`}
 									>
 										{selectedIds.has(img.id) && "✓"}
 									</div>
@@ -532,11 +532,11 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 										data-testid="image-card-overlay"
 										className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 p-2 md:bg-black/60 md:opacity-0 md:group-hover:opacity-100 md:p-0"
 									>
-										<button onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30" title={t("imageBedPage.copy.title.url")} aria-label={t("imageBedPage.copy.title.url")}>🔗</button>
-										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
-										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
+										<button onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30" title={t("imageBedPage.copy.title.url")} aria-label={t("imageBedPage.copy.title.url")}>🔗</button>
+										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>
+										<button onClick={() => copyHTML(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-orange-500/20 text-orange-300 hover:bg-orange-500/30" title={t("imageBedPage.copy.title.html")} aria-label={t("imageBedPage.copy.title.html")}>H</button>
 										{canDelete && (
-											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded px-2 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
+											<button onClick={() => requestDelete(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-rose-500/20 text-rose-300 hover:bg-rose-500/30" title={t("imageBedPage.image.delete.aria")} aria-label={t("imageBedPage.image.delete.aria")}>🗑</button>
 										)}
 									</div>
 								)}
@@ -546,8 +546,8 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 							<div className="flex items-center justify-between mt-1">
 								<span className="text-[10px] text-slate-500">{formatSize(img.sizeBytes)} · {formatDate(img.createdAt)}</span>
 								<div className="flex items-center gap-1">
-									{img.album && <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded">{img.album}</span>}
-									<span className={`text-[9px] px-1 py-0.5 rounded ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-slate-700 text-slate-500"}`}>
+									{img.album && <span className="text-[10px] text-slate-600 bg-slate-800 px-1.5 py-0.5 rounded-lg">{img.album}</span>}
+									<span className={`text-[9px] px-1 py-0.5 rounded-lg ${img.isPublic ? "bg-green-500/10 text-green-500" : "bg-slate-700 text-slate-500"}`}>
 										{img.isPublic ? t("imageBedPage.image.public") : t("imageBedPage.image.private")}
 									</span>
 								</div>

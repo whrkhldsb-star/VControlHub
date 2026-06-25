@@ -352,7 +352,7 @@ export function ShareFilePicker({ nodes }: { nodes: StorageNode[] }) {
 									<div className="truncate text-emerald-100">{item.name}</div>
 									<div className="mt-1 flex items-center gap-2">
 										<code className="min-w-0 flex-1 truncate text-emerald-200/80">{item.url}</code>
-										<button type="button" onClick={() => void copy(item)} className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded-md border border-emerald-400/30 px-2 py-1 text-emerald-100"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
+										<button type="button" onClick={() => void copy(item)} className="min-h-11 min-w-11 inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 px-2 py-1 text-emerald-100"><Copy size={12} />{copiedKey === item.key ? copyText.copied : copyText.copy}</button>
 									</div>
 								</div>
 							))}

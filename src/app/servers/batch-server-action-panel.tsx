@@ -68,7 +68,7 @@ export function BatchServerActionPanel({ servers, enabledCount }: BatchServerAct
 							type="checkbox"
 							checked={selectedIds.includes(server.id)}
 							onChange={(event) => updateSelection(server.id, event.target.checked)}
-							className="h-4 w-4 rounded border-white/20 bg-slate-950 text-cyan-400 focus:ring-cyan-400"
+							className="h-4 w-4 rounded-lg border-white/20 bg-slate-950 text-cyan-400 focus:ring-cyan-400"
 						/>
 						<div className="min-w-0">
 							<div className="truncate font-medium text-white">{server.name}</div>

@@ -48,7 +48,7 @@ export function PendingUninstallDialog({
 						type="checkbox"
 						checked={pending.deleteVolumes}
 						onChange={(e) => onToggleDeleteVolumes(e.target.checked)}
-						className="mt-1 h-4 w-4 rounded border-rose-300/40 bg-transparent text-rose-500"
+						className="mt-1 h-4 w-4 rounded-lg border-rose-300/40 bg-transparent text-rose-500"
 					/>
 					<span>
 						<span className="block font-medium">{t("qsPage.alsoDeleteData")}</span>

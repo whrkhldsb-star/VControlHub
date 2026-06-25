@@ -213,7 +213,7 @@ function InfoSection({ title, children }: { title: string; children: ReactNode }
 
 function InfoItem({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={`rounded-md bg-white/[0.03] border border-white/[0.04] px-3 py-2 ${className ?? ""}`}>
+		<div className={`rounded-lg bg-white/[0.03] border border-white/[0.04] px-3 py-2 ${className ?? ""}`}>
 			{children}
 		</div>
 	);

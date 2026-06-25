@@ -52,7 +52,7 @@ export function ShareRowActions({
 				onClick={handleRevoke}
 				disabled={busy}
 				aria-describedby={confirming ? `revoke-share-${id}-warning` : undefined}
-				data-tone="rose" className="min-h-11 min-w-11 rounded-md border border-rose-400/30 px-2.5 py-1 text-xs text-rose-100 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+				data-tone="rose" className="min-h-11 min-w-11 rounded-lg border border-rose-400/30 px-2.5 py-1 text-xs text-rose-100 transition hover:bg-rose-400/20 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				{busy ? "撤销中…" : confirming ? "确认撤销" : "撤销"}
 			</button>
@@ -64,7 +64,7 @@ export function ShareRowActions({
 						setError(null);
 					}}
 					disabled={busy}
-					className="min-h-11 min-w-11 rounded-md border border-[var(--border)] bg-white/5 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+					className="min-h-11 min-w-11 rounded-lg border border-[var(--border)] bg-white/5 px-2.5 py-1 text-xs text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					取消
 				</button>

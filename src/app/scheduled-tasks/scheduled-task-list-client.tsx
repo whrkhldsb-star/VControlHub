@@ -312,7 +312,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 				<div className="flex flex-wrap gap-1.5">
 					{presetCrons.map((p) => (
 						<button key={p.expr} type="button" onClick={() => setCron(p.expr)}
-							className={`min-h-11 rounded-md border px-2.5 py-1 text-[11px] transition ${
+							className={`min-h-11 rounded-lg border px-2.5 py-1 text-[11px] transition ${
 								cronExpression === p.expr
 									? "border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]"
 									: "border-white/[0.06] bg-white/[0.02] text-slate-500 hover:bg-white/[0.04]"

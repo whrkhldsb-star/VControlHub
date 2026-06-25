@@ -410,9 +410,9 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										onChange={(e) => setNewFavorite(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addFavorite()}
 										placeholder={t("sshTerminalModal.favoritesPlaceholder")}
-										className="min-h-11 min-w-0 flex-1 rounded-md border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+										className="min-h-11 min-w-0 flex-1 rounded-lg border border-white/[0.06] bg-white/[0.04] px-3 py-1 text-[13px] font-mono text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
 									/>
-									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-md border border-cyan-400/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
+									<button onClick={addFavorite} aria-label={t("sshTerminalModal.favoritesAdd")} data-tone="cyan" className="min-h-11 min-w-11 shrink-0 rounded-lg border border-cyan-400/20 px-2 py-1 text-[13px] text-cyan-200 transition hover:bg-cyan-400/20">
 										+
 									</button>
 								</div>
@@ -424,7 +424,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<div key={cmd} className="group flex items-center gap-1">
 												<button
 													onClick={() => sendCommand(cmd)}
-													className="min-h-11 min-w-0 flex-1 truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
+													className="min-h-11 min-w-0 flex-1 truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-cyan-100/80 transition hover:bg-white/[0.06]"
 													title={cmd}
 												>
 													{cmd}
@@ -432,7 +432,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 												<button
 													onClick={() => removeFavorite(cmd)}
 													aria-label={t("sshTerminalModal.favoritesRemove").replace("{cmd}", cmd)}
-													className="min-h-11 min-w-11 shrink-0 rounded-md px-1 text-[12px] text-rose-400/70 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
+													className="min-h-11 min-w-11 shrink-0 rounded-lg px-1 text-[12px] text-rose-400/70 transition hover:bg-rose-400/10 hover:text-rose-300 group-hover:opacity-100"
 												>
 													✕
 												</button>
@@ -452,7 +452,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 											<button
 												key={`${cmd}-${i}`}
 												onClick={() => sendCommand(cmd)}
-												className="min-h-11 block w-full truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+												className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-[var(--text-secondary)] transition hover:bg-white/[0.06] hover:text-cyan-100/80"
 												title={cmd}
 											>
 												{cmd}
@@ -469,7 +469,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 										<button
 											key={cmd}
 											onClick={() => sendCommand(cmd)}
-											className="min-h-11 block w-full truncate rounded-md px-3 py-1 text-left text-[12px] font-mono text-slate-500 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
+											className="min-h-11 block w-full truncate rounded-lg px-3 py-1 text-left text-[12px] font-mono text-slate-500 transition hover:bg-white/[0.06] hover:text-cyan-100/80"
 											title={cmd}
 										>
 											{cmd}

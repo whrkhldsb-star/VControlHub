@@ -72,9 +72,9 @@ export function SparklineChart({ data, locale }: SparklineChartProps) {
 				))}
 			</svg>
 			<div className="flex items-center gap-4 mt-2 text-[11px]">
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-emerald-400 rounded" /> CPU</span>
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-blue-400 rounded" /> {labels.memory}</span>
-				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-amber-400 rounded" /> {labels.disk}</span>
+				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-emerald-400 rounded-lg" /> CPU</span>
+				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-blue-400 rounded-lg" /> {labels.memory}</span>
+				<span className="flex items-center gap-1"><span className="inline-block w-3 h-0.5 bg-amber-400 rounded-lg" /> {labels.disk}</span>
 			</div>
 		</div>
 	);

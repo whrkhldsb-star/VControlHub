@@ -119,7 +119,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 									<h3 className="text-sm font-medium text-white">{r.template.name}</h3>
 									<p className="mt-1 text-xs text-slate-500">{trTpl("deploymentsPage.page.runsSection.meta", { count: String(r.serverIds.length), date: r.createdAt.toLocaleString("zh-CN"), request: r.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending") })}</p>
 								</div>
-								<span className={`rounded-md border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
+								<span className={`rounded-lg border px-2 py-1 text-xs ${deploymentStatusTone(r.status)}`}>{r.status}</span>
 							</div>
 							<code className="mt-3 block overflow-auto rounded-lg border border-white/[0.06] bg-slate-950/70 p-3 font-mono text-xs text-slate-300">{r.renderedCommand}</code>
 							{r.snapshot?.rollbackCommand && <code data-tone="emerald" className="mt-2 block overflow-auto rounded-lg border border-emerald-400/20 p-3 font-mono text-xs text-emerald-100 light:border-emerald-200 light:bg-emerald-50">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}

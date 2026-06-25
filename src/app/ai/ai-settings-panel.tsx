@@ -68,10 +68,10 @@ export function AiSettingsPanel({
               <span className="truncate flex items-center gap-1.5">
                 {settingsForm.model}
                 {currentModelSupportsVision && (
-                  <span className="text-[9px] text-cyan-400 bg-cyan-400/10 px-1 py-0.5 rounded">👁</span>
+                  <span className="text-[9px] text-cyan-400 bg-cyan-400/10 px-1 py-0.5 rounded-lg">👁</span>
                 )}
               </span>
-              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
+              <svg className={`w-3.5 h-3.5 text-slate-500 transition-transform ${modelDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /> </svg> </button> {modelDropdownOpen && ( <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-slate-900 border border-[var(--border)] rounded-lg shadow-xl max-h-60 overflow-hidden flex flex-col"> <div className="p-2 border-b border-white/5"> <input value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} placeholder={t("aiPage.searchModel")} aria-label={t("aiPage.searchModelAria")} className="w-full bg-black/30 border border-white/5 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400/30" autoFocus /> </div> <div className="overflow-y-auto max-h-48"> {filteredModels.length === 0 && !modelsLoading && ( <div className="px-3 py-4 text-xs text-slate-500 text-center"> {t("aiPage.noModels")} <button onClick={onRefreshModels} className="ml-2 text-cyan-400 hover:text-cyan-300 light:hover:text-cyan-700" > {t("aiPage.refresh")} </button> </div> )} {filteredModels.map((m) => ( <button key={m.id} onClick={() => { setSettingsForm((f) => ({ ...f, model: m.id, enableVision: m.vision ? true : f.enableVision, })); setModelDropdownOpen(false); setModelSearch(""); }} className={`w-full text-left px-3 py-2 text-xs hover:bg-white/[0.04] transition flex items-center gap-2 ${
                         settingsForm.model === m.id ? "text-cyan-300 bg-cyan-400/[0.06]" : "text-white"
                       }`}
                     >
@@ -118,7 +118,7 @@ export function AiSettingsPanel({
                       }}
                       placeholder={t("aiPage.manualModelIdPlaceholder")}
                       aria-label={t("aiPage.manualModelIdAria")}
-                      className="flex-1 bg-black/30 border border-white/5 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
+                      className="flex-1 bg-black/30 border border-white/5 rounded-lg px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none"
                     />
                     <button
                       onClick={() => {
@@ -128,7 +128,7 @@ export function AiSettingsPanel({
                           setModelSearch("");
                         }
                       }}
-                      className="px-2 py-1 text-[10px] bg-cyan-500/20 text-cyan-300 rounded hover:bg-cyan-500/30"
+                      className="px-2 py-1 text-[10px] bg-cyan-500/20 text-cyan-300 rounded-lg hover:bg-cyan-500/30"
                     >
                       {t("aiPage.apply")}
                     </button>
@@ -239,7 +239,7 @@ export function AiSettingsPanel({
               type="checkbox"
               checked={settingsForm.enableVision}
               onChange={(e) => setSettingsForm((f) => ({ ...f, enableVision: e.target.checked }))}
-              className="rounded border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
+              className="rounded-lg border-white/20 bg-black/30 text-cyan-400 focus:ring-cyan-400/30"
             />
             <span className="text-xs text-[var(--text-secondary)]">
               {t("aiPage.visionToggle")}
@@ -257,7 +257,7 @@ export function AiSettingsPanel({
  type="checkbox"
  checked={settingsForm.hostingEnabled}
  onChange={(e) => setSettingsForm((f) => ({ ...f, hostingEnabled: e.target.checked }))}
- className="rounded border-white/20 bg-black/30 text-amber-400 focus:ring-amber-400/30"
+ className="rounded-lg border-white/20 bg-black/30 text-amber-400 focus:ring-amber-400/30"
  />
  <span className="text-xs text-[var(--text-secondary)]">
  {t("aiPage.hostedMode")}

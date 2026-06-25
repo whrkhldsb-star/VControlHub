@@ -73,7 +73,7 @@ const stateColors: Record<string, string> = {
 	running: "bg-emerald-500/10 text-emerald-400",
 	exited: "bg-slate-700/50 text-slate-400",
 	paused: "bg-amber-500/10 text-amber-400",
-	created: "bg-blue-500/10 text-blue-400",
+	created: "bg-[var(--accent-bg)] text-[var(--accent)]",
 	restarting: "bg-orange-500/10 text-orange-400",
 };
 
@@ -341,7 +341,7 @@ export default function DockerPage() {
 												{c.State === "running" && (
 													<>
 														<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+														<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-white transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
 													</>
 												)}
 												<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("dockerPage.action.logs")}</button>
@@ -377,7 +377,7 @@ export default function DockerPage() {
 											{c.State === "running" && (
 												<>
 													<button onClick={() => handleAction(c, "stop")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-amber-500/10 text-amber-400 rounded-lg hover:bg-amber-500/20 transition disabled:opacity-50">{t("dockerPage.action.stop")}</button>
-													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/20 transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
+													<button onClick={() => handleAction(c, "restart")} disabled={actionLoading === c.Id} className="min-h-11 px-2.5 py-1 text-[10px] bg-[var(--accent-bg)] text-[var(--accent)] rounded-lg hover:bg-[var(--accent-hover)] hover:text-white transition disabled:opacity-50">{t("dockerPage.action.restart")}</button>
 												</>
 											)}
 											<button onClick={() => fetchLogs(c.Id)} className="min-h-11 px-2.5 py-1 text-[10px] bg-slate-700/50 light:bg-slate-200/50 text-[var(--text-secondary)] rounded-lg hover:bg-slate-700 light:hover:bg-slate-200 transition">{t("dockerPage.action.logs")}</button>

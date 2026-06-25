@@ -69,7 +69,7 @@ export default function OfflinePage() {
               <li key={route.href}>
                 <a
                   href={route.href}
-                  className="block rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                  className="block rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                 >
                   {t(route.labelKey)}
                 </a>
@@ -81,7 +81,7 @@ export default function OfflinePage() {
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
           <a
             href="/dashboard"
-            className="inline-flex items-center justify-center min-h-11 px-5 rounded-md bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium hover:opacity-90 transition-opacity"
+            className="inline-flex items-center justify-center min-h-11 px-5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium hover:opacity-90 transition-opacity"
           >
             {t("pwa.offline.retry")}
           </a>

@@ -159,7 +159,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
             type="button"
             onClick={onClose}
             aria-label={t("jobEventsDialog.closeAria")}
-            className="rounded-md border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05]"
+            className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-300 hover:bg-white/[0.05]"
           >
             {t("jobEventsDialog.close")}
           </button>
@@ -190,7 +190,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-white">{typeLabel}</span>
-                      <span data-tone={tone} className="rounded border px-1.5 py-0.5 text-[10px] font-medium">
+                      <span data-tone={tone} className="rounded-lg border px-1.5 py-0.5 text-[10px] font-medium">
                         {levelLabels[tone]}
                       </span>
                       <span className="text-slate-500">{formatTime(event.createdAt)}</span>
@@ -202,7 +202,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                     </div>
                     <p className="mt-1 break-words text-slate-300">{event.message}</p>
                     {summary ? (
-                      <pre className="mt-1 max-h-32 overflow-auto rounded bg-slate-950/80 px-2 py-1 text-[10px] text-slate-400">
+                      <pre className="mt-1 max-h-32 overflow-auto rounded-lg bg-slate-950/80 px-2 py-1 text-[10px] text-slate-400">
                         {summary}
                       </pre>
                     ) : null}
@@ -219,7 +219,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
               type="button"
               onClick={() => void load(false)}
               disabled={loading}
-              className="rounded-md border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+              className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
             >
               {t("jobEventsDialog.refresh")}
             </button>
@@ -228,7 +228,7 @@ export function JobEventsDialog({ jobId, open, onClose }: JobEventsDialogProps) 
                 type="button"
                 onClick={() => void load(true)}
                 disabled={loading}
-                className="rounded-md border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
+                className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-slate-300 hover:bg-white/[0.05] disabled:opacity-50"
               >
                 {t("jobEventsDialog.loadMore")}
               </button>

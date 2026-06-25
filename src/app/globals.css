@@ -1848,14 +1848,12 @@ html.light [data-tone="violet"] { --tone-bg: #f5f3ff; }  /* violet-50 */
 	background-color: color-mix(in srgb, var(--info) 18%, transparent);
 }
 
-/* S15. 语义操作色 token — 统一按钮/链接色，修改品牌色只需改这里 */
+/* S15. 操作色 token — 仅破坏性/成功额外色，主品牌色见 --accent (line 19+) */
 :root {
-	--color-action: theme(colors.cyan.500);         /* 主操作按钮 */
-	--color-action-hover: theme(colors.cyan.400);   /* hover 降一档 */
-	--color-danger-action: theme(colors.rose.500);  /* 破坏性操作 */
-	--color-danger-hover: theme(colors.rose.400);
-	--color-success-action: theme(colors.emerald.500);
-	--color-success-hover: theme(colors.emerald.400);
+	--color-danger-action: #f43f5e;   /* rose-500 — 破坏性操作 */
+	--color-danger-hover: #fb7185;    /* rose-400 */
+	--color-success-action: #10b981;  /* emerald-500 */
+	--color-success-hover: #34d399;   /* emerald-400 */
 	--radius-card: 0.75rem;    /* rounded-xl — 卡片统一圆角 */
 	--radius-control: 0.5rem;  /* rounded-lg  — 按钮/input 统一圆角 */
 }

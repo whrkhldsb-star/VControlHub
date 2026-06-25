@@ -690,7 +690,7 @@ export function TextPreviewClient({
 		try {
 			const escapedQuery = escapeHtml(searchQuery);
 			const escaped = escapeRegex(escapedQuery);
-			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded px-0.5">$1</mark>');
+			return html.replace(new RegExp(`(${escaped})`, "gi"), '<mark class="bg-amber-400/30 text-amber-200 rounded-lg px-0.5">$1</mark>');
 		} catch {
 			return html;
 		}
@@ -852,8 +852,8 @@ export function TextPreviewClient({
 								{diffRows.slice(0, 80).map((row) => (
 									<li key={`${row.line}-${row.kind}`} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[80px_1fr_1fr]">
 										<span className="font-mono text-slate-500">L{row.line} · {row.kind === "added" ? t("textPreview.diffKind.added") : row.kind === "removed" ? t("textPreview.diffKind.removed") : t("textPreview.diffKind.changed")}</span>
-										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-rose-500/10 px-2 py-1 text-rose-200">- {row.before}</code>
-										<code className="min-h-5 whitespace-pre-wrap break-all rounded bg-emerald-500/10 px-2 py-1 text-emerald-200">+ {row.after}</code>
+										<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-rose-500/10 px-2 py-1 text-rose-200">- {row.before}</code>
+										<code className="min-h-5 whitespace-pre-wrap break-all rounded-lg bg-emerald-500/10 px-2 py-1 text-emerald-200">+ {row.after}</code>
 									</li>
 								))}
 								{diffRows.length > 80 ? <li className="px-3 py-2 text-xs text-slate-500">{t("textPreview.diffMore").replace("{count}", String(diffRows.length - 80))}</li> : null}
@@ -885,7 +885,7 @@ export function TextPreviewClient({
 								}}
 								placeholder={t("textPreview.editor.findPlaceholder")}
 								aria-label={t("textPreview.editor.findPlaceholder")}
-								className="w-48 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 focus:border-amber-300 focus:outline-none"
+								className="w-48 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-[var(--text-secondary)] placeholder:text-slate-600 focus:border-amber-300 focus:outline-none"
 							/>
 							<span className="text-xs text-slate-400" data-testid="editor-find-count">
 								{editorFind.query === ""
@@ -903,7 +903,7 @@ export function TextPreviewClient({
 								disabled={editorFind.total === 0}
 								aria-label={t("textPreview.editor.findPrev")}
 								title={t("textPreview.editor.findPrev")}
-								className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
 							>
 								↑
 							</button>
@@ -913,7 +913,7 @@ export function TextPreviewClient({
 								disabled={editorFind.total === 0}
 								aria-label={t("textPreview.editor.findNext")}
 								title={t("textPreview.editor.findNext")}
-								className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
+								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700 disabled:opacity-40"
 							>
 								↓
 							</button>
@@ -922,7 +922,7 @@ export function TextPreviewClient({
 								onClick={closeEditorFind}
 								aria-label={t("textPreview.editor.findClose")}
 								title={t("textPreview.editor.findClose")}
-								className="rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700"
+								className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-slate-700"
 							>
 								✕
 							</button>

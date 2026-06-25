@@ -47,7 +47,7 @@ export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 				<input
 					type="checkbox"
 					name="remember"
-					className="h-4 w-4 rounded border-white/20 bg-white/[0.06] text-cyan-400 focus:ring-cyan-400/40 light:focus:ring-cyan-500/30"
+					className="h-4 w-4 rounded-lg border-white/20 bg-white/[0.06] text-cyan-400 focus:ring-cyan-400/40 light:focus:ring-cyan-500/30"
 				/>
 			</label>
 

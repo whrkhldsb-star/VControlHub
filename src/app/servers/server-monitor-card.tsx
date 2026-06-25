@@ -123,10 +123,10 @@ export function ServerMonitorCard({ serverId }: Props) {
 	if (loading) {
 		return (
 			<div data-card className=" p-4 space-y-2 animate-pulse">
-				<div className="h-3 w-24 bg-white/[0.06] rounded" />
-				<div className="h-3 w-full bg-white/[0.06] rounded" />
-				<div className="h-3 w-full bg-white/[0.06] rounded" />
-				<div className="h-3 w-3/4 bg-white/[0.06] rounded" />
+				<div className="h-3 w-24 bg-white/[0.06] rounded-lg" />
+				<div className="h-3 w-full bg-white/[0.06] rounded-lg" />
+				<div className="h-3 w-full bg-white/[0.06] rounded-lg" />
+				<div className="h-3 w-3/4 bg-white/[0.06] rounded-lg" />
 			</div>
 		);
 	}

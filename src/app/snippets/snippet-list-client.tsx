@@ -134,13 +134,13 @@ export function SnippetList({ snippets: initial }: { snippets: Snippet[] }) {
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => handleCopy(s.content, s.id)} title={t("snippetsPage.action.copy")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   {copiedId === s.id ? <Check size={14} /> : <Copy size={14} />}
                 </button>
-                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
+                <button onClick={() => setEditing(s)} title={t("snippetsPage.action.edit")} className="min-h-11 min-w-11 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-cyan-400 light:hover:bg-slate-100">
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
+                <button onClick={() => { setPendingDelete(s); setDeleteError(null); }} title={t("snippetsPage.action.delete")} aria-label={t("snippetsPage.deleteDialog.title") + " " + s.title} className="min-h-11 min-w-11 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-rose-400 light:hover:bg-slate-100">
                   <Trash2 size={14} />
                 </button>
               </div>

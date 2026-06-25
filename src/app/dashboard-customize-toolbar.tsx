@@ -82,7 +82,7 @@ export function DashboardCustomizeToolbar({
 							onClick={handleToggle(id)}
 							aria-pressed={hidden}
 							data-testid={`toggle-widget-${id}`}
-							className={`rounded-md border px-2.5 py-1 text-[11px] transition ${
+							className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${
 								hidden
 									? "border-slate-600/40 bg-slate-800/30 text-slate-500 line-through"
 									: "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"

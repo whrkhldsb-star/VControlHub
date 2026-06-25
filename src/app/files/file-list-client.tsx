@@ -518,7 +518,7 @@ export function FileListClient({
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                    className="h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
               </div>
@@ -685,7 +685,7 @@ export function FileListClient({
                     checked={effectiveSelectedIdSet.has(entry.id)}
                     onChange={() => toggleOne(entry.id)}
                     aria-label={`选择 ${entry.name}`}
-                    className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                    className="h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                   />
                 ) : null}
               </div>
@@ -767,7 +767,7 @@ export function FileListClient({
                   onChange={toggleAll}
                   disabled={visibleFiles.length === 0}
                   aria-label={t("fileListClient.selectAllFiles")}
-                  className="rounded h-4 w-4 accent-cyan-400"
+                  className="rounded-lg h-4 w-4 accent-cyan-400"
                 />
               </div>
               <div />
@@ -802,7 +802,7 @@ export function FileListClient({
                       type="checkbox"
                       disabled
                       aria-label={t("fileListClient.selectFolderDisabled")}
-                      className="rounded h-4 w-4 accent-cyan-400 opacity-30"
+                      className="rounded-lg h-4 w-4 accent-cyan-400 opacity-30"
                     />
                   </div>
                   <div className="flex justify-center">
@@ -889,7 +889,7 @@ export function FileListClient({
                           checked={effectiveSelectedIdSet.has(entry.id)}
                           onChange={() => toggleOne(entry.id)}
                           aria-label={`选择 ${entry.name}`}
-                          className="h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                          className="h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                         />
                       ) : null}
                     </div>
@@ -1016,7 +1016,7 @@ export function FileListClient({
                       checked={effectiveSelectedIdSet.has(entry.id)}
                       onChange={() => toggleOne(entry.id)}
                       aria-label={`选择 ${entry.name}`}
-                      className="mt-2 h-4 w-4 rounded border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
+                      className="mt-2 h-4 w-4 rounded-lg border-white/20 bg-slate-900 text-cyan-400 focus:ring-cyan-400/50"
                     />
                   ) : null}
                   <div className="shrink-0 mt-0.5 rounded-lg bg-white/[0.03] p-1">

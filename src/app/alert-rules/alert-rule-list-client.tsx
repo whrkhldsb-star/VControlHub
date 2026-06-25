@@ -238,22 +238,22 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 									</p>
 									<div className="mt-2 flex flex-wrap gap-1.5">
 										{rule.notifyChannels.map((ch) => (
-											<span key={ch} className="rounded-md border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
+											<span key={ch} className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
 												{channelLabel(t, ch)}
 											</span>
 										))}
 						{rule.webhookConfigured && (
-							<span data-tone="emerald" className="rounded-md border border-emerald-400/20 px-1.5 py-0.5 text-[10px] text-emerald-200">
+							<span data-tone="emerald" className="rounded-lg border border-emerald-400/20 px-1.5 py-0.5 text-[10px] text-emerald-200">
 								{t("alertRulesPage.badge.webhookConfigured")}
 							</span>
 						)}
 						{rule.cooldownMinutes > 0 && (
-							<span className="rounded-md border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
+							<span className="rounded-lg border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-slate-500">
 								{t("alertRulesPage.badge.cooldown").replace("{minutes}", String(rule.cooldownMinutes))}
 							</span>
 						)}
 						{(rule.silenceWindows?.length ?? 0) > 0 && (
-							<span className="rounded-md border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200">
+							<span className="rounded-lg border border-violet-400/20 bg-violet-400/10 px-1.5 py-0.5 text-[10px] text-violet-200">
 								{t("alertRulesPage.badge.silence").replace("{windows}", rule.silenceWindows?.join("、") ?? "")}
 							</span>
 						)}
@@ -403,9 +403,9 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 							<span className="text-xs text-slate-500">{t("alertRulesPage.createForm.noNodes")}</span>
 						) : (
 							<>
-								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500"}`}>{t("alertRulesPage.createForm.allNodes")}</button>
+								<button type="button" onClick={() => setSelectedServerIds([])} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.length === 0 ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500"}`}>{t("alertRulesPage.createForm.allNodes")}</button>
 								{servers.map((server) => (
-									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-md border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]"}`}>
+									<button key={server.id} type="button" onClick={() => toggleServer(server.id)} className={`rounded-lg border px-2.5 py-1 text-[11px] transition ${selectedServerIds.includes(server.id) ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200" : "border-white/[0.06] bg-white/[0.03] text-slate-500 hover:bg-white/[0.05]"}`}>
 											{server.name}
 									</button>
 								))}

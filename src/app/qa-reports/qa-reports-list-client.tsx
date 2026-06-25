@@ -136,7 +136,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 							return (
 								<div key={bucket.day} className="flex flex-1 flex-col items-center gap-1">
 									<div
-										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-md border border-white/[0.08] bg-white/[0.03]"
+										className="flex w-full max-w-[40px] flex-col-reverse overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.03]"
 										style={{ height: `${MAX_DAILY_BAR_HEIGHT}px` }}
 										title={t("qaReportsPage.dailyTickTitle")
 											.replace("{day}", bucket.day)
@@ -165,7 +165,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 						{topModules.map((row) => (
 							<li
 								key={row.module}
-								className="flex items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs"
+								className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-xs"
 							>
 								<span className="truncate text-slate-200">{row.module}</span>
 								<span className="ml-2 shrink-0 text-slate-500">
@@ -186,7 +186,7 @@ function TrendSection({ trends }: TrendSectionProps) {
 					<div className="mb-2 text-xs text-slate-500">
 						{t("qaReportsPage.recentRunsHeader").replace("{n}", String(recentRuns.length))}
 					</div>
-					<ul className="divide-y divide-white/[0.06] rounded-md border border-white/[0.06]">
+					<ul className="divide-y divide-white/[0.06] rounded-lg border border-white/[0.06]">
 						{recentRuns.map((run, index) => (
 							<RecentRunRow key={`${run.timestamp}-${index}`} run={run} />
 						))}
@@ -206,7 +206,7 @@ function RecentRunRow({ run }: { run: QaReportTrendRecentRun }) {
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2 text-xs">
 					<span className="text-slate-200">{run.module}</span>
-					<span className={`rounded-md border px-2 py-0.5 text-[10px] ${accent}`}>{run.result}</span>
+					<span className={`rounded-lg border px-2 py-0.5 text-[10px] ${accent}`}>{run.result}</span>
 				</div>
 				<p className="mt-1 text-[11px] text-slate-400">{run.summary}</p>
 			</div>
@@ -359,18 +359,18 @@ export function QaReportsListClient({
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
 											<span
-												className={`rounded-md border px-2 py-1 text-xs font-medium ${kindAccent(report.kind)}`}
+												className={`rounded-lg border px-2 py-1 text-xs font-medium ${kindAccent(report.kind)}`}
 											>
 												{kindLabel(t, report.kind)}
 											</span>
 											<span
 												data-tone="neutral"
-												className={`rounded-md border px-2 py-1 text-xs font-medium ${statusToneClass(report.status)}`}
+												className={`rounded-lg border px-2 py-1 text-xs font-medium ${statusToneClass(report.status)}`}
 											>
 												{report.status}
 											</span>
 											{report.evidenceCount > 0 ? (
-												<span className="rounded-md border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
+												<span className="rounded-lg border border-white/[0.08] px-2 py-1 text-xs text-slate-400">
 													{t("qaReportsPage.evidenceCount").replace("{n}", String(report.evidenceCount))}
 												</span>
 											) : null}

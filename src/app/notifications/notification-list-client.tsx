@@ -109,7 +109,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			)}
 			{unreadCount > 0 && (
 				<div className="flex justify-end">
-					<button onClick={markAllRead} className="rounded px-1.5 py-1 text-xs text-cyan-400/80 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
+					<button onClick={markAllRead} className="rounded-lg px-1.5 py-1 text-xs text-cyan-400/80 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
 						{t("notificationsPage.action.markAll")}
 					</button>
 				</div>
@@ -134,16 +134,16 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 							<div className="mt-2 flex flex-wrap items-center gap-3 text-[11px]">
 								<span className="text-slate-600">{timeAgo(n.createdAt, t)}</span>
 								{n.actionUrl && (
-									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded px-1 py-0.5 text-cyan-400/70 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
+									<Link href={getSafeNotificationActionUrl(n.actionUrl)} className="rounded-lg px-1 py-0.5 text-cyan-400/70 transition hover:text-cyan-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-cyan-800 light:focus-visible:ring-cyan-600">
 										{t("notificationsPage.action.view")}
 									</Link>
 								)}
 								{!n.isRead && (
-									<button onClick={() => markOneRead(n.id)} className="rounded px-1 py-0.5 text-slate-500 transition hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
+									<button onClick={() => markOneRead(n.id)} className="rounded-lg px-1 py-0.5 text-slate-500 transition hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 light:hover:text-slate-900 light:focus-visible:ring-cyan-600">
 										{t("notificationsPage.action.markOne")}
 									</button>
 								)}
-								<button onClick={() => deleteOne(n.id)} className="rounded px-1 py-0.5 text-slate-600 opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+								<button onClick={() => deleteOne(n.id)} className="rounded-lg px-1 py-0.5 text-slate-600 opacity-100 transition hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 light:hover:text-rose-700 light:focus-visible:ring-rose-600 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
 									{t("notificationsPage.action.delete")}
 								</button>
 							</div>
