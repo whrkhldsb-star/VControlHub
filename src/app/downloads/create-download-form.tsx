@@ -87,7 +87,7 @@ export function CreateDownloadForm({
 	const selectedServer = servers.find((s) => s.id === selectedServerId);
 
 	return (
-		<div data-card className="mb-6 p-5 space-y-4">
+		<div data-card className="mb-6 space-y-4">
 			<h3 className="text-lg font-semibold text-white">{t("downloadsPage.form.title")}</h3>
 
 			{/* Batch mode toggle */}

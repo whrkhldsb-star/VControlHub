@@ -221,7 +221,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 						const isDeleting = busyAction === `delete:${playbook.id}`;
 						const playbookRuns = runs(playbook.id);
 						return (
-							<article key={playbook.id} data-card className="p-5 hover:bg-white/[0.04] transition-colors duration-150">
+							<article key={playbook.id} data-card className="hover:bg-white/[0.04] transition-colors duration-150">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2.5">
@@ -418,7 +418,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className="p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className="space-y-4">
 			<h3 className="text-lg font-semibold text-white">{t("playbooksPage.createForm.title")}</h3>
 			{error && (
 				<div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">

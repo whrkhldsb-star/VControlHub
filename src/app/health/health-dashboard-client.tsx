@@ -615,7 +615,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 
 			{/* Expanded trend section */}
 			{expandedServer && (history[expandedServer] || historyErrors[expandedServer]) && (
-				<section data-card className=" p-5">
+				<section data-card className=" ">
 					<h3 className="text-sm font-medium text-white/80 mb-4">
 						{copy.ui.trendHeading(overview.servers.find((s) => s.serverId === expandedServer)?.serverName ?? "")}
 					</h3>

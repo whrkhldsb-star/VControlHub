@@ -80,7 +80,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 				</Link>
 			</PageHeader>
 			<div className="space-y-5">
-				<section data-card className="p-5">
+				<section data-card className="">
 					<dl className="grid gap-3 text-xs text-slate-400 sm:grid-cols-2">
 						<div>
 							<dt className="font-semibold uppercase tracking-[0.2em] text-slate-500">{t("qaReportsPage.detail.finishedAt")}</dt>
@@ -158,7 +158,7 @@ export default async function QaReportDetailPage({ params }: Params) {
 					</section>
 				) : null}
 				{detail.next ? (
-					<section data-card className="p-5">
+					<section data-card className="">
 						<h2 className="text-sm font-semibold text-white">{t("qaReportsPage.detail.next")}</h2>
 						<p className="mt-2 text-sm text-slate-300">{detail.next}</p>
 					</section>

@@ -148,7 +148,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
 
       {/* Status transitions */}
       {canManage && (TRANSITIONS[ticket.status]?.length ?? 0) > 0 && (
-        <div data-card className="p-5">
+ <div data-card className="">
           <h3 className="text-sm font-medium text-white mb-3">{t("ticketsDetail.transitionsTitle")}</h3>
           <div className="flex flex-wrap gap-2">
             {TRANSITIONS[ticket.status]!.map((s) => (
@@ -164,7 +164,7 @@ export function TicketDetailClient({ initial, canManage, locale: _locale }: Tick
       {error && <p className="text-sm text-rose-400">{error}</p>}
 
       {/* Comments */}
-      <div data-card className="p-5">
+ <div data-card className="">
         <h3 className="text-sm font-medium text-white mb-4">{t("ticketsDetail.commentsTitle").replace("{count}", String(ticket.comments.length))}</h3>
         {ticket.comments.length === 0 ? (
           <p className="text-sm text-slate-500">{t("ticketsDetail.commentsEmpty")}</p>

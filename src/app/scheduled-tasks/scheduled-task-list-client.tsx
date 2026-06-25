@@ -158,7 +158,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 			) : (
 				<div className="space-y-3">
 					{filteredTasks.map((task) => (
-						<article key={task.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
+						<article key={task.id} data-card className=" hover:bg-white/[0.04] transition-colors duration-150">
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div className="min-w-0 flex-1">
 									<div className="flex flex-wrap items-center gap-2.5">
@@ -296,7 +296,7 @@ function CreateTaskForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	const enabledServers = servers.filter((s) => s.enabled);
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-white">创建定时任务</h3>
 			{error && <div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 

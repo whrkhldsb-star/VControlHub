@@ -23,7 +23,7 @@ interface Stats {
 /** Card wrapper — extracted to module top to avoid re-creation on every render */
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div data-card className="p-5">
+ <div data-card className="">
       <h3 className="mb-3 text-xs font-medium text-slate-400">{title}</h3>
       {children}
     </div>

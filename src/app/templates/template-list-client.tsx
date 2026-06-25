@@ -317,7 +317,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-white">{t("templatesPage.create.title")}</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 			<div className="space-y-1.5">

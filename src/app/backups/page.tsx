@@ -63,7 +63,7 @@ export default async function BackupsPage() {
 				</div>
 			</section>
 
-			<section data-card className="mb-6 p-5">
+			<section data-card className="mb-6 ">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
 						<h2 className="text-sm font-semibold text-white">{t("backupsPage.overview.title")}</h2>
@@ -81,7 +81,7 @@ export default async function BackupsPage() {
 				</div>
 			</section>
 
-			<section data-card className="mb-6 p-5">
+			<section data-card className="mb-6 ">
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div>
 						<h2 className="text-sm font-semibold text-white">{t("backupsPage.failures.title")}</h2>
@@ -109,7 +109,7 @@ export default async function BackupsPage() {
 			</section>
 
 			{canCreate && (
-				<section data-card className="mb-6 p-5">
+				<section data-card className="mb-6 ">
 					<div className="flex flex-wrap items-start justify-between gap-4">
 						<div>
 							<h2 className="text-sm font-semibold text-white">{t("backupsPage.retention.title")}</h2>
@@ -123,7 +123,7 @@ export default async function BackupsPage() {
 			)}
 
 			{canCreate && (
-				<section data-card className="mb-6 p-5">
+				<section data-card className="mb-6 ">
 					<h2 className="text-sm font-semibold text-white">{t("backupsPage.create.title")}</h2>
 					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.create.description")}</p>
 					<CreateBackupForm />
@@ -131,7 +131,7 @@ export default async function BackupsPage() {
 			)}
 
 			{canCreate && (
-				<section data-card className="mb-6 p-5">
+				<section data-card className="mb-6 ">
 					<div className="flex flex-wrap items-start justify-between gap-4">
 						<div>
 							<h2 className="text-sm font-semibold text-white">{t("backupsPage.offsite.title")}</h2>
@@ -170,7 +170,7 @@ export default async function BackupsPage() {
 			)}
 
 			{canCreate && (
-				<section data-card className="mb-6 p-5">
+				<section data-card className="mb-6 ">
 					<h2 className="text-sm font-semibold text-white">{t("backupsPage.schedule.title")}</h2>
 					<p className="mt-1 text-xs text-slate-500">{t("backupsPage.schedule.description")}</p>
 					<ScheduleBackupForm servers={serverOptions} commandByType={scheduledCommandByType} />

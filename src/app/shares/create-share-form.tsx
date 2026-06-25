@@ -74,7 +74,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           {t("sharesPage.create.title")}
         </button>
       ) : (
-        <div data-card className=" p-5">
+ <div data-card className=" ">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-white">{t("sharesPage.create.advancedTitle")}</h3>

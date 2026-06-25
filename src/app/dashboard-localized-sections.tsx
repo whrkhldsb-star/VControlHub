@@ -243,7 +243,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
 function QuickLink({ href, title, desc, icon, badge, badgeColor }: { href: string; title: string; desc: string; icon: React.ReactNode; badge?: string; badgeColor?: "cyan" | "amber" }) {
   const badgeBg = badgeColor === "cyan" ? "bg-cyan-400/10 border-cyan-400/20 text-cyan-200" : "bg-amber-400/10 border-amber-400/20 text-amber-200";
   return (
-    <Link data-card href={href} className="group p-5 transition-colors duration-150 hover:border-cyan-400/20 hover:bg-cyan-400/[0.04]">
+ <Link data-card href={href} className="group transition-colors duration-150 hover:border-cyan-400/20 hover:bg-cyan-400/[0.04]">
       <div className="text-slate-400 transition-colors duration-150 group-hover:text-cyan-300">{icon}</div>
       <div className="mt-3 text-sm font-medium text-white">{title}</div>
       <p className="mt-1 text-xs text-slate-500">{desc}</p>

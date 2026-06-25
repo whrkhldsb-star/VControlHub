@@ -79,7 +79,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			)}
 			{canExport && <DeploymentExportPanel />}
 			{canRun && (
-				<section data-card className="mb-6  p-5">
+				<section data-card className="mb-6 ">
 					<h2 className="text-sm font-semibold text-white">{tr("deploymentsPage.page.launchSection.title")}</h2>
 					<p className="mt-1 text-xs text-slate-500">{tr("deploymentsPage.page.launchSection.desc")}</p>
 					<DeploymentLaunchForm templates={templates} servers={servers} />

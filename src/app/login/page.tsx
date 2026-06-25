@@ -90,7 +90,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 					</section>
 
 					{/* Right: Login Form */}
-					<section className="rounded-[1.75rem] bg-white/[0.03] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8 light:border light:shadow-[0_24px_70px_rgba(15,23,42,0.14)]">
+					<section className="rounded-[1.75rem] bg-white/[0.03] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8 light:border light:shadow-[0_24px_70px_rgba(15,23,42,0.14)]">
 						<div className="mb-7">
 							<p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">{t("login.branding.signInTag", locale)}</p>
 							<h2 className="mt-2.5 text-2xl font-semibold tracking-[-0.03em] text-white">{t("login.branding.welcome", locale)}</h2>

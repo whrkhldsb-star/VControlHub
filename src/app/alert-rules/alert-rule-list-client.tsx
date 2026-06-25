@@ -223,7 +223,7 @@ export function AlertRuleListClient({ rules: initialRules, servers, canManage }:
 			) : (
 				<div className="space-y-3">
 					{rules.map((rule) => (
-						<article key={rule.id} className={`rounded-xl border bg-white/[0.02] p-5 transition-colors duration-150 ${rule.enabled ? "border-white/[0.06] hover:bg-white/[0.04]" : "border-white/[0.04] opacity-60"}`}>
+						<article key={rule.id} className={`rounded-xl border bg-white/[0.02] transition-colors duration-150 ${rule.enabled ? "border-white/[0.06] hover:bg-white/[0.04]" : "border-white/[0.04] opacity-60"}`}>
 							<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 								<div>
 									<h2 className="text-lg font-semibold text-white">{rule.name}</h2>
@@ -356,7 +356,7 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h3 className="text-lg font-semibold text-white">{t("alertRulesPage.createForm.title")}</h3>
 			{error && <div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-3.5 py-2.5 text-sm text-rose-200">{error}</div>}
 

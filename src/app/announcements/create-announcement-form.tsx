@@ -44,7 +44,7 @@ export function CreateAnnouncementForm() {
 	};
 
 	return (
-		<form onSubmit={handleSubmit} data-card className=" p-5 space-y-4">
+		<form onSubmit={handleSubmit} data-card className=" space-y-4">
 			<h2 className="text-sm font-semibold text-white">{t("announcementsPage.create.title")}</h2>
 			{error && <p className="text-xs text-rose-400">{error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">

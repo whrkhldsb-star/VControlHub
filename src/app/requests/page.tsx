@@ -87,7 +87,7 @@ export default async function RequestsPage() {
 							}
 						>
 							{requests.map((request) => (
-								<article key={request.id} data-id={request.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
+								<article key={request.id} data-id={request.id} data-card className=" hover:bg-white/[0.04] transition-colors duration-150">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">

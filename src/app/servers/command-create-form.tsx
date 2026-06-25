@@ -39,7 +39,7 @@ export function CommandCreateForm({
 	};
 
 	return (
-		<form action={formAction} data-card className="grid gap-4  p-5">
+		<form action={formAction} data-card className="grid gap-4 ">
 			<div>
 				<h2 className="text-lg font-semibold text-white">{t("serversPage.command.title")}</h2>
 				<p className="mt-1 text-xs text-slate-500">{t("serversPage.command.desc")}</p>

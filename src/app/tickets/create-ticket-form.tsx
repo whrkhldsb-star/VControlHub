@@ -30,7 +30,7 @@ export function CreateTicketForm(_props: Props = {}) {
 	}, null);
 
 	return (
-		<form action={formAction} data-card className=" p-5 space-y-4">
+		<form action={formAction} data-card className=" space-y-4">
 			<h2 className="text-sm font-semibold text-white">{t("ticketsPage.form.title")}</h2>
 			{state?.error && <p className="text-xs text-rose-400">{state.error}</p>}
 			<div className="grid gap-3 md:grid-cols-2">

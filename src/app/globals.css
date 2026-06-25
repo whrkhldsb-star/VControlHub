@@ -1617,7 +1617,7 @@ html.light [class*="bg-black/"] .text-cyan-200 {
 	border-radius: var(--radius-xl) !important;
 	border: 1px solid var(--border);
 	background-color: var(--surface);
-	padding: 1.25rem;
+	padding: 1rem;
 	transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 :root article:hover,

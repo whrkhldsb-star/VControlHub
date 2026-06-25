@@ -15,7 +15,7 @@ export default async function Page() {
           {t("statusPage.desc", locale)}
         </p>
 
-        <div data-card className="mt-6 p-5">
+ <div data-card className="mt-6 ">
           <div className="flex items-center gap-3">
             <span className={`inline-block h-3 w-3 rounded-full ${
               status.summary.overall === "healthy" ? "bg-emerald-400" :

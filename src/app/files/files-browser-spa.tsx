@@ -598,7 +598,7 @@ export function FilesBrowserSpa({
       <section className="space-y-8">
         {/* VPS Node Selector - searchable */}
         {data.nodes.length > 1 ? (
-          <article data-tone="cyan" className="rounded-3xl border border-cyan-400/20 p-5 light:border-cyan-500/20 light:bg-cyan-50">
+ <article data-tone="cyan" className="rounded-3xl border border-cyan-400/20 light:border-cyan-500/20 light:bg-cyan-50">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-white">

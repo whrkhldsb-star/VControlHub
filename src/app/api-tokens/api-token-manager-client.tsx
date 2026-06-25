@@ -173,7 +173,7 @@ export function ApiTokenManagerClient({ initialTokens, allowedScopes }: Props) {
             {tokens.map((token) => {
               const status = tokenStatus(t, token);
               return (
-                <article key={token.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+ <article key={token.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02]">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

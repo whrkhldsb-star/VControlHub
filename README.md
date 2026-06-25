@@ -359,7 +359,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **`findMany` 显式上界收敛** ✅ — users / users-permissions 的 `where: { in: [...] }` 查询已按输入数组长度补 `take`；SFTP / files / storage 目录子项更新补 `take: 10_000` 防止超大目录一次性无界读取；相关 users + permissions + sftp-ops 测试已同步通过。
 
 **P3 — 长期改善**
-- [ ] **68 处 `p-5`/`p-7` 奇数间距混入** — Tailwind 标准档为 p-4/p-6/p-8，奇数档混入导致视觉节奏不统一。
+- [x] **`p-5`/`p-7` 奇数间距收敛** ✅ — 全局 `[data-card]`/`article` padding `1.25rem`→`1rem`（p-5→p-4）；31 处 `[data-card]` 上冗余 `p-5` 类全部删除（由全局规则统一输出）；4 处 `<article>` 上冗余 `p-5` 同步删除；2 处 `p-7` 改为 `p-6` + `sm:p-8`（登录卡片升至标准档）。当前 `p-5` 只保留在对话框/模态框等非 data-card 场景（合理外部 padding），`p-7` 全仓清零。353 test files / 2423 tests pass + full verify pass。
 - [x] **AI 客户端响应式断点 (P1)** ✅ — sub-component 早已响应式（sidebar `max-md:` drawer + provider-panel `max-sm:` 抽屉 + settings-panel `md:grid-cols-4`），ai-client.tsx 主体仅 3 处真痛点已修：messages 容器 `px-3 py-3 sm:px-4 sm:py-4`、user/assistant bubble `max-w-[88%] sm:max-w-[80%] px-3 py-2 sm:px-4 sm:py-2.5`（手机宽度下 bubble 不再过窄）。
 - [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — TR-037 迁移未完成，约 80 条路由仍手动解析 body/query。
 - [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。

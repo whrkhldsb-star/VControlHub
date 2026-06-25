@@ -35,7 +35,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
 			<div className="relative w-full max-w-md px-6">
-				<div className="rounded-2xl bg-white/[0.03] p-7 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8">
+				<div className="rounded-2xl bg-white/[0.03] p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_30px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl sm:p-8">
 					<div className="mb-7">
 						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10">
 							<svg className="h-6 w-6 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">

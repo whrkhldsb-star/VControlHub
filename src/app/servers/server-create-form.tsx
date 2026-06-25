@@ -161,7 +161,7 @@ export function ServerCreateForm({
   return (
     <form
       action={formAction}
-      data-card className="grid gap-4  p-5"
+ data-card className="grid gap-4 "
     >
       <div>
         <h2 className="text-lg font-semibold text-white">{t("serversPage.create.title")}</h2>
