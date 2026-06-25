@@ -67,22 +67,22 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 				<form action={formAction} className="grid gap-4">
 					<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
 					<PasswordField
-						label="当前密码"
+						label={t("changePassword.currentPassword")}
 						name="currentPassword"
 						autoComplete="current-password"
-						description="请输入当前正在使用的登录密码。"
+						description={t("changePassword.currentPasswordDesc")}
 					/>
 					<PasswordField
-						label="新密码"
+						label={t("changePassword.newPassword")}
 						name="newPassword"
 						autoComplete="new-password"
-						description="至少 8 位，建议混合大小写、数字和符号。"
+						description={t("changePassword.newPasswordDesc")}
 					/>
 					<PasswordField
-						label="确认新密码"
+						label={t("changePassword.confirmPassword")}
 						name="confirmPassword"
 						autoComplete="new-password"
-						description="再次输入新密码，避免输错。"
+						description={t("changePassword.confirmPasswordDesc")}
 					/>
 
 					{state.error ? (
@@ -98,9 +98,9 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 							onClick={onClose}
 							className="rounded-2xl border border-[var(--border)] px-5 py-2.5 text-sm text-[var(--text-secondary)] hover:bg-white/5 transition"
 						>
-							取消
+							{t("common.cancel")}
 						</button>
-						<SubmitButton pendingLabel="保存中...">保存新密码</SubmitButton>
+						<SubmitButton pendingLabel={t("changePassword.saving")}>{t("common.saveNewPassword")}</SubmitButton>
 					</div>
 				</form>
 			</div>
@@ -109,6 +109,7 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose:
 }
 
 function PasswordField({ label, name, autoComplete, description }: PasswordFieldProps) {
+	const { t } = useI18n();
 	const inputId = useId();
 	const descriptionId = useId();
 	const [visible, setVisible] = useState(false);
@@ -128,12 +129,12 @@ function PasswordField({ label, name, autoComplete, description }: PasswordField
 				/>
 				<button
 					type="button"
-					aria-label={`${visible ? "隐藏" : "显示"}${label}`}
+					aria-label={`${visible ? t("changePassword.hide") : t("changePassword.show")}${label}`}
 					aria-pressed={visible}
 					onClick={() => setVisible((current) => !current)}
 					className="border-l border-[var(--border)] px-4 text-xs font-medium text-cyan-200 transition hover:bg-white/5 hover:text-cyan-100 light:hover:text-cyan-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyan-400"
 				>
-					{visible ? "隐藏" : "显示"}
+					{visible ? t("changePassword.hide") : t("changePassword.show")}
 				</button>
 			</div>
 			<p id={descriptionId} className="text-[11px] text-slate-500">{description}</p>

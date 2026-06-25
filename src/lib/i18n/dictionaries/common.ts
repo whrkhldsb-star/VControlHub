@@ -84,6 +84,16 @@ export const zh: Record<string, string> = {
 
 	"common.folderNamePlaceholder": "例如：reports",
 
+	"changePassword.currentPassword": "当前密码",
+	"changePassword.currentPasswordDesc": "请输入当前正在使用的登录密码。",
+	"changePassword.newPassword": "新密码",
+	"changePassword.newPasswordDesc": "至少 8 位，建议混合大小写、数字和符号。",
+	"changePassword.confirmPassword": "确认新密码",
+	"changePassword.confirmPasswordDesc": "再次输入新密码，避免输错。",
+	"changePassword.saving": "保存中…",
+	"changePassword.hide": "隐藏",
+	"changePassword.show": "显示",
+
 };
 
 export const en: Record<string, string> = {
@@ -164,5 +174,15 @@ export const en: Record<string, string> = {
 	"common.folderName": "Folder name",
 
 	"common.folderNamePlaceholder": "e.g. reports",
+
+	"changePassword.currentPassword": "Current password",
+	"changePassword.currentPasswordDesc": "Enter your current login password.",
+	"changePassword.newPassword": "New password",
+	"changePassword.newPasswordDesc": "At least 8 characters. Use a mix of upper/lower case, digits and symbols.",
+	"changePassword.confirmPassword": "Confirm new password",
+	"changePassword.confirmPasswordDesc": "Re-enter the new password to avoid typos.",
+	"changePassword.saving": "Saving...",
+	"changePassword.hide": "Hide",
+	"changePassword.show": "Show",
 
 };

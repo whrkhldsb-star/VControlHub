@@ -443,7 +443,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **补充通知类型** — `backup_completed`、`backup_failed`、`login_alert`（异常登录）、`cron_failed`、`playbook_failed`
 
 ### 审计日志
-- [ ] **导出 CSV / JSON** — 支持按时间范围、操作类型过滤后导出（当前纯展示，无导出逻辑）
+- [x] **导出 CSV / JSON** — `src/app/api/audit/export/route.ts` 支持 `?format=csv|json` + 按 action/severity/search 过滤导出（上限 50 000 条）；audit 页面新增「⬇ 导出 CSV」按钮，携带当前筛选条件调用 API。
 
 ### API Token
 - [ ] **细粒度 scope** — `files:read`、`vps:read`、`vps:reboot`、`backup:read` 等（当前只有默认 `read`）
@@ -487,7 +487,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **待做：**
 - [ ] **超大 Client 组件拆分** — `file-list-client.tsx`(1247行)、`settings-client.tsx`(1202行)、`ai-client.tsx`(1030行) 各包含多个子功能，建议按职责拆分为 400 行以内的子组件
-- [ ] **`ChangePasswordModal` 仍有 13 处中文硬编码** — `src/components/change-password-modal.tsx:70-85` 三个密码字段 label/description、`:101` 取消按钮、`:103` `SubmitButton pendingLabel/children`、`:131/136` 显示/隐藏文案仍不走字典；文件顶部虽调用 `useI18n()`，但只覆盖标题/说明/关闭按钮，切英文后表单主体仍显示中文。
+- [x] **`ChangePasswordModal` 中文硬编码已全部消除** — 10 处密码字段 label/description、取消按钮、SubmitButton pendingLabel/children、显示/隐藏切换文案均改用 `t("changePassword.*")` / `t("common.*")`；字典 `common.ts` 新增 10 个 key（zh+en 双语言）；`PasswordField` 内联组件补 `useI18n()` hook。切英文后表单主体全英文。
 - [ ] **`FileUploadDropzone` 上传状态/错误文案仍硬编码中文** — `src/components/storage/file-upload-dropzone.tsx:28-52` 路径校验 reason、`:114/119/131/141/150/159/163-176` 上传队列和 toast、`:238` placeholder、`:280` dropzone 提示、`:326` 状态枚举均为中文；同文件已引入 `useI18n()` 并在节点选择/文件夹按钮处使用 `tr(...)`，因此不是无 i18n 基建，而是覆盖遗漏。
 
 - [ ] **文字 opacity 收敛** — `/10`~`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档

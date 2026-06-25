@@ -120,6 +120,43 @@ export async function listAuditLogs(
  };
 }
 
+/**
+ * Export: return all matching logs (no pagination) for CSV/JSON download.
+ * Max 50 000 records — beyond that add date-range constraint in the caller.
+ */
+export async function exportAuditLogs(input: Omit<ListAuditLogsInput, "page" | "pageSize">): Promise<AuditLogEntry[]> {
+  const MAX_EXPORT = 50_000;
+  const where: Record<string, unknown> = {};
+  if (input.action) where.action = input.action;
+  if (input.severity) where.severity = input.severity;
+  if (input.actorId) where.actorId = input.actorId;
+  if (input.search) {
+    const searchClauses: Record<string, unknown>[] = [
+      { action: { contains: input.search, mode: "insensitive" } },
+      {
+        actor: {
+          is: {
+            OR: [
+              { username: { contains: input.search, mode: "insensitive" } },
+              { displayName: { contains: input.search, mode: "insensitive" } },
+            ],
+          },
+        },
+      },
+    ];
+    const actorType = normalizeActorTypeSearch(input.search);
+    if (actorType) searchClauses.push({ actorType });
+    where.OR = searchClauses;
+  }
+
+  return (await prisma.auditLog.findMany({
+    where,
+    include: { actor: { select: { username: true, displayName: true } } },
+    orderBy: { createdAt: "desc" },
+    take: MAX_EXPORT,
+  })) as unknown as AuditLogEntry[];
+}
+
 export async function getAuditStats(): Promise<{
  bySeverity: Record<string, number>;
  byAction: Record<string, number>;

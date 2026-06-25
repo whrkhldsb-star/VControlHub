@@ -177,6 +177,19 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
           >
             ↻ 刷新
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (severityFilter) params.set("severity", severityFilter);
+              if (actionFilter) params.set("action", actionFilter);
+              if (searchQuery.trim()) params.set("search", searchQuery.trim());
+              window.open(`/api/audit/export?${params.toString()}`, "_self");
+            }}
+            className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10"
+          >
+            ⬇ 导出 CSV
+          </button>
         </div>
         <div className="flex flex-wrap gap-2">
           {["auth.login", "command.execute", "storage.file_delete", "server.delete", "api_token.create"].map((action) => (

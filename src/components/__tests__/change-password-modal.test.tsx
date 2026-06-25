@@ -22,7 +22,11 @@ describe("ChangePasswordModal", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
-    render(<ChangePasswordModal open={true} onClose={onClose} />);
+    render(
+      <I18nProvider initialLocale="zh">
+        <ChangePasswordModal open={true} onClose={onClose} />
+      </I18nProvider>,
+    );
 
     const dialog = screen.getByRole("dialog", { name: "修改登录密码" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
@@ -65,5 +69,37 @@ describe("ChangePasswordModal", () => {
     expect(
       screen.getByRole("button", { name: "Close change password modal" }),
     ).toBeInTheDocument();
+  });
+
+  it("renders password fields with English labels under en locale", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider initialLocale="en">
+        <ChangePasswordModal open={true} onClose={vi.fn()} />
+      </I18nProvider>,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Change login password" });
+
+    for (const [label, description] of [
+      ["Current password", "Enter your current login password."],
+      ["New password", "At least 8 characters. Use a mix of upper/lower case, digits and symbols."],
+      ["Confirm new password", "Re-enter the new password to avoid typos."],
+    ] as const) {
+      const input = within(dialog).getByLabelText(label);
+      expect(input).toHaveAttribute("type", "password");
+      expect(input).toHaveAccessibleDescription(description);
+
+      const field = input.closest("div.grid");
+      expect(field).not.toBeNull();
+      const showButton = within(field as HTMLElement).getByRole("button", { name: `Show${label}` });
+      expect(showButton).toHaveAttribute("aria-pressed", "false");
+      await user.click(showButton);
+      expect(input).toHaveAttribute("type", "text");
+      expect(within(field as HTMLElement).getByRole("button", { name: `Hide${label}` })).toHaveAttribute("aria-pressed", "true");
+    }
+
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save new password" })).toBeInTheDocument();
   });
 });
