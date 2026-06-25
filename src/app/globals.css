@@ -36,6 +36,17 @@
 	--accent-bg: rgba(56,139,253,0.15);
 	--accent-border: rgba(56,139,253,0.4);
 
+	/* Brand "action" color (cyan). Used for primary CTA buttons.
+	   When migrating cyan-* utility classes to tokens, point at these. */
+	--color-action: #22d3ee;             /* cyan-400 */
+	--color-action-hover: #06b6d4;       /* cyan-500 */
+	--color-action-strong: #0891b2;      /* cyan-600 */
+	--color-action-fg: #082f49;          /* dark slate text on cyan bg */
+	--color-action-bg: rgba(34,211,238,0.15);
+	--color-action-bg-hover: rgba(34,211,238,0.25);
+	--color-action-border: rgba(34,211,238,0.4);
+	--color-action-ring: rgba(34,211,238,0.3);
+
 	--success: #3fb950;
 	--success-bg: rgba(63,185,80,0.15);
 	--success-border: rgba(63,185,80,0.4);
@@ -104,6 +115,16 @@ html.light {
 	--accent-hover: #0550ae;
 	--accent-bg: rgba(9,105,218,0.08);
 	--accent-border: rgba(9,105,218,0.4);
+
+	/* Light-theme cyan tokens — slightly stronger contrast for legibility. */
+	--color-action: #0891b2;             /* cyan-600 */
+	--color-action-hover: #0e7490;       /* cyan-700 */
+	--color-action-strong: #155e75;      /* cyan-800 */
+	--color-action-fg: #ffffff;
+	--color-action-bg: rgba(8,145,178,0.10);
+	--color-action-bg-hover: rgba(8,145,178,0.18);
+	--color-action-border: rgba(8,145,178,0.45);
+	--color-action-ring: rgba(8,145,178,0.30);
 
 	--success: #1a7f37;
 	--success-bg: rgba(26,127,55,0.08);
@@ -1849,3 +1870,47 @@ html.light [data-tone="violet"] { --tone-bg: #f5f3ff; }  /* violet-50 */
 /* S17. 页面底色统一 token */
 :root { --surface-root: #050508; }
 html.light { --surface-root: #f8fafc; }
+
+/* S18. 主操作按钮 token utility — 用 [data-action-button] 触发，统一品牌 cyan 档位。
+   迁移路径: 把散落 cyan-400/500/600 逐步替换为这套 token。
+   Variant: primary (filled), outline, ghost. */
+[data-action-button] {
+	border-radius: 0.75rem;
+	padding: 0.5rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	transition: filter 150ms, background-color 150ms, color 150ms, box-shadow 150ms;
+	cursor: pointer;
+}
+[data-action-button]:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+[data-action-button][data-variant="primary"],
+[data-action-button]:not([data-variant]) {
+	background-color: var(--color-action);
+	color: var(--color-action-fg);
+}
+[data-action-button][data-variant="primary"]:hover:not(:disabled),
+[data-action-button]:not([data-variant]):hover:not(:disabled) {
+	background-color: var(--color-action-hover);
+}
+[data-action-button][data-variant="outline"] {
+	background-color: transparent;
+	color: var(--color-action);
+	border: 1px solid var(--color-action-border);
+}
+[data-action-button][data-variant="outline"]:hover:not(:disabled) {
+	background-color: var(--color-action-bg);
+}
+[data-action-button][data-variant="ghost"] {
+	background-color: var(--color-action-bg);
+	color: var(--color-action);
+}
+[data-action-button][data-variant="ghost"]:hover:not(:disabled) {
+	background-color: var(--color-action-bg-hover);
+}
+[data-action-button]:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 3px var(--color-action-ring);
+}

@@ -128,4 +128,34 @@ describe("proxy auth guard", () => {
       error: "未登录或会话已过期",
     });
   });
+
+  it("requires CSRF token on /api/auth/signout (no longer exempt)", async () => {
+    // Authenticated request without csrf_token must be rejected — closes
+    // a real CSRF surface where a third-party origin could log out the user
+    // via <form action="/api/auth/signout" method="POST">.
+    const response = proxy(
+      makeRequest("/api/auth/signout", {
+        method: "POST",
+        headers: { cookie: "whrkhldsb_session=header.payload.signature-value" },
+      }),
+    );
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "CSRF token 验证失败",
+    });
+  });
+
+  it("accepts /api/auth/signout when csrf cookie and header match", async () => {
+    const response = proxy(
+      makeRequest("/api/auth/signout", {
+        method: "POST",
+        headers: {
+          cookie:
+            "whrkhldsb_session=header.payload.signature-value; csrf_token=tkn",
+          "x-csrf-token": "tkn",
+        },
+      }),
+    );
+    expect(response.status).toBe(200);
+  });
 });

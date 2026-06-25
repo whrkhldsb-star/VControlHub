@@ -184,10 +184,14 @@ export function proxy(request: NextRequest) {
   ) {
     const csrfCookie = request.cookies.get("csrf_token")?.value;
     const csrfHeader = request.headers.get("x-csrf-token");
-    // Skip CSRF for login endpoint (no session yet)
+    // Skip CSRF only for endpoints that issue the csrf cookie or run
+    // pre-session (e.g. the login flow). /api/auth/signout intentionally
+    // requires CSRF — the SignOutButton uses csrfFetch() so the header is
+    // attached automatically. Removing /api/auth/signout from this list
+    // closes a real CSRF surface (any third-party origin could otherwise
+    // log a user out via a hidden <form action="/api/auth/signout">).
     if (
       pathname !== "/api/login" &&
-      pathname !== "/api/auth/signout" &&
       pathname !== "/api/auth/2fa/verify-login" &&
       !hasBearerToken
     ) {

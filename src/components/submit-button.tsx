@@ -25,7 +25,9 @@ export function SubmitButton({
       name={name}
       value={value}
       disabled={pending || disabled}
-      className={className ?? "rounded-2xl bg-cyan-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"}
+      data-action-button={className ? undefined : ""}
+      data-variant={className ? undefined : "primary"}
+      className={className}
     >
       {pending ? pendingLabel : children}
     </button>

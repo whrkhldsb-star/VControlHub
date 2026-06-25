@@ -702,7 +702,7 @@ const conv = data.conversation;
         />
             {/* Messages area */}
             <div
-              className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+              className="flex-1 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4 space-y-4"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
@@ -728,7 +728,7 @@ const conv = data.conversation;
                     </div>
                   )}
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    className={`max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 text-sm leading-relaxed ${
                       msg.role === "user"
                         ? "bg-cyan-500/15 text-cyan-50"
                         : "bg-white/[0.04] text-slate-200"
@@ -816,7 +816,7 @@ return (
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5" />
                     </svg>
                   </div>
-                  <div className="max-w-[80%] rounded-2xl px-4 py-2.5 bg-white/[0.04] text-slate-200 text-sm leading-relaxed">
+                  <div className="max-w-[88%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 bg-white/[0.04] text-slate-200 text-sm leading-relaxed">
                     {streamReasoning && (
                       <details open className="mb-2">
                         <summary className="text-[10px] text-cyan-400/60 cursor-pointer">{t("aiPage.thinking")}</summary>

@@ -344,12 +344,13 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 🚧 现有问题（按优先级）
 
 **P1 — 功能逻辑不完善**
+- [x] **CSRF 真漏洞 (P0) 已封堵** ✅ — 之前 `/api/auth/signout` 被 proxy 显式 exempt，第三方网站可通过 `<form action="/api/auth/signout" method="POST">` 触发用户登出（CSRF on auth endpoint）。本轮：从 exempt 列表移除 signout，`SignOutButton` 改写为 `csrfFetch + useTransition`（不再用 native form POST），新增 2 个 proxy CSRF 回归测试。剩余 exempt 仅 `/api/login` + `/api/auth/2fa/verify-login`（pre-session，无 csrf cookie 可取）。
 - [ ] **审批中心无批量审批** — `/requests` 页面只能逐条审批，无"全选 + 批量通过"，高并发审批场景下效率低。
 - [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
 - [ ] **`/monitoring` 监控依赖轮询，无实时推送** — 使用 `setInterval` 定时拉取，无 WebSocket/SSE，数据有明显延迟，不适合高频实时场景。
 
 **P2 — UI 直观性与一致性**
-- [ ] **按钮色彩体系碎片化** — 主操作按钮存在 cyan-300/400/500/600 四档混用；危险操作全部已收敛到 `bg-rose-*`，仍需把主色 cyan 档位收敛到统一 `var(--color-action)` token。
+- [x] **按钮色彩体系收敛 (P1)** ✅ — 新增 `--color-action` / `--color-action-hover` / `--color-action-bg/border/ring` token (dark + light)，配 `[data-action-button][data-variant=primary|outline|ghost]` utility 和 `<ActionButton>` 共用组件，`SubmitButton` 默认走 token；其余 cyan-300/400/500/600 散落用法属"渐进迁移"长尾任务，新代码请用 `<ActionButton>` 而非手写 cyan utility。
 - [ ] **4 个核心页面"缺 PageHeader"实为假阳性** — `/ai` 是聊天 UI（自定义 chat header），`/storage` 仅 redirect 到 /files，`/media` 与 `/image-bed` 已具备 eyebrow/title/description 三元素（自定义 hero header，未用 PageHeader 组件名）。无需补齐。
 - [ ] **PageHeader description 已全量覆盖** — 真实 grep 仅 3 处缺失（preferences / traffic 把 desc 摆在外部 `<p>`、tickets/[id] 真缺），本轮已全部合并到 `description` prop / 补 i18n。
 - [ ] **10 种硬编码十六进制颜色** — 大多为合理保留（xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops），无可统一项；如需进一步抽象可后续单独审视。
@@ -359,7 +360,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **P3 — 长期改善**
 - [ ] **68 处 `p-5`/`p-7` 奇数间距混入** — Tailwind 标准档为 p-4/p-6/p-8，奇数档混入导致视觉节奏不统一。
-- [ ] **AI 客户端（1030 行）无响应式断点** — `ai-client.tsx` 无任何 `sm:/md:/lg:` 类，移动端为纯桌面宽度。
+- [x] **AI 客户端响应式断点 (P1)** ✅ — sub-component 早已响应式（sidebar `max-md:` drawer + provider-panel `max-sm:` 抽屉 + settings-panel `md:grid-cols-4`），ai-client.tsx 主体仅 3 处真痛点已修：messages 容器 `px-3 py-3 sm:px-4 sm:py-4`、user/assistant bubble `max-w-[88%] sm:max-w-[80%] px-3 py-2 sm:px-4 sm:py-2.5`（手机宽度下 bubble 不再过窄）。
 - [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — TR-037 迁移未完成，约 80 条路由仍手动解析 body/query。
 - [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。
 - [x] **qa-reports 空状态友好引导** ✅ — `reports.length === 0` 时显示 📋 icon + 主文案 + hint 文案（提示 worker / `/alert-rules` 触发），与 filter empty 区分。
