@@ -112,6 +112,7 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
         relativePath: { startsWith: oldPrefix },
       },
       select: { id: true, relativePath: true },
+      take: 10_000,
     });
     for (const child of children) {
       await prisma.fileEntry.update({

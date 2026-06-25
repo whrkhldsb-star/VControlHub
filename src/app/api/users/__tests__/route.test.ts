@@ -88,6 +88,7 @@ describe("/api/users", () => {
     });
     expect(mocks.prisma.role.findMany).toHaveBeenCalledWith({
       where: { key: { in: ["viewer", "operator"] } },
+      take: 2,
     });
     expect(mocks.prisma.userRole.createMany).toHaveBeenCalledWith({
       data: [

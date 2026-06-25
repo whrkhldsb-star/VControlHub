@@ -417,6 +417,7 @@ describe("/api/storage/sftp-ops", () => {
         relativePath: { startsWith: "allowed/" },
       },
       select: { id: true, relativePath: true },
+      take: 10_000,
     });
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
       where: { id: "child-1" },

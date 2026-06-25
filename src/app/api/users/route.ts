@@ -73,6 +73,7 @@ export async function POST(request: Request) {
 
         const roles = await tx.role.findMany({
           where: { key: { in: roleKeys } },
+          take: roleKeys.length,
         });
         const foundRoleKeys = new Set(roles.map((role) => role.key));
         const missingRoleKeys = roleKeys.filter((key) => !foundRoleKeys.has(key));
@@ -177,6 +178,7 @@ export async function PATCH(request: Request) {
         await prisma.userRole.deleteMany({ where: { userId } });
         const roles = await prisma.role.findMany({
           where: { key: { in: roleKeys } },
+          take: roleKeys.length,
         });
         for (const role of roles) {
           await prisma.userRole.create({

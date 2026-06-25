@@ -224,6 +224,7 @@ export async function PATCH(request: Request) {
           const roles = await tx.role.findMany({
             where: { key: { in: roleKeys } },
             select: { id: true },
+            take: roleKeys.length,
           });
           await tx.userRole.deleteMany({
             where: { userId: parsed.data.userId },
@@ -256,6 +257,7 @@ export async function PATCH(request: Request) {
           const permissionRows = await tx.permission.findMany({
             where: { key: { in: permissionKeys } },
             select: { id: true },
+            take: permissionKeys.length,
           });
           await tx.rolePermission.deleteMany({
             where: { roleId: customRole.id },

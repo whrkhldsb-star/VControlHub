@@ -356,7 +356,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **10 种硬编码十六进制颜色合理保留** ✅ — 全部为 xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops 等不可 token 化场景；如需进一步抽象可后续单独审视。
 
 **P2 — 工程规范**
-- [ ] **少量 `findMany` 仍无 `take` 保护**（5 处） — 全部为受 zod schema `array(...).max()` 约束的 `where: { in: [...] }` 用法（users / users/permissions / sftp 内部递归），输入端已有上界，列表上界由 schema 控制；不影响生产风险。
+- [x] **`findMany` 显式上界收敛** ✅ — users / users-permissions 的 `where: { in: [...] }` 查询已按输入数组长度补 `take`；SFTP / files / storage 目录子项更新补 `take: 10_000` 防止超大目录一次性无界读取；相关 users + permissions + sftp-ops 测试已同步通过。
 
 **P3 — 长期改善**
 - [ ] **68 处 `p-5`/`p-7` 奇数间距混入** — Tailwind 标准档为 p-4/p-6/p-8，奇数档混入导致视觉节奏不统一。
@@ -393,7 +393,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P3 — 长期愿景
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
 - [x] **AI 客户端响应式布局** ✅ — sub-component 早已响应式，主体 3 处真痛点已修（commit 56cb540）。
-- [ ] **约 13 处 PageHeader 补 description** — downloads / notifications / tickets 等页面补功能说明副文案。
+- [x] **PageHeader description 全覆盖** ✅ — 实扫 `<PageHeader>` 且缺 `description=` 为 0；此前“约 13 处”属 stale/误报，已在审计澄清节标 [x]。
 - [x] **硬编码颜色已审计** ✅ — 10 种十六进制色全部为 xterm/PWA manifest/SVG 占位/sparkline/gradient 等不可 token 化场景，保留即可。
 - [ ] **多租户 / 团队空间**（TR-030）。
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。

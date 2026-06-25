@@ -603,6 +603,7 @@ export async function renameFileEntryAction(
           relativePath: { startsWith: oldPrefix },
         },
         select: { id: true, relativePath: true },
+        take: 10_000,
       });
 
       for (const child of children) {
