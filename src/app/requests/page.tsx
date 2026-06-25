@@ -6,6 +6,7 @@ import { listCommandRequests } from "@/lib/command/service";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
+import { BatchReviewToolbar } from "./batch-review-toolbar";
 import { PageShell, PageHeader, StatCard, EmptyState } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -76,8 +77,17 @@ export default async function RequestsPage() {
 					{requests.length === 0 ? (
 						<EmptyState text={t("requestsPage.cmd.empty", locale)} variant="boxed" />
 					) : (
-						requests.map((request) => (
-							<article key={request.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
+						<BatchReviewToolbar
+							pendingIds={
+								canApprove
+									? requests
+											.filter((r) => r.status === "PENDING_APPROVAL")
+											.map((r) => r.id)
+									: []
+							}
+						>
+							{requests.map((request) => (
+								<article key={request.id} data-id={request.id} data-card className=" p-5 hover:bg-white/[0.04] transition-colors duration-150">
 								<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
 									<div className="min-w-0 flex-1">
 										<div className="flex flex-wrap items-center gap-2">
@@ -146,8 +156,9 @@ export default async function RequestsPage() {
 								{canApprove && ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status) && (
 									<CancelCommandButton commandRequestId={request.id} commandTitle={request.title} />
 								)}
-							</article>
-						))
+								</article>
+							))}
+						</BatchReviewToolbar>
 					)}
 				</section>
 			</div>

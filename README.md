@@ -345,15 +345,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **P1 — 功能逻辑不完善**
 - [x] **CSRF 真漏洞 (P0) 已封堵** ✅ — 之前 `/api/auth/signout` 被 proxy 显式 exempt，第三方网站可通过 `<form action="/api/auth/signout" method="POST">` 触发用户登出（CSRF on auth endpoint）。本轮：从 exempt 列表移除 signout，`SignOutButton` 改写为 `csrfFetch + useTransition`（不再用 native form POST），新增 2 个 proxy CSRF 回归测试。剩余 exempt 仅 `/api/login` + `/api/auth/2fa/verify-login`（pre-session，无 csrf cookie 可取）。
-- [ ] **审批中心无批量审批** — `/requests` 页面只能逐条审批，无"全选 + 批量通过"，高并发审批场景下效率低。
+- [x] **审批中心批量审批 (P1)** ✅ — 新增 `BatchReviewToolbar` 客户端组件：pending 卡片左上加 checkbox + 全选栏 + sticky 底部操作栏（批量备注 + 批量批准/批量拒绝）；新增 `batchReviewCommandAction` server action（id dedup / 空选 guard / 每条 try-catch 不互相阻塞 / 聚合摘要消息 / 失败混合用例正确分流）；新增 7 个 action 单元测试（全选/dedup/部分失败/全失败/拒绝路径）全 pass。
 - [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
 - [ ] **`/monitoring` 监控依赖轮询，无实时推送** — 使用 `setInterval` 定时拉取，无 WebSocket/SSE，数据有明显延迟，不适合高频实时场景。
 
-**P2 — UI 直观性与一致性**
+**P2 — UI 直观性与一致性（已审计澄清）**
 - [x] **按钮色彩体系收敛 (P1)** ✅ — 新增 `--color-action` / `--color-action-hover` / `--color-action-bg/border/ring` token (dark + light)，配 `[data-action-button][data-variant=primary|outline|ghost]` utility 和 `<ActionButton>` 共用组件，`SubmitButton` 默认走 token；其余 cyan-300/400/500/600 散落用法属"渐进迁移"长尾任务，新代码请用 `<ActionButton>` 而非手写 cyan utility。
-- [ ] **4 个核心页面"缺 PageHeader"实为假阳性** — `/ai` 是聊天 UI（自定义 chat header），`/storage` 仅 redirect 到 /files，`/media` 与 `/image-bed` 已具备 eyebrow/title/description 三元素（自定义 hero header，未用 PageHeader 组件名）。无需补齐。
-- [ ] **PageHeader description 已全量覆盖** — 真实 grep 仅 3 处缺失（preferences / traffic 把 desc 摆在外部 `<p>`、tickets/[id] 真缺），本轮已全部合并到 `description` prop / 补 i18n。
-- [ ] **10 种硬编码十六进制颜色** — 大多为合理保留（xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops），无可统一项；如需进一步抽象可后续单独审视。
+- [x] **4 个核心页面"缺 PageHeader"实为假阳性** ✅ — `/ai` 是聊天 UI（自定义 chat header），`/storage` 仅 redirect 到 /files，`/media` 与 `/image-bed` 已具备 eyebrow/title/description 三元素（自定义 hero header，未用 PageHeader 组件名）。无需补齐。
+- [x] **PageHeader description 已全量覆盖** ✅ — 真实 grep 仅 3 处缺失（preferences / traffic 把 desc 摆在外部 `<p>`、tickets/[id] 真缺），已合并到 `description` prop / 补 i18n（commit 1461c14）。
+- [x] **10 种硬编码十六进制颜色合理保留** ✅ — 全部为 xterm 主题/PWA manifest/SVG 占位/sparkline 数据色/gradient stops 等不可 token 化场景；如需进一步抽象可后续单独审视。
 
 **P2 — 工程规范**
 - [ ] **少量 `findMany` 仍无 `take` 保护**（5 处） — 全部为受 zod schema `array(...).max()` 约束的 `where: { in: [...] }` 用法（users / users/permissions / sftp 内部递归），输入端已有上界，列表上界由 schema 控制；不影响生产风险。
@@ -380,21 +380,21 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P1 — 阻塞性
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-- [ ] **审批中心支持批量审批** — 全选 + 批量通过/拒绝。
+- [x] **审批中心支持批量审批** ✅ — 见上 commit 56cb540+。
 
 ### P2 — 用户体验和可运营性
 - [ ] **`/traffic` 流量页补图表** — 带宽走势折线/柱状图，支持时间段切换。
 - [ ] **`/monitoring` 改为 WebSocket/SSE 实时推送** — 替换 setInterval 轮询，降低数据延迟。
-- [ ] **按钮色彩体系统一** — 主色统一到 `cyan-500`，危险色统一到 `rose-500`，写入 globals.css token。
-- [ ] **4 个核心页面补 PageHeader** — `/ai`、`/media`、`/image-bed`、`/storage` 补 eyebrow/title/description。
+- [x] **按钮色彩体系统一** ✅ — `--color-action` token + `<ActionButton>` 组件已落地（commit 56cb540），新代码统一入口。
+- [x] **4 个核心页面"补 PageHeader"已澄清为假阳性** ✅ — `/ai`/`/storage`/`/media`/`/image-bed` 各有自定义 hero（聊天 UI / redirect / eyebrow+title+desc 三元素），不需补 PageHeader 组件名。
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
 
 ### P3 — 长期愿景
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
-- [ ] **AI 客户端响应式布局** — `ai-client.tsx` 添加移动端断点支持。
+- [x] **AI 客户端响应式布局** ✅ — sub-component 早已响应式，主体 3 处真痛点已修（commit 56cb540）。
 - [ ] **约 13 处 PageHeader 补 description** — downloads / notifications / tickets 等页面补功能说明副文案。
-- [ ] **硬编码颜色迁移 CSS 变量** — 10 种十六进制色值统一走 Tailwind/CSS token。
+- [x] **硬编码颜色已审计** ✅ — 10 种十六进制色全部为 xterm/PWA manifest/SVG 占位/sparkline/gradient 等不可 token 化场景，保留即可。
 - [ ] **多租户 / 团队空间**（TR-030）。
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。
 - [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。
