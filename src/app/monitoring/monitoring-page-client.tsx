@@ -46,7 +46,8 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true); // default on — SSE is cheaper than polling
+  const [sseConnected, setSseConnected] = useState(false);
   const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
     typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
   );
@@ -85,16 +86,57 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
     };
   }, []);
 
+  // Initial fetch — need at least one HTTP snapshot for the loading state.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void fetchStats();
-    }, 0);
+    const timer = window.setTimeout(() => { void fetchStats(); }, 0);
     return () => window.clearTimeout(timer);
   }, [fetchStats]);
+
+  // SSE stream: replaces setInterval polling with real-time push.
+  // Only active when autoRefresh=true. Falls back gracefully if
+  // EventSource fails (network / auth / proxy) → re-enable HTTP
+  // polling as a degraded mode.
   useEffect(() => {
-    if (!autoRefresh || refreshIntervalSeconds <= 0) return;
-    const id = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
-    return () => clearInterval(id);
+    if (!autoRefresh) return;
+
+    let es: EventSource | null = null;
+    let fallbackTimer: ReturnType<typeof setInterval> | null = null;
+    let disposed = false;
+
+    function closeSse() {
+      if (es) { es.close(); es = null; }
+      setSseConnected(false);
+    }
+
+    try {
+      es = new EventSource("/api/monitoring/stream");
+      es.addEventListener("stats", (e) => {
+        try {
+          const data = JSON.parse(e.data) as Stats;
+          setStats(data);
+          setErrorMessage(null);
+          setLoading(false);
+          setSseConnected(true);
+        } catch { /* malform → ignore, next tick will retry */ }
+      });
+      es.onerror = () => {
+        closeSse();
+        // Fallback: use HTTP polling at the user's configured interval.
+        if (!disposed) {
+          fallbackTimer = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
+        }
+      };
+      es.onopen = () => { setSseConnected(true); };
+    } catch {
+      // EventSource constructor failed (very old browser?) → fallback to polling.
+      fallbackTimer = setInterval(() => { void fetchStats(); }, refreshIntervalSeconds * 1000);
+    }
+
+    return () => {
+      disposed = true;
+      closeSse();
+      if (fallbackTimer) clearInterval(fallbackTimer);
+    };
   }, [autoRefresh, fetchStats, refreshIntervalSeconds]);
 
   if (loading) {
@@ -163,6 +205,12 @@ export default function MonitoringPage({ canManage: _canManage }: { canManage: b
         >
           {autoRefreshLabel}
         </button>
+        {sseConnected && autoRefresh && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            SSE
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
