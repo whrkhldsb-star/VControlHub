@@ -346,7 +346,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 **P1 — 功能逻辑不完善**
 - [x] **CSRF 真漏洞 (P0) 已封堵** ✅ — 之前 `/api/auth/signout` 被 proxy 显式 exempt，第三方网站可通过 `<form action="/api/auth/signout" method="POST">` 触发用户登出（CSRF on auth endpoint）。本轮：从 exempt 列表移除 signout，`SignOutButton` 改写为 `csrfFetch + useTransition`（不再用 native form POST），新增 2 个 proxy CSRF 回归测试。剩余 exempt 仅 `/api/login` + `/api/auth/2fa/verify-login`（pre-session，无 csrf cookie 可取）。
 - [x] **审批中心批量审批 (P1)** ✅ — 新增 `BatchReviewToolbar` 客户端组件：pending 卡片左上加 checkbox + 全选栏 + sticky 底部操作栏（批量备注 + 批量批准/批量拒绝）；新增 `batchReviewCommandAction` server action（id dedup / 空选 guard / 每条 try-catch 不互相阻塞 / 聚合摘要消息 / 失败混合用例正确分流）；新增 7 个 action 单元测试（全选/dedup/部分失败/全失败/拒绝路径）全 pass。
-- [ ] **`/traffic` 流量页面无图表** — 流量数据以纯文字/数字列表展示，无带宽走势折线图或柱状图，数据不直观，无法感知趋势。
+- [x] **`/traffic` 流量页面走势图 (P1)** ✅ — 新增纯 SVG `<TrafficSparkline>` 双线面图（RX cyan + TX emerald），客户端 60 样本滚动窗口（≈30 min / 30s 间隔），窗口自适应 max(rx,tx) 共享 Y 轴，切换网卡自动重置，iface 变更时历史不混杂数据；0 新依赖，i18n 中英双语 label 已补齐；7 个单元测试全 pass。
 - [ ] **`/monitoring` 监控依赖轮询，无实时推送** — 使用 `setInterval` 定时拉取，无 WebSocket/SSE，数据有明显延迟，不适合高频实时场景。
 
 **P2 — UI 直观性与一致性（已审计澄清）**
@@ -383,7 +383,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **审批中心支持批量审批** ✅ — 见上 commit 56cb540+。
 
 ### P2 — 用户体验和可运营性
-- [ ] **`/traffic` 流量页补图表** — 带宽走势折线/柱状图，支持时间段切换。
+- [x] **`/traffic` 流量页补图表** ✅ — 见上 commit 6fc932f+。
 - [ ] **`/monitoring` 改为 WebSocket/SSE 实时推送** — 替换 setInterval 轮询，降低数据延迟。
 - [x] **按钮色彩体系统一** ✅ — `--color-action` token + `<ActionButton>` 组件已落地（commit 56cb540），新代码统一入口。
 - [x] **4 个核心页面"补 PageHeader"已澄清为假阳性** ✅ — `/ai`/`/storage`/`/media`/`/image-bed` 各有自定义 hero（聊天 UI / redirect / eyebrow+title+desc 三元素），不需补 PageHeader 组件名。

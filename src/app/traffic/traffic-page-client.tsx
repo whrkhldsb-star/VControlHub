@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { TrafficSparkline, type TrafficSample } from "./traffic-sparkline";
+
+const HISTORY_LIMIT = 60; // ≈ 30 min at 30s polling cadence
 
 type InterfaceTraffic = {
 	iface: string;
@@ -85,6 +88,10 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 	const [refreshIntervalSeconds, setRefreshIntervalSeconds] = useState(() =>
 		typeof window === "undefined" ? 30 : getRefreshIntervalFromStorage(window.localStorage, 30),
 	);
+	/** Bounded history of rx/tx samples for the primary interface. */
+	const [history, setHistory] = useState<TrafficSample[]>([]);
+	/** Track which iface the history corresponds to so we reset on switch. */
+	const lastIfaceRef = useRef<string>("");
 
 	const fetchSummary = useCallback(async (iface = selectedIface) => {
 		try {
@@ -97,6 +104,27 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 			}
 			setSummary(data);
 			setError("");
+			// Append the primary-interface rate to bounded history.
+			// Reset when the selected iface changes so the chart doesn't blend
+			// samples from two different physical interfaces.
+			const prim = data.currentServer?.primaryInterface;
+			if (prim) {
+				const ifaceKey = prim.iface;
+				if (lastIfaceRef.current !== ifaceKey) {
+					lastIfaceRef.current = ifaceKey;
+					setHistory([
+						{ t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond },
+					]);
+				} else {
+					setHistory((prev) => {
+						const next = [
+							...prev,
+							{ t: Date.now(), rx: prim.rxRateBytesPerSecond, tx: prim.txRateBytesPerSecond },
+						];
+						return next.length > HISTORY_LIMIT ? next.slice(-HISTORY_LIMIT) : next;
+					});
+				}
+			}
 		} catch {
 			setError(t("trafficPage.error.fetch"));
 		} finally {
@@ -187,6 +215,17 @@ export default function TrafficPage({ canManage: _canManage }: { canManage: bool
 									<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 										<RateBadge label={t("trafficPage.rxRate").replace("{iface}", primary.iface)} value={primary.rxRateLabel} color="cyan" />
 										<RateBadge label={t("trafficPage.txRate").replace("{iface}", primary.iface)} value={primary.txRateLabel} color="emerald" />
+									</div>
+									<div className="mt-4">
+										<TrafficSparkline
+											samples={history}
+											labels={{
+												rx: t("trafficPage.rxShort"),
+												tx: t("trafficPage.txShort"),
+												empty: t("trafficPage.chart.empty"),
+												windowHint: t("trafficPage.chart.windowHint"),
+											}}
+										/>
 									</div>
 									<div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
 										<div className="rounded-xl bg-black/20 p-3 light:ring-1 light:ring-slate-200">{t("trafficPage.rxTotal").replace("{value}", primary.rxLabel)}<span className="font-mono text-slate-100"> </span></div>
