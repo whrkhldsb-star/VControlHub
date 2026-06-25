@@ -11,7 +11,17 @@ const { prismaMock } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/http/api-guard", () => ({
-  withApiRoute: vi.fn(async (_request, _options, handler) => handler({ session: { userId: "u_1" } })),
+  withApiRoute: vi.fn(async (_request, _options, handler) => {
+    // Extract body from the request to simulate bodySchema validation
+    let body: unknown = undefined;
+    if (_request.method !== "GET" && _request.method !== "HEAD") {
+      try {
+        const text = await _request.clone().text();
+        body = text.length === 0 ? undefined : JSON.parse(text);
+      } catch { /* ignore */ }
+    }
+    return handler({ session: { userId: "u_1" }, body });
+  }),
 }));
 
 import { GET, PUT } from "../route";

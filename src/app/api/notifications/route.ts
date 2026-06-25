@@ -98,22 +98,16 @@ export async function POST(request: Request) {
     {
       permission: "notification:manage",
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: postSchema,
       errorMessage: "批量操作失败",
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
-      const rawBody = await request.json().catch(() => null);
-      const parsed = postSchema.safeParse(rawBody);
-      if (!parsed.success)
-        return NextResponse.json(
-          { error: "输入参数无效", details: parsed.error.flatten() },
-          { status: 400 },
-        );
 
       // Batch mark multiple notifications as read
       const results = await Promise.allSettled(
-        parsed.data.ids.map((id) => markAsRead(id, session.userId)),
+        body.ids.map((id: string) => markAsRead(id, session.userId)),
       );
       const succeeded = results.filter(
         (result) => result.status === "fulfilled",
@@ -126,7 +120,7 @@ export async function POST(request: Request) {
         success: true,
         marked: succeeded,
         failed,
-        total: parsed.data.ids.length,
+        total: body.ids.length,
       });
     },
   );

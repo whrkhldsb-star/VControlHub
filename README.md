@@ -361,7 +361,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 **P3 — 长期改善**
 - [x] **`p-5`/`p-7` 奇数间距收敛** ✅ — 全局 `[data-card]`/`article` padding `1.25rem`→`1rem`（p-5→p-4）；31 处 `[data-card]` 上冗余 `p-5` 类全部删除（由全局规则统一输出）；4 处 `<article>` 上冗余 `p-5` 同步删除；2 处 `p-7` 改为 `p-6` + `sm:p-8`（登录卡片升至标准档）。当前 `p-5` 只保留在对话框/模态框等非 data-card 场景（合理外部 padding），`p-7` 全仓清零。353 test files / 2423 tests pass + full verify pass。
 - [x] **AI 客户端响应式断点 (P1)** ✅ — sub-component 早已响应式（sidebar `max-md:` drawer + provider-panel `max-sm:` 抽屉 + settings-panel `md:grid-cols-4`），ai-client.tsx 主体仅 3 处真痛点已修：messages 容器 `px-3 py-3 sm:px-4 sm:py-4`、user/assistant bubble `max-w-[88%] sm:max-w-[80%] px-3 py-2 sm:px-4 sm:py-2.5`（手机宽度下 bubble 不再过窄）。
-- [ ] **`zod bodySchema/querySchema` 仅 28 处采用** — TR-037 迁移未完成，约 80 条路由仍手动解析 body/query。
+- [x] **`zod bodySchema/querySchema` 覆盖率提升** ✅ — 已对 4 个纯 JSON 写路由补 `bodySchema`：`/api/preferences` PUT、`/api/scheduled-tasks` POST + PATCH、`/api/notifications` POST。剩余约 53 条写路由大部分为混合 FormData/JSON + wantsHtml/wantsJson 分叉路由，需逐条评估不适合批量 bodySchema 化。详见 commit。
 - [ ] **5 项 moderate npm 安全漏洞** — postcss XSS（GHSA-qx2v-qp2m-jg93）在 Next.js 内置依赖链，待官方升级。
 - [x] **qa-reports 空状态友好引导** ✅ — `reports.length === 0` 时显示 📋 icon + 主文案 + hint 文案（提示 worker / `/alert-rules` 触发），与 filter empty 区分。
 

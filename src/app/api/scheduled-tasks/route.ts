@@ -106,23 +106,13 @@ export async function POST(request: Request) {
     {
       permission: "command:create",
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
       errorMessage: "创建失败",
     },
-    async ({ session }) => {
+    async ({ session, body: data }) => {
       if (!session)
         throw new AuthError("未认证");
-      const body = await request.json().catch(() => null);
-      const parsed = scheduledTaskPostSchema.safeParse(body);
-      if (!parsed.success)
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      const data = parsed.data;
       const cronExpression = data.cronExpression ?? data.cron;
       if (!cronExpression)
         throw new ValidationError("Cron 表达式不能为空");
@@ -150,23 +140,13 @@ export async function PATCH(request: Request) {
     {
       permission: "command:create",
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
       errorMessage: "更新失败",
     },
-    async ({ session }) => {
+    async ({ session, body: data }) => {
       if (!session)
         throw new AuthError("未认证");
-      const body = await request.json().catch(() => null);
-      const parsed = scheduledTaskPatchSchema.safeParse(body);
-      if (!parsed.success)
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      const data = parsed.data;
       if (data.toggleId) {
         const result = await toggleScheduledTask(data.toggleId);
         auditUserAction(

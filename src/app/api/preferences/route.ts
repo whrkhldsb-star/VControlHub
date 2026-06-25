@@ -56,19 +56,14 @@ export async function PUT(request: Request) {
     {
       requireAuth: true,
       rateLimit: GENERAL_WRITE_LIMIT,
+      bodySchema: prefsSchema,
       errorMessage: "保存偏好设置失败",
     },
-    async ({ session }) => {
+    async ({ session, body }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      const parsed = prefsSchema.safeParse(
-        await request.json().catch(() => null),
-      );
-      if (!parsed.success)
-        throw new ValidationError("输入参数无效");
-
-      const prefs = normalizeUserPreferences(parsed.data);
+      const prefs = normalizeUserPreferences(body);
 
       await prisma.user.update({
         where: { id: session.userId },
