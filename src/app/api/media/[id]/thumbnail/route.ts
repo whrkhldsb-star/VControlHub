@@ -6,7 +6,6 @@ import path from "node:path";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { NextResponse } from "next/server";
-import sharp from "sharp";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -112,6 +111,7 @@ async function getCachedThumbnail(filePath: string): Promise<Buffer | null> {
 }
 
 async function generateThumbnailFromBuffer(buffer: Buffer): Promise<Buffer> {
+	const sharp = (await import("sharp")).default;
 	return sharp(buffer, { failOn: "none" })
 		.rotate()
 		.resize({

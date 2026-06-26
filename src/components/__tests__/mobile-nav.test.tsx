@@ -29,7 +29,7 @@ describe("MobileNav", () => {
 	it("derives mobile tabs by stable hrefs instead of fragile main-nav indexes", () => {
 		const labels = getMobileNavTabs().map((tab) => tab.fallbackLabel);
 
-		expect(labels).toEqual(["仪表盘", "VPS 管理", "流量中心", "文件管理", "系统设置"]);
+		expect(labels).toEqual(["仪表盘", "VPS 管理", "流量中心", "文件管理", "设置"]);
 	});
 
 	it("renders a working settings entry instead of a missing more page", () => {

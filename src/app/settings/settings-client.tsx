@@ -21,6 +21,7 @@ type Props = {
 	settingUpdateMetadata?: Record<string, SettingUpdateMetadata>;
 	canManage: boolean;
 	twoFactorEnabled?: boolean;
+	showCategoryNav?: boolean;
 };
 
 function formatMetadataDate(value: Date | string | null, t: (key: string) => string) {
@@ -91,6 +92,7 @@ export function SettingsClient({
 	settingUpdateMetadata = {},
 	canManage,
 	twoFactorEnabled = false,
+	showCategoryNav = true,
 }: Props) {
 	const { t } = useI18n();
 	// Translated schema (title/description/helper/badge/saveMessage/noticeBanner/label
@@ -161,23 +163,45 @@ export function SettingsClient({
 		setOpenSections(Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, false])));
 	}, []);
 
-	// Apply URL hash (e.g. /settings#runtime) on mount: open the section and scroll into view.
-	const hashAppliedRef = useRef(false);
+	// Apply URL hash (e.g. /settings#runtime) on mount and when the unified
+	// settings category nav asks for a section: open the section and scroll into view.
 	useEffect(() => {
-		if (hashAppliedRef.current) return;
 		if (typeof window === "undefined") return;
-		const hash = window.location.hash.replace(/^#/, "");
-		if (!hash) return;
-		if (SETTINGS_SCHEMA.some((s) => s.id === hash)) {
-			hashAppliedRef.current = true;
-			// eslint-disable-next-line react-hooks/set-state-in-effect -- 客户端读取 window.location.hash 后才能决定是否展开对应分组；SSR 阶段无法获得 hash。
-			setOpenSections((prev) => ({ ...prev, [hash]: true }));
+
+		const openAndScrollToSection = (rawHashOrId: string) => {
+			const id = rawHashOrId.replace(/^#/, "");
+			if (!id || !SETTINGS_SCHEMA.some((s) => s.id === id)) return;
+			setOpenSections((prev) => ({ ...prev, [id]: true }));
 			// Defer scroll so the <details> has time to expand.
 			setTimeout(() => {
-				const el = document.getElementById(hash);
+				const el = document.getElementById(id);
 				el?.scrollIntoView({ behavior: "smooth", block: "start" });
 			}, 50);
-		}
+		};
+
+		const handleHashChange = () => openAndScrollToSection(window.location.hash);
+		const handleSectionNavigate = (event: Event) => {
+			const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+			if (id) openAndScrollToSection(id);
+		};
+		const handleExpandAll = () => {
+			setOpenSections(Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, true])));
+		};
+		const handleCollapseAll = () => {
+			setOpenSections(Object.fromEntries(SETTINGS_SCHEMA.map((s) => [s.id, false])));
+		};
+
+		handleHashChange();
+		window.addEventListener("hashchange", handleHashChange);
+		window.addEventListener("vcontrolhub:settings-open-section", handleSectionNavigate);
+		window.addEventListener("vcontrolhub:settings-expand-all", handleExpandAll);
+		window.addEventListener("vcontrolhub:settings-collapse-all", handleCollapseAll);
+		return () => {
+			window.removeEventListener("hashchange", handleHashChange);
+			window.removeEventListener("vcontrolhub:settings-open-section", handleSectionNavigate);
+			window.removeEventListener("vcontrolhub:settings-expand-all", handleExpandAll);
+			window.removeEventListener("vcontrolhub:settings-collapse-all", handleCollapseAll);
+		};
 	}, []);
 
 	const updateField = (key: string, value: string) => {
@@ -254,56 +278,58 @@ export function SettingsClient({
 	return (
 		<div className="space-y-6">
 			{error && (
-				<div className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200">{error}</div>
+				<div role="alert" className="rounded-lg bg-rose-500/[0.08] border border-rose-400/20 px-4 py-3 text-sm text-rose-200">{error}</div>
 			)}
 			{saved && (
-				<div className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">
+				<div role="status" className="rounded-lg bg-emerald-500/[0.08] border border-emerald-400/20 px-4 py-3 text-sm text-emerald-200">
 					{t("settingsClient.savedWithMessage")}{savedMessage ? ` — ${savedMessage}` : ""}
 				</div>
 			)}
 
 			{/* Quick-jump TOC + expand/collapse all */}
-			<nav aria-label={t("settingsClient.categoryNav")} className="p-4 space-y-3" data-card>
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-					<div>
-						<h2 className="text-sm font-semibold text-white">{t("settingsClient.categoryTitle")}</h2>
-						<p className="mt-0.5 text-xs text-slate-500">{t("settingsClient.categoryDescription")}</p>
+			{showCategoryNav && (
+				<nav aria-label={t("settingsClient.categoryNav")} className="p-4 space-y-3" data-card>
+					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<h2 className="text-sm font-semibold text-white">{t("settingsClient.categoryTitle")}</h2>
+							<p className="mt-0.5 text-xs text-slate-500">{t("settingsClient.categoryDescription")}</p>
+						</div>
+						<div className="flex gap-2">
+							<button
+								type="button"
+								onClick={expandAll}
+								className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+							>
+								{t("settingsClient.expandAll")}
+							</button>
+							<button
+								type="button"
+								onClick={collapseAll}
+								className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+							>
+								{t("settingsClient.collapseAll")}
+							</button>
+						</div>
 					</div>
-					<div className="flex gap-2">
-						<button
-							type="button"
-							onClick={expandAll}
-							className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
-						>
-							{t("settingsClient.expandAll")}
-						</button>
-						<button
-							type="button"
-							onClick={collapseAll}
-							className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
-						>
-							{t("settingsClient.collapseAll")}
-						</button>
+					<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+						{tocItems.map((item) => (
+							<a
+								key={item.id}
+								href={`#${item.id}`}
+								onClick={() => setOpenSections((prev) => ({ ...prev, [item.id]: true }))}
+								className="group flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.01] px-3 py-2 text-xs transition hover:border-cyan-400/30 hover:bg-cyan-500/[0.05]"
+							>
+								<span className="text-base" aria-hidden>{item.icon}</span>
+								<span className="flex-1 min-w-0">
+									<span className="block font-semibold text-white truncate">{item.title}</span>
+									<span className="block text-[11px] text-slate-500 truncate">{item.subtitle}</span>
+								</span>
+								<span className="text-cyan-300 opacity-0 transition group-hover:opacity-100" aria-hidden>→</span>
+							</a>
+						))}
 					</div>
-				</div>
-				<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-					{tocItems.map((item) => (
-						<a
-							key={item.id}
-							href={`#${item.id}`}
-							onClick={() => setOpenSections((prev) => ({ ...prev, [item.id]: true }))}
-							className="group flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.01] px-3 py-2 text-xs transition hover:border-cyan-400/30 hover:bg-cyan-500/[0.05]"
-						>
-							<span className="text-base" aria-hidden>{item.icon}</span>
-							<span className="flex-1 min-w-0">
-								<span className="block font-semibold text-white truncate">{item.title}</span>
-								<span className="block text-[11px] text-slate-500 truncate">{item.subtitle}</span>
-							</span>
-							<span className="text-cyan-300 opacity-0 transition group-hover:opacity-100" aria-hidden>→</span>
-						</a>
-					))}
-				</div>
-			</nav>
+				</nav>
+			)}
 
 			{schema.map((section) => (
 				<SchemaDrivenSection

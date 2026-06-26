@@ -62,8 +62,7 @@ export const mainNavItems: AppNavItem[] = [
 	{ href: "/playbooks", labelKey: "nav.playbooks", fallbackLabel: "Playbook 自动化", icon: <IconAlert /> },
 	{ href: "/alert-rules", labelKey: "nav.alert-rules", fallbackLabel: "智能告警", icon: <IconAlert /> },
 	{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "通知中心", icon: <IconBell /> },
-	{ href: "/preferences", labelKey: "nav.preferences", fallbackLabel: "偏好设置", icon: <IconSettings /> },
-	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "系统设置", icon: <IconSettings /> },
+	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "设置", icon: <IconSettings /> },
 ];
 
 export const systemNavItems: AppNavItem[] = [

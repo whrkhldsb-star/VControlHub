@@ -39,7 +39,7 @@ const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> 
 	"/scheduled-tasks": { icon: "⏰", keywords: ["定时任务", "计划任务", "cron"] },
 	"/alert-rules": { icon: "🚨", keywords: ["告警", "alert", "规则"] },
 	"/notifications": { icon: "🔔", keywords: ["通知", "消息", "notification"] },
-	"/settings": { icon: "⚙️", keywords: ["系统设置", "账户安全", "会话", "SMTP"] },
+	"/settings": { icon: "⚙️", keywords: ["设置", "偏好设置", "系统设置", "个人偏好", "账户安全", "会话", "SMTP"] },
 	"/users": { icon: "👥", keywords: ["用户", "角色", "权限"] },
 	"/api-tokens": { icon: "🔑", keywords: ["API Token", "令牌", "token"] },
 	"/status": { icon: "📡", keywords: ["公开状态页", "status"] },
@@ -72,6 +72,7 @@ const searchItemDefinitions: SearchItemDefinition[] = [
 	{ labelKey: "nav.ssh", fallbackLabel: "SSH 终端", href: "/servers", icon: "🔑", categoryKey: "search.category.tool", fallbackCategory: "工具", keywords: ["ssh", "终端", "VPS 管理", "服务器管理"] },
 	{ labelKey: "auth.change-password", fallbackLabel: "修改密码", href: "/settings#password", icon: "🔐", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["密码", "password", "账户安全"] },
 	{ labelKey: "auth.two-factor", fallbackLabel: "两步验证", href: "/settings#2fa", icon: "🛡️", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["2FA", "MFA", "双因素", "账户安全"] },
+	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "个人偏好", href: "/settings#personal-preferences", icon: "👤", categoryKey: "search.category.action", fallbackCategory: "操作", keywords: ["偏好设置", "默认页面", "仪表盘组件", "通知", "自动刷新"] },
 ];
 
 function localizeSearchItems(locale: Locale): SearchItem[] {

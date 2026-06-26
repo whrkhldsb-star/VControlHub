@@ -34,7 +34,7 @@ export const zh: Record<string, string> = {
 	"nav.requests": "审批中心",
 	"nav.scheduled-tasks": "定时任务",
 	"nav.servers": "VPS 管理",
-	"nav.settings": "系统设置",
+	"nav.settings": "设置",
 	"nav.share-links": "分享链接",
 	"nav.snippets": "代码片段",
 	"nav.ssh": "SSH 终端",

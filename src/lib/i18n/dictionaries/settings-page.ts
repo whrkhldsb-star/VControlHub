@@ -9,8 +9,12 @@
  */
 export const zh: Record<string, string> = {
 	// ── Legacy keys preserved from earlier rounds (UI strings + risk + restore + diff table + audit metadata) ──
-	"settingsClient.saveSuccess": "设置已保存。",
-	"settingsClient.saveFailed": "保存失败",
+	"settingsPage.unified.categoryDescription": "按个人偏好、账户安全、平台、通知、运行参数、备份与 AI 运维分类查找。",
+	"settingsPage.unified.categoryTitle": "设置分类",
+	"settingsPage.unified.description": "个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。",
+	"settingsPage.unified.eyebrow": "个性化设置",
+	"settingsPage.unified.title": "设置",
+
 	"settingsClient.categoryNav": "设置分类导航",
 	"settingsClient.collapse": "折叠",
 	"settingsClient.expand": "展开",
@@ -255,6 +259,10 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	// ── Legacy keys preserved from earlier rounds ──
+	"settingsPage.unified.categoryDescription": "Find settings by personal preferences, account security, platform, notifications, runtime, backups, and AI Ops.",
+	"settingsPage.unified.categoryTitle": "Settings Categories",
+	"settingsPage.unified.description": "Personal habits, interface behavior, account security, and platform-level parameters are managed from one place.",
+	"settingsPage.unified.title": "Settings",
 	"settingsClient.saveSuccess": "Settings saved.",
 	"settingsClient.saveFailed": "Save failed",
 	"settingsClient.categoryNav": "Settings category navigation",

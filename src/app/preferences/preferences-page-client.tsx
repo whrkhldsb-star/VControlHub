@@ -59,14 +59,89 @@ function widgetLabel(t: (key: string) => string, value: DashboardWidgetId): stri
 }
 
 /** Section card — extracted to module top to avoid re-creation on every render */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+	summaryId,
+	children,
+}: {
+	summaryId: Exclude<PreferencesCategorySummaryId, "personal-preferences">;
+	children: React.ReactNode;
+}) {
+	const { t } = useI18n();
+	const summary = PREFERENCES_CATEGORY_SUMMARIES.find((item) => item.id === summaryId);
+	const title = summary ? t(summary.title) : summaryId;
+	const subtitle = summary ? t(summary.subtitle) : "";
 	return (
-		<div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-5">
-			<h3 className="text-xs font-medium text-[var(--text-secondary)] mb-4">{title}</h3>
-			<div className="space-y-4">{children}</div>
-		</div>
+		<section id={summaryId} className="scroll-mt-24" data-card>
+			<div className="p-5 space-y-4">
+				<div className="flex flex-col gap-1">
+					<div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
+						<span>{t("preferencesPage.group.personal")}</span>
+					</div>
+					<h2 className="text-lg font-semibold text-white flex items-center gap-2 flex-wrap">
+						{summary?.icon && <span aria-hidden>{summary.icon}</span>}
+						<span>{title}</span>
+					</h2>
+					{subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+				</div>
+				<div className="space-y-4">{children}</div>
+			</div>
+		</section>
 	);
 }
+
+type PreferencesCategorySummaryId =
+	| "personal-preferences"
+	| "preferences-default-page"
+	| "preferences-dashboard-widgets"
+	| "preferences-notifications"
+	| "preferences-auto-refresh"
+	| "preferences-auto-probe";
+
+export type PreferencesCategorySummary = {
+	id: PreferencesCategorySummaryId;
+	icon: string;
+	title: string;
+	subtitle: string;
+};
+
+export const PREFERENCES_CATEGORY_SUMMARIES: PreferencesCategorySummary[] = [
+	{
+		id: "personal-preferences",
+		icon: "👤",
+		title: "preferencesPage.category.personal.title",
+		subtitle: "preferencesPage.category.personal.subtitle",
+	},
+	{
+		id: "preferences-default-page",
+		icon: "🏠",
+		title: "preferencesPage.category.defaultPage.title",
+		subtitle: "preferencesPage.category.defaultPage.subtitle",
+	},
+	{
+		id: "preferences-dashboard-widgets",
+		icon: "📊",
+		title: "preferencesPage.category.dashboardWidgets.title",
+		subtitle: "preferencesPage.category.dashboardWidgets.subtitle",
+	},
+	{
+		id: "preferences-notifications",
+		icon: "🔔",
+		title: "preferencesPage.category.notifications.title",
+		subtitle: "preferencesPage.category.notifications.subtitle",
+	},
+	{
+		id: "preferences-auto-refresh",
+		icon: "🔄",
+		title: "preferencesPage.category.autoRefresh.title",
+		subtitle: "preferencesPage.category.autoRefresh.subtitle",
+	},
+	{
+		id: "preferences-auto-probe",
+		icon: "🛰️",
+		title: "preferencesPage.category.autoProbe.title",
+		subtitle: "preferencesPage.category.autoProbe.subtitle",
+	},
+];
 
 /** Toggle switch — extracted to module top to avoid re-creation on every render */
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -101,7 +176,13 @@ function hashLabel(label: string): string {
 	return (h >>> 0).toString(16).padStart(8, "0");
 }
 
-export default function PreferencesPage() {
+export function PreferencesSettingsContent({
+	showHeader = true,
+	wrapInShell = true,
+}: {
+	showHeader?: boolean;
+	wrapInShell?: boolean;
+}) {
 	const { t } = useI18n();
 	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
 	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(() => defaultPrefs);
@@ -195,11 +276,9 @@ export default function PreferencesPage() {
 		save({ ...prefs, dashboardWidgets: next });
 	};
 
-	if (loading) return <PageShell><div className="text-sm text-slate-500">{t("preferencesPage.loading")}</div></PageShell>;
-
-	return (
-		<PageShell>
-			<PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} description={t("preferencesPage.desc")} />
+	const content = (
+		<>
+			{showHeader && <PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} description={t("preferencesPage.desc")} />}
 			{saved && (
 				<div role="status" className="mb-4 text-xs text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-2">{t("preferencesPage.status.saved")}</div>
 			)}
@@ -207,8 +286,8 @@ export default function PreferencesPage() {
 				<div role="alert" className="mb-4 text-xs text-rose-300 bg-rose-500/10 rounded-lg px-4 py-2">{error}</div>
 			)}
 
-			<div className="space-y-4 max-w-2xl">
-				<Section title={t("preferencesPage.section.defaultPage")}>
+			<div id="personal-preferences" className="space-y-4 max-w-2xl scroll-mt-24">
+				<Section summaryId="preferences-default-page">
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-2">
 						{(Object.keys(PAGE_KEYS) as DefaultPageOption[]).map((value) => (
 							<button
@@ -226,7 +305,7 @@ export default function PreferencesPage() {
 					</div>
 				</Section>
 
-				<Section title={t("preferencesPage.section.dashboardWidgets")}>
+				<Section summaryId="preferences-dashboard-widgets">
 					<div className="space-y-2">
 						{(Object.keys(WIDGET_KEYS) as DashboardWidgetId[]).map((value) => (
 							<Toggle
@@ -239,12 +318,12 @@ export default function PreferencesPage() {
 					</div>
 				</Section>
 
-				<Section title={t("preferencesPage.section.notifications")}>
+				<Section summaryId="preferences-notifications">
 					<Toggle label={t("preferencesPage.toggle.notifications")} checked={prefs.notificationsEnabled} onChange={(v) => save({ ...prefs, notificationsEnabled: v })} />
 					<Toggle label={t("preferencesPage.toggle.notificationSound")} checked={prefs.notificationSound} onChange={(v) => save({ ...prefs, notificationSound: v })} />
 				</Section>
 
-				<Section title={t("preferencesPage.section.autoRefresh")}>
+				<Section summaryId="preferences-auto-refresh">
 					<div className="flex flex-wrap gap-2">
 						{REFRESH_INTERVAL_OPTIONS.map((opt) => (
 							<button
@@ -263,7 +342,7 @@ export default function PreferencesPage() {
 					<p className="text-[11px] text-slate-500">{t("preferencesPage.hint.autoRefresh")}</p>
 				</Section>
 
-				<Section title={t("preferencesPage.section.autoProbe")}>
+				<Section summaryId="preferences-auto-probe">
 					<Toggle
 						label={t("preferencesPage.toggle.autoProbe")}
 						checked={prefs.autoProbeEnabled}
@@ -289,7 +368,18 @@ export default function PreferencesPage() {
 						{t("preferencesPage.hint.autoProbe")}
 					</p>
 				</Section>
-				</div>
-				</PageShell>
-				);
+			</div>
+		</>
+	);
+
+	if (loading) {
+		const loadingContent = <div className="text-sm text-slate-500">{t("preferencesPage.loading")}</div>;
+		return wrapInShell ? <PageShell>{loadingContent}</PageShell> : loadingContent;
+	}
+
+	return wrapInShell ? <PageShell>{content}</PageShell> : content;
+}
+
+export default function PreferencesPage() {
+	return <PreferencesSettingsContent />;
 }

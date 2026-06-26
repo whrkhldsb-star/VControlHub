@@ -4,8 +4,8 @@ import { getAllSettings, getSettingUpdateMetadata } from "@/lib/settings/service
 import { getRuntimeSettingSummaries } from "@/lib/runtime-settings/service";
 import { prisma } from "@/lib/db";
 
-import { SettingsClient } from "./settings-client";
-import { PageShell, PageHeader } from "@/components/page-shell";
+import { UnifiedSettingsPageClient } from "./unified-settings-page-client";
+import { PageShell } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -56,12 +56,7 @@ export default async function SettingsPage() {
 
 	return (
 		<PageShell maxW="max-w-7xl">
-				<PageHeader
-					eyebrow="Settings"
-					title="系统设置"
-					description="配置平台名称、安全策略、邮件通知等全局参数"
-				/>
-				<SettingsClient settings={settings} runtimeSettings={runtimeSettings} settingUpdateMetadata={settingUpdateMetadata} canManage={canManage} twoFactorEnabled={twoFactorEnabled} />
+			<UnifiedSettingsPageClient settings={settings} runtimeSettings={runtimeSettings} settingUpdateMetadata={settingUpdateMetadata} canManage={canManage} twoFactorEnabled={twoFactorEnabled} />
 		</PageShell>
 	);
 }

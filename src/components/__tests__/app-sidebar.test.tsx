@@ -29,10 +29,12 @@ vi.mock("../language-toggle", () => ({
 }));
 
 describe("AppSidebar", () => {
-	it("keeps two-factor controls centralized under system settings instead of a separate menu item", () => {
+	it("keeps two-factor controls centralized under the unified settings entry instead of separate menu items", () => {
 		render(<AppSidebar username="admin" />);
 
-		expect(screen.getAllByRole("link", { name: /系统设置/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("link", { name: /^设置$/ }).length).toBeGreaterThan(0);
+		expect(screen.queryByRole("link", { name: /系统设置/ })).not.toBeInTheDocument();
+		expect(screen.queryByRole("link", { name: /偏好设置/ })).not.toBeInTheDocument();
 		expect(screen.queryByRole("link", { name: /两步验证/ })).not.toBeInTheDocument();
 	});
 

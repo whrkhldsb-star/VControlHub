@@ -184,7 +184,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Me
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-sm font-semibold text-emerald-100">{t("mediaPage.upload.title", locale)}</h2>
-              <p className="mt-1 text-xs text-emerald-100/75">{t("mediaPage.upload.desc", locale)}</p>
+              <p className="mt-1 text-xs text-emerald-100/80">{t("mediaPage.upload.desc", locale)}</p>
             </div>
             <Link href="/image-bed" data-tone="emerald" className="inline-flex items-center justify-center rounded-xl border border-emerald-300/30 px-3 py-2 text-xs font-medium text-emerald-100 transition hover:bg-emerald-500/25">
               {t("mediaPage.linkHub.open", locale)}

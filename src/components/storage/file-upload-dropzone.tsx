@@ -8,10 +8,23 @@ import { useI18n } from "@/lib/i18n/use-locale";
 type StorageUploadNode = { id: string; name: string; driver: string };
 
 type UploadMessage = { type: "success" | "error"; text: string } | null;
-type UploadQueueItem = { name: string; status: "pending" | "uploading" | "success" | "error"; message: string };
+type UploadQueueItem = {
+  name: string;
+  status: "pending" | "uploading" | "success" | "error";
+  message: string;
+};
 type BrowserFileWithRelativePath = File & { webkitRelativePath?: string };
 
-type PathResult = { ok: true; path: string } | { ok: false; reason: string };
+type PathValidationError =
+  | "controlChars"
+  | "dangerousChars"
+  | "absolutePath"
+  | "dotSegments"
+  | "segmentTooLong"
+  | "pathTooLong";
+type PathResult =
+  | { ok: true; path: string }
+  | { ok: false; reason: PathValidationError };
 
 const DEFAULT_NODE = "";
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001f\u007f]/;
@@ -25,13 +38,13 @@ function normalizeRelativePath(input: string): PathResult {
     return { ok: true, path: "" };
   }
   if (CONTROL_CHAR_PATTERN.test(value)) {
-    return { ok: false, reason: "路径包含控制字符" };
+    return { ok: false, reason: "controlChars" };
   }
   if (DANGEROUS_CHAR_PATTERN.test(value)) {
-    return { ok: false, reason: "路径包含非法字符" };
+    return { ok: false, reason: "dangerousChars" };
   }
   if (value.startsWith("/") || /^[A-Za-z]:[\\/]/.test(value)) {
-    return { ok: false, reason: "路径必须是相对路径" };
+    return { ok: false, reason: "absolutePath" };
   }
 
   const segments = value
@@ -41,19 +54,18 @@ function normalizeRelativePath(input: string): PathResult {
     .filter(Boolean);
 
   if (segments.some((segment) => segment === "." || segment === "..")) {
-    return { ok: false, reason: "路径不能包含 . 或 .." };
+    return { ok: false, reason: "dotSegments" };
   }
   if (segments.some((segment) => segment.length > MAX_SEGMENT_LENGTH)) {
-    return { ok: false, reason: "路径段过长" };
+    return { ok: false, reason: "segmentTooLong" };
   }
 
   const path = segments.join("/");
   if (path.length > MAX_PATH_LENGTH) {
-    return { ok: false, reason: "路径过长" };
+    return { ok: false, reason: "pathTooLong" };
   }
   return { ok: true, path };
 }
-
 
 function getBrowserRelativePath(file: File) {
   const browserFile = file as BrowserFileWithRelativePath;
@@ -85,13 +97,20 @@ export function FileUploadDropzone({
   submitLabel: string;
   pathLabel: string;
   allowNodeSelection?: boolean;
-  onUploadComplete?: (payload: { relativePath?: string; size?: number }) => void;
+  onUploadComplete?: (payload: {
+    relativePath?: string;
+    size?: number;
+  }) => void;
 }) {
   const router = useRouter();
   const { t: tr } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const directoryInputRef = useRef<HTMLInputElement | null>(null);
-  const [selectedNodeId, setSelectedNodeId] = useState(initialNodeId ?? nodes.find((node) => node.driver === "LOCAL")?.id ?? DEFAULT_NODE);
+  const [selectedNodeId, setSelectedNodeId] = useState(
+    initialNodeId ??
+      nodes.find((node) => node.driver === "LOCAL")?.id ??
+      DEFAULT_NODE,
+  );
   const [relativeDir, setRelativeDir] = useState(initialRelativeDir);
   const effectiveRelativeDir = uploadDir ?? relativeDir;
   const [dragActive, setDragActive] = useState(false);
@@ -99,81 +118,201 @@ export function FileUploadDropzone({
   const [message, setMessage] = useState<UploadMessage>(null);
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
 
-  const selectedNode = useMemo(() => nodes.find((node) => node.id === selectedNodeId) ?? null, [nodes, selectedNodeId]);
-  const uploadEnabled = selectedNode ? ["LOCAL", "SFTP"].includes(selectedNode.driver) : false;
+  const selectedNode = useMemo(
+    () => nodes.find((node) => node.id === selectedNodeId) ?? null,
+    [nodes, selectedNodeId],
+  );
+  const uploadEnabled = selectedNode
+    ? ["LOCAL", "SFTP"].includes(selectedNode.driver)
+    : false;
+  const uploadUnavailableHint = uploadEnabled
+    ? null
+    : selectedNodeId
+      ? tr("fileUploadDropzone.errorUnsupportedNode")
+      : tr("fileUploadDropzone.errorNoNode");
+  const pathErrorMessage = (reason: PathValidationError) =>
+    tr(`fileUploadDropzone.pathError.${reason}`);
+  const formatMessage = (
+    key: string,
+    values: Record<string, string | number>,
+  ) =>
+    Object.entries(values).reduce(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+      tr(key),
+    );
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    const nextNodeId = initialNodeId ?? nodes.find((node) => node.driver === "LOCAL")?.id ?? DEFAULT_NODE;
+    const nextNodeId =
+      initialNodeId ??
+      nodes.find((node) => node.driver === "LOCAL")?.id ??
+      DEFAULT_NODE;
     setSelectedNodeId(nextNodeId);
   }, [initialNodeId, nodes]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   async function uploadFiles(files: File[]) {
     if (!selectedNodeId) {
-      setMessage({ type: "error", text: "请先选择存储节点。" });
+      setMessage({ type: "error", text: tr("fileUploadDropzone.errorNoNode") });
       return;
     }
 
     if (!uploadEnabled) {
-      setMessage({ type: "error", text: "请选择 LOCAL 或 SFTP 存储节点后再上传。" });
+      setMessage({
+        type: "error",
+        text: tr("fileUploadDropzone.errorUnsupportedNode"),
+      });
       return;
     }
 
     const uploadItems = files.filter((file) => file.size >= 0);
     if (uploadItems.length === 0) return;
 
-	const baseDirResult = normalizeRelativePath(effectiveRelativeDir);
-	if (!baseDirResult.ok) { setMessage({ type: "error", text: baseDirResult.reason }); setSubmitting(false); return; }
-	const baseDir = baseDirResult.path;
+    const baseDirResult = normalizeRelativePath(effectiveRelativeDir);
+    if (!baseDirResult.ok) {
+      setMessage({
+        type: "error",
+        text: pathErrorMessage(baseDirResult.reason),
+      });
+      setSubmitting(false);
+      return;
+    }
+    const baseDir = baseDirResult.path;
     setSubmitting(true);
     setMessage(null);
-    setQueue(uploadItems.map((file) => ({ name: getUploadDisplayPath(file), status: "pending", message: "等待上传" })));
+    setQueue(
+      uploadItems.map((file) => ({
+        name: getUploadDisplayPath(file),
+        status: "pending",
+        message: tr("fileUploadDropzone.queue.pending"),
+      })),
+    );
 
     let successCount = 0;
     let failureCount = 0;
 
     for (let index = 0; index < uploadItems.length; index++) {
       const file = uploadItems[index]!;
-      const itemPathResult = normalizeRelativePath(getBrowserRelativePath(file));
+      const itemPathResult = normalizeRelativePath(
+        getBrowserRelativePath(file),
+      );
       if (!itemPathResult.ok) {
         failureCount++;
-        setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "error", message: `失败：${itemPathResult.reason}` } : item)));
+        setQueue((prev) =>
+          prev.map((item, i) =>
+            i === index
+              ? {
+                  ...item,
+                  status: "error",
+                  message: formatMessage("fileUploadDropzone.queue.failed", {
+                    message: pathErrorMessage(itemPathResult.reason),
+                  }),
+                }
+              : item,
+          ),
+        );
         continue;
       }
-      const relativePath = [baseDir, itemPathResult.path].filter(Boolean).join("/");
+      const relativePath = [baseDir, itemPathResult.path]
+        .filter(Boolean)
+        .join("/");
       const formData = new FormData();
       formData.set("storageNodeId", selectedNodeId);
       formData.set("relativePath", relativePath);
       formData.set("file", file!);
 
-      setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "uploading", message: "上传中…" } : item)));
+      setQueue((prev) =>
+        prev.map((item, i) =>
+          i === index
+            ? {
+                ...item,
+                status: "uploading",
+                message: tr("fileUploadDropzone.queue.uploading"),
+              }
+            : item,
+        ),
+      );
 
-	try {
- const data = await csrfFetch("/api/storage/local", {
- method: "POST",
- body: formData,
- }) as { error?: string; relativePath?: string; size?: number };
+      try {
+        const data = (await csrfFetch("/api/storage/local", {
+          method: "POST",
+          body: formData,
+        })) as { error?: string; relativePath?: string; size?: number };
 
- successCount++;
- setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "success", message: `完成：${data.relativePath ?? relativePath}` } : item)));
- onUploadComplete?.({ relativePath: data.relativePath ?? relativePath, size: data.size ?? file!.size });
+        successCount++;
+        setQueue((prev) =>
+          prev.map((item, i) =>
+            i === index
+              ? {
+                  ...item,
+                  status: "success",
+                  message: formatMessage("fileUploadDropzone.queue.completed", {
+                    path: data.relativePath ?? relativePath,
+                  }),
+                }
+              : item,
+          ),
+        );
+        onUploadComplete?.({
+          relativePath: data.relativePath ?? relativePath,
+          size: data.size ?? file!.size,
+        });
       } catch (error) {
         failureCount++;
-        const errorMessage = error instanceof Error ? error.message : "上传失败";
-        setQueue((prev) => prev.map((item, i) => (i === index ? { ...item, status: "error", message: `失败：${errorMessage}` } : item)));
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : tr("fileUploadDropzone.errorUpload");
+        setQueue((prev) =>
+          prev.map((item, i) =>
+            i === index
+              ? {
+                  ...item,
+                  status: "error",
+                  message: formatMessage("fileUploadDropzone.queue.failed", {
+                    message: errorMessage,
+                  }),
+                }
+              : item,
+          ),
+        );
       }
     }
 
     const total = uploadItems.length;
     if (total === 1 && successCount === 1) {
-      setMessage({ type: "success", text: `上传完成：${[baseDir, uploadItems[0]!.name].filter(Boolean).join("/")}（${uploadItems[0]!.size} B）` });
+      setMessage({
+        type: "success",
+        text: formatMessage("fileUploadDropzone.summary.singleSuccess", {
+          path: [baseDir, uploadItems[0]!.name].filter(Boolean).join("/"),
+          size: uploadItems[0]!.size,
+        }),
+      });
     } else if (failureCount === 0) {
-      setMessage({ type: "success", text: `上传完成 ${successCount}/${total} 个文件` });
+      setMessage({
+        type: "success",
+        text: formatMessage("fileUploadDropzone.summary.allSuccess", {
+          success: successCount,
+          total,
+        }),
+      });
     } else if (successCount > 0) {
-      setMessage({ type: "success", text: `上传完成 ${successCount}/${total} 个文件，${failureCount} 个失败` });
+      setMessage({
+        type: "success",
+        text: formatMessage("fileUploadDropzone.summary.partialSuccess", {
+          success: successCount,
+          total,
+          failure: failureCount,
+        }),
+      });
     } else {
-      setMessage({ type: "error", text: `上传失败：${failureCount}/${total} 个文件未上传` });
+      setMessage({
+        type: "error",
+        text: formatMessage("fileUploadDropzone.summary.failed", {
+          failure: failureCount,
+          total,
+        }),
+      });
     }
 
     router.refresh();
@@ -207,7 +346,9 @@ export function FileUploadDropzone({
         </div>
       </div>
 
-      <div className={`mt-5 grid gap-4 ${allowNodeSelection ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "md:grid-cols-1"}`}>
+      <div
+        className={`mt-5 grid gap-4 ${allowNodeSelection ? "md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "md:grid-cols-1"}`}
+      >
         {allowNodeSelection ? (
           <label className="grid gap-2 text-sm text-[var(--text-secondary)]">
             <span>{tr("fileUploadDropzone.uploadToNode")}</span>
@@ -217,7 +358,9 @@ export function FileUploadDropzone({
               onChange={(event) => setSelectedNodeId(event.currentTarget.value)}
               className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white"
             >
-              <option value="">{tr("fileUploadDropzone.selectStorageNode")}</option>
+              <option value="">
+                {tr("fileUploadDropzone.selectStorageNode")}
+              </option>
               {nodes.map((node) => (
                 <option key={node.id} value={node.id}>
                   {node.name} · {node.driver}
@@ -235,12 +378,18 @@ export function FileUploadDropzone({
             readOnly={uploadDir !== undefined || !allowNodeSelection}
             onChange={(event) => setRelativeDir(event.currentTarget.value)}
             className="rounded-2xl border border-[var(--border)] bg-slate-950 px-4 py-3 text-white read-only:cursor-not-allowed read-only:opacity-80"
-            placeholder="docs 或 media/videos"
+            placeholder={tr("fileUploadDropzone.pathPlaceholder")}
           />
         </label>
       </div>
 
-      <input ref={inputRef} type="file" multiple className="hidden" onChange={handleInputChange} />
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleInputChange}
+      />
       <input
         ref={directoryInputRef}
         type="file"
@@ -277,7 +426,11 @@ export function FileUploadDropzone({
       >
         <span className="text-base font-medium">{submitLabel}</span>
         <span className="mt-2 text-sm text-[var(--text-secondary)]">
-          {uploadEnabled ? (submitting ? "上传中，请稍候..." : "可拖拽或选择多个文件上传，文件夹请切换下方模式。") : "请选择 LOCAL 或 SFTP 节点后再上传。"}
+          {uploadEnabled
+            ? submitting
+              ? tr("fileUploadDropzone.dropzone.uploadingHint")
+              : tr("fileUploadDropzone.dropzone.readyHint")
+            : uploadUnavailableHint}
         </span>
       </button>
 
@@ -286,7 +439,8 @@ export function FileUploadDropzone({
           type="button"
           onClick={() => directoryInputRef.current?.click()}
           disabled={!uploadEnabled || submitting}
-          data-tone="cyan" className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+          data-tone="cyan"
+          className="rounded-full border border-cyan-400/30 px-3 py-1.5 text-cyan-100 hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {tr("fileUploadDropzone.selectFolder")}
         </button>
@@ -308,7 +462,10 @@ export function FileUploadDropzone({
       {queue.length > 0 ? (
         <div className="mt-3 space-y-1 rounded-2xl border border-[var(--border)] bg-slate-950/50 p-3 text-xs text-[var(--text-secondary)]">
           {queue.map((item, index) => (
-            <div key={`${item.name}-${index}`} className="flex items-center justify-between gap-3">
+            <div
+              key={`${item.name}-${index}`}
+              className="flex items-center justify-between gap-3"
+            >
               <span className="truncate">
                 {item.name} · {item.message}
               </span>
@@ -323,7 +480,7 @@ export function FileUploadDropzone({
                         : "text-slate-400"
                 }
               >
-                {item.status === "success" ? "完成" : item.status === "error" ? "失败" : item.status === "uploading" ? "上传中" : "等待"}
+                {tr(`fileUploadDropzone.status.${item.status}`)}
               </span>
             </div>
           ))}

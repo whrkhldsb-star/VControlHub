@@ -90,6 +90,17 @@ describe("GlobalSearch", () => {
 		expect(healthItem?.href).toBe("/health");
 	});
 
+	it("routes personal preference discovery to the unified settings page", () => {
+		const hrefs = getSearchItems().map((item) => item.href);
+		const personalPreferenceItem = getSearchItems().find((item) => item.label === "个人偏好");
+
+		expect(hrefs).not.toContain("/preferences");
+		expect(personalPreferenceItem?.href).toBe("/settings#personal-preferences");
+		expect(getSearchItems().find((item) => item.label === "设置")?.keywords).toEqual(
+			expect.arrayContaining(["设置", "偏好设置", "系统设置", "个人偏好"]),
+		);
+	});
+
 	it("does not expose legacy or missing routes in the search catalog", () => {
 		const hrefs = getSearchItems().map((item) => item.href);
 
@@ -129,7 +140,6 @@ describe("GlobalSearch", () => {
 			"/scheduled-tasks",
 			"/alert-rules",
 			"/notifications",
-			"/preferences",
 			"/settings",
 			"/users",
 			"/api-tokens",
@@ -157,6 +167,7 @@ describe("GlobalSearch", () => {
 		expect(pushMock).toHaveBeenCalledWith("/settings#2fa");
 		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "open-2fa-modal" }));
 		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/settings#password");
+		expect(getSearchItems().find((item) => item.label === "个人偏好")?.href).toBe("/settings#personal-preferences");
 		dispatchSpy.mockRestore();
 	});
 

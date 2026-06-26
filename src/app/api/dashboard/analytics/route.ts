@@ -11,6 +11,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { createLogger } from "@/lib/logging";
 
 import { apiError } from "@/lib/http/api-error";
+import { CachePresets, withCacheHeaders } from "@/lib/cache";
 const logger = createLogger("api:dashboard:analytics");
 
 export const dynamic = "force-dynamic";
@@ -161,7 +162,7 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(results);
+    return withCacheHeaders(NextResponse.json(results), CachePresets.shortLived);
   } catch (error) {
     logger.error("[dashboard/analytics]", error);
     return apiError({ code: "INTERNAL_ERROR", message: "获取分析数据失败", status: 500 });

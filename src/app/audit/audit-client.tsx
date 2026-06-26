@@ -123,7 +123,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             data-tone="accent"
             className="rounded-full border px-4 py-2 text-sm transition"
           >
-            搜索
+            {t("audit.search")}
           </button>
           <button
             type="button"
@@ -175,7 +175,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             data-tone="accent"
             className="rounded-full border px-4 py-2 text-sm transition"
           >
-            ↻ 刷新
+            {t("audit.refresh")}
           </button>
           <button
             type="button"
@@ -188,7 +188,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}
             className="rounded-full border border-[var(--border)] bg-white/[0.03] px-4 py-2 text-sm text-[var(--text-secondary)] transition hover:bg-white/10"
           >
-            ⬇ 导出 CSV
+            {t("audit.exportCsv")}
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -297,7 +297,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
           >
-            ← 上一页
+            {t("audit.pagination.prev")}
           </button>
           <span className="text-sm text-slate-400">
             {t("audit.pagination.info")
@@ -311,7 +311,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             onClick={() => setPage((p) => p + 1)}
             className="rounded-full border border-[var(--border)] bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:opacity-30"
           >
-            下一页 →
+            {t("audit.pagination.next")}
           </button>
         </div>
       )}

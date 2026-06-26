@@ -4,7 +4,7 @@ import { mainNavItems } from "../nav-items";
 
 const DISCOVERABLE_FEATURE_ROUTES = [
 	"/monitoring",
-	"/preferences",
+	"/settings",
 	"/cost-summary",
 	"/ai-ops",
 	"/image-bed",
