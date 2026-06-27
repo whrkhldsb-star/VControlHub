@@ -15,7 +15,12 @@ export type NotificationType =
 	| "download_completed"
 	| "download_failed"
 	| "server_alert"
-	| "system";
+	| "system"
+	| "backup_completed"
+	| "backup_failed"
+	| "login_alert"
+	| "cron_failed"
+	| "playbook_failed";
 
 export type CreateNotificationInput = {
 	userId: string;
@@ -174,5 +179,55 @@ export async function notifyServerAlert(userId: string, serverName: string, aler
 		title: `服务器告警：${serverName}`,
 		message: alertMessage,
 		actionUrl: "/servers",
+	});
+}
+
+export async function notifyBackupCompleted(userId: string, backupType: string, size: string) {
+	return createNotification({
+		userId,
+		type: "backup_completed",
+		title: "备份完成",
+		message: `类型 ${backupType} 备份已完成，大小：${size}。`,
+		actionUrl: "/backups",
+	});
+}
+
+export async function notifyBackupFailed(userId: string, backupType: string, error: string) {
+	return createNotification({
+		userId,
+		type: "backup_failed",
+		title: "备份失败",
+		message: `类型 ${backupType} 备份失败：${error}。`,
+		actionUrl: "/backups",
+	});
+}
+
+export async function notifyLoginAlert(userId: string, ip: string, userAgent?: string) {
+	return createNotification({
+		userId,
+		type: "login_alert",
+		title: "异常登录提醒",
+		message: `检测到来自 ${ip} 的新登录${userAgent ? ` (${userAgent})` : ""}，如非本人操作请立即修改密码。`,
+		actionUrl: "/settings#security",
+	});
+}
+
+export async function notifyCronFailed(userId: string, taskName: string, error: string) {
+	return createNotification({
+		userId,
+		type: "cron_failed",
+		title: "定时任务失败",
+		message: `定时任务「${taskName}」执行失败：${error}。`,
+		actionUrl: "/scheduled-tasks",
+	});
+}
+
+export async function notifyPlaybookFailed(userId: string, playbookName: string, stepName: string, error: string) {
+	return createNotification({
+		userId,
+		type: "playbook_failed",
+		title: "Playbook 执行失败",
+		message: `Playbook「${playbookName}」在步骤「${stepName}」失败：${error}。`,
+		actionUrl: `/playbooks/${playbookName}`,
 	});
 }

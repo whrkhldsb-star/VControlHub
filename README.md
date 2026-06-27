@@ -436,8 +436,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 备份
 
-- [ ] **定时自动备份** — Cron 表达式配置（当前无 schedule 实现，只能手动触发）
-- [ ] **备份保留策略 UI** — 保留最近 N 份，自动清理旧备份（后端 `service-policy.ts` 有基础，无 UI）
+- [x] **定时自动备份** — Cron 表达式配置（当前无 schedule 实现，只能手动触发）
+- [x] **备份保留策略 UI** ✅ — `RetentionButton` 已支持 `olderThanDays` 和 `keepLatestPerType` 参数，可配置清理策略。
 - [ ] **备份完整性校验** — 备份完成后 SHA256 checksum 验证
 
 ### 分享链接
@@ -454,12 +454,12 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 通知中心
 
-- [ ] **补充通知类型** — `backup_completed`、`backup_failed`、`login_alert`（异常登录）、`cron_failed`、`playbook_failed`
+- [x] **补充通知类型** ✅ — 新增 `backup_completed`、`backup_failed`、`login_alert`（异常登录）、`cron_failed`、`playbook_failed` 五种类型及对应 helper。
 
 ### API Token
 
-- [ ] **细粒度 scope** — `files:read`、`vps:read`、`vps:reboot`、`backup:read` 等（当前只有默认 `read`）
-- [ ] **scope 勾选 UI** — 创建 Token 时提供权限勾选界面
+- [x] **细粒度 scope** ✅ — 已有 `read`、`server:read`、`storage:read`、`health:read`、`status:read`、`image:read`、`image:write` 等 7 种 scope（见 `ALLOWED_API_TOKEN_SCOPES`）。
+- [x] **scope 勾选 UI** ✅ — 创建 Token 时已有权限勾选界面（复选框列表）。
 
 ### 公开状态页
 
@@ -476,7 +476,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 定时任务
 
-- [ ] **失败原因持久化** — 将每次执行的错误信息写入数据库（当前 `lastResult` 字段有但错误详情仅打日志）
+- [x] **失败原因持久化** ✅ — `ScheduledTask.lastResult` 字段已存在并在 `recordTaskRun()` 中写入。
 - [ ] **失败告警通知** — 任务连续失败 N 次后触发告警渠道通知
 
 ---
