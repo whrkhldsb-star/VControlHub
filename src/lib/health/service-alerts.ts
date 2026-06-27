@@ -96,7 +96,40 @@ export async function evaluateAlerts() {
 
 			if (!triggered) {
 				if (rule.lastMatchedAt) {
-					await prisma.alertRule.update({
+					// Alert condition resolved — notify via the same channels
+					const resolvedTitle = `告警恢复: ${server.serverName} ${rule.metric === "server_offline" ? "已上线" : rule.metric.replace("_", " ")}`;
+					const resolvedMessage = `${rule.name}: ${rule.metric} 已恢复至正常范围（阈值 ${rule.operator} ${rule.threshold}）`;
+
+					if (rule.notifyChannels.includes("in_app")) {
+							const admins = await prisma.user.findMany({
+								where: {
+									roles: {
+										some: {
+											role: {
+												permissions: {
+													some: { permission: { key: "notification:manage" } },
+												},
+											},
+										},
+									},
+								},
+								select: { id: true },
+								take: 100,
+							});
+							await Promise.allSettled(
+								admins.map((admin) =>
+									createNotification({
+										userId: admin.id,
+										type: "alert_resolved",
+										title: resolvedTitle,
+										message: resolvedMessage,
+										actionUrl: "/health",
+									}),
+								),
+							);
+						}
+
+						await prisma.alertRule.update({
 						where: { id: rule.id },
 						data: { lastMatchedAt: null },
 					});

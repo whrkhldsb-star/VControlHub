@@ -150,7 +150,8 @@ describe("evaluateAlerts", () => {
 
 		await evaluateAlerts();
 
-		expect(createNotificationMock).not.toHaveBeenCalled();
+		// Alert resolved — in-app notification should be sent
+		expect(createNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "admin1", type: "alert_resolved" }));
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule1" },
 			data: { lastMatchedAt: null },

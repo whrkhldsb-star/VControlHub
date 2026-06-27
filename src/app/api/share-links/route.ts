@@ -21,6 +21,7 @@ const shareLinkPostSchema = z.object({
   expiresInHours: z.number().positive().optional(),
   expiresIn: z.number().positive().optional(),
   maxDownloads: z.number().int().positive().optional().nullable(),
+  password: z.string().min(1).max(128).optional(),
 }).refine((data) => Boolean(data.fileEntryId || (data.storageNodeId && data.path)), {
   message: "必须从文件管理选择文件，或提供存储节点和路径",
 });
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
             name: data.name,
             expiresInHours: data.expiresInHours ?? data.expiresIn,
             maxDownloads: data.maxDownloads,
+            password: data.password,
           })
         : await createShareLink({
             session,
@@ -80,6 +82,7 @@ export async function POST(request: Request) {
             name: data.name,
             expiresInHours: data.expiresInHours ?? data.expiresIn,
             maxDownloads: data.maxDownloads,
+            password: data.password,
           });
       return NextResponse.json(
         { share: result.share, token: result.token },

@@ -432,7 +432,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **流量历史趋势存储** — `TrafficSnapshot` 表按小时/天聚合，支持 7d/30d 流量曲线（当前无持久化）
 - [ ] **告警指标扩展** — 新增 `network_in`、`network_out`、`load_avg`、`swap_usage`（当前 schema 写死 4 种）
 - [ ] **复合告警条件** — 如 "CPU > 80% 且持续 5 分钟" 才触发
-- [ ] **告警恢复通知** — 指标恢复正常时也发送通知
+- [x] **告警恢复通知** — 指标恢复正常时也发送通知（`alert_resolved` 类型，复用告警规则的通知渠道，L97-130 service-alerts.ts）
 
 ### 备份
 
@@ -442,7 +442,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 分享链接
 
-- [ ] **访问密码保护** — 访问分享链接需输入密码（当前只有过期时间）
+- [x] **访问密码保护** — 访问分享链接需输入密码（`passwordHash` 字段 + `resolveShareToken` 校验 + 落地页密码输入组件）
 
 ### 全局搜索
 
@@ -477,7 +477,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 定时任务
 
 - [x] **失败原因持久化** ✅ — `ScheduledTask.lastResult` 字段已存在并在 `recordTaskRun()` 中写入。
-- [ ] **失败告警通知** — 任务连续失败 N 次后触发告警渠道通知
+- [x] **失败告警通知** — 任务连续失败 2 次后触发告警渠道通知（`task_consecutive_failed` 类型，`recordTaskRun` 检测连续失败后通知创建者）
 
 ---
 

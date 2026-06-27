@@ -15,6 +15,8 @@ export type NotificationType =
 	| "download_completed"
 	| "download_failed"
 	| "server_alert"
+	| "alert_resolved"
+	| "task_consecutive_failed"
 	| "system"
 	| "backup_completed"
 	| "backup_failed"
@@ -229,5 +231,25 @@ export async function notifyPlaybookFailed(userId: string, playbookName: string,
 		title: "Playbook 执行失败",
 		message: `Playbook「${playbookName}」在步骤「${stepName}」失败：${error}。`,
 		actionUrl: `/playbooks/${playbookName}`,
+	});
+}
+
+export async function notifyAlertResolved(userId: string, serverName: string, metric: string, previousThreshold: number) {
+	return createNotification({
+		userId,
+		type: "alert_resolved",
+		title: `告警恢复：${serverName}`,
+		message: `${serverName} 的 ${metric} 指标已恢复正常（此前阈值 ${previousThreshold}）。`,
+		actionUrl: "/health",
+	});
+}
+
+export async function notifyTaskConsecutiveFailed(userId: string, taskName: string, failCount: number, lastError: string) {
+	return createNotification({
+		userId,
+		type: "task_consecutive_failed",
+		title: `任务连续失败：${taskName}`,
+		message: `任务「${taskName}」已连续失败 ${failCount} 次，最近错误：${lastError}。`,
+		actionUrl: "/scheduled-tasks",
 	});
 }

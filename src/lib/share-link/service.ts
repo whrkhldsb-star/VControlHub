@@ -54,6 +54,10 @@ export function normalizeSharePath(path: string) {
   return segments.join("/");
 }
 
+export function hashSharePassword(password: string) {
+  return createHash("sha256").update(`share-pw:${password}`).digest("hex");
+}
+
 export async function createShareLink(input: {
   session: SessionPayload;
   fileEntryId?: string;
@@ -63,6 +67,7 @@ export async function createShareLink(input: {
   name?: string;
   expiresInHours?: number;
   maxDownloads?: number | null;
+  password?: string;
 }) {
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
@@ -79,6 +84,7 @@ export async function createShareLink(input: {
       name: input.name ?? normalizedPath.split("/").filter(Boolean).pop() ?? normalizedPath,
       expiresAt,
       maxDownloads: input.maxDownloads ?? null,
+      passwordHash: input.password ? hashSharePassword(input.password) : null,
       createdBy: input.session.userId,
     },
   });
@@ -91,6 +97,7 @@ export async function createShareLinkFromFileEntry(input: {
   name?: string;
   expiresInHours?: number;
   maxDownloads?: number | null;
+  password?: string;
 }) {
   const entry = await prisma.fileEntry.findUnique({
     where: { id: input.fileEntryId },
@@ -107,6 +114,7 @@ export async function createShareLinkFromFileEntry(input: {
     name: input.name ?? entry.name,
     expiresInHours: input.expiresInHours,
     maxDownloads: input.maxDownloads,
+    password: input.password,
   });
 }
 
@@ -125,11 +133,15 @@ export async function revokeShareLink(id: string) {
   return prisma.shareLink.update({ where: { id }, data: { revokedAt: new Date() } });
 }
 
-export async function resolveShareToken(token: string) {
+export async function resolveShareToken(token: string, password?: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
   if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError("分享链接已达最大下载次数");
+  if (share.passwordHash) {
+    if (!password) throw new ValidationError("该分享链接需要密码访问");
+    if (hashSharePassword(password) !== share.passwordHash) throw new ValidationError("访问密码错误");
+  }
   await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   return share;
 }
@@ -142,7 +154,7 @@ export async function peekShareToken(token: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
-  return share;
+  return { ...share, hasPassword: !!share.passwordHash };
 }
 
 async function syncLocalShareDirectory(share: { storageNodeId: string; storageNode?: { basePath: string }; path: string }) {

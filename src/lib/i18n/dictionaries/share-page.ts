@@ -22,6 +22,7 @@ export const zh: Record<string, string> = {
 	"sharePage.noFiles": "当前目录暂未发现可下载文件。系统已自动尝试刷新目录索引，请稍后重试或联系分享者确认目录内有文件。",
 	"sharePage.download": "下载",
 	"sharePage.downloadFile": "⬇ 下载文件",
+	"sharePage.passwordRequired": "🔒 此分享链接需要密码访问，请在下载时输入密码",
 	"sharePage.brand": "VControlHub",
 };
 
@@ -45,5 +46,6 @@ export const en: Record<string, string> = {
 	"sharePage.noFiles": "No downloadable files in this directory. The system has tried to refresh the index; please retry later or confirm with the sharer.",
 	"sharePage.download": "Download",
 	"sharePage.downloadFile": "⬇ Download file",
+	"sharePage.passwordRequired": "🔒 This share requires a password to access. Enter the password when downloading.",
 	"sharePage.brand": "VControlHub",
 };

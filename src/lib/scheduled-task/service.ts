@@ -2,6 +2,7 @@ import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { BusinessError, NotFoundError } from "@/lib/errors";
+import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 
 /* ── Types ────────────────────────────────────────────────── */
 
@@ -132,8 +133,19 @@ export async function retryScheduledTask(id: string) {
 }
 
 export async function recordTaskRun(id: string, result: string) {
-	const task = await prisma.scheduledTask.findUnique({ where: { id }, select: { cronExpression: true, runCount: true } });
+	const task = await prisma.scheduledTask.findUnique({ where: { id }, select: { name: true, cronExpression: true, runCount: true, createdById: true, lastResult: true } });
 	if (!task) return;
+
+	// Detect consecutive failures and notify the creator
+	const isFailure = result.startsWith("执行失败") || result.startsWith("手动重试失败");
+	if (isFailure && task.createdById) {
+		const prevWasFailure = task.lastResult?.startsWith("执行失败") || task.lastResult?.startsWith("手动重试失败");
+		if (prevWasFailure) {
+			// At least 2 consecutive failures (current + previous) — fire alert
+			notifyTaskConsecutiveFailed(task.createdById, task.name, 2, result.slice(0, 200)).catch(() => {});
+		}
+	}
+
 	return prisma.scheduledTask.update({
 		where: { id },
 		data: {

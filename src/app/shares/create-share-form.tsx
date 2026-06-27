@@ -19,6 +19,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
   const [entryType, setEntryType] = useState<"FILE" | "DIRECTORY">("DIRECTORY");
   const [name, setName] = useState("");
   const [expiresIn, setExpiresIn] = useState("");
+  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<{ token: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -47,6 +48,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       const body: Record<string, unknown> = { storageNodeId: nodeId, path, entryType };
       if (name.trim()) body.name = name.trim();
       if (expiresIn) body.expiresInHours = Number(expiresIn);
+      if (password.trim()) body.password = password.trim();
       const data = await csrfFetch<{ token: string }>("/api/share-links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -56,6 +58,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
       setPath("");
       setName("");
       setExpiresIn("");
+      setPassword("");
       router.refresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("sharesPage.create.errorFallback"));
@@ -108,6 +111,10 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             <div>
               <label htmlFor="share-expires-in" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.expires")}</label>
               <input id="share-expires-in" type="number" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
+            </div>
+            <div>
+              <label htmlFor="share-password" className="block text-xs text-[var(--text-secondary)] mb-1">{t("sharesPage.create.password")}</label>
+              <input id="share-password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className="w-full rounded-lg border px-3 py-2 text-sm outline-none" />
             </div>
           </div>
 

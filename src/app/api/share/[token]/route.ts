@@ -89,7 +89,11 @@ export async function GET(
 
 	let share: Awaited<ReturnType<typeof resolveShareToken>>;
 	try {
-		share = await resolveShareToken(token);
+		const { password } = parseSearchParams(
+			request,
+			z.object({ password: z.string().min(1).max(128).optional() }),
+		);
+		share = await resolveShareToken(token, password);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : t("apiShareToken.invalidToken", locale);
 		return apiError({ code: "NOT_FOUND", message: message, status: 404 });

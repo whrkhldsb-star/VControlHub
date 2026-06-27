@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listShareDirectoryFiles, peekShareToken } from "@/lib/share-link/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { SharePasswordGate } from "./share-password-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,15 @@ export default async function SharePage({
           </div>
         ) : share ? (
           <div className="space-y-5">
+            {share.hasPassword && (
+              <SharePasswordGate
+                token={token}
+                label={t("sharePage.passwordRequired", locale)}
+                placeholder="••••••"
+                submitLabel={t("sharePage.downloadFile", locale)}
+              />
+            )}
+
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
               <p className="break-all text-base font-medium text-white">
                 {share.name || share.path}
@@ -88,19 +98,30 @@ export default async function SharePage({
               </dl>
             </div>
 
-            {share.entryType === "DIRECTORY" ? (
+            {!share.hasPassword && share.entryType !== "DIRECTORY" && (
+              <a
+                href={`/api/share/${encodeURIComponent(token)}`}
+                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-cyan-500"
+              >
+                {t("sharePage.downloadFile", locale)}
+              </a>
+            )}
+
+            {share.entryType === "DIRECTORY" && (
               <div data-card className=" p-4">
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-white">{t("sharePage.downloadable", locale)}</h2>
                     <span className="text-xs text-slate-500">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
-                  <a
-                    href={`/api/share/${encodeURIComponent(token)}?archive=1`}
-                    className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/10"
-                  >
-                    {t("sharePage.downloadDirectory", locale)}
-                  </a>
+                  {!share.hasPassword && (
+                    <a
+                      href={`/api/share/${encodeURIComponent(token)}?archive=1`}
+                      className="shrink-0 rounded-lg border border-cyan-400/40 px-3 py-1.5 text-center text-xs font-medium text-cyan-100 transition hover:bg-cyan-500/10"
+                    >
+                      {t("sharePage.downloadDirectory", locale)}
+                    </a>
+                  )}
                 </div>
                 {files.length === 0 ? (
                   <div data-tone="amber" className="rounded-lg border border-amber-400/20 px-4 py-3 text-center text-xs text-amber-200">
@@ -114,24 +135,19 @@ export default async function SharePage({
                           <div className="truncate text-sm font-medium text-white">{file.name}</div>
                           <div className="truncate text-xs text-slate-500" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
                         </div>
-                        <a
-                          href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
-                          className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
-                        >
-                          {t("sharePage.download", locale)}
-                        </a>
+                        {!share.hasPassword && (
+                          <a
+                            href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`}
+                            className="shrink-0 rounded-lg bg-cyan-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-cyan-500"
+                          >
+                            {t("sharePage.download", locale)}
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-            ) : (
-              <a
-                href={`/api/share/${encodeURIComponent(token)}`}
-                className="block rounded-lg bg-cyan-600 px-4 py-3 text-center text-sm font-medium text-white transition hover:bg-cyan-500"
-              >
-                {t("sharePage.downloadFile", locale)}
-              </a>
             )}
           </div>
         ) : null}
