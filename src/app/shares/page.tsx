@@ -8,7 +8,7 @@ import { CreateShareForm } from "./create-share-form";
 import { ShareFilePicker } from "./share-file-picker";
 import { ShareRowActions } from "./share-row-actions";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function SharesPage() {
 	const session = await requireSession("/shares");

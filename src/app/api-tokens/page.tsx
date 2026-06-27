@@ -5,7 +5,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { ApiTokenManagerClient } from "./api-token-manager-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function Page() {
 	const locale = await getServerLocale();

@@ -6,7 +6,7 @@ import { CreateAnnouncementForm } from "./create-announcement-form";
 import { AnnouncementList } from "./announcement-list-client";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function AnnouncementsPage() {
 	const session = await requireSession("/announcements");

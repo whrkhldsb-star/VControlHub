@@ -4,7 +4,7 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { SnippetList } from "./snippet-list-client";
 import { t } from "@/lib/i18n/translations";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function Page() {
 	const session = await requirePagePermission("snippet:manage");
