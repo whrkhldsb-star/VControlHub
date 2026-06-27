@@ -393,23 +393,15 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - [ ] **后台任务业务迁移与并发控制**（TR-001）— 命令/部署/下载/定时任务补 durable worker，全局/按节点并发上限，可观测日志流。
 - [ ] **Direct Gateway 传输边界**（TR-002）— TLS 反代 / VPN / 防火墙默认部署或更细可达性探测。
-- [x] **审批中心支持批量审批** ✅ — 见上 commit 56cb540+。
 
 ### P2 — 用户体验和可运营性
 
-- [x] **`/traffic` 流量页补图表** ✅ — 见上 commit 6fc932f+。
-- [x] **`/monitoring` 改为 SSE 实时推送** ✅ — 新增 `/api/monitoring/stream` + `EventSource` 客户端，断连自动回退 HTTP polling。
-- [x] **按钮色彩体系统一** ✅ — `--color-action` token + `<ActionButton>` 组件已落地（commit 56cb540），新代码统一入口。
-- [x] **4 个核心页面"补 PageHeader"已澄清为假阳性** ✅ — `/ai`/`/storage`/`/media`/`/image-bed` 各有自定义 hero（聊天 UI / redirect / eyebrow+title+desc 三元素），不需补 PageHeader 组件名。
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
 - [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
 
 ### P3 — 长期愿景
 
 - [ ] **自动化工作流**（TR-023）— 条件触发、告警联动、步骤编排。
-- [x] **AI 客户端响应式布局** ✅ — sub-component 早已响应式，主体 3 处真痛点已修（commit 56cb540）。
-- [x] **PageHeader description 全覆盖** ✅ — 实扫 `<PageHeader>` 且缺 `description=` 为 0；此前“约 13 处”属 stale/误报，已在审计澄清节标 [x]。
-- [x] **硬编码颜色已审计** ✅ — 10 种十六进制色全部为 xterm/PWA manifest/SVG 占位/sparkline/gradient 等不可 token 化场景，保留即可。
 - [ ] **多租户 / 团队空间**（TR-030）。
 - [ ] **成本追踪完善**（TR-031）— `/cost-summary` 页面已落地，待接入自动采集数据源。
 - [ ] **智能运维 AI 完善**（TR-032）— `/ai-ops` 页面已落地，待丰富推荐执行逻辑。
@@ -451,7 +443,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 分享链接
 
 - [ ] **访问密码保护** — 访问分享链接需输入密码（当前只有过期时间）
-- [x] **最大下载次数限制已实现** ✅ — `ShareLink.maxDownloads` 字段已加入 schema，`resolveShareToken()` 在递增 `accessCount` 前检查上限，超出抛出 `ValidationError`。API route / i18n 已同步。
 
 ### 全局搜索
 
@@ -464,10 +455,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 通知中心
 
 - [ ] **补充通知类型** — `backup_completed`、`backup_failed`、`login_alert`（异常登录）、`cron_failed`、`playbook_failed`
-
-### 审计日志
-
-- [x] **导出 CSV / JSON** — `src/app/api/audit/export/route.ts` 支持 `?format=csv|json` + 按 action/severity/search 过滤导出（上限 50 000 条）；audit 页面新增「⬇ 导出 CSV」按钮，携带当前筛选条件调用 API。
 
 ### API Token
 
@@ -490,7 +477,6 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 定时任务
 
 - [ ] **失败原因持久化** — 将每次执行的错误信息写入数据库（当前 `lastResult` 字段有但错误详情仅打日志）
-- [x] **可配置重试次数** ✅ — `JOB_DEFAULT_MAX_ATTEMPTS` 环境变量可覆盖默认值 3，`sanitizeAttempts` 从 `config.job.defaultMaxAttempts` 读取。
 - [ ] **失败告警通知** — 任务连续失败 N 次后触发告警渠道通知
 
 ---
