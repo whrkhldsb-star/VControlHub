@@ -23,6 +23,10 @@ export type ServerHealth = {
 	cpu?: number;
 	mem?: number;
 	diskMax?: number;
+	loadAvg1m?: number;
+	networkInKbps?: number;
+	networkOutKbps?: number;
+	swapUsagePercent?: number;
 	uptime?: string;
 	/** RTT of the lightweight TCP probe that ran before the SSH pull.
 	 *  Present whenever the probe succeeded (status !== "offline" due to

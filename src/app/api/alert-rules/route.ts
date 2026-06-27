@@ -24,6 +24,10 @@ const metrics = [
   "mem_usage",
   "disk_usage",
   "server_offline",
+  "network_in",
+  "network_out",
+  "load_avg",
+  "swap_usage",
 ] as const;
 const operators = ["gt", "gte", "lt", "lte", "eq"] as const;
 const channels = ["in_app", "email", "webhook"] as const;
@@ -36,7 +40,7 @@ const alertRuleSchemaBase = z.object({
   name: z.string().trim().min(1, "规则名称不能为空").max(100, "规则名称过长"),
   metric: z.enum(metrics),
   operator: z.enum(operators),
-  threshold: z.coerce.number().finite().min(0).max(100),
+  threshold: z.coerce.number().finite().min(0).max(100000),
   durationSeconds: z.coerce.number().int().min(0).max(86_400).optional(),
   serverIds: z.array(z.string().trim().min(1)).default([]),
   notifyChannels: z.array(z.enum(channels)).default(["in_app"]),

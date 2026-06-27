@@ -74,6 +74,8 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 			const metrics = result as ServerMetrics;
 			const health = evaluateHealth(metrics);
 			const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
+			const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
+			const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
 			return {
 				serverId: server.id,
 				serverName: server.name,
@@ -83,6 +85,10 @@ export async function collectAllHealth(): Promise<HealthOverview> {
 				cpu: metrics.cpu.usagePercent,
 				mem: metrics.memory.usagePercent,
 				diskMax,
+				loadAvg1m: metrics.cpu.loadAvg[0],
+				networkInKbps: Math.round(totalNetRx / 1024),
+				networkOutKbps: Math.round(totalNetTx / 1024),
+				swapUsagePercent: undefined, // populated below if swap data available
 				uptime: metrics.uptime,
 				lastCheck: metrics.timestamp,
 				latencyMs: probe.latencyMs,

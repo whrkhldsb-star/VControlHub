@@ -39,9 +39,10 @@ import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
 
 function cpuMetrics(cpu: number) {
 	return {
-		cpu: { usagePercent: cpu },
+		cpu: { usagePercent: cpu, cores: 4, loadAvg: [1.0, 0.8, 0.6] as [number, number, number] },
 		memory: { usagePercent: 30 },
 		disk: [{ usagePercent: 40 }],
+		network: [{ iface: "eth0", rxBytes: 1024000, txBytes: 512000 }],
 		uptime: "1h",
 		timestamp: new Date().toISOString(),
 	};

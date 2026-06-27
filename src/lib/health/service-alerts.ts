@@ -71,6 +71,18 @@ export async function evaluateAlerts() {
 				case "server_offline":
 					value = server.status === "offline" ? 1 : 0;
 					break;
+				case "network_in":
+					value = server.networkInKbps;
+					break;
+				case "network_out":
+					value = server.networkOutKbps;
+					break;
+				case "load_avg":
+					value = server.loadAvg1m;
+					break;
+				case "swap_usage":
+					value = server.swapUsagePercent;
+					break;
 			}
 
 			if (value === undefined) continue;

@@ -373,6 +373,10 @@ function CreateRuleForm({ servers, onClose }: { servers: ServerOption[]; onClose
 							<option value="mem_usage">{t("alertRulesPage.createForm.metric.mem_usage")}</option>
 							<option value="disk_usage">{t("alertRulesPage.createForm.metric.disk_usage")}</option>
 							<option value="server_offline">{t("alertRulesPage.createForm.metric.server_offline")}</option>
+							<option value="network_in">{t("alertRulesPage.createForm.metric.network_in")}</option>
+							<option value="network_out">{t("alertRulesPage.createForm.metric.network_out")}</option>
+							<option value="load_avg">{t("alertRulesPage.createForm.metric.load_avg")}</option>
+							<option value="swap_usage">{t("alertRulesPage.createForm.metric.swap_usage")}</option>
 					</select>
 				</div>
 				{metric !== "server_offline" && <div className="space-y-1.5">
