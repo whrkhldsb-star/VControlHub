@@ -259,6 +259,10 @@ export async function scanMediaFromFileEntries(userId?: string) {
     : { count: 0 };
 
   let upserted = 0;
+  // N+1 acceptable: Prisma has no batch upsert; each entry needs a per-row
+  // create-or-update with a different `where: { fileEntryId }` and computed
+  // fields (mediaType, indexedMimeType). The loop cannot be collapsed into
+  // updateMany because the "create" path must run when no row exists yet.
   for (const entry of entries) {
     const mediaType = classifyMedia(
       entry.mimeType,

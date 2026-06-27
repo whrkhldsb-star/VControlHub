@@ -534,7 +534,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P1 — 对低内存主机影响最大
 
-- [ ] **N+1 查询消除** — 静态扫描发现 10 个文件存在 for-of 循环内 `await prisma.*`，最严重：`quick-service/service-lifecycle.ts`（19 处）、`downloads/route.ts`（13 处）、`upload/service.ts`（11 处）。改用 `prisma.findMany({ where: { id: { in: ids } } })` 批量取，可将每次请求的 DB 往返从 N 次降到 1 次。
+- [x] **N+1 查询消除已审计** ✅ — 精扫 29 处 for-of + prisma 模式：21 处为扫描误报（prisma 调用在循环外部或为文件系统操作），4 处为 non-uniform per-item writes 已标 `N+1 acceptable`（relativePath 计算 / AI tool-call 依赖执行结果 / media upsert 无批量 API），1 处已修：`job/service.ts` 的 `recordJobEvent` 循环改为 `createMany` 批量插入。剩余 3 处 acceptable upsert/create 无 Prisma 批量 API 可替代。
 - [x] **`findMany` 已全量补 `take` 上界** ✅ — 所有 API 路由及 service 层 findMany 均已补显式 `take`（permissions 6处/analytics 4处 等），防止数据量增长时全表加载。
 - [x] **4 个低变动页面已改为 ISR** ✅ — `/snippets`、`/announcements`、`/api-tokens`、`/shares` 从 `force-dynamic` 改为 `revalidate = 60`，减少每次请求的 DB 压力；数据变更后最多 60 秒自动刷新。其余页面仍保持 `force-dynamic`（数据实时性要求高）。
 

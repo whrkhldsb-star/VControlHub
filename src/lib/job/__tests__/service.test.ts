@@ -15,6 +15,7 @@ const { mockPrisma, configState } = vi.hoisted(() => ({
     },
     jobEvent: {
       create: vi.fn(async () => ({ id: "event-1" })),
+      createMany: vi.fn(async () => ({ count: 1 })),
       findMany: vi.fn(async () => []),
       deleteMany: vi.fn(async () => ({ count: 0 })),
     },

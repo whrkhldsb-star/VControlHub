@@ -325,13 +325,15 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
   });
 
   // Surface one "recovered" event per recovered job so the timeline shows
-  // the moment the worker regained ownership.
-  for (const job of staleJobs) {
-    void recordJobEvent({
+  // the moment the worker regained ownership. Batch-insert instead of
+  // sequential create to avoid N round-trips.
+  const message = "后台执行器心跳过期，已重新入队";
+  await prisma.jobEvent.createMany({
+    data: staleJobs.map((job) => ({
       jobId: job.id,
       type: "recovered",
-      message: "后台执行器心跳过期，已重新入队",
       level: "warn",
+      message,
       workerId: null,
       payload: {
         type: job.type,
@@ -339,8 +341,10 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
         attempts: job.attempts,
         maxAttempts: job.maxAttempts,
       },
-    });
-  }
+    })),
+  }).catch(() => {
+    // Recording must never break the caller's flow (mirrors recordJobEvent's catch).
+  });
 
   return { count: result.count, recovered: staleJobs.map((j) => j.id) };
 }

@@ -180,11 +180,10 @@ export async function PATCH(request: Request) {
           where: { key: { in: roleKeys } },
           take: roleKeys.length,
         });
-        for (const role of roles) {
-          await prisma.userRole.create({
-            data: { userId, roleId: role.id },
-          });
-        }
+        await prisma.userRole.createMany({
+          data: roles.map((role) => ({ userId, roleId: role.id })),
+          skipDuplicates: true,
+        });
         auditUserAction(session!.userId, "user.role_update", {
           targetUsername: targetUser.username,
           roles: roleKeys,

@@ -606,6 +606,7 @@ export async function renameFileEntryAction(
         take: 10_000,
       });
 
+      // N+1 acceptable: non-uniform per-item writes (each row gets a computed relativePath)
       for (const child of children) {
         await prisma.fileEntry.update({
           where: { id: child.id },

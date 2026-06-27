@@ -93,13 +93,21 @@ export async function POST(request: Request) {
             select: { id: true, isPublic: true },
             take: 100,
           });
-          const updates = images.map((img) =>
-            prisma.imageUpload.update({
-              where: { id: img.id },
-              data: { isPublic: !img.isPublic },
-            }),
-          );
-          await Promise.all(updates);
+          // Batch into two updateMany calls instead of N individual updates
+          const toPublic = images.filter((img) => !img.isPublic).map((img) => img.id);
+          const toPrivate = images.filter((img) => img.isPublic).map((img) => img.id);
+          if (toPublic.length > 0) {
+            await prisma.imageUpload.updateMany({
+              where: { id: { in: toPublic } },
+              data: { isPublic: true },
+            });
+          }
+          if (toPrivate.length > 0) {
+            await prisma.imageUpload.updateMany({
+              where: { id: { in: toPrivate } },
+              data: { isPublic: false },
+            });
+          }
           return NextResponse.json({ updated: images.length });
         }
 

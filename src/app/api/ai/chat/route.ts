@@ -449,6 +449,7 @@ export async function POST(request: Request) {
                 }
 
                 // 执行每个 tool_call
+                // N+1 acceptable: non-uniform per-item writes (action creation, execution, and status update depend on per-item results)
                 for (const tc of toolCalls) {
                   const parsed_tc = parseToolCall(tc);
                   if (!parsed_tc) continue;
