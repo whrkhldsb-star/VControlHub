@@ -547,8 +547,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P3 — 包体积 / 启动优化
 
-- [ ] **lucide-react 40MB 按需验证** — 项目自定义了内联 SVG 图标系统（`nav-items.tsx`），但 `lucide-react` 仍在依赖中占 40MB。确认实际 import 来源，若仅 1-2 处使用可替换为内联 SVG 并移除包。
-- [ ] **Prisma 未配置 `connection_limit`** — 低内存主机（512MB）上 PostgreSQL 默认 100 连接 × Prisma pool 可能耗尽内存。建议在 `DATABASE_URL` 加 `?connection_limit=5&pool_timeout=15`（已有 `pool_max` 动态配置逻辑，只需调低默认值）。
+- [x] **`lucide-react` 40MB 已移除** ✅ — 项目仅 5 处 import（snippets/shares/announcements/media×2），全部替换为 `src/components/icons.tsx` 内联 SVG 图标组件（21 图标，与 lucide API 一致的 `size`/`className`/`fill` props）；`npm remove lucide-react` 后 node_modules 减少 ~40MB；`next.config.ts` 已清理 `optimizePackageImports` 条目。
+- [x] **Prisma `connection_limit` 已配置** ✅ — `src/lib/db.ts` 在 `getPrismaAdapter()` 中新增 `connection_limit` 参数注入（与 `pool_max` 同级逻辑），默认值 10（`DB_CONNECTION_LIMIT` 环境变量可覆盖）；`config.db.connectionLimit` getter + 2 个单元测试已补齐。低内存主机设 `DB_CONNECTION_LIMIT=5` 即可防止连接耗尽。
 - [x] **缩略图路由已延迟加载 `sharp`** — `/api/media/[id]/thumbnail` 移除模块顶层 `import sharp`，仅在真正生成图片缩略图时 `await import("sharp")`，避免非缩略图请求/冷启动阶段提前加载 33MB native 包。
 
 ---

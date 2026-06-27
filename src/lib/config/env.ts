@@ -81,6 +81,8 @@ export const config = {
 		get url(): string { return readString("DATABASE_URL"); },
 		get poolSize(): number { return readInt("DB_POOL_SIZE", 10); },
 		get poolIdleTimeoutMs(): number { return readInt("DB_POOL_IDLE_TIMEOUT_MS", 30_000); },
+		/** Prisma engine-level connection limit (distinct from pg-adapter pool_max). */
+		get connectionLimit(): number { return readInt("DB_CONNECTION_LIMIT", 10); },
 	},
 
 	/** Redis (optional — tests / dev may not have it). */

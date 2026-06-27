@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, FolderOpen, Star, Tag } from "lucide-react";
+import { Download, FolderOpen, Star, Tag } from "@/components/icons";
 
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";

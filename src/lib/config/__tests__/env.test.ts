@@ -68,6 +68,14 @@ describe("lib/config/env", () => {
 			process.env.DB_POOL_SIZE = "abc";
 			expect(() => config.db.poolSize).toThrow(/Invalid integer/);
 		});
+		it("db.connectionLimit defaults to 10", () => {
+			delete process.env.DB_CONNECTION_LIMIT;
+			expect(config.db.connectionLimit).toBe(10);
+		});
+		it("db.connectionLimit reads env override", () => {
+			process.env.DB_CONNECTION_LIMIT = "5";
+			expect(config.db.connectionLimit).toBe(5);
+		});
 	});
 
 	describe("readBool", () => {

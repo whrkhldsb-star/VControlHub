@@ -5,7 +5,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { AnnouncementEditModal } from "./announcement-edit-modal";
-import { Pencil, Trash2, Search } from "lucide-react";
+import { Pencil, Trash2, Search } from "@/components/icons";
 
 interface Announcement {
   id: string;

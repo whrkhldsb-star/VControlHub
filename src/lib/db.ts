@@ -31,6 +31,12 @@ function getPrismaAdapter() {
 		if (!url.searchParams.has("pool_idle_timeout")) {
 			url.searchParams.set("pool_idle_timeout", String(config.db.poolIdleTimeoutMs));
 		}
+		// Prisma engine-level connection limit — critical for low-memory hosts (512MB).
+		// Default PostgreSQL allows 100 connections; without this cap Prisma may open
+		// up to pool_max per client × N workers, exhausting Pg's connection slots.
+		if (!url.searchParams.has("connection_limit")) {
+			url.searchParams.set("connection_limit", String(config.db.connectionLimit));
+		}
 		global.__appPrismaAdapter__ = new PrismaPg(url.toString());
 	}
 

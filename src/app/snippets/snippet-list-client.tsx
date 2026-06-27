@@ -6,7 +6,7 @@ import { useToast } from "@/components/toast-provider";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
-import { Pencil, Trash2, Copy, Check, Search, Plus } from "lucide-react";
+import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
 
 interface Snippet {
   id: string;

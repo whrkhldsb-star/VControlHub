@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Download, Eye, FolderOpen, ImageIcon, Link as LinkIcon, Music2, Star, Tag, Video } from "lucide-react";
+import { Download, Eye, FolderOpen, ImageIcon, LinkIcon, Music2, Star, Tag, Video } from "@/components/icons";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import {

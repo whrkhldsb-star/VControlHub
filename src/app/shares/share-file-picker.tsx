@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Copy, File, Folder, Loader2, RefreshCw, Share2 } from "lucide-react";
+import { ChevronRight, Copy, File, Folder, Loader2, RefreshCw, Share2 } from "@/components/icons";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState } from "@/components/page-shell";
