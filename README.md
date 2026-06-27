@@ -431,7 +431,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [ ] **VPS 监控历史图表** — CPU/内存/磁盘/网络历史趋势持久化，可查 24h/7d（当前内存 Map，重启丢失）
 - [ ] **流量历史趋势存储** — `TrafficSnapshot` 表按小时/天聚合，支持 7d/30d 流量曲线（当前无持久化）
 - [x] **告警指标扩展** — 新增 `network_in`、`network_out`、`load_avg`、`swap_usage`（API route zod enum + evaluateAlerts switch + 前端选项 + i18n 中英文）
-- [ ] **复合告警条件** — 如 "CPU > 80% 且持续 5 分钟" 才触发
+- [x] **复合告警条件** — `durationSeconds` 字段已实现持续时长判定（如 "CPU > 80% 且持续 5 分钟"才触发，评估器先记录 lastMatchedAt，未满 duration 则 continue）
 - [x] **告警恢复通知** — 指标恢复正常时也发送通知（`alert_resolved` 类型，复用告警规则的通知渠道，L97-130 service-alerts.ts）
 
 ### 备份
@@ -541,7 +541,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ## 🔐 安全加固方向（代码审查 2026-06-24）
 
 - [x] **CI 覆盖率报告与基础门禁已接入** — CI 已接入 `npm run test:coverage`（`@vitest/coverage-v8` + `coverage/` artifact），Vitest 配置当前基线约 lines 74.88% / statements 72.20% / functions 71.42% / branches 59.93%，并设置基础阈值 lines/statements/functions 70%、branches 55%；后续可随测试补齐逐步收紧。
-- [ ] **无 APM / 错误监控** — 全项目无 Sentry / Datadog / OpenTelemetry，生产报错只能靠 `journalctl` 事后查。建议接入 Sentry（免费额度够用）或 OpenTelemetry 自托管，实现主动报错感知。
+- [x] **APM / 错误监控** — Sentry 接入完成：`@sentry/nextjs` 安装，服务端 `instrumentation.ts` 初始化 + 客户端 `SentryProvider` 懒加载，`SENTRY_DSN` 未设即静默不启用，环境变量 `SENTRY_DSN` / `SENTRY_TRACES_SAMPLE_RATE` / `SENTRY_RELEASE` 可配
 
 ### ⚠️ 误报订正（**审计订正**）
 
