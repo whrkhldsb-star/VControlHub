@@ -17,7 +17,11 @@ export type HostedActionType =
   | "execute_command"
   | "restart_service"
   | "modify_config"
-  | "deploy_docker";
+  | "deploy_docker"
+  | "list_backups"
+  | "run_playbook"
+  | "query_traffic"
+  | "manage_cron";
 
 export interface HostedTool {
   name: string;
@@ -191,6 +195,71 @@ export const HOSTED_TOOLS: HostedTool[] = [
     autoApproved: false,
     actionType: "deploy_docker",
     actionName: "部署Docker容器",
+  },
+  // === 跨模块安全查询（自动批准） ===
+  {
+    name: "list_backups",
+    description: "列出系统中的备份记录，包括数据库备份、文件备份和全量备份的类型、状态和创建时间。",
+    parameters: {
+      type: "object",
+      properties: {
+        type: { type: "string", description: "可选：按类型过滤 DATABASE/FILES/FULL" },
+        status: { type: "string", description: "可选：按状态过滤 COMPLETED/FAILED/PENDING" },
+      },
+      required: [],
+    },
+    riskLevel: "low",
+    autoApproved: true,
+    actionType: "list_backups",
+    actionName: "列出备份记录",
+  },
+  {
+    name: "run_playbook",
+    description: "执行已保存的运维 Playbook（预定义命令序列）。需要用户确认要执行的 playbook ID。可传 playbookId 或 playbookName 在后端查找。",
+    parameters: {
+      type: "object",
+      properties: {
+        playbookId: { type: "string", description: "Playbook ID" },
+        playbookName: { type: "string", description: "可选：按名称查找 Playbook" },
+        serverId: { type: "string", description: "可选：指定执行的目标服务器 ID" },
+      },
+      required: [],
+    },
+    riskLevel: "medium",
+    autoApproved: false,
+    actionType: "run_playbook",
+    actionName: "执行Playbook",
+  },
+  {
+    name: "query_traffic",
+    description: "查询系统流量概览，包括总入站/出站流量和近期趋势数据。不针对特定服务器，返回全局摘要。",
+    parameters: {
+      type: "object",
+      properties: {
+        period: { type: "string", description: "查询周期：today/7d/30d，默认 today" },
+      },
+      required: [],
+    },
+    riskLevel: "low",
+    autoApproved: true,
+    actionType: "query_traffic",
+    actionName: "查询流量数据",
+  },
+  {
+    name: "manage_cron",
+    description: "管理定时任务。支持 list（列出所有定时任务）、pause（暂停）、resume（恢复）操作。创建/删除定时任务需走命令审批流程。",
+    parameters: {
+      type: "object",
+      properties: {
+        action: { type: "string", description: "操作类型：list/pause/resume", enum: ["list", "pause", "resume"] },
+        taskId: { type: "string", description: "定时任务 ID（pause/resume 时必填）" },
+      },
+      required: ["action"],
+    },
+    riskLevel: "low",
+    autoApproved: true,
+    actionType: "manage_cron",
+    actionName: "管理定时任务",
   },
 ];
 

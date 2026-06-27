@@ -472,7 +472,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### AI 助手
 
-- [ ] **补充 AI 工具调用** — `list_backups`、`run_playbook`、`query_traffic`、`manage_cron`（当前 8 个工具均为服务器状态/命令类）
+- [x] **补充 AI 工具调用** — 新增 `list_backups`、`run_playbook`、`query_traffic`、`manage_cron`（hosted-tools.ts 4 项工具定义 + HostedActionType 扩展）
 
 ### 定时任务
 
