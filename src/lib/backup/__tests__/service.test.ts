@@ -1,9 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { Readable } from "node:stream";
 
-const { mockPrisma, runBackupCommandMock, statMock } = vi.hoisted(() => ({
+const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: { backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() } },
   runBackupCommandMock: vi.fn(),
   statMock: vi.fn(),
+  createReadStreamMock: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
@@ -26,6 +28,14 @@ vi.mock("@/lib/backup/command-runner", () => {
   };
 });
 vi.mock("node:fs/promises", () => ({ default: { stat: statMock }, stat: statMock }));
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return {
+    ...actual,
+    default: { ...actual, createReadStream: createReadStreamMock },
+    createReadStream: createReadStreamMock,
+  };
+});
 
 const {
   createBackupRecord,
@@ -58,6 +68,7 @@ describe("backup service", () => {
     mockPrisma.backupRecord.update.mockImplementation(async ({ data }: any) => ({ id: "bak1", ...data }));
     runBackupCommandMock.mockResolvedValue({ stdout: "ok", stderr: "" });
     statMock.mockResolvedValue({ size: 1234 });
+    createReadStreamMock.mockImplementation(() => Readable.from(["backup-content"]));
   });
 
   it("bounds backup list queries so backup history cannot hydrate unbounded rows", async () => {
@@ -90,7 +101,7 @@ describe("backup service", () => {
     expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(1, { where: { id: "bak1" }, data: { status: "RUNNING" } });
     expect(mockPrisma.backupRecord.update).toHaveBeenNthCalledWith(2, {
       where: { id: "bak1" },
-      data: expect.objectContaining({ status: "COMPLETED", fileSize: "1234", errorMessage: null }),
+      data: expect.objectContaining({ status: "COMPLETED", fileSize: "1234", errorMessage: null, checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }),
     });
     expect(record.status).toBe("COMPLETED");
   });

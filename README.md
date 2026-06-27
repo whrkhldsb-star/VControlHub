@@ -416,8 +416,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### SSH 终端
 
-- [ ] **终端内搜索** — xterm 官方 `@xterm/addon-search`，支持关键词高亮定位
-- [ ] **命令历史面板** — 展示本次会话历史命令，可点击复用
+- [x] **终端内搜索** ✅ — 已接入 `@xterm/addon-search`，支持关键词高亮定位、上一个/下一个、清除搜索。
+- [x] **命令历史面板** ✅ — 已展示本次会话历史命令，支持点击复用。
 - [ ] **多 Tab / 多会话** — 同时连接多台 VPS，标签页切换
 - [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）
 
@@ -438,7 +438,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 - [x] **定时自动备份** — Cron 表达式配置（当前无 schedule 实现，只能手动触发）
 - [x] **备份保留策略 UI** ✅ — `RetentionButton` 已支持 `olderThanDays` 和 `keepLatestPerType` 参数，可配置清理策略。
-- [ ] **备份完整性校验** — 备份完成后 SHA256 checksum 验证
+- [x] **备份完整性校验** ✅ — 备份完成后计算并保存 SHA256 checksum。
 
 ### 分享链接
 
@@ -446,7 +446,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 全局搜索
 
-- [ ] **动态内容搜索** — 接入服务器名称、Playbook 标题、快捷服务名的实时 API 搜索（当前只覆盖静态导航页面）
+- [x] **动态内容搜索** ✅ — 全局搜索已接入 `/api/search`，实时返回服务器名称、Playbook 标题、快捷服务名结果。
 
 ### Docker 管理
 

@@ -35,6 +35,13 @@ export const zh: Record<string, string> = {
 	"sshTerminalModal.errDisconnected": "WebSocket 连接已断开",
 	"sshTerminalModal.errConnectionFailed": "WebSocket 连接失败，请确认 SSH 代理服务正在运行",
 
+	// Terminal search
+	"sshTerminalModal.searchLabel": "搜索终端输出",
+	"sshTerminalModal.searchPlaceholder": "搜索终端输出…",
+	"sshTerminalModal.searchPrevious": "上一个",
+	"sshTerminalModal.searchNext": "下一个",
+	"sshTerminalModal.searchClear": "清除",
+
 	// Side panel — favorites (⭐ 常用命令)
 	"sshTerminalModal.favoritesTitle": "⭐ 常用命令",
 	"sshTerminalModal.favoritesLabel": "添加常用 SSH 命令",
@@ -73,6 +80,13 @@ export const en: Record<string, string> = {
 	"sshTerminalModal.errClosed": "Connection closed",
 	"sshTerminalModal.errDisconnected": "WebSocket connection disconnected",
 	"sshTerminalModal.errConnectionFailed": "WebSocket connection failed. Please confirm the SSH proxy service is running.",
+
+	// Terminal search
+	"sshTerminalModal.searchLabel": "Search terminal output",
+	"sshTerminalModal.searchPlaceholder": "Search terminal output…",
+	"sshTerminalModal.searchPrevious": "Previous",
+	"sshTerminalModal.searchNext": "Next",
+	"sshTerminalModal.searchClear": "Clear",
 
 	// Side panel — favorites (⭐ Favorite commands)
 	"sshTerminalModal.favoritesTitle": "⭐ Favorite commands",

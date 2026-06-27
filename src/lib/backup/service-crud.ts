@@ -43,12 +43,19 @@ export async function getBackupRecord(id: string) {
 
 export async function updateBackupRecordStatus(
 	id: string,
-	input: { status: BackupStatus; fileSize?: number; completedAt?: Date; errorMessage?: string | null },
+	input: { status: BackupStatus; fileSize?: number; completedAt?: Date; errorMessage?: string | null; checksumSha256?: string },
 ) {
-	const data: { status: BackupStatus; fileSize?: string; completedAt?: Date; errorMessage?: string | null } = { status: input.status };
+	const data: {
+		status: BackupStatus;
+		fileSize?: string;
+		completedAt?: Date;
+		errorMessage?: string | null;
+		checksumSha256?: string;
+	} = { status: input.status };
 	if (input.fileSize !== undefined) data.fileSize = String(input.fileSize);
 	if (input.completedAt) data.completedAt = input.completedAt;
 	if (input.errorMessage !== undefined) data.errorMessage = input.errorMessage;
+	if (input.checksumSha256 !== undefined) data.checksumSha256 = input.checksumSha256;
 	return prisma.backupRecord.update({ where: { id }, data });
 }
 

@@ -16,6 +16,10 @@ export interface SearchItem {
 	keywords?: string[];
 }
 
+type DynamicSearchResponse = {
+	results?: SearchItem[];
+};
+
 const searchItemMetadata: Record<string, Pick<SearchItem, "icon" | "keywords">> = {
 	"/": { icon: "📊", keywords: ["dashboard", "首页", "概览"] },
 	"/servers": { icon: "🖥️", keywords: ["vps", "ssh", "终端", "服务器"] },
@@ -118,6 +122,7 @@ export function GlobalSearch({
 }) {
 	const [open, setOpen] = useState(false);
 	const [query, setQuery] = useState("");
+	const [dynamicResults, setDynamicResults] = useState<SearchItem[]>([]);
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -129,7 +134,7 @@ export function GlobalSearch({
 		[locale, declaredPermissionsByHref, gate.canAny],
 	);
 
-	const filtered = query
+	const filteredLocal = query
 		? searchItems.filter(
 				(item) => {
 					const normalizedQuery = query.toLowerCase();
@@ -141,6 +146,7 @@ export function GlobalSearch({
 				}
 			)
 		: searchItems;
+	const filtered = query ? [...filteredLocal, ...dynamicResults] : filteredLocal;
 
 	const closeSearch = useCallback(() => {
 		setOpen(false);
@@ -208,6 +214,28 @@ export function GlobalSearch({
 	useEffect(() => {
 		setSelectedIndex(0);
 	}, [query]);
+
+	useEffect(() => {
+		const normalized = query.trim();
+		if (!open || normalized.length < 2) {
+			setDynamicResults([]);
+			return;
+		}
+		const controller = new AbortController();
+		const timeout = window.setTimeout(() => {
+			void fetch(`/api/search?q=${encodeURIComponent(normalized)}&limit=6`, { signal: controller.signal })
+				.then((response) => (response.ok ? response.json() : { results: [] }))
+				.then((data: DynamicSearchResponse) => setDynamicResults(Array.isArray(data.results) ? data.results : []))
+				.catch((error) => {
+					if (error instanceof Error && error.name === "AbortError") return;
+					setDynamicResults([]);
+				});
+		}, 180);
+		return () => {
+			controller.abort();
+			window.clearTimeout(timeout);
+		};
+	}, [open, query]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === "ArrowDown") {

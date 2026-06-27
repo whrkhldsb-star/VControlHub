@@ -706,6 +706,7 @@ model BackupRecord {
   status            String    @default("PENDING")
   filePath          String
   fileSize          String?
+  checksumSha256    String?
   note              String?
   errorMessage      String?
   createdBy         String?

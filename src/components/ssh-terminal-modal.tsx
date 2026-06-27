@@ -37,12 +37,15 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 	const wsRef = useRef<WebSocket | null>(null);
 	const terminalRef = useRef<import("@xterm/xterm").Terminal | null>(null);
 	const fitAddonRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
+	const searchAddonRef = useRef<import("@xterm/addon-search").SearchAddon | null>(null);
+	const currentCommandRef = useRef("");
 	const connectionNonceRef = useRef(0);
 
 	const [status, setStatus] = useState<"connecting" | "connected" | "error" | "closed">("connecting");
 	const [errorMsg, setErrorMsg] = useState<string>("");
 	const [reconnectKey, setReconnectKey] = useState(0);
 	const [showSidePanel, setShowSidePanel] = useState(false);
+	const [terminalSearch, setTerminalSearch] = useState("");
 	const [commandHistory, setCommandHistory] = useState<string[]>([]);
 	const [favoriteCommands, setFavoriteCommands] = useState<string[]>(() => {
 		if (typeof window === "undefined") return [];
@@ -70,6 +73,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 			terminalRef.current = null;
 		}
 		fitAddonRef.current = null;
+		searchAddonRef.current = null;
 	}
 
 	const dialogRef = useDialogFocus<HTMLDivElement>({
@@ -85,9 +89,10 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 		const nonce = connectionNonceRef.current;
 
 		async function init() {
-			const [{ Terminal }, { FitAddon }] = await Promise.all([
+			const [{ Terminal }, { FitAddon }, { SearchAddon }] = await Promise.all([
 				import("@xterm/xterm"),
 				import("@xterm/addon-fit"),
+				import("@xterm/addon-search"),
 			]);
 			await import("@xterm/xterm/css/xterm.css");
 
@@ -149,12 +154,15 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 			});
 
 			const fitAddon = new FitAddon();
+			const searchAddon = new SearchAddon();
 			term.loadAddon(fitAddon);
+			term.loadAddon(searchAddon);
 			term.open(termRef.current);
 			fitAddon.fit();
 
 			terminalRef.current = term;
 			fitAddonRef.current = fitAddon;
+			searchAddonRef.current = searchAddon;
 
 			const finalWsUrl = buildSshWebSocketUrl({
 				pageProtocol: window.location.protocol,
@@ -216,12 +224,15 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 					ws.send(JSON.stringify({ type: "input", data: encodeBase64(data) }));
 				}
 				if (data === "\r" || data === "\n") {
-					const buffer = term.buffer.active;
-					const line = buffer.getLine(buffer.cursorY)?.translateToString(true, buffer.cursorX ?? 0);
-					const cmd = (line ?? "").trim();
+					const cmd = currentCommandRef.current.trim();
+					currentCommandRef.current = "";
 					if (cmd) {
 						setCommandHistory((prev) => [cmd, ...prev.filter((c) => c !== cmd)].slice(0, 50));
 					}
+				} else if (data === "\u007f" || data === "\b") {
+					currentCommandRef.current = currentCommandRef.current.slice(0, -1);
+				} else if (!data.startsWith("\u001b") && data >= " ") {
+					currentCommandRef.current += data;
 				}
 			});
 
@@ -268,6 +279,7 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				terminalRef.current = null;
 			}
 			fitAddonRef.current = null;
+			searchAddonRef.current = null;
 		};
 	}, [serverId, sessionToken, reconnectKey, t]);
 
@@ -296,6 +308,21 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 		if (wsRef.current?.readyState === WebSocket.OPEN) {
 			wsRef.current.send(JSON.stringify({ type: "input", data: encodeBase64(cmd + "\r") }));
 		}
+	};
+
+	const searchTerminal = (direction: "next" | "previous" = "next") => {
+		const query = terminalSearch.trim();
+		if (!query || !searchAddonRef.current) return;
+		if (direction === "previous") {
+			searchAddonRef.current.findPrevious(query);
+		} else {
+			searchAddonRef.current.findNext(query);
+		}
+	};
+
+	const clearTerminalSearch = () => {
+		setTerminalSearch("");
+		searchAddonRef.current?.clearDecorations();
 	};
 
 	const handleReconnect = () => {
@@ -389,7 +416,24 @@ export function SshTerminalModal({ serverId, serverName, host, sessionToken, onC
 				)}
 
 				<div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3 sm:p-4 lg:flex-row lg:overflow-hidden">
-					<div className="min-h-0 flex-1 overflow-hidden">
+					<div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+						<div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-2">
+							<label htmlFor={`ssh-terminal-search-${serverId}`} className="sr-only">{t("sshTerminalModal.searchLabel")}</label>
+							<input
+								id={`ssh-terminal-search-${serverId}`}
+								value={terminalSearch}
+								onChange={(event) => setTerminalSearch(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") searchTerminal(event.shiftKey ? "previous" : "next");
+									if (event.key === "Escape") clearTerminalSearch();
+								}}
+								placeholder={t("sshTerminalModal.searchPlaceholder")}
+								className="min-h-10 min-w-[180px] flex-1 rounded-xl border border-white/[0.06] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/20 focus:border-cyan-400/30"
+							/>
+							<button type="button" onClick={() => searchTerminal("previous")} className="min-h-10 rounded-xl border border-white/[0.08] px-3 text-xs text-slate-200 hover:bg-white/[0.06]">{t("sshTerminalModal.searchPrevious")}</button>
+							<button type="button" onClick={() => searchTerminal("next")} data-tone="cyan" className="min-h-10 rounded-xl border border-cyan-400/20 px-3 text-xs text-cyan-100 hover:bg-cyan-400/20">{t("sshTerminalModal.searchNext")}</button>
+							<button type="button" onClick={clearTerminalSearch} className="min-h-10 rounded-xl border border-white/[0.08] px-3 text-xs text-slate-400 hover:bg-white/[0.06]">{t("sshTerminalModal.searchClear")}</button>
+						</div>
 						<div
 							ref={termRef}
 							data-testid="ssh-terminal-surface"

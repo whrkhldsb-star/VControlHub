@@ -14,6 +14,8 @@
  * + the pure `summarizeBackupPolicy` reducer.
  */
 import { rm, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
 
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
@@ -35,6 +37,16 @@ import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
 import { uploadBackupToOffsite } from "./offsite-uploader";
 
 const offsiteUploadLogger = createLogger("backup-offsite-uploader");
+
+async function calculateFileSha256(filePath: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const hash = createHash("sha256");
+		const stream = createReadStream(filePath);
+		stream.on("data", (chunk) => hash.update(chunk));
+		stream.on("end", () => resolve(hash.digest("hex")));
+		stream.on("error", reject);
+	});
+}
 
 export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string; note?: string; projectRoot?: string }) {
 	const record = await createBackupRecord(input);
@@ -64,7 +76,14 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
 		});
 		const fileInfo = await stat(outputPath);
-		const updated = await updateBackupRecordStatus(record.id, { status: "COMPLETED", fileSize: fileInfo.size, completedAt: new Date(), errorMessage: null });
+		const checksumSha256 = await calculateFileSha256(outputPath);
+		const updated = await updateBackupRecordStatus(record.id, {
+			status: "COMPLETED",
+			fileSize: fileInfo.size,
+			completedAt: new Date(),
+			errorMessage: null,
+			checksumSha256,
+		});
 		// TR-009 55a: best-effort offsite 上传 — 失败不影响 backup COMPLETED
 		void uploadBackupToOffsite({ backupId: record.id, projectRoot })
 			.then((result) => {
