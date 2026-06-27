@@ -451,7 +451,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 分享链接
 
 - [ ] **访问密码保护** — 访问分享链接需输入密码（当前只有过期时间）
-- [ ] **最大下载次数限制** — 超过次数后链接失效（`accessCount` 字段已计数但无上限判断）
+- [x] **最大下载次数限制已实现** ✅ — `ShareLink.maxDownloads` 字段已加入 schema，`resolveShareToken()` 在递增 `accessCount` 前检查上限，超出抛出 `ValidationError`。API route / i18n 已同步。
 
 ### 全局搜索
 
@@ -490,7 +490,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 定时任务
 
 - [ ] **失败原因持久化** — 将每次执行的错误信息写入数据库（当前 `lastResult` 字段有但错误详情仅打日志）
-- [ ] **可配置重试次数** — 当前硬编码 3 次
+- [x] **可配置重试次数** ✅ — `JOB_DEFAULT_MAX_ATTEMPTS` 环境变量可覆盖默认值 3，`sanitizeAttempts` 从 `config.job.defaultMaxAttempts` 读取。
 - [ ] **失败告警通知** — 任务连续失败 N 次后触发告警渠道通知
 
 ---
@@ -540,9 +540,8 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### P2 — 内存占用优化
 
-- [ ] **`effect` 包 34MB 疑似未用** — `node_modules/effect` 占 34MB，全项目只有 `session-gate.ts` 的注释里出现"side-effect-free"字样，无实际 `import from 'effect'`。如确认未使用，`npm remove effect` 直接节省 34MB node_modules 体积（不影响构建产物大小，但减少安装时间和磁盘占用）。
-- [ ] **`@electric-sql` 包疑似未用** — `node_modules/@electric-sql` 占 26MB，全项目无任何 `import from '@electric-sql'`。同上，确认后可移除。
-- [ ] **Worker 轮询频率可调** — 命令执行 worker 每 2 秒轮询一次（`COMMAND_EXECUTION_INTERVAL_MS = 2_000`），下载 worker 每 5 秒一次。低流量实例可将命令 worker 改为 5s、下载 worker 改为 10s，CPU 占用减半，对实时性影响极小。
+- [x] **`effect` / `@electric-sql` 包已确认为 Prisma 传递依赖** ✅ — 两者均为 `prisma@7.8.0` 的 transitive dependency，不在 `package.json` 顶层，无法直接移除。详见底部审计订正节。
+- [x] **Worker 轮询频率已可配置** ✅ — 命令执行 worker `COMMAND_EXECUTION_INTERVAL_MS`（默认 2s）、下载 worker `DOWNLOAD_EXECUTION_INTERVAL_MS`（默认 5s）均改为环境变量可调。低流量实例可设 5s/10s 降低 CPU 占用。
 - [x] **API 响应缓存已接入关键只读端点** — `src/lib/cache.ts` 的 `withCacheHeaders()` 已用于 `/api/dashboard/analytics` 与 `/api/status`；登录态统计使用 private short-lived cache，公开状态摘要使用 public long-lived cache，降低重复刷新时的 DB 压力。
 
 ### P3 — 包体积 / 启动优化

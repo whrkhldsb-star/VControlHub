@@ -138,6 +138,36 @@ describe("lib/config/env", () => {
 		});
 	});
 
+	describe("worker poll intervals", () => {
+		it("commandExecutionIntervalMs defaults to 2000", () => {
+			delete process.env.COMMAND_EXECUTION_INTERVAL_MS;
+			expect(config.worker.commandExecutionIntervalMs).toBe(2_000);
+		});
+		it("commandExecutionIntervalMs reads env override", () => {
+			process.env.COMMAND_EXECUTION_INTERVAL_MS = "500";
+			expect(config.worker.commandExecutionIntervalMs).toBe(500);
+		});
+		it("downloadExecutionIntervalMs defaults to 5000", () => {
+			delete process.env.DOWNLOAD_EXECUTION_INTERVAL_MS;
+			expect(config.worker.downloadExecutionIntervalMs).toBe(5_000);
+		});
+		it("downloadExecutionIntervalMs reads env override", () => {
+			process.env.DOWNLOAD_EXECUTION_INTERVAL_MS = "1000";
+			expect(config.worker.downloadExecutionIntervalMs).toBe(1_000);
+		});
+	});
+
+	describe("job defaults", () => {
+		it("defaultMaxAttempts defaults to 3", () => {
+			delete process.env.JOB_DEFAULT_MAX_ATTEMPTS;
+			expect(config.job.defaultMaxAttempts).toBe(3);
+		});
+		it("defaultMaxAttempts reads env override", () => {
+			process.env.JOB_DEFAULT_MAX_ATTEMPTS = "5";
+			expect(config.job.defaultMaxAttempts).toBe(5);
+		});
+	});
+
 	describe("optional values", () => {
 		it("redis.url returns undefined when unset", () => {
 			delete process.env.REDIS_URL;

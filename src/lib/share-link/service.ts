@@ -62,6 +62,7 @@ export async function createShareLink(input: {
   entryType?: "FILE" | "DIRECTORY";
   name?: string;
   expiresInHours?: number;
+  maxDownloads?: number | null;
 }) {
   const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
@@ -77,6 +78,7 @@ export async function createShareLink(input: {
       entryType: input.entryType ?? "FILE",
       name: input.name ?? normalizedPath.split("/").filter(Boolean).pop() ?? normalizedPath,
       expiresAt,
+      maxDownloads: input.maxDownloads ?? null,
       createdBy: input.session.userId,
     },
   });
@@ -88,6 +90,7 @@ export async function createShareLinkFromFileEntry(input: {
   fileEntryId: string;
   name?: string;
   expiresInHours?: number;
+  maxDownloads?: number | null;
 }) {
   const entry = await prisma.fileEntry.findUnique({
     where: { id: input.fileEntryId },
@@ -103,6 +106,7 @@ export async function createShareLinkFromFileEntry(input: {
     entryType: entry.entryType === "DIRECTORY" ? "DIRECTORY" : "FILE",
     name: input.name ?? entry.name,
     expiresInHours: input.expiresInHours,
+    maxDownloads: input.maxDownloads,
   });
 }
 
@@ -125,6 +129,7 @@ export async function resolveShareToken(token: string) {
   const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
   if (!share || share.revokedAt) throw new NotFoundError("分享链接不存在或已撤销");
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError("分享链接已过期");
+  if (share.maxDownloads && share.accessCount >= share.maxDownloads) throw new ValidationError("分享链接已达最大下载次数");
   await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
   return share;
 }

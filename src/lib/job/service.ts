@@ -45,7 +45,7 @@ function futureFrom(now: Date, ms: number) {
 }
 
 function sanitizeAttempts(value: number | undefined) {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 3;
+  if (typeof value !== "number" || !Number.isFinite(value)) return config.job.defaultMaxAttempts;
   return Math.max(1, Math.floor(value));
 }
 

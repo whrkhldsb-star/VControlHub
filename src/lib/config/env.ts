@@ -183,6 +183,12 @@ export const config = {
 		get publicQuickServiceHost(): string | undefined { return readOptionalString("NEXT_PUBLIC_QUICK_SERVICE_PUBLIC_HOST"); },
 	},
 
+	/** Worker poll intervals (command execution, download execution). */
+	worker: {
+		get commandExecutionIntervalMs(): number { return readInt("COMMAND_EXECUTION_INTERVAL_MS", 2_000); },
+		get downloadExecutionIntervalMs(): number { return readInt("DOWNLOAD_EXECUTION_INTERVAL_MS", 5_000); },
+	},
+
 	/**
 	 * Deployment-level network / direct-gateway defaults (TR-002 R3).
 	 *
@@ -220,6 +226,7 @@ export const config = {
 		get maxConcurrentGlobal(): number { return readInt("JOB_MAX_CONCURRENT_GLOBAL", 0); },
 		get maxConcurrentPerUser(): number { return readInt("JOB_MAX_CONCURRENT_PER_USER", 0); },
 		get maxConcurrentPerNode(): number { return readInt("JOB_MAX_CONCURRENT_PER_NODE", 0); },
+		get defaultMaxAttempts(): number { return readInt("JOB_DEFAULT_MAX_ATTEMPTS", 3); },
 	},
 };
 

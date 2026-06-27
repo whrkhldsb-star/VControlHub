@@ -29,7 +29,6 @@ const logger = createLogger("download-execution-worker");
 // task.tick, alert.evaluate, quick_service.lifecycle, backup.create/restore).
 export const DOWNLOAD_EXECUTION_JOB_TYPE = "download.execute";
 
-const DOWNLOAD_EXECUTION_INTERVAL_MS = 5_000;
 // Aria2 relay downloads can take up to 2 hours (maxWait = 7200 in execution.ts),
 // so the worker lease must outlive the longest possible single dispatch by a
 // safe margin. Direct downloads finish in seconds; the same lease is fine.
@@ -390,7 +389,7 @@ export async function startDownloadJobWorker(options: { intervalMs?: number } = 
   if (state.started) return state;
 
   state.started = true;
-  const intervalMs = options.intervalMs ?? DOWNLOAD_EXECUTION_INTERVAL_MS;
+  const intervalMs = options.intervalMs ?? config.worker.downloadExecutionIntervalMs;
 
   void runDownloadExecutionJobWorkerOnce().catch((error) => {
     logger.error("Download execution worker startup tick failed", {

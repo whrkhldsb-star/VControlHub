@@ -687,6 +687,7 @@ model ShareLink {
   expiresAt     DateTime?
   revokedAt     DateTime?
   accessCount   Int           @default(0)
+  maxDownloads  Int?
   createdBy     String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt

@@ -17,7 +17,6 @@ const logger = createLogger("command-execution-worker");
 // createCommandRequest automatically inherit the new path.
 export const COMMAND_EXECUTION_JOB_TYPE = "command.execution";
 
-const COMMAND_EXECUTION_INTERVAL_MS = 2_000;
 // TR-002 R2: 跨 worker lease 公式统一。computeLeaseMs 默认返 preset (= COMMAND_EXECUTION_LEASE_MS 等同原值)。
 const COMMAND_EXECUTION_LEASE_MS = computeLeaseMs("command-execution");
 const COMMAND_EXECUTION_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:command-execution:${process.pid}`;
@@ -161,7 +160,7 @@ export async function startCommandExecutionWorker(options: { intervalMs?: number
   if (state.started) return state;
 
   state.started = true;
-  const intervalMs = options.intervalMs ?? COMMAND_EXECUTION_INTERVAL_MS;
+  const intervalMs = options.intervalMs ?? config.worker.commandExecutionIntervalMs;
 
   void runCommandExecutionJobWorkerOnce().catch((error) => {
     logger.error("Command execution worker startup tick failed", {
