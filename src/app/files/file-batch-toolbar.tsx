@@ -33,6 +33,7 @@ export type FileBatchToolbarProps = {
   onClearSelection: () => void;
   onConfirmDelete: () => void;
   onSubmitMove: () => void;
+  onCompressSelected: () => void;
 };
 
 export function FileBatchToolbar({
@@ -53,6 +54,7 @@ export function FileBatchToolbar({
   onClearSelection,
   onConfirmDelete,
   onSubmitMove,
+  onCompressSelected,
 }: FileBatchToolbarProps) {
   const fileListId = useId();
   const batchToolbarTitleId = `${fileListId}-batch-toolbar-title`;
@@ -137,6 +139,20 @@ export function FileBatchToolbar({
                 </span>
               ) : null}
             </>
+          ) : batchAction === "compressing" ? (
+            <>
+              <span className="text-sm text-cyan-200">
+                正在创建压缩包...
+              </span>
+              {progress.total > 0 ? (
+                <span className="text-sm text-slate-300">
+                  {progress.done}/{progress.total}
+                  {progress.errors.length > 0
+                    ? `（${progress.errors.length} 个失败）`
+                    : ""}
+                </span>
+              ) : null}
+            </>
           ) : batchAction === "moving" ? (
             <>
               <span className="text-sm text-slate-200">
@@ -194,6 +210,16 @@ export function FileBatchToolbar({
               >
                 取消选择
               </button>
+              {selectedEntriesCanMove ? (
+                <button
+                  type="button"
+                  onClick={onCompressSelected}
+                  data-tone="cyan"
+                  className="rounded-full border border-cyan-400/30 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/20"
+                >
+                  批量压缩
+                </button>
+              ) : null}
               {canDelete && selectedEntriesCanDelete ? (
                 <button
                   type="button"

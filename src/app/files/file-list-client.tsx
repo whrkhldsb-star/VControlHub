@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { useI18n } from "@/lib/i18n/use-locale";
+import { csrfFetch } from "@/lib/auth/csrf-client";
 import { deleteFileEntryAction } from "../storage/actions";
 import { moveFileAction } from "./move-file-action";
 import { FileBatchToolbarLazy } from "./file-batch-toolbar-lazy";
@@ -308,6 +309,71 @@ export function FileListClient({
     showToast,
     setBatchAction,
     setMoveProgress,
+    setSelectedIds,
+    setSelectedScopeKey,
+  ]);
+
+  const handleBatchCompress = useCallback(() => {
+    const ids = [...effectiveSelectedIds];
+    const selectedFiles = ids
+      .map((id) => files.find((file) => file.id === id))
+      .filter((file): file is FileProp => Boolean(file));
+    if (selectedFiles.length === 0) return;
+
+    const storageNodeId = selectedFiles[0]!.storageNodeId;
+    if (selectedFiles.some((file) => file.storageNodeId !== storageNodeId)) {
+      showToast("error", "批量压缩暂不支持跨存储节点选择");
+      return;
+    }
+
+    setBatchAction("compressing");
+    setProgress({ done: 0, total: selectedFiles.length, errors: [] });
+    startTransition(async () => {
+      try {
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const data = await csrfFetch("/api/files/compress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storageNodeId,
+            relativePaths: selectedFiles.map((file) => file.relativePath),
+            targetDir: currentPath,
+            outputName: `selected-${stamp}.tar.gz`,
+          }),
+        });
+        if (data.error) throw new Error(data.error);
+        setProgress({ done: selectedFiles.length, total: selectedFiles.length, errors: [] });
+        showToast("success", data.message ?? `已压缩 ${selectedFiles.length} 个文件`);
+        if (onRefresh) {
+          onRefresh();
+        } else {
+          router.refresh();
+        }
+        clearSelection();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "压缩失败";
+        setProgress({
+          done: 0,
+          total: selectedFiles.length,
+          errors: [message],
+        });
+        showToast("error", message);
+        setBatchAction("none");
+        setSelectedScopeKey(currentSelectionScopeKey);
+        setSelectedIds(new Set(ids));
+      }
+    });
+  }, [
+    effectiveSelectedIds,
+    files,
+    showToast,
+    setBatchAction,
+    setProgress,
+    currentPath,
+    onRefresh,
+    router,
+    clearSelection,
+    currentSelectionScopeKey,
     setSelectedIds,
     setSelectedScopeKey,
   ]);
@@ -1241,6 +1307,7 @@ export function FileListClient({
         onClearSelection={clearSelection}
         onConfirmDelete={handleBatchDelete}
         onSubmitMove={submitBatchMove}
+        onCompressSelected={handleBatchCompress}
       />
     </>
   );

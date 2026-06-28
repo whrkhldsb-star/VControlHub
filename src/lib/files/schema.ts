@@ -52,6 +52,28 @@ export const listFilesQuerySchema = z.object({
 export type ListFilesQuery = z.infer<typeof listFilesQuerySchema>;
 
 /**
+ * POST /api/files/compress
+ *
+ * Creates a local .tar.gz archive from selected file/folder paths under a
+ * single storage node. The route resolves every path inside the node base and
+ * feeds tar via a null-delimited file list, so names starting with '-' or
+ * containing whitespace never become command-line flags.
+ */
+export const compressFilesBodySchema = z.object({
+  storageNodeId: z.string().trim().min(1),
+  relativePaths: z.array(z.string().trim().min(1)).min(1).max(200),
+  outputName: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[^/\\\0]+$/, "压缩包名称不能包含路径分隔符"),
+  targetDir: z.string().trim().optional(),
+});
+
+export type CompressFilesBody = z.infer<typeof compressFilesBodySchema>;
+
+/**
  * PUT /api/files/editable/[id]
  *
  * `content` is capped at 512 KB — anything larger is rejected as "too

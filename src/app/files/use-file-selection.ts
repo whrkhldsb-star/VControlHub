@@ -2,7 +2,12 @@
 
 import { useCallback, useState } from "react";
 
-export type BatchAction = "none" | "confirm-delete" | "deleting" | "moving";
+export type BatchAction =
+  | "none"
+  | "confirm-delete"
+  | "deleting"
+  | "moving"
+  | "compressing";
 
 export type BatchProgress = { done: number; total: number; errors: string[] };
 

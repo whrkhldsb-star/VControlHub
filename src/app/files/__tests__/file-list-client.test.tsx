@@ -13,6 +13,7 @@ const pushMock = vi.hoisted(() => vi.fn());
 const refreshMock = vi.hoisted(() => vi.fn());
 const deleteFileEntryActionMock = vi.hoisted(() => vi.fn());
 const moveFileActionMock = vi.hoisted(() => vi.fn());
+const csrfFetchMock = vi.hoisted(() => vi.fn());
 
 function firstFileCheckbox(name: string) {
   return screen.getAllByLabelText(`选择 ${name}`)[0]!;
@@ -91,6 +92,10 @@ vi.mock("../../storage/actions", () => ({
 
 vi.mock("../move-file-action", () => ({
   moveFileAction: moveFileActionMock,
+}));
+
+vi.mock("@/lib/auth/csrf-client", () => ({
+  csrfFetch: csrfFetchMock,
 }));
 
 const folder: FolderProp = {
@@ -219,6 +224,10 @@ describe("FileListClient", () => {
     refreshMock.mockClear();
     deleteFileEntryActionMock.mockReset().mockResolvedValue({ success: "ok" });
     moveFileActionMock.mockReset().mockResolvedValue({ success: "ok" });
+    csrfFetchMock.mockReset().mockResolvedValue({
+      message: "已创建压缩包 /photos/selected.tar.gz",
+      relativePath: "photos/selected.tar.gz",
+    });
   });
 
   it("renders thumbnail background only for files and never as a folder overlay", () => {
@@ -524,6 +533,9 @@ describe("FileListClient", () => {
       await screen.findByRole("button", { name: "批量移动" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("button", { name: "批量压缩" }),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: "批量删除" }),
     ).not.toBeInTheDocument();
 
@@ -532,8 +544,39 @@ describe("FileListClient", () => {
       screen.queryByRole("button", { name: "批量移动" }),
     ).not.toBeInTheDocument();
     expect(
+      screen.queryByRole("button", { name: "批量压缩" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: "批量删除" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("creates a tar.gz archive from the selected files", async () => {
+    const onRefresh = vi.fn();
+    renderFileList({ files: [imageFile, docFile], onRefresh });
+
+    fireEvent.click(firstFileCheckbox("cover.jpg"));
+    fireEvent.click(firstFileCheckbox("report.pdf"));
+    fireEvent.click(await screen.findByRole("button", { name: "批量压缩" }));
+
+    await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledTimes(1));
+    expect(csrfFetchMock).toHaveBeenCalledWith(
+      "/api/files/compress",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: expect.any(String),
+      }),
+    );
+    const body = JSON.parse(csrfFetchMock.mock.calls[0]![1].body);
+    expect(body).toMatchObject({
+      storageNodeId: "node_1",
+      relativePaths: ["photos/cover.jpg", "photos/report.pdf"],
+      targetDir: "",
+    });
+    expect(body.outputName).toMatch(/^selected-.+\.tar\.gz$/);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("已选 2 个文件")).not.toBeInTheDocument();
   });
 
   it("keeps batch delete selection open and reports per-file failures", async () => {
