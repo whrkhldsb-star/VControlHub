@@ -41,6 +41,12 @@ describe("DockerPage", () => {
 		vi.mocked(csrfFetch).mockReset();
 		vi.mocked(csrfFetch).mockImplementation(async (input) => {
 			const url = String(input);
+			if (url.includes("/api/docker/resources?type=networks")) {
+				return { data: [{ Name: "bridge", Id: "net_1", Driver: "bridge", Scope: "local" }] };
+			}
+			if (url.includes("/api/docker/resources?type=volumes")) {
+				return { data: { Volumes: [{ Name: "cache", Driver: "local", Scope: "local" }] } };
+			}
 			if (url.includes("stats=")) return {};
 			return {
 				data: [runningContainer],
@@ -60,6 +66,54 @@ describe("DockerPage", () => {
 		expect(screen.getByRole("heading", { name: "运行边界：本机 Docker socket" })).toBeInTheDocument();
 		expect(screen.getByText(/不是跨 VPS 容器控制台/)).toBeInTheDocument();
 		expect(screen.getByText(/\/var\/run\/docker\.sock/)).toBeInTheDocument();
+	});
+
+	it("manages Docker networks and volumes from the resources panel", async () => {
+		const user = userEvent.setup();
+		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+		vi.mocked(csrfFetch).mockImplementation(async (input, init) => {
+			const url = String(input);
+			if (url.includes("/api/docker/resources?type=networks&name=bridge")) {
+				return { data: { Name: "bridge", Driver: "bridge", Scope: "local" } };
+			}
+			if (url.includes("/api/docker/resources?type=networks")) {
+				return { data: [{ Name: "bridge", Id: "net_1", Driver: "bridge", Scope: "local" }] };
+			}
+			if (url.includes("/api/docker/resources?type=volumes")) {
+				return { data: { Volumes: [{ Name: "cache", Driver: "local", Scope: "local" }] } };
+			}
+			if (url.includes("stats=")) return {};
+			if (init && (init as RequestInit).method === "POST") return { ok: true };
+			return { data: [runningContainer] };
+		});
+
+		render(wrap(<DockerPageClient />));
+
+		expect(await screen.findByText("bridge")).toBeInTheDocument();
+		expect(screen.getByText("cache")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Inspect Network bridge" }));
+		expect(await screen.findByText("Network: bridge")).toBeInTheDocument();
+
+		await user.selectOptions(screen.getByRole("combobox"), "volumes");
+		await user.type(screen.getByPlaceholderText("名称"), "logs");
+		await user.click(screen.getByRole("button", { name: "创建" }));
+		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith(
+			"/api/docker/resources",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ type: "volumes", action: "create", name: "logs", driver: "local" }),
+			}),
+		));
+
+		await user.click(screen.getByRole("button", { name: "删除 Volume cache" }));
+		expect(confirmSpy).toHaveBeenCalledWith("确认删除 Volume cache？");
+		expect(csrfFetch).toHaveBeenCalledWith(
+			"/api/docker/resources",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ type: "volumes", action: "delete", name: "cache" }),
+			}),
+		);
 	});
 
 	it("surfaces Docker action API errors instead of silently ignoring failures", async () => {

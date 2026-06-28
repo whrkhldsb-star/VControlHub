@@ -450,7 +450,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### Docker 管理
 
-- [ ] **Docker 网络/Volume 管理** — Network 列表与 Volume 管理（创建/删除/inspect）
+- [x] **Docker 网络/Volume 管理** — 新增 `/api/docker/resources`，支持 Network/Volume 列表、inspect、创建、删除；复用本机 Docker socket 边界、`docker:manage` 权限、操作审计和前端 Docker 资源面板确认删除流程
 
 ### 通知中心
 

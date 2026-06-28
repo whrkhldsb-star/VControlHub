@@ -6,6 +6,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useDialogFocus } from "@/lib/a11y/use-dialog-focus";
 import { getRefreshIntervalFromStorage, getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { DockerResourcesPanel } from "./docker-resources-panel";
 
 interface Container {
 	Id: string;
@@ -292,6 +293,8 @@ export default function DockerPage() {
 			</div>
 
 			{error && <div className="mb-4 text-sm text-rose-400 bg-rose-500/10 rounded-lg px-4 py-3">{error}</div>}
+
+			<DockerResourcesPanel />
 
 			{loading ? (
 				<div className="text-sm text-slate-500">{t("dockerPage.loading")}</div>
