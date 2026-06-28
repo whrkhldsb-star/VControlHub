@@ -397,7 +397,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P2 — 用户体验和可运营性
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。
-- [ ] **统一操作反馈模型推广**（TR-026）— 推广到剩余页面（snippets / playbooks / deployments rollback 先行）。
+- [x] **统一操作反馈模型推广**（TR-026）✅ — snippets 编辑保存 / playbooks toggle+delete+create / deployments rollback+resend 已全部补齐 `addToast()` 成功/失败反馈；rollback/resend 按钮 6 处硬编码中文已 i18n 化（+14 deployments 字典 key zh+en）；`useCallback` 依赖数组已修；rollback 测试已补 `I18nProvider` + `ToastProvider` 包裹。
 
 ### P3 — 长期愿景
 
