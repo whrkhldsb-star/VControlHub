@@ -88,6 +88,21 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.export.copied": "已复制",
 	"deploymentsPage.export.copyRollback": "复制内容回滚",
 	"deploymentsPage.export.downloadFile": "下载此文件",
+
+	// Rollback button (TR-026 unified feedback)
+	"deploymentsPage.rollback.triggerBtn": "执行真实回滚",
+	"deploymentsPage.rollback.confirmBtn": "确认回滚",
+	"deploymentsPage.rollback.submitting": "提交中...",
+	"deploymentsPage.rollback.confirmWarning": "确认执行部署「{name}」的回滚命令？该操作会进入审批链路并在目标 VPS 上执行快照中的 rollback command。",
+	"deploymentsPage.rollback.reason": "真实回滚：{name}",
+	"deploymentsPage.rollback.toast.success": "回滚命令已提交审批",
+	"deploymentsPage.rollback.toast.failed": "回滚失败",
+
+	// Resend button (TR-026 unified feedback)
+	"deploymentsPage.resend.triggerBtn": "按此记录重发",
+	"deploymentsPage.resend.submitting": "提交中...",
+	"deploymentsPage.resend.toast.success": "部署重发已提交",
+	"deploymentsPage.resend.toast.failed": "重发失败",
 };
 
 export const en: Record<string, string> = {
@@ -176,4 +191,19 @@ export const en: Record<string, string> = {
 	"deploymentsPage.export.copied": "Copied",
 	"deploymentsPage.export.copyRollback": "Copy rollback content",
 	"deploymentsPage.export.downloadFile": "Download this file",
+
+	// Rollback button (TR-026 unified feedback)
+	"deploymentsPage.rollback.triggerBtn": "Execute real rollback",
+	"deploymentsPage.rollback.confirmBtn": "Confirm rollback",
+	"deploymentsPage.rollback.submitting": "Submitting...",
+	"deploymentsPage.rollback.confirmWarning": "Confirm rollback for deployment \"{name}\"? This will go through the approval flow and execute the rollback command from the snapshot on the target VPS.",
+	"deploymentsPage.rollback.reason": "Real rollback: {name}",
+	"deploymentsPage.rollback.toast.success": "Rollback submitted for approval",
+	"deploymentsPage.rollback.toast.failed": "Rollback failed",
+
+	// Resend button (TR-026 unified feedback)
+	"deploymentsPage.resend.triggerBtn": "Resend from this record",
+	"deploymentsPage.resend.submitting": "Submitting...",
+	"deploymentsPage.resend.toast.success": "Deployment resend submitted",
+	"deploymentsPage.resend.toast.failed": "Resend failed",
 };

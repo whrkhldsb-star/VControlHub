@@ -28,6 +28,7 @@ export const zh: Record<string, string> = {
 	"snippetsPage.deleteDialog.cancel": "取消",
 	"snippetsPage.deleteDialog.deleting": "正在删除...",
 	// Toasts
+	"snippetsPage.toast.saved": "代码片段已保存",
 	"snippetsPage.toast.created": "代码片段已创建",
 	"snippetsPage.toast.deleted": "代码片段已删除",
 	"snippetsPage.toast.copyFailed": "复制失败，请手动复制",
@@ -73,6 +74,7 @@ export const en: Record<string, string> = {
 	"snippetsPage.deleteDialog.confirm": "Confirm",
 	"snippetsPage.deleteDialog.cancel": "Cancel",
 	"snippetsPage.deleteDialog.deleting": "Deleting...",
+	"snippetsPage.toast.saved": "Snippet saved",
 	"snippetsPage.toast.created": "Snippet created",
 	"snippetsPage.toast.deleted": "Snippet deleted",
 	"snippetsPage.toast.copyFailed": "Copy failed, please copy manually",

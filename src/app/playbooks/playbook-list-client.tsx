@@ -147,6 +147,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({ id: playbook.id, enabled: !playbook.enabled }),
 				});
+				addToast("success", t("playbooksPage.toast.toggled"));
 				void refresh();
 			} catch (err) {
 				setActionError(err instanceof Error ? err.message : t("playbooksPage.error.toggle"));
@@ -154,7 +155,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 				setBusyAction(null);
 			}
 		},
-		[refresh, t],
+		[refresh, t, addToast],
 	);
 
 	const handleDelete = useCallback(
@@ -164,6 +165,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 			try {
 				await csrfFetch(`/api/playbooks/${playbook.id}`, { method: "DELETE" });
 				setPendingDelete(null);
+				addToast("success", t("playbooksPage.toast.deleted"));
 				void refresh();
 			} catch (err) {
 				setActionError(err instanceof Error ? err.message : t("playbooksPage.error.delete"));
@@ -171,7 +173,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 				setBusyAction(null);
 			}
 		},
-		[refresh, t],
+		[refresh, t, addToast],
 	);
 
 	const runs = (id: string) => runsByPlaybook[id] ?? [];
@@ -358,6 +360,7 @@ export function PlaybookListClient({ playbooks: initial, runsByPlaybook: initial
 
 function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 	const { t } = useI18n();
+	const { addToast } = useToast();
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [triggerType, setTriggerType] = useState<TriggerType>("cron");
@@ -409,6 +412,7 @@ function CreatePlaybookForm({ onClose }: { onClose: () => void }) {
 					enabled,
 				}),
 			});
+			addToast("success", t("playbooksPage.toast.created"));
 			onClose();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : t("playbooksPage.createForm.error"));

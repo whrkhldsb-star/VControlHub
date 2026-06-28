@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { useToast } from "@/components/toast-provider";
 
 type Props = {
 	templateId: string;
@@ -14,6 +16,8 @@ type Props = {
 
 export function ResendDeployButton({ templateId, variables, serverIds, reason, label }: Props) {
 	const router = useRouter();
+	const { t } = useI18n();
+	const { addToast } = useToast();
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -25,9 +29,12 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 				method: "POST",
 				body: JSON.stringify({ templateId, variables, serverIds, reason }),
 			});
+			addToast("success", t("deploymentsPage.resend.toast.success"));
 			router.refresh();
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "重发失败");
+			const msg = err instanceof Error ? err.message : t("deploymentsPage.resend.toast.failed");
+			setError(msg);
+			addToast("error", msg);
 		} finally {
 			setPending(false);
 		}
@@ -41,9 +48,9 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 				disabled={pending}
 				data-tone="cyan" className="rounded-lg border border-cyan-400/30 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:bg-cyan-400/15 disabled:cursor-not-allowed disabled:opacity-60"
 			>
-				{pending ? "提交中..." : (label || "按此记录重发")}
+				{pending ? t("deploymentsPage.resend.submitting") : (label || t("deploymentsPage.resend.triggerBtn"))}
 			</button>
-			{error && <span className="text-xs text-rose-300">{error}</span>}
+			{error && <span role="alert" className="text-xs text-rose-300">{error}</span>}
 		</div>
 	);
 }
