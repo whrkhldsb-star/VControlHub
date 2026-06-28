@@ -1088,7 +1088,7 @@ export function FileListClient({
               <button
                 type="button"
                 onClick={() => dismissToast(toast.id)}
-                className="rounded-full px-1.5 text-white/80 hover:bg-white/15 hover:text-white"
+                className="rounded-full px-1.5 text-white/80 hover:bg-white/10 hover:text-white"
                 aria-label={t("fileListClient.closeNotice")}
               >
                 ×

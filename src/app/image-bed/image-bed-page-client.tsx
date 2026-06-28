@@ -530,7 +530,7 @@ export default function ImageBedPage({ canWrite, canDelete }: { canWrite: boolea
 								{!batchMode && (
 									<div
 										data-testid="image-card-overlay"
-										className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 p-2 md:bg-black/60 md:opacity-0 md:group-hover:opacity-100 md:p-0"
+										className="absolute inset-0 flex items-center justify-center gap-1 bg-black/50 p-2 md:bg-black/60 md:opacity-0 md:group-hover:opacity-100 md:p-0"
 									>
 										<button onClick={() => copyLink(img.publicUrl)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30" title={t("imageBedPage.copy.title.url")} aria-label={t("imageBedPage.copy.title.url")}>🔗</button>
 										<button onClick={() => copyMarkdown(img)} className="min-h-11 min-w-11 rounded-lg px-2 text-xs bg-green-500/20 text-green-300 hover:bg-green-500/30" title={t("imageBedPage.copy.title.markdown")} aria-label={t("imageBedPage.copy.title.markdown")}>M↓</button>

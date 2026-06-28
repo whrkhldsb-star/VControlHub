@@ -133,7 +133,7 @@ export function ScheduledTaskListClient({ tasks: initialTasks, servers, canCreat
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder={t("scheduledTasks.searchPlaceholder")}
-						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-cyan-400/40"
+						data-card className="w-full min-w-[18rem]  px-3.5 py-2 text-sm text-white outline-none placeholder:text-white/20 focus:border-cyan-400/40"
 					/>
 				</div>
 				{canCreate && !showCreate && (

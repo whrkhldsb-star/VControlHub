@@ -43,7 +43,7 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 							</svg>
 						</div>
 						<h2 className="text-2xl font-semibold tracking-[-0.03em] text-white">{t("auth.two-factor")}</h2>
-						<p className="mt-2 text-sm text-white/40">{t("login.verify2faDescription")}</p>
+						<p className="mt-2 text-sm text-white/50">{t("login.verify2faDescription")}</p>
 					</div>
 
 					<Verify2faForm nextPath={nextPath} error={error} />

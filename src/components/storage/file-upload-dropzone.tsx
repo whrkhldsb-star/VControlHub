@@ -420,7 +420,7 @@ export function FileUploadDropzone({
           uploadEnabled
             ? dragActive
               ? "border-cyan-300 bg-cyan-400/10 text-cyan-100"
-              : "border-white/15 bg-white/5 text-slate-100 hover:border-cyan-400/50"
+              : "border-white/10 bg-white/5 text-slate-100 hover:border-cyan-400/50"
             : "cursor-not-allowed border-[var(--border)] bg-slate-950/60 text-slate-500"
         }`}
       >

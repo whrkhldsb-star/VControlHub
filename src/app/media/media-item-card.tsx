@@ -106,7 +106,7 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 	const thumbHref = `/api/media/${encodeURIComponent(item.id)}/thumbnail`;
 	const coverClass = "absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105";
 	const typeBadge = (
-		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur light:border-white/30">
+		<span className="absolute left-2 top-2 z-10 rounded-full border border-black/10 bg-black/50 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur light:border-white/30">
 			{mediaTypeLabel(item.mediaType, t)}
 		</span>
 	);
@@ -132,7 +132,7 @@ function MediaCover({ item, sourceHref, t }: { item: MediaItem; sourceHref: stri
 			{item.mediaType !== "audio" && (
 				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
 			)}
-			<div className="absolute bottom-2 right-2 rounded-full border border-white/15 bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur">
+			<div className="absolute bottom-2 right-2 rounded-full border border-white/10 bg-black/50 px-2 py-0.5 text-[10px] text-white backdrop-blur">
 				{formatSize(item.size, t)}
 			</div>
 		</a>

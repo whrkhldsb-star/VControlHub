@@ -444,7 +444,7 @@ export function AiOpsPageClient({
 				) : (
 					<div className="overflow-x-auto">
 						<table className="w-full text-left text-sm text-white/80">
-							<thead className="text-xs uppercase tracking-wide text-white/40">
+							<thead className="text-xs uppercase tracking-wide text-white/50">
 								<tr>
 									<th className="py-2">{t("aiOpsPage.table.time")}</th>
 									<th className="py-2">{t("aiOpsPage.table.mode")}</th>

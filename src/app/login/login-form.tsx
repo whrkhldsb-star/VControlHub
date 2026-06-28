@@ -7,7 +7,7 @@ type LoginFormProps = {
 };
 
 const fieldClassName =
-	"w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-white/25 focus:border-cyan-400/50 focus:bg-white/[0.06] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-cyan-500/70 light:focus:bg-white light:focus:ring-cyan-500/10";
+	"w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-[0_0_0_1px_rgba(255,255,255,0.05)] outline-none transition-colors duration-150 placeholder:text-white/20 focus:border-cyan-400/50 focus:bg-white/[0.06] focus:ring-4 focus:ring-cyan-400/10 light:border-slate-300 light:bg-slate-50 light:text-slate-900 light:placeholder:text-slate-400 light:focus:border-cyan-500/70 light:focus:bg-white light:focus:ring-cyan-500/10";
 
 export function LoginForm({ nextPath, error, locale }: LoginFormProps) {
 	return (

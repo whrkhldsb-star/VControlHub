@@ -165,7 +165,7 @@ export function BatchReviewToolbar({
 						value={comment}
 						onChange={(e) => setComment(e.target.value)}
 						placeholder="批量审批备注（选填，将应用到全部 N 条）"
-						className="flex-1 rounded-lg border border-[var(--border)] bg-black/40 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
+						className="flex-1 rounded-lg border border-[var(--border)] bg-black/30 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/40"
 					/>
 					<button
 						type="submit"

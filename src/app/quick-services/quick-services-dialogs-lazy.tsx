@@ -26,7 +26,7 @@ function DialogStub({ label }: { label: string }) {
 		<div
 			aria-hidden
 			data-testid={`quick-service-${label}-loading`}
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
 		>
 			<div className="h-48 w-full max-w-md animate-pulse rounded-2xl border border-white/[0.06] bg-[var(--surface-root)]/80" />
 		</div>

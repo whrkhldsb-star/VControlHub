@@ -508,7 +508,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 - [x] **`ChangePasswordModal` 中文硬编码已全部消除** — 10 处密码字段 label/description、取消按钮、SubmitButton pendingLabel/children、显示/隐藏切换文案均改用 `t("changePassword.*")` / `t("common.*")`；字典 `common.ts` 新增 10 个 key（zh+en 双语言）；`PasswordField` 内联组件补 `useI18n()` hook。切英文后表单主体全英文。
 - [x] **`FileUploadDropzone` 上传状态/错误文案已接入 i18n** — 路径校验 reason 改为 typed code + `fileUploadDropzone.pathError.*`，上传队列、toast summary、placeholder、dropzone 提示、状态枚举均改为 `tr(...)`；新增英文回归测试覆盖上传成功与客户端路径校验，切 EN 后不再显示中文上传状态。
 
-- [ ] **文字 opacity 收敛** — `/10`~`/82` 共 10 档，建议收敛为 `/20`/`/50`/`/70`/`/80` 四档
+- [x] **文字 opacity 收敛** — 采用方案二宽松收敛：保留 `/10`/`/20`/`/30`/`/50`/`/60`/`/70`/`/80` 语义档，清零非测试代码中的低频异常档 `/15`/`/25`/`/35`/`/40`/`/45`/`/55`/`/75`/`/90`/`/95`；`/82` 已核实为测试 IP 地址误报而非 opacity
 - [x] **设置与偏好已合并** — `/settings` 现在承载统一设置页，`/preferences` 保留兼容重定向到 `#personal-preferences`；页面顶部新增分类导航，个人偏好与系统设置按分组展示，便于快速查找和跳转。
 - [x] **组件文档已补齐** — 新增 `src/components/README.md`，列出布局、表单、导航、反馈、媒体/存储、Skeleton 等共享组件的用途、关键 props 与约定；同时说明 `InputBase` 与 `src/lib/styles.ts` 常量方案的边界，避免后续再重复发明输入框样式。
 
