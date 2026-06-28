@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 
 import { useHealthData } from "./use-health-data";
+import { ActiveIncidentsBanner } from "./active-incidents-banner";
 import type { SystemHealthReport } from "./health-types";
 import { SparklineChartLazy } from "./sparkline-chart-lazy";
 
@@ -458,6 +459,7 @@ export function HealthDashboardClient({ serverCount, initialSystemHealth }: Prop
 
 	return (
 		<div className="space-y-6">
+			<ActiveIncidentsBanner />
 			{loadError && (
 				<div role="alert" data-tone="rose" className="rounded-xl border border-rose-400/20 p-3 text-sm text-rose-100">
 					{loadError}

@@ -463,7 +463,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 ### 公开状态页
 
-- [ ] **故障/维护公告** — 管理员发布事件公告（当前只有整体状态指示灯）
+- [x] **故障/维护公告** — 健康页面顶部新增 `ActiveIncidentsBanner`，自动拉取 `level: incident/maintenance` 且未过期的公告并展示；支持逐条关闭；info 级公告不显示，保持状态页聚焦异常
 - [ ] **历史可用率图表** — 90 天 uptime 热力图 / SLA 统计
 
 ### Playbook

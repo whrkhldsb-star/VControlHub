@@ -1,0 +1,87 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { csrfFetch } from "@/lib/auth/csrf-client";
+
+type ActiveAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+  level: string;
+  startsAt: string;
+  expiresAt: string | null;
+  pinned: boolean;
+};
+
+const INCIDENT_LEVELS = new Set(["incident", "maintenance"]);
+
+export function ActiveIncidentsBanner() {
+  const [incidents, setIncidents] = useState<ActiveAnnouncement[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  const fetchIncidents = useCallback(async () => {
+    try {
+      const result = await csrfFetch<{ announcements: ActiveAnnouncement[] }>("/api/announcements");
+      const active = (result.announcements ?? []).filter(
+        (a) => INCIDENT_LEVELS.has(a.level) && (!a.expiresAt || new Date(a.expiresAt) > new Date()),
+      );
+      setIncidents(active);
+    } catch {
+      /* non-critical UI */
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchIncidents();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchIncidents]);
+
+  if (incidents.length === 0) return null;
+
+  const visible = incidents.filter((i) => !dismissed.has(i.id));
+  if (visible.length === 0) return null;
+
+  function levelColor(level: string) {
+    if (level === "incident") return "border-amber-500/30 bg-amber-500/10";
+    if (level === "maintenance") return "border-cyan-500/30 bg-cyan-500/10";
+    return "border-white/[0.06] bg-white/[0.03]";
+  }
+
+  function levelLabel(level: string) {
+    if (level === "incident") return "⚠ 故障";
+    if (level === "maintenance") return "🔧 维护";
+    return level;
+  }
+
+  return (
+    <section className="space-y-3" aria-label="活跃事件公告">
+      {visible.map((item) => (
+        <div key={item.id} className={`rounded-xl border p-4 ${levelColor(item.level)}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-white">{levelLabel(item.level)}</span>
+                <h3 className="truncate text-sm font-semibold text-white">{item.title}</h3>
+              </div>
+              <p className="mt-1.5 line-clamp-3 text-sm leading-6 text-slate-300">{item.body}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                开始: {new Date(item.startsAt).toLocaleString()}
+                {item.expiresAt ? ` · 预计结束: ${new Date(item.expiresAt).toLocaleString()}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label={`关闭通知 ${item.title}`}
+              onClick={() => setDismissed((prev) => new Set(prev).add(item.id))}
+              className="shrink-0 text-xs text-slate-500 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+}

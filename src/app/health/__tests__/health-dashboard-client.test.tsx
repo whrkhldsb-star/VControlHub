@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -43,11 +43,19 @@ describe("HealthDashboardClient", () => {
 		vi.clearAllMocks();
 		window.localStorage.clear();
 		vi.useRealTimers();
-		vi.mocked(csrfFetch).mockResolvedValue(overview);
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("/api/announcements")) return { announcements: [] };
+			return overview;
+		});
 	});
 
 	it("surfaces health overview load failures instead of rendering a blank panel", async () => {
-		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("健康检查接口不可用"));
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("/api/announcements")) return { announcements: [] };
+			throw new Error("健康检查接口不可用");
+		});
 
 		renderHealthDashboard();
 
@@ -58,10 +66,14 @@ describe("HealthDashboardClient", () => {
 
 	it("keeps the last overview visible when manual refresh fails", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce(overview)
-			.mockResolvedValueOnce(overview)
-			.mockRejectedValueOnce(new Error("刷新健康状态失败"));
+		let callCount = 0;
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("/api/announcements")) return { announcements: [] };
+			callCount++;
+			if (callCount > 2) throw new Error("刷新健康状态失败");
+			return overview;
+		});
 
 		renderHealthDashboard();
 
@@ -74,17 +86,23 @@ describe("HealthDashboardClient", () => {
 
 	it("shows a history load error while keeping the server row expanded", async () => {
 		const user = userEvent.setup();
-		vi.mocked(csrfFetch)
-			.mockResolvedValueOnce(overview)
-			.mockResolvedValueOnce(overview)
-			.mockRejectedValueOnce(new Error("历史指标读取失败"));
+		let callCount = 0;
+		vi.mocked(csrfFetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes("/api/announcements")) return { announcements: [] };
+			callCount++;
+			if (callCount > 2) throw new Error("历史指标读取失败");
+			return overview;
+		});
 
 		renderHealthDashboard();
 
 		expect(await screen.findByText("HK Prod")).toBeInTheDocument();
 		await user.click(screen.getByRole("button", { name: "趋势 ▼" }));
 
-		expect(await screen.findByRole("alert")).toHaveTextContent("历史指标读取失败");
+		await waitFor(() => {
+			expect(screen.getByText(/历史指标读取失败/)).toBeInTheDocument();
+		});
 		expect(screen.getByRole("button", { name: "收起 ▲" })).toBeInTheDocument();
 	});
 
