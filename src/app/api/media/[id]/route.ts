@@ -18,29 +18,18 @@ export async function PATCH(
 ) {
   return withApiRoute(
     request,
-    { permission: "media:manage", errorMessage: "操作失败" },
-    async () => {
+    { permission: "media:manage", errorMessage: "操作失败", bodySchema: patchSchema },
+    async ({ body }) => {
       const { id } = await params;
-      const body = await request.json().catch(() => null);
-      const parsed = patchSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      }
 
       const existing = await prisma.mediaItem.findUnique({ where: { id } });
       if (!existing)
         throw new NotFoundError("媒体不存在");
 
       const data: Record<string, unknown> = {};
-      if (parsed.data.favorite !== undefined)
-        data.favorite = parsed.data.favorite;
-      if (parsed.data.tags !== undefined) data.tags = parsed.data.tags;
+      if (body.favorite !== undefined)
+        data.favorite = body.favorite;
+      if (body.tags !== undefined) data.tags = body.tags;
 
       if (Object.keys(data).length === 0)
         return NextResponse.json({ item: existing });

@@ -4,7 +4,6 @@ import { z } from "zod";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
-import { ValidationError } from "@/lib/errors";
 import {
   createShareLink,
   createShareLinkFromFileEntry,
@@ -45,26 +44,14 @@ export async function POST(request: Request) {
       permission: "share:create",
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: "操作失败",
+      bodySchema: shareLinkPostSchema,
     },
-    async ({ session }) => {
+    async ({ session, body: data }) => {
       if (!session)
         return NextResponse.json(
           { error: "未登录或会话已过期" },
           { status: 401 },
         );
-      const body = await request.json().catch(() => null);
-      if (!body)
-        throw new ValidationError("请求体无效");
-      const parsed = shareLinkPostSchema.safeParse(body);
-      if (!parsed.success)
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      const data = parsed.data;
       const result = data.fileEntryId
         ? await createShareLinkFromFileEntry({
             session,

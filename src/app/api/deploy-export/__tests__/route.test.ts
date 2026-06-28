@@ -9,7 +9,26 @@ const { mocks } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/http/api-guard", () => ({
-  withApiRoute: vi.fn(async (_request, _options, handler) => handler({ session: { userId: "u1" } })),
+  withApiRoute: vi.fn(async (request, options, handler) => {
+    let body;
+    if (options.bodySchema) {
+      const text = await request.clone().text();
+      const parsed = options.bodySchema.safeParse(text ? JSON.parse(text) : undefined);
+      if (!parsed.success) return Response.json({ error: "输入校验失败" }, { status: 400 });
+      body = parsed.data;
+    }
+
+    let query;
+    if (options.querySchema) {
+      const url = new URL(request.url);
+      const obj = Object.fromEntries(url.searchParams.entries());
+      const parsed = options.querySchema.safeParse(obj);
+      if (!parsed.success) return Response.json({ error: "输入校验失败" }, { status: 400 });
+      query = parsed.data;
+    }
+
+    return handler({ session: { userId: "u1" }, body, query });
+  }),
 }));
 vi.mock("@/lib/deploy-export/service", () => ({
   buildPortableDeploymentPackage: mocks.buildPortableDeploymentPackage,

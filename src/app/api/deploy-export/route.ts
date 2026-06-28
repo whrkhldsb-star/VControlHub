@@ -6,7 +6,6 @@ import {
   createDeploymentExport,
 } from "@/lib/deploy-export/service";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AuthError } from "@/lib/errors";
@@ -20,38 +19,26 @@ const deployExportPostSchema = z.object({
   appName: z.string().trim().optional(),
 });
 
+const deployExportQuerySchema = z.object({
+  domain: z.string().trim().min(1).optional(),
+});
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "deploy:export" }, async () => {
-    const { domain } = parseSearchParams(
-      request,
-      z.object({ domain: z.string().trim().min(1).optional() }),
-    );
-    return NextResponse.json(buildPortableDeploymentPackage({ domain }));
+  return withApiRoute(request, { permission: "deploy:export", querySchema: deployExportQuerySchema }, async ({ query }) => {
+    return NextResponse.json(buildPortableDeploymentPackage({ domain: query.domain }));
   });
 }
 
 export async function POST(request: Request) {
   return withApiRoute(
     request,
-    { permission: "deploy:export", rateLimit: GENERAL_WRITE_LIMIT },
-    async ({ session }) => {
+    { permission: "deploy:export", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: deployExportPostSchema },
+    async ({ session, body: data }) => {
       if (!session)
         throw new AuthError("未认证");
 
-      const body = await request.json().catch(() => ({}));
-      const parsed = deployExportPostSchema.safeParse(body);
-      if (!parsed.success) {
-        return NextResponse.json(
-          {
-            error: "输入校验失败",
-            details: parsed.error.flatten().fieldErrors,
-          },
-          { status: 400 },
-        );
-      }
-      const data = parsed.data;
       return NextResponse.json(
         {
           export: await createDeploymentExport({
