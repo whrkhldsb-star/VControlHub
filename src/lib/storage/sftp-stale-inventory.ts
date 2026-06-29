@@ -224,6 +224,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
   // 跟 DB 端 diff: 找本节点下 isDeleted=false 但不在 expectedRelativePaths 的条目
   const baseRelative = computeDirectoryBaseRelativePath(basePath, basePath);
   try {
+    // P2: take=10_000 上界。stale 检测需全集语义,单 node+目录前缀下 1w 行已是异常量级。
     const dbEntries = await prisma.fileEntry.findMany({
       where: {
         storageNodeId: node.id,
@@ -233,6 +234,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
           : {}),
       },
       select: { id: true, relativePath: true },
+      take: 10_000,
     });
 
     // 只把"直接子条目"算 stale (子目录本身如果整目录都被删, 它的子条目会跟着被递归处理)
@@ -289,8 +291,10 @@ export async function detectAndPruneSftpStaleInventory(input: {
  * 给 worker 周期调用, 也给 API 手动用。
  */
 export async function listSftpNodesForStaleInventory() {
+  // P2: take=500 上界,SFTP node 数本质有限。
   return prisma.storageNode.findMany({
     where: { driver: "SFTP" },
+    take: 500,
     select: {
       id: true,
       name: true,

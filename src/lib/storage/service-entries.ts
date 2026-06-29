@@ -339,8 +339,10 @@ export async function listFileEntries(
     ...(storageNodeId ? { storageNodeId } : {}),
   };
 
-  const paginationArgs: { take?: number; skip?: number; cursor?: { id: string } } = {};
-  if (typeof options.take === "number") paginationArgs.take = options.take;
+  // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。防止 fileEntry 表无界增长后单次拉爆内存。
+  const paginationArgs: { take: number; skip?: number; cursor?: { id: string } } = {
+    take: typeof options.take === "number" ? options.take : 1000,
+  };
   if (typeof options.skip === "number") {
     paginationArgs.skip = options.skip;
     if (options.cursor) {
@@ -356,6 +358,7 @@ export async function listFileEntries(
     // semantic callers expect.
     paginationArgs.cursor = { id: options.cursor };
   }
+
 
   const entries = await prisma.fileEntry.findMany({
     where,
@@ -435,8 +438,10 @@ export async function listDeletedFileEntries(
     ...(storageNodeId ? { storageNodeId } : {}),
   };
 
-  const paginationArgs: { take?: number; skip?: number; cursor?: { id: string } } = {};
-  if (typeof options.take === "number") paginationArgs.take = options.take;
+  // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。
+  const paginationArgs: { take: number; skip?: number; cursor?: { id: string } } = {
+    take: typeof options.take === "number" ? options.take : 1000,
+  };
   if (typeof options.skip === "number") {
     paginationArgs.skip = options.skip;
     if (options.cursor) {

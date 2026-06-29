@@ -116,9 +116,11 @@ export async function assertStorageAccess(input: {
     return { allowed: true };
   }
 
+  // P2: take=500 上界。单 user × 单 storageNode 的 grant 数本质有限。
   const grants = await prisma.userStorageAccess.findMany({
     where: { userId: input.session.userId, storageNodeId: input.storageNodeId },
     orderBy: [{ pathPrefix: "desc" }, { createdAt: "asc" }],
+    take: 500,
   });
 
   if (grants.length === 0) {
@@ -212,9 +214,11 @@ export async function getStorageAccessCapabilities(input: {
   }
 
   const nodeIds = [...new Set([...uniqueTargets.values()].map((target) => target.storageNodeId))];
+  // P2: take=5000 上界。批量预查 (user × N nodeId)，N 通常 <=10 节点 × 500 grant = 5k 足够。
   const grants = await prisma.userStorageAccess.findMany({
     where: { userId: input.session.userId, storageNodeId: { in: nodeIds } },
     orderBy: [{ pathPrefix: "desc" }, { createdAt: "asc" }],
+    take: 5000,
   });
   const grantsByNode = new Map<string, StorageAccessGrantRow[]>();
   for (const grant of grants) {

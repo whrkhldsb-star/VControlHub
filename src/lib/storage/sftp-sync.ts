@@ -120,6 +120,7 @@ async function pruneStaleEntries(nodeId: string, basePath: string, dirPath: stri
   const relativeDir = computeDirectoryRelativePath(basePath, dirPath);
   if (relativeDir === null) return 0;
 
+  // P2: take=10_000 上界。stale 检测需要全集语义,但单 nodeId+目录前缀范围下不会超 1w 条；超过即异常告警。
   const existing = await prisma.fileEntry.findMany({
     where: {
       storageNodeId: nodeId,
@@ -127,6 +128,7 @@ async function pruneStaleEntries(nodeId: string, basePath: string, dirPath: stri
       ...(relativeDir ? { relativePath: { startsWith: `${relativeDir}/` } } : {}),
     },
     select: { id: true, relativePath: true },
+    take: 10_000,
   });
 
   const prefix = relativeDir ? `${relativeDir}/` : "";

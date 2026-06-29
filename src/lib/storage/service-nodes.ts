@@ -270,8 +270,10 @@ export async function deleteStorageNode(storageNodeId: string) {
 }
 
 export async function listStorageNodes() {
+  // P2: take=500 上界。storage node 数量本质有限（每存储设备 1 行），上界即异常告警。
   const nodes = await prisma.storageNode.findMany({
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    take: 500,
     include: {
       server: {
         select: {
