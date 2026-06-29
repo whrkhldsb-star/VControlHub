@@ -429,7 +429,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### 监控与告警
 
 - [ ] **VPS 监控历史图表** — CPU/内存/磁盘/网络历史趋势持久化，可查 24h/7d（当前内存 Map，重启丢失）
-- [ ] **流量历史趋势存储** — `TrafficSnapshot` 表按小时/天聚合，支持 7d/30d 流量曲线（当前无持久化）
+- [x] **流量历史趋势存储** ✅ — `TrafficSnapshot` 持久化表已新增，`/api/traffic/summary` 会把当前网卡采样写入 DB，`/api/traffic/history` 可按 `iface` / 24h / 7d 读取历史点，`/traffic` 页面新增 24h/7d 趋势切换与持久化历史展示；页面保留实时内存窗口用于当前会话即时反馈。
 - [x] **告警指标扩展** — 新增 `network_in`、`network_out`、`load_avg`、`swap_usage`（API route zod enum + evaluateAlerts switch + 前端选项 + i18n 中英文）
 - [x] **复合告警条件** — `durationSeconds` 字段已实现持续时长判定（如 "CPU > 80% 且持续 5 分钟"才触发，评估器先记录 lastMatchedAt，未满 duration 则 continue）
 - [x] **告警恢复通知** — 指标恢复正常时也发送通知（`alert_resolved` 类型，复用告警规则的通知渠道，L97-130 service-alerts.ts）

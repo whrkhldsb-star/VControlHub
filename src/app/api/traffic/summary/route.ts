@@ -73,6 +73,44 @@ function summarizeInterface(targetKey: string, sample: NetworkDeviceStats) {
   };
 }
 
+async function persistTrafficSample(input: {
+  source: string;
+  serverId: string | null;
+  iface: string;
+  rxBytes: number;
+  txBytes: number;
+  rxRateBps: number;
+  txRateBps: number;
+}) {
+  try {
+    await prisma.trafficSnapshot.create({
+      data: {
+        source: input.source,
+        serverId: input.serverId,
+        iface: input.iface,
+        rxBytes: BigInt(Math.max(0, Math.trunc(input.rxBytes))),
+        txBytes: BigInt(Math.max(0, Math.trunc(input.txBytes))),
+        rxRateBps: Math.max(0, input.rxRateBps),
+        txRateBps: Math.max(0, input.txRateBps),
+      },
+    });
+  } catch {
+    // Best-effort history only; live response must not fail because the DB write failed.
+  }
+}
+
+async function persistLocalInterfaceSample(iface: string, sample: ReturnType<typeof summarizeInterface>) {
+  await persistTrafficSample({
+    source: "local",
+    serverId: null,
+    iface,
+    rxBytes: sample.rxBytes,
+    txBytes: sample.txBytes,
+    rxRateBps: sample.rxRateBytesPerSecond,
+    txRateBps: sample.txRateBytesPerSecond,
+  });
+}
+
 function describeStorageTrafficSource(node: {
   driver: string;
   serverId: string | null;
@@ -116,18 +154,12 @@ export async function GET(req: NextRequest) {
     async () => {
       const q = parseSearchParams(req, trafficSummaryQuerySchema);
       const selectedIface = q.iface ?? "";
-      // include=remote opts in to the SSH sampling step. The default response
-      // skips it so the page can render the local network card immediately
-      // (~50 ms) while remote VPS samples (1-15 s) load asynchronously.
-      // Unknown tokens (e.g. `include=garbage`) are silently dropped so
-      // dashboards with stale UI state still work.
       const includeRemote =
         (q.include ?? "").split(",").map((token) => token.trim()).includes("remote");
 
       const interfaces = parseNetworkDeviceStats(readProcNetDev());
       const primary = selectedIface
-        ? (interfaces.find((item) => item.iface === selectedIface) ??
-          selectPrimaryInterface(interfaces))
+        ? (interfaces.find((item) => item.iface === selectedIface) ?? selectPrimaryInterface(interfaces))
         : selectPrimaryInterface(interfaces);
 
       const storageNodes = await prisma.storageNode.findMany({
@@ -165,18 +197,18 @@ export async function GET(req: NextRequest) {
 
       const remoteServers = includeRemote ? await sampleRemoteServersTraffic(servers) : null;
 
+      if (primary) {
+        void persistLocalInterfaceSample(primary.iface, summarizeInterface(`local:${primary.iface}`, primary));
+      }
+
       return NextResponse.json({
         timestamp: new Date().toISOString(),
         currentServer: {
           type: "LOCAL_SERVER",
           id: "local",
           name: "当前服务器",
-          primaryInterface: primary
-            ? summarizeInterface(`local:${primary.iface}`, primary)
-            : null,
-          interfaces: interfaces.map((item) =>
-            summarizeInterface(`local:${item.iface}`, item),
-          ),
+          primaryInterface: primary ? summarizeInterface(`local:${primary.iface}`, primary) : null,
+          interfaces: interfaces.map((item) => summarizeInterface(`local:${item.iface}`, item)),
         },
         storageNodes: storageNodes.map((node) => {
           const source = describeStorageTrafficSource(node);

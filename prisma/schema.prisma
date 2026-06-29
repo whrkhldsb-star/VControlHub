@@ -184,6 +184,7 @@ model Server {
   storageNode     StorageNode?
   commandTargets  CommandTarget[]
   metricSnapshots MetricSnapshot[]
+  trafficSnapshots TrafficSnapshot[]
   downloadTasks   DownloadTask[]
   sourceSyncs     SyncJob[]            @relation("SourceSyncs")
   targetSyncs     SyncJob[]            @relation("TargetSyncs")
@@ -527,6 +528,25 @@ model MetricSnapshot {
 
   @@index([serverId, createdAt])
   @@map("metric_snapshots")
+}
+
+model TrafficSnapshot {
+  id        String   @id @default(cuid())
+  /** "local" for the app host, or "server" for a managed VPS sampled over SSH. */
+  source    String
+  serverId  String?
+  iface     String
+  rxBytes   BigInt
+  txBytes   BigInt
+  rxRateBps Float    @default(0)
+  txRateBps Float    @default(0)
+  sampledAt DateTime @default(now())
+
+  server Server? @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([source, iface, sampledAt])
+  @@index([serverId, iface, sampledAt])
+  @@map("traffic_snapshots")
 }
 
 model AlertRule {
