@@ -504,7 +504,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 
 **待做：**
 
-- [ ] **超大 Client 组件拆分** — `file-list-client.tsx`(1247行)、`settings-client.tsx`(1202行)、`ai-client.tsx`(1030行) 各包含多个子功能，建议按职责拆分为 400 行以内的子组件
+- [x] **超大 Client 组件拆分 (R31)** ✅ — `file-list-client.tsx`(1314→345)、`settings-client.tsx`(1228→431)、`ai-client.tsx`(1030→361) 三大 mega-component 共减少 2435 行集中代码，下沉到 19 个职责单一的 sibling 组件 / hook（files 模块 7 子文件 + 1 hook；settings 模块 4 子文件；ai 模块 4 子组件 + 6 hooks + 1 export 工具）。全量 2456 tests 绿，tsc 通过，无行为回归。
 - [x] **`ChangePasswordModal` 中文硬编码已全部消除** — 10 处密码字段 label/description、取消按钮、SubmitButton pendingLabel/children、显示/隐藏切换文案均改用 `t("changePassword.*")` / `t("common.*")`；字典 `common.ts` 新增 10 个 key（zh+en 双语言）；`PasswordField` 内联组件补 `useI18n()` hook。切英文后表单主体全英文。
 - [x] **`FileUploadDropzone` 上传状态/错误文案已接入 i18n** — 路径校验 reason 改为 typed code + `fileUploadDropzone.pathError.*`，上传队列、toast summary、placeholder、dropzone 提示、状态枚举均改为 `tr(...)`；新增英文回归测试覆盖上传成功与客户端路径校验，切 EN 后不再显示中文上传状态。
 
