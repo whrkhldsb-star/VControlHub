@@ -207,6 +207,7 @@ async function syncLocalShareDirectory(share: { storageNodeId: string; storageNo
 			relativePath: { in: records.map((r) => r.relativePath) },
 		},
 		select: { id: true, relativePath: true },
+		take: 5000, // P2: records.length 已外部限,5k 作 hard 上界
 	});
 	const existingByPath = new Map(existingRows.map((row) => [row.relativePath, row]));
 

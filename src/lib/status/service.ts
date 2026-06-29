@@ -47,7 +47,7 @@ export async function getPublicStatus() {
 	}
 	const [serverCount, storageNodes] = await Promise.all([
 		prisma.server.count({ where: { enabled: true } }).catch(() => 0),
-		prisma.storageNode.findMany({ select: { healthStatus: true, lastHealthCheckAt: true } }).catch(() => []),
+		prisma.storageNode.findMany({ select: { healthStatus: true, lastHealthCheckAt: true }, take: 500 }).catch(() => []),  // P2: storage node 总数有限
 	]);
 	checks.push({
 		id: "servers",

@@ -83,7 +83,7 @@ export async function getSetting(key: string): Promise<string> {
 }
 
 export async function getAllSettings(): Promise<Record<string, string>> {
-	const rows = await prisma.setting.findMany({ select: { key: true, value: true } });
+	const rows = await prisma.setting.findMany({ select: { key: true, value: true }, take: 500 }); // P2: setting 表总行数有限
 	const result: Record<string, string> = { ...DEFAULTS };
 	for (const row of rows) {
 		result[row.key] = isSensitiveKey(row.key) ? safeDecrypt(row.value) : row.value;
@@ -103,6 +103,7 @@ export async function getSettingUpdateMetadata(keys: string[]): Promise<Record<s
 		prisma.setting.findMany({
 			where: { key: { in: uniqueKeys } },
 			select: { key: true, updatedAt: true },
+			take: 500, // P2: uniqueKeys 已外部限,500 作 hard 上界
 		}),
 		prisma.auditLog.findMany({
 			where: { action: "settings.update" },

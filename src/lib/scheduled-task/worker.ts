@@ -196,6 +196,7 @@ async function dispatchDueScheduledTasks(reason: string) {
       status: "ACTIVE",
       nextRunAt: { not: null, lte: new Date() },
     },
+    take: 500, // P2: 单 tick due 任务数,>500 即异常
   });
 
   // New-B (2026-06-15): only count tasks that actually went through

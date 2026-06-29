@@ -32,6 +32,7 @@ export async function listSshKeys() {
   return prisma.sshKey.findMany({
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, fingerprint: true, description: true },
+    take: 500, // P2: ssh key 总数有限
   });
 }
 

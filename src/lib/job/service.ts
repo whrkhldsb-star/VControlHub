@@ -306,6 +306,7 @@ export async function recoverStaleRunningJobs(options: { staleBefore: Date; retr
       attempts: { lt: prisma.job.fields.maxAttempts },
     },
     select: { id: true, type: true, title: true, attempts: true, maxAttempts: true },
+    take: 1000, // P2: 单次 sweep 的 stale 任务数,>1k 即异常告警
   });
   if (staleJobs.length === 0) return { count: 0, recovered: [] };
 

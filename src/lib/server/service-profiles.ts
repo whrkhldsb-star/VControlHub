@@ -524,6 +524,7 @@ export async function listServerProfiles() {
         take: 3,
       },
     },
+    take: 500, // P2: server 总数有限
   });
 
   return servers.map((server: ServerProfileRow) => enrichServer(server));

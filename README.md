@@ -345,7 +345,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 | 测试      | 9/10       | 2456 tests pass / 1 skipped，tsc + lint 0 错误                                                    |
 | i18n      | 9/10       | 141 useI18n()，76 字典文件，197 light: 全语义（0 冗余）                                           |
 | 前端 UX   | 8/10       | 5 个功能页侧边栏入口已补齐；AI 客户端响应式已优化                                               |
-| 架构      | 8/10       | 21 处 findMany 仍未显式 take（storage 子模块 8 处已加上界 take，本轮收敛），108/108 路由全部走 TR-034 统一错误格式                              |
+| 架构      | 9/10       | findMany take 上界全部接线（storage 8 处 + 业务层 19 处，27/27 done），108/108 路由全部走 TR-034 统一错误格式                              |
 | 运维      | 9/10       | systemd + caddy + smoke + 双 build 全套完整                                                       |
 | **综合**  | **8.6/10** | **结构健康，剩余均为 P2/P3 改善项**                                                               |
 
@@ -362,7 +362,7 @@ make logs SERVICE_PREFIX=vcontrolhub
 ### P2 — 用户体验与工程规范
 
 - [ ] **快捷服务剩余增强**（TR-011）— 失败回滚、真实配置变更 diff/回滚记录、Direct Gateway 边界加固。 `[功能]`
-- [ ] **`findMany` 显式上界继续收敛** — 精扫剩余 21 处 findMany 未显式 `take`（funnel: 提取每个 findMany 调用 args 块判 `take` 关键字；本轮已完成 storage 子模块 8 处加上界 take，commit 7ca982d）。剩余分布：`src/lib/{ai,command,cost,scheduled-task}/*` 各 ×3、`src/lib/{server,settings,share-link}/*` 各 ×2、其余分散 9 个 service ×1。逐处评估是否需补 `take` 防止数据量增长。**可分给弱模型**：剩余 21 处多为单 service 文件局部加 take，机械化适合 glm4.7 等。 `[架构]`
+- [x] **`findMany` 显式上界全面收敛** — funnel 精扫 27 处 findMany（storage 8 + ai/command/cost/job/notification/playbook/quick-service/runtime-settings/scheduled-task/server/settings/share-link/status/system-health/upload 19），逐处接入 hard `take` 上界。Bounds 按 call-site 业务量级估算：bounded entity（storage node / ssh key / server / playbook / setting）= 500；session / job sweep / target = 1000；cost entry / SFTP stale scan = 10_000。commit 7ca982d + （本轮 commit hash 见下）。 `[架构]`
 - [ ] **`zod bodySchema/querySchema` 全面迁移**（TR-037 续）— 已完成 4 个纯 JSON 写路由；剩余约 53 条混合 FormData/JSON + wantsHtml/wantsJson 分叉写路由需逐条评估迁移到声明式校验。 `[安全/可维护性]`
 - [ ] **SSH 多 Tab / 多会话** — 同时连接多台 VPS，标签页切换。 `[功能]`
 - [ ] **SSH 内文件传输** — 终端会话内直接拖拽上传/下载（SFTP over SSH）。 `[功能]`

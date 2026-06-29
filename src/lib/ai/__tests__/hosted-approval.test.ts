@@ -89,6 +89,7 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.server.findMany).toHaveBeenCalledWith({
 			orderBy: [{ enabled: "desc" }, { name: "asc" }],
 			select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
+			take: 500,
 		});
 	});
 

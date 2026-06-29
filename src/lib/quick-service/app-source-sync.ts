@@ -104,6 +104,7 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 		const existing = await prisma.appSourceApp.findMany({
 			where: { sourceId: source.id },
 			select: { id: true, slug: true },
+			take: 5000, // P2: 单 source 的 app 数,5k 作 hard 上界
 		});
 		const toRemove = existing.filter((entry: AppSourceAppSlugRow) => !remoteSlugs.has(entry.slug));
 		if (toRemove.length > 0) {

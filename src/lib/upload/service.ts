@@ -328,6 +328,7 @@ export async function sweepExpiredMediaUploadSessions(): Promise<number> {
 			status: { in: ["PENDING", "UPLOADING"] },
 		},
 		select: { id: true },
+		take: 1000, // P2: 单 sweep 过期 session 数,>1k 即异常
 	});
 	for (const row of expired) {
 		await cleanupMediaUploadTempDir(row.id).catch(() => undefined);

@@ -176,6 +176,7 @@ export async function executeSafeAction(
     const servers = await prisma.server.findMany({
       orderBy: [{ enabled: "desc" }, { name: "asc" }],
       select: { id: true, name: true, host: true, port: true, username: true, enabled: true },
+      take: 500, // P2: server 总数有限
     });
     return { success: true, data: { servers } };
   }
@@ -524,6 +525,7 @@ export async function getPendingActions(userId: string) {
     where: { status: "PENDING_APPROVAL", requesterId: userId },
     include: { server: { select: { id: true, name: true, host: true } }, message: true },
     orderBy: { createdAt: "desc" },
+    take: 200, // P2: 单用户 PENDING 操作数有限
   });
 }
 
@@ -534,5 +536,6 @@ export async function getConversationActions(conversationId: string) {
     where: { conversationId },
     include: { server: { select: { id: true, name: true, host: true } } },
     orderBy: { createdAt: "desc" },
+    take: 500, // P2: 单 conversation 操作数有限
   });
 }

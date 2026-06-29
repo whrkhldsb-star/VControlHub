@@ -120,7 +120,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string 
   })();
   checks.push({ id: "env-database-url", label: "数据库环境变量", status: envState, message: envState === "healthy" ? "DATABASE_URL 已配置" : "DATABASE_URL 未配置或仍是占位符" });
 
-  const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } } }).catch(() => []);
+  const settings = await prisma.setting.findMany({ where: { key: { startsWith: "notification." } }, take: 100 }).catch(() => []); // P2: notification.* setting 键数有限
   checks.push({ id: "notification-settings", label: "通知渠道配置", status: settings.length > 0 ? "healthy" : "warning", message: settings.length > 0 ? `已保存 ${settings.length} 项通知渠道配置` : "可在系统设置中配置通知渠道" });
 
   const gitHead = safeExecFile("git", ["-C", projectRoot, "rev-parse", "--short", "HEAD"]);

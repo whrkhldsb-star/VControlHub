@@ -91,6 +91,7 @@ function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
 export async function listPlaybooks(): Promise<PlaybookRecord[]> {
   const rows = await prisma.playbook.findMany({
     orderBy: { createdAt: "desc" },
+    take: 500, // P2: playbook 总数有限
   });
   return rows.map(narrowPlaybook);
 }

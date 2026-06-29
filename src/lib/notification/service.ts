@@ -119,6 +119,7 @@ export async function notifyCommandPending(requesterId: string, commandTitle: st
 	const admins = await prisma.user.findMany({
 		where: { roles: { some: { role: { permissions: { some: { permission: { key: "command:approve" } } } } } } },
 		select: { id: true },
+		take: 1000, // P2: approve 权限的 admin 数有限
 	});
 	await Promise.all(
 		admins

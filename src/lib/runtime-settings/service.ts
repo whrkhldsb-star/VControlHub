@@ -218,6 +218,7 @@ export async function getRuntimeSettingSummaries(): Promise<RuntimeSettingSummar
   const rows = await prisma.setting.findMany({
     where: { key: { in: keys } },
     select: { key: true, value: true },
+    take: 500, // P2: keys 已外部限,500 作 hard 上界
   });
   const rowMap = new Map(rows.map((row) => [row.key, row.value]));
   return keys.map((key) => resolveRuntimeSettingSummary(key, rowMap.get(key)));

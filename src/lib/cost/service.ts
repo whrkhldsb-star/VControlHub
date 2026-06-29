@@ -214,6 +214,7 @@ export async function summarizeMonth(
 	const rows = await prisma.costEntry.findMany({
 		where: { effectiveDate: { gte: start, lt: end } },
 		select: { category: true, amount: true, currency: true },
+		take: 10000, // P2: 单期间 cost entry 数,1w 作 hard 上界
 	});
 
 	const byCategory = emptyByCategory();

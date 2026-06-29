@@ -297,6 +297,7 @@ export async function executeTargets(commandRequestId: string) {
         select: { command: true, title: true },
       },
     },
+    take: 1000, // P2: 单 request 的 target 数本质有限
   });
 
   const results = await Promise.allSettled(

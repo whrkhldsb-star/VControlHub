@@ -94,6 +94,7 @@ async function buildTodaySnapshot(today: Date) {
 	const rows = await prisma.costEntry.findMany({
 		where: { effectiveDate: { gte: dayStart, lt: dayEnd } },
 		select: { category: true, amount: true },
+		take: 10000, // P2: 单日 cost entry 数,1w 作 hard 上界
 	});
 
 	const byCategory = Object.fromEntries(
